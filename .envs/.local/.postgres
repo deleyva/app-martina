@@ -1,0 +1,7 @@
+# PostgreSQL
+# ------------------------------------------------------------------------------
+POSTGRES_HOST=postgres
+POSTGRES_PORT=5432
+POSTGRES_DB=martina_bescos_app
+POSTGRES_USER=OFcwYvsyxaOwwMyhepJuWLWHUJRNYeFh
+POSTGRES_PASSWORD=AFpxKnaovWWPBtZZmz6ScUp9ctNUE8WYDgwuajsEez7TuuLYb4ZWYq0EeihQn8yo

@@ -1,0 +1,16 @@
+services:
+  docs:
+    image: martina_bescos_app_local_docs
+    container_name: martina_bescos_app_local_docs
+    build:
+      context: .
+      dockerfile: ./compose/local/docs/Dockerfile
+    env_file:
+      - ./.envs/.local/.django
+    volumes:
+      - ./docs:/docs:z
+      - ./config:/app/config:z
+      - ./martina_bescos_app:/app/martina_bescos_app:z
+    ports:
+      - '9000:9000'
+    command: /start-docs
