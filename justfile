@@ -37,10 +37,10 @@ logs *args:
 manage +args:
     @docker compose run --rm django python ./manage.py {{args}}
 
-deploybuild:
+deploybuildpre:
 	ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-pre && \
 	git stash && \
 	git pull && \
 	git stash clear && \
-	docker compose down && \
-	docker compose up -d --build"
+	docker compose -f docker-compose.local.yml down && \
+	docker compose -f docker-compose.local.yml up"
