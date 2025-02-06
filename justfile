@@ -36,3 +36,12 @@ logs *args:
 # manage: Executes `manage.py` command.
 manage +args:
     @docker compose run --rm django python ./manage.py {{args}}
+
+deploybuild:
+	ssh $SSH_MARTINA_USER_AND_IP "export PATH=$PATH:/usr/local/bin:/bin && \
+	cd /var/services/homes/deleyva/Documentos/programs/personal-django-project/ && \
+	git stash && \
+	git pull && \
+	git stash clear && \
+	docker-compose down && \
+	docker-compose up -d --build"
