@@ -42,5 +42,5 @@ deploybuild:
 	git stash && \
 	git pull && \
 	git stash clear && \
-	# docker-compose down && \
-	# docker-compose up -d --build"
+	docker-compose down && \
+	docker-compose up -d --build"
