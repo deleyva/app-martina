@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Items de Evaluación</h2>
+    
+    <div class="row">
+        {% for item in items %}
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">{{ item.name }}</h5>
+                    <p class="card-text">{{ item.description }}</p>
+                    
+                    <form hx-get="{% url 'select_students' item.id %}"
+                          hx-target="#selected-students-{{ item.id }}"
+                          hx-swap="innerHTML"
+                          hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+                        <div class="form-group mb-3">
+                            <label for="group-{{ item.id }}" class="form-label">Grupo:</label>
+                            <select class="form-select" id="group-{{ item.id }}" name="group" required>
+                                <option value="">Selecciona un grupo</option>
+                                {% for group in groups %}
+                                <option value="{{ group }}">{{ group }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            Seleccionar Estudiantes
+                        </button>
+                    </form>
+                    
+                    <div id="selected-students-{{ item.id }}" class="mt-3">
+                        <!-- HTMX will insert selected students here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="alert alert-info">
+                No hay items de evaluación disponibles.
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Debug information -->
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-body">
+            <h5>Debug Info:</h5>
+            <p>Available Groups: {{ groups|join:", " }}</p>
+            <p>Available Items: {{ items.count }}</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

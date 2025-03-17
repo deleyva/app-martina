@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Evaluaciones Pendientes</h2>
+        <a href="{% url 'evaluation_item_list' %}" class="btn btn-outline-primary">
+            Volver a Items
+        </a>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title mb-3">Filtrar por Grupo</h5>
+            <div class="btn-group" role="group">
+                <button type="button" 
+                        class="btn {% if not selected_group %}btn-primary{% else %}btn-outline-primary{% endif %}"
+                        hx-get="{% url 'pending_evaluations' %}"
+                        hx-target="#evaluation-list"
+                        hx-push-url="true">
+                    Todos
+                </button>
+                {% for group in groups %}
+                <button type="button" 
+                        class="btn {% if selected_group == group %}btn-primary{% else %}btn-outline-primary{% endif %}"
+                        hx-get="{% url 'pending_evaluations' %}?group={{ group }}"
+                        hx-target="#evaluation-list"
+                        hx-push-url="true">
+                    {{ group }}
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <div id="evaluation-list" class="row">
+        {% include "evaluations/partials/evaluation_list.html" %}
+    </div>
+</div>
+{% endblock %}

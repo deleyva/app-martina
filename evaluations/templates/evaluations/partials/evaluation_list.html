@@ -1,0 +1,66 @@
+{% for student in students %}
+<div class="col-md-6 mb-4">
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">{{ student.first_name }} {{ student.last_name }}</h5>
+            <small class="text-muted">Grupo: {{ student.group }}</small>
+        </div>
+        <div class="card-body">
+            <h6>{{ student.pending_evaluation.name }}</h6>
+            
+            <form hx-post="{% url 'save_evaluation' student.id %}"
+                  hx-target="#evaluation-list"
+                  hx-swap="innerHTML">
+                {% csrf_token %}
+                
+                <div class="form-group mb-4">
+                    <label for="score_{{ student.id }}" class="form-label">Nota directa (0-10):</label>
+                    <input type="number" 
+                           class="form-control" 
+                           id="score_{{ student.id }}" 
+                           name="direct_score" 
+                           min="0" 
+                           max="10" 
+                           step="0.5"
+                           placeholder="Introduce una nota del 0 al 10">
+                </div>
+
+                <div class="mb-4">
+                    <h6 class="mb-3">O evalúa usando la rúbrica:</h6>
+                    {% for item in rubric_items %}
+                    <div class="form-group mb-3">
+                        <label class="d-block">{{ item.name }}</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="rubric_{{ item.order }}" value="0" 
+                                   id="rubric_{{ student.id }}_{{ item.order }}_0" required>
+                            <label class="btn btn-outline-danger" 
+                                   for="rubric_{{ student.id }}_{{ item.order }}_0">0</label>
+                            
+                            <input type="radio" class="btn-check" name="rubric_{{ item.order }}" value="1"
+                                   id="rubric_{{ student.id }}_{{ item.order }}_1">
+                            <label class="btn btn-outline-warning"
+                                   for="rubric_{{ student.id }}_{{ item.order }}_1">1</label>
+                            
+                            <input type="radio" class="btn-check" name="rubric_{{ item.order }}" value="2"
+                                   id="rubric_{{ student.id }}_{{ item.order }}_2">
+                            <label class="btn btn-outline-success"
+                                   for="rubric_{{ student.id }}_{{ item.order }}_2">2</label>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <button type="submit" class="btn btn-primary">
+                    Guardar Evaluación
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% empty %}
+<div class="col-12">
+    <div class="alert alert-info">
+        No hay evaluaciones pendientes.
+    </div>
+</div>
+{% endfor %}

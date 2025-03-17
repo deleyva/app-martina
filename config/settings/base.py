@@ -82,6 +82,7 @@ THIRD_PARTY_APPS = [
 
 LOCAL_APPS = [
     "martina_bescos_app.users",
+    "evaluations",
     # Your stuff: custom apps go here
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
@@ -260,7 +261,6 @@ LOGGING = {
 REDIS_URL = env("REDIS_URL", default="redis://redis:6379/0")
 REDIS_SSL = REDIS_URL.startswith("rediss://")
 
-
 # django-allauth
 # ------------------------------------------------------------------------------
 ACCOUNT_ALLOW_REGISTRATION = env.bool("DJANGO_ACCOUNT_ALLOW_REGISTRATION", True)
@@ -282,7 +282,6 @@ ACCOUNT_FORMS = {"signup": "martina_bescos_app.users.forms.UserSignupForm"}
 SOCIALACCOUNT_ADAPTER = "martina_bescos_app.users.adapters.SocialAccountAdapter"
 # https://docs.allauth.org/en/latest/socialaccount/configuration.html
 SOCIALACCOUNT_FORMS = {"signup": "martina_bescos_app.users.forms.UserSocialSignupForm"}
-
 
 # Your stuff...
 # ------------------------------------------------------------------------------

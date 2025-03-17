@@ -29,10 +29,10 @@ urlpatterns = [
     path("users/", include("martina_bescos_app.users.urls", namespace="users")),
     path("accounts/", include("allauth.urls")),
     # Your stuff: custom urls includes go here
+    path("evaluations/", include("evaluations.urls")),
     # ...
     # Media files
-    *static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT),
-]
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 
 if settings.DEBUG:
