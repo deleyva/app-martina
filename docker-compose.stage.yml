@@ -1,7 +1,3 @@
-volumes:
-  martina_bescos_app_local_postgres_data: {}
-  martina_bescos_app_local_postgres_data_backups: {}
-
 services:
   django:
     build:

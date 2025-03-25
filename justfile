@@ -42,5 +42,5 @@ deploybuildpre:
 	git stash && \
 	git pull && \
 	git stash clear && \
-	docker compose -f docker-compose.local.yml down && \
-	docker compose -f docker-compose.local.yml up"
+	docker compose -f docker-compose.stage.yml down && \
+	docker compose -f docker-compose.stage.yml up"
