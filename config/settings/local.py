@@ -14,7 +14,12 @@ SECRET_KEY = env(
     default="JtAoPdUhrpItD1KYbA58Ebo3bDj6rtJQQzx8eiyuKpn4DIjXtGiOQkqyIfaOfynS",
 )
 # https://docs.djangoproject.com/en/dev/ref/settings/#allowed-hosts
-ALLOWED_HOSTS = ["localhost", "0.0.0.0", "127.0.0.1"]  # noqa: S104
+ALLOWED_HOSTS = [
+    "localhost",
+    "0.0.0.0",
+    "127.0.0.1",
+    "apps.iesmartinabescos.es",
+]  # noqa: S104
 
 # CACHES
 # ------------------------------------------------------------------------------
