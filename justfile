@@ -19,6 +19,11 @@ up:
     @echo "Starting up containers..."
     @docker compose up -d --remove-orphans
 
+# up: Start up containers, not in detached mode
+updev:
+    @echo "Starting up containers..."
+    @docker compose up --remove-orphans
+
 # down: Stop containers.
 down:
     @echo "Stopping containers..."
@@ -44,3 +49,13 @@ deploybuildpre:
 	git stash clear && \
 	docker compose -f docker-compose.stage.yml down && \
 	docker compose -f docker-compose.stage.yml up"
+
+# migrations: Creates new migrations.
+migrations:
+    @echo "Creating new migrations..."
+    @docker compose run --rm django python ./manage.py makemigrations
+
+# migrate: Applies migrations.
+migrate:
+    @echo "Applying migrations..."
+    @docker compose run --rm django python ./manage.py migrate

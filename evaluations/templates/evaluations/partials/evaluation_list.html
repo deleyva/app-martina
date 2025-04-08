@@ -7,6 +7,9 @@
         </div>
         <div class="card-body">
             <h6>{{ student.pending_evaluation.name }}</h6>
+            {% if student.pending_evaluation.term %}
+            <p class="text-muted mb-3">{{ student.pending_evaluation.get_term_display }}</p>
+            {% endif %}
             
             <form hx-post="{% url 'save_evaluation' student.id %}"
                   hx-target="#evaluation-list"
