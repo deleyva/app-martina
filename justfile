@@ -59,3 +59,8 @@ migrations:
 migrate:
     @echo "Applying migrations..."
     @docker compose run --rm django python ./manage.py migrate
+
+# create django app
+createapp +args:
+    @echo "Creating new django app..."
+    @docker compose run --rm django python ./manage.py startapp {{args}}

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Nueva Clave API{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="row mb-4">
+    <div class="col-md-8">
+      <h1>Nueva Clave API</h1>
+      <p class="text-muted">Crea una nueva clave de API para acceder a los servicios desde aplicaciones externas.</p>
+    </div>
+    <div class="col-md-4 text-end">
+      <a href="{% url 'api_keys:list' %}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-2"></i> Volver
+      </a>
+    </div>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="card-header bg-light">
+      <h5 class="mb-0">Información de la clave</h5>
+    </div>
+    <div class="card-body">
+      <form method="post" action="{% url 'api_keys:create' %}">
+        {% csrf_token %}
+        
+        <div class="mb-3">
+          <label for="name" class="form-label">Nombre de la clave <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" id="name" name="name" required 
+                 placeholder="Ej: API para aplicación móvil">
+          <div class="form-text">Un nombre descriptivo para identificar esta clave API.</div>
+        </div>
+        
+        <div class="alert alert-warning">
+          <i class="fas fa-exclamation-triangle me-2"></i>
+          <strong>Importante:</strong> La clave API se generará automáticamente y solo se mostrará una vez.
+          Asegúrate de copiarla y guardarla en un lugar seguro.
+        </div>
+        
+        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+          <a href="{% url 'api_keys:list' %}" class="btn btn-outline-secondary me-md-2">Cancelar</a>
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-key me-2"></i> Generar clave API
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

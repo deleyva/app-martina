@@ -6,9 +6,18 @@ from django.urls import include
 from django.urls import path
 from django.views import defaults as default_views
 from django.views.generic import TemplateView
-from ninja import NinjaAPI
+from ninja import NinjaAPI, Router
 
-api = NinjaAPI()
+# Crear una única instancia de NinjaAPI para toda la aplicación
+api = NinjaAPI(title="Martina Bescós App API", version="1.0.0")
+
+# Importar los routers de cada aplicación
+from evaluations.api import router as evaluations_router
+from api_keys.api import router as api_keys_router
+
+# Registrar los routers en la API principal
+api.add_router("/evaluations/", evaluations_router)
+api.add_router("/keys/", api_keys_router)
 
 @api.get("/add")
 def add(request, a: int, b: int):
@@ -30,6 +39,8 @@ urlpatterns = [
     path("accounts/", include("allauth.urls")),
     # Your stuff: custom urls includes go here
     path("evaluations/", include("evaluations.urls")),
+    # API Keys management UI
+    path("api-keys/", include("api_keys.urls", namespace="api_keys")),
     # ...
     # Media files
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

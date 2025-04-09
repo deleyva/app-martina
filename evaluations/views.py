@@ -6,7 +6,7 @@ from django.template.loader import render_to_string
 from django.views.decorators.http import require_http_methods
 import random
 
-from .models import Student, EvaluationItem, RubricItem, Evaluation
+from .models import Student, EvaluationItem, RubricCategory, Evaluation, RubricScore
 
 class EvaluationItemListView(ListView):
     model = EvaluationItem
@@ -66,9 +66,19 @@ class PendingEvaluationsView(ListView):
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['rubric_items'] = RubricItem.objects.all().order_by('order')
+        # No pasamos las categorías de rúbrica aquí, las pasaremos en la plantilla para cada estudiante
         context['groups'] = Student.objects.values_list('group', flat=True).distinct()
         context['selected_group'] = self.request.GET.get('group')
+        
+        # Preparar un diccionario con las rúbricas para cada estudiante
+        student_rubrics = {}
+        for student in context['students']:
+            if student.pending_evaluation:
+                student_rubrics[student.id] = RubricCategory.objects.filter(
+                    evaluation_item=student.pending_evaluation
+                ).order_by('order')
+        
+        context['student_rubrics'] = student_rubrics
         return context
 
 @require_http_methods(["POST"])
@@ -81,21 +91,49 @@ def save_evaluation(request, student_id):
         try:
             score = float(direct_score)
             if 0 <= score <= 10:
-                total_score = score
+                # Crear evaluación con puntuación directa
+                evaluation = Evaluation.objects.create(
+                    student=student,
+                    evaluation_item=item,
+                    score=score
+                )
             else:
                 return HttpResponse("La nota debe estar entre 0 y 10", status=400)
         except ValueError:
             return HttpResponse("La nota debe ser un número válido", status=400)
     else:
-        # Calculate total score from rubric items
-        total_score = sum(int(request.POST.get(f'rubric_{i}', 0)) for i in range(1, 6)) * 2
-    
-    # Save to database
-    Evaluation.objects.create(
-        student=student,
-        evaluation_item=item,
-        score=total_score
-    )
+        # Crear evaluación con puntuación inicial 0
+        evaluation = Evaluation.objects.create(
+            student=student,
+            evaluation_item=item,
+            score=0  # Se actualizará después de guardar las puntuaciones de la rúbrica
+        )
+        
+        # Guardar puntuaciones de la rúbrica
+        rubric_categories = RubricCategory.objects.filter(evaluation_item=item).order_by('order')
+        for category in rubric_categories:
+            points_value = request.POST.get(f'rubric_{category.order}', '0')
+            try:
+                points = float(points_value)
+                # Asegurarse de que los puntos estén en el rango correcto
+                if 0 <= points <= category.max_points:
+                    RubricScore.objects.create(
+                        evaluation=evaluation,
+                        category=category,
+                        points=points
+                    )
+            except ValueError:
+                # Si hay un error, asignar 0 puntos
+                RubricScore.objects.create(
+                    evaluation=evaluation,
+                    category=category,
+                    points=0
+                )
+        
+        # Calcular y actualizar la puntuación total
+        total_score = evaluation.calculate_score()
+        evaluation.score = total_score
+        evaluation.save()
     
     # Clear pending evaluation
     student.pending_evaluation = None
@@ -106,12 +144,20 @@ def save_evaluation(request, student_id):
     if group := request.GET.get('group'):
         remaining_query = remaining_query.filter(group=group)
     
+    # Preparar un diccionario con las rúbricas para cada estudiante
+    student_rubrics = {}
+    for student in remaining_query:
+        if student.pending_evaluation:
+            student_rubrics[student.id] = RubricCategory.objects.filter(
+                evaluation_item=student.pending_evaluation
+            ).order_by('order')
+    
     return HttpResponse(
         render_to_string(
             'evaluations/partials/evaluation_list.html',
             {
                 'students': remaining_query,
-                'rubric_items': RubricItem.objects.all().order_by('order')
+                'student_rubrics': student_rubrics
             }
         )
     )

@@ -1,4 +1,5 @@
 from django.db import models
+import uuid
 
 # Create your models here.
 
@@ -37,7 +38,7 @@ class RubricCategory(models.Model):
     """Categoría de la rúbrica (ej: Plasticidad, Velocidad, Compás, etc.)"""
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
-    max_points = models.PositiveSmallIntegerField(default=2)
+    max_points = models.DecimalField(max_digits=3, decimal_places=1, default=2.0)
     order = models.PositiveSmallIntegerField(default=0)
     evaluation_item = models.ForeignKey(
         EvaluationItem, 
@@ -51,33 +52,6 @@ class RubricCategory(models.Model):
         ordering = ["order"]
         verbose_name = "Categoría de rúbrica"
         verbose_name_plural = "Categorías de rúbrica"
-
-    def __str__(self):
-        return self.name
-
-
-class RubricCriteria(models.Model):
-    """Criterios específicos para cada nivel de puntuación en una categoría"""
-    category = models.ForeignKey(
-        RubricCategory, 
-        on_delete=models.CASCADE, 
-        related_name="criteria"
-    )
-    points = models.PositiveSmallIntegerField()
-    description = models.TextField()
-
-    class Meta:
-        ordering = ["-points"]
-        verbose_name = "Criterio de rúbrica"
-        verbose_name_plural = "Criterios de rúbrica"
-
-    def __str__(self):
-        return f"{self.category.name} - {self.points} puntos"
-
-
-class RubricItem(models.Model):
-    name = models.CharField(max_length=100)
-    order = models.IntegerField()
 
     def __str__(self):
         return self.name
@@ -99,6 +73,17 @@ class Evaluation(models.Model):
 
     def __str__(self):
         return f"{self.student} - {self.evaluation_item}: {self.score}"
+    
+    def calculate_score(self):
+        """Calcula la puntuación total basada en las puntuaciones de la rúbrica"""
+        rubric_scores = self.rubric_scores.all()
+        if not rubric_scores:
+            return 0
+            
+        total_points = sum(score.points for score in rubric_scores)
+        max_possible = sum(score.category.max_points for score in rubric_scores)
+        
+        return (total_points / max_possible) * 10 if max_possible > 0 else 0
 
 
 class RubricScore(models.Model):
@@ -113,7 +98,7 @@ class RubricScore(models.Model):
         on_delete=models.CASCADE, 
         related_name="scores"
     )
-    points = models.PositiveSmallIntegerField()
+    points = models.DecimalField(max_digits=3, decimal_places=1)
     
     class Meta:
         unique_together = ["evaluation", "category"]

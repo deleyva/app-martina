@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Gestión de Claves API{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="row mb-4">
+    <div class="col-md-8">
+      <h1>Gestión de Claves API</h1>
+      <p class="text-muted">Administra tus claves de API para acceder a los servicios desde aplicaciones externas.</p>
+    </div>
+    <div class="col-md-4 text-end">
+      <a href="{% url 'api_keys:create' %}" class="btn btn-primary">
+        <i class="fas fa-plus-circle me-2"></i> Nueva Clave API
+      </a>
+    </div>
+  </div>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  <div class="card shadow-sm">
+    <div class="card-header bg-light">
+      <h5 class="mb-0">Tus Claves API</h5>
+    </div>
+    <div class="card-body">
+      {% if api_keys %}
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Clave</th>
+                <th>Creada</th>
+                <th>Último uso</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for key in api_keys %}
+                <tr>
+                  <td>{{ key.name }}</td>
+                  <td>
+                    <div class="input-group">
+                      <input type="text" class="form-control form-control-sm" value="{{ key.key }}" readonly>
+                      <button class="btn btn-outline-secondary btn-sm copy-btn" type="button" data-clipboard-text="{{ key.key }}">
+                        <i class="fas fa-copy"></i>
+                      </button>
+                    </div>
+                  </td>
+                  <td>{{ key.created_at|date:"d/m/Y H:i" }}</td>
+                  <td>
+                    {% if key.last_used %}
+                      {{ key.last_used|date:"d/m/Y H:i" }}
+                    {% else %}
+                      <span class="text-muted">Nunca</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <form method="post" action="{% url 'api_keys:toggle' key.id %}" class="d-inline toggle-form">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn-sm {% if key.is_active %}btn-success{% else %}btn-secondary{% endif %}">
+                        {% if key.is_active %}
+                          <i class="fas fa-check-circle me-1"></i> Activa
+                        {% else %}
+                          <i class="fas fa-times-circle me-1"></i> Inactiva
+                        {% endif %}
+                      </button>
+                    </form>
+                  </td>
+                  <td>
+                    <form method="post" action="{% url 'api_keys:delete' key.id %}" class="d-inline delete-form">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('¿Estás seguro de que deseas eliminar esta clave API? Esta acción no se puede deshacer.')">
+                        <i class="fas fa-trash-alt"></i>
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="text-center py-5">
+          <i class="fas fa-key fa-3x text-muted mb-3"></i>
+          <h5>No tienes claves API</h5>
+          <p class="text-muted">Crea una nueva clave para acceder a los servicios de la API.</p>
+          <a href="{% url 'api_keys:create' %}" class="btn btn-primary">
+            <i class="fas fa-plus-circle me-2"></i> Nueva Clave API
+          </a>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card shadow-sm mt-4">
+    <div class="card-header bg-light">
+      <h5 class="mb-0">Documentación</h5>
+    </div>
+    <div class="card-body">
+      <h6>Cómo usar tu clave API</h6>
+      <p>Para autenticarte en la API, incluye tu clave API en el encabezado de cada solicitud:</p>
+      <pre class="bg-light p-3 rounded"><code>X-API-Key: tu-clave-api</code></pre>
+      
+      <h6 class="mt-4">Ejemplo de solicitud</h6>
+      <pre class="bg-light p-3 rounded"><code>curl -X GET \
+  "{{ request.scheme }}://{{ request.get_host }}/api/v1/evaluations/students/" \
+  -H "X-API-Key: tu-clave-api"</code></pre>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.8/clipboard.min.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar clipboard.js
+    new ClipboardJS('.copy-btn').on('success', function(e) {
+      e.trigger.innerHTML = '<i class="fas fa-check"></i>';
+      setTimeout(function() {
+        e.trigger.innerHTML = '<i class="fas fa-copy"></i>';
+      }, 2000);
+    });
+
+    // AJAX para el toggle de estado
+    document.querySelectorAll('.toggle-form').forEach(form => {
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        fetch(this.action, {
+          method: 'POST',
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': this.querySelector('input[name="csrfmiddlewaretoken"]').value
+          }
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            const button = this.querySelector('button');
+            if (data.is_active) {
+              button.classList.remove('btn-secondary');
+              button.classList.add('btn-success');
+              button.innerHTML = '<i class="fas fa-check-circle me-1"></i> Activa';
+            } else {
+              button.classList.remove('btn-success');
+              button.classList.add('btn-secondary');
+              button.innerHTML = '<i class="fas fa-times-circle me-1"></i> Inactiva';
+            }
+          }
+        });
+      });
+    });
+  });
+</script>
+{% endblock %}

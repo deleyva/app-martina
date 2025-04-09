@@ -17,7 +17,7 @@
                         class="btn {% if not selected_group %}btn-primary{% else %}btn-outline-primary{% endif %}"
                         hx-get="{% url 'pending_evaluations' %}"
                         hx-target="#evaluation-list"
-                        hx-push-url="true">
+                        hx-select="#evaluation-list">
                     Todos
                 </button>
                 {% for group in groups %}
@@ -25,7 +25,7 @@
                         class="btn {% if selected_group == group %}btn-primary{% else %}btn-outline-primary{% endif %}"
                         hx-get="{% url 'pending_evaluations' %}?group={{ group }}"
                         hx-target="#evaluation-list"
-                        hx-push-url="true">
+                        hx-select="#evaluation-list">
                     {{ group }}
                 </button>
                 {% endfor %}

@@ -2,22 +2,12 @@ from django.contrib import admin
 from .models import (
     Student, 
     EvaluationItem, 
-    RubricItem, 
     Evaluation, 
     RubricCategory, 
-    RubricCriteria,
     RubricScore
 )
 
 # Register your models here.
-
-class RubricCriteriaInline(admin.TabularInline):
-    model = RubricCriteria
-    extra = 3  # Mostrar 3 filas vacías para añadir criterios (0, 1, 2 puntos)
-    min_num = 1  # Al menos un criterio
-    fields = ('points', 'description')
-    ordering = ('-points',)
-
 
 class RubricCategoryInline(admin.StackedInline):
     model = RubricCategory
@@ -48,21 +38,12 @@ class EvaluationItemAdmin(admin.ModelAdmin):
 
 @admin.register(RubricCategory)
 class RubricCategoryAdmin(admin.ModelAdmin):
-    list_display = ('name', 'evaluation_item', 'max_points', 'order', 'get_criteria_count')
+    list_display = ('name', 'evaluation_item', 'max_points', 'order')
     list_filter = ('evaluation_item', 'max_points')
     search_fields = ('name', 'description')
     ordering = ('evaluation_item', 'order')
-    inlines = [RubricCriteriaInline]
-    
-    def get_criteria_count(self, obj):
-        return obj.criteria.count()
-    get_criteria_count.short_description = 'Criterios'
-
-
-@admin.register(RubricItem)
-class RubricItemAdmin(admin.ModelAdmin):
-    list_display = ('name', 'order')
-    ordering = ('order',)
+    fields = ('name', 'description', 'max_points', 'order', 'evaluation_item')
+    list_editable = ('order', 'evaluation_item')
 
 
 @admin.register(Evaluation)
@@ -71,14 +52,6 @@ class EvaluationAdmin(admin.ModelAdmin):
     list_filter = ('evaluation_item', 'date_evaluated')
     search_fields = ('student__first_name', 'student__last_name')
     date_hierarchy = 'date_evaluated'
-
-
-@admin.register(RubricCriteria)
-class RubricCriteriaAdmin(admin.ModelAdmin):
-    list_display = ('category', 'points', 'description')
-    list_filter = ('category', 'points')
-    search_fields = ('description',)
-    ordering = ('category', '-points')
 
 
 @admin.register(RubricScore)

@@ -45,6 +45,17 @@
         referrerpolicy="no-referrer"></script>
 <!-- Your stuff: Third-party javascript libraries go here -->
       <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+      
+      <!-- CSRF token configuration for HTMX -->
+      <script>
+        document.addEventListener('DOMContentLoaded', function() {
+          document.body.addEventListener('htmx:configRequest', function(evt) {
+            if(evt.detail.verb === 'post') {
+              evt.detail.headers['X-CSRFToken'] = '{{ csrf_token }}';
+            }
+          });
+        });
+      </script>
 <!-- place project specific Javascript in this file -->
 
   
@@ -53,7 +64,7 @@
 
 {% endblock javascript %}
 </head>
-<body class="{% block bodyclass %}{% endblock bodyclass %}">
+<body class="{% block bodyclass %}{% endblock bodyclass %}" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
   {% block body %}
   <div class="mb-1">
     <nav class="navbar navbar-expand-md navbar-light bg-light">
