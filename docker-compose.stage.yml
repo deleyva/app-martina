@@ -1,52 +1,60 @@
+volumes:
+  stage_postgres_data: {}
+  stage_postgres_data_backups: {}
+  stage_django_media: {}
+
 services:
   django:
     build:
       context: .
-      dockerfile: ./compose/local/django/Dockerfile
-    image: martina_bescos_app_local_django
-    container_name: martina_bescos_app_local_django
+      dockerfile: ./compose/production/django/Dockerfile
+
+    image: martina_bescos_app_stage_django
+    volumes:
+      - stage_django_media:/app/martina_bescos_app/media
     depends_on:
       - postgres
-      - mailpit
-    volumes:
-      - .:/app:z
+      - redis
     env_file:
-      - ./.envs/.local/.django
-      - ./.envs/.local/.postgres
-    ports:
-      - "8000:8000"
+      - ./.envs/.production/.django
+      - ./.envs/.production/.postgres
     command: /start
-
     networks:
-      - app-martina-network
-      - nginx-proxy-manager-net
+      - app-martina-stage-network
 
   postgres:
     build:
       context: .
       dockerfile: ./compose/production/postgres/Dockerfile
-    image: martina_bescos_app_production_postgres
-    container_name: martina_bescos_app_local_postgres
+    image: martina_bescos_app_stage_postgres
     volumes:
-      - ./martina_bescos_app_local_postgres_data:/var/lib/postgresql/data
-      - ./martina_bescos_app_local_postgres_data_backups:/backups
+      - stage_postgres_data:/var/lib/postgresql/data
+      - stage_postgres_data_backups:/backups
     env_file:
-      - ./.envs/.local/.postgres
-
+      - ./.envs/.production/.postgres
     networks:
-      - app-martina-network
+      - app-martina-stage-network
 
-  mailpit:
-    image: docker.io/axllent/mailpit:latest
-    container_name: martina_bescos_app_local_mailpit
-    ports:
-      - "8025:8025"
-
+  redis:
+    image: docker.io/redis:6
     networks:
-      - app-martina-network
+      - app-martina-stage-network
+
+  nginx_stage:
+    build:
+      context: .
+      dockerfile: ./compose/production/nginx/Dockerfile
+    image: martina_bescos_app_stage_nginx
+    depends_on:
+      - django
+    volumes:
+      - stage_django_media:/usr/share/nginx/media:ro
+    networks:
+      - app-martina-stage-network
+      - nginx-proxy-manager-net
 
 networks:
-  app-martina-network:
+  app-martina-stage-network:
     driver: bridge
   nginx-proxy-manager-net:
     external: true

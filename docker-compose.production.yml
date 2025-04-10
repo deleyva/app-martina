@@ -1,10 +1,7 @@
 volumes:
   production_postgres_data: {}
   production_postgres_data_backups: {}
-  production_traefik: {}
   production_django_media: {}
-  
-
 
 services:
   django:
@@ -22,6 +19,8 @@ services:
       - ./.envs/.production/.django
       - ./.envs/.production/.postgres
     command: /start
+    networks:
+      - app-martina-production-network
 
   postgres:
     build:
@@ -33,23 +32,13 @@ services:
       - production_postgres_data_backups:/backups
     env_file:
       - ./.envs/.production/.postgres
-
-  traefik:
-    build:
-      context: .
-      dockerfile: ./compose/production/traefik/Dockerfile
-    image: martina_bescos_app_production_traefik
-    depends_on:
-      - django
-    volumes:
-      - production_traefik:/etc/traefik/acme
-    ports:
-      - '0.0.0.0:80:80'
-      - '0.0.0.0:443:443'
+    networks:
+      - app-martina-production-network
 
   redis:
     image: docker.io/redis:6
-    
+    networks:
+      - app-martina-production-network
 
   nginx:
     build:
@@ -60,3 +49,13 @@ services:
       - django
     volumes:
       - production_django_media:/usr/share/nginx/media:ro
+    networks:
+      - app-martina-production-network
+      - nginx-proxy-manager-net
+
+networks:
+  app-martina-production-network:
+    driver: bridge
+  nginx-proxy-manager-net:
+    external: true
+    name: nginx-proxy-manager_default

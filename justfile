@@ -50,6 +50,25 @@ deploybuildpre:
 	docker compose -f docker-compose.stage.yml down && \
 	docker compose -f docker-compose.stage.yml up"
 
+# deploy-stage: Deploy to stage environment
+deploy-stage:
+	@echo "Deploying to stage environment..."
+	# Create necessary directories if they don't exist
+	ssh $SSH_MARTINA_USER_AND_IP "mkdir -p app-martina-stage/.envs/.production"
+	
+	# Copy environment files that are not in version control
+	scp ./.envs/.production/.django $SSH_MARTINA_USER_AND_IP:app-martina-stage/.envs/.production/
+	scp ./.envs/.production/.postgres $SSH_MARTINA_USER_AND_IP:app-martina-stage/.envs/.production/
+	
+	# Deploy the application
+	ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-stage && \
+	git stash && \
+	git pull && \
+	git stash clear && \
+	docker compose -f docker-compose.stage.yml down && \
+	docker compose -f docker-compose.stage.yml build && \
+	docker compose -f docker-compose.stage.yml up -d"
+
 # migrations: Creates new migrations.
 migrations:
     @echo "Creating new migrations..."
