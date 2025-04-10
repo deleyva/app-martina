@@ -72,7 +72,7 @@ deploy-stage:
 	echo 'Esperando a que los servicios estén listos...' && \
 	sleep 10 && \
 	echo 'Aplicando migraciones...' && \
-	docker compose -f docker-compose.stage.yml exec -T django /bin/bash -c 'DATABASE_URL=postgres://postgres:postgres@postgres:5432/martina_bescos_app python manage.py migrate'"
+	docker compose -f docker-compose.stage.yml run --rm django python manage.py migrate"
 
 # migrations: Creates new migrations.
 migrations:
