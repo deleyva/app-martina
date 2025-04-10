@@ -62,9 +62,10 @@ deploy-stage:
 	
 	# Deploy the application
 	ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-stage && \
-	git stash && \
-	git pull && \
-	git stash clear && \
+	git reset --hard && \
+	git fetch origin && \
+	git checkout -f main && \
+	git reset --hard origin/main && \
 	docker compose -f docker-compose.stage.yml down && \
 	docker compose -f docker-compose.stage.yml build && \
 	docker compose -f docker-compose.stage.yml up -d"
