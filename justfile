@@ -68,7 +68,11 @@ deploy-stage:
 	git reset --hard origin/main && \
 	docker compose -f docker-compose.stage.yml down && \
 	docker compose -f docker-compose.stage.yml build && \
-	docker compose -f docker-compose.stage.yml up -d"
+	docker compose -f docker-compose.stage.yml up -d && \
+	echo 'Esperando a que los servicios estén listos...' && \
+	sleep 10 && \
+	echo 'Aplicando migraciones...' && \
+	docker compose -f docker-compose.stage.yml exec -T django python manage.py migrate"
 
 # migrations: Creates new migrations.
 migrations:
