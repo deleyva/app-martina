@@ -19,9 +19,13 @@ class RubricCategoryInline(admin.StackedInline):
 
 @admin.register(Student)
 class StudentAdmin(admin.ModelAdmin):
-    list_display = ('first_name', 'last_name', 'group', 'pending_evaluation')
+    list_display = ('get_name', 'group', 'pending_evaluation')
     list_filter = ('group', 'pending_evaluation')
-    search_fields = ('first_name', 'last_name', 'group')
+    search_fields = ('user__name', 'group')
+    
+    def get_name(self, obj):
+        return obj.user.name if obj.user else f"Student {obj.id}"
+    get_name.short_description = 'Nombre'
 
 
 @admin.register(EvaluationItem)
@@ -50,7 +54,7 @@ class RubricCategoryAdmin(admin.ModelAdmin):
 class EvaluationAdmin(admin.ModelAdmin):
     list_display = ('student', 'evaluation_item', 'score', 'date_evaluated')
     list_filter = ('evaluation_item', 'date_evaluated')
-    search_fields = ('student__first_name', 'student__last_name')
+    search_fields = ('student__user__name',)
     date_hierarchy = 'date_evaluated'
 
 
@@ -58,4 +62,4 @@ class EvaluationAdmin(admin.ModelAdmin):
 class RubricScoreAdmin(admin.ModelAdmin):
     list_display = ('evaluation', 'category', 'points')
     list_filter = ('category', 'points')
-    search_fields = ('evaluation__student__first_name', 'evaluation__student__last_name', 'category__name')
+    search_fields = ('evaluation__student__user__name', 'category__name')

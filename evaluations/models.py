@@ -1,5 +1,6 @@
 from django.db import models
 import uuid
+from django.conf import settings
 
 # Create your models here.
 
@@ -19,8 +20,13 @@ class EvaluationItem(models.Model):
 
 
 class Student(models.Model):
-    first_name = models.CharField(max_length=100)
-    last_name = models.CharField(max_length=100)
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="student_profile",
+        null=True,
+        blank=True,
+    )
     group = models.CharField(max_length=50)
     pending_evaluation = models.ForeignKey(
         EvaluationItem,
@@ -31,7 +37,9 @@ class Student(models.Model):
     )
 
     def __str__(self):
-        return f"{self.first_name} {self.last_name}"
+        if self.user:
+            return f"{self.user.name}"
+        return f"Student {self.id}"
 
 
 class RubricCategory(models.Model):

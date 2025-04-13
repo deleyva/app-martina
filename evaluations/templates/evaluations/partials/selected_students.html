@@ -2,7 +2,7 @@
     <h6 class="alert-heading">Estudiantes seleccionados:</h6>
     <ul class="list-unstyled mb-0">
         {% for student in students %}
-        <li>{{ student.first_name }} {{ student.last_name }}</li>
+        <li>{{ student.user.name|default:"Estudiante sin nombre" }}</li>
         {% endfor %}
     </ul>
 </div>

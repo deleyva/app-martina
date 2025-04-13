@@ -30,8 +30,8 @@ def select_students(request, item_id):
     available_students = Student.objects.filter(
         group=group
     ).exclude(
-        evaluations__evaluation_item=item  # Changed from evaluation to evaluations
-    )
+        evaluations__evaluation_item=item
+    ).select_related('user')  # Añadimos select_related para optimizar las consultas
     
     if not available_students:
         return HttpResponse(
@@ -59,7 +59,7 @@ class PendingEvaluationsView(ListView):
     context_object_name = 'students'
     
     def get_queryset(self):
-        queryset = Student.objects.filter(pending_evaluation__isnull=False)
+        queryset = Student.objects.filter(pending_evaluation__isnull=False).select_related('user')  # Añadimos select_related
         if group := self.request.GET.get('group'):
             queryset = queryset.filter(group=group)
         return queryset

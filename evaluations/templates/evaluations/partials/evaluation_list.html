@@ -3,7 +3,7 @@
 <div class="col-md-6 mb-4">
     <div class="card">
         <div class="card-header">
-            <h5 class="mb-0">{{ student.first_name }} {{ student.last_name }}</h5>
+            <h5 class="mb-0">{{ student.user.name|default:"Estudiante sin nombre" }}</h5>
             <small class="text-muted">Grupo: {{ student.group }}</small>
         </div>
         <div class="card-body">
