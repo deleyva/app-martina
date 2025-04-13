@@ -38,3 +38,76 @@
     </div>
 </div>
 {% endblock %}
+
+{% block inline_javascript %}
+<script>
+  // Función para actualizar el valor numérico cuando se mueve el slider
+  function updateRubricValue(studentId, categoryOrder, value) {
+    // Actualizar el campo numérico
+    const inputElement = document.getElementById(`rubric_value_input_${studentId}_${categoryOrder}`);
+    if (inputElement) {
+      inputElement.value = value;
+    }
+    
+    // Calcular y actualizar la nota directa basada en los valores de la rúbrica
+    updateDirectScore(studentId);
+  }
+  
+  // Función para actualizar el slider cuando se cambia el valor numérico
+  function updateRubricSlider(studentId, categoryOrder, value) {
+    // Asegurarse de que el valor está dentro del rango permitido
+    value = Math.max(0, Math.min(2, value));
+    
+    // Actualizar el slider
+    const sliderElement = document.getElementById(`rubric_${studentId}_${categoryOrder}`);
+    if (sliderElement) {
+      sliderElement.value = value;
+    }
+    
+    // Calcular y actualizar la nota directa basada en los valores de la rúbrica
+    updateDirectScore(studentId);
+  }
+  
+  // Función para calcular y actualizar la nota directa basada en los valores de la rúbrica
+  function updateDirectScore(studentId) {
+    // Obtener todos los sliders para este estudiante
+    const sliders = document.querySelectorAll(`input[id^="rubric_${studentId}_"][type="range"]`);
+    if (!sliders.length) return;
+    
+    // Calcular la puntuación total y la puntuación máxima posible
+    let totalPoints = 0;
+    let maxPossible = sliders.length * 2; // Cada categoría tiene un máximo de 2 puntos
+    
+    sliders.forEach(slider => {
+      totalPoints += parseFloat(slider.value);
+    });
+    
+    // Calcular la nota sobre 10
+    const score = (totalPoints / maxPossible) * 10;
+    
+    // Actualizar el campo de nota directa
+    const directScoreInput = document.getElementById(`score_${studentId}`);
+    if (directScoreInput) {
+      directScoreInput.value = score.toFixed(1);
+    }
+  }
+
+  // Cuando la página cargue, añadir un listener para el campo de nota directa
+  document.addEventListener('DOMContentLoaded', function() {
+    // Obtener todos los campos de nota directa
+    const directScoreInputs = document.querySelectorAll('input[id^="score_"][type="number"]');
+    
+    // Añadir un listener para cada campo
+    directScoreInputs.forEach(input => {
+      // Extraer el ID del estudiante del ID del campo
+      const studentId = input.id.replace('score_', '');
+      
+      // Añadir un listener para cuando el usuario cambie manualmente la nota directa
+      input.addEventListener('input', function() {
+        // Esto permite al usuario editar manualmente la nota directa sin que se recalcule
+        // automáticamente desde los valores de la rúbrica
+      });
+    });
+  });
+</script>
+{% endblock inline_javascript %}

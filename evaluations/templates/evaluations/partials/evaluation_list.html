@@ -26,7 +26,7 @@
                            name="direct_score" 
                            min="0" 
                            max="10" 
-                           step="0.5"
+                           step="0.1"
                            placeholder="Introduce una nota del 0 al 10">
                 </div>
 
@@ -60,9 +60,18 @@
                                                max="2" 
                                                step="0.5" 
                                                value="0"
-                                               oninput="document.getElementById('rubric_value_{{ student.id }}_{{ category.order }}').textContent = this.value">
-                                        <span id="rubric_value_{{ student.id }}_{{ category.order }}" 
-                                              class="ms-2 badge bg-primary">0</span>
+                                               oninput="updateRubricValue('{{ student.id }}', '{{ category.order }}', this.value)">
+                                        <div class="ms-2 d-flex align-items-center">
+                                            <input type="number"
+                                                   id="rubric_value_input_{{ student.id }}_{{ category.order }}"
+                                                   class="form-control form-control-sm"
+                                                   style="width: 60px;"
+                                                   min="0"
+                                                   max="2"
+                                                   step="0.5"
+                                                   value="0"
+                                                   oninput="updateRubricSlider('{{ student.id }}', '{{ category.order }}', this.value)">
+                                        </div>
                                     </div>
                                 </td>
                             </tr>

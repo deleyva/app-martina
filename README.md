@@ -1,5 +1,11 @@
 # Martina Bescós App
 
+
+## Siguientes pasos
+
+- [ ] Hacer que la rubrica actulice el dato en el selector de puntos de cada targeta "pending" y que ese número se pueda seguir editando
+- [ ] Mostrar pendings como lista y que, al clicar se muestre la rúbrica y todo
+
 Behold My Awesome Project!
 
 [![Built with Cookiecutter Django](https://img.shields.io/badge/built%20with-Cookiecutter%20Django-ff69b4.svg?logo=cookiecutter)](https://github.com/cookiecutter/cookiecutter-django/)
