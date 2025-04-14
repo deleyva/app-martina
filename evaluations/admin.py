@@ -20,13 +20,17 @@ class RubricCategoryInline(admin.StackedInline):
 
 @admin.register(Student)
 class StudentAdmin(admin.ModelAdmin):
-    list_display = ('get_name', 'group', 'pending_evaluation')
-    list_filter = ('group', 'pending_evaluation')
+    list_display = ('get_name', 'group', 'get_pending_count')
+    list_filter = ('group',)
     search_fields = ('user__name', 'group')
     
     def get_name(self, obj):
         return obj.user.name if obj.user else f"Student {obj.id}"
     get_name.short_description = 'Nombre'
+    
+    def get_pending_count(self, obj):
+        return obj.pending_statuses.count()
+    get_pending_count.short_description = 'Evaluaciones pendientes'
 
 
 @admin.register(EvaluationItem)

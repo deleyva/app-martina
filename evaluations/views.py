@@ -31,6 +31,7 @@ class EvaluationItemListView(ListView):
 
 @require_http_methods(["GET"])
 def select_students(request, item_id):
+    """Selecciona aleatoriamente estudiantes para una evaluación"""
     item = get_object_or_404(EvaluationItem, id=item_id)
     group = request.GET.get("group")
 
@@ -41,8 +42,9 @@ def select_students(request, item_id):
     available_students = (
         Student.objects.filter(group=group)
         .exclude(evaluations__evaluation_item=item)
+        .exclude(pending_statuses__evaluation_item=item)  # Excluir los que ya tienen un estado pendiente
         .select_related("user")
-    )  # Añadimos select_related para optimizar las consultas
+    )
 
     if not available_students:
         return HttpResponse(
@@ -56,8 +58,11 @@ def select_students(request, item_id):
 
     # Mark them as pending evaluation
     for student in selected_students:
-        student.pending_evaluation = item
-        student.save()
+        PendingEvaluationStatus.objects.create(
+            student=student,
+            evaluation_item=item,
+            classroom_submission=False
+        )
 
     return HttpResponse(
         render_to_string(
@@ -72,48 +77,67 @@ class PendingEvaluationsView(ListView):
     context_object_name = "students"
 
     def get_queryset(self):
-        queryset = Student.objects.filter(
-            pending_evaluation__isnull=False
-        ).select_related("user").prefetch_related('pending_statuses')
-
-        # Filtrar por grupo si se especifica
-        if group := self.request.GET.get("group"):
-            queryset = queryset.filter(group=group)
-
-        # Por defecto, excluir estudiantes que tienen evaluaciones con classroom_submission=True
+        # Obtener parámetros de la solicitud
+        group = self.request.GET.get("group")
         show_classroom = self.request.GET.get("show_classroom") == "true"
-        if not show_classroom:
-            # Excluir estudiantes que tienen un estado de evaluación pendiente con classroom_submission=True
-            queryset = queryset.exclude(
-                pending_statuses__evaluation_item=F("pending_evaluation"),
-                pending_statuses__classroom_submission=True,
-            )
 
-        return queryset
+        # Usar el método del modelo para obtener los estudiantes pendientes
+        pending_statuses = PendingEvaluationStatus.get_pending_students(
+            group=group,
+            include_classroom=show_classroom
+        )
+
+        # Extraer los estudiantes únicos de los estados pendientes
+        students = []
+        student_ids = set()
+        for status in pending_statuses:
+            if status.student.id not in student_ids:
+                students.append(status.student)
+                student_ids.add(status.student.id)
+
+        return students
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        # No pasamos las categorías de rúbrica aquí, las pasaremos en la plantilla para cada estudiante
         context["groups"] = Student.objects.values_list("group", flat=True).distinct().order_by("group")
         context["selected_group"] = self.request.GET.get("group")
         context["show_classroom"] = self.request.GET.get("show_classroom") == "true"
 
-        # Preparar un diccionario con las rúbricas para cada estudiante
+        # Preparar un diccionario con las rúbricas y estados pendientes para cada estudiante
         student_rubrics = {}
+        student_pending_items = {}
+
         for student in context["students"]:
-            if student.pending_evaluation:
-                student_rubrics[student.id] = RubricCategory.objects.filter(
-                    evaluation_item=student.pending_evaluation
-                ).order_by("order")
+            # Obtener todos los estados pendientes para este estudiante
+            pending_statuses = PendingEvaluationStatus.objects.filter(
+                student=student
+            ).select_related('evaluation_item')
+
+            # Guardar los items de evaluación pendientes para este estudiante
+            student_pending_items[student.id] = [status.evaluation_item for status in pending_statuses]
+
+            # Para cada item pendiente, obtener sus categorías de rúbrica
+            for status in pending_statuses:
+                if status.evaluation_item:
+                    student_rubrics.setdefault(student.id, {})
+                    student_rubrics[student.id][status.evaluation_item.id] = RubricCategory.objects.filter(
+                        evaluation_item=status.evaluation_item
+                    ).order_by('order')
 
         context["student_rubrics"] = student_rubrics
+        context["student_pending_items"] = student_pending_items
         return context
 
 
 @require_http_methods(["POST"])
 def save_evaluation(request, student_id):
     student = get_object_or_404(Student, id=student_id)
-    item = student.pending_evaluation
+    evaluation_item_id = request.POST.get('evaluation_item_id')
+    
+    if not evaluation_item_id:
+        return HttpResponse("No se ha especificado un item de evaluación", status=400)
+        
+    evaluation_item = get_object_or_404(EvaluationItem, id=evaluation_item_id)
     direct_score = request.POST.get("direct_score")
     classroom_submission = request.POST.get("classroom_submission") == "on"
     max_score = request.POST.get("max_score", "10")
@@ -130,7 +154,7 @@ def save_evaluation(request, student_id):
 
     # Verificar si existe un estado de evaluación pendiente con classroom_submission
     pending_status = PendingEvaluationStatus.objects.filter(
-        student=student, evaluation_item=item
+        student=student, evaluation_item=evaluation_item
     ).first()
 
     # Si existe un estado pendiente, usar su valor de classroom_submission
@@ -144,7 +168,7 @@ def save_evaluation(request, student_id):
     # Guardar la evaluación
     evaluation, created = Evaluation.objects.update_or_create(
         student=student,
-        evaluation_item=item,
+        evaluation_item=evaluation_item,
         defaults={
             "score": direct_score,
             "classroom_submission": classroom_submission,
@@ -153,7 +177,7 @@ def save_evaluation(request, student_id):
     )
 
     # Procesar las puntuaciones de la rúbrica
-    categories = RubricCategory.objects.filter(evaluation_item=item)
+    categories = RubricCategory.objects.filter(evaluation_item=evaluation_item)
     for category in categories:
         points = request.POST.get(f"category_{category.id}")
         if points:
@@ -167,10 +191,6 @@ def save_evaluation(request, student_id):
     if pending_status:
         pending_status.delete()
 
-    # Eliminar la evaluación pendiente del estudiante
-    student.pending_evaluation = None
-    student.save()
-
     return redirect("pending_evaluations")
 
 
@@ -178,21 +198,21 @@ def save_evaluation(request, student_id):
 def toggle_classroom_submission(request, student_id):
     """Actualiza el estado de classroom_submission para un estudiante pendiente de evaluación"""
     student = get_object_or_404(Student, id=student_id)
-    item = student.pending_evaluation
-
-    if not item:
-        return HttpResponse(
-            "Este estudiante no tiene una evaluación pendiente", status=400
-        )
-
+    evaluation_item_id = request.POST.get('evaluation_item_id')
+    is_checked = request.POST.get('is_checked') == 'true'
+    
+    if not evaluation_item_id:
+        return HttpResponse("No se ha especificado un item de evaluación", status=400)
+    
+    evaluation_item = get_object_or_404(EvaluationItem, id=evaluation_item_id)
+    
     # Buscar o crear un registro de estado para esta evaluación pendiente
-    status, created = PendingEvaluationStatus.objects.get_or_create(
-        student=student, evaluation_item=item, defaults={"classroom_submission": True}
+    status, created = PendingEvaluationStatus.objects.update_or_create(
+        student=student,
+        evaluation_item=evaluation_item,
+        defaults={
+            'classroom_submission': is_checked
+        }
     )
-
-    # Si el estado ya existía, actualizar el campo classroom_submission
-    if not created:
-        status.classroom_submission = True
-        status.save()
-
+    
     return HttpResponse(status=200)

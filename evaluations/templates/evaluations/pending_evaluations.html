@@ -28,172 +28,130 @@
         </div>
     </div>
     
-    <div id="evaluation-list" class="row">
-        {% include "evaluations/partials/evaluation_list.html" %}
+    <div class="row" id="evaluation-list" hx-swap-oob="true">
+        {% include 'evaluations/partials/evaluation_list.html' %}
     </div>
 </div>
 {% endblock %}
 
 {% block inline_javascript %}
 <script>
-  // Variable global para almacenar las notas máximas por estudiante
-  const studentMaxScores = {};
-  
-  // Variable global para almacenar el estado de classroom submission
-  const studentClassroomSubmission = {};
-  
-  // Manejar el checkbox de mostrar entregas por classroom
-  document.getElementById('show_classroom').addEventListener('change', function() {
-    const showClassroom = this.checked;
-    window.location.href = '{% url "pending_evaluations" %}{% if selected_group %}?group={{ selected_group }}&{% else %}?{% endif %}show_classroom=' + (showClassroom ? 'true' : 'false');
-  });
-  
-  // Función para actualizar la visualización cuando se marca un checkbox de classroom
-  window.updateClassroomSubmission = function(studentId, isChecked) {
-    if (!isChecked) return; // Solo actuamos cuando se marca, no cuando se desmarca
-    
-    // Si el checkbox global de mostrar classroom está desmarcado, ocultamos la tarjeta
-    if (!document.getElementById('show_classroom').checked) {
-      const card = document.querySelector(`.student-card[data-student-id="${studentId}"]`).closest('.col-md-6');
-      
-      // Animación de desvanecimiento
-      card.style.transition = 'opacity 0.5s ease';
-      card.style.opacity = '0';
-      
-      // Después de la animación, eliminamos el elemento para que se reordenen las tarjetas
-      setTimeout(() => {
-        card.remove();
+    document.addEventListener('DOMContentLoaded', function() {
+        // Manejar el checkbox de mostrar entregas por classroom
+        document.getElementById('show_classroom').addEventListener('change', function() {
+            const showClassroom = this.checked;
+            window.location.href = '{% url "pending_evaluations" %}{% if selected_group %}?group={{ selected_group }}&{% else %}?{% endif %}show_classroom=' + (showClassroom ? 'true' : 'false');
+        });
         
-        // Si no quedan más tarjetas, mostrar mensaje
-        const remainingCards = document.querySelectorAll('.student-card');
-        if (remainingCards.length === 0) {
-          const container = document.getElementById('evaluation-list');
-          container.innerHTML = '<div class="col-12"><div class="alert alert-info">No hay evaluaciones pendientes.</div></div>';
+        // Función para actualizar la visualización cuando se marca un checkbox de classroom
+        window.updateClassroomSubmission = function(studentId, evaluationItemId, isChecked) {
+            // Actualizar el atributo hx-vals para incluir el estado actual del checkbox
+            const checkbox = document.getElementById(`classroom_${studentId}_${evaluationItemId}`);
+            if (checkbox) {
+                // Reemplazar CHECKED_VALUE con el valor real
+                const hxVals = checkbox.getAttribute('hx-vals').replace('CHECKED_VALUE', isChecked);
+                checkbox.setAttribute('hx-vals', hxVals);
+            }
+            
+            // Si el checkbox global de mostrar classroom está desmarcado y se marca este checkbox,
+            // ocultamos la tarjeta
+            if (isChecked && !document.getElementById('show_classroom').checked) {
+                const card = document.querySelector(`.student-card[data-student-id="${studentId}"]`).closest('.col-md-6');
+                
+                // Animación de desvanecimiento
+                card.style.transition = 'opacity 0.5s ease';
+                card.style.opacity = '0';
+                
+                // Después de la animación, eliminamos el elemento para que se reordenen las tarjetas
+                setTimeout(() => {
+                    card.remove();
+                    
+                    // Si no quedan más tarjetas, mostrar mensaje
+                    const remainingCards = document.querySelectorAll('.student-card');
+                    if (remainingCards.length === 0) {
+                        const container = document.getElementById('evaluation-list');
+                        container.innerHTML = '<div class="col-12"><div class="alert alert-info">No hay evaluaciones pendientes.</div></div>';
+                    }
+                }, 500);
+            }
+        };
+        
+        // Función para seleccionar la nota máxima
+        window.selectMaxScore = function(buttonElement, studentId, evaluationItemId, maxScore) {
+            // Actualizar el botón seleccionado
+            const buttons = document.querySelectorAll(`.max-score-btn[data-student-id="${studentId}"][data-evaluation-item-id="${evaluationItemId}"]`);
+            buttons.forEach(btn => {
+                btn.classList.remove('btn-primary');
+                btn.classList.add('btn-outline-primary');
+            });
+            
+            buttonElement.classList.remove('btn-outline-primary');
+            buttonElement.classList.add('btn-primary');
+            
+            // Actualizar el valor oculto
+            document.getElementById(`max_score_${studentId}_${evaluationItemId}`).value = maxScore;
+            
+            // Actualizar la nota directa
+            updateDirectScore(studentId, evaluationItemId);
+        };
+        
+        // Función para actualizar el valor del slider de la rúbrica
+        window.updateRubricValue = function(studentId, evaluationItemId, categoryId, value) {
+            document.getElementById(`rubric_value_input_${studentId}_${evaluationItemId}_${categoryId}`).value = value;
+            
+            // Actualizar la nota directa basada en los valores de la rúbrica
+            updateDirectScore(studentId, evaluationItemId);
+        };
+        
+        // Función para actualizar el slider desde el input numérico
+        window.updateRubricSlider = function(studentId, evaluationItemId, categoryId, value) {
+            document.getElementById(`rubric_${studentId}_${evaluationItemId}_${categoryId}`).value = value;
+            
+            // Actualizar la nota directa basada en los valores de la rúbrica
+            updateDirectScore(studentId, evaluationItemId);
+        };
+        
+        // Función para calcular y actualizar la nota directa basada en los valores de la rúbrica
+        function updateDirectScore(studentId, evaluationItemId) {
+            // Obtener todos los sliders para este estudiante y esta evaluación
+            const sliders = document.querySelectorAll(`input[id^="rubric_${studentId}_${evaluationItemId}_"][type="range"]`);
+            if (!sliders.length) return;
+            
+            // Calcular la puntuación total y la puntuación máxima posible
+            let totalPoints = 0;
+            let maxPossible = sliders.length * 2; // Cada categoría tiene un máximo de 2 puntos
+            
+            sliders.forEach(slider => {
+                totalPoints += parseFloat(slider.value || 0);
+            });
+            
+            // Obtener la nota máxima seleccionada (por defecto 10)
+            const maxScoreInput = document.getElementById(`max_score_${studentId}_${evaluationItemId}`);
+            const maxScore = maxScoreInput ? parseFloat(maxScoreInput.value) : 10;
+            
+            // Calcular la nota sobre la nota máxima seleccionada (regla de tres)
+            let score = (totalPoints / maxPossible) * maxScore;
+            
+            // Actualizar el campo de nota directa
+            const directScoreInput = document.getElementById(`score_${studentId}_${evaluationItemId}`);
+            if (directScoreInput) {
+                directScoreInput.value = score.toFixed(1);
+            }
         }
-      }, 500);
-    }
-  };
-  
-  // Función para seleccionar la nota máxima
-  function selectMaxScore(buttonElement, studentId, maxScore) {
-    // Actualizar la clase de los botones
-    const buttons = document.querySelectorAll(`.max-score-btn[data-student-id="${studentId}"]`);
-    buttons.forEach(btn => {
-      btn.classList.remove('btn-primary');
-      btn.classList.add('btn-outline-primary');
+        
+        // Inicializar los botones de nota máxima
+        const maxScoreButtons = document.querySelectorAll('.max-score-btn');
+        maxScoreButtons.forEach(button => {
+            const studentId = button.dataset.studentId;
+            const evaluationItemId = button.dataset.evaluationItemId;
+            const maxScore = button.dataset.maxScore;
+            
+            // Si el botón tiene maxScore = 10, seleccionarlo por defecto
+            if (maxScore === '10') {
+                button.classList.remove('btn-outline-primary');
+                button.classList.add('btn-primary');
+            }
+        });
     });
-    
-    // Marcar el botón seleccionado
-    buttonElement.classList.remove('btn-outline-primary');
-    buttonElement.classList.add('btn-primary');
-    
-    // Actualizar el valor del campo oculto
-    const hiddenInput = document.getElementById(`max_score_${studentId}`);
-    if (hiddenInput) {
-      hiddenInput.value = maxScore;
-    }
-    
-    // Guardar la nota máxima para este estudiante
-    studentMaxScores[studentId] = parseFloat(maxScore);
-    
-    // Recalcular la nota directa con la nueva nota máxima
-    updateDirectScore(studentId);
-  }
-  
-  // Función para actualizar el valor numérico cuando se mueve el slider
-  function updateRubricValue(studentId, categoryOrder, value) {
-    // Actualizar el campo numérico
-    const inputElement = document.getElementById(`rubric_value_input_${studentId}_${categoryOrder}`);
-    if (inputElement) {
-      inputElement.value = value;
-    }
-    
-    // Calcular y actualizar la nota directa basada en los valores de la rúbrica
-    updateDirectScore(studentId);
-  }
-  
-  // Función para actualizar el slider cuando se cambia el valor numérico
-  function updateRubricSlider(studentId, categoryOrder, value) {
-    // Asegurarse de que el valor está dentro del rango permitido
-    value = Math.max(0, Math.min(2, value));
-    
-    // Actualizar el slider
-    const sliderElement = document.getElementById(`rubric_${studentId}_${categoryOrder}`);
-    if (sliderElement) {
-      sliderElement.value = value;
-    }
-    
-    // Calcular y actualizar la nota directa basada en los valores de la rúbrica
-    updateDirectScore(studentId);
-  }
-  
-  // Función para calcular y actualizar la nota directa basada en los valores de la rúbrica
-  function updateDirectScore(studentId) {
-    // Obtener todos los sliders para este estudiante
-    const sliders = document.querySelectorAll(`input[id^="rubric_${studentId}_"][type="range"]`);
-    if (!sliders.length) return;
-    
-    // Calcular la puntuación total y la puntuación máxima posible
-    let totalPoints = 0;
-    let maxPossible = sliders.length * 2; // Cada categoría tiene un máximo de 2 puntos
-    
-    sliders.forEach(slider => {
-      totalPoints += parseFloat(slider.value);
-    });
-    
-    // Obtener la nota máxima seleccionada (por defecto 10)
-    const maxScore = studentMaxScores[studentId] || 10;
-    
-    // Calcular la nota sobre la nota máxima seleccionada (regla de tres)
-    let score = (totalPoints / maxPossible) * maxScore;
-    
-    // Aplicar penalización si es entrega por classroom
-    if (studentClassroomSubmission[studentId]) {
-      score = Math.max(0, score - 1); // Restar 1 punto, pero no bajar de 0
-    }
-    
-    // Actualizar el campo de nota directa
-    const directScoreInput = document.getElementById(`score_${studentId}`);
-    if (directScoreInput) {
-      directScoreInput.value = score.toFixed(1);
-    }
-  }
-
-  // Cuando la página cargue, inicializar las notas máximas y añadir listeners
-  document.addEventListener('DOMContentLoaded', function() {
-    // Inicializar los botones de nota máxima
-    const students = document.querySelectorAll('[id^="score_"]');
-    students.forEach(input => {
-      const studentId = input.id.replace('score_', '');
-      
-      // Establecer 10 como valor por defecto
-      studentMaxScores[studentId] = 10;
-      
-      // Inicializar classroom submission como false
-      studentClassroomSubmission[studentId] = false;
-      
-      // Marcar el botón de 10 como seleccionado
-      const button10 = document.querySelector(`.max-score-btn[data-student-id="${studentId}"][data-max-score="10"]`);
-      if (button10) {
-        button10.classList.remove('btn-outline-primary');
-        button10.classList.add('btn-primary');
-      }
-    });
-    
-    // Obtener todos los campos de nota directa
-    const directScoreInputs = document.querySelectorAll('input[id^="score_"][type="number"]');
-    
-    // Añadir un listener para cada campo
-    directScoreInputs.forEach(input => {
-      // Extraer el ID del estudiante del ID del campo
-      const studentId = input.id.replace('score_', '');
-      
-      // Añadir un listener para cuando el usuario cambie manualmente la nota directa
-      input.addEventListener('input', function() {
-        // Esto permite al usuario editar manualmente la nota directa sin que se recalcule
-        // automáticamente desde los valores de la rúbrica
-      });
-    });
-  });
 </script>
 {% endblock inline_javascript %}
