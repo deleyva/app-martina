@@ -21,13 +21,10 @@ class EvaluationItem(models.Model):
 
 class Student(models.Model):
     user = models.OneToOneField(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="student_profile",
-        null=True,
-        blank=True,
+        "users.User", on_delete=models.CASCADE, null=True, blank=True
     )
-    group = models.CharField(max_length=50)
+    # El name se obtiene del modelo User relacionado a través del campo user
+    group = models.CharField(max_length=20, blank=True)
     pending_evaluation = models.ForeignKey(
         EvaluationItem,
         on_delete=models.SET_NULL,
@@ -37,23 +34,25 @@ class Student(models.Model):
     )
 
     def __str__(self):
-        if self.user:
-            return f"{self.user.name}"
-        return f"Student {self.id}"
+        return f"{self.user.name}" if self.user else f"Student {self.id}"
+
+    class Meta:
+        ordering = ["user__name"]
 
 
 class RubricCategory(models.Model):
     """Categoría de la rúbrica (ej: Plasticidad, Velocidad, Compás, etc.)"""
+
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
     max_points = models.DecimalField(max_digits=3, decimal_places=1, default=2.0)
     order = models.PositiveSmallIntegerField(default=0)
     evaluation_item = models.ForeignKey(
-        EvaluationItem, 
-        on_delete=models.CASCADE, 
+        EvaluationItem,
+        on_delete=models.CASCADE,
         related_name="rubric_categories",
         null=True,
-        blank=True
+        blank=True,
     )
 
     class Meta:
@@ -74,6 +73,12 @@ class Evaluation(models.Model):
     )
     score = models.DecimalField(max_digits=4, decimal_places=2)
     date_evaluated = models.DateTimeField(auto_now_add=True)
+    classroom_submission = models.BooleanField(
+        default=False, verbose_name="Entrega por classroom"
+    )
+    max_score = models.DecimalField(
+        max_digits=3, decimal_places=1, default=10.0, verbose_name="Nota máxima"
+    )
 
     class Meta:
         unique_together = ["student", "evaluation_item"]
@@ -81,35 +86,55 @@ class Evaluation(models.Model):
 
     def __str__(self):
         return f"{self.student} - {self.evaluation_item}: {self.score}"
-    
+
     def calculate_score(self):
         """Calcula la puntuación total basada en las puntuaciones de la rúbrica"""
         rubric_scores = self.rubric_scores.all()
         if not rubric_scores:
             return 0
-            
+
         total_points = sum(score.points for score in rubric_scores)
         max_possible = sum(score.category.max_points for score in rubric_scores)
-        
+
         return (total_points / max_possible) * 10 if max_possible > 0 else 0
 
 
 class RubricScore(models.Model):
     """Puntuación de un estudiante en una categoría específica de la rúbrica"""
+
     evaluation = models.ForeignKey(
-        Evaluation, 
-        on_delete=models.CASCADE, 
-        related_name="rubric_scores"
+        Evaluation, on_delete=models.CASCADE, related_name="rubric_scores"
     )
     category = models.ForeignKey(
-        RubricCategory, 
-        on_delete=models.CASCADE, 
-        related_name="scores"
+        RubricCategory, on_delete=models.CASCADE, related_name="scores"
     )
     points = models.DecimalField(max_digits=3, decimal_places=1)
-    
+
     class Meta:
         unique_together = ["evaluation", "category"]
-        
+
     def __str__(self):
         return f"{self.evaluation.student} - {self.category.name}: {self.points} puntos"
+
+
+class PendingEvaluationStatus(models.Model):
+    """Modelo para almacenar el estado de las evaluaciones pendientes"""
+
+    student = models.ForeignKey(
+        Student, on_delete=models.CASCADE, related_name="pending_statuses"
+    )
+    evaluation_item = models.ForeignKey(
+        EvaluationItem, on_delete=models.CASCADE, related_name="pending_statuses"
+    )
+    classroom_submission = models.BooleanField(
+        default=False, verbose_name="Entrega por classroom"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ["student", "evaluation_item"]
+        verbose_name = "Estado de evaluación pendiente"
+        verbose_name_plural = "Estados de evaluaciones pendientes"
+
+    def __str__(self):
+        return f"{self.student} - {self.evaluation_item} - {'Classroom' if self.classroom_submission else 'En clase'}"

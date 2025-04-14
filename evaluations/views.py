@@ -5,159 +5,194 @@ from django.http import HttpResponse
 from django.template.loader import render_to_string
 from django.views.decorators.http import require_http_methods
 import random
+from django.db.models import F, Q
+from decimal import Decimal, InvalidOperation
 
-from .models import Student, EvaluationItem, RubricCategory, Evaluation, RubricScore
+from .models import (
+    Student,
+    EvaluationItem,
+    RubricCategory,
+    Evaluation,
+    RubricScore,
+    PendingEvaluationStatus,
+)
+
 
 class EvaluationItemListView(ListView):
     model = EvaluationItem
-    template_name = 'evaluations/item_list.html'
-    context_object_name = 'items'
+    template_name = "evaluations/item_list.html"
+    context_object_name = "items"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['groups'] = Student.objects.values_list('group', flat=True).distinct()
+        context["groups"] = Student.objects.values_list("group", flat=True).distinct().order_by("group")
         return context
+
 
 @require_http_methods(["GET"])
 def select_students(request, item_id):
     item = get_object_or_404(EvaluationItem, id=item_id)
-    group = request.GET.get('group')
-    
+    group = request.GET.get("group")
+
     if not group:
         return HttpResponse("Se requiere especificar un grupo", status=400)
-    
+
     # Get students without evaluation for this item
-    available_students = Student.objects.filter(
-        group=group
-    ).exclude(
-        evaluations__evaluation_item=item
-    ).select_related('user')  # Añadimos select_related para optimizar las consultas
-    
+    available_students = (
+        Student.objects.filter(group=group)
+        .exclude(evaluations__evaluation_item=item)
+        .select_related("user")
+    )  # Añadimos select_related para optimizar las consultas
+
     if not available_students:
         return HttpResponse(
-            render_to_string('evaluations/partials/no_students.html'),
-            status=200
+            render_to_string("evaluations/partials/no_students.html"), status=200
         )
-    
+
     # Randomly select students
-    selected_students = random.sample(list(available_students), min(3, len(available_students)))
-    
+    selected_students = random.sample(
+        list(available_students), min(3, len(available_students))
+    )
+
     # Mark them as pending evaluation
     for student in selected_students:
         student.pending_evaluation = item
         student.save()
-    
+
     return HttpResponse(
         render_to_string(
-            'evaluations/partials/selected_students.html',
-            {'students': selected_students}
+            "evaluations/partials/selected_students.html",
+            {"students": selected_students},
         )
     )
 
+
 class PendingEvaluationsView(ListView):
-    template_name = 'evaluations/pending_evaluations.html'
-    context_object_name = 'students'
-    
+    template_name = "evaluations/pending_evaluations.html"
+    context_object_name = "students"
+
     def get_queryset(self):
-        queryset = Student.objects.filter(pending_evaluation__isnull=False).select_related('user')  # Añadimos select_related
-        if group := self.request.GET.get('group'):
+        queryset = Student.objects.filter(
+            pending_evaluation__isnull=False
+        ).select_related("user").prefetch_related('pending_statuses')
+
+        # Filtrar por grupo si se especifica
+        if group := self.request.GET.get("group"):
             queryset = queryset.filter(group=group)
+
+        # Por defecto, excluir estudiantes que tienen evaluaciones con classroom_submission=True
+        show_classroom = self.request.GET.get("show_classroom") == "true"
+        if not show_classroom:
+            # Excluir estudiantes que tienen un estado de evaluación pendiente con classroom_submission=True
+            queryset = queryset.exclude(
+                pending_statuses__evaluation_item=F("pending_evaluation"),
+                pending_statuses__classroom_submission=True,
+            )
+
         return queryset
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         # No pasamos las categorías de rúbrica aquí, las pasaremos en la plantilla para cada estudiante
-        context['groups'] = Student.objects.values_list('group', flat=True).distinct()
-        context['selected_group'] = self.request.GET.get('group')
-        
+        context["groups"] = Student.objects.values_list("group", flat=True).distinct().order_by("group")
+        context["selected_group"] = self.request.GET.get("group")
+        context["show_classroom"] = self.request.GET.get("show_classroom") == "true"
+
         # Preparar un diccionario con las rúbricas para cada estudiante
         student_rubrics = {}
-        for student in context['students']:
+        for student in context["students"]:
             if student.pending_evaluation:
                 student_rubrics[student.id] = RubricCategory.objects.filter(
                     evaluation_item=student.pending_evaluation
-                ).order_by('order')
-        
-        context['student_rubrics'] = student_rubrics
+                ).order_by("order")
+
+        context["student_rubrics"] = student_rubrics
         return context
+
 
 @require_http_methods(["POST"])
 def save_evaluation(request, student_id):
     student = get_object_or_404(Student, id=student_id)
     item = student.pending_evaluation
-    
-    # Check if direct score was provided
-    if direct_score := request.POST.get('direct_score'):
-        try:
-            score = float(direct_score)
-            if 0 <= score <= 10:
-                # Crear evaluación con puntuación directa
-                evaluation = Evaluation.objects.create(
-                    student=student,
-                    evaluation_item=item,
-                    score=score
-                )
-            else:
-                return HttpResponse("La nota debe estar entre 0 y 10", status=400)
-        except ValueError:
-            return HttpResponse("La nota debe ser un número válido", status=400)
-    else:
-        # Crear evaluación con puntuación inicial 0
-        evaluation = Evaluation.objects.create(
-            student=student,
-            evaluation_item=item,
-            score=0  # Se actualizará después de guardar las puntuaciones de la rúbrica
-        )
-        
-        # Guardar puntuaciones de la rúbrica
-        rubric_categories = RubricCategory.objects.filter(evaluation_item=item).order_by('order')
-        for category in rubric_categories:
-            points_value = request.POST.get(f'rubric_{category.order}', '0')
-            try:
-                points = float(points_value)
-                # Asegurarse de que los puntos estén en el rango correcto
-                if 0 <= points <= category.max_points:
-                    RubricScore.objects.create(
-                        evaluation=evaluation,
-                        category=category,
-                        points=points
-                    )
-            except ValueError:
-                # Si hay un error, asignar 0 puntos
-                RubricScore.objects.create(
-                    evaluation=evaluation,
-                    category=category,
-                    points=0
-                )
-        
-        # Calcular y actualizar la puntuación total
-        total_score = evaluation.calculate_score()
-        evaluation.score = total_score
-        evaluation.save()
-    
-    # Clear pending evaluation
+    direct_score = request.POST.get("direct_score")
+    classroom_submission = request.POST.get("classroom_submission") == "on"
+    max_score = request.POST.get("max_score", "10")
+
+    if not direct_score:
+        return HttpResponse("No se ha proporcionado una puntuación", status=400)
+
+    # Convertir a decimal
+    try:
+        direct_score = Decimal(direct_score)
+        max_score = Decimal(max_score)
+    except InvalidOperation:
+        return HttpResponse("La puntuación debe ser un número", status=400)
+
+    # Verificar si existe un estado de evaluación pendiente con classroom_submission
+    pending_status = PendingEvaluationStatus.objects.filter(
+        student=student, evaluation_item=item
+    ).first()
+
+    # Si existe un estado pendiente, usar su valor de classroom_submission
+    if pending_status:
+        classroom_submission = pending_status.classroom_submission
+
+    # Aplicar penalización si es entrega por classroom
+    if classroom_submission and direct_score > 1:
+        direct_score = max(1, direct_score - 1)  # Restar 1 punto pero no bajar de 1
+
+    # Guardar la evaluación
+    evaluation, created = Evaluation.objects.update_or_create(
+        student=student,
+        evaluation_item=item,
+        defaults={
+            "score": direct_score,
+            "classroom_submission": classroom_submission,
+            "max_score": max_score,
+        },
+    )
+
+    # Procesar las puntuaciones de la rúbrica
+    categories = RubricCategory.objects.filter(evaluation_item=item)
+    for category in categories:
+        points = request.POST.get(f"category_{category.id}")
+        if points:
+            RubricScore.objects.update_or_create(
+                evaluation=evaluation,
+                category=category,
+                defaults={"points": Decimal(points)},
+            )
+
+    # Eliminar el estado de evaluación pendiente si existe
+    if pending_status:
+        pending_status.delete()
+
+    # Eliminar la evaluación pendiente del estudiante
     student.pending_evaluation = None
     student.save()
-    
-    # Get remaining students with the same group filter if it was applied
-    remaining_query = Student.objects.filter(pending_evaluation__isnull=False)
-    if group := request.GET.get('group'):
-        remaining_query = remaining_query.filter(group=group)
-    
-    # Preparar un diccionario con las rúbricas para cada estudiante
-    student_rubrics = {}
-    for student in remaining_query:
-        if student.pending_evaluation:
-            student_rubrics[student.id] = RubricCategory.objects.filter(
-                evaluation_item=student.pending_evaluation
-            ).order_by('order')
-    
-    return HttpResponse(
-        render_to_string(
-            'evaluations/partials/evaluation_list.html',
-            {
-                'students': remaining_query,
-                'student_rubrics': student_rubrics
-            }
+
+    return redirect("pending_evaluations")
+
+
+@require_http_methods(["POST"])
+def toggle_classroom_submission(request, student_id):
+    """Actualiza el estado de classroom_submission para un estudiante pendiente de evaluación"""
+    student = get_object_or_404(Student, id=student_id)
+    item = student.pending_evaluation
+
+    if not item:
+        return HttpResponse(
+            "Este estudiante no tiene una evaluación pendiente", status=400
         )
+
+    # Buscar o crear un registro de estado para esta evaluación pendiente
+    status, created = PendingEvaluationStatus.objects.get_or_create(
+        student=student, evaluation_item=item, defaults={"classroom_submission": True}
     )
+
+    # Si el estado ya existía, actualizar el campo classroom_submission
+    if not created:
+        status.classroom_submission = True
+        status.save()
+
+    return HttpResponse(status=200)

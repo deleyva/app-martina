@@ -1,98 +1,172 @@
-{% load evaluation_tags %}
-{% for student in students %}
+{% load evaluation_tags %} {% for student in students %}
 <div class="col-md-6 mb-4">
-    <div class="card">
-        <div class="card-header">
-            <h5 class="mb-0">{{ student.user.name|default:"Estudiante sin nombre" }}</h5>
-            <small class="text-muted">Grupo: {{ student.group }}</small>
-        </div>
-        <div class="card-body">
-            <h6>{{ student.pending_evaluation.name }}</h6>
-            {% if student.pending_evaluation.term %}
-            <p class="text-muted mb-3">{{ student.pending_evaluation.get_term_display }}</p>
-            {% endif %}
-            
-            <form hx-post="{% url 'save_evaluation' student.id %}"
-                  hx-target="#evaluation-list"
-                  hx-swap="innerHTML"
-                  hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
-                {% csrf_token %}
-                
-                <div class="form-group mb-4">
-                    <label for="score_{{ student.id }}" class="form-label">Nota directa (0-10):</label>
-                    <input type="number" 
-                           class="form-control" 
-                           id="score_{{ student.id }}" 
-                           name="direct_score" 
-                           min="0" 
-                           max="10" 
-                           step="0.1"
-                           placeholder="Introduce una nota del 0 al 10">
-                </div>
-
-                {% with rubrics=student_rubrics|get_item:student.id %}
-                {% if rubrics %}
-                <div class="mb-4">
-                    <h6 class="mb-3">O evalúa usando la rúbrica:</h6>
-                    <table class="table table-bordered">
-                        <thead>
-                            <tr>
-                                <th>Elementos de valoración</th>
-                                <th class="text-center" style="width: 50%">Puntuación (0-2)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for category in rubrics %}
-                            <tr>
-                                <td>
-                                    <strong>{{ category.name }}</strong>
-                                    {% if category.description %}
-                                    <br><small class="text-muted">{{ category.description }}</small>
-                                    {% endif %}
-                                </td>
-                                <td class="align-middle">
-                                    <div class="d-flex align-items-center">
-                                        <input type="range" 
-                                               class="form-range flex-grow-1" 
-                                               name="rubric_{{ category.order }}" 
-                                               id="rubric_{{ student.id }}_{{ category.order }}" 
-                                               min="0" 
-                                               max="2" 
-                                               step="0.5" 
-                                               value="0"
-                                               oninput="updateRubricValue('{{ student.id }}', '{{ category.order }}', this.value)">
-                                        <div class="ms-2 d-flex align-items-center">
-                                            <input type="number"
-                                                   id="rubric_value_input_{{ student.id }}_{{ category.order }}"
-                                                   class="form-control form-control-sm"
-                                                   style="width: 60px;"
-                                                   min="0"
-                                                   max="2"
-                                                   step="0.5"
-                                                   value="0"
-                                                   oninput="updateRubricSlider('{{ student.id }}', '{{ category.order }}', this.value)">
-                                        </div>
-                                    </div>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                {% endif %}
-                {% endwith %}
-                
-                <button type="submit" class="btn btn-primary">
-                    Guardar Evaluación
-                </button>
-            </form>
-        </div>
+  <div class="card student-card" data-student-id="{{ student.id }}">
+    <div class="card-header">
+      <h5 class="mb-0">
+        {{ student.user.name|default:"Estudiante sin nombre" }}
+      </h5>
+      <small class="text-muted">Grupo: {{ student.group }}</small>
     </div>
+    <div class="card-body">
+      <h6>{{ student.pending_evaluation.name }}</h6>
+      {% if student.pending_evaluation.term %}
+      <p class="text-muted mb-3">
+        {{ student.pending_evaluation.get_term_display }}
+      </p>
+      {% endif %}
+
+      <form
+        hx-post="{% url 'save_evaluation' student.id %}"
+        hx-target="#evaluation-list"
+        hx-swap="innerHTML"
+        hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+      >
+        {% csrf_token %}
+
+        <div class="form-group mb-4">
+          <label for="score_{{ student.id }}" class="form-label"
+            >Nota directa (0-10):</label
+          >
+          <div class="d-flex flex-column">
+            <input
+              type="number"
+              class="form-control mb-2"
+              id="score_{{ student.id }}"
+              name="direct_score"
+              min="0"
+              max="10"
+              step="0.1"
+              placeholder="Introduce una nota del 0 al 10"
+            />
+
+            <div class="mb-2">
+              <label class="form-label mb-1">Nota máxima:</label>
+              <div class="btn-group" role="group" aria-label="Nota máxima">
+                <button
+                  type="button"
+                  class="btn btn-outline-primary max-score-btn"
+                  data-student-id="{{ student.id }}"
+                  data-max-score="10"
+                  onclick="selectMaxScore(this, '{{ student.id }}', 10)"
+                >
+                  10
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-outline-primary max-score-btn"
+                  data-student-id="{{ student.id }}"
+                  data-max-score="8"
+                  onclick="selectMaxScore(this, '{{ student.id }}', 8)"
+                >
+                  8
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-outline-primary max-score-btn"
+                  data-student-id="{{ student.id }}"
+                  data-max-score="6"
+                  onclick="selectMaxScore(this, '{{ student.id }}', 6)"
+                >
+                  6
+                </button>
+              </div>
+              <input
+                type="hidden"
+                id="max_score_{{ student.id }}"
+                name="max_score"
+                value="10"
+              />
+            </div>
+
+            <div class="form-check mb-2">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="classroom_{{ student.id }}"
+                name="classroom_submission"
+                value="on"
+                onchange="updateClassroomSubmission('{{ student.id }}', this.checked)"
+                hx-post="{% url 'toggle_classroom_submission' student.id %}"
+                hx-trigger="change"
+                hx-swap="none"
+                {% for status in student.pending_statuses.all %}
+                  {% if status.evaluation_item == student.pending_evaluation and status.classroom_submission %}
+                    checked
+                  {% endif %}
+                {% endfor %}
+              />
+              <label class="form-check-label" for="classroom_{{ student.id }}">
+                Entrega por classroom (-1 punto)
+              </label>
+            </div>
+          </div>
+        </div>
+
+        {% with rubrics=student_rubrics|get_item:student.id %} {% if rubrics %}
+        <div class="mb-4">
+          <h6 class="mb-3">O evalúa usando la rúbrica:</h6>
+          <table class="table table-bordered">
+            <thead>
+              <tr>
+                <th>Elementos de valoración</th>
+                <th class="text-center" style="width: 50%">Puntuación (0-2)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for category in rubrics %}
+              <tr>
+                <td>
+                  <strong>{{ category.name }}</strong>
+                  {% if category.description %}
+                  <br /><small class="text-muted"
+                    >{{ category.description }}</small
+                  >
+                  {% endif %}
+                </td>
+                <td class="align-middle">
+                  <div class="d-flex align-items-center">
+                    <input
+                      type="range"
+                      class="form-range flex-grow-1"
+                      name="rubric_{{ category.order }}"
+                      id="rubric_{{ student.id }}_{{ category.order }}"
+                      min="0"
+                      max="2"
+                      step="0.5"
+                      value="0"
+                      oninput="updateRubricValue('{{ student.id }}', '{{ category.order }}', this.value)"
+                    />
+                    <div class="ms-2 d-flex align-items-center">
+                      <input
+                        type="number"
+                        id="rubric_value_input_{{ student.id }}_{{ category.order }}"
+                        class="form-control form-control-sm"
+                        style="width: 60px"
+                        min="0"
+                        max="2"
+                        step="0.5"
+                        value="0"
+                        oninput="updateRubricSlider('{{ student.id }}', '{{ category.order }}', this.value)"
+                      />
+                    </div>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% endif %} {% endwith %}
+
+        <button type="submit" class="btn btn-primary">
+          Guardar Evaluación
+        </button>
+      </form>
+    </div>
+  </div>
 </div>
 {% empty %}
 <div class="col-12">
-    <div class="alert alert-info">
-        No hay evaluaciones pendientes.
-    </div>
+  <div class="alert alert-info">No hay evaluaciones pendientes.</div>
 </div>
 {% endfor %}

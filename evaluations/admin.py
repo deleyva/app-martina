@@ -4,7 +4,8 @@ from .models import (
     EvaluationItem, 
     Evaluation, 
     RubricCategory, 
-    RubricScore
+    RubricScore,
+    PendingEvaluationStatus
 )
 
 # Register your models here.
@@ -52,10 +53,21 @@ class RubricCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Evaluation)
 class EvaluationAdmin(admin.ModelAdmin):
-    list_display = ('student', 'evaluation_item', 'score', 'date_evaluated')
-    list_filter = ('evaluation_item', 'date_evaluated')
+    list_display = ('student', 'evaluation_item', 'score', 'max_score', 'classroom_submission', 'date_evaluated')
+    list_filter = ('evaluation_item', 'classroom_submission', 'max_score')
     search_fields = ('student__user__name',)
-    date_hierarchy = 'date_evaluated'
+    date_hierarchy = None  
+    readonly_fields = ('date_evaluated',)
+    fieldsets = (
+        (None, {
+            'fields': ('student', 'evaluation_item', 'score', 'date_evaluated')
+        }),
+        ('Configuración avanzada', {
+            'fields': ('max_score', 'classroom_submission'),
+            'classes': ('collapse',),
+            'description': 'Configuración de nota máxima y entrega por classroom'
+        }),
+    )
 
 
 @admin.register(RubricScore)
@@ -63,3 +75,11 @@ class RubricScoreAdmin(admin.ModelAdmin):
     list_display = ('evaluation', 'category', 'points')
     list_filter = ('category', 'points')
     search_fields = ('evaluation__student__user__name', 'category__name')
+
+
+@admin.register(PendingEvaluationStatus)
+class PendingEvaluationStatusAdmin(admin.ModelAdmin):
+    list_display = ('student', 'evaluation_item', 'classroom_submission', 'created_at')
+    list_filter = ('evaluation_item', 'classroom_submission', 'created_at')
+    search_fields = ('student__user__name',)
+    date_hierarchy = 'created_at'
