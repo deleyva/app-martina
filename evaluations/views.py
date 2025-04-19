@@ -34,6 +34,15 @@ def select_students(request, item_id):
     """Selecciona aleatoriamente estudiantes para una evaluación"""
     item = get_object_or_404(EvaluationItem, id=item_id)
     group = request.GET.get("group")
+    num_students = request.GET.get("num_students", "3")  # Valor por defecto: 3
+    
+    # Convertir num_students a entero
+    try:
+        num_students = int(num_students)
+        # Limitar entre 1 y 10 estudiantes
+        num_students = max(1, min(10, num_students))
+    except (ValueError, TypeError):
+        num_students = 3  # Valor por defecto si hay error
 
     if not group:
         return HttpResponse("Se requiere especificar un grupo", status=400)
@@ -53,7 +62,7 @@ def select_students(request, item_id):
 
     # Randomly select students
     selected_students = random.sample(
-        list(available_students), min(3, len(available_students))
+        list(available_students), min(num_students, len(available_students))
     )
 
     # Mark them as pending evaluation
