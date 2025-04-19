@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Estilos personalizados que se añadirán a Tailwind */
+@layer components {
+  /* Puedes agregar aquí tus componentes personalizados */
+}
+
+/* Otros estilos específicos del proyecto que no encajan bien en Tailwind */

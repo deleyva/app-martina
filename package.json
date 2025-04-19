@@ -1,0 +1,13 @@
+{
+  "name": "martina_bescos_app",
+  "version": "1.0.0",
+  "description": "Frontend para Martina Bescós App",
+  "scripts": {
+    "build": "tailwindcss -i ./martina_bescos_app/static/css/input.css -o ./martina_bescos_app/static/css/output.css --minify",
+    "dev": "tailwindcss -i ./martina_bescos_app/static/css/input.css -o ./martina_bescos_app/static/css/output.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.1",
+    "daisyui": "^4.6.1"
+  }
+}

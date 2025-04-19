@@ -134,3 +134,16 @@ extend-unsafe-fixes = [
 
 [tool.ruff.lint.isort]
 force-single-line = true
+
+[tool.poetry.dependencies]
+python = "^3.12"
+django = "^4.1.7"
+django-crispy-forms = "^1.14.0"
+django-debug-toolbar = "^3.7.0"
+django-extensions = "^3.2.1"
+django-storages = "^1.13.1"
+django-tailwind = "^2.0.1"
+django-webpack-loader = "^1.7.2"
+psycopg2-binary = "^2.9.5"
+whitenoise = "^6.2.0"
+crispy-tailwind = "^1.0.0"  # Integración de django-crispy-forms con Tailwind CSS

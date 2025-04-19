@@ -1,8 +1,13 @@
 <div class="alert alert-success mt-3">
-    <h6 class="alert-heading">Estudiantes seleccionados:</h6>
-    <ul class="list-unstyled mb-0">
-        {% for student in students %}
-        <li>{{ student.user.name|default:"Estudiante sin nombre" }}</li>
-        {% endfor %}
-    </ul>
+    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+    <div>
+        <h6 class="font-bold">Estudiantes seleccionados:</h6>
+        <ul class="mt-2 space-y-1">
+            {% for student in students %}
+            <li class="flex items-center">
+                <span class="w-full">{{ student.user.name|default:"Estudiante sin nombre" }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
 </div>

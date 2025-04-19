@@ -1,41 +1,41 @@
 {% load evaluation_tags %} 
 {% for student in students %}
-<div class="col-md-6 mb-4">
-  <div class="card student-card" data-student-id="{{ student.id }}">
-    <div class="card-header">
-      <h5 class="mb-0">
-        {{ student.user.name|default:"Estudiante sin nombre" }}
-      </h5>
-      <small class="text-muted">Grupo: {{ student.group }}</small>
-    </div>
-    
-    {% with pending_items=student_pending_items|get_item:student.id %}
-    {% for evaluation_item in pending_items %}
-    <div class="card-body">
-      <h6>{{ evaluation_item.name }}</h6>
+<div class="w-full md:w-1/2 p-4">
+  <div class="card bg-base-100 shadow-xl student-card" data-student-id="{{ student.id }}">
+    <div class="card-body p-4">
+      <div class="card-title justify-between flex-wrap">
+        <h5 class="text-lg font-bold">
+          {{ student.user.name|default:"Estudiante sin nombre" }}
+        </h5>
+        <span class="badge badge-outline">Grupo: {{ student.group }}</span>
+      </div>
+      
+      {% with pending_items=student_pending_items|get_item:student.id %}
+      {% for evaluation_item in pending_items %}
+      <div class="divider my-2"></div>
+      <h6 class="font-semibold">{{ evaluation_item.name }}</h6>
       {% if evaluation_item.term %}
-      <p class="text-muted mb-3">
+      <p class="text-sm opacity-70 mb-3">
         {{ evaluation_item.get_term_display }}
       </p>
       {% endif %}
 
       <form
-        hx-post="{% url 'save_evaluation' student.id %}"
-        hx-target="#evaluation-list"
-        hx-swap="outerHTML"
-        hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+        data-post="{% url 'save_evaluation' student.id %}"
+        data-target="#evaluation-list"
+        data-replace="outerHTML"
       >
         {% csrf_token %}
         <input type="hidden" name="evaluation_item_id" value="{{ evaluation_item.id }}">
 
-        <div class="form-group mb-4">
-          <label for="score_{{ student.id }}_{{ evaluation_item.id }}" class="form-label"
-            >Nota directa (0-10):</label
-          >
-          <div class="d-flex flex-column">
+        <div class="form-control mb-4">
+          <label for="score_{{ student.id }}_{{ evaluation_item.id }}" class="label">
+            <span class="label-text">Nota directa (0-10):</span>
+          </label>
+          <div class="flex flex-col gap-2">
             <input
               type="number"
-              class="form-control mb-2"
+              class="input input-bordered w-full"
               id="score_{{ student.id }}_{{ evaluation_item.id }}"
               name="direct_score"
               min="0"
@@ -45,8 +45,10 @@
             />
 
             <div class="mb-2">
-              <label class="form-label mb-1">Nota máxima:</label>
-              <div class="btn-group" role="group" aria-label="Nota máxima">
+              <label class="label">
+                <span class="label-text">Nota máxima:</span>
+              </label>
+              <div class="btn-group">
                 <button
                   type="button"
                   class="btn btn-outline-primary max-score-btn"
@@ -86,26 +88,26 @@
               />
             </div>
 
-            <div class="form-check mb-2">
-              <input
-                class="form-check-input"
-                type="checkbox"
-                id="classroom_{{ student.id }}_{{ evaluation_item.id }}"
-                name="classroom_submission"
-                value="on"
-                onchange="updateClassroomSubmission('{{ student.id }}', '{{ evaluation_item.id }}', this.checked)"
-                hx-post="{% url 'toggle_classroom_submission' student.id %}"
-                hx-trigger="change"
-                hx-swap="none"
-                hx-vals='{"evaluation_item_id": "{{ evaluation_item.id }}", "is_checked": "CHECKED_VALUE"}'
-                {% for status in student.pending_statuses.all %}
-                  {% if status.evaluation_item.id == evaluation_item.id and status.classroom_submission %}
-                    checked
-                  {% endif %}
-                {% endfor %}
-              />
-              <label class="form-check-label" for="classroom_{{ student.id }}_{{ evaluation_item.id }}">
-                Entrega por classroom (-1 punto)
+            <div class="form-control">
+              <label class="label cursor-pointer justify-start gap-2">
+                <input
+                  class="checkbox checkbox-primary"
+                  type="checkbox"
+                  id="classroom_{{ student.id }}_{{ evaluation_item.id }}"
+                  name="classroom_submission"
+                  value="on"
+                  onchange="updateClassroomSubmission('{{ student.id }}', '{{ evaluation_item.id }}', this.checked)"
+                  data-post="{% url 'toggle_classroom_submission' student.id %}"
+                  data-trigger="change"
+                  data-swap="none"
+                  data-vals='{"evaluation_item_id": "{{ evaluation_item.id }}", "is_checked": "CHECKED_VALUE"}'
+                  {% for status in student.pending_statuses.all %}
+                    {% if status.evaluation_item.id == evaluation_item.id and status.classroom_submission %}
+                      checked
+                    {% endif %}
+                  {% endfor %}
+                />
+                <span class="label-text">Entrega por classroom (-1 punto)</span>
               </label>
             </div>
           </div>
@@ -114,44 +116,41 @@
         {% with rubrics=student_rubrics|get_item:student.id|get_item:evaluation_item.id %} 
         {% if rubrics %}
         <div class="mb-4">
-          <h6 class="mb-3">O evalúa usando la rúbrica:</h6>
-          <table class="table table-bordered">
-            <thead>
-              <tr>
-                <th>Elementos de valoración</th>
-                <th class="text-center" style="width: 50%">Puntuación (0-2)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for category in rubrics %}
-              <tr>
-                <td>
-                  <strong>{{ category.name }}</strong>
-                  {% if category.description %}
-                  <br /><small class="text-muted"
-                    >{{ category.description }}</small
-                  >
-                  {% endif %}
-                </td>
-                <td class="align-middle">
-                  <div class="d-flex align-items-center">
-                    <input
-                      type="range"
-                      class="form-range flex-grow-1"
-                      name="category_{{ category.id }}"
-                      id="rubric_{{ student.id }}_{{ evaluation_item.id }}_{{ category.id }}"
-                      min="0"
-                      max="2"
-                      step="0.5"
-                      value="0"
-                      oninput="updateRubricValue('{{ student.id }}', '{{ evaluation_item.id }}', '{{ category.id }}', this.value)"
-                    />
-                    <div class="ms-2 d-flex align-items-center">
+          <h6 class="font-semibold mb-3">O evalúa usando la rúbrica:</h6>
+          <div class="overflow-x-auto">
+            <table class="table table-zebra w-full">
+              <thead>
+                <tr>
+                  <th>Elementos de valoración</th>
+                  <th class="text-center">Puntuación (0-2)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for category in rubrics %}
+                <tr>
+                  <td>
+                    <strong>{{ category.name }}</strong>
+                    {% if category.description %}
+                    <br /><span class="text-sm opacity-70">{{ category.description }}</span>
+                    {% endif %}
+                  </td>
+                  <td class="align-middle">
+                    <div class="flex items-center gap-2">
+                      <input
+                        type="range"
+                        class="range range-primary flex-grow"
+                        name="category_{{ category.id }}"
+                        id="rubric_{{ student.id }}_{{ evaluation_item.id }}_{{ category.id }}"
+                        min="0"
+                        max="2"
+                        step="0.5"
+                        value="0"
+                        oninput="updateRubricValue('{{ student.id }}', '{{ evaluation_item.id }}', '{{ category.id }}', this.value)"
+                      />
                       <input
                         type="number"
                         id="rubric_value_input_{{ student.id }}_{{ evaluation_item.id }}_{{ category.id }}"
-                        class="form-control form-control-sm"
-                        style="width: 60px"
+                        class="input input-bordered input-sm w-20"
                         min="0"
                         max="2"
                         step="0.5"
@@ -159,27 +158,30 @@
                         oninput="updateRubricSlider('{{ student.id }}', '{{ evaluation_item.id }}', '{{ category.id }}', this.value)"
                       />
                     </div>
-                  </div>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
         </div>
         {% endif %} 
         {% endwith %}
 
-        <button type="submit" class="btn btn-primary">
+        <button type="submit" class="btn btn-primary mt-2 w-full md:w-auto">
           Guardar Evaluación
         </button>
       </form>
+      {% endfor %}
+      {% endwith %}
     </div>
-    {% endfor %}
-    {% endwith %}
   </div>
 </div>
 {% empty %}
-<div class="col-12">
-  <div class="alert alert-info">No hay evaluaciones pendientes.</div>
+<div class="col-span-full">
+  <div class="alert alert-info">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+    <span>No hay evaluaciones pendientes.</span>
+  </div>
 </div>
 {% endfor %}

@@ -1,7 +1,7 @@
 
 {% load static i18n %}<!DOCTYPE html>
 {% get_current_language as LANGUAGE_CODE %}
-<html lang="{{ LANGUAGE_CODE }}">
+<html lang="{{ LANGUAGE_CODE }}" data-theme="light">
   <head>
     <meta charset="utf-8" />
     <meta http-equiv="x-ua-compatible" content="ie=edge" />
@@ -15,113 +15,102 @@
         content="Behold My Awesome Project!" />
   <meta name="author"
         content="Jesús López de Leyva" />
+  <meta name="csrf-token" content="{{ csrf_token }}">
   <link rel="icon" href="{% static 'images/favicons/favicon.ico' %}" />
   {% block css %}
-    <!-- Latest compiled and minified Bootstrap CSS -->
-    <link rel="stylesheet"
-          href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.2.3/css/bootstrap.min.css"
-          integrity="sha512-SbiR/eusphKoMVVXysTKG/7VseWii+Y3FdHrt0EpKgpToZeemhqHeZeLWLhJutz/2ut2Vw1uQEj2MbRF+TVBUA=="
-          crossorigin="anonymous"
-          referrerpolicy="no-referrer" />
-<!-- Your stuff: Third-party CSS libraries go here -->
-<!-- This file stores project-specific CSS -->
-
-  
-  <link href="{% static 'css/project.css' %}" rel="stylesheet" />
-
-
-{% endblock css %}
-<!-- Le javascript
-    ================================================== -->
-{# Placed at the top of the document so pages load faster with defer #}
-{% block javascript %}
-
-
-<!-- Bootstrap JS -->
-<script defer
-        src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.2.3/js/bootstrap.min.js"
-        integrity="sha512-1/RvZTcDEUjY/CypiMz+iqqtaoQfAITmNSJY17Myp4Ms5mdxPS5UV7iOfdZoxcGhzFbOm6sntTKJppjvuhg4g=="
-        crossorigin="anonymous"
-        referrerpolicy="no-referrer"></script>
-<!-- Your stuff: Third-party javascript libraries go here -->
-      <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-      
-      <!-- CSRF token configuration for HTMX -->
-      <script>
-        document.addEventListener('DOMContentLoaded', function() {
-          document.body.addEventListener('htmx:configRequest', function(evt) {
-            if(evt.detail.verb === 'post') {
-              evt.detail.headers['X-CSRFToken'] = '{{ csrf_token }}';
-            }
-          });
-        });
-      </script>
-<!-- place project specific Javascript in this file -->
-
-  
-  <script defer src="{% static 'js/project.js' %}"></script>
-
-
-{% endblock javascript %}
+    <!-- Tailwind CSS con DaisyUI -->
+    <link href="{% static 'css/output.css' %}" rel="stylesheet" />
+    <!-- This file stores project-specific CSS -->
+    <link href="{% static 'css/project.css' %}" rel="stylesheet" />
+  {% endblock css %}
+  <!-- Le javascript
+      ================================================== -->
+  {# Placed at the top of the document so pages load faster with defer #}
+  {% block javascript %}
+    <!-- data-star.dev - Reemplaza a HTMX -->
+    <script type="module" src="https://cdn.jsdelivr.net/npm/@data-star/frontend/dist/index.js"></script>
+    
+    <!-- CSRF token configuration for data-star -->
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        // Configurar token CSRF para data-star
+        window.dataStarConfig = {
+          headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+          }
+        };
+      });
+    </script>
+    <!-- place project specific Javascript in this file -->
+    <script defer src="{% static 'js/project.js' %}"></script>
+  {% endblock javascript %}
 </head>
-<body class="{% block bodyclass %}{% endblock bodyclass %}" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+<body class="min-h-screen bg-base-100 {% block bodyclass %}{% endblock bodyclass %}">
   {% block body %}
   <div class="mb-1">
-    <nav class="navbar navbar-expand-md navbar-light bg-light">
-      <div class="container-fluid">
-        <button class="navbar-toggler navbar-toggler-right"
-                type="button"
-                data-bs-toggle="collapse"
-                data-bs-target="#navbarSupportedContent"
-                aria-controls="navbarSupportedContent"
-                aria-expanded="false"
-                aria-label="Toggle navigation">
-          <span class="navbar-toggler-icon"></span>
-        </button>
-        <a class="navbar-brand" href="{% url 'home' %}">Martina Bescós App</a>
-        <div class="collapse navbar-collapse" id="navbarSupportedContent">
-          <ul class="navbar-nav mr-auto">
-            <li class="nav-item active">
-              <a class="nav-link" href="{% url 'home' %}">Home <span class="visually-hidden">(current)</span></a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{% url 'about' %}">About</a>
-            </li>
+    <div class="navbar bg-base-100 shadow-lg">
+      <div class="navbar-start">
+        <div class="dropdown">
+          <div tabindex="0" role="button" class="btn btn-ghost lg:hidden">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h8m-8 6h16" /></svg>
+          </div>
+          <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">
+            <li><a href="{% url 'home' %}">Home</a></li>
+            <li><a href="{% url 'about' %}">About</a></li>
             {% if request.user.is_authenticated %}
-              <li class="nav-item">
-                <a class="nav-link"
-                   href="{% url 'users:detail' request.user.pk %}">{% translate "My Profile" %}</a>
-              </li>
-              <li class="nav-item">
-                {# URL provided by django-allauth/account/urls.py #}
-                <a class="nav-link" href="{% url 'account_logout' %}">{% translate "Sign Out" %}</a>
-              </li>
+              <li><a href="{% url 'users:detail' request.user.pk %}">{% translate "My Profile" %}</a></li>
+              <li><a href="{% url 'account_logout' %}">{% translate "Sign Out" %}</a></li>
             {% else %}
               {% if ACCOUNT_ALLOW_REGISTRATION %}
-                <li class="nav-item">
-                  {# URL provided by django-allauth/account/urls.py #}
-                  <a id="sign-up-link" class="nav-link" href="{% url 'account_signup' %}">{% translate "Sign Up" %}</a>
-                </li>
+                <li><a id="sign-up-link" href="{% url 'account_signup' %}">{% translate "Sign Up" %}</a></li>
               {% endif %}
-              <li class="nav-item">
-                {# URL provided by django-allauth/account/urls.py #}
-                <a id="log-in-link" class="nav-link" href="{% url 'account_login' %}">{% translate "Sign In" %}</a>
-              </li>
+              <li><a id="log-in-link" href="{% url 'account_login' %}">{% translate "Sign In" %}</a></li>
             {% endif %}
           </ul>
         </div>
+        <a class="btn btn-ghost text-xl" href="{% url 'home' %}">Martina Bescós App</a>
       </div>
-    </nav>
+      <div class="navbar-center hidden lg:flex">
+        <ul class="menu menu-horizontal px-1">
+          <li><a href="{% url 'home' %}">Home</a></li>
+          <li><a href="{% url 'about' %}">About</a></li>
+          {% if request.user.is_authenticated %}
+            <li><a href="{% url 'users:detail' request.user.pk %}">{% translate "My Profile" %}</a></li>
+            <li><a href="{% url 'account_logout' %}">{% translate "Sign Out" %}</a></li>
+          {% else %}
+            {% if ACCOUNT_ALLOW_REGISTRATION %}
+              <li><a id="sign-up-link" href="{% url 'account_signup' %}">{% translate "Sign Up" %}</a></li>
+            {% endif %}
+            <li><a id="log-in-link" href="{% url 'account_login' %}">{% translate "Sign In" %}</a></li>
+          {% endif %}
+        </ul>
+      </div>
+      <div class="navbar-end">
+        {% if request.user.is_authenticated %}
+          <div class="avatar placeholder mr-2">
+            <div class="bg-neutral text-neutral-content rounded-full w-8">
+              <span>{{ request.user.username|slice:":2"|upper }}</span>
+            </div>
+          </div>
+        {% endif %}
+        <button id="theme-toggle" class="btn btn-ghost btn-circle">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 dark:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+          </svg>
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 hidden dark:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+          </svg>
+        </button>
+      </div>
+    </div>
   </div>
-  <div class="container">
+  <div class="container mx-auto px-4 py-8">
     {% if messages %}
       {% for message in messages %}
-        <div class="alert alert-dismissible {% if message.tags %}alert-{{ message.tags }}{% endif %}">
-          {{ message }}
-          <button type="button"
-                  class="btn-close"
-                  data-bs-dismiss="alert"
-                  aria-label="Close"></button>
+        <div class="alert {% if message.tags %}alert-{{ message.tags }}{% else %}alert-info{% endif %} mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          <span>{{ message }}</span>
+          <button class="btn btn-sm btn-circle btn-ghost">✕</button>
         </div>
       {% endfor %}
     {% endif %}
