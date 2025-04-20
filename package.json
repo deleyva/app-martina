@@ -3,11 +3,11 @@
   "version": "1.0.0",
   "description": "Frontend para Martina Bescós App",
   "scripts": {
-    "build": "tailwindcss -i ./martina_bescos_app/static/css/input.css -o ./martina_bescos_app/static/css/output.css --minify",
-    "dev": "tailwindcss -i ./martina_bescos_app/static/css/input.css -o ./martina_bescos_app/static/css/output.css --watch"
+    "build": "npx @tailwindcss/cli --input ./martina_bescos_app/static/css/index.css --output ./martina_bescos_app/static/css/output.css",
+    "dev": "npx @tailwindcss/cli --input ./martina_bescos_app/static/css/index.css --output ./martina_bescos_app/static/css/output.css --watch"
   },
   "devDependencies": {
-    "tailwindcss": "^3.4.1",
-    "daisyui": "^4.6.1"
+    "@tailwindcss/cli": "^4.0.0",
+    "daisyui": "^5.0.0"
   }
 }

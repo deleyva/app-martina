@@ -63,21 +63,20 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
   
-  // Theme toggler for DaisyUI
+  // Theme toggler para DaisyUI 5
   const themeToggler = document.getElementById('theme-toggle');
   if (themeToggler) {
-    themeToggler.addEventListener('click', function() {
-      const html = document.querySelector('html');
-      const currentTheme = html.getAttribute('data-theme');
-      const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-      html.setAttribute('data-theme', newTheme);
+    const checkboxInput = themeToggler.querySelector('input[type="checkbox"]');
+    
+    // Inicializar el estado del checkbox según el tema actual
+    const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+    checkboxInput.checked = currentTheme === 'dark';
+    
+    // Escuchar cambios en el checkbox
+    checkboxInput.addEventListener('change', function() {
+      const newTheme = this.checked ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', newTheme);
       localStorage.setItem('theme', newTheme);
     });
-    
-    // Inicializar tema desde localStorage
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme) {
-      document.querySelector('html').setAttribute('data-theme', savedTheme);
-    }
   }
 });

@@ -39,22 +39,35 @@
             'X-CSRFToken': '{{ csrf_token }}'
           }
         };
+
+        // Inicializar tema desde localStorage
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) {
+          document.documentElement.setAttribute('data-theme', savedTheme);
+        }
       });
     </script>
     <!-- place project specific Javascript in this file -->
     <script defer src="{% static 'js/project.js' %}"></script>
   {% endblock javascript %}
 </head>
-<body class="min-h-screen bg-base-100 {% block bodyclass %}{% endblock bodyclass %}">
+<body class="min-h-screen bg-base-100">
   {% block body %}
-  <div class="mb-1">
-    <div class="navbar bg-base-100 shadow-lg">
-      <div class="navbar-start">
-        <div class="dropdown">
-          <div tabindex="0" role="button" class="btn btn-ghost lg:hidden">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h8m-8 6h16" /></svg>
-          </div>
-          <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">
+  <div class="drawer">
+    <input id="my-drawer-3" type="checkbox" class="drawer-toggle" /> 
+    <div class="drawer-content flex flex-col">
+      <!-- Navbar -->
+      <div class="navbar bg-base-100 shadow-lg">
+        <div class="flex-none">
+          <label for="my-drawer-3" class="btn btn-square btn-ghost drawer-button lg:hidden">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-6 h-6 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+          </label>
+        </div>
+        <div class="flex-1">
+          <a class="btn btn-ghost text-xl" href="{% url 'home' %}">Martina Bescós App</a>
+        </div>
+        <div class="flex-none hidden lg:block">
+          <ul class="menu menu-horizontal">
             <li><a href="{% url 'home' %}">Home</a></li>
             <li><a href="{% url 'about' %}">About</a></li>
             {% if request.user.is_authenticated %}
@@ -68,61 +81,65 @@
             {% endif %}
           </ul>
         </div>
-        <a class="btn btn-ghost text-xl" href="{% url 'home' %}">Martina Bescós App</a>
-      </div>
-      <div class="navbar-center hidden lg:flex">
-        <ul class="menu menu-horizontal px-1">
-          <li><a href="{% url 'home' %}">Home</a></li>
-          <li><a href="{% url 'about' %}">About</a></li>
+        <div class="flex-none">
           {% if request.user.is_authenticated %}
-            <li><a href="{% url 'users:detail' request.user.pk %}">{% translate "My Profile" %}</a></li>
-            <li><a href="{% url 'account_logout' %}">{% translate "Sign Out" %}</a></li>
-          {% else %}
-            {% if ACCOUNT_ALLOW_REGISTRATION %}
-              <li><a id="sign-up-link" href="{% url 'account_signup' %}">{% translate "Sign Up" %}</a></li>
-            {% endif %}
-            <li><a id="log-in-link" href="{% url 'account_login' %}">{% translate "Sign In" %}</a></li>
-          {% endif %}
-        </ul>
-      </div>
-      <div class="navbar-end">
-        {% if request.user.is_authenticated %}
-          <div class="avatar placeholder mr-2">
-            <div class="bg-neutral text-neutral-content rounded-full w-8">
-              <span>{{ request.user.username|slice:":2"|upper }}</span>
+            <div class="avatar placeholder mr-2">
+              <div class="bg-neutral text-neutral-content rounded-full w-8">
+                <span>{{ request.user.username|slice:":2"|upper }}</span>
+              </div>
             </div>
-          </div>
-        {% endif %}
-        <button id="theme-toggle" class="btn btn-ghost btn-circle">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 dark:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-          </svg>
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 hidden dark:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-          </svg>
-        </button>
+          {% endif %}
+          <button id="theme-toggle" class="btn btn-ghost btn-circle">
+            <label class="swap swap-rotate">
+              <input type="checkbox" />
+              <!-- sol icono - mostrar cuando data-theme es dark -->
+              <svg class="swap-on h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+              <!-- luna icono - mostrar cuando data-theme es light -->
+              <svg class="swap-off h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+              </svg>
+            </label>
+          </button>
+        </div>
       </div>
+      <!-- Page content here -->
+      <div class="container mx-auto px-4 py-8">
+        {% if messages %}
+          {% for message in messages %}
+            <div class="alert {% if message.tags %}alert-{{ message.tags }}{% else %}alert-info{% endif %} mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              <span>{{ message }}</span>
+              <button class="btn btn-sm btn-circle btn-ghost">✕</button>
+            </div>
+          {% endfor %}
+        {% endif %}
+        {% block main %}
+          {% block content %}
+            <p>Use this document as a way to quick start any new project.</p>
+          {% endblock content %}
+        {% endblock main %}
+      </div>
+    </div> 
+    <div class="drawer-side">
+      <label for="my-drawer-3" class="drawer-overlay"></label> 
+      <ul class="menu p-4 w-80 h-full bg-base-100">
+        <li><a href="{% url 'home' %}">Home</a></li>
+        <li><a href="{% url 'about' %}">About</a></li>
+        {% if request.user.is_authenticated %}
+          <li><a href="{% url 'users:detail' request.user.pk %}">{% translate "My Profile" %}</a></li>
+          <li><a href="{% url 'account_logout' %}">{% translate "Sign Out" %}</a></li>
+        {% else %}
+          {% if ACCOUNT_ALLOW_REGISTRATION %}
+            <li><a id="sign-up-link-mobile" href="{% url 'account_signup' %}">{% translate "Sign Up" %}</a></li>
+          {% endif %}
+          <li><a id="log-in-link-mobile" href="{% url 'account_login' %}">{% translate "Sign In" %}</a></li>
+        {% endif %}
+      </ul>
     </div>
   </div>
-  <div class="container mx-auto px-4 py-8">
-    {% if messages %}
-      {% for message in messages %}
-        <div class="alert {% if message.tags %}alert-{{ message.tags }}{% else %}alert-info{% endif %} mb-4">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-          <span>{{ message }}</span>
-          <button class="btn btn-sm btn-circle btn-ghost">✕</button>
-        </div>
-      {% endfor %}
-    {% endif %}
-    {% block main %}
-      {% block content %}
-        <p>Use this document as a way to quick start any new project.</p>
-      {% endblock content %}
-    {% endblock main %}
-
-  </div>
   {% endblock body %}
-  <!-- /container -->
   {% block modal %}
   {% endblock modal %}
   {% block inline_javascript %}

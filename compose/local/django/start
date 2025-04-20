@@ -4,7 +4,7 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
-# Instalar dependencias de Node.js y compilar Tailwind CSS
+# Instalar dependencias de Node.js y compilar CSS con Tailwind 4
 cd /app
 npm install
 npm run build

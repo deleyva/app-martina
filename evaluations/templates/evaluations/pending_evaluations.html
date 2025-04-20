@@ -1,157 +1,221 @@
-{% extends "base.html" %}
-
-{% block content %}
+{% extends "base.html" %} {% block content %}
 <div class="container mx-auto px-4 py-6">
-    <div class="flex flex-col md:flex-row justify-between items-center mb-6">
-        <h2 class="text-2xl font-bold mb-4 md:mb-0">Evaluaciones Pendientes</h2>
-        <a href="{% url 'evaluation_item_list' %}" class="btn btn-outline">
-            Volver a Items
-        </a>
-    </div>
+  <div class="flex flex-col md:flex-row justify-between items-center mb-6">
+    <h2 class="text-2xl font-bold mb-4 md:mb-0">Evaluaciones Pendientes</h2>
+    <a href="{% url 'evaluation_item_list' %}" class="btn btn-outline">
+      Volver a Items
+    </a>
+  </div>
 
-    <div class="card bg-base-100 shadow-xl mb-6">
-        <div class="card-body">
-            <h5 class="card-title">Filtrar por Grupo</h5>
-            <div class="flex flex-wrap gap-2 mb-4">
-                <a href="{% url 'pending_evaluations' %}?show_classroom={{ show_classroom }}" class="btn {% if not selected_group %}btn-primary{% else %}btn-outline{% endif %}">Todos</a>
-                {% for group in groups %}
-                <a href="{% url 'pending_evaluations' %}?group={{ group }}&show_classroom={{ show_classroom }}" class="btn {% if selected_group == group %}btn-primary{% else %}btn-outline{% endif %}">{{ group }}</a>
-                {% endfor %}
-            </div>
-            
-            <div class="form-control">
-                <label class="label cursor-pointer justify-start gap-2">
-                    <input class="checkbox checkbox-primary" type="checkbox" id="show_classroom" {% if show_classroom %}checked{% endif %}>
-                    <span class="label-text">Mostrar alumnos con entrega por classroom</span>
-                </label>
-            </div>
-        </div>
+  <div class="card bg-base-100 shadow-xl mb-6">
+    <div class="card-body">
+      <h5 class="card-title">Filtrar por Grupo</h5>
+      <div class="flex flex-wrap gap-2 mb-4">
+        <a
+          href="{% url 'pending_evaluations' %}?show_classroom={{ show_classroom }}"
+          class="btn {% if not selected_group %}btn-primary{% else %}btn-outline{% endif %}"
+          >Todos</a
+        >
+        {% for group in groups %}
+        <a
+          href="{% url 'pending_evaluations' %}?group={{ group }}&show_classroom={{ show_classroom }}"
+          class="btn {% if selected_group == group %}btn-primary{% else %}btn-outline{% endif %}"
+          >{{ group }}</a
+        >
+        {% endfor %}
+      </div>
+
+      <div class="form-control">
+        <label class="label cursor-pointer justify-start gap-2">
+          <input
+            class="checkbox checkbox-primary"
+            type="checkbox"
+            id="show_classroom"
+            {%
+            if
+            show_classroom
+            %}checked{%
+            endif
+            %}
+          />
+          <span class="label-text"
+            >Mostrar alumnos con entrega por classroom</span
+          >
+        </label>
+      </div>
     </div>
-    
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="evaluation-list" data-replace-oob="true">
-        {% include 'evaluations/partials/evaluation_list.html' %}
-    </div>
+  </div>
+
+  <div
+    class="grid grid-cols-1 md:grid-cols-2 gap-6"
+    id="evaluation-list"
+    data-replace-oob="true"
+  >
+    {% include 'evaluations/partials/evaluation_list.html' %}
+  </div>
 </div>
-{% endblock %}
-
-{% block inline_javascript %}
+{% endblock %} {% block inline_javascript %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Manejar el checkbox de mostrar entregas por classroom
-        document.getElementById('show_classroom').addEventListener('change', function() {
-            const showClassroom = this.checked;
-            window.location.href = '{% url "pending_evaluations" %}{% if selected_group %}?group={{ selected_group }}&{% else %}?{% endif %}show_classroom=' + (showClassroom ? 'true' : 'false');
-        });
-        
-        // Función para actualizar la visualización cuando se marca un checkbox de classroom
-        window.updateClassroomSubmission = function(studentId, evaluationItemId, isChecked) {
-            // Actualizar el atributo data-vals para incluir el estado actual del checkbox
-            const checkbox = document.getElementById(`classroom_${studentId}_${evaluationItemId}`);
-            if (checkbox) {
-                // Reemplazar CHECKED_VALUE con el valor real
-                const dataVals = checkbox.getAttribute('data-vals').replace('CHECKED_VALUE', isChecked);
-                checkbox.setAttribute('data-vals', dataVals);
-            }
-            
-            // Si el checkbox global de mostrar classroom está desmarcado y se marca este checkbox,
-            // ocultamos la tarjeta
-            if (isChecked && !document.getElementById('show_classroom').checked) {
-                const card = document.querySelector(`.student-card[data-student-id="${studentId}"]`).closest('.w-full');
-                
-                // Animación de desvanecimiento
-                card.style.transition = 'opacity 0.5s ease';
-                card.style.opacity = '0';
-                
-                // Después de la animación, eliminamos el elemento para que se reordenen las tarjetas
-                setTimeout(() => {
-                    card.remove();
-                    
-                    // Si no quedan más tarjetas, mostrar mensaje
-                    const remainingCards = document.querySelectorAll('.student-card');
-                    if (remainingCards.length === 0) {
-                        const container = document.getElementById('evaluation-list');
-                        container.innerHTML = '<div class="col-span-full"><div class="alert alert-info"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span>No hay evaluaciones pendientes.</span></div></div>';
-                    }
-                }, 500);
-            }
-        };
-        
-        // Función para seleccionar la nota máxima
-        window.selectMaxScore = function(buttonElement, studentId, evaluationItemId, maxScore) {
-            // Actualizar el botón seleccionado
-            const buttons = document.querySelectorAll(`.max-score-btn[data-student-id="${studentId}"][data-evaluation-item-id="${evaluationItemId}"]`);
-            buttons.forEach(btn => {
-                btn.classList.remove('btn-primary');
-                btn.classList.add('btn-outline-primary');
-            });
-            
-            buttonElement.classList.remove('btn-outline-primary');
-            buttonElement.classList.add('btn-primary');
-            
-            // Actualizar el valor oculto
-            document.getElementById(`max_score_${studentId}_${evaluationItemId}`).value = maxScore;
-            
-            // Actualizar la nota directa
-            updateDirectScore(studentId, evaluationItemId);
-        };
-        
-        // Función para actualizar el valor del slider de la rúbrica
-        window.updateRubricValue = function(studentId, evaluationItemId, categoryId, value) {
-            document.getElementById(`rubric_value_input_${studentId}_${evaluationItemId}_${categoryId}`).value = value;
-            
-            // Actualizar la nota directa basada en los valores de la rúbrica
-            updateDirectScore(studentId, evaluationItemId);
-        };
-        
-        // Función para actualizar el slider desde el input numérico
-        window.updateRubricSlider = function(studentId, evaluationItemId, categoryId, value) {
-            document.getElementById(`rubric_${studentId}_${evaluationItemId}_${categoryId}`).value = value;
-            
-            // Actualizar la nota directa basada en los valores de la rúbrica
-            updateDirectScore(studentId, evaluationItemId);
-        };
-        
-        // Función para calcular y actualizar la nota directa basada en los valores de la rúbrica
-        function updateDirectScore(studentId, evaluationItemId) {
-            // Obtener todos los sliders para este estudiante y esta evaluación
-            const sliders = document.querySelectorAll(`input[id^="rubric_${studentId}_${evaluationItemId}_"][type="range"]`);
-            if (!sliders.length) return;
-            
-            // Calcular la puntuación total y la puntuación máxima posible
-            let totalPoints = 0;
-            let maxPossible = sliders.length * 2; // Cada categoría tiene un máximo de 2 puntos
-            
-            sliders.forEach(slider => {
-                totalPoints += parseFloat(slider.value || 0);
-            });
-            
-            // Obtener la nota máxima seleccionada (por defecto 10)
-            const maxScoreInput = document.getElementById(`max_score_${studentId}_${evaluationItemId}`);
-            const maxScore = maxScoreInput ? parseFloat(maxScoreInput.value) : 10;
-            
-            // Calcular la nota sobre la nota máxima seleccionada (regla de tres)
-            let score = (totalPoints / maxPossible) * maxScore;
-            
-            // Actualizar el campo de nota directa
-            const directScoreInput = document.getElementById(`score_${studentId}_${evaluationItemId}`);
-            if (directScoreInput) {
-                directScoreInput.value = score.toFixed(1);
-            }
-        }
-        
-        // Inicializar los botones de nota máxima
-        const maxScoreButtons = document.querySelectorAll('.max-score-btn');
-        maxScoreButtons.forEach(button => {
-            const studentId = button.dataset.studentId;
-            const evaluationItemId = button.dataset.evaluationItemId;
-            const maxScore = button.dataset.maxScore;
-            
-            // Si el botón tiene maxScore = 10, seleccionarlo por defecto
-            if (maxScore === '10') {
-                button.classList.remove('btn-outline-primary');
-                button.classList.add('btn-primary');
-            }
-        });
+  document.addEventListener("DOMContentLoaded", function () {
+    // Manejar el checkbox de mostrar entregas por classroom
+    document
+      .getElementById("show_classroom")
+      .addEventListener("change", function () {
+        const showClassroom = this.checked;
+        window.location.href =
+          '{% url "pending_evaluations" %}{% if selected_group %}?group={{ selected_group }}&{% else %}?{% endif %}show_classroom=' +
+          (showClassroom ? "true" : "false");
+      });
+
+    // Función para actualizar la visualización cuando se marca un checkbox de classroom
+    window.updateClassroomSubmission = function (
+      studentId,
+      evaluationItemId,
+      isChecked
+    ) {
+      // Actualizar el atributo data-vals para incluir el estado actual del checkbox
+      const checkbox = document.getElementById(
+        `classroom_${studentId}_${evaluationItemId}`
+      );
+      if (checkbox) {
+        // Reemplazar CHECKED_VALUE con el valor real
+        const dataVals = checkbox
+          .getAttribute("data-vals")
+          .replace("CHECKED_VALUE", isChecked);
+        checkbox.setAttribute("data-vals", dataVals);
+      }
+
+      // Si el checkbox global de mostrar classroom está desmarcado y se marca este checkbox,
+      // ocultamos la tarjeta
+      if (isChecked && !document.getElementById("show_classroom").checked) {
+        const card = document
+          .querySelector(`.student-card[data-student-id="${studentId}"]`)
+          .closest(".w-full");
+
+        // Animación de desvanecimiento
+        card.style.transition = "opacity 0.5s ease";
+        card.style.opacity = "0";
+
+        // Después de la animación, eliminamos el elemento para que se reordenen las tarjetas
+        setTimeout(() => {
+          card.remove();
+
+          // Si no quedan más tarjetas, mostrar mensaje
+          const remainingCards = document.querySelectorAll(".student-card");
+          if (remainingCards.length === 0) {
+            const container = document.getElementById("evaluation-list");
+            container.innerHTML =
+              '<div class="col-span-full"><div class="alert alert-info"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span>No hay evaluaciones pendientes.</span></div></div>';
+          }
+        }, 500);
+      }
+    };
+
+    // Función para seleccionar la nota máxima
+    window.selectMaxScore = function (
+      buttonElement,
+      studentId,
+      evaluationItemId,
+      maxScore
+    ) {
+      // Actualizar el botón seleccionado
+      const buttons = document.querySelectorAll(
+        `.max-score-btn[data-student-id="${studentId}"][data-evaluation-item-id="${evaluationItemId}"]`
+      );
+      buttons.forEach((btn) => {
+        btn.classList.remove("btn-primary");
+        btn.classList.add("btn-outline-primary");
+      });
+
+      buttonElement.classList.remove("btn-outline-primary");
+      buttonElement.classList.add("btn-primary");
+
+      // Actualizar el valor oculto
+      document.getElementById(
+        `max_score_${studentId}_${evaluationItemId}`
+      ).value = maxScore;
+
+      // Actualizar la nota directa
+      updateDirectScore(studentId, evaluationItemId);
+    };
+
+    // Función para actualizar el valor del slider de la rúbrica
+    window.updateRubricValue = function (
+      studentId,
+      evaluationItemId,
+      categoryId,
+      value
+    ) {
+      document.getElementById(
+        `rubric_value_input_${studentId}_${evaluationItemId}_${categoryId}`
+      ).value = value;
+
+      // Actualizar la nota directa basada en los valores de la rúbrica
+      updateDirectScore(studentId, evaluationItemId);
+    };
+
+    // Función para actualizar el slider desde el input numérico
+    window.updateRubricSlider = function (
+      studentId,
+      evaluationItemId,
+      categoryId,
+      value
+    ) {
+      document.getElementById(
+        `rubric_${studentId}_${evaluationItemId}_${categoryId}`
+      ).value = value;
+
+      // Actualizar la nota directa basada en los valores de la rúbrica
+      updateDirectScore(studentId, evaluationItemId);
+    };
+
+    // Función para calcular y actualizar la nota directa basada en los valores de la rúbrica
+    function updateDirectScore(studentId, evaluationItemId) {
+      // Obtener todos los sliders para este estudiante y esta evaluación
+      const sliders = document.querySelectorAll(
+        `input[id^="rubric_${studentId}_${evaluationItemId}_"][type="range"]`
+      );
+      if (!sliders.length) return;
+
+      // Calcular la puntuación total y la puntuación máxima posible
+      let totalPoints = 0;
+      let maxPossible = sliders.length * 2; // Cada categoría tiene un máximo de 2 puntos
+
+      sliders.forEach((slider) => {
+        totalPoints += parseFloat(slider.value || 0);
+      });
+
+      // Obtener la nota máxima seleccionada (por defecto 10)
+      const maxScoreInput = document.getElementById(
+        `max_score_${studentId}_${evaluationItemId}`
+      );
+      const maxScore = maxScoreInput ? parseFloat(maxScoreInput.value) : 10;
+
+      // Calcular la nota sobre la nota máxima seleccionada (regla de tres)
+      let score = (totalPoints / maxPossible) * maxScore;
+
+      // Actualizar el campo de nota directa
+      const directScoreInput = document.getElementById(
+        `score_${studentId}_${evaluationItemId}`
+      );
+      if (directScoreInput) {
+        directScoreInput.value = score.toFixed(1);
+      }
+    }
+
+    // Inicializar los botones de nota máxima
+    const maxScoreButtons = document.querySelectorAll(".max-score-btn");
+    maxScoreButtons.forEach((button) => {
+      const studentId = button.dataset.studentId;
+      const evaluationItemId = button.dataset.evaluationItemId;
+      const maxScore = button.dataset.maxScore;
+
+      // Si el botón tiene maxScore = 10, seleccionarlo por defecto
+      if (maxScore === "10") {
+        button.classList.remove("btn-outline-primary");
+        button.classList.add("btn-primary");
+      }
     });
+  });
 </script>
 {% endblock inline_javascript %}
