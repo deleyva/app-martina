@@ -1,48 +1,35 @@
 {% extends "base.html" %} {% block content %}
 <div class="container mx-auto px-4 py-6">
-  <div class="flex flex-col md:flex-row justify-between items-center mb-6">
-    <h2 class="text-2xl font-bold mb-4 md:mb-0">Evaluaciones Pendientes</h2>
-    <a href="{% url 'evaluation_item_list' %}" class="btn btn-outline">
-      Volver a Items
-    </a>
-  </div>
-
-  <div class="card bg-base-100 shadow-xl mb-6">
-    <div class="card-body">
-      <h5 class="card-title">Filtrar por Grupo</h5>
-      <div class="flex flex-wrap gap-2 mb-4">
-        <a
-          href="{% url 'pending_evaluations' %}?show_classroom={{ show_classroom }}"
-          class="btn {% if not selected_group %}btn-primary{% else %}btn-outline{% endif %}"
-          >Todos</a
-        >
-        {% for group in groups %}
-        <a
-          href="{% url 'pending_evaluations' %}?group={{ group }}&show_classroom={{ show_classroom }}"
-          class="btn {% if selected_group == group %}btn-primary{% else %}btn-outline{% endif %}"
-          >{{ group }}</a
-        >
-        {% endfor %}
-      </div>
-
-      <div class="form-control">
-        <label class="label cursor-pointer justify-start gap-2">
-          <input
-            class="checkbox checkbox-primary"
-            type="checkbox"
-            id="show_classroom"
-            {%
-            if
-            show_classroom
-            %}checked{%
-            endif
-            %}
-          />
-          <span class="label-text"
-            >Mostrar alumnos con entrega por classroom</span
-          >
-        </label>
-      </div>
+  <div class="flex flex-wrap items-center justify-between gap-2 mb-6">
+    <h2 class="text-xl sm:text-2xl font-bold whitespace-nowrap mr-2">Evaluaciones Pendientes</h2>
+    <div class="join join-horizontal flex-nowrap overflow-x-auto max-w-[50vw]">
+      <a
+        href="{% url 'pending_evaluations' %}?show_classroom={{ show_classroom }}"
+        class="join-item btn btn-xs sm:btn-sm {% if not selected_group %}btn-primary{% else %}btn-outline{% endif %}"
+        >Todos</a
+      >
+      {% for group in groups %}
+      <a
+        href="{% url 'pending_evaluations' %}?group={{ group }}&show_classroom={{ show_classroom }}"
+        class="join-item btn btn-xs sm:btn-sm {% if selected_group == group %}btn-primary{% else %}btn-outline{% endif %}"
+        >{{ group }}</a
+      >
+      {% endfor %}
+    </div>
+    <div class="flex items-center flex-nowrap">
+      <a 
+        href="{% url 'pending_evaluations' %}?{% if selected_group %}group={{ selected_group }}&{% endif %}show_classroom={% if show_classroom %}false{% else %}true{% endif %}"
+        class="btn btn-xs sm:btn-sm {% if show_classroom %}btn-primary{% else %}btn-outline{% endif %} mr-1"
+      >
+        {% if show_classroom %}
+          Ocultar classroom
+        {% else %}
+          Mostrar classroom
+        {% endif %}
+      </a>
+      <a href="{% url 'evaluation_item_list' %}" class="btn btn-xs sm:btn-sm btn-outline">
+        Volver a Items
+      </a>
     </div>
   </div>
 
@@ -57,16 +44,6 @@
 {% endblock %} {% block inline_javascript %}
 <script>
   document.addEventListener("DOMContentLoaded", function () {
-    // Manejar el checkbox de mostrar entregas por classroom
-    document
-      .getElementById("show_classroom")
-      .addEventListener("change", function () {
-        const showClassroom = this.checked;
-        window.location.href =
-          '{% url "pending_evaluations" %}{% if selected_group %}?group={{ selected_group }}&{% else %}?{% endif %}show_classroom=' +
-          (showClassroom ? "true" : "false");
-      });
-
     // Función para actualizar la visualización cuando se marca un checkbox de classroom
     window.updateClassroomSubmission = function (
       studentId,
@@ -85,9 +62,9 @@
         checkbox.setAttribute("data-vals", dataVals);
       }
 
-      // Si el checkbox global de mostrar classroom está desmarcado y se marca este checkbox,
+      // Si la opción global de mostrar classroom está desactivada y se marca este checkbox,
       // ocultamos la tarjeta
-      if (isChecked && !document.getElementById("show_classroom").checked) {
+      if (isChecked && {{ show_classroom|lower }} === false) {
         const card = document
           .querySelector(`.student-card[data-student-id="${studentId}"]`)
           .closest(".w-full");

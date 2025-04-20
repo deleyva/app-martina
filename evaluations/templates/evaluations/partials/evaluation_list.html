@@ -96,16 +96,15 @@
                   id="classroom_{{ student.id }}_{{ evaluation_item.id }}"
                   name="classroom_submission"
                   value="on"
-                  onchange="updateClassroomSubmission('{{ student.id }}', '{{ evaluation_item.id }}', this.checked)"
-                  data-post="{% url 'toggle_classroom_submission' student.id %}"
                   data-trigger="change"
                   data-swap="none"
-                  data-vals='{"evaluation_item_id": "{{ evaluation_item.id }}", "is_checked": "CHECKED_VALUE"}'
-                  {% for status in student.pending_statuses.all %}
-                    {% if status.evaluation_item.id == evaluation_item.id and status.classroom_submission %}
-                      checked
-                    {% endif %}
-                  {% endfor %}
+                  data-method="POST"
+                  data-path="{% url 'toggle_classroom_submission' student.id %}"
+                  data-values='{"evaluation_item_id": "{{ evaluation_item.id }}", "is_checked": "${this.checked}"}'
+                  {% with pending_status=student.pending_statuses.all|filter_pending_status:evaluation_item.id %}
+                    {% if pending_status.classroom_submission %}checked{% endif %}
+                  {% endwith %}
+                  onchange="updateClassroomSubmission('{{ student.id }}', '{{ evaluation_item.id }}', this.checked)"
                 />
                 <span class="label-text">Entrega por classroom (-1 punto)</span>
               </label>

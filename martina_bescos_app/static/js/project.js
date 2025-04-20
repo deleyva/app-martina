@@ -62,6 +62,70 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     }
   });
+
+  // Nuevo manejador para elementos con data-post y data-trigger (checkboxes, inputs, etc.)
+  document.addEventListener('change', function(event) {
+    const element = event.target;
+    
+    // Verificar si el elemento tiene el atributo data-post y data-trigger="change"
+    if (element.hasAttribute('data-post') && element.getAttribute('data-trigger') === 'change') {
+      const postUrl = element.getAttribute('data-post');
+      const target = element.getAttribute('data-target');
+      const swap = element.getAttribute('data-swap') || 'innerHTML';
+      
+      // Obtener los valores a enviar
+      let postData = new FormData();
+      let valsData = {};
+      
+      if (element.hasAttribute('data-vals')) {
+        try {
+          // Obtener el objeto JSON de data-vals y procesarlo
+          valsData = JSON.parse(element.getAttribute('data-vals'));
+          
+          // Reemplazar cualquier placeholder como CHECKED_VALUE con los valores reales
+          Object.keys(valsData).forEach(key => {
+            if (valsData[key] === 'CHECKED_VALUE') {
+              valsData[key] = element.checked ? 'true' : 'false';
+            }
+            postData.append(key, valsData[key]);
+          });
+        } catch (e) {
+          console.error('Error al procesar data-vals:', e);
+        }
+      }
+      
+      // Realizar la petición POST
+      fetch(postUrl, {
+        method: 'POST',
+        body: postData,
+        headers: {
+          'X-CSRFToken': window.dataStarConfig.headers['X-CSRFToken']
+        }
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.text();
+      })
+      .then(html => {
+        // Si swap no es "none", actualizar el objetivo con la respuesta
+        if (swap !== 'none' && target) {
+          const targetElement = document.querySelector(target);
+          if (targetElement) {
+            if (swap === 'innerHTML') {
+              targetElement.innerHTML = html;
+            } else if (swap === 'outerHTML') {
+              targetElement.outerHTML = html;
+            }
+          }
+        }
+      })
+      .catch(error => {
+        console.error('Error en la petición data-post:', error);
+      });
+    }
+  });
   
   // Theme toggler para DaisyUI 5
   const themeToggler = document.getElementById('theme-toggle');
