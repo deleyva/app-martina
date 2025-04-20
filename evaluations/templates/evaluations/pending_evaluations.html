@@ -50,18 +50,6 @@
       evaluationItemId,
       isChecked
     ) {
-      // Actualizar el atributo data-vals para incluir el estado actual del checkbox
-      const checkbox = document.getElementById(
-        `classroom_${studentId}_${evaluationItemId}`
-      );
-      if (checkbox) {
-        // Reemplazar CHECKED_VALUE con el valor real
-        const dataVals = checkbox
-          .getAttribute("data-vals")
-          .replace("CHECKED_VALUE", isChecked);
-        checkbox.setAttribute("data-vals", dataVals);
-      }
-
       // Si la opción global de mostrar classroom está desactivada y se marca este checkbox,
       // ocultamos la tarjeta
       if (isChecked && {{ show_classroom|lower }} === false) {
@@ -86,6 +74,39 @@
           }
         }, 500);
       }
+    };
+
+    // Nueva función para manejar el cambio del checkbox y enviar la petición al servidor
+    window.toggleClassroomSubmission = function (
+      checkbox,
+      studentId,
+      evaluationItemId
+    ) {
+      // Preparar los datos para enviar
+      const formData = new FormData();
+      formData.append('evaluation_item_id', evaluationItemId);
+      formData.append('is_checked', checkbox.checked ? 'true' : 'false');
+      
+      // Enviar la petición al servidor usando fetch
+      fetch(`/evaluations/toggle-classroom/${studentId}/`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+        }
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        // Llamar a la función para actualizar la UI
+        updateClassroomSubmission(studentId, evaluationItemId, checkbox.checked);
+      })
+      .catch(error => {
+        console.error('Error al actualizar el estado classroom:', error);
+        // Revertir el estado del checkbox si hay error
+        checkbox.checked = !checkbox.checked;
+      });
     };
 
     // Función para seleccionar la nota máxima

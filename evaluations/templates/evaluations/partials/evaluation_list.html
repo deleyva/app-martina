@@ -1,4 +1,5 @@
-{% load evaluation_tags %} 
+{% load evaluation_tags %}
+
 {% for student in students %}
 <div class="w-full md:w-1/2 p-4">
   <div class="card bg-base-100 shadow-xl student-card" data-student-id="{{ student.id }}">
@@ -96,15 +97,10 @@
                   id="classroom_{{ student.id }}_{{ evaluation_item.id }}"
                   name="classroom_submission"
                   value="on"
-                  data-trigger="change"
-                  data-swap="none"
-                  data-method="POST"
-                  data-path="{% url 'toggle_classroom_submission' student.id %}"
-                  data-values='{"evaluation_item_id": "{{ evaluation_item.id }}", "is_checked": "${this.checked}"}'
+                  onchange="toggleClassroomSubmission(this, '{{ student.id }}', '{{ evaluation_item.id }}')"
                   {% with pending_status=student.pending_statuses.all|filter_pending_status:evaluation_item.id %}
                     {% if pending_status.classroom_submission %}checked{% endif %}
                   {% endwith %}
-                  onchange="updateClassroomSubmission('{{ student.id }}', '{{ evaluation_item.id }}', this.checked)"
                 />
                 <span class="label-text">Entrega por classroom (-1 punto)</span>
               </label>
@@ -112,7 +108,7 @@
           </div>
         </div>
 
-        {% with rubrics=student_rubrics|get_item:student.id|get_item:evaluation_item.id %} 
+        {% with rubrics=student_rubrics|get_item:student.id|get_item:evaluation_item.id %}
         {% if rubrics %}
         <div class="mb-4">
           <h6 class="font-semibold mb-3">O evalúa usando la rúbrica:</h6>
@@ -164,7 +160,7 @@
             </table>
           </div>
         </div>
-        {% endif %} 
+        {% endif %}
         {% endwith %}
 
         <button type="submit" class="btn btn-primary mt-2 w-full md:w-auto">
