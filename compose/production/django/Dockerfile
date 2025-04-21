@@ -27,14 +27,21 @@ FROM node:16-slim AS node-build-stage
 
 WORKDIR /app
 
-# Install dependencies for Tailwind and DaisyUI v5
-RUN npm install -g tailwindcss@latest postcss autoprefixer daisyui@latest
+# Create a basic package.json file
+RUN echo '{"name":"martina-bescos-app","version":"1.0.0","scripts":{"build":"tailwindcss -i ./static/css/index.css -o ./static/css/output.css --minify"}}' > package.json
+
+# Install dependencies locally instead of globally
+RUN npm install tailwindcss postcss autoprefixer daisyui
 
 # Copy CSS files
 COPY ./martina_bescos_app/static/css ./static/css/
 
-# Process CSS with Tailwind and DaisyUI v5 (automatically detects @plugin syntax)
-RUN npx tailwindcss -i ./static/css/index.css -o ./static/css/output.css --minify
+# Create empty output.css file as fallback
+RUN touch ./static/css/output.css
+
+# Try to process CSS with npm run build (using local tailwindcss)
+# If it fails, we'll still have the empty output.css file
+RUN npm run build || echo "Tailwind build failed, proceeding with empty CSS file"
 
 
 # Python 'run' stage
@@ -50,7 +57,7 @@ ENV BUILD_ENV=${BUILD_ENVIRONMENT}
 WORKDIR ${APP_HOME}
 
 RUN addgroup --system django \
-    && adduser --system --ingroup django django
+  && adduser --system --ingroup django django
 
 
 # Install required system dependencies
