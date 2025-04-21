@@ -102,9 +102,10 @@ RUN chown -R django:django ${APP_HOME}
 
 # Run collectstatic before starting
 RUN DJANGO_SETTINGS_MODULE=config.settings.production \
-    DJANGO_SECRET_KEY=collectstatic_only \
-    DATABASE_URL="" \
-    python manage.py collectstatic --noinput
+  DJANGO_SECRET_KEY=collectstatic_only \
+  DJANGO_ADMIN_URL=env(DJANGO_ADMIN_URL) \
+  DATABASE_URL="postgres" \
+  python manage.py collectstatic --noinput
 
 USER django
 
