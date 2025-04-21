@@ -1,7 +1,7 @@
 {% load evaluation_tags %}
 
 {% for student in students %}
-<div class="w-full md:w-1/2 p-4">
+<div class="w-full p-4">
   <div class="card bg-base-100 shadow-xl student-card" data-student-id="{{ student.id }}">
     <div class="card-body p-4">
       <div class="card-title justify-between flex-wrap">
@@ -22,9 +22,11 @@
       {% endif %}
 
       <form
-        data-post="{% url 'save_evaluation' student.id %}"
-        data-target="#evaluation-list"
-        data-replace="outerHTML"
+        id="evaluation-form-{{ student.id }}-{{ evaluation_item.id }}"
+        hx-post="{% url 'save_evaluation' student.id %}"
+        hx-target="#evaluation-list"
+        hx-swap="outerHTML"
+        method="post"
       >
         {% csrf_token %}
         <input type="hidden" name="evaluation_item_id" value="{{ evaluation_item.id }}">
