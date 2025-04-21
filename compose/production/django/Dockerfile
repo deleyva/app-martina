@@ -1,4 +1,3 @@
-
 # define an alias for the specific python version used in this file.
 FROM docker.io/python:3.12.8-slim-bookworm AS python
 
@@ -21,6 +20,21 @@ COPY ./requirements .
 # Create Python Dependency and Sub-Dependency Wheels.
 RUN pip wheel --wheel-dir /usr/src/app/wheels  \
   -r ${BUILD_ENVIRONMENT}.txt
+
+
+# Node.js build stage for processing CSS
+FROM node:16-slim AS node-build-stage
+
+WORKDIR /app
+
+# Install dependencies for Tailwind and DaisyUI v5
+RUN npm install -g tailwindcss@latest postcss autoprefixer daisyui@latest
+
+# Copy CSS files
+COPY ./martina_bescos_app/static/css ./static/css/
+
+# Process CSS with Tailwind and DaisyUI v5 (automatically detects @plugin syntax)
+RUN npx tailwindcss -i ./static/css/index.css -o ./static/css/output.css --minify
 
 
 # Python 'run' stage
@@ -59,6 +73,9 @@ COPY --from=python-build-stage /usr/src/app/wheels  /wheels/
 RUN pip install --no-cache-dir --no-index --find-links=/wheels/ /wheels/* \
   && rm -rf /wheels/
 
+# Copy processed CSS from Node.js stage
+COPY --from=node-build-stage /app/static/css/output.css ${APP_HOME}/martina_bescos_app/static/css/
+
 
 COPY --chown=django:django ./compose/production/django/entrypoint /entrypoint
 RUN sed -i 's/\r$//g' /entrypoint
@@ -75,6 +92,12 @@ COPY --chown=django:django . ${APP_HOME}
 
 # make django owner of the WORKDIR directory as well.
 RUN chown -R django:django ${APP_HOME}
+
+# Run collectstatic before starting
+RUN DJANGO_SETTINGS_MODULE=config.settings.production \
+    DJANGO_SECRET_KEY=collectstatic_only \
+    DATABASE_URL="" \
+    python manage.py collectstatic --noinput
 
 USER django
 
