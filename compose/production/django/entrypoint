@@ -14,4 +14,10 @@ wait-for-it "${POSTGRES_HOST}:${POSTGRES_PORT}" -t 30
 
 >&2 echo 'PostgreSQL is available'
 
+>&2 echo "Running collectstatic..."
+# Ejecuta collectstatic usando el usuario 'django' (definido en Dockerfile)
+# Necesita permisos de escritura en STATIC_ROOT (/app/staticfiles por defecto)
+python /app/manage.py collectstatic --noinput
+
+
 exec "$@"
