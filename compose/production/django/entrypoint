@@ -14,19 +14,30 @@ wait-for-it "${POSTGRES_HOST}:${POSTGRES_PORT}" -t 30
 
 >&2 echo 'PostgreSQL is available'
 
-# Archivo CSS fuente de Tailwind que causa conflicto con Whitenoise
-SOURCE_CSS_FILE="/app/martina_bescos_app/static/css/index.css"
+# Archivos CSS fuente de Tailwind que pueden causar conflicto con Whitenoise
+SOURCE_CSS_FILE_1="/app/martina_bescos_app/static/css/index.css"
+SOURCE_CSS_FILE_2="/app/martina_bescos_app/static/css/input.css" # <-- Archivo adicional
 # Archivo CSS compilado por Tailwind
 COMPILED_CSS_FILE="/app/martina_bescos_app/static/css/output.css"
 
-# Verificar si el archivo fuente existe antes de intentar borrarlo
-if [ -f "$SOURCE_CSS_FILE" ]; then
-  echo "Temporarily removing source CSS file: $SOURCE_CSS_FILE"
-  # Eliminar el archivo fuente para evitar que Whitenoise lo procese
-  rm "$SOURCE_CSS_FILE"
+# --- Eliminar archivos fuente ---
+# Eliminar index.css si existe
+if [ -f "$SOURCE_CSS_FILE_1" ]; then
+  echo "Temporarily removing source CSS file: $SOURCE_CSS_FILE_1"
+  rm "$SOURCE_CSS_FILE_1"
 else
-  echo "Source CSS file not found, skipping removal: $SOURCE_CSS_FILE"
+  echo "Source CSS file 1 not found, skipping removal: $SOURCE_CSS_FILE_1"
 fi
+
+# Eliminar input.css si existe <-- NUEVO
+if [ -f "$SOURCE_CSS_FILE_2" ]; then
+  echo "Temporarily removing source CSS file: $SOURCE_CSS_FILE_2"
+  rm "$SOURCE_CSS_FILE_2"
+else
+  echo "Source CSS file 2 not found, skipping removal: $SOURCE_CSS_FILE_2"
+fi
+# --- Fin de eliminar archivos fuente ---
+
 
 # Verificar si el archivo compilado existe (¡debería!)
 if [ ! -f "$COMPILED_CSS_FILE" ]; then
@@ -34,6 +45,7 @@ if [ ! -f "$COMPILED_CSS_FILE" ]; then
   echo "Check the 'npm run build' step in the Dockerfile build process."
   exit 1
 fi
+
 
 >&2 echo "Running collectstatic..."
 # Ejecuta collectstatic usando el usuario 'django' (definido en Dockerfile)
