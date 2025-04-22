@@ -42,6 +42,19 @@ logs *args:
 manage +args:
     @docker compose run --rm django python ./manage.py {{args}}
 
+stage-create-superuser:
+    @echo "INFO: Intentando crear superusuario en staging ($SSH_MARTINA_USER_AND_IP)..."
+    # Usamos 'ssh -t' para forzar TTY. Usamos 'docker compose run' para asegurar variables de entorno Y permitir interactividad.
+    @ssh -t $SSH_MARTINA_USER_AND_IP "cd ~/app-martina-stage && \
+        echo 'INFO: Ejecutando createsuperuser dentro de un contenedor Docker temporal...' && \
+        docker compose -f docker-compose.stage.yml run --rm django python ./manage.py createsuperuser"
+    @echo "INFO: Proceso de creación de superusuario finalizado."
+
+# stage-manage: Executes `manage.py` command in stage environment.
+stage-manage +args:
+    @ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-stage && \
+    docker compose -f docker-compose.stage.yml run --rm django python ./manage.py {{args}}"
+
 deploybuildpre:
 	ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-pre && \
 	git stash && \
