@@ -10,3 +10,12 @@
 venv
 .git
 .envs/
+
+# Frontend build artifacts / dependencies
+node_modules/
+martina_bescos_app/static/css/output.css
+
+# Docker
+Dockerfile
+compose/
+docker-compose*.yml

@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Frontend para Martina Bescós App",
   "scripts": {
-    "build": "npx @tailwindcss/cli --input ./martina_bescos_app/static/css/index.css --output ./martina_bescos_app/static/css/output.css",
+    "build": "npx @tailwindcss/cli --input ./martina_bescos_app/static/css/index.css --output ./martina_bescos_app/static/css/output.css --minify",
     "dev": "npx @tailwindcss/cli --input ./martina_bescos_app/static/css/index.css --output ./martina_bescos_app/static/css/output.css --watch"
   },
   "devDependencies": {
