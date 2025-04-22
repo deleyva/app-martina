@@ -82,32 +82,40 @@ STORAGES = {
 # https://docs.djangoproject.com/en/dev/ref/settings/#default-from-email
 DEFAULT_FROM_EMAIL = env(
     "DJANGO_DEFAULT_FROM_EMAIL",
-    default="Martina Bescós App <noreply@app.iesmartinabescos.es>",
+    default="Martina Bescós App <app.gestion.admin@iesmartinabescos.es>",
 )
 # https://docs.djangoproject.com/en/dev/ref/settings/#server-email
 SERVER_EMAIL = env("DJANGO_SERVER_EMAIL", default=DEFAULT_FROM_EMAIL)
 # https://docs.djangoproject.com/en/dev/ref/settings/#email-subject-prefix
 EMAIL_SUBJECT_PREFIX = env(
     "DJANGO_EMAIL_SUBJECT_PREFIX",
-    default="[Martina Bescós App] ",
+    default="[Martina Bescós App]",
 )
-ACCOUNT_EMAIL_SUBJECT_PREFIX = EMAIL_SUBJECT_PREFIX
+
+# Gmail SMTP setup
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_PORT = 587
+EMAIL_HOST_USER = env("DJANGO_EMAIL_HOST_USER", default="app.gestion.admin@iesmartinabescos.es")
+EMAIL_HOST_PASSWORD = env("DJANGO_EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = True
+
+# Secondary email configuration
+SECONDARY_EMAIL = env("DJANGO_SECONDARY_EMAIL", default="jlopez@iesmartinabescos.es")
+SECONDARY_EMAIL_PASSWORD = env("DJANGO_SECONDARY_EMAIL_PASSWORD", default="")
 
 # ADMIN
 # ------------------------------------------------------------------------------
 # Django Admin URL regex.
 ADMIN_URL = env("DJANGO_ADMIN_URL")
 
-# Anymail
+# django-anymail
 # ------------------------------------------------------------------------------
-# https://anymail.readthedocs.io/en/stable/installation/#installing-anymail
 INSTALLED_APPS += ["anymail"]
-# https://docs.djangoproject.com/en/dev/ref/settings/#email-backend
-# https://anymail.readthedocs.io/en/stable/installation/#anymail-settings-reference
-# https://anymail.readthedocs.io/en/stable/esps
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-ANYMAIL = {}
 
+# django-allauth
+# ------------------------------------------------------------------------------
+ACCOUNT_EMAIL_VERIFICATION = "optional"  # Cambiado de "none" a "optional" para permitir verificación
 
 # LOGGING
 # ------------------------------------------------------------------------------
