@@ -67,6 +67,9 @@
           <ul class="menu menu-horizontal">
             <li><a href="{% url 'home' %}">Home</a></li>
             <li><a href="{% url 'about' %}">About</a></li>
+            {% if request.user.is_staff %}
+              <li><a href="{% url 'admin:index' %}">Admin</a></li>
+            {% endif %}
             {% if request.user.is_authenticated %}
               <li><a href="{% url 'users:detail' request.user.pk %}">{% translate "My Profile" %}</a></li>
               <li><a href="{% url 'account_logout' %}">{% translate "Sign Out" %}</a></li>
