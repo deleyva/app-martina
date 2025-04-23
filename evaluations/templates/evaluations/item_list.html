@@ -2,6 +2,9 @@
 <div class="container mx-auto p-4">
   <h2 class="text-2xl font-bold mb-6">Items de Evaluación</h2>
 
+  <!-- Añadir el token CSRF para las peticiones AJAX -->
+  {% csrf_token %}
+
   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
     {% for item in items %}
     <div class="card bg-base-100 shadow-xl h-full">
@@ -14,54 +17,101 @@
         {% endif %}
         <p class="py-2">{{ item.description }}</p>
 
-        <form
-          data-get="{{ request.path }}"
-          data-path="{% url 'select_students' item.id %}"
-          data-target="#selected-students-{{ item.id }}"
-          data-replace="innerHTML"
-        >
-          <div class="form-control mb-3">
-            <label for="group-{{ item.id }}" class="label">
-              <span class="label-text">Grupo:</span>
-            </label>
-            <select
-              class="select select-bordered w-full"
-              id="group-{{ item.id }}"
-              name="group"
-              required
-            >
-              <option value="">Selecciona un grupo</option>
-              {% for group in groups %}
-              <option value="{{ group }}">{{ group }}</option>
-              {% endfor %}
-            </select>
-          </div>
+        <!-- Pestañas para alternar entre selección aleatoria y búsqueda -->
+        <div class="tabs mb-4" x-data="{ activeTab: 'random' }">
+          <a class="tab tab-bordered" 
+             :class="{ 'tab-active': activeTab === 'random' }" 
+             @click="activeTab = 'random'">Selección Aleatoria</a>
+          <a class="tab tab-bordered" 
+             :class="{ 'tab-active': activeTab === 'search' }" 
+             @click="activeTab = 'search'">Buscar Estudiante</a>
+        </div>
 
-          <div class="form-control mb-3">
-            <label for="num_students-{{ item.id }}" class="label">
-              <span class="label-text">Número de estudiantes:</span>
-            </label>
-            <input
-              type="number"
-              class="input input-bordered w-full"
-              id="num_students-{{ item.id }}"
-              name="num_students"
-              min="1"
-              max="10"
-              value="5"
-            />
-            <label class="label">
-              <span class="label-text-alt">Número de estudiantes a seleccionar aleatoriamente</span>
-            </label>
-          </div>
+        <!-- Panel de selección aleatoria -->
+        <div x-show="activeTab === 'random'">
+          <form
+            hx-get="{% url 'select_students' item.id %}"
+            hx-target="#selected-students-{{ item.id }}"
+          >
+            <div class="form-control mb-3">
+              <label for="group-{{ item.id }}" class="label">
+                <span class="label-text">Grupo:</span>
+              </label>
+              <select
+                class="select select-bordered w-full"
+                id="group-{{ item.id }}"
+                name="group"
+                required
+              >
+                <option value="">Selecciona un grupo</option>
+                {% for group in groups %}
+                <option value="{{ group }}">{{ group }}</option>
+                {% endfor %}
+              </select>
+            </div>
 
-          <button type="submit" class="btn btn-primary">
-            Seleccionar Estudiantes
-          </button>
-        </form>
+            <div class="form-control mb-3">
+              <label for="num_students-{{ item.id }}" class="label">
+                <span class="label-text">Número de estudiantes:</span>
+              </label>
+              <input
+                type="number"
+                class="input input-bordered w-full"
+                id="num_students-{{ item.id }}"
+                name="num_students"
+                min="1"
+                max="10"
+                value="5"
+              />
+              <label class="label">
+                <span class="label-text-alt">Número de estudiantes a seleccionar aleatoriamente</span>
+              </label>
+            </div>
+
+            <button type="submit" class="btn btn-primary">
+              Seleccionar Estudiantes
+            </button>
+          </form>
+        </div>
+
+        <!-- Panel de búsqueda de estudiantes -->
+        <div x-show="activeTab === 'search'">
+          <form class="mb-4" hx-get="{% url 'search_students' %}" hx-target="#student-search-results-{{ item.id }}">
+            <div class="form-control">
+              <label for="search-student-{{ item.id }}" class="label">
+                <span class="label-text">Buscar estudiante:</span>
+              </label>
+              <div class="input-group">
+                <input
+                  type="text"
+                  class="input input-bordered w-full"
+                  id="search-student-{{ item.id }}"
+                  name="query"
+                  placeholder="Nombre del estudiante (mínimo 3 caracteres)"
+                  hx-trigger="keyup changed delay:500ms"
+                  hx-get="{% url 'search_students' %}"
+                  hx-target="#student-search-results-{{ item.id }}"
+                  hx-vals='{"item_id": {{ item.id }}}'
+                />
+                <button type="submit" class="btn btn-square">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </form>
+          <div id="student-search-results-{{ item.id }}" class="mb-3">
+            <!-- Aquí se mostrarán los resultados de la búsqueda -->
+          </div>
+        </div>
 
         <div id="selected-students-{{ item.id }}" class="mt-3">
-          <!-- data-star reemplazará el contenido aquí -->
+          <!-- Selección aleatoria de estudiantes -->
+        </div>
+
+        <div id="student-added-{{ item.id }}" class="mt-3">
+          <!-- Confirmación al añadir un estudiante -->
         </div>
       </div>
     </div>
@@ -85,4 +135,12 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block javascript %}
+{{ block.super }}
+<!-- Alpine.js para la funcionalidad de pestañas -->
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+<!-- HTMX para la funcionalidad de búsqueda y adición de estudiantes -->
+<script src="https://unpkg.com/htmx.org@1.7.0/dist/htmx.min.js" defer></script>
 {% endblock %}

@@ -23,9 +23,9 @@
 
       <form
         id="evaluation-form-{{ student.id }}-{{ evaluation_item.id }}"
-        hx-post="{% url 'save_evaluation' student.id %}"
+        hx-post="{% url 'save_evaluation' student.id %}{% if request.GET.group %}?group={{ request.GET.group }}&show_classroom={{ show_classroom|yesno:'true,false' }}{% endif %}"
         hx-target="#evaluation-list"
-        hx-swap="outerHTML"
+        hx-swap="innerHTML"
         method="post"
       >
         {% csrf_token %}

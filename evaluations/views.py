@@ -200,7 +200,49 @@ def save_evaluation(request, student_id):
     if pending_status:
         pending_status.delete()
 
-    return redirect("pending_evaluations")
+    # Verificar si la solicitud viene de HTMX
+    if request.headers.get('HX-Request') == 'true':
+        # Si es una solicitud HTMX, devolver solo el fragmento HTML necesario
+        group = request.GET.get('group')
+        show_classroom = request.GET.get('show_classroom') == 'true'
+        
+        # Obtener los estudiantes pendientes para actualizar la vista
+        pending_statuses = PendingEvaluationStatus.get_pending_students(
+            group=group,
+            include_classroom=show_classroom
+        )
+        
+        # Extraer los estudiantes únicos
+        students = []
+        student_ids = set()
+        for status in pending_statuses:
+            if status.student.id not in student_ids:
+                students.append(status.student)
+                student_ids.add(status.student.id)
+        
+        # Preparar el contexto para la respuesta HTMX
+        context = {
+            "students": students,
+            "groups": Student.objects.values_list("group", flat=True).distinct().order_by("group"),
+            "selected_group": group,
+            "show_classroom": show_classroom
+        }
+        
+        # Si no hay estudiantes pendientes, mostrar un mensaje
+        if not students:
+            return HttpResponse(
+                "<div class='alert alert-info'><div class='flex items-center'>"
+                "<svg xmlns='http://www.w3.org/2000/svg' class='stroke-current flex-shrink-0 h-6 w-6 mr-2' fill='none' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' /></svg>"
+                "<span>No hay evaluaciones pendientes.</span>"
+                "</div></div>"
+            )
+        
+        return HttpResponse(
+            render_to_string("evaluations/partials/evaluation_list.html", context, request=request)
+        )
+    else:
+        # Si no es HTMX, redirigir a la página completa
+        return redirect("pending_evaluations")
 
 
 @require_http_methods(["POST"])
@@ -225,3 +267,88 @@ def toggle_classroom_submission(request, student_id):
     )
     
     return HttpResponse(status=200)
+
+
+@require_http_methods(["GET"])
+def search_students(request):
+    """Busca estudiantes por nombre o apellido"""
+    query = request.GET.get('query', '').strip()
+    item_id = request.GET.get('item_id')  # Obtener el ID del ítem
+    
+    if not query or len(query) < 3:
+        return HttpResponse("Se requieren al menos 3 caracteres para la búsqueda", status=400)
+    
+    # Buscar estudiantes por nombre o apellido
+    students = Student.objects.filter(
+        Q(user__name__icontains=query)
+    ).select_related('user')[:10]  # Limitar a 10 resultados
+    
+    # Pasar el contexto a la plantilla con el ID del ítem
+    context = {
+        "students": students,
+        "item_id": item_id
+    }
+    
+    return HttpResponse(
+        render_to_string(
+            "evaluations/partials/student_search_results.html",
+            context,
+            request=request  # Pasar el objeto request para acceder a request.GET en la plantilla
+        )
+    )
+
+
+@require_http_methods(["POST"])
+def add_student_to_pending(request):
+    """Añade un estudiante específico a una evaluación pendiente"""
+    student_id = request.POST.get('student_id')
+    item_id = request.POST.get('item_id')
+    
+    print(f"Solicitud recibida para añadir estudiante {student_id} al item {item_id}")
+    print(f"POST data: {request.POST}")
+    
+    if not student_id or not item_id:
+        error_msg = f"Se requieren el ID del estudiante y el ID del ítem. Recibido: student_id={student_id}, item_id={item_id}"
+        print(error_msg)
+        return HttpResponse(error_msg, status=400)
+    
+    try:
+        student = get_object_or_404(Student, id=student_id)
+        item = get_object_or_404(EvaluationItem, id=item_id)
+        
+        print(f"Estudiante encontrado: {student.user.name}, Item: {item.name}")
+        
+        # Verificar si el estudiante ya tiene esta evaluación o está pendiente
+        if Evaluation.objects.filter(student=student, evaluation_item=item).exists():
+            error_msg = f"El estudiante {student.user.name} ya tiene una evaluación para el ítem {item.name}"
+            print(error_msg)
+            return HttpResponse(error_msg, status=400)
+        
+        # Verificar si ya está pendiente
+        if PendingEvaluationStatus.objects.filter(student=student, evaluation_item=item).exists():
+            error_msg = f"El estudiante {student.user.name} ya está pendiente para el ítem {item.name}"
+            print(error_msg)
+            return HttpResponse(error_msg, status=400)
+        
+        # Añadir a pendiente
+        pending_status = PendingEvaluationStatus.objects.create(
+            student=student,
+            evaluation_item=item,
+            classroom_submission=False
+        )
+        
+        print(f"Estudiante añadido correctamente a evaluaciones pendientes con ID: {pending_status.id}")
+        
+        return HttpResponse(
+            render_to_string(
+                "evaluations/partials/student_added_confirmation.html",
+                {"student": student, "item": item}
+            )
+        )
+    except Exception as e:
+        error_msg = f"Error al añadir estudiante: {str(e)}"
+        print(error_msg)
+        print(f"Detalles del error: {e.__class__.__name__}")
+        import traceback
+        traceback.print_exc()
+        return HttpResponse(error_msg, status=500)

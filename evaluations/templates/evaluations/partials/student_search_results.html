@@ -1,0 +1,35 @@
+{% if students %}
+  <div class="overflow-x-auto">
+    <table class="table table-zebra table-compact w-full">
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>Grupo</th>
+          <th>Acción</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for student in students %}
+          <tr>
+            <td>{{ student.user.name }}</td>
+            <td>{{ student.group }}</td>
+            <td>
+              <button 
+                class="btn btn-xs btn-primary"
+                hx-post="{% url 'add_student_to_pending' %}"
+                hx-vals='{"student_id": "{{ student.id }}", "item_id": "{{ request.GET.item_id }}"}'
+                hx-target="#student-added-{{ request.GET.item_id }}"
+                hx-swap="innerHTML">
+                Añadir
+              </button>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <div class="alert alert-warning">
+    No se encontraron estudiantes que coincidan con la búsqueda.
+  </div>
+{% endif %}
