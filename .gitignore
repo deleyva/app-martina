@@ -278,3 +278,6 @@ martina_bescos_app/media/
 .env
 .envs/*
 !.envs/.local/
+
+
+martina_bescos_app/static/css/output.css

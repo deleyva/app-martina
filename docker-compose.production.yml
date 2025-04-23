@@ -40,7 +40,7 @@ services:
     networks:
       - app-martina-production-network
 
-  nginx:
+  nginx_production:
     build:
       context: .
       dockerfile: ./compose/production/nginx/Dockerfile

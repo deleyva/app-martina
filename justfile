@@ -87,6 +87,44 @@ deploy-stage:
 	echo 'Aplicando migraciones...' && \
 	docker compose -f docker-compose.stage.yml run --rm django python manage.py migrate"
 
+# deploy-production: Deploy to production environment
+deploy-production:
+	@echo "Deploying to production environment..."
+	# Create necessary directories if they don't exist
+	ssh $SSH_MARTINA_USER_AND_IP "mkdir -p app-martina-production/.envs/.production"
+	
+	# Copy environment files that are not in version control
+	scp ./.envs/.production/.django $SSH_MARTINA_USER_AND_IP:app-martina-production/.envs/.production/
+	scp ./.envs/.production/.postgres $SSH_MARTINA_USER_AND_IP:app-martina-production/.envs/.production/
+	
+	# Deploy the application
+	ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-production && \
+	git reset --hard && \
+	git fetch origin && \
+	git checkout -f main && \
+	git reset --hard origin/main && \
+	docker compose -f docker-compose.production.yml down && \
+	docker compose -f docker-compose.production.yml build && \
+	docker compose -f docker-compose.production.yml up -d && \
+	echo 'Esperando a que los servicios estén listos...' && \
+	sleep 10 && \
+	echo 'Aplicando migraciones...' && \
+	docker compose -f docker-compose.production.yml run --rm django python manage.py migrate"
+
+# production-manage: Executes `manage.py` command in production environment.
+production-manage +args:
+    @ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-production && \
+    docker compose -f docker-compose.production.yml run --rm django python ./manage.py {{args}}"
+
+# production-create-superuser: Creates a superuser in production environment.
+production-create-superuser:
+    @echo "INFO: Intentando crear superusuario en producción ($SSH_MARTINA_USER_AND_IP)..."
+    # Usamos 'ssh -t' para forzar TTY. Usamos 'docker compose run' para asegurar variables de entorno Y permitir interactividad.
+    @ssh -t $SSH_MARTINA_USER_AND_IP "cd ~/app-martina-production && \
+        echo 'INFO: Ejecutando createsuperuser dentro de un contenedor Docker temporal...' && \
+        docker compose -f docker-compose.production.yml run --rm django python ./manage.py createsuperuser"
+    @echo "INFO: Proceso de creación de superusuario finalizado."
+
 # migrations: Creates new migrations.
 migrations:
     @echo "Creating new migrations..."
