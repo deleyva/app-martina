@@ -228,6 +228,30 @@ def save_evaluation(request, student_id):
             "show_classroom": show_classroom
         }
         
+        # Preparar un diccionario con las rúbricas y estados pendientes para cada estudiante
+        student_rubrics = {}
+        student_pending_items = {}
+
+        for student in students:
+            # Obtener todos los estados pendientes para este estudiante
+            pending_statuses = PendingEvaluationStatus.objects.filter(
+                student=student
+            ).select_related('evaluation_item')
+
+            # Guardar los items de evaluación pendientes para este estudiante
+            student_pending_items[student.id] = [status.evaluation_item for status in pending_statuses]
+
+            # Para cada item pendiente, obtener sus categorías de rúbrica
+            for status in pending_statuses:
+                if status.evaluation_item:
+                    student_rubrics.setdefault(student.id, {})
+                    student_rubrics[student.id][status.evaluation_item.id] = RubricCategory.objects.filter(
+                        evaluation_item=status.evaluation_item
+                    ).order_by('order')
+
+        context["student_rubrics"] = student_rubrics
+        context["student_pending_items"] = student_pending_items
+        
         # Si no hay estudiantes pendientes, mostrar un mensaje
         if not students:
             return HttpResponse(
