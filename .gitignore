@@ -281,3 +281,5 @@ martina_bescos_app/media/
 
 
 martina_bescos_app/static/css/output.css
+# Ignore all output.css files regardless of location
+**/output.css
