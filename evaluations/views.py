@@ -89,49 +89,69 @@ class PendingEvaluationsView(ListView):
         # Obtener parámetros de la solicitud
         group = self.request.GET.get("group")
         show_classroom = self.request.GET.get("show_classroom") == "true"
+        evaluation_item_id = self.request.GET.get("evaluation_item")
 
-        # Usar el método del modelo para obtener los estudiantes pendientes
-        pending_statuses = PendingEvaluationStatus.get_pending_students(
-            group=group,
-            include_classroom=show_classroom
-        )
-
-        # Extraer los estudiantes únicos de los estados pendientes
-        students = []
-        student_ids = set()
-        for status in pending_statuses:
-            if status.student.id not in student_ids:
-                students.append(status.student)
-                student_ids.add(status.student.id)
-
-        return students
+        # Construir una consulta para obtener students con evaluaciones pendientes
+        query = Student.objects.filter(
+            pending_statuses__isnull=False
+        ).distinct().select_related('user')
+        
+        # Aplicar filtros según los parámetros
+        if group:
+            query = query.filter(group=group)
+            
+        if not show_classroom:
+            query = query.filter(pending_statuses__classroom_submission=False)
+            
+        if evaluation_item_id:
+            query = query.filter(pending_statuses__evaluation_item_id=evaluation_item_id)
+            
+        return query
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["groups"] = Student.objects.values_list("group", flat=True).distinct().order_by("group")
         context["selected_group"] = self.request.GET.get("group")
         context["show_classroom"] = self.request.GET.get("show_classroom") == "true"
+        context["evaluation_items"] = EvaluationItem.objects.all().order_by('name')
+        context["selected_evaluation_item"] = self.request.GET.get("evaluation_item")
 
-        # Preparar un diccionario con las rúbricas y estados pendientes para cada estudiante
+        # Get group and classroom filter parameters
+        group = self.request.GET.get("group")
+        show_classroom = self.request.GET.get("show_classroom") == "true"
+        evaluation_item_id = self.request.GET.get("evaluation_item")
+
+        # Fetch all pending statuses directly with proper filtering
+        pending_query = PendingEvaluationStatus.objects.select_related('student', 'student__user', 'evaluation_item')
+        
+        if group:
+            pending_query = pending_query.filter(student__group=group)
+            
+        if not show_classroom:
+            pending_query = pending_query.filter(classroom_submission=False)
+            
+        if evaluation_item_id:
+            pending_query = pending_query.filter(evaluation_item_id=evaluation_item_id)
+
+        # Process all pending evaluations
         student_rubrics = {}
         student_pending_items = {}
-
-        for student in context["students"]:
-            # Obtener todos los estados pendientes para este estudiante
-            pending_statuses = PendingEvaluationStatus.objects.filter(
-                student=student
-            ).select_related('evaluation_item')
-
-            # Guardar los items de evaluación pendientes para este estudiante
-            student_pending_items[student.id] = [status.evaluation_item for status in pending_statuses]
-
-            # Para cada item pendiente, obtener sus categorías de rúbrica
-            for status in pending_statuses:
-                if status.evaluation_item:
-                    student_rubrics.setdefault(student.id, {})
-                    student_rubrics[student.id][status.evaluation_item.id] = RubricCategory.objects.filter(
-                        evaluation_item=status.evaluation_item
-                    ).order_by('order')
+        
+        for status in pending_query:
+            student_id = status.student.id
+            
+            # Initialize dictionaries for this student if not already done
+            student_pending_items.setdefault(student_id, [])
+            student_rubrics.setdefault(student_id, {})
+            
+            # Add this evaluation item to the student's pending items if not already there
+            if not any(item.id == status.evaluation_item.id for item in student_pending_items[student_id]):
+                student_pending_items[student_id].append(status.evaluation_item)
+            
+            # Get rubric categories for this evaluation item
+            student_rubrics[student_id][status.evaluation_item.id] = RubricCategory.objects.filter(
+                evaluation_item=status.evaluation_item
+            ).order_by('order')
 
         context["student_rubrics"] = student_rubrics
         context["student_pending_items"] = student_pending_items
@@ -273,24 +293,42 @@ def save_evaluation(request, student_id):
 def toggle_classroom_submission(request, student_id):
     """Actualiza el estado de classroom_submission para un estudiante pendiente de evaluación"""
     student = get_object_or_404(Student, id=student_id)
-    evaluation_item_id = request.POST.get('evaluation_item_id')
-    is_checked = request.POST.get('is_checked') == 'true'
+    
+    # Try to get evaluation_item_id from POST data or from JSON body
+    try:
+        data = request.POST
+        evaluation_item_id = data.get('evaluation_item_id')
+        is_checked = data.get('is_checked') == 'true'
+        
+        # Log for debugging
+        print(f"Received toggle request for student {student_id}, item {evaluation_item_id}, checked: {is_checked}")
+        print(f"POST data: {request.POST}")
+        
+    except Exception as e:
+        print(f"Error processing request data: {e}")
+        return HttpResponse(f"Error processing request data: {e}", status=400)
     
     if not evaluation_item_id:
         return HttpResponse("No se ha especificado un item de evaluación", status=400)
     
-    evaluation_item = get_object_or_404(EvaluationItem, id=evaluation_item_id)
-    
-    # Buscar o crear un registro de estado para esta evaluación pendiente
-    status, created = PendingEvaluationStatus.objects.update_or_create(
-        student=student,
-        evaluation_item=evaluation_item,
-        defaults={
-            'classroom_submission': is_checked
-        }
-    )
-    
-    return HttpResponse(status=200)
+    try:
+        evaluation_item = get_object_or_404(EvaluationItem, id=evaluation_item_id)
+        
+        # Buscar o crear un registro de estado para esta evaluación pendiente específica
+        status, created = PendingEvaluationStatus.objects.update_or_create(
+            student=student,
+            evaluation_item=evaluation_item,
+            defaults={
+                'classroom_submission': is_checked
+            }
+        )
+        
+        print(f"Updated status for student {student.id}, item {evaluation_item.id}, classroom: {is_checked}")
+        
+        return HttpResponse(status=200)
+    except Exception as e:
+        print(f"Error updating status: {e}")
+        return HttpResponse(f"Error: {str(e)}", status=500)
 
 
 @require_http_methods(["GET"])

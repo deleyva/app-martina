@@ -1,26 +1,54 @@
-{% extends "base.html" %} {% block content %}
+{% extends "base.html" %} 
+{% load evaluation_tags %}
+{% block content %}
 <div class="container mx-auto px-4 py-6">
   <div class="flex flex-wrap items-center justify-between gap-2 mb-6">
     <h2 class="text-xl sm:text-2xl font-bold whitespace-nowrap mr-2">
       Evaluaciones Pendientes
     </h2>
-    <div class="join join-horizontal flex-nowrap overflow-x-auto max-w-[50vw]">
-      <a
-        href="{% url 'pending_evaluations' %}?show_classroom={{ show_classroom }}"
-        class="join-item btn btn-xs sm:btn-sm {% if not selected_group %}btn-primary{% else %}btn-outline{% endif %}"
-        >Todos</a
-      >
-      {% for group in groups %}
-      <a
-        href="{% url 'pending_evaluations' %}?group={{ group }}&show_classroom={{ show_classroom }}"
-        class="join-item btn btn-xs sm:btn-sm {% if selected_group == group %}btn-primary{% else %}btn-outline{% endif %}"
-        >{{ group }}</a
-      >
-      {% endfor %}
+    <div class="flex flex-wrap gap-4">
+      <!-- Filtro por grupo -->
+      <div>
+        <label class="label label-text font-semibold">Grupo:</label>
+        <div class="join join-horizontal flex-nowrap overflow-x-auto">
+          <a
+            href="{% url 'pending_evaluations' %}?show_classroom={{ show_classroom }}{% if selected_evaluation_item %}&evaluation_item={{ selected_evaluation_item }}{% endif %}"
+            class="join-item btn btn-xs sm:btn-sm {% if not selected_group %}btn-primary{% else %}btn-outline{% endif %}"
+            >Todos</a
+          >
+          {% for group in groups %}
+          <a
+            href="{% url 'pending_evaluations' %}?group={{ group }}&show_classroom={{ show_classroom }}{% if selected_evaluation_item %}&evaluation_item={{ selected_evaluation_item }}{% endif %}"
+            class="join-item btn btn-xs sm:btn-sm {% if selected_group == group %}btn-primary{% else %}btn-outline{% endif %}"
+            >{{ group }}</a
+          >
+          {% endfor %}
+        </div>
+      </div>
+      
+      <!-- Filtro por item de evaluación -->
+      <div>
+        <label class="label label-text font-semibold">Item de evaluación:</label>
+        <div class="join join-horizontal flex-nowrap overflow-x-auto">
+          <a
+            href="{% url 'pending_evaluations' %}?{% if selected_group %}group={{ selected_group }}&{% endif %}show_classroom={{ show_classroom }}"
+            class="join-item btn btn-xs sm:btn-sm {% if not selected_evaluation_item %}btn-primary{% else %}btn-outline{% endif %}"
+            >Todos</a
+          >
+          {% for item in evaluation_items %}
+          <a
+            href="{% url 'pending_evaluations' %}?{% if selected_group %}group={{ selected_group }}&{% endif %}show_classroom={{ show_classroom }}&evaluation_item={{ item.id }}"
+            class="join-item btn btn-xs sm:btn-sm {% if selected_evaluation_item|stringformat:'s' == item.id|stringformat:'s' %}btn-primary{% else %}btn-outline{% endif %}"
+            >{{ item.name }}</a
+          >
+          {% endfor %}
+        </div>
+      </div>
     </div>
-    <div class="flex items-center flex-nowrap">
+    
+    <div class="flex items-center flex-nowrap mt-2">
       <a
-        href="{% url 'pending_evaluations' %}?{% if selected_group %}group={{ selected_group }}&{% endif %}show_classroom={% if show_classroom %}false{% else %}true{% endif %}"
+        href="{% url 'pending_evaluations' %}?{% if selected_group %}group={{ selected_group }}&{% endif %}{% if selected_evaluation_item %}evaluation_item={{ selected_evaluation_item }}&{% endif %}show_classroom={% if show_classroom %}false{% else %}true{% endif %}"
         class="btn btn-xs sm:btn-sm {% if show_classroom %}btn-primary{% else %}btn-outline{% endif %} mr-1"
       >
         {% if show_classroom %} Ocultar classroom {% else %} Mostrar classroom
@@ -46,6 +74,11 @@
         >
           {{ student.user.name|default:"Estudiante sin nombre" }}
           <span class="badge badge-sm ml-1">{{ student.group }}</span>
+          {% with pending_items=student_pending_items|get_item:student.id %}
+            {% if pending_items|length > 1 %}
+              <span class="badge badge-accent badge-sm ml-1">{{ pending_items|length }}</span>
+            {% endif %}
+          {% endwith %}
         </a>
       {% empty %}
         <div class="alert alert-info">
@@ -105,30 +138,38 @@
       studentId,
       evaluationItemId
     ) {
-      // Preparar los datos para enviar
-      const formData = new FormData();
-      formData.append('evaluation_item_id', evaluationItemId);
-      formData.append('is_checked', checkbox.checked ? 'true' : 'false');
+      const isChecked = checkbox.checked;
 
-      // Enviar la petición al servidor usando fetch
+      // Obtener el token CSRF
+      const csrfToken = document.querySelector("[name=csrfmiddlewaretoken]").value;
+      
+      // Preparar los datos para enviar en formato URLEncoded
+      const formData = new URLSearchParams();
+      formData.append('evaluation_item_id', evaluationItemId);
+      formData.append('is_checked', isChecked ? 'true' : 'false');
+
+      // Enviar petición AJAX para actualizar el estado
       fetch(`/evaluations/toggle-classroom/${studentId}/`, {
-        method: 'POST',
+        method: "POST",
         body: formData,
         headers: {
-          'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
-        }
-      })
-      .then(response => {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "X-CSRFToken": csrfToken
+        },
+      }).then(response => {
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+          console.error('Error al actualizar el estado classroom');
+          // Revertir el checkbox si hay error
+          checkbox.checked = !isChecked;
+          return;
         }
-        // Llamar a la función para actualizar la UI
-        updateClassroomSubmission(studentId, evaluationItemId, checkbox.checked);
-      })
-      .catch(error => {
-        console.error('Error al actualizar el estado classroom:', error);
-        // Revertir el estado del checkbox si hay error
-        checkbox.checked = !checkbox.checked;
+        
+        // Actualizar la visualización
+        updateClassroomSubmission(studentId, evaluationItemId, isChecked);
+      }).catch(error => {
+        console.error('Error de red:', error);
+        // Revertir el checkbox si hay error
+        checkbox.checked = !isChecked;
       });
     };
 
@@ -139,7 +180,7 @@
       evaluationItemId,
       maxScore
     ) {
-      // Actualizar el botón seleccionado
+      // Quitar la clase "btn-primary" de todos los botones
       const buttons = document.querySelectorAll(
         `.max-score-btn[data-student-id="${studentId}"][data-evaluation-item-id="${evaluationItemId}"]`
       );
