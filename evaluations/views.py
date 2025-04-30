@@ -4,6 +4,8 @@ from django.contrib import messages
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 from django.views.decorators.http import require_http_methods
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.mixins import UserPassesTestMixin, LoginRequiredMixin
 import random
 from django.db.models import F, Q
 from decimal import Decimal, InvalidOperation
@@ -18,10 +20,23 @@ from .models import (
 )
 
 
-class EvaluationItemListView(ListView):
+# Helper function to check if user is staff
+def is_staff(user):
+    return user.is_staff
+
+
+class EvaluationItemListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
     model = EvaluationItem
     template_name = "evaluations/item_list.html"
     context_object_name = "items"
+    login_url = '/accounts/login/'
+    
+    def test_func(self):
+        return self.request.user.is_staff
+    
+    def handle_no_permission(self):
+        messages.error(self.request, "Solo el personal autorizado puede acceder a esta sección.")
+        return redirect('home')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -30,6 +45,8 @@ class EvaluationItemListView(ListView):
 
 
 @require_http_methods(["GET"])
+@login_required
+@user_passes_test(is_staff, login_url='/accounts/login/', redirect_field_name=None)
 def select_students(request, item_id):
     """Selecciona aleatoriamente estudiantes para una evaluación"""
     item = get_object_or_404(EvaluationItem, id=item_id)
@@ -81,9 +98,17 @@ def select_students(request, item_id):
     )
 
 
-class PendingEvaluationsView(ListView):
+class PendingEvaluationsView(LoginRequiredMixin, UserPassesTestMixin, ListView):
     template_name = "evaluations/pending_evaluations.html"
     context_object_name = "students"
+    login_url = '/accounts/login/'
+    
+    def test_func(self):
+        return self.request.user.is_staff
+    
+    def handle_no_permission(self):
+        messages.error(self.request, "Solo el personal autorizado puede acceder a esta sección.")
+        return redirect('home')
 
     def get_queryset(self):
         # Obtener parámetros de la solicitud
@@ -159,6 +184,8 @@ class PendingEvaluationsView(ListView):
 
 
 @require_http_methods(["POST"])
+@login_required
+@user_passes_test(is_staff, login_url='/accounts/login/', redirect_field_name=None)
 def save_evaluation(request, student_id):
     student = get_object_or_404(Student, id=student_id)
     evaluation_item_id = request.POST.get('evaluation_item_id')
@@ -290,6 +317,8 @@ def save_evaluation(request, student_id):
 
 
 @require_http_methods(["POST"])
+@login_required
+@user_passes_test(is_staff, login_url='/accounts/login/', redirect_field_name=None)
 def toggle_classroom_submission(request, student_id):
     """Actualiza el estado de classroom_submission para un estudiante pendiente de evaluación"""
     student = get_object_or_404(Student, id=student_id)
@@ -332,6 +361,8 @@ def toggle_classroom_submission(request, student_id):
 
 
 @require_http_methods(["GET"])
+@login_required
+@user_passes_test(is_staff, login_url='/accounts/login/', redirect_field_name=None)
 def search_students(request):
     """Busca estudiantes por nombre o apellido"""
     query = request.GET.get('query', '').strip()
@@ -361,6 +392,8 @@ def search_students(request):
 
 
 @require_http_methods(["POST"])
+@login_required
+@user_passes_test(is_staff, login_url='/accounts/login/', redirect_field_name=None)
 def add_student_to_pending(request):
     """Añade un estudiante específico a una evaluación pendiente"""
     student_id = request.POST.get('student_id')
