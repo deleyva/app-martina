@@ -48,9 +48,29 @@ To run the tests, check your test coverage, and generate an HTML coverage report
 
     $ pytest
 
-### Live reloading and Sass CSS compilation
+### Live reloading and Frontend Development
 
-Moved to [Live reloading and SASS compilation](https://cookiecutter-django.readthedocs.io/en/latest/2-local-development/developing-locally.html#using-webpack-or-gulp).
+The application is built with a modern frontend stack:
+
+- **Tailwind CSS** for utility-first styling
+- **HTMX** for AJAX, CSS Transitions, and WebSockets without writing JavaScript
+- **Alpine.js** for lightweight interactivity directly in HTML markup
+
+When developing with Docker, live reloading is automatically configured:
+
+    $ docker-compose -f docker-compose.local.yml up
+
+This will:
+1. Watch for changes in your Python/Django files and reload the server
+2. Watch for changes in Tailwind CSS configuration and recompile styles
+3. Auto-reload your browser when template or CSS files change
+
+If you want to work with the Tailwind configuration or build process, check out:
+
+    $ docker-compose -f docker-compose.local.yml exec django npm run build
+    $ docker-compose -f docker-compose.local.yml exec django npm run dev
+
+For production builds, the CSS is automatically optimized and minified during the Docker build process.
 
 ### Email Server
 
