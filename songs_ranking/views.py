@@ -57,11 +57,21 @@ class SurveyDetailView(DetailView):
                 voter=self.request.user
             ).values_list('song_id', flat=True)
         
+        # Count unique participants
+        unique_participants_count = proposals.values('participant').distinct().count()
+        
+        # Preparar los conteos de votos para cada propuesta directamente
+        proposals_with_votes = []
+        for proposal in proposals:
+            proposal.vote_count = vote_counts.get(proposal.song.id, 0)
+            proposals_with_votes.append(proposal)
+        
         context.update({
-            'proposals': proposals,
+            'proposals': proposals_with_votes,
             'vote_counts': vote_counts,
             'user_proposals': user_proposals,
             'user_votes': user_votes,
+            'unique_participants_count': unique_participants_count,
         })
         
         return context

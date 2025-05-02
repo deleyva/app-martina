@@ -105,7 +105,7 @@
           
           <div class="stat">
             <div class="stat-title">Participants</div>
-            <div class="stat-value">{{ proposals.values_list('participant', flat=True)|dictsort|length }}</div>
+            <div class="stat-value">{{ unique_participants_count }}</div>
           </div>
         </div>
       {% else %}
@@ -167,7 +167,7 @@
                 
                 {% if survey.is_completed %}
                   <div class="mt-2">
-                    <div class="badge">{{ vote_counts|get_item:proposal.song.id|default:"0" }} votes</div>
+                    <div class="badge">{{ proposal.vote_count }} votes</div>
                   </div>
                 {% endif %}
               </div>
