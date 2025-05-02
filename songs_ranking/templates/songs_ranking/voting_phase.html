@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ survey.title }} - Vote for Songs{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8" x-data="{ totalVotes: {{ vote_count }} }">
+  <div class="flex items-center mb-6">
+    <a href="{% url 'songs_ranking:survey_detail' survey.id %}" class="btn btn-ghost btn-sm mr-2">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+      </svg>
+      Back
+    </a>
+    <h1 class="text-3xl font-bold text-secondary">Vote for Your Favorite Songs</h1>
+  </div>
+
+  <div class="alert alert-info mb-6">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+    </svg>
+    <div>
+      <h3 class="font-bold">Voting Instructions</h3>
+      <div class="text-sm">
+        <p>You can vote for up to 3 songs in this survey. You cannot vote for songs you proposed.</p>
+        <p class="mt-1">Your votes: <span x-text="totalVotes"></span>/3</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    {% for proposal in proposals %}
+      <div class="card bg-base-200 shadow-lg hover:shadow-xl transition-shadow" data-song-id="{{ proposal.song.id }}">
+        <div class="card-body p-4">
+          <div class="flex items-center gap-3">
+            {% if proposal.song.image_url %}
+              <img src="{{ proposal.song.image_url }}" alt="{{ proposal.song.name }}" class="w-16 h-16 object-cover rounded" />
+            {% else %}
+              <div class="w-16 h-16 bg-base-300 rounded flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" />
+                </svg>
+              </div>
+            {% endif %}
+            
+            <div>
+              <h3 class="font-bold">{{ proposal.song.name }}</h3>
+              <p class="text-sm">{{ proposal.song.artist }}</p>
+              {% if proposal.song.album %}
+                <p class="text-xs opacity-70">{{ proposal.song.album }}</p>
+              {% endif %}
+            </div>
+          </div>
+          
+          {% if proposal.song.preview_url %}
+            <div class="mt-2">
+              <audio controls class="w-full h-8">
+                <source src="{{ proposal.song.preview_url }}" type="audio/mpeg">
+                Your browser does not support the audio element.
+              </audio>
+            </div>
+          {% endif %}
+          
+          <div class="flex justify-between items-center mt-2">
+            <div class="badge badge-neutral vote-badge">
+              {{ vote_counts|get:proposal.song.id|default:"0" }} votes
+            </div>
+            
+            {% if proposal.song.id in user_votes %}
+              <button 
+                class="btn btn-xs btn-error"
+                hx-post="{% url 'songs_ranking:remove_vote' survey.id %}"
+                hx-vals='{"song_id": "{{ proposal.song.id }}"}'
+                hx-swap="none"
+                hx-trigger="click"
+                @click="
+                  const response = await fetch('{% url 'songs_ranking:remove_vote' survey.id %}', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/x-www-form-urlencoded',
+                      'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: 'song_id={{ proposal.song.id }}'
+                  });
+                  
+                  if (response.ok) {
+                    const data = await response.json();
+                    totalVotes = data.total_user_votes;
+                    const votesBadge = $el.closest('[data-song-id]').querySelector('.vote-badge');
+                    if (votesBadge) {
+                      votesBadge.textContent = `${data.vote_count} votes`;
+                    }
+                    $el.classList.remove('btn-error');
+                    $el.classList.add('btn-success');
+                    $el.textContent = 'Vote';
+                  } else {
+                    const error = await response.text();
+                    alert(error);
+                  }
+                "
+              >
+                Remove Vote
+              </button>
+            {% else %}
+              <button 
+                class="btn btn-xs btn-success"
+                @click="
+                  if (totalVotes >= 3) {
+                    alert('You have already voted for 3 songs. Remove a vote to add another.');
+                    return;
+                  }
+                  
+                  const response = await fetch('{% url 'songs_ranking:add_vote' survey.id %}', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/x-www-form-urlencoded',
+                      'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: 'song_id={{ proposal.song.id }}'
+                  });
+                  
+                  if (response.ok) {
+                    const data = await response.json();
+                    totalVotes = data.total_user_votes;
+                    const votesBadge = $el.closest('[data-song-id]').querySelector('.vote-badge');
+                    if (votesBadge) {
+                      votesBadge.textContent = `${data.vote_count} votes`;
+                    }
+                    $el.classList.remove('btn-success');
+                    $el.classList.add('btn-error');
+                    $el.textContent = 'Remove Vote';
+                  } else {
+                    const error = await response.text();
+                    alert(error);
+                  }
+                "
+              >
+                Vote
+              </button>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    {% empty %}
+      <div class="lg:col-span-3">
+        <div class="alert alert-warning">
+          <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <span>No song proposals available for voting. Either there are no proposals yet or you proposed all songs!</span>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock content %}
+
+{% block inline_javascript %}
+<script>
+  // Filter function for dictionary access in template (needed for vote_counts)
+  function getItemByKey(dict, key) {
+    return dict[key] || 0;
+  }
+  
+  // Register the filter
+  if (window.Django && window.Django.templatetags) {
+    window.Django.templatetags.get_item = getItemByKey;
+  }
+</script>
+{% endblock inline_javascript %}

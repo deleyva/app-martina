@@ -277,7 +277,7 @@ martina_bescos_app/media/
 .ipython/
 .env
 .envs/*
-!.envs/.local/
+# !.envs/.local/
 
 
 martina_bescos_app/static/css/output.css

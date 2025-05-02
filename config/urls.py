@@ -41,6 +41,8 @@ urlpatterns = [
     path("evaluations/", include("evaluations.urls")),
     # API Keys management UI
     path("api-keys/", include("api_keys.urls", namespace="api_keys")),
+    # Song Ranking app
+    path("songs/", include("songs_ranking.urls", namespace="songs_ranking")),
     # ...
     # Media files
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

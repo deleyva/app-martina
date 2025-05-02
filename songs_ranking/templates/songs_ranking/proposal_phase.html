@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ survey.title }} - Submit Proposals{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+  <div class="flex items-center mb-6">
+    <a href="{% url 'songs_ranking:survey_detail' survey.id %}" class="btn btn-ghost btn-sm mr-2">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+      </svg>
+      Back
+    </a>
+    <h1 class="text-3xl font-bold text-primary">Submit Your Song Proposals</h1>
+  </div>
+
+  <div class="alert alert-info mb-6">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+    </svg>
+    <div>
+      <h3 class="font-bold">Instructions</h3>
+      <div class="text-sm">
+        You can propose up to 3 songs for this survey. Search for songs using the Spotify search below.
+        <p class="mt-1">Remember, you cannot vote for your own proposals in the voting phase!</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <div class="lg:col-span-2">
+      <div class="card bg-base-200 shadow-lg">
+        <div class="card-body">
+          <h2 class="card-title text-primary">Search for Songs</h2>
+          
+          <div class="form-control w-full">
+            <label class="label">
+              <span class="label-text">Nombre de canción o artista</span>
+            </label>
+            <div class="input-group w-full">
+              <input 
+                type="text" 
+                name="q"
+                placeholder="Busca una canción o artista..." 
+                class="input input-primary input-bordered w-full"
+                hx-get="{% url 'songs_ranking:spotify_search_with_survey' survey.id %}"
+                hx-trigger="keyup changed delay:500ms"
+                hx-target="#search-results"
+                hx-indicator="#search-indicator"
+                hx-params="q"
+              />
+              <button 
+                class="btn btn-square btn-primary"
+                hx-get="{% url 'songs_ranking:spotify_search_with_survey' survey.id %}"
+                hx-trigger="click"
+                hx-target="#search-results"
+                hx-indicator="#search-indicator"
+                hx-include="[name='q']"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </button>
+            </div>
+            
+            <!-- Loading indicator -->
+            <div id="search-indicator" class="htmx-indicator mt-4 text-center">
+              <span class="loading loading-dots loading-md"></span>
+            </div>
+            
+            <!-- Results will be loaded here by HTMX -->
+            <div id="search-results"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="lg:col-span-1">
+      <div class="card bg-base-200 shadow-lg sticky top-4">
+        <div class="card-body">
+          <h2 class="card-title text-primary">Your Proposals (<span id="proposal-counter">{{ proposal_count }}</span>/3)</h2>
+          
+          <div class="stats shadow my-3">
+            <div class="stat">
+              <div class="stat-title">Total Proposals</div>
+              <div class="stat-value text-lg">{{ all_proposals_count }}</div>
+              <div class="stat-desc">From all participants</div>
+            </div>
+          </div>
+          
+          <div class="divider"></div>
+          
+          <div id="user-proposals-list" class="space-y-3">
+            {% if user_proposals %}
+              {% for proposal in user_proposals %}
+                {% include "songs_ranking/partials/proposal_item.html" with proposal=proposal %}
+              {% endfor %}
+            {% else %}
+              <div class="alert alert-info">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span>You haven't proposed any songs yet. Search and add up to 3 songs!</span>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}

@@ -84,10 +84,16 @@ LOCAL_APPS = [
     "martina_bescos_app.users",
     "evaluations",
     "api_keys",
+    "songs_ranking",
     # Your stuff: custom apps go here
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
+
+# Spotify API settings
+# ------------------------------------------------------------------------------
+SPOTIFY_CLIENT_ID = env("SPOTIFY_CLIENT_ID", default="your-spotify-client-id")
+SPOTIFY_CLIENT_SECRET = env("SPOTIFY_CLIENT_SECRET", default="your-spotify-client-secret")
 
 # MIGRATIONS
 # ------------------------------------------------------------------------------

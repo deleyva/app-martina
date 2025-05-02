@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}Song Ranking Surveys{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+  <div class="flex justify-between items-center mb-6">
+    <h1 class="text-3xl font-bold text-primary">Song Ranking Surveys</h1>
+    {% if user.is_authenticated %}
+    <a href="{% url 'songs_ranking:create_survey' %}" class="btn btn-primary">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 mr-1">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+      </svg>
+      Create New Survey
+    </a>
+    {% endif %}
+  </div>
+
+  {% if surveys %}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {% for survey in surveys %}
+        <div class="card bg-base-200 shadow-lg hover:shadow-xl transition-shadow">
+          <div class="card-body">
+            <h2 class="card-title text-primary">{{ survey.title }}</h2>
+            <p class="text-sm text-base-content/70 mb-2">Created by {{ survey.creator.username }}</p>
+            
+            {% if survey.current_phase == "not_started" %}
+              <div class="badge badge-neutral">Not Started Yet</div>
+            {% elif survey.current_phase == "proposal" %}
+              <div class="badge badge-primary">Proposal Phase</div>
+            {% elif survey.current_phase == "voting" %}
+              <div class="badge badge-secondary">Voting Phase</div>
+            {% elif survey.current_phase == "completed" %}
+              <div class="badge badge-accent">Completed</div>
+            {% endif %}
+            
+            <p class="mt-3">{{ survey.description|truncatechars:100 }}</p>
+            
+            <div class="card-actions justify-end mt-4">
+              <a href="{% url 'songs_ranking:survey_detail' survey.id %}" class="btn btn-outline btn-sm">
+                View Details
+              </a>
+              
+              {% if survey.is_in_proposal_phase %}
+                <a href="{% url 'songs_ranking:proposal_phase' survey.id %}" class="btn btn-primary btn-sm">
+                  Submit Proposals
+                </a>
+              {% elif survey.is_in_voting_phase %}
+                <a href="{% url 'songs_ranking:voting_phase' survey.id %}" class="btn btn-secondary btn-sm">
+                  Vote Now
+                </a>
+              {% elif survey.is_completed %}
+                <a href="{% url 'songs_ranking:results' survey.id %}" class="btn btn-accent btn-sm">
+                  See Results
+                </a>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="alert alert-info shadow-lg">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+      </svg>
+      <div>
+        <h3 class="font-bold">No surveys found!</h3>
+        <div class="text-xs">There are no active song ranking surveys at the moment.</div>
+      </div>
+    </div>
+    {% if user.is_authenticated %}
+      <div class="mt-6 text-center">
+        <a href="{% url 'songs_ranking:create_survey' %}" class="btn btn-primary">
+          Create Your First Survey
+        </a>
+      </div>
+    {% endif %}
+  {% endif %}
+</div>
+{% endblock content %}

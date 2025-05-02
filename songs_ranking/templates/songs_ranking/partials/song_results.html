@@ -1,0 +1,76 @@
+{% if error %}
+  <div class="alert alert-error mt-4">
+    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+    <span>{{ error }}</span>
+  </div>
+{% elif songs %}
+  <div class="mt-4 space-y-3">
+    <div class="badge badge-info p-3 mb-2">Resultados encontrados: {{ songs|length }}</div>
+    
+    {% for song in songs %}
+      <div class="card bg-base-100 shadow-lg hover:bg-base-300 cursor-pointer transition-colors" 
+           {% if survey_id %}
+           hx-post="{% url 'songs_ranking:add_proposal' survey_id %}"
+           hx-trigger="click"
+           hx-vals='{"spotify_id": "{{ song.spotify_id }}", "name": "{{ song.name|escapejs }}", "artist": "{{ song.artist|escapejs }}", "album": "{{ song.album|default:""|escapejs }}", "preview_url": "{{ song.preview_url|default:"" }}", "image_url": "{{ song.image_url|default:"" }}"}'
+           hx-target="#user-proposals-list"
+           hx-swap="beforeend"
+           hx-on::after-request="
+             if(event.detail.successful) {
+               const counterElem = document.getElementById('proposal-counter');
+               counterElem.textContent = parseInt(counterElem.textContent) + 1;
+             } else {
+               alert(event.detail.xhr.responseText);
+             }
+           "
+           {% else %}
+           onclick="alert('Error: No se pudo determinar la encuesta a la que añadir esta canción');"
+           {% endif %}
+           >
+        <div class="card-body p-4">
+          <div class="flex items-center gap-3">
+            {% if song.image_url %}
+              <img src="{{ song.image_url }}" alt="{{ song.name }}" class="w-16 h-16 object-cover rounded" />
+            {% else %}
+              <div class="w-16 h-16 bg-base-300 rounded flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" />
+                </svg>
+              </div>
+            {% endif %}
+            
+            <div>
+              <h3 class="font-bold">{{ song.name }}</h3>
+              <p class="text-sm">{{ song.artist }}</p>
+              <p class="text-xs opacity-70">{{ song.album }}</p>
+            </div>
+          </div>
+          
+          {% if song.preview_url %}
+            <div class="mt-2">
+              <audio controls class="w-full h-8">
+                <source src="{{ song.preview_url }}" type="audio/mpeg">
+                Su navegador no soporta la reproducción de audio.
+              </audio>
+            </div>
+          {% endif %}
+          
+          <div class="card-actions justify-end mt-2">
+            <button class="btn btn-xs btn-success">
+              Añadir a propuestas
+            </button>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% elif query %}
+  <div class="mt-4 alert alert-warning">
+    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+    </svg>
+    <span>No se encontraron canciones que coincidan con "{{ query }}". Intenta con otra búsqueda.</span>
+  </div>
+{% endif %}
