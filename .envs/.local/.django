@@ -6,3 +6,4 @@ IPYTHONDIR=/app/.ipython
 # Database
 # ------------------------------------------------------------------------------
 DATABASE_URL=postgres://postgres:postgres@localhost:5432/martina_bescos_app
+
