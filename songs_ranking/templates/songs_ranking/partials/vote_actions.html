@@ -1,0 +1,25 @@
+<div class="flex justify-between items-center mt-2">
+  <div class="badge badge-neutral vote-badge">
+    {{ vote_count }} votes
+  </div>
+  
+  {% if song.id in user_votes %}
+    <button 
+      class="btn btn-xs btn-error"
+      hx-post="{% url 'songs_ranking:remove_vote' survey.id %}"
+      hx-vals='{"song_id": "{{ song.id }}"}'
+      hx-swap="outerHTML"
+      hx-target="closest div.flex">
+      Remove Vote
+    </button>
+  {% else %}
+    <button 
+      class="btn btn-xs btn-success"
+      hx-post="{% url 'songs_ranking:add_vote' survey.id %}"
+      hx-vals='{"song_id": "{{ song.id }}"}'
+      hx-swap="outerHTML"
+      hx-target="closest div.flex">
+      Vote
+    </button>
+  {% endif %}
+</div>

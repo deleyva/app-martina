@@ -46,6 +46,14 @@ manage +args:
 test:
     @docker compose run --rm django pytest
 
+# run a python command
+command +args:
+    @docker compose run --rm django {{args}}
+
+# start an interactive terminal
+django-shell:
+    @docker compose run --rm django python ./manage.py shell
+
 stage-create-superuser:
     @echo "INFO: Intentando crear superusuario en staging ($SSH_MARTINA_USER_AND_IP)..."
     # Usamos 'ssh -t' para forzar TTY. Usamos 'docker compose run' para asegurar variables de entorno Y permitir interactividad.

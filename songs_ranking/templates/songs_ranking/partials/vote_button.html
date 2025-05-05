@@ -1,0 +1,19 @@
+{% if proposal.song.id in user_votes %}
+  <button 
+    class="btn btn-xs btn-error"
+    hx-post="{% url 'songs_ranking:remove_vote' survey.id %}"
+    hx-vals='{"song_id": "{{ proposal.song.id }}"}'
+    hx-swap="outerHTML"
+    hx-target="this">
+    Remove Vote
+  </button>
+{% else %}
+  <button 
+    class="btn btn-xs btn-success"
+    hx-post="{% url 'songs_ranking:add_vote' survey.id %}"
+    hx-vals='{"song_id": "{{ proposal.song.id }}"}'
+    hx-swap="outerHTML"
+    hx-target="this">
+    Vote
+  </button>
+{% endif %}

@@ -29,6 +29,8 @@
   {% block javascript %}
     <!-- HTMX -->
     <script src="https://unpkg.com/htmx.org@1.9.6" integrity="sha384-FhXw7b6AlE/jyjlZH5iHa/tTe9EpJ1Y55RjcgPbjeWMskSxZt1v9qkxLJWNJaGni" crossorigin="anonymous"></script>
+    <!-- Alpine.js -->
+    <script defer src="https://unpkg.com/alpinejs@3.12.1/dist/cdn.min.js"></script>
     <!-- CSRF token configuration for HTMX -->
     <script>
       document.addEventListener('DOMContentLoaded', function() {
@@ -50,6 +52,22 @@
 </head>
 <body class="min-h-screen bg-base-100">
   {% block body %}
+  {% if is_impersonating %}
+  <!-- Barra de impersonación -->
+  <div class="bg-warning text-warning-content py-2 px-4 flex justify-between items-center shadow-md sticky top-0 z-50">
+    <div class="flex items-center space-x-2">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+      </svg>
+      <span>{% translate "Estás impersonando a" %} <strong>{{ request.user.email }}</strong></span>
+    </div>
+    <div class="flex space-x-2">
+      <a href="{% url 'users:impersonate-return' %}" class="btn btn-sm btn-warning">
+        {% translate "Terminar impersonación" %}
+      </a>
+    </div>
+  </div>
+  {% endif %}
   <div class="drawer">
     <input id="my-drawer-3" type="checkbox" class="drawer-toggle" /> 
     <div class="drawer-content flex flex-col">
@@ -69,6 +87,9 @@
             <li><a href="{% url 'about' %}">About</a></li>
             {% if request.user.is_staff %}
               <li><a href="{% url 'admin:index' %}">Admin</a></li>
+            {% endif %}
+            {% if request.user.is_superuser %}
+              <li><a href="{% url 'users:impersonate-list' %}">{% translate "Impersonar Usuario" %}</a></li>
             {% endif %}
             {% if request.user.is_authenticated %}
               <li><a href="{% url 'users:detail' request.user.pk %}">{% translate "My Profile" %}</a></li>
@@ -135,6 +156,9 @@
             <li><a id="sign-up-link-mobile" href="{% url 'account_signup' %}">{% translate "Sign Up" %}</a></li>
           {% endif %}
           <li><a id="log-in-link-mobile" href="{% url 'account_login' %}">{% translate "Sign In" %}</a></li>
+        {% endif %}
+        {% if request.user.is_superuser %}
+          <li><a href="{% url 'users:impersonate-list' %}">{% translate "Impersonar Usuario" %}</a></li>
         {% endif %}
       </ul>
     </div>
