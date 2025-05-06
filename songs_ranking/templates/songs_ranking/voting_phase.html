@@ -33,34 +33,14 @@
     {% for proposal in proposals %}
       <div class="card bg-base-200 shadow-lg hover:shadow-xl transition-shadow" data-song-id="{{ proposal.song.id }}">
         <div class="card-body p-4">
-          <div class="flex items-center gap-3">
-            {% if proposal.song.image_url %}
-              <img src="{{ proposal.song.image_url }}" alt="{{ proposal.song.name }}" class="w-16 h-16 object-cover rounded" />
-            {% else %}
-              <div class="w-16 h-16 bg-base-300 rounded flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" />
-                </svg>
-              </div>
-            {% endif %}
-            
-            <div>
-              <h3 class="font-bold">{{ proposal.song.name }}</h3>
-              <p class="text-sm">{{ proposal.song.artist }}</p>
-              {% if proposal.song.album %}
-                <p class="text-xs opacity-70">{{ proposal.song.album }}</p>
-              {% endif %}
-            </div>
+          <div class="mt-2">
+            <iframe src="https://open.spotify.com/embed/track/{{ proposal.song.spotify_id }}" 
+                width="100%" 
+                height="80" 
+                frameborder="0" 
+                allowtransparency="true" 
+                allow="encrypted-media"></iframe>
           </div>
-          
-          {% if proposal.song.preview_url %}
-            <div class="mt-2">
-              <audio controls class="w-full h-8">
-                <source src="{{ proposal.song.preview_url }}" type="audio/mpeg">
-                Your browser does not support the audio element.
-              </audio>
-            </div>
-          {% endif %}
           
           {% include "songs_ranking/partials/vote_actions.html" with song=proposal.song vote_count=vote_counts|get_item:proposal.song.id|default:"0" %}
         </div>

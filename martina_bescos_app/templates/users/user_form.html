@@ -3,19 +3,19 @@
 {% load crispy_forms_tags %}
 
 {% block title %}
-
-
-  {{ user.name }}
-
-
+  {% if user.first_name or user.last_name %}
+    {{ user.first_name }} {{ user.last_name }}
+  {% else %}
+    {{ user.name }}
+  {% endif %}
 {% endblock title %}
 {% block content %}
   <h1>
-  
-  
+  {% if user.first_name or user.last_name %}
+    {{ user.first_name }} {{ user.last_name }}
+  {% else %}
     {{ user.name }}
-  
-  
+  {% endif %}
 </h1>
 <form class="form-horizontal"
       method="post"

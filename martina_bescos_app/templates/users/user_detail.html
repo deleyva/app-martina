@@ -4,20 +4,22 @@
 
 {% block title %}
   User: 
-  
+  {% if object.first_name or object.last_name %}
+    {{ object.first_name }} {{ object.last_name }}
+  {% else %}
     {{ object.name }}
-  
-  
+  {% endif %}
 {% endblock title %}
 {% block content %}
   <div class="container">
     <div class="row">
       <div class="col-sm-12">
         <h2>
-        
-        
+        {% if object.first_name or object.last_name %}
+          {{ object.first_name }} {{ object.last_name }}
+        {% else %}
           {{ object.name }}
-        
+        {% endif %}
       </h2>
     </div>
   </div>

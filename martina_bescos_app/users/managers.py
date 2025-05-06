@@ -18,6 +18,15 @@ class UserManager(DjangoUserManager["User"]):
             msg = "The given email must be set"
             raise ValueError(msg)
         email = self.normalize_email(email)
+        
+        # Split name into first_name and last_name if name is provided
+        if 'name' in extra_fields and extra_fields['name']:
+            name_parts = extra_fields['name'].split(' ', 1)
+            if len(name_parts) > 0 and not extra_fields.get('first_name'):
+                extra_fields['first_name'] = name_parts[0]
+            if len(name_parts) > 1 and not extra_fields.get('last_name'):
+                extra_fields['last_name'] = name_parts[1]
+                
         user = self.model(email=email, **extra_fields)
         user.password = make_password(password)
         user.save(using=self._db)

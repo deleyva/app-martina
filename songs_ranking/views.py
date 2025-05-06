@@ -197,6 +197,10 @@ class AddProposalView(LoginRequiredMixin, View):
         preview_url = request.POST.get('preview_url', '')
         image_url = request.POST.get('image_url', '')
         
+        # Depurar qué valores se están recibiendo
+        logger.info(f"Recibiendo datos de canción: spotify_id={spotify_id}, name={name}, artist={artist}")
+        logger.info(f"URL de previsualización recibida: '{preview_url}'")
+        
         if not all([spotify_id, name, artist]):
             return HttpResponse("Faltan datos requeridos de la canción", status=400)
         
@@ -212,10 +216,25 @@ class AddProposalView(LoginRequiredMixin, View):
             }
         )
         
-        # Si la canción ya existía, actualizar la URL de previsualización si está disponible
-        if not created and preview_url:
-            song.preview_url = preview_url
-            song.save(update_fields=['preview_url'])
+        # Si la canción ya existía, actualizar las URLs
+        if not created:
+            updated = False
+            
+            # Actualizar preview_url solo si viene con valor y es diferente
+            if preview_url and preview_url != song.preview_url:
+                song.preview_url = preview_url
+                updated = True
+                logger.info(f"Actualizando URL de previsualización: {preview_url}")
+            
+            # Actualizar image_url solo si viene con valor y es diferente
+            if image_url and image_url != song.image_url:
+                song.image_url = image_url
+                updated = True
+            
+            # Guardar si hubo cambios
+            if updated:
+                song.save()
+                logger.info(f"Canción actualizada: {song.id} - {song.name}")
         
         # Check if this proposal already exists
         proposal, created = SongProposal.objects.get_or_create(
