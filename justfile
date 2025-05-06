@@ -143,9 +143,9 @@ migrations:
     @docker compose run --rm django python ./manage.py makemigrations
 
 # migrate: Applies migrations.
-migrate:
+migrate *args:
     @echo "Applying migrations..."
-    @docker compose run --rm django python ./manage.py migrate
+    @docker compose run --rm django python ./manage.py migrate {{args}}
 
 # create django app
 createapp +args:
