@@ -78,6 +78,7 @@ THIRD_PARTY_APPS = [
     "allauth.account",
     "allauth.mfa",
     "allauth.socialaccount",
+    "allauth.socialaccount.providers.google",
 ]
 
 LOCAL_APPS = [
@@ -293,3 +294,17 @@ SOCIALACCOUNT_FORMS = {"signup": "martina_bescos_app.users.forms.UserSocialSignu
 
 # Your stuff...
 # ------------------------------------------------------------------------------
+
+# Configuración de proveedores de socialaccount
+# ------------------------------------------------------------------------------
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        'SCOPE': [
+            'profile',
+            'email',
+        ],
+        'AUTH_PARAMS': {
+            'access_type': 'online',
+        }
+    }
+}

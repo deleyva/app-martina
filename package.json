@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "description": "Frontend para Martina Bescós App",
   "scripts": {
-    "build": "npx @tailwindcss/cli --input ./martina_bescos_app/static/css/index.css --output ./martina_bescos_app/static/css/output.css --minify",
-    "dev": "npx @tailwindcss/cli --input ./martina_bescos_app/static/css/index.css --output ./martina_bescos_app/static/css/output.css --watch"
+    "create-css": "mkdir -p ./martina_bescos_app/static/css && echo '@import \"tailwindcss\";\n@plugin \"daisyui\" {\n  themes: light --default, dark --prefersdark;\n  logs: true;\n}' > ./martina_bescos_app/static/css/index.css",
+    "build": "npm run create-css && npx @tailwindcss/cli --input ./martina_bescos_app/static/css/index.css --output ./martina_bescos_app/static/css/output.css --minify",
+    "dev": "npm run create-css && npx @tailwindcss/cli --input ./martina_bescos_app/static/css/index.css --output ./martina_bescos_app/static/css/output.css --watch"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.0.0",

@@ -11,6 +11,7 @@ django==5.0.11  # pyup: < 5.1  # https://www.djangoproject.com/
 django-environ==0.12.0  # https://github.com/joke2k/django-environ
 django-model-utils==5.0.0  # https://github.com/jazzband/django-model-utils
 django-allauth[mfa]==65.3.1  # https://github.com/pennersr/django-allauth
+PyJWT==2.8.0  # https://github.com/jpadilla/pyjwt
 django-crispy-forms==2.3  # https://github.com/django-crispy-forms/django-crispy-forms
 crispy-tailwind==1.0.0  # https://github.com/django-crispy-forms/crispy-tailwind
 django-redis==5.4.0  # https://github.com/jazzband/django-redis

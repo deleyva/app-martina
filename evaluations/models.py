@@ -28,7 +28,7 @@ class Student(models.Model):
         blank=True,
     )
     group = models.CharField(max_length=50)
-    
+
     def __str__(self):
         return f"{self.user.name}" if self.user else f"Student {self.id}"
 
@@ -75,6 +75,8 @@ class Evaluation(models.Model):
     max_score = models.DecimalField(
         max_digits=3, decimal_places=1, default=10.0, verbose_name="Nota máxima"
     )
+    feedback = models.TextField(blank=True)
+    sent_by_mail = models.BooleanField(default=False, verbose_name="Enviada por correo")
 
     class Meta:
         unique_together = ["student", "evaluation_item"]
@@ -115,6 +117,7 @@ class RubricScore(models.Model):
 
 class PendingEvaluationStatus(models.Model):
     """Modelo para almacenar el estado de las evaluaciones pendientes"""
+
     student = models.ForeignKey(
         Student, on_delete=models.CASCADE, related_name="pending_statuses"
     )
@@ -125,32 +128,36 @@ class PendingEvaluationStatus(models.Model):
         default=False, verbose_name="Entrega por classroom"
     )
     created_at = models.DateTimeField(auto_now_add=True)
-    
+
     class Meta:
         unique_together = ["student", "evaluation_item"]
         verbose_name = "Estado de evaluación pendiente"
         verbose_name_plural = "Estados de evaluaciones pendientes"
         indexes = [
-            models.Index(fields=['student', 'evaluation_item']),
-            models.Index(fields=['evaluation_item']),
-            models.Index(fields=['classroom_submission']),
+            models.Index(fields=["student", "evaluation_item"]),
+            models.Index(fields=["evaluation_item"]),
+            models.Index(fields=["classroom_submission"]),
         ]
-    
+
     def __str__(self):
         return f"{self.student} - {self.evaluation_item} - {'Classroom' if self.classroom_submission else 'En clase'}"
-    
+
     @classmethod
-    def get_pending_students(cls, evaluation_item=None, group=None, include_classroom=False):
+    def get_pending_students(
+        cls, evaluation_item=None, group=None, include_classroom=False
+    ):
         """Obtiene los estudiantes con evaluaciones pendientes"""
-        query = cls.objects.select_related('student', 'student__user', 'evaluation_item')
-        
+        query = cls.objects.select_related(
+            "student", "student__user", "evaluation_item"
+        )
+
         if evaluation_item:
             query = query.filter(evaluation_item=evaluation_item)
-            
+
         if group:
             query = query.filter(student__group=group)
-            
+
         if not include_classroom:
             query = query.filter(classroom_submission=False)
-            
+
         return query

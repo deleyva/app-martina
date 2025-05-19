@@ -6,6 +6,14 @@ set -o nounset
 
 # Instalar dependencias de Node.js y compilar CSS con Tailwind 4
 cd /app
+
+# Verificar que existe el directorio para CSS
+mkdir -p /app/martina_bescos_app/static/css
+
+# Mostrar archivos en el directorio para depuración
+echo "Archivos en el directorio CSS antes de npm build:"
+ls -la /app/martina_bescos_app/static/css/
+
 npm install
 npm run build
 
