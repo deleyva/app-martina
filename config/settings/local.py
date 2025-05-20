@@ -75,3 +75,6 @@ INSTALLED_APPS += ["django_extensions"]
 
 # Your stuff...
 # ------------------------------------------------------------------------------
+
+# Sobrescribir SITE_ID para usar el sitio de desarrollo local
+SITE_ID = 2

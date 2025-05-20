@@ -11,17 +11,19 @@
   <div class="card-body">
     <h1 class="card-title text-2xl font-bold">{% translate "Sign In" %}</h1>
 
-    {% if socialaccount_providers %}
-    <p class="text-sm">
-      {% translate "Please sign in with one of your existing third party accounts:" %}
-    </p>
-    <div class="socialaccount_ballot">
-      <ul class="socialaccount_providers">
-        {% include "socialaccount/snippets/provider_list.html" with process="login" %}
-      </ul>
-      <div class="divider">{% translate "or" %}</div>
-    </div>
-    {% endif %}
+    {% load socialaccount %}
+    <a href="{% provider_login_url 'google' process='login' %}" 
+       class="btn btn-outline w-full flex items-center justify-center gap-2 mt-4 mb-4">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path d="M21.8 12.2c0-.63-.06-1.25-.16-1.85H12v3.5h5.52c-.24 1.3-1.09 2.4-2.3 3.13v2.6h3.73c2.18-2 3.45-4.97 3.45-8.38z" fill="#4285F4" />
+        <path d="M12 22c3.1 0 5.7-1.03 7.6-2.79l-3.73-2.9c-1.02.67-2.34 1.08-3.87 1.08-2.98 0-5.5-2.01-6.4-4.7H1.76v3c1.9 3.78 5.82 6.31 10.24 6.31z" fill="#34A853" />
+        <path d="M5.6 12.61c-.23-.7-.36-1.44-.36-2.21s.13-1.51.36-2.21V5.4H1.76C.94 7.06.5 8.96.5 11c0 2.04.44 3.94 1.26 5.6l3.84-2.99z" fill="#FBBC05" />
+        <path d="M12 4.4c1.68 0 3.18.58 4.38 1.73l3.3-3.3C17.68 1 15.07 0 12 0 7.58 0 3.66 2.53 1.76 6.31l3.84 2.99c.9-2.7 3.42-4.9 6.4-4.9z" fill="#EA4335" />
+      </svg>
+      {% translate "Sign In with Google" %}
+    </a>
+
+    <div class="divider">{% translate "or" %}</div>
 
     <p class="text-sm mb-4">
       {% translate "If you have not created an account yet, then please" %}
