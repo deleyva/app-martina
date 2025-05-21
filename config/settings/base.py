@@ -35,7 +35,7 @@ LANGUAGE_CODE = "en-us"
 #     ('pt-br', _('Portuguese')),
 # ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#site-id
-SITE_ID = 1
+SITE_ID = 2
 # https://docs.djangoproject.com/en/dev/ref/settings/#use-i18n
 USE_I18N = True
 # https://docs.djangoproject.com/en/dev/ref/settings/#use-tz
@@ -94,7 +94,9 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 # Spotify API settings
 # ------------------------------------------------------------------------------
 SPOTIFY_CLIENT_ID = env("SPOTIFY_CLIENT_ID", default="your-spotify-client-id")
-SPOTIFY_CLIENT_SECRET = env("SPOTIFY_CLIENT_SECRET", default="your-spotify-client-secret")
+SPOTIFY_CLIENT_SECRET = env(
+    "SPOTIFY_CLIENT_SECRET", default="your-spotify-client-secret"
+)
 
 # MIGRATIONS
 # ------------------------------------------------------------------------------
@@ -299,13 +301,13 @@ SOCIALACCOUNT_FORMS = {"signup": "martina_bescos_app.users.forms.UserSocialSignu
 # Configuración de proveedores de socialaccount
 # ------------------------------------------------------------------------------
 SOCIALACCOUNT_PROVIDERS = {
-    'google': {
-        'SCOPE': [
-            'profile',
-            'email',
+    "google": {
+        "SCOPE": [
+            "profile",
+            "email",
         ],
-        'AUTH_PARAMS': {
-            'access_type': 'online',
-        }
+        "AUTH_PARAMS": {
+            "access_type": "online",
+        },
     }
 }
