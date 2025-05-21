@@ -4,7 +4,10 @@ import typing
 
 from allauth.account.adapter import DefaultAccountAdapter
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
+from allauth.socialaccount.helpers import ImmediateHttpResponse
 from django.conf import settings
+from django.forms import ValidationError
+import re
 
 if typing.TYPE_CHECKING:
     from allauth.socialaccount.models import SocialLogin
@@ -15,7 +18,100 @@ if typing.TYPE_CHECKING:
 
 class AccountAdapter(DefaultAccountAdapter):
     def is_open_for_signup(self, request: HttpRequest) -> bool:
-        return getattr(settings, "ACCOUNT_ALLOW_REGISTRATION", True)
+        # Solo permitir registro si viene desde un proceso de login social
+        # o si está habilitado el registro en general
+        is_social_signup = getattr(request, 'session', {}).get('sociallogin_provider') is not None
+        allow_registration = getattr(settings, "ACCOUNT_ALLOW_REGISTRATION", True)
+        
+        # Solo permitir registro si es social o si se permite explícitamente
+        # Esto asegura que el registro manual esté bloqueado pero el de Google funcione
+        return is_social_signup and allow_registration
+    
+    def is_social_login_request(self, request):
+        """Determina de manera robusta si una solicitud es parte de un proceso de inicio de sesión social."""
+        # 1. Verificar si hay un proveedor social en la sesión
+        if request.session.get('sociallogin_provider') is not None:
+            return True
+            
+        # 2. Verificar si hay un parámetro de proceso en la URL
+        if 'process' in request.GET:
+            return True
+            
+        # 3. Verificar si estamos en un callback o en una ruta de autenticación social
+        social_paths = ['accounts/google/', 'accounts/social/', 'socialaccount/']
+        for path in social_paths:
+            if path in request.path:
+                return True
+                
+        # 4. Verificar si hay un header específico de solicitud AJAX relacionado con allauth
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' and 'allauth' in request.path:
+            return True
+            
+        return False
+    
+    def login(self, request, user):
+        # Permitir inicio de sesión en estos casos:
+        # 1. El usuario es staff (administrador)
+        # 2. Es un inicio de sesión social (Google)
+        # 3. El usuario tiene cuentas sociales vinculadas
+        # 4. Es parte del proceso de impersonación
+        
+        # Verificar si es parte del proceso de impersonación
+        is_impersonating = request.session.get('_impersonate', None) is not None
+        
+        # Verificar si el usuario es administrador
+        is_staff = getattr(user, 'is_staff', False)
+        
+        # Verificar si es un inicio de sesión social
+        is_social_login = self.is_social_login_request(request)
+        
+        # Verificar si el usuario tiene cuentas sociales vinculadas
+        has_social_account = False
+        if hasattr(user, 'socialaccount_set'):
+            has_social_account = user.socialaccount_set.exists()
+        
+        # Permitir el login si se cumple alguna de las condiciones
+        if is_staff or is_social_login or has_social_account or is_impersonating:
+            return super().login(request, user)
+        
+        # Si no cumple ninguna condición, rechazar el login
+        raise ValidationError(
+            "El inicio de sesión con email/contraseña está deshabilitado. "
+            "Por favor, usa tu cuenta de Google para iniciar sesión."
+        )
+    
+    def pre_login(self, request, user, **kwargs):
+        # Verificar si es parte del proceso de impersonación
+        is_impersonating = request.session.get('_impersonate', None) is not None
+        
+        # Verificar si el usuario es administrador
+        is_staff = getattr(user, 'is_staff', False)
+        
+        # Verificar si es un inicio de sesión social
+        is_social_login = self.is_social_login_request(request)
+        
+        # Verificar si el usuario tiene cuentas sociales vinculadas
+        has_social_account = False
+        if hasattr(user, 'socialaccount_set'):
+            has_social_account = user.socialaccount_set.exists()
+        
+        # Permitir el login si se cumple alguna de las condiciones
+        if is_staff or is_social_login or has_social_account or is_impersonating:
+            return super().pre_login(request, user, **kwargs)
+        
+        # Si llega aquí, es un intento de login normal y no es administrador
+        raise ValidationError(
+            "El inicio de sesión con email/contraseña está deshabilitado. "
+            "Por favor, usa tu cuenta de Google para iniciar sesión."
+        )
+        
+    # Desactivar completamente el formulario de registro manual
+    def get_signup_form_class(self, request=None):
+        if request and request.session.get('sociallogin_provider'):
+            # Si es un registro social, permitir el formulario normal
+            return super().get_signup_form_class(request)
+        # En caso contrario, retornar None para deshabilitar el registro manual
+        return None
 
 
 class SocialAccountAdapter(DefaultSocialAccountAdapter):
@@ -24,7 +120,37 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
         request: HttpRequest,
         sociallogin: SocialLogin,
     ) -> bool:
+        # Permitir el registro con cuentas sociales si está habilitado globalmente
         return getattr(settings, "ACCOUNT_ALLOW_REGISTRATION", True)
+        
+    def pre_social_login(self, request, sociallogin):
+        """
+        Este método se llama justo antes de que un usuario se autentique con una cuenta social.
+        Aquí intentamos vincular la cuenta social con un usuario existente si el correo electrónico coincide.
+        """
+        # Verificar si ya existe un usuario con el mismo correo electrónico
+        if sociallogin.is_existing:
+            return  # Si la cuenta ya está vinculada, no hacemos nada
+        
+        # Obtener el email de la cuenta social
+        email = sociallogin.account.extra_data.get('email')
+        if not email:
+            return  # Si no hay email, no podemos buscar un usuario existente
+        
+        # Tratar de encontrar un usuario existente con ese email
+        try:
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            user = User.objects.get(email=email)
+            
+            # Vincular la cuenta existente con la cuenta social
+            sociallogin.connect(request, user)
+            
+            # No continuamos con el flujo normal porque ya hemos vinculado manualmente
+            # Esto evita que se cree un nuevo usuario
+        except User.DoesNotExist:
+            # No existe un usuario con ese email, se creará uno nuevo
+            pass
 
     def populate_user(
         self,

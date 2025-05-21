@@ -11,16 +11,18 @@
     <h1 class="card-title text-2xl font-bold">{% translate "Sign Up" %}</h1>
 
     {% load socialaccount %}
-    <a href="{% provider_login_url 'google' process='login' %}" 
-       class="btn btn-outline w-full flex items-center justify-center gap-2 mb-4">
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-        <path d="M21.8 12.2c0-.63-.06-1.25-.16-1.85H12v3.5h5.52c-.24 1.3-1.09 2.4-2.3 3.13v2.6h3.73c2.18-2 3.45-4.97 3.45-8.38z" fill="#4285F4" />
-        <path d="M12 22c3.1 0 5.7-1.03 7.6-2.79l-3.73-2.9c-1.02.67-2.34 1.08-3.87 1.08-2.98 0-5.5-2.01-6.4-4.7H1.76v3c1.9 3.78 5.82 6.31 10.24 6.31z" fill="#34A853" />
-        <path d="M5.6 12.61c-.23-.7-.36-1.44-.36-2.21s.13-1.51.36-2.21V5.4H1.76C.94 7.06.5 8.96.5 11c0 2.04.44 3.94 1.26 5.6l3.84-2.99z" fill="#FBBC05" />
-        <path d="M12 4.4c1.68 0 3.18.58 4.38 1.73l3.3-3.3C17.68 1 15.07 0 12 0 7.58 0 3.66 2.53 1.76 6.31l3.84 2.99c.9-2.7 3.42-4.9 6.4-4.9z" fill="#EA4335" />
-      </svg>
-      {% translate "Sign up with Google" %}
-    </a>
+    <div class="w-full my-4">
+      <a href="{% provider_login_url 'google' process='signup' %}" 
+         class="btn border-[1px] border-gray-300 bg-white hover:bg-gray-50 text-gray-700 w-full normal-case font-normal flex items-center justify-center gap-2 rounded-md py-3">
+        <svg width="20" height="20" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+          <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+          <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+          <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+          <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+        </svg>
+        <span>{% translate "Sign up with Google" %}</span>
+      </a>
+    </div>
 
     <div class="divider">{% translate "or" %}</div>
     
