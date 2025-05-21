@@ -164,3 +164,15 @@ LOGGING = {
 
 # Your stuff...
 # ------------------------------------------------------------------------------
+
+# Social Authentication
+# ------------------------------------------------------------------------------
+# Asegurarse de que el protocolo es HTTPS
+ACCOUNT_DEFAULT_HTTP_PROTOCOL = "https"
+
+# Asegurarse de que el ID del sitio es correcto
+# Nota: verifica que este ID coincida con el configurado en la base de datos para staging
+SITE_ID = env.int("DJANGO_SITE_ID", default=1)
+
+# OAuth Debug - En caso de problemas
+OAUTH_DEBUG = True  # Para obtener más información de depuración
