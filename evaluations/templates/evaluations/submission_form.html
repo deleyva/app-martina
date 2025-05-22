@@ -45,8 +45,7 @@
     </form>
   </div>
   
-  {% if submission_type == 'edit' %}
-    <!-- Sección para subir vídeos -->
+  <!-- Sección para subir vídeos -->
     <div class="bg-white shadow rounded-lg p-6 mb-6">
       <h2 class="text-xl font-bold mb-4">Vídeos</h2>
       
@@ -54,7 +53,7 @@
         <h3 class="text-lg font-medium mb-2">Subir nuevo vídeo</h3>
         <p class="text-sm text-gray-500 mb-4">Los vídeos serán comprimidos automáticamente sin perder mucha calidad.</p>
         
-        <form method="post" action="{% url 'upload_video' submission_id=submission.id %}" enctype="multipart/form-data" class="space-y-4">
+        <form method="post" action="{% url 'upload_video' submission_id=submission.id %}" enctype="multipart/form-data" class="space-y-4" id="videoForm">
           {% csrf_token %}
           
           <div>
@@ -65,6 +64,33 @@
             {% if video_form.video.errors %}
               <p class="mt-2 text-sm text-red-600">{{ video_form.video.errors.0 }}</p>
             {% endif %}
+          </div>
+          
+          <style>
+            .loader-container {
+              display: none;
+              margin: 20px 0;
+              text-align: center;
+            }
+            .loader {
+              border: 5px solid #f3f3f3;
+              border-radius: 50%;
+              border-top: 5px solid #3498db;
+              width: 40px;
+              height: 40px;
+              margin: 10px auto;
+              animation: spin 1s linear infinite;
+            }
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          </style>
+          
+          <div id="video-uploading-indicator" class="loader-container">
+            <div class="text-sm font-medium text-indigo-700 mb-2">Subiendo y comprimiendo vídeo...</div>
+            <div class="loader"></div>
+            <div class="text-xs text-gray-600">Por favor, no cierres esta página.</div>
           </div>
           
           <div class="pt-2">
@@ -116,7 +142,7 @@
       <div class="mb-6">
         <h3 class="text-lg font-medium mb-2">Subir nueva imagen</h3>
         
-        <form method="post" action="{% url 'upload_image' submission_id=submission.id %}" enctype="multipart/form-data" class="space-y-4">
+        <form method="post" action="{% url 'upload_image' submission_id=submission.id %}" enctype="multipart/form-data" class="space-y-4" id="imageForm">
           {% csrf_token %}
           
           <div>
@@ -127,6 +153,12 @@
             {% if image_form.image.errors %}
               <p class="mt-2 text-sm text-red-600">{{ image_form.image.errors.0 }}</p>
             {% endif %}
+          </div>
+          
+          <div id="image-uploading-indicator" class="loader-container">
+            <div class="text-sm font-medium text-indigo-700 mb-2">Subiendo imagen...</div>
+            <div class="loader"></div>
+            <div class="text-xs text-gray-600">Por favor, no cierres esta página.</div>
           </div>
           
           <div class="pt-2">
@@ -169,6 +201,39 @@
         {% endif %}
       </div>
     </div>
-  {% endif %}
 </div>
+
+{% endblock %}
+
+{% block inline_javascript %}
+<script>
+  // Código para mostrar los indicadores durante la carga
+  document.addEventListener('DOMContentLoaded', function() {
+    // Formulario de vídeo
+    var videoForm = document.getElementById('videoForm');
+    var videoLoader = document.getElementById('video-uploading-indicator');
+    
+    if (videoForm && videoLoader) {
+      console.log('Formulario de vídeo encontrado');
+      videoForm.addEventListener('submit', function(e) {
+        console.log('Formulario de vídeo enviado');
+        videoLoader.style.display = 'block';
+      });
+    } else {
+      console.log('No se encontró el formulario de vídeo o el loader');
+    }
+    
+    // Formulario de imagen
+    var imageForm = document.getElementById('imageForm');
+    var imageLoader = document.getElementById('image-uploading-indicator');
+    
+    if (imageForm && imageLoader) {
+      console.log('Formulario de imagen encontrado');
+      imageForm.addEventListener('submit', function(e) {
+        console.log('Formulario de imagen enviado');
+        imageLoader.style.display = 'block';
+      });
+    }
+  });
+</script>
 {% endblock %}

@@ -52,6 +52,8 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
   wait-for-it \
   # Translations dependencies
   gettext \
+  # FFmpeg for video compression
+  ffmpeg \
   # Node.js and npm for Tailwind CSS
   curl \
   gnupg \

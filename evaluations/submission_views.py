@@ -141,6 +141,7 @@ def edit_submission(request, submission_id):
         'images': images,
         'video_form': video_form,
         'image_form': image_form,
+        # Siempre mostramos las opciones de subida de archivos
         'submission_type': 'edit'
     }
     
@@ -176,20 +177,45 @@ def upload_video(request, submission_id):
         os.close(temp_output_fd)
         
         try:
-            # Compress the video using FFmpeg
-            compress_cmd = [
-                'ffmpeg', '-i', temp_input_path,
-                '-vcodec', 'libx264',
-                '-crf', '28',  # Compression quality (lower is better, but larger)
-                '-preset', 'medium',  # Compression speed vs efficiency trade-off
-                '-movflags', '+faststart',  # Optimize for web playback
-                '-vf', 'scale=trunc(oh*a/2)*2:720',  # Resize to 720p maintaining aspect ratio
-                '-acodec', 'aac',
-                '-b:a', '128k',  # Audio bitrate
-                temp_output_path
-            ]
-            
-            subprocess.run(compress_cmd, check=True)
+            # Siempre intenta usar FFmpeg directamente, y captura cualquier error para diagnosticarlo
+            try:
+                # Usar ruta absoluta a ffmpeg
+                ffmpeg_path = '/usr/bin/ffmpeg'
+                
+                # Registrar que FFmpeg está disponible
+                messages.info(request, f"FFmpeg detectado en: {ffmpeg_path}")
+                
+                # Comprimir el vídeo con FFmpeg - Configuración optimizada para fluidez
+                compress_cmd = [
+                    ffmpeg_path, '-y',  # Forzar sobrescritura sin pedir confirmación
+                    '-i', temp_input_path,
+                    '-vcodec', 'libx264',
+                    '-crf', '23',  # Mejor calidad (23 en lugar de 28, valores más bajos = mejor calidad)
+                    '-preset', 'slow',  # Más lento pero mejor calidad de compresión
+                    '-movflags', '+faststart',  # Optimize for web playback
+                    '-vf', 'scale=trunc(oh*a/2)*2:720',  # Resize to 720p maintaining aspect ratio
+                    '-r', '30',  # Mantener 30 fps para garantizar fluidez
+                    '-profile:v', 'main',  # Perfil de codificación más compatible
+                    '-acodec', 'aac',
+                    '-b:a', '192k',  # Mejor calidad de audio (192k en lugar de 128k)
+                    '-ar', '44100',  # Frecuencia de muestreo estándar
+                    temp_output_path
+                ]
+                
+                # Ejecutar el comando y capturar cualquier output para diagnóstico
+                result = subprocess.run(compress_cmd, capture_output=True, text=True, check=True)
+            except (subprocess.SubprocessError, FileNotFoundError) as e:
+                # Mostrar información detallada del error
+                error_msg = f"Error al usar FFmpeg: {str(e)}"
+                if hasattr(e, 'stderr') and e.stderr:
+                    error_msg += f"\nDetalles: {e.stderr}"
+                
+                messages.warning(request, error_msg)
+                
+                # Subir el archivo sin compresión
+                import shutil
+                messages.info(request, "Subiendo vídeo sin compresión como alternativa.")
+                shutil.copy(temp_input_path, temp_output_path)
             
             # Create a SubmissionVideo instance with the compressed file
             video = SubmissionVideo(
@@ -261,9 +287,19 @@ def delete_video(request, video_id):
     )
     
     submission_id = video.submission.id
+    
+    # Eliminar el archivo físico primero
+    if video.video and hasattr(video.video, 'path') and os.path.exists(video.video.path):
+        try:
+            os.remove(video.video.path)
+            messages.success(request, "Archivo de vídeo eliminado del servidor.")
+        except Exception as e:
+            messages.warning(request, f"No se pudo eliminar el archivo físico: {str(e)}")
+    
+    # Eliminar el registro de la base de datos
     video.delete()
     
-    messages.success(request, "Vídeo eliminado correctamente.")
+    messages.success(request, "Vídeo eliminado correctamente de la base de datos.")
     return redirect('edit_submission', submission_id=submission_id)
 
 
@@ -280,9 +316,19 @@ def delete_image(request, image_id):
     )
     
     submission_id = image.submission.id
+    
+    # Eliminar el archivo físico primero
+    if image.image and hasattr(image.image, 'path') and os.path.exists(image.image.path):
+        try:
+            os.remove(image.image.path)
+            messages.success(request, "Archivo de imagen eliminado del servidor.")
+        except Exception as e:
+            messages.warning(request, f"No se pudo eliminar el archivo físico: {str(e)}")
+    
+    # Eliminar el registro de la base de datos
     image.delete()
     
-    messages.success(request, "Imagen eliminada correctamente.")
+    messages.success(request, "Imagen eliminada correctamente de la base de datos.")
     return redirect('edit_submission', submission_id=submission_id)
 
 
