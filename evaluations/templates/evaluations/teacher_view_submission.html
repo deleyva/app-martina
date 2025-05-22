@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Ver Entrega de {{ pending_status.student.user.name }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6">
+  <div class="mb-4">
+    <a href="{% url 'pending_evaluations' %}?evaluation_item={{ pending_status.evaluation_item.id }}&group={{ pending_status.student.group }}&show_classroom=true" class="text-indigo-600 hover:text-indigo-900">
+      &larr; Volver a evaluaciones pendientes
+    </a>
+  </div>
+  
+  <div class="bg-white shadow rounded-lg p-6 mb-6">
+    <div class="flex justify-between items-start flex-wrap gap-2">
+      <div>
+        <h1 class="text-2xl font-bold">
+          Entrega de {{ pending_status.student.user.name }}
+        </h1>
+        <p class="text-gray-600">
+          {{ pending_status.evaluation_item.name }} - Grupo: {{ pending_status.student.group }}
+        </p>
+        <p class="text-sm text-gray-500 mt-1">
+          Entregado: {{ submission.submitted_at|date:"d/m/Y H:i" }}
+          {% if submission.updated_at != submission.submitted_at %}
+          (Actualizado: {{ submission.updated_at|date:"d/m/Y H:i" }})
+          {% endif %}
+        </p>
+      </div>
+      
+      <div>
+        <a href="{% url 'save_evaluation' student_id=pending_status.student.id %}?item_id={{ pending_status.evaluation_item.id }}&return_to=submission" 
+           class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+          Evaluar estudiante
+        </a>
+      </div>
+    </div>
+    
+    {% if submission.notes %}
+    <div class="mt-6 bg-gray-50 p-4 rounded-md">
+      <h2 class="text-lg font-medium mb-2">Notas del estudiante</h2>
+      <div class="prose max-w-none">
+        <p>{{ submission.notes|linebreaks }}</p>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  
+  <!-- Videos -->
+  {% if videos %}
+  <div class="bg-white shadow rounded-lg p-6 mb-6">
+    <h2 class="text-xl font-bold mb-4">Videos ({{ videos.count }})</h2>
+    
+    <div class="space-y-6">
+      {% for video in videos %}
+      <div class="border rounded-lg p-4">
+        <p class="text-sm text-gray-700 mb-2">{{ video.original_filename }}</p>
+        <div class="aspect-w-16 aspect-h-9">
+          <video controls class="rounded shadow-sm w-full" preload="metadata">
+            <source src="{{ video.video.url }}" type="video/mp4">
+            Tu navegador no soporta la reproducción de vídeos.
+          </video>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  
+  <!-- Imágenes -->
+  {% if images %}
+  <div class="bg-white shadow rounded-lg p-6 mb-6">
+    <h2 class="text-xl font-bold mb-4">Imágenes ({{ images.count }})</h2>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {% for image in images %}
+      <div class="border rounded-lg p-2">
+        <p class="text-sm text-gray-700 mb-1 truncate" title="{{ image.original_filename }}">
+          {{ image.original_filename }}
+        </p>
+        <a href="{{ image.image.url }}" target="_blank" class="block">
+          <img src="{{ image.image.url }}" alt="Imagen de {{ pending_status.student.user.name }}" 
+               class="w-full h-auto rounded shadow-sm">
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  
+  {% if not videos and not images %}
+  <div class="bg-white shadow rounded-lg p-6 mb-6 text-center">
+    <p class="text-gray-500">El estudiante no ha subido ningún archivo.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

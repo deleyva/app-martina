@@ -29,7 +29,17 @@
       </div>
     </form>
     
-    <div class="text-center mt-2">
+    <div class="divider mt-6 mb-4">{% translate "o" %}</div>
+    
+    <div class="text-center">
+      <p class="text-sm text-gray-600 mb-2">{% translate "¿Eres administrador?" %}</p>
+      <a href="{% url 'account_login' %}" class="btn btn-outline btn-sm">
+        {% translate "Iniciar sesión con contraseña" %}
+        <span class="text-xs ml-1">({% translate "solo administradores" %})</span>
+      </a>
+    </div>
+    
+    <div class="text-center mt-6">
       <a href="{% url 'account_login' %}" class="text-sm link link-hover">{% translate "Cancelar" %}</a>
     </div>
   </div>

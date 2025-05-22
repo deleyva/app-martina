@@ -7,6 +7,7 @@ from .models import (
     RubricScore,
     PendingEvaluationStatus,
 )
+from .submission_models import ClassroomSubmission, SubmissionVideo, SubmissionImage
 
 # Register your models here.
 
@@ -100,3 +101,23 @@ class PendingEvaluationStatusAdmin(admin.ModelAdmin):
     list_filter = ("evaluation_item", "classroom_submission", "created_at")
     search_fields = ("student__user__name",)
     date_hierarchy = "created_at"
+
+
+@admin.register(ClassroomSubmission)
+class ClassroomSubmissionAdmin(admin.ModelAdmin):
+    list_display = ("pending_status", "submitted_at", "updated_at")
+    list_filter = ("submitted_at", "updated_at")
+    search_fields = ("pending_status__student__user__name",)
+    date_hierarchy = "submitted_at"
+
+
+@admin.register(SubmissionVideo)
+class SubmissionVideoAdmin(admin.ModelAdmin):
+    list_display = ("submission", "original_filename")
+    search_fields = ("submission__pending_status__student__user__name", "original_filename")
+
+
+@admin.register(SubmissionImage)
+class SubmissionImageAdmin(admin.ModelAdmin):
+    list_display = ("submission", "original_filename")
+    search_fields = ("submission__pending_status__student__user__name", "original_filename")

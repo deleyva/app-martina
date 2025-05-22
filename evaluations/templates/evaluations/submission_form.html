@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{% if submission_type == 'create' %}Nueva Entrega{% else %}Editar Entrega{% endif %}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6">
+  <div class="mb-4">
+    <a href="{% url 'student_dashboard' %}" class="text-indigo-600 hover:text-indigo-900">
+      &larr; Volver al Dashboard
+    </a>
+  </div>
+  
+  <div class="bg-white shadow rounded-lg p-6 mb-6">
+    <h1 class="text-2xl font-bold mb-4">
+      {% if submission_type == 'create' %}
+        Nueva Entrega: {{ pending_status.evaluation_item.name }}
+      {% else %}
+        Editar Entrega: {{ pending_status.evaluation_item.name }}
+      {% endif %}
+    </h1>
+    
+    <p class="mb-6 text-gray-600">
+      Completa los campos a continuación para tu entrega de clase.
+    </p>
+    
+    <form method="post" class="space-y-4">
+      {% csrf_token %}
+      
+      <div>
+        <label for="{{ form.notes.id_for_label }}" class="block text-sm font-medium text-gray-700">
+          {{ form.notes.label }}
+        </label>
+        {{ form.notes }}
+        {% if form.notes.errors %}
+          <p class="mt-2 text-sm text-red-600">{{ form.notes.errors.0 }}</p>
+        {% endif %}
+      </div>
+      
+      <div class="pt-4">
+        <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+          Guardar
+        </button>
+      </div>
+    </form>
+  </div>
+  
+  {% if submission_type == 'edit' %}
+    <!-- Sección para subir vídeos -->
+    <div class="bg-white shadow rounded-lg p-6 mb-6">
+      <h2 class="text-xl font-bold mb-4">Vídeos</h2>
+      
+      <div class="mb-6">
+        <h3 class="text-lg font-medium mb-2">Subir nuevo vídeo</h3>
+        <p class="text-sm text-gray-500 mb-4">Los vídeos serán comprimidos automáticamente sin perder mucha calidad.</p>
+        
+        <form method="post" action="{% url 'upload_video' submission_id=submission.id %}" enctype="multipart/form-data" class="space-y-4">
+          {% csrf_token %}
+          
+          <div>
+            <label for="{{ video_form.video.id_for_label }}" class="block text-sm font-medium text-gray-700">
+              {{ video_form.video.label }}
+            </label>
+            {{ video_form.video }}
+            {% if video_form.video.errors %}
+              <p class="mt-2 text-sm text-red-600">{{ video_form.video.errors.0 }}</p>
+            {% endif %}
+          </div>
+          
+          <div class="pt-2">
+            <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+              Subir vídeo
+            </button>
+          </div>
+        </form>
+      </div>
+      
+      <div>
+        <h3 class="text-lg font-medium mb-2">Vídeos subidos</h3>
+        
+        {% if videos %}
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {% for video in videos %}
+              <div class="border rounded-lg p-4">
+                <div class="mb-2">
+                  <video controls class="w-full h-auto rounded" preload="metadata">
+                    <source src="{{ video.video.url }}" type="video/mp4">
+                    Tu navegador no soporta la reproducción de vídeos.
+                  </video>
+                </div>
+                <div class="flex justify-between items-center">
+                  <span class="text-sm text-gray-500 truncate" title="{{ video.original_filename }}">
+                    {{ video.original_filename|truncatechars:20 }}
+                  </span>
+                  <form method="post" action="{% url 'delete_video' video_id=video.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="text-red-600 hover:text-red-900 text-sm"
+                            onclick="return confirm('¿Estás seguro de que quieres eliminar este vídeo?');">
+                      Eliminar
+                    </button>
+                  </form>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-gray-500">No has subido ningún vídeo todavía.</p>
+        {% endif %}
+      </div>
+    </div>
+    
+    <!-- Sección para subir imágenes -->
+    <div class="bg-white shadow rounded-lg p-6 mb-6">
+      <h2 class="text-xl font-bold mb-4">Imágenes</h2>
+      
+      <div class="mb-6">
+        <h3 class="text-lg font-medium mb-2">Subir nueva imagen</h3>
+        
+        <form method="post" action="{% url 'upload_image' submission_id=submission.id %}" enctype="multipart/form-data" class="space-y-4">
+          {% csrf_token %}
+          
+          <div>
+            <label for="{{ image_form.image.id_for_label }}" class="block text-sm font-medium text-gray-700">
+              {{ image_form.image.label }}
+            </label>
+            {{ image_form.image }}
+            {% if image_form.image.errors %}
+              <p class="mt-2 text-sm text-red-600">{{ image_form.image.errors.0 }}</p>
+            {% endif %}
+          </div>
+          
+          <div class="pt-2">
+            <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+              Subir imagen
+            </button>
+          </div>
+        </form>
+      </div>
+      
+      <div>
+        <h3 class="text-lg font-medium mb-2">Imágenes subidas</h3>
+        
+        {% if images %}
+          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {% for image in images %}
+              <div class="border rounded-lg p-2">
+                <div class="mb-2">
+                  <a href="{{ image.image.url }}" target="_blank">
+                    <img src="{{ image.image.url }}" alt="Imagen subida" class="w-full h-auto rounded">
+                  </a>
+                </div>
+                <div class="flex justify-between items-center">
+                  <span class="text-sm text-gray-500 truncate" title="{{ image.original_filename }}">
+                    {{ image.original_filename|truncatechars:15 }}
+                  </span>
+                  <form method="post" action="{% url 'delete_image' image_id=image.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="text-red-600 hover:text-red-900 text-sm"
+                            onclick="return confirm('¿Estás seguro de que quieres eliminar esta imagen?');">
+                      Eliminar
+                    </button>
+                  </form>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-gray-500">No has subido ninguna imagen todavía.</p>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
