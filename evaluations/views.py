@@ -9,6 +9,18 @@ from django.contrib.auth.mixins import UserPassesTestMixin, LoginRequiredMixin
 import random
 from django.db.models import F, Q
 from decimal import Decimal, InvalidOperation
+from django.conf import settings
+import json
+import os
+
+# Intentar importar google-genai, pero no fallar si no está disponible
+try:
+    from google import genai
+    from google.genai import types
+
+    GEMINI_AVAILABLE = True
+except ImportError:
+    GEMINI_AVAILABLE = False
 
 from .models import (
     Student,
@@ -29,30 +41,34 @@ class EvaluationItemListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
     model = EvaluationItem
     template_name = "evaluations/item_list.html"
     context_object_name = "items"
-    login_url = '/accounts/login/'
-    
+    login_url = "/accounts/login/"
+
     def test_func(self):
         return self.request.user.is_staff
-    
+
     def handle_no_permission(self):
-        messages.error(self.request, "Solo el personal autorizado puede acceder a esta sección.")
-        return redirect('home')
+        messages.error(
+            self.request, "Solo el personal autorizado puede acceder a esta sección."
+        )
+        return redirect("home")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["groups"] = Student.objects.values_list("group", flat=True).distinct().order_by("group")
+        context["groups"] = (
+            Student.objects.values_list("group", flat=True).distinct().order_by("group")
+        )
         return context
 
 
 @require_http_methods(["GET"])
 @login_required
-@user_passes_test(is_staff, login_url='/accounts/login/', redirect_field_name=None)
+@user_passes_test(is_staff, login_url="/accounts/login/", redirect_field_name=None)
 def select_students(request, item_id):
     """Selecciona aleatoriamente estudiantes para una evaluación"""
     item = get_object_or_404(EvaluationItem, id=item_id)
     group = request.GET.get("group")
     num_students = request.GET.get("num_students", "3")  # Valor por defecto: 3
-    
+
     # Convertir num_students a entero
     try:
         num_students = int(num_students)
@@ -68,7 +84,9 @@ def select_students(request, item_id):
     available_students = (
         Student.objects.filter(group=group)
         .exclude(evaluations__evaluation_item=item)
-        .exclude(pending_statuses__evaluation_item=item)  # Excluir los que ya tienen un estado pendiente
+        .exclude(
+            pending_statuses__evaluation_item=item
+        )  # Excluir los que ya tienen un estado pendiente
         .select_related("user")
     )
 
@@ -85,9 +103,7 @@ def select_students(request, item_id):
     # Mark them as pending evaluation
     for student in selected_students:
         PendingEvaluationStatus.objects.create(
-            student=student,
-            evaluation_item=item,
-            classroom_submission=False
+            student=student, evaluation_item=item, classroom_submission=False
         )
 
     return HttpResponse(
@@ -101,14 +117,16 @@ def select_students(request, item_id):
 class PendingEvaluationsView(LoginRequiredMixin, UserPassesTestMixin, ListView):
     template_name = "evaluations/pending_evaluations.html"
     context_object_name = "students"
-    login_url = '/accounts/login/'
-    
+    login_url = "/accounts/login/"
+
     def test_func(self):
         return self.request.user.is_staff
-    
+
     def handle_no_permission(self):
-        messages.error(self.request, "Solo el personal autorizado puede acceder a esta sección.")
-        return redirect('home')
+        messages.error(
+            self.request, "Solo el personal autorizado puede acceder a esta sección."
+        )
+        return redirect("home")
 
     def get_queryset(self):
         # Obtener parámetros de la solicitud
@@ -117,28 +135,34 @@ class PendingEvaluationsView(LoginRequiredMixin, UserPassesTestMixin, ListView):
         evaluation_item_id = self.request.GET.get("evaluation_item")
 
         # Construir una consulta para obtener students con evaluaciones pendientes
-        query = Student.objects.filter(
-            pending_statuses__isnull=False
-        ).distinct().select_related('user')
-        
+        query = (
+            Student.objects.filter(pending_statuses__isnull=False)
+            .distinct()
+            .select_related("user")
+        )
+
         # Aplicar filtros según los parámetros
         if group:
             query = query.filter(group=group)
-            
+
         if not show_classroom:
             query = query.filter(pending_statuses__classroom_submission=False)
-            
+
         if evaluation_item_id:
-            query = query.filter(pending_statuses__evaluation_item_id=evaluation_item_id)
-            
+            query = query.filter(
+                pending_statuses__evaluation_item_id=evaluation_item_id
+            )
+
         return query
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["groups"] = Student.objects.values_list("group", flat=True).distinct().order_by("group")
+        context["groups"] = (
+            Student.objects.values_list("group", flat=True).distinct().order_by("group")
+        )
         context["selected_group"] = self.request.GET.get("group")
         context["show_classroom"] = self.request.GET.get("show_classroom") == "true"
-        context["evaluation_items"] = EvaluationItem.objects.all().order_by('name')
+        context["evaluation_items"] = EvaluationItem.objects.all().order_by("name")
         context["selected_evaluation_item"] = self.request.GET.get("evaluation_item")
 
         # Get group and classroom filter parameters
@@ -147,36 +171,43 @@ class PendingEvaluationsView(LoginRequiredMixin, UserPassesTestMixin, ListView):
         evaluation_item_id = self.request.GET.get("evaluation_item")
 
         # Fetch all pending statuses directly with proper filtering
-        pending_query = PendingEvaluationStatus.objects.select_related('student', 'student__user', 'evaluation_item')
-        
+        pending_query = PendingEvaluationStatus.objects.select_related(
+            "student", "student__user", "evaluation_item"
+        )
+
         if group:
             pending_query = pending_query.filter(student__group=group)
-            
+
         if not show_classroom:
             pending_query = pending_query.filter(classroom_submission=False)
-            
+
         if evaluation_item_id:
             pending_query = pending_query.filter(evaluation_item_id=evaluation_item_id)
 
         # Process all pending evaluations
         student_rubrics = {}
         student_pending_items = {}
-        
+
         for status in pending_query:
             student_id = status.student.id
-            
+
             # Initialize dictionaries for this student if not already done
             student_pending_items.setdefault(student_id, [])
             student_rubrics.setdefault(student_id, {})
-            
+
             # Add this evaluation item to the student's pending items if not already there
-            if not any(item.id == status.evaluation_item.id for item in student_pending_items[student_id]):
+            if not any(
+                item.id == status.evaluation_item.id
+                for item in student_pending_items[student_id]
+            ):
                 student_pending_items[student_id].append(status.evaluation_item)
-            
+
             # Get rubric categories for this evaluation item
-            student_rubrics[student_id][status.evaluation_item.id] = RubricCategory.objects.filter(
-                evaluation_item=status.evaluation_item
-            ).order_by('order')
+            student_rubrics[student_id][status.evaluation_item.id] = (
+                RubricCategory.objects.filter(
+                    evaluation_item=status.evaluation_item
+                ).order_by("order")
+            )
 
         context["student_rubrics"] = student_rubrics
         context["student_pending_items"] = student_pending_items
@@ -185,14 +216,14 @@ class PendingEvaluationsView(LoginRequiredMixin, UserPassesTestMixin, ListView):
 
 @require_http_methods(["POST"])
 @login_required
-@user_passes_test(is_staff, login_url='/accounts/login/', redirect_field_name=None)
+@user_passes_test(is_staff, login_url="/accounts/login/", redirect_field_name=None)
 def save_evaluation(request, student_id):
     student = get_object_or_404(Student, id=student_id)
-    evaluation_item_id = request.POST.get('evaluation_item_id')
-    
+    evaluation_item_id = request.POST.get("evaluation_item_id")
+
     if not evaluation_item_id:
         return HttpResponse("No se ha especificado un item de evaluación", status=400)
-        
+
     evaluation_item = get_object_or_404(EvaluationItem, id=evaluation_item_id)
     direct_score = request.POST.get("direct_score")
     classroom_submission = request.POST.get("classroom_submission") == "on"
@@ -213,13 +244,72 @@ def save_evaluation(request, student_id):
         student=student, evaluation_item=evaluation_item
     ).first()
 
-    # Si existe un estado pendiente, usar su valor de classroom_submission
+    # Si existe un estado pendiente, usar su valor de classroom_submission y feedback
+    pending_feedback = ""
     if pending_status:
         classroom_submission = pending_status.classroom_submission
+        pending_feedback = pending_status.feedback or ""
 
     # Aplicar penalización si es entrega por classroom
     if classroom_submission and direct_score > 1:
         direct_score = max(1, direct_score - 1)  # Restar 1 punto pero no bajar de 1
+
+    # Obtener la retroalimentación del formulario y combinarla con la pendiente si existe
+    feedback_text = request.POST.get("feedback_text", "")
+
+    # Si hay feedback pendiente y no hay nuevo feedback en el formulario, usar el pendiente
+    if pending_feedback and not feedback_text:
+        feedback_text = pending_feedback
+    # Si hay ambos, podríamos mostrar un mensaje informativo
+    elif pending_feedback and feedback_text:
+        messages.info(
+            request,
+            "Se ha encontrado retroalimentación guardada previamente y se ha combinado con la nueva.",
+        )
+
+    ai_processed = request.POST.get("use_ai_processing") == "on"
+
+    # Procesar la retroalimentación con Gemini si está activado
+    final_feedback = feedback_text
+
+    if ai_processed and feedback_text and evaluation_item.ai_prompt:
+        # Verificar si la biblioteca está disponible
+        if not GEMINI_AVAILABLE:
+            messages.warning(
+                request,
+                "La biblioteca google-genai no está instalada. Ejecuta 'pip install google-genai' para habilitarla.",
+            )
+        else:
+            try:
+                # Configurar la API de Gemini
+                if os.getenv("GEMINI_API_KEY"):
+                    # Configurar genai con la API key
+                    api_key = os.getenv("GEMINI_API_KEY")
+                    client = genai.Client(api_key=api_key)
+
+                    # Construir el prompt completo
+                    prompt = f"{evaluation_item.ai_prompt}\n\nEvaluación original: {feedback_text}"
+
+                    # Generar respuesta
+                    response = client.models.generate_content(
+                        model='gemini-2.0-flash-001', contents=prompt
+                    )
+
+                    # La respuesta es directamente el texto
+                    if response:
+                        final_feedback = response.text
+                    else:
+                        messages.warning(
+                            request, "No se pudo procesar la retroalimentación con IA."
+                        )
+                else:
+                    messages.warning(
+                        request,
+                        "No se ha configurado la clave API de Gemini en settings.GEMINI_API_KEY.",
+                    )
+
+            except Exception as e:
+                messages.error(request, f"Error al procesar con IA: {str(e)}")
 
     # Guardar la evaluación
     evaluation, created = Evaluation.objects.update_or_create(
@@ -229,6 +319,7 @@ def save_evaluation(request, student_id):
             "score": direct_score,
             "classroom_submission": classroom_submission,
             "max_score": max_score,
+            "feedback": final_feedback,
         },
     )
 
@@ -248,17 +339,16 @@ def save_evaluation(request, student_id):
         pending_status.delete()
 
     # Verificar si la solicitud viene de HTMX
-    if request.headers.get('HX-Request') == 'true':
+    if request.headers.get("HX-Request") == "true":
         # Si es una solicitud HTMX, devolver solo el fragmento HTML necesario
-        group = request.GET.get('group')
-        show_classroom = request.GET.get('show_classroom') == 'true'
-        
+        group = request.GET.get("group")
+        show_classroom = request.GET.get("show_classroom") == "true"
+
         # Obtener los estudiantes pendientes para actualizar la vista
         pending_statuses = PendingEvaluationStatus.get_pending_students(
-            group=group,
-            include_classroom=show_classroom
+            group=group, include_classroom=show_classroom
         )
-        
+
         # Extraer los estudiantes únicos
         students = []
         student_ids = set()
@@ -266,15 +356,17 @@ def save_evaluation(request, student_id):
             if status.student.id not in student_ids:
                 students.append(status.student)
                 student_ids.add(status.student.id)
-        
+
         # Preparar el contexto para la respuesta HTMX
         context = {
             "students": students,
-            "groups": Student.objects.values_list("group", flat=True).distinct().order_by("group"),
+            "groups": Student.objects.values_list("group", flat=True)
+            .distinct()
+            .order_by("group"),
             "selected_group": group,
-            "show_classroom": show_classroom
+            "show_classroom": show_classroom,
         }
-        
+
         # Preparar un diccionario con las rúbricas y estados pendientes para cada estudiante
         student_rubrics = {}
         student_pending_items = {}
@@ -283,22 +375,26 @@ def save_evaluation(request, student_id):
             # Obtener todos los estados pendientes para este estudiante
             pending_statuses = PendingEvaluationStatus.objects.filter(
                 student=student
-            ).select_related('evaluation_item')
+            ).select_related("evaluation_item")
 
             # Guardar los items de evaluación pendientes para este estudiante
-            student_pending_items[student.id] = [status.evaluation_item for status in pending_statuses]
+            student_pending_items[student.id] = [
+                status.evaluation_item for status in pending_statuses
+            ]
 
             # Para cada item pendiente, obtener sus categorías de rúbrica
             for status in pending_statuses:
                 if status.evaluation_item:
                     student_rubrics.setdefault(student.id, {})
-                    student_rubrics[student.id][status.evaluation_item.id] = RubricCategory.objects.filter(
-                        evaluation_item=status.evaluation_item
-                    ).order_by('order')
+                    student_rubrics[student.id][status.evaluation_item.id] = (
+                        RubricCategory.objects.filter(
+                            evaluation_item=status.evaluation_item
+                        ).order_by("order")
+                    )
 
         context["student_rubrics"] = student_rubrics
         context["student_pending_items"] = student_pending_items
-        
+
         # Si no hay estudiantes pendientes, mostrar un mensaje
         if not students:
             return HttpResponse(
@@ -307,9 +403,11 @@ def save_evaluation(request, student_id):
                 "<span>No hay evaluaciones pendientes.</span>"
                 "</div></div>"
             )
-        
+
         return HttpResponse(
-            render_to_string("evaluations/partials/evaluation_list.html", context, request=request)
+            render_to_string(
+                "evaluations/partials/evaluation_list.html", context, request=request
+            )
         )
     else:
         # Si no es HTMX, redirigir a la página completa
@@ -318,42 +416,44 @@ def save_evaluation(request, student_id):
 
 @require_http_methods(["POST"])
 @login_required
-@user_passes_test(is_staff, login_url='/accounts/login/', redirect_field_name=None)
+@user_passes_test(is_staff, login_url="/accounts/login/", redirect_field_name=None)
 def toggle_classroom_submission(request, student_id):
     """Actualiza el estado de classroom_submission para un estudiante pendiente de evaluación"""
     student = get_object_or_404(Student, id=student_id)
-    
+
     # Try to get evaluation_item_id from POST data or from JSON body
     try:
         data = request.POST
-        evaluation_item_id = data.get('evaluation_item_id')
-        is_checked = data.get('is_checked') == 'true'
-        
+        evaluation_item_id = data.get("evaluation_item_id")
+        is_checked = data.get("is_checked") == "true"
+
         # Log for debugging
-        print(f"Received toggle request for student {student_id}, item {evaluation_item_id}, checked: {is_checked}")
+        print(
+            f"Received toggle request for student {student_id}, item {evaluation_item_id}, checked: {is_checked}"
+        )
         print(f"POST data: {request.POST}")
-        
+
     except Exception as e:
         print(f"Error processing request data: {e}")
         return HttpResponse(f"Error processing request data: {e}", status=400)
-    
+
     if not evaluation_item_id:
         return HttpResponse("No se ha especificado un item de evaluación", status=400)
-    
+
     try:
         evaluation_item = get_object_or_404(EvaluationItem, id=evaluation_item_id)
-        
+
         # Buscar o crear un registro de estado para esta evaluación pendiente específica
         status, created = PendingEvaluationStatus.objects.update_or_create(
             student=student,
             evaluation_item=evaluation_item,
-            defaults={
-                'classroom_submission': is_checked
-            }
+            defaults={"classroom_submission": is_checked},
         )
-        
-        print(f"Updated status for student {student.id}, item {evaluation_item.id}, classroom: {is_checked}")
-        
+
+        print(
+            f"Updated status for student {student.id}, item {evaluation_item.id}, classroom: {is_checked}"
+        )
+
         return HttpResponse(status=200)
     except Exception as e:
         print(f"Error updating status: {e}")
@@ -362,82 +462,85 @@ def toggle_classroom_submission(request, student_id):
 
 @require_http_methods(["GET"])
 @login_required
-@user_passes_test(is_staff, login_url='/accounts/login/', redirect_field_name=None)
+@user_passes_test(is_staff, login_url="/accounts/login/", redirect_field_name=None)
 def search_students(request):
     """Busca estudiantes por nombre o apellido"""
-    query = request.GET.get('query', '').strip()
-    item_id = request.GET.get('item_id')  # Obtener el ID del ítem
-    
+    query = request.GET.get("query", "").strip()
+    item_id = request.GET.get("item_id")  # Obtener el ID del ítem
+
     if not query or len(query) < 3:
-        return HttpResponse("Se requieren al menos 3 caracteres para la búsqueda", status=400)
-    
+        return HttpResponse(
+            "Se requieren al menos 3 caracteres para la búsqueda", status=400
+        )
+
     # Buscar estudiantes por nombre o apellido
-    students = Student.objects.filter(
-        Q(user__name__icontains=query)
-    ).select_related('user')[:10]  # Limitar a 10 resultados
-    
+    students = Student.objects.filter(Q(user__name__icontains=query)).select_related(
+        "user"
+    )[
+        :10
+    ]  # Limitar a 10 resultados
+
     # Pasar el contexto a la plantilla con el ID del ítem
-    context = {
-        "students": students,
-        "item_id": item_id
-    }
-    
+    context = {"students": students, "item_id": item_id}
+
     return HttpResponse(
         render_to_string(
             "evaluations/partials/student_search_results.html",
             context,
-            request=request  # Pasar el objeto request para acceder a request.GET en la plantilla
+            request=request,  # Pasar el objeto request para acceder a request.GET en la plantilla
         )
     )
 
 
 @require_http_methods(["POST"])
 @login_required
-@user_passes_test(is_staff, login_url='/accounts/login/', redirect_field_name=None)
+@user_passes_test(is_staff, login_url="/accounts/login/", redirect_field_name=None)
 def add_student_to_pending(request):
     """Añade un estudiante específico a una evaluación pendiente"""
-    student_id = request.POST.get('student_id')
-    item_id = request.POST.get('item_id')
-    
+    student_id = request.POST.get("student_id")
+    item_id = request.POST.get("item_id")
+
     print(f"Solicitud recibida para añadir estudiante {student_id} al item {item_id}")
     print(f"POST data: {request.POST}")
-    
+
     if not student_id or not item_id:
         error_msg = f"Se requieren el ID del estudiante y el ID del ítem. Recibido: student_id={student_id}, item_id={item_id}"
         print(error_msg)
         return HttpResponse(error_msg, status=400)
-    
+
     try:
         student = get_object_or_404(Student, id=student_id)
         item = get_object_or_404(EvaluationItem, id=item_id)
-        
+
         print(f"Estudiante encontrado: {student.user.name}, Item: {item.name}")
-        
+
         # Verificar si el estudiante ya tiene esta evaluación o está pendiente
         if Evaluation.objects.filter(student=student, evaluation_item=item).exists():
             error_msg = f"El estudiante {student.user.name} ya tiene una evaluación para el ítem {item.name}"
             print(error_msg)
             return HttpResponse(error_msg, status=400)
-        
+
         # Verificar si ya está pendiente
-        if PendingEvaluationStatus.objects.filter(student=student, evaluation_item=item).exists():
+        if PendingEvaluationStatus.objects.filter(
+            student=student, evaluation_item=item
+        ).exists():
             error_msg = f"El estudiante {student.user.name} ya está pendiente para el ítem {item.name}"
             print(error_msg)
             return HttpResponse(error_msg, status=400)
-        
+
         # Añadir a pendiente
         pending_status = PendingEvaluationStatus.objects.create(
-            student=student,
-            evaluation_item=item,
-            classroom_submission=False
+            student=student, evaluation_item=item, classroom_submission=False
         )
-        
-        print(f"Estudiante añadido correctamente a evaluaciones pendientes con ID: {pending_status.id}")
-        
+
+        print(
+            f"Estudiante añadido correctamente a evaluaciones pendientes con ID: {pending_status.id}"
+        )
+
         return HttpResponse(
             render_to_string(
                 "evaluations/partials/student_added_confirmation.html",
-                {"student": student, "item": item}
+                {"student": student, "item": item},
             )
         )
     except Exception as e:
@@ -445,5 +548,138 @@ def add_student_to_pending(request):
         print(error_msg)
         print(f"Detalles del error: {e.__class__.__name__}")
         import traceback
+
         traceback.print_exc()
         return HttpResponse(error_msg, status=500)
+
+
+@require_http_methods(["POST"])
+@login_required
+@user_passes_test(is_staff, login_url="/accounts/login/", redirect_field_name=None)
+def process_feedback_with_ai(request):
+    """Procesa un texto de retroalimentación con IA y devuelve el resultado"""
+    # Obtener el texto, prompt y estudiante del formulario
+    feedback_text = request.POST.get("feedback_text", "")
+    prompt_id = request.POST.get("prompt_id")
+    student_id = request.POST.get("student_id")
+
+    if not feedback_text or not prompt_id:
+        return HttpResponse("Se requiere texto y prompt", status=400)
+
+    # Obtener información del estudiante si se proporciona el ID
+    student_name = ""
+    if student_id:
+        try:
+            student = get_object_or_404(Student, id=student_id)
+            student_name = student.user.name
+        except Exception:
+            # Si hay algún error, continuamos sin el nombre del estudiante
+            pass
+
+    try:
+        # Obtener el prompt asociado al item de evaluación
+        evaluation_item = get_object_or_404(EvaluationItem, id=prompt_id)
+        ai_prompt = evaluation_item.ai_prompt
+
+        if not ai_prompt:
+            return HttpResponse("No hay prompt configurado para este item", status=400)
+
+        # Procesar con IA
+        final_feedback = feedback_text
+
+        # Verificar si la biblioteca está disponible
+        if not GEMINI_AVAILABLE:
+            return HttpResponse(
+                "<div class='text-red-500 mb-2'>La biblioteca google-genai no está instalada.</div>"
+                + feedback_text,
+                status=200,
+            )
+
+        try:
+            # Configurar genai con la API key
+            if os.getenv("GEMINI_API_KEY"):
+                # Configurar genai con la API key
+                api_key = os.getenv("GEMINI_API_KEY")
+                client = genai.Client(api_key=api_key)
+
+                # Construir el prompt completo
+                prompt = f"{evaluation_item.ai_prompt}\n\nEvaluación original: {feedback_text}"
+
+                
+                # Generar respuesta
+                response = client.models.generate_content(
+                    model='gemini-2.0-flash-001', contents=prompt
+                )
+
+                # La respuesta es directamente el texto
+                if response:
+                    text = response.text
+                    
+                    # Limpiar el texto para quitar introducciones
+                    if '"' in text:
+                        # Buscar contenido entre comillas (suponiendo que es el feedback real)
+                        import re
+                        quoted_content = re.search(r'"(.+?)"', text, re.DOTALL)
+                        if quoted_content:
+                            text = quoted_content.group(1)
+                    
+                    # Buscar patrones de introducción comunes y eliminarlos
+                    intro_patterns = [
+                        "Okay, here's some assertive and positive feedback",
+                        "Here is some feedback",
+                        "Here's the feedback",
+                        "Here is the feedback",
+                        "I would provide this feedback",
+                        "Here's my feedback"
+                    ]
+                    
+                    for pattern in intro_patterns:
+                        if text.startswith(pattern):
+                            text = text[len(pattern):].lstrip(' :,-')
+                    
+                    # Eliminar "Hi [Student's Name]," o similar al principio
+                    text = re.sub(r'^Hi\s+\[?Student(\'s)?\s*Name\]?,\s*', '', text)
+                    
+                    # Eliminar firma al final como "Thanks, [Student's Name]" o similar
+                    text = re.sub(r'Thanks,\s+\[?Student(\'s)?\s*Name\]?!?\s*$', '', text)
+                    
+                    final_feedback = text.strip()
+                else:
+                    return HttpResponse(
+                        f"<textarea id='feedback-text-{student_id}-{evaluation_item.id}' class='textarea textarea-bordered h-24 w-full' name='feedback_text'>{feedback_text}</textarea>"
+                        + "<div class='text-yellow-500 text-sm mt-1'>No se pudo procesar la retroalimentación con IA.</div>",
+                        status=200,
+                    )
+            else:
+                return HttpResponse(
+                    f"<textarea id='feedback-text-{student_id}-{evaluation_item.id}' class='textarea textarea-bordered h-24 w-full' name='feedback_text'>{feedback_text}</textarea>"
+                    + "<div class='text-yellow-500 mb-2'>No se ha configurado la clave API de Google (GOOGLE_API_KEY).</div>",
+                    status=200,
+                )
+        except Exception as e:
+            return HttpResponse(
+                f"<textarea id='feedback-text-{student_id}-{evaluation_item.id}' class='textarea textarea-bordered h-24 w-full' name='feedback_text'>{feedback_text}</textarea>"
+                + f"<div class='text-red-500 mb-2'>Error al procesar con IA: {str(e)}</div>",
+                status=200,
+            )
+
+        # Guardar el feedback generado en el estado pendiente si existe
+        if student_id:
+            try:
+                pending_status = PendingEvaluationStatus.objects.filter(
+                    student_id=student_id, evaluation_item=evaluation_item
+                ).first()
+
+                if pending_status:
+                    pending_status.feedback = final_feedback
+                    pending_status.save()
+            except Exception as e:
+                print(f"Error al guardar feedback en estado pendiente: {e}")
+
+        # Devolver el texto procesado
+        return HttpResponse(
+            f"<textarea id='feedback-text-{student_id}-{evaluation_item.id}' class='textarea textarea-bordered h-24 w-full' name='feedback_text'>{final_feedback}</textarea>",
+            status=200
+        )
+    except Exception as e:
+        return HttpResponse(f"Error: {str(e)}", status=500)

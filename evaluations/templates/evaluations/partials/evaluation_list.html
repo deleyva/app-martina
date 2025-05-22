@@ -129,6 +129,63 @@
           </div>
         </div>
 
+        <!-- Campo de retroalimentación -->
+        <div class="form-control mb-4">
+          <label class="label">
+            <span class="label-text font-semibold">Retroalimentación para el alumno:</span>
+          </label>
+          
+          {% if evaluation_item.ai_prompt %}
+          <!-- Contenedor para la retroalimentación con botón de IA -->
+          <div class="relative" x-data="{ processingAi: false }" id="ai-container-{{ student.id }}-{{ evaluation_item.id }}">
+            <div id="feedback-container-{{ student.id }}-{{ evaluation_item.id }}">
+              <textarea 
+                id="feedback-text-{{ student.id }}-{{ evaluation_item.id }}"
+                class="textarea textarea-bordered h-24 w-full" 
+                placeholder="Escribe aquí tu retroalimentación para el alumno..." 
+                name="feedback_text"
+              >{% with pending_status=student.pending_statuses.all|filter_pending_status:evaluation_item.id %}{% if pending_status.feedback %}{{ pending_status.feedback }}{% endif %}{% endwith %}</textarea>
+            </div>
+            
+            <button 
+              class="btn btn-circle btn-sm absolute top-2 right-2 bg-base-100" 
+              hx-post="{% url 'process_feedback_with_ai' %}"
+              hx-trigger="click"
+              hx-target="#feedback-container-{{ student.id }}-{{ evaluation_item.id }}"
+              hx-swap="innerHTML"
+              hx-include="#feedback-text-{{ student.id }}-{{ evaluation_item.id }}"
+              hx-vals='{"prompt_id": "{{ evaluation_item.id }}", "student_id": "{{ student.id }}"}'
+              @click="processingAi = true"
+              hx-indicator="#spinner-{{ student.id }}-{{ evaluation_item.id }}"
+              title="Reescribir con IA"
+              id="ai-button-{{ student.id }}-{{ evaluation_item.id }}"
+              x-on:htmx:after-request="processingAi = false"
+            >
+              <template x-if="!processingAi">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </template>
+              <template x-if="processingAi">
+                <svg id="spinner-{{ student.id }}-{{ evaluation_item.id }}" class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              </template>
+            </button>
+          </div>
+          
+          <p class="text-xs text-gray-500 mt-1">Puedes usar el botón <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg> para reescribir tu retroalimentación con IA</p>
+          {% else %}
+          <!-- Versión simple sin IA -->
+          <textarea 
+            class="textarea textarea-bordered h-24" 
+            placeholder="Escribe aquí tu retroalimentación para el alumno..." 
+            name="feedback_text"
+          ></textarea>
+          {% endif %}
+        </div>
+        
         {% with rubrics=student_rubrics|get_item:student.id|get_item:evaluation_item.id %}
         {% if rubrics %}
         <div class="mb-4">

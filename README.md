@@ -5,7 +5,10 @@
 
 - [X] Hacer que la rubrica actulice el dato en el selector de puntos de cada targeta "pending" y que ese número se pueda seguir editando
 - [X] Hacer que se pueda desclicar el checkbox de classroom
-- [ ] Mostrar pendings como lista y que, al clicar se muestre la rúbrica y todo
+- [X] Mostrar pendings como lista y que, al clicar se muestre la rúbrica y todo
+- [ ] Hacer que funcione gemini. De momento no lo hace
+- [ ] Hacer que se pueda enviar el correo
+
 
 Behold My Awesome Project!
 

@@ -1,107 +1,233 @@
 {% extends "base.html" %}
 {% load static evaluation_tags %}
 
-{% block title %}Mi Dashboard de Evaluaciones{% endblock %}
+{% block title %}
+  Mi Dashboard de Evaluaciones
+{% endblock %}
 
 {% block content %}
 <div class="container mx-auto px-4 py-6">
   <h1 class="text-3xl font-bold mb-6">Dashboard de {{ student.user.name }}</h1>
-  
+
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <!-- Sección de evaluaciones -->
     <div class="lg:col-span-2">
       <div class="bg-white shadow rounded-lg p-6 mb-6">
         <h2 class="text-2xl font-semibold mb-4">Mis Evaluaciones</h2>
-        
+
         {% if evaluations_by_term %}
-          <div class="space-y-6">
-            {% for term, evaluations in evaluations_by_term.items %}
-              <div>
-                <h3 class="text-xl font-medium mb-3 pb-2 border-b">{{ term }}</h3>
-                <div class="overflow-x-auto">
-                  <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                      <tr>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Evaluación</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nota</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
-                      </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                      {% for evaluation in evaluations %}
-                        <tr>
-                          <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {{ evaluation.evaluation_item.name }}
-                          </td>
-                          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                      {% if evaluation.score >= 7 %}bg-green-100 text-green-800
-                                      {% elif evaluation.score >= 5 %}bg-yellow-100 text-yellow-800
-                                      {% else %}bg-red-100 text-red-800{% endif %}">
-                              {{ evaluation.score }}/{{ evaluation.max_score }}
-                            </span>
-                          </td>
-                          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {{ evaluation.date_evaluated|date:"d/m/Y" }}
-                          </td>
-                        </tr>
-                      {% endfor %}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            {% endfor %}
+        <div class="space-y-6">
+          {% for term, evaluations in evaluations_by_term.items %}
+          <div>
+            <h3 class="text-xl font-medium mb-3 pb-2 border-b">
+              {{ term | title }} evaluación
+            </h3>
+            <div class="overflow-x-auto">
+              <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th
+                      scope="col"
+                      class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Evaluación
+                    </th>
+                    <th
+                      scope="col"
+                      class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Nota
+                    </th>
+                    <th
+                      scope="col"
+                      class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Detalles
+                    </th>
+                    <th
+                      scope="col"
+                      class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Fecha
+                    </th>
+                  </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                  {% for evaluation in evaluations %}
+                  <tr>
+                    <td
+                      class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"
+                    >
+                      {{ evaluation.evaluation_item.name }}
+                    </td>
+                    <td
+                      class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
+                    >
+                      <span
+                        class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {% if evaluation.score >= 7 %}bg-green-100 text-green-800 {% elif evaluation.score >= 5 %}bg-yellow-100 text-yellow-800 {% else %}bg-red-100 text-red-800{% endif %}"
+                      >
+                        {{ evaluation.score }}/{{ evaluation.max_score }}
+                      </span>
+                    </td>
+                    <td
+                      class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
+                    >
+                      {{ evaluation.date_evaluated|date:"d/m/Y" }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <div class="flex space-x-2">
+                        <!-- Botón de rúbrica (si existe) -->
+                        {% with rubric_scores=evaluation.rubric_scores.all %}
+                          {% if rubric_scores %}
+                            <button 
+                              class="btn btn-sm btn-outline btn-info" 
+                              @click="$refs['rubricDetails{{ evaluation.id }}'].classList.toggle('hidden')"
+                              title="Ver detalles de rúbrica"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                              </svg>
+                            </button>
+                          {% endif %}
+                        {% endwith %}
+                        
+                        <!-- Botón de retroalimentación (si existe) -->
+                        {% if evaluation.feedback %}
+                          <button 
+                            class="btn btn-sm btn-outline btn-success" 
+                            @click="$store.feedbackModal.open('{{ evaluation.id }}')"
+                            title="Ver retroalimentación"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
+                            </svg>
+                          </button>
+                        {% endif %}
+                      </div>
+                      
+                      <!-- Detalles de la rúbrica (ocultos por defecto) -->
+                      {% with rubric_scores=evaluation.rubric_scores.all %}
+                        {% if rubric_scores %}
+                          <div x-ref="rubricDetails{{ evaluation.id }}" class="hidden mt-3 bg-gray-50 p-3 rounded-md" style="min-width: 300px;">
+                            <h4 class="font-medium text-sm mb-2">Detalles de la evaluación:</h4>
+                            <table class="w-full text-xs">
+                              <thead>
+                                <tr>
+                                  <th class="text-left pb-1">Categoría</th>
+                                  <th class="text-right pb-1">Puntuación</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {% for score in rubric_scores %}
+                                  <tr>
+                                    <td class="py-1">{{ score.category.name }}</td>
+                                    <td class="text-right py-1">{{ score.points }}/{{ score.category.max_points }}</td>
+                                  </tr>
+                                {% endfor %}
+                              </tbody>
+                            </table>
+                          </div>
+                        {% endif %}
+                      {% endwith %}
+                      
+                      <!-- Modal de retroalimentación (oculto por defecto) -->
+                      {% if evaluation.feedback %}
+                        <div 
+                          x-data 
+                          x-show="$store.feedbackModal.isOpen && $store.feedbackModal.id === '{{ evaluation.id }}'"
+                          x-transition:enter="transition ease-out duration-300"
+                          x-transition:enter-start="opacity-0"
+                          x-transition:enter-end="opacity-100"
+                          x-transition:leave="transition ease-in duration-200"
+                          x-transition:leave-start="opacity-100"
+                          x-transition:leave-end="opacity-0"
+                          class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center"
+                          style="display: none;"
+                        >
+                          <div class="bg-white rounded-lg p-6 max-w-lg w-full mx-4">
+                            <div class="flex justify-between items-center mb-4">
+                              <h3 class="text-lg font-medium">Retroalimentación</h3>
+                              <button @click="$store.feedbackModal.close()" class="text-gray-500 hover:text-gray-700">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                            <div class="prose prose-sm max-w-none">
+                              {{ evaluation.feedback|linebreaksbr }}
+                            </div>
+                            <div class="mt-6 text-right">
+                              <button @click="$store.feedbackModal.close()" class="btn btn-sm btn-primary">Cerrar</button>
+                            </div>
+                          </div>
+                        </div>
+                      {% endif %}
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
           </div>
+          {% endfor %}
+        </div>
         {% else %}
-          <div class="text-center py-6 text-gray-500">
-            <p>Aún no tienes evaluaciones registradas.</p>
-          </div>
+        <div class="text-center py-6 text-gray-500">
+          <p>Aún no tienes evaluaciones registradas.</p>
+        </div>
         {% endif %}
       </div>
     </div>
-    
+
     <!-- Sección de evaluaciones pendientes -->
     <div>
       <div class="bg-white shadow rounded-lg p-6">
         <h2 class="text-2xl font-semibold mb-4">Evaluaciones Pendientes</h2>
-        
+
         {% if pending_statuses %}
-          <ul class="divide-y divide-gray-200">
-            {% for status in pending_statuses %}
-              <li class="py-4">
-                <div class="flex flex-col space-y-2">
-                  <div class="font-medium">{{ status.evaluation_item.name }}</div>
-                  <div class="text-sm text-gray-500">
-                    {% if status.classroom_submission %}
-                      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        Entrega por classroom
-                      </span>
-                      
-                      {% if has_submission|get_item:status.id %}
-                        <a href="{% url 'edit_submission' submission_id=status.submission.id %}" 
-                           class="mt-2 inline-flex items-center px-3 py-2 border border-indigo-300 text-sm leading-4 font-medium rounded-md text-indigo-700 bg-white hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                          Editar mi entrega
-                        </a>
-                      {% else %}
-                        <a href="{% url 'create_submission' status_id=status.id %}" 
-                           class="mt-2 inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                          Realizar entrega
-                        </a>
-                      {% endif %}
-                    {% else %}
-                      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                        Evaluación en clase
-                      </span>
-                    {% endif %}
-                  </div>
-                </div>
-              </li>
-            {% endfor %}
-          </ul>
+        <ul class="divide-y divide-gray-200">
+          {% for status in pending_statuses %}
+          <li class="py-4">
+            <div class="flex flex-col space-y-2">
+              <div class="font-medium">{{ status.evaluation_item.name }}</div>
+              <div class="text-sm text-gray-500">
+                {% if status.classroom_submission %}
+                <span
+                  class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                >
+                  Entrega por classroom
+                </span>
+
+                {% if has_submission|get_item:status.id %}
+                <a
+                  href="{% url 'edit_submission' submission_id=status.submission.id %}"
+                  class="mt-2 inline-flex items-center px-3 py-2 border border-indigo-300 text-sm leading-4 font-medium rounded-md text-indigo-700 bg-white hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  Editar mi entrega
+                </a>
+                {% else %}
+                <a
+                  href="{% url 'create_submission' status_id=status.id %}"
+                  class="mt-2 inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  Realizar entrega
+                </a>
+                {% endif %} {% else %}
+                <span
+                  class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
+                >
+                  Evaluación en clase
+                </span>
+                {% endif %}
+              </div>
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
         {% else %}
-          <div class="text-center py-6 text-gray-500">
-            <p>No tienes evaluaciones pendientes.</p>
-          </div>
+        <div class="text-center py-6 text-gray-500">
+          <p>No tienes evaluaciones pendientes.</p>
+        </div>
         {% endif %}
       </div>
     </div>
@@ -109,15 +235,35 @@
 </div>
 {% endblock %}
 
+{% block inline_javascript %}
+<script>
+  // Inicializar el store para el modal de retroalimentación
+  document.addEventListener('alpine:init', () => {
+    Alpine.store('feedbackModal', {
+      isOpen: false,
+      id: null,
+      open(id) {
+        this.id = id;
+        this.isOpen = true;
+      },
+      close() {
+        this.isOpen = false;
+        setTimeout(() => { this.id = null; }, 200); // Pequeño retraso para la animación
+      }
+    });
+  });
+</script>
+{% endblock inline_javascript %}
+
 {% block extra_js %}
 <script>
   // Helper function for template filter
   function getItem(obj, key) {
     return obj[key];
   }
-  
+
   // Add template filter to get items from dict
-  document.addEventListener('DOMContentLoaded', function() {
+  document.addEventListener("DOMContentLoaded", function () {
     // This is just a placeholder since we don't have real templating in JS
     // In Django we would add a custom template filter like:
     // {% load custom_filters %}

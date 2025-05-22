@@ -68,6 +68,7 @@ class EvaluationAdmin(admin.ModelAdmin):
         "score",
         "max_score",
         "classroom_submission",
+        "feedback",
         "sent_by_mail",
         "date_evaluated",
     )
@@ -77,6 +78,14 @@ class EvaluationAdmin(admin.ModelAdmin):
     readonly_fields = ("date_evaluated",)
     fieldsets = (
         (None, {"fields": ("student", "evaluation_item", "score", "date_evaluated")}),
+        (
+            "Retroalimentación",
+            {
+                "fields": ("feedback", "sent_by_mail"),
+                "classes": ("wide",),
+                "description": "Retroalimentación para el estudiante y estado de envío",
+            },
+        ),
         (
             "Configuración avanzada",
             {
@@ -97,7 +106,7 @@ class RubricScoreAdmin(admin.ModelAdmin):
 
 @admin.register(PendingEvaluationStatus)
 class PendingEvaluationStatusAdmin(admin.ModelAdmin):
-    list_display = ("student", "evaluation_item", "classroom_submission", "created_at")
+    list_display = ("student", "evaluation_item", "classroom_submission", "feedback", "created_at")
     list_filter = ("evaluation_item", "classroom_submission", "created_at")
     search_fields = ("student__user__name",)
     date_hierarchy = "created_at"

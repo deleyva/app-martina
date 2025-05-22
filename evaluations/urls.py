@@ -14,6 +14,8 @@ urlpatterns = [
     # Nuevas URLs para la búsqueda y adición de estudiantes
     path('search-students/', views.search_students, name='search_students'),
     path('add-student-to-pending/', views.add_student_to_pending, name='add_student_to_pending'),
+    # URL para procesar retroalimentación con IA
+    path('process-feedback-with-ai/', views.process_feedback_with_ai, name='process_feedback_with_ai'),
     
     # Dashboard del estudiante
     path('dashboard/', student_dashboard, name='student_dashboard'),

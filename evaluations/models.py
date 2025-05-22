@@ -14,6 +14,7 @@ class EvaluationItem(models.Model):
     ]
     term = models.CharField(choices=TERM_CHOICES, null=True, blank=True)
     description = models.TextField(blank=True)
+    ai_prompt = models.TextField(blank=True, help_text="Prompt para Gemini que reescribirá la retroalimentación")
 
     def __str__(self):
         return self.name
@@ -127,6 +128,7 @@ class PendingEvaluationStatus(models.Model):
     classroom_submission = models.BooleanField(
         default=False, verbose_name="Entrega por classroom"
     )
+    feedback = models.TextField(blank=True, verbose_name="Retroalimentación")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
