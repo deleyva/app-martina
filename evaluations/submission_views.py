@@ -140,11 +140,13 @@ def upload_video(request, submission_id):
     
     form = VideoUploadForm(request.POST, request.FILES)
     if form.is_valid():
-        submission_video = form.save(commit=False)
-        submission_video.submission = classroom_submission
-        submission_video.original_filename = request.FILES['video'].name
-        submission_video.processing_status = SubmissionVideo.ProcessingStatus.PENDING
-        submission_video.save()
+        video_file = request.FILES['video']
+        submission_video = SubmissionVideo.objects.create(
+            submission=classroom_submission,
+            video=video_file,
+            original_filename=video_file.name,
+            processing_status='PENDING'
+        )
 
         # Encolar la tarea de compresión DESPUÉS de que la transacción se haya completado
         transaction.on_commit(

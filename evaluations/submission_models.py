@@ -1,23 +1,24 @@
-from django.db import models
 import os
 import uuid
+
+from django.db import models
 from .models import PendingEvaluationStatus
 
 
-def submission_video_path(instance, filename):
+def submission_video_path(_instance, filename):
     """Generate a unique path for uploaded videos."""
     ext = filename.split('.')[-1]
     filename = f"{uuid.uuid4()}.{ext}"
     return os.path.join('submissions', 'videos', filename)
 
-def submission_compressed_video_path(instance, filename):
+def submission_compressed_video_path(_instance, filename):
     """Generate a unique path for uploaded compressed videos."""
     _, ext = os.path.splitext(filename)
     filename = f"{uuid.uuid4()}_compressed{ext}"
     return os.path.join('submissions', 'videos', 'compressed', filename)
 
 
-def submission_image_path(instance, filename):
+def submission_image_path(_instance, filename):
     """Generate a unique path for uploaded images."""
     ext = filename.split('.')[-1]
     filename = f"{uuid.uuid4()}.{ext}"
@@ -101,7 +102,7 @@ class SubmissionVideo(models.Model):
                 try:
                     os.remove(video_path)
                     # Opcional: logger.info(f"Successfully deleted original video file: {video_path}")
-                except OSError:
+                except OSError as e:
                     # Opcional: logger.error(f"Error deleting original video file {video_path}: {e.strerror}")
                     pass # O decidir cómo manejar el error
 
@@ -110,7 +111,7 @@ class SubmissionVideo(models.Model):
                 try:
                     os.remove(compressed_video_path)
                     # Opcional: logger.info(f"Successfully deleted compressed video file: {compressed_video_path}")
-                except OSError:
+                except OSError as e:
                     # Opcional: logger.error(f"Error deleting compressed video file {compressed_video_path}: {e.strerror}")
                     pass # O decidir cómo manejar el error
 
