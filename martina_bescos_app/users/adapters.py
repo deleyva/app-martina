@@ -18,14 +18,8 @@ if typing.TYPE_CHECKING:
 
 class AccountAdapter(DefaultAccountAdapter):
     def is_open_for_signup(self, request: HttpRequest) -> bool:
-        # Solo permitir registro si viene desde un proceso de login social
-        # o si está habilitado el registro en general
-        is_social_signup = getattr(request, 'session', {}).get('sociallogin_provider') is not None
-        allow_registration = getattr(settings, "ACCOUNT_ALLOW_REGISTRATION", True)
-        
-        # Solo permitir registro si es social o si se permite explícitamente
-        # Esto asegura que el registro manual esté bloqueado pero el de Google funcione
-        return is_social_signup and allow_registration
+        # Rely on the global setting, as the template only shows social signup.
+        return getattr(settings, "ACCOUNT_ALLOW_REGISTRATION", True)
     
     def is_social_login_request(self, request):
         """Determina de manera robusta si una solicitud es parte de un proceso de inicio de sesión social."""

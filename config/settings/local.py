@@ -76,5 +76,8 @@ INSTALLED_APPS += ["django_extensions"]
 # Your stuff...
 # ------------------------------------------------------------------------------
 
+# django-allauth specific settings for local development
+ACCOUNT_ALLOW_REGISTRATION = True
+
 # Sobrescribir SITE_ID para usar el sitio de desarrollo local
 SITE_ID = 2

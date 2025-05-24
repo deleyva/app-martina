@@ -148,7 +148,6 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
-    "martina_bescos_app.users.middleware.GoogleLoginRedirectMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
@@ -294,6 +293,10 @@ ACCOUNT_FORMS = {"signup": "martina_bescos_app.users.forms.UserSignupForm"}
 SOCIALACCOUNT_ADAPTER = "martina_bescos_app.users.adapters.SocialAccountAdapter"
 # https://docs.allauth.org/en/latest/socialaccount/configuration.html
 SOCIALACCOUNT_FORMS = {"signup": "martina_bescos_app.users.forms.UserSocialSignupForm"}
+
+# Bypass the intermediate "Sign In" page when clicking on a social login button
+# https://django-allauth.readthedocs.io/en/latest/configuration.html
+SOCIALACCOUNT_LOGIN_ON_GET = True
 
 # Your stuff...
 # ------------------------------------------------------------------------------
