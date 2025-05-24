@@ -40,6 +40,18 @@ services:
     networks:
       - app-martina-stage-network
 
+  huey_consumer:
+    image: martina_bescos_app_stage_django
+    depends_on:
+      - redis
+      - postgres
+    env_file:
+      - ./.envs/.production/.django
+      - ./.envs/.production/.postgres
+    command: /start-huey
+    networks:
+      - app-martina-stage-network
+
   nginx_stage:
     build:
       context: .

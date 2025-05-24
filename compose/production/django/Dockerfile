@@ -57,6 +57,10 @@ COPY ./compose/production/django/start /start
 RUN sed -i 's/\r$//g' /start
 RUN chmod +x /start
 
+COPY ./compose/production/django/start-huey /start-huey
+RUN sed -i 's/\r$//g' /start-huey
+RUN chmod +x /start-huey
+
 # Copiar el código de la aplicación
 COPY . ${APP_HOME}
 
