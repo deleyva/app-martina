@@ -63,6 +63,11 @@ COPY . ${APP_HOME}
 # Copiar CSS compilado desde node-builder
 COPY --from=node-builder /app/frontend/martina_bescos_app/static/css/output.css ${APP_HOME}/martina_bescos_app/static/css/output.css
 
+# Crear directorio de medios y asegurar que django sea el propietario
+# Asumiendo que MEDIA_ROOT está dentro de ${APP_HOME}/martina_bescos_app/media
+RUN mkdir -p ${APP_HOME}/martina_bescos_app/media && \
+    chown django:django ${APP_HOME}/martina_bescos_app/media
+
 # *** collectstatic YA NO SE EJECUTA AQUÍ ***
 
 # Cambiar propietario de todo ANTES de cambiar de usuario
