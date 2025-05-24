@@ -1,20 +1,14 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from django.urls import reverse
 from django.contrib import messages
-from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
+from django.http import HttpResponse
 from django.views.decorators.http import require_http_methods
 from django.conf import settings
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.views.generic import DetailView, FormView, CreateView, UpdateView, ListView
 
-import subprocess
-import tempfile
-from pathlib import Path
+import os
 
 from .models import (
     Student,
-    EvaluationItem,
     Evaluation,
     PendingEvaluationStatus,
 )
@@ -193,7 +187,7 @@ def upload_video(request, submission_id):
         error_string = " ".join(error_list)
         messages.error(request, f"Por favor, corrige los errores en el formulario: {error_string}")
     
-    return redirect('evaluations:edit_submission', submission_id=classroom_submission.id) # Asegúrate que 'edit_submission' y su namespace sean correctos
+    return redirect('edit_submission', submission_id=classroom_submission.id)
 
 
 @login_required
