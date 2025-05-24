@@ -130,13 +130,11 @@ class SubmissionVideoAdmin(admin.ModelAdmin):
         'original_filename',
         'processing_status',
         'get_compressed_video_link',
-        'submission__submitted_at',
+        'get_submission_submitted_at',
     )
     list_filter = (
         'processing_status',
         'submission__pending_status__student__group',
-        # TODO: Revisar este filtro. La ruta 'submission__pending_status__evaluation_item__evaluation__course' no es un campo válido.
-        # 'submission__pending_status__evaluation_item__evaluation__course',
         'submission__pending_status__evaluation_item',
     )
     search_fields = (
@@ -153,8 +151,8 @@ class SubmissionVideoAdmin(admin.ModelAdmin):
         'video_file_preview',
         'compressed_video_preview',
         'processing_error',
-        'submission__submitted_at',
-        'submission__updated_at',
+        'get_submission_submitted_at',
+        'get_submission_updated_at',
     )
     list_per_page = 20
     ordering = ('-submission__submitted_at',)
@@ -170,6 +168,20 @@ class SubmissionVideoAdmin(admin.ModelAdmin):
             return "N/A"
     get_student_identifier.short_description = 'Estudiante'
     get_student_identifier.admin_order_field = 'submission__pending_status__student__user__last_name'
+
+    def get_submission_submitted_at(self, obj):
+        if obj.submission:
+            return obj.submission.submitted_at
+        return None
+    get_submission_submitted_at.admin_order_field = 'submission__submitted_at'
+    get_submission_submitted_at.short_description = 'Fecha de Entrega (Submission)'
+
+    def get_submission_updated_at(self, obj):
+        if obj.submission:
+            return obj.submission.updated_at
+        return None
+    get_submission_updated_at.admin_order_field = 'submission__updated_at'
+    get_submission_updated_at.short_description = 'Última Actualización (Submission)'
 
     def get_compressed_video_link(self, obj):
         if obj.compressed_video and hasattr(obj.compressed_video, 'url'):
