@@ -130,13 +130,14 @@ class SubmissionVideoAdmin(admin.ModelAdmin):
         'original_filename',
         'processing_status',
         'get_compressed_video_link',
-        'uploaded_at',
+        'submission__submitted_at',
     )
     list_filter = (
         'processing_status',
         'submission__pending_status__student__group',
-        'submission__pending_status__evaluation_item__evaluation__course', 
-        'submission__pending_status__evaluation_item', 
+        # TODO: Revisar este filtro. La ruta 'submission__pending_status__evaluation_item__evaluation__course' no es un campo válido.
+        # 'submission__pending_status__evaluation_item__evaluation__course',
+        'submission__pending_status__evaluation_item',
     )
     search_fields = (
         'submission__pending_status__student__user__username',
@@ -144,7 +145,7 @@ class SubmissionVideoAdmin(admin.ModelAdmin):
         'submission__pending_status__student__user__last_name',
         'submission__pending_status__student__user__email',
         'original_filename',
-        'video_file', 
+        'video_file',
     )
     readonly_fields = (
         'id',
@@ -152,11 +153,11 @@ class SubmissionVideoAdmin(admin.ModelAdmin):
         'video_file_preview',
         'compressed_video_preview',
         'processing_error',
-        'uploaded_at',
-        'updated_at',
+        'submission__submitted_at',
+        'submission__updated_at',
     )
     list_per_page = 20
-    ordering = ('-uploaded_at',)
+    ordering = ('-submission__submitted_at',)
 
     def get_student_identifier(self, obj):
         try:
@@ -168,7 +169,7 @@ class SubmissionVideoAdmin(admin.ModelAdmin):
         except AttributeError:
             return "N/A"
     get_student_identifier.short_description = 'Estudiante'
-    get_student_identifier.admin_order_field = 'submission__pending_status__student__user__last_name' 
+    get_student_identifier.admin_order_field = 'submission__pending_status__student__user__last_name'
 
     def get_compressed_video_link(self, obj):
         if obj.compressed_video and hasattr(obj.compressed_video, 'url'):
