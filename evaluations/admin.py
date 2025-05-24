@@ -1,4 +1,6 @@
 from django.contrib import admin
+from django.urls import reverse
+from django.utils.html import format_html
 from .models import (
     Student,
     EvaluationItem,
@@ -122,8 +124,98 @@ class ClassroomSubmissionAdmin(admin.ModelAdmin):
 
 @admin.register(SubmissionVideo)
 class SubmissionVideoAdmin(admin.ModelAdmin):
-    list_display = ("submission", "original_filename")
-    search_fields = ("submission__pending_status__student__user__name", "original_filename")
+    list_display = (
+        'id',
+        'get_student_identifier',
+        'original_filename',
+        'processing_status',
+        'get_compressed_video_link',
+        'uploaded_at',
+    )
+    list_filter = (
+        'processing_status',
+        'submission__pending_status__student__group',
+        'submission__pending_status__evaluation_item__evaluation__course', 
+        'submission__pending_status__evaluation_item', 
+    )
+    search_fields = (
+        'submission__pending_status__student__user__username',
+        'submission__pending_status__student__user__first_name',
+        'submission__pending_status__student__user__last_name',
+        'submission__pending_status__student__user__email',
+        'original_filename',
+        'video_file', 
+    )
+    readonly_fields = (
+        'id',
+        'submission_link',
+        'video_file_preview',
+        'compressed_video_preview',
+        'processing_error',
+        'uploaded_at',
+        'updated_at',
+    )
+    list_per_page = 20
+    ordering = ('-uploaded_at',)
+
+    def get_student_identifier(self, obj):
+        try:
+            student = obj.submission.pending_status.student
+            if student.user:
+                name = student.user.get_full_name()
+                return name if name else student.user.username
+            return f"Student ID: {student.id}"
+        except AttributeError:
+            return "N/A"
+    get_student_identifier.short_description = 'Estudiante'
+    get_student_identifier.admin_order_field = 'submission__pending_status__student__user__last_name' 
+
+    def get_compressed_video_link(self, obj):
+        if obj.compressed_video and hasattr(obj.compressed_video, 'url'):
+            return format_html("<a href='{url}' target='_blank'>{filename}</a>", 
+                               url=obj.compressed_video.url, 
+                               filename=obj.compressed_video.name.split('/')[-1])
+        elif obj.compressed_video:
+            return obj.compressed_video.name.split('/')[-1]
+        return "-"
+    get_compressed_video_link.short_description = 'Vídeo Comprimido'
+    get_compressed_video_link.admin_order_field = 'compressed_video'
+
+    def submission_link(self, obj):
+        if obj.submission:
+            link = reverse("admin:evaluations_classroomsubmission_change", args=[obj.submission.id])
+            return format_html('<a href="{}">{}</a>', link, obj.submission)
+        return "N/A"
+    submission_link.short_description = 'Entrega Asociada'
+
+    def _video_preview_html(self, video_field):
+        if video_field and hasattr(video_field, 'url'):
+            filename = video_field.name.split('/')[-1]
+            return format_html(
+                "<a href='{url}' target='_blank'>{filename}</a><br>"
+                "<video width='320' height='240' controls preload='metadata'>"
+                "<source src='{url}#t=0.1' type='video/mp4'>"
+                "Tu navegador no soporta la etiqueta de vídeo.</video>",
+                url=video_field.url,
+                filename=filename
+            )
+        return "No disponible"
+
+    def video_file_preview(self, obj):
+        return self._video_preview_html(obj.video_file)
+    video_file_preview.short_description = 'Previsualización Vídeo Original'
+
+    def compressed_video_preview(self, obj):
+        if obj.processing_status == SubmissionVideo.ProcessingStatus.PROCESSING:
+            return "Procesando..."
+        elif obj.processing_status == SubmissionVideo.ProcessingStatus.PENDING:
+            return "Pendiente de procesamiento"
+        elif obj.processing_status == SubmissionVideo.ProcessingStatus.FAILED:
+            return format_html("<strong>Fallido:</strong> {}<br>No hay previsualización disponible.", obj.processing_error or 'Error desconocido')
+        elif obj.processing_status == SubmissionVideo.ProcessingStatus.COMPLETED and obj.compressed_video:
+            return self._video_preview_html(obj.compressed_video)
+        return "No disponible o no procesado"
+    compressed_video_preview.short_description = 'Previsualización Vídeo Comprimido'
 
 
 @admin.register(SubmissionImage)
