@@ -87,7 +87,8 @@
             <li><a href="{% url 'about' %}">About</a></li>
             {% if request.user.is_staff %}
               <li><a href="{% url 'admin:index' %}">Admin</a></li>
-              <li><a href="{% url 'evaluation_item_list' %}">{% translate "Evaluaciones" %}</a></li>
+              <li><a href="{% url 'evaluation_item_list' %}">{% translate "Lista de Evaluaciones" %}</a></li>
+              <li><a href="{% url 'pending_evaluations' %}">{% translate "Evaluaciones Pendientes" %}</a></li>
             {% endif %}
             {% if request.user.is_superuser %}
               <li><a href="{% url 'users:impersonate-list' %}">{% translate "Impersonar Usuario" %}</a></li>

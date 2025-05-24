@@ -67,9 +67,9 @@ def student_dashboard(request):
 @login_required
 def create_submission(request, status_id):
     """
-    View for creating a new submission for a pending evaluation.
+    View for initiating a submission for a pending evaluation.
+    On GET, it ensures a submission record exists and redirects to the edit view.
     """
-    # Get the pending status
     pending_status = get_object_or_404(
         PendingEvaluationStatus, 
         id=status_id,
@@ -77,32 +77,16 @@ def create_submission(request, status_id):
         classroom_submission=True
     )
     
-    # Check if submission already exists
+    # Try to get an existing submission
     try:
         submission = pending_status.submission
-        return redirect('edit_submission', submission_id=submission.id)
     except ClassroomSubmission.DoesNotExist:
-        pass
+        # If no submission exists, create one
+        submission = ClassroomSubmission.objects.create(pending_status=pending_status)
+        messages.info(request, "Se ha iniciado tu entrega. Ahora puedes añadir detalles, vídeos e imágenes.")
     
-    if request.method == 'POST':
-        form = ClassroomSubmissionForm(request.POST)
-        if form.is_valid():
-            submission = form.save(commit=False)
-            submission.pending_status = pending_status
-            submission.save()
-            
-            messages.success(request, "Tu entrega ha sido creada. Ahora puedes agregar vídeos e imágenes.")
-            return redirect('edit_submission', submission_id=submission.id)
-    else:
-        form = ClassroomSubmissionForm()
-    
-    context = {
-        'form': form,
-        'pending_status': pending_status,
-        'submission_type': 'create'
-    }
-    
-    return render(request, 'evaluations/submission_form.html', context)
+    # Always redirect to the edit view, whether submission was pre-existing or just created
+    return redirect('edit_submission', submission_id=submission.id)
 
 
 @login_required

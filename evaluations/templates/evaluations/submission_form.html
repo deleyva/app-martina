@@ -45,6 +45,7 @@
     </form>
   </div>
   
+  {% if submission %}
   <!-- Sección para subir vídeos -->
     <div class="bg-white shadow rounded-lg p-6 mb-6">
       <h2 class="text-xl font-bold mb-4">Vídeos</h2>
@@ -201,6 +202,8 @@
         {% endif %}
       </div>
     </div>
+  {% endif %}
+    
 </div>
 
 {% endblock %}

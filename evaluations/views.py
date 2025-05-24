@@ -12,6 +12,7 @@ from decimal import Decimal, InvalidOperation
 from django.conf import settings
 import json
 import os
+import re
 
 # Intentar importar google-genai, pero no fallar si no está disponible
 try:
@@ -605,7 +606,6 @@ def process_feedback_with_ai(request):
                 # Construir el prompt completo
                 prompt = f"{evaluation_item.ai_prompt}\n\nEvaluación original: {feedback_text}"
 
-                
                 # Generar respuesta
                 response = client.models.generate_content(
                     model='gemini-2.0-flash-001', contents=prompt
@@ -618,7 +618,6 @@ def process_feedback_with_ai(request):
                     # Limpiar el texto para quitar introducciones
                     if '"' in text:
                         # Buscar contenido entre comillas (suponiendo que es el feedback real)
-                        import re
                         quoted_content = re.search(r'"(.+?)"', text, re.DOTALL)
                         if quoted_content:
                             text = quoted_content.group(1)
