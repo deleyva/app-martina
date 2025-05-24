@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.http import HttpResponse
 from django.views.decorators.http import require_http_methods
 from django.conf import settings
+from django.db import transaction
 
 import os
 
@@ -139,47 +140,20 @@ def upload_video(request, submission_id):
     
     form = VideoUploadForm(request.POST, request.FILES)
     if form.is_valid():
-        uploaded_file = request.FILES['video']
-        original_filename = uploaded_file.name
+        submission_video = form.save(commit=False)
+        submission_video.submission = classroom_submission
+        submission_video.original_filename = request.FILES['video'].name
+        submission_video.processing_status = SubmissionVideo.ProcessingStatus.PENDING
+        submission_video.save()
 
-        # Create SubmissionVideo instance
-        submission_video = SubmissionVideo.objects.create(
-            submission=classroom_submission,
-            video=uploaded_file,
-            original_filename=original_filename,
-            processing_status='PENDING' # Initial status
+        # Encolar la tarea de compresión DESPUÉS de que la transacción se haya completado
+        transaction.on_commit(
+            lambda: process_video_compression(submission_video.id)
         )
 
-        try:
-            # Enqueue the compression task
-            # Check HUEY settings to run immediately in development/testing if configured
-            huey_config = getattr(settings, 'HUEY', {})
-            is_immediate = False
-            if isinstance(huey_config, dict) and huey_config.get('immediate'):
-                is_immediate = True
-            elif isinstance(huey_config, list):
-                 # Handle case where HUEY is a list of configurations (e.g. for multiple queues)
-                 # For simplicity, checking the first one or a 'default' one if named
-                 # This might need adjustment based on actual HUEY setup if multiple queues are used
-                if huey_config and huey_config[0].get('immediate'):
-                    is_immediate = True
-            
-            if is_immediate:
-                process_video_compression.call_local(submission_video.id)
-                messages.success(request, f"Vídeo '{original_filename}' subido y procesado (modo inmediato).")
-            else:
-                process_video_compression(submission_video.id)
-                messages.success(request, f"Vídeo '{original_filename}' subido y programado para compresión. Se te notificará cuando esté listo.")
-        
-        except Exception as e:
-            # Log the exception e
-            submission_video.processing_status = 'FAILED'
-            submission_video.processing_error = f"Error al encolar la tarea de compresión: {str(e)}"
-            submission_video.save()
-            messages.error(request, f"Error al iniciar el procesamiento del vídeo '{original_filename}': {str(e)}")
-
+        messages.success(request, "Vídeo subido correctamente. Se está procesando en segundo plano.")
     else:
-        # Form is not valid, extract and display errors
+        # Construir un mensaje de error más detallado
         error_list = []
         for field, errors in form.errors.items():
             for error in errors:

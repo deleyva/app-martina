@@ -12,7 +12,7 @@ def submission_video_path(instance, filename):
 
 def submission_compressed_video_path(instance, filename):
     """Generate a unique path for uploaded compressed videos."""
-    root, ext = os.path.splitext(filename)
+    _, ext = os.path.splitext(filename)
     filename = f"{uuid.uuid4()}_compressed{ext}"
     return os.path.join('submissions', 'videos', 'compressed', filename)
 
@@ -81,6 +81,38 @@ class SubmissionVideo(models.Model):
     def __str__(self):
         status_display = self.get_processing_status_display() if hasattr(self, 'get_processing_status_display') else self.processing_status
         return f"Video for {self.submission} ({status_display}) - Orig: {self.original_filename or 'N/A'}"
+
+    def delete(self, *args, **kwargs):
+        # Guardar las rutas de los archivos antes de que el objeto se elimine de la BD
+        video_path = None
+        if self.video and hasattr(self.video, 'path'):
+            video_path = self.video.path
+
+        compressed_video_path = None
+        if self.compressed_video and hasattr(self.compressed_video, 'path'):
+            compressed_video_path = self.compressed_video.path
+
+        # Eliminar el objeto de la base de datos
+        super().delete(*args, **kwargs)
+
+        # Eliminar los archivos del sistema de ficheros
+        if video_path:
+            if os.path.exists(video_path):
+                try:
+                    os.remove(video_path)
+                    # Opcional: logger.info(f"Successfully deleted original video file: {video_path}")
+                except OSError:
+                    # Opcional: logger.error(f"Error deleting original video file {video_path}: {e.strerror}")
+                    pass # O decidir cómo manejar el error
+
+        if compressed_video_path:
+            if os.path.exists(compressed_video_path):
+                try:
+                    os.remove(compressed_video_path)
+                    # Opcional: logger.info(f"Successfully deleted compressed video file: {compressed_video_path}")
+                except OSError:
+                    # Opcional: logger.error(f"Error deleting compressed video file {compressed_video_path}: {e.strerror}")
+                    pass # O decidir cómo manejar el error
 
 
 class SubmissionImage(models.Model):
