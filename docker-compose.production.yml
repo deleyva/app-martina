@@ -4,12 +4,13 @@ volumes:
   production_django_media: {}
 
 services:
-  django:
+  django: &django-base
     build:
       context: .
       dockerfile: ./compose/production/django/Dockerfile
 
     image: martina_bescos_app_production_django
+    container_name: martina_bescos_app_production_django
     volumes:
       - production_django_media:/app/martina_bescos_app/media
     depends_on:
@@ -27,6 +28,7 @@ services:
       context: .
       dockerfile: ./compose/production/postgres/Dockerfile
     image: martina_bescos_app_production_postgres
+    container_name: martina_bescos_app_production_postgres
     volumes:
       - production_postgres_data:/var/lib/postgresql/data
       - production_postgres_data_backups:/backups
@@ -37,14 +39,26 @@ services:
 
   redis:
     image: docker.io/redis:6
+    container_name: martina_bescos_app_production_redis
     networks:
       - app-martina-production-network
+
+  huey_consumer:
+    <<: *django-base
+    image: martina_bescos_app_production_django
+    container_name: martina_bescos_app_production_huey_consumer
+    depends_on:
+      - postgres
+      - redis
+    ports: []
+    command: /start-huey
 
   nginx_production:
     build:
       context: .
       dockerfile: ./compose/production/nginx/Dockerfile
     image: martina_bescos_app_production_nginx
+    container_name: martina_bescos_app_production_nginx
     depends_on:
       - django
     volumes:

@@ -79,6 +79,7 @@ THIRD_PARTY_APPS = [
     "allauth.mfa",
     "allauth.socialaccount",
     "allauth.socialaccount.providers.google",
+    "huey.contrib.djhuey", # Added Huey
 ]
 
 LOCAL_APPS = [
@@ -313,4 +314,32 @@ SOCIALACCOUNT_PROVIDERS = {
             "access_type": "online",
         },
     }
+}
+
+# HUEY Configuration
+# ------------------------------------------------------------------------------
+HUEY = {
+    'huey_class': 'huey.RedisHuey',
+    'name': env('DJANGO_HUEY_NAME', default='default-huey-queue'),
+    'results': True,  # Store task results
+    'store_none': False, # Do not store None results
+    'immediate': env.bool('DJANGO_HUEY_IMMEDIATE', default=False),
+    'utc': True,  # Use UTC for scheduled tasks
+    'connection': {
+        'host': env('REDIS_HOST', default='redis'),
+        'port': env.int('REDIS_PORT', default=6379),
+        'db': env.int('DJANGO_HUEY_REDIS_DB', default=0),
+        'password': env('REDIS_PASSWORD', default=None),
+    },
+    'consumer': {
+        'workers': env.int('DJANGO_HUEY_WORKERS', default=2),
+        'worker_type': 'thread', # Options: 'thread', 'process', 'greenlet'
+        'initial_delay': 0.1,  # In seconds
+        'backoff': 1.15,  # Exponential backoff factor
+        'max_delay': 10.0,  # Maximum delay in seconds
+        'scheduler_interval': 1,  # In seconds
+        'periodic': True, # Enable periodic tasks
+        'check_worker_health': True,
+        'health_check_interval': 10, # In seconds
+    },
 }

@@ -32,3 +32,4 @@ django-ninja==1.3.0  # https://django-ninja.dev/
 # Faker
 # ------------------------------------------------------------------------------
 faker # https://github.com/joke2k/faker
+huey[redis]>=2.0.0

@@ -8,7 +8,6 @@ from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import DetailView, FormView, CreateView, UpdateView, ListView
 
-import os
 import subprocess
 import tempfile
 from pathlib import Path
@@ -21,7 +20,7 @@ from .models import (
 )
 from .submission_models import ClassroomSubmission, SubmissionVideo, SubmissionImage
 from .submission_forms import ClassroomSubmissionForm, VideoUploadForm, ImageUploadForm
-
+from .tasks import process_video_compression
 
 @login_required
 def student_dashboard(request):
@@ -136,9 +135,9 @@ def edit_submission(request, submission_id):
 @require_http_methods(["POST"])
 def upload_video(request, submission_id):
     """
-    View for uploading and compressing videos.
+    View for uploading videos and enqueuing compression task.
     """
-    submission = get_object_or_404(
+    classroom_submission = get_object_or_404(
         ClassroomSubmission, 
         id=submission_id,
         pending_status__student__user=request.user
@@ -146,90 +145,55 @@ def upload_video(request, submission_id):
     
     form = VideoUploadForm(request.POST, request.FILES)
     if form.is_valid():
-        # Get the uploaded video
-        uploaded_video = request.FILES['video']
-        original_filename = uploaded_video.name
-        
-        # Create a temporary file for the uploaded video
-        with tempfile.NamedTemporaryFile(suffix='.' + original_filename.split('.')[-1], delete=False) as temp_input:
-            for chunk in uploaded_video.chunks():
-                temp_input.write(chunk)
-            temp_input_path = temp_input.name
-        
-        # Create a temporary file for the compressed output
-        temp_output_fd, temp_output_path = tempfile.mkstemp(suffix='.mp4')
-        os.close(temp_output_fd)
-        
+        uploaded_file = request.FILES['video']
+        original_filename = uploaded_file.name
+
+        # Create SubmissionVideo instance
+        submission_video = SubmissionVideo.objects.create(
+            submission=classroom_submission,
+            video=uploaded_file,
+            original_filename=original_filename,
+            processing_status='PENDING' # Initial status
+        )
+
         try:
-            # Siempre intenta usar FFmpeg directamente, y captura cualquier error para diagnosticarlo
-            try:
-                # Usar ruta absoluta a ffmpeg
-                ffmpeg_path = '/usr/bin/ffmpeg'
-                
-                # Registrar que FFmpeg está disponible
-                messages.info(request, f"FFmpeg detectado en: {ffmpeg_path}")
-                
-                # Comprimir el vídeo con FFmpeg - Configuración optimizada para fluidez
-                compress_cmd = [
-                    ffmpeg_path, '-y',  # Forzar sobrescritura sin pedir confirmación
-                    '-i', temp_input_path,
-                    '-vcodec', 'libx264',
-                    '-crf', '23',  # Mejor calidad (23 en lugar de 28, valores más bajos = mejor calidad)
-                    '-preset', 'slow',  # Más lento pero mejor calidad de compresión
-                    '-movflags', '+faststart',  # Optimize for web playback
-                    '-vf', 'scale=trunc(oh*a/2)*2:720',  # Resize to 720p maintaining aspect ratio
-                    '-r', '30',  # Mantener 30 fps para garantizar fluidez
-                    '-profile:v', 'main',  # Perfil de codificación más compatible
-                    '-acodec', 'aac',
-                    '-b:a', '192k',  # Mejor calidad de audio (192k en lugar de 128k)
-                    '-ar', '44100',  # Frecuencia de muestreo estándar
-                    temp_output_path
-                ]
-                
-                # Ejecutar el comando y capturar cualquier output para diagnóstico
-                result = subprocess.run(compress_cmd, capture_output=True, text=True, check=True)
-            except (subprocess.SubprocessError, FileNotFoundError) as e:
-                # Mostrar información detallada del error
-                error_msg = f"Error al usar FFmpeg: {str(e)}"
-                if hasattr(e, 'stderr') and e.stderr:
-                    error_msg += f"\nDetalles: {e.stderr}"
-                
-                messages.warning(request, error_msg)
-                
-                # Subir el archivo sin compresión
-                import shutil
-                messages.info(request, "Subiendo vídeo sin compresión como alternativa.")
-                shutil.copy(temp_input_path, temp_output_path)
+            # Enqueue the compression task
+            # Check HUEY settings to run immediately in development/testing if configured
+            huey_config = getattr(settings, 'HUEY', {})
+            is_immediate = False
+            if isinstance(huey_config, dict) and huey_config.get('immediate'):
+                is_immediate = True
+            elif isinstance(huey_config, list):
+                 # Handle case where HUEY is a list of configurations (e.g. for multiple queues)
+                 # For simplicity, checking the first one or a 'default' one if named
+                 # This might need adjustment based on actual HUEY setup if multiple queues are used
+                if huey_config and huey_config[0].get('immediate'):
+                    is_immediate = True
             
-            # Create a SubmissionVideo instance with the compressed file
-            video = SubmissionVideo(
-                submission=submission,
-                original_filename=original_filename
-            )
-            
-            # Open and save the compressed file to the model
-            with open(temp_output_path, 'rb') as compressed_file:
-                video.video.save(
-                    f"{Path(original_filename).stem}_compressed.mp4",
-                    compressed_file,
-                    save=True
-                )
-            
-            messages.success(request, "Vídeo subido y comprimido correctamente.")
-            return redirect('edit_submission', submission_id=submission.id)
-            
-        except subprocess.CalledProcessError as e:
-            messages.error(request, f"Error al comprimir el vídeo: {str(e)}")
-        finally:
-            # Clean up temporary files
-            if os.path.exists(temp_input_path):
-                os.unlink(temp_input_path)
-            if os.path.exists(temp_output_path):
-                os.unlink(temp_output_path)
+            if is_immediate:
+                process_video_compression.call_local(submission_video.id)
+                messages.success(request, f"Vídeo '{original_filename}' subido y procesado (modo inmediato).")
+            else:
+                process_video_compression(submission_video.id)
+                messages.success(request, f"Vídeo '{original_filename}' subido y programado para compresión. Se te notificará cuando esté listo.")
+        
+        except Exception as e:
+            # Log the exception e
+            submission_video.processing_status = 'FAILED'
+            submission_video.processing_error = f"Error al encolar la tarea de compresión: {str(e)}"
+            submission_video.save()
+            messages.error(request, f"Error al iniciar el procesamiento del vídeo '{original_filename}': {str(e)}")
+
     else:
-        messages.error(request, "Por favor, corrige los errores en el formulario.")
+        # Form is not valid, extract and display errors
+        error_list = []
+        for field, errors in form.errors.items():
+            for error in errors:
+                error_list.append(f"{form.fields[field].label if field != '__all__' else ''}: {error}")
+        error_string = " ".join(error_list)
+        messages.error(request, f"Por favor, corrige los errores en el formulario: {error_string}")
     
-    return redirect('edit_submission', submission_id=submission.id)
+    return redirect('evaluations:edit_submission', submission_id=classroom_submission.id) # Asegúrate que 'edit_submission' y su namespace sean correctos
 
 
 @login_required

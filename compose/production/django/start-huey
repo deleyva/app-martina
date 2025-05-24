@@ -1,0 +1,17 @@
+#!/bin/bash
+set -o errexit
+set -o pipefail
+set -o nounset
+
+# Optional: Wait for the database to be ready if your tasks need it immediately
+# echo "Waiting for database..."
+# until python /app/manage.py db_ready;
+# do
+#   sleep 2
+# done
+# echo "Database is ready."
+
+echo "Starting Huey Consumer (Production)..."
+# Set DJANGO_SETTINGS_MODULE if not already set in the Docker environment
+# export DJANGO_SETTINGS_MODULE=config.settings.production
+exec python /app/manage.py run_huey

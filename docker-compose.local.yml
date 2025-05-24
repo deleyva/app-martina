@@ -4,7 +4,7 @@ volumes:
   
 
 services:
-  django:
+  django: &django-base
     build:
       context: .
       dockerfile: ./compose/local/django/Dockerfile
@@ -13,6 +13,7 @@ services:
     depends_on:
       - postgres
       - mailpit
+      - redis
     volumes:
       - .:/app:z
     env_file:
@@ -39,3 +40,21 @@ services:
     container_name: martina_bescos_app_local_mailpit
     ports:
       - "8025:8025"
+
+  redis:
+    image: docker.io/redis:6
+    container_name: martina_bescos_app_local_redis
+    ports:
+      - "6379:6379"
+
+  huey_consumer:
+    <<: *django-base
+    image: martina_bescos_app_local_django
+    container_name: martina_bescos_app_local_huey_consumer
+    depends_on:
+      - postgres
+      - redis
+    ports: []
+    command: /app/compose/local/django/start-huey
+    environment:
+      - DJANGO_HUEY_IMMEDIATE=False
