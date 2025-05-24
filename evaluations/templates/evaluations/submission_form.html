@@ -110,10 +110,25 @@
             {% for video in videos %}
               <div class="border rounded-lg p-4">
                 <div class="mb-2">
-                  <video controls class="w-full h-auto rounded" preload="metadata">
-                    <source src="{{ video.video.url }}" type="video/mp4">
-                    Tu navegador no soporta la reproducción de vídeos.
-                  </video>
+                  {% if video.compressed_video and video.compressed_video.url %}
+                    <video controls class="w-full h-auto rounded" preload="metadata">
+                      <source src="{{ video.compressed_video.url }}" type="video/mp4">
+                      Tu navegador no soporta la reproducción de vídeos. (Comprimido)
+                    </video>
+                  {% elif video.video and video.video.url %}
+                    <video controls class="w-full h-auto rounded" preload="metadata">
+                      <source src="{{ video.video.url }}" type="video/mp4">
+                      Tu navegador no soporta la reproducción de vídeos. (Original)
+                    </video>
+                  {% else %}
+                    <div class="bg-gray-100 p-3 rounded text-center">
+                      <p class="text-sm text-gray-600">El vídeo no está disponible o se está procesando.</p>
+                      <p class="text-xs text-gray-500 mt-1">Estado: {{ video.get_processing_status_display }}</p>
+                      {% if video.processing_status == 'FAILED' and video.processing_error %}
+                        <p class="text-xs text-red-500 mt-1">Error: {{ video.processing_error }}</p>
+                      {% endif %}
+                    </div>
+                  {% endif %}
                 </div>
                 <div class="flex justify-between items-center">
                   <span class="text-sm text-gray-500 truncate" title="{{ video.original_filename }}">

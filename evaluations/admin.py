@@ -158,14 +158,31 @@ class SubmissionVideoAdmin(admin.ModelAdmin):
     ordering = ('-submission__submitted_at',)
 
     def get_student_identifier(self, obj):
-        try:
-            student = obj.submission.pending_status.student
-            if student.user:
-                name = student.user.get_full_name()
-                return name if name else student.user.username
+        # obj is SubmissionVideo
+        if not obj.submission:
+            return "N/A" # SubmissionVideo has no associated ClassroomSubmission
+        
+        classroom_submission = obj.submission
+        if not classroom_submission.pending_status:
+            return "N/A" # ClassroomSubmission has no associated PendingEvaluationStatus
+            
+        pending_status = classroom_submission.pending_status
+        if not pending_status.student:
+            return "N/A" # PendingEvaluationStatus has no associated Student
+            
+        student = pending_status.student
+        if student.user:
+            # Try to get full name, then username
+            full_name = student.user.get_full_name()
+            if full_name:
+                return full_name
+            if student.user.username:
+                return student.user.username
+            # Fallback if user exists but has no name/username
+            return f"User ID: {student.user.id}" 
+        else:
+            # Student exists but is not linked to a User account
             return f"Student ID: {student.id}"
-        except AttributeError:
-            return "N/A"
     get_student_identifier.short_description = 'Estudiante'
     get_student_identifier.admin_order_field = 'submission__pending_status__student__user__last_name'
 
