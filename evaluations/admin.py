@@ -41,7 +41,7 @@ class StudentAdmin(admin.ModelAdmin):
 
 @admin.register(EvaluationItem)
 class EvaluationItemAdmin(admin.ModelAdmin):
-    list_display = ("name", "term", "description", "force_web_submission", "classroom_reduces_points", "get_categories_count")
+    list_display = ("name", "term", "description", "info_url", "force_web_submission", "classroom_reduces_points", "get_categories_count")
     list_filter = ("term", "force_web_submission", "classroom_reduces_points")
     search_fields = ("name",)
     inlines = [RubricCategoryInline]

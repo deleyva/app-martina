@@ -25,6 +25,11 @@ class EvaluationItem(models.Model):
     classroom_reduces_points = models.BooleanField(
         default=False, verbose_name="Entrega por classroom resta puntos"
     )
+    info_url = models.URLField(
+        blank=True, 
+        verbose_name="URL de información",
+        help_text="URL con información adicional sobre esta evaluación para los estudiantes"
+    )
 
     def __str__(self):
         return self.name
