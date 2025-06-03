@@ -14,7 +14,17 @@ class EvaluationItem(models.Model):
     ]
     term = models.CharField(choices=TERM_CHOICES, null=True, blank=True)
     description = models.TextField(blank=True)
-    ai_prompt = models.TextField(blank=True, help_text="Prompt para Gemini que reescribirá la retroalimentación")
+    ai_prompt = models.TextField(
+        blank=True, help_text="Prompt para Gemini que reescribirá la retroalimentación"
+    )
+    force_web_submission = models.BooleanField(
+        default=False,
+        verbose_name="Forzar entrega por web",
+        help_text="Si está activado, todos los alumnos deberán entregar por la web y no en clase",
+    )
+    classroom_reduces_points = models.BooleanField(
+        default=False, verbose_name="Entrega por classroom resta puntos"
+    )
 
     def __str__(self):
         return self.name

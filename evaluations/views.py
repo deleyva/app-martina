@@ -103,8 +103,16 @@ def select_students(request, item_id):
 
     # Mark them as pending evaluation
     for student in selected_students:
+        # Si force_web_submission está activado, aseguramos que classroom_submission sea True
+        classroom_submission = False
+        if item.force_web_submission:
+            # Si se fuerza entrega por web, establecer classroom_submission a True
+            classroom_submission = True
+            
         PendingEvaluationStatus.objects.create(
-            student=student, evaluation_item=item, classroom_submission=False
+            student=student, 
+            evaluation_item=item, 
+            classroom_submission=classroom_submission
         )
 
     return HttpResponse(
@@ -250,9 +258,13 @@ def save_evaluation(request, student_id):
     if pending_status:
         classroom_submission = pending_status.classroom_submission
         pending_feedback = pending_status.feedback or ""
+        
+    # Si force_web_submission está habilitado, forzar classroom_submission a True
+    if evaluation_item.force_web_submission:
+        classroom_submission = True
 
-    # Aplicar penalización si es entrega por classroom
-    if classroom_submission and direct_score > 1:
+    # Aplicar penalización si es entrega por classroom y classroom_reduces_points está habilitado
+    if classroom_submission and evaluation_item.classroom_reduces_points and direct_score > 1:
         direct_score = max(1, direct_score - 1)  # Restar 1 punto pero no bajar de 1
 
     # Obtener la retroalimentación del formulario y combinarla con la pendiente si existe
@@ -443,6 +455,13 @@ def toggle_classroom_submission(request, student_id):
 
     try:
         evaluation_item = get_object_or_404(EvaluationItem, id=evaluation_item_id)
+        
+        # Verificar si el item fuerza entrega por web
+        if evaluation_item.force_web_submission and not is_checked:
+            return HttpResponse(
+                "Este ítem de evaluación requiere entrega por web y debe estar marcado para entrega por classroom",
+                status=400
+            )
 
         # Buscar o crear un registro de estado para esta evaluación pendiente específica
         status, created = PendingEvaluationStatus.objects.update_or_create(

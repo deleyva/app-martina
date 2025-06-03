@@ -106,10 +106,16 @@
                   value="on"
                   onchange="toggleClassroomSubmission(this, '{{ student.id }}', '{{ evaluation_item.id }}')"
                   {% with pending_status=student.pending_statuses.all|filter_pending_status:evaluation_item.id %}
-                    {% if pending_status.classroom_submission %}checked{% endif %}
+                    {% if pending_status.classroom_submission or evaluation_item.force_web_submission %}checked{% endif %}
                   {% endwith %}
+                  {% if evaluation_item.force_web_submission %}disabled="disabled"{% endif %}
                 />
-                <span class="label-text">Entrega por classroom (-1 punto)</span>
+                <span class="label-text">
+                  Entrega vía web {% if evaluation_item.classroom_reduces_points %}(-1 punto){% endif %}
+                  {% if evaluation_item.force_web_submission %}
+                    <span class="badge badge-info badge-sm ml-1">Entrega web obligatoria</span>
+                  {% endif %}
+                </span>
               </label>
               
               {% with pending_status=student.pending_statuses.all|filter_pending_status:evaluation_item.id %}

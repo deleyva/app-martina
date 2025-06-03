@@ -51,7 +51,7 @@
         href="{% url 'pending_evaluations' %}?{% if selected_group %}group={{ selected_group }}&{% endif %}{% if selected_evaluation_item %}evaluation_item={{ selected_evaluation_item }}&{% endif %}show_classroom={% if show_classroom %}false{% else %}true{% endif %}"
         class="btn btn-xs sm:btn-sm {% if show_classroom %}btn-primary{% else %}btn-outline{% endif %} mr-1"
       >
-        {% if show_classroom %} Ocultar classroom {% else %} Mostrar classroom
+        {% if show_classroom %} Ocultar entregados vía web {% else %} Mostrar entregados vía web
         {% endif %}
       </a>
       <a
@@ -158,14 +158,37 @@
         },
       }).then(response => {
         if (!response.ok) {
-          console.error('Error al actualizar el estado classroom');
-          // Revertir el checkbox si hay error
-          checkbox.checked = !isChecked;
-          return;
+          // Intentar obtener el mensaje de error
+          return response.text().then(errorText => {
+            console.error('Error al actualizar el estado classroom:', errorText);
+            
+            // Mostrar alerta con el mensaje de error
+            if (response.status === 400) {
+              const toast = document.createElement('div');
+              toast.className = 'toast toast-top toast-center';
+              toast.innerHTML = `
+                <div class="alert alert-error">
+                  <span>${errorText}</span>
+                </div>
+              `;
+              document.body.appendChild(toast);
+              
+              // Eliminar la alerta después de 3 segundos
+              setTimeout(() => {
+                toast.remove();
+              }, 3000);
+            }
+            
+            // Revertir el checkbox si hay error
+            checkbox.checked = !isChecked;
+            throw new Error(errorText);
+          });
         }
         
         // Actualizar la visualización
-        updateClassroomSubmission(studentId, evaluationItemId, isChecked);
+        return response.text().then(() => {
+          updateClassroomSubmission(studentId, evaluationItemId, isChecked);
+        });
       }).catch(error => {
         console.error('Error de red:', error);
         // Revertir el checkbox si hay error
