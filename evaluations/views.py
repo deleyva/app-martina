@@ -73,8 +73,8 @@ def select_students(request, item_id):
     # Convertir num_students a entero
     try:
         num_students = int(num_students)
-        # Limitar entre 1 y 10 estudiantes
-        num_students = max(1, min(10, num_students))
+        # Limitar entre 1 y 25 estudiantes
+        num_students = max(1, min(25, num_students))
     except (ValueError, TypeError):
         num_students = 3  # Valor por defecto si hay error
 
@@ -497,8 +497,8 @@ def search_students(request):
     students = Student.objects.filter(Q(user__name__icontains=query)).select_related(
         "user"
     )[
-        :10
-    ]  # Limitar a 10 resultados
+        :25
+    ]  # Limitar a 25 resultados
 
     # Pasar el contexto a la plantilla con el ID del ítem
     context = {"students": students, "item_id": item_id}
