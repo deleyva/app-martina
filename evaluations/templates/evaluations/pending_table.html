@@ -1,0 +1,139 @@
+{% extends "base.html" %} 
+{% load evaluation_tags %}
+{% block content %}
+<div class="container mx-auto px-4 py-6">
+  <div class="flex flex-wrap items-center justify-between gap-2 mb-6">
+    <h2 class="text-xl sm:text-2xl font-bold whitespace-nowrap mr-2">
+      Evaluaciones Pendientes
+    </h2>
+    <div class="flex flex-wrap gap-4">
+      <!-- Filtro por grupo -->
+      <div>
+        <label class="label label-text font-semibold">Grupo:</label>
+        <div class="join join-horizontal flex-nowrap overflow-x-auto">
+          <a
+            href="{% url 'pending_evaluations_table' %}?show_classroom={{ show_classroom }}{% if selected_evaluation_item %}&evaluation_item={{ selected_evaluation_item }}{% endif %}"
+            class="join-item btn btn-xs sm:btn-sm {% if not selected_group %}btn-primary{% else %}btn-outline{% endif %}"
+            >Todos</a
+          >
+          {% for group in groups %}
+          <a
+            href="{% url 'pending_evaluations_table' %}?group={{ group }}&show_classroom={{ show_classroom }}{% if selected_evaluation_item %}&evaluation_item={{ selected_evaluation_item }}{% endif %}"
+            class="join-item btn btn-xs sm:btn-sm {% if selected_group == group %}btn-primary{% else %}btn-outline{% endif %}"
+            >{{ group }}</a
+          >
+          {% endfor %}
+        </div>
+      </div>
+      
+      <!-- Filtro por item de evaluación -->
+      <div>
+        <label class="label label-text font-semibold">Item de evaluación:</label>
+        <div class="join join-horizontal flex-nowrap overflow-x-auto">
+          <a
+            href="{% url 'pending_evaluations_table' %}?{% if selected_group %}group={{ selected_group }}&{% endif %}show_classroom={{ show_classroom }}"
+            class="join-item btn btn-xs sm:btn-sm {% if not selected_evaluation_item %}btn-primary{% else %}btn-outline{% endif %}"
+            >Todos</a
+          >
+          {% for item in evaluation_items %}
+          <a
+            href="{% url 'pending_evaluations_table' %}?{% if selected_group %}group={{ selected_group }}&{% endif %}show_classroom={{ show_classroom }}&evaluation_item={{ item.id }}"
+            class="join-item btn btn-xs sm:btn-sm {% if selected_evaluation_item|stringformat:'s' == item.id|stringformat:'s' %}btn-primary{% else %}btn-outline{% endif %}"
+            >{{ item.name }}</a
+          >
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    
+    <div class="flex items-center flex-nowrap mt-2">
+      <a
+        href="{% url 'pending_evaluations_table' %}?{% if selected_group %}group={{ selected_group }}&{% endif %}{% if selected_evaluation_item %}evaluation_item={{ selected_evaluation_item }}&{% endif %}show_classroom={% if show_classroom %}false{% else %}true{% endif %}"
+        class="btn btn-xs sm:btn-sm {% if show_classroom %}btn-primary{% else %}btn-outline{% endif %} mr-1"
+      >
+        {% if show_classroom %} Ocultar entregados vía web {% else %} Mostrar entregados vía web
+        {% endif %}
+      </a>
+      <a
+        href="{% url 'evaluation_item_list' %}"
+        class="btn btn-xs sm:btn-sm btn-outline"
+      >
+        Volver a Items
+      </a>
+    </div>
+  </div>
+
+  <!-- Tabla de evaluaciones pendientes -->
+  <div class="overflow-x-auto bg-white shadow-md rounded-lg">
+    <table class="table table-zebra w-full">
+      <thead>
+        <tr>
+          <th>Estudiante</th>
+          <th>Grupo</th>
+          <th>Evaluación</th>
+          <th class="text-center">Entrega por Classroom</th>
+          <th class="text-center">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for status in pending_statuses %}
+        <tr class="hover:bg-base-200 cursor-pointer" data-student-id="{{ status.student.id }}" data-evaluation-id="{{ status.evaluation_item.id }}">
+          <td onclick="window.location='{% url 'student_evaluation_detail' status.student.id status.evaluation_item.id %}'">{{ status.student.user.name|default:"Estudiante sin nombre" }}</td>
+          <td onclick="window.location='{% url 'student_evaluation_detail' status.student.id status.evaluation_item.id %}'">{{ status.student.group }}</td>
+          <td onclick="window.location='{% url 'student_evaluation_detail' status.student.id status.evaluation_item.id %}'">{{ status.evaluation_item.name }}</td>
+          <td class="text-center">
+            <div class="form-control">
+              <label class="label cursor-pointer justify-center">
+                <div id="toggle-container-{{ status.student.id }}-{{ status.evaluation_item.id }}">
+                  <input
+                    type="checkbox"
+                    class="toggle toggle-primary"
+                    {% if status.classroom_submission %}checked{% endif %}
+                    hx-post="{% url 'toggle_classroom_submission' status.student.id %}"
+                    hx-vals='{"evaluation_item_id": "{{ status.evaluation_item.id }}", "classroom_submission": {% if status.classroom_submission %}false{% else %}true{% endif %}}'
+                    hx-target="#toggle-container-{{ status.student.id }}-{{ status.evaluation_item.id }}"
+                    hx-swap="innerHTML"
+                    hx-trigger="change"
+                  />
+                </div>
+              </label>
+            </div>
+          </td>
+          <td class="text-center">
+            <a href="{% url 'student_evaluation_detail' status.student.id status.evaluation_item.id %}" class="btn btn-sm btn-primary">
+              Ver detalles
+            </a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5" class="text-center py-4">
+            No hay evaluaciones pendientes.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block inline_javascript %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // HTMX no muestra notificaciones por defecto, añadimos este listener para mostrar feedback visual
+    document.body.addEventListener('htmx:afterRequest', function(event) {
+      if (event.detail.target && event.detail.target.classList.contains('toggle')) {
+        if (event.detail.successful) {
+          // Podríamos mostrar un mensaje de éxito aquí
+          const checkbox = event.detail.elt;
+          const isChecked = checkbox.checked;
+          
+          // Actualiza visualmente el checkbox después de la respuesta exitosa
+          checkbox.checked = isChecked;
+        }
+      }
+    });
+  });
+</script>
+{% endblock %}

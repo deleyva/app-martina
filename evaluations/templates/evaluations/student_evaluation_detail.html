@@ -1,0 +1,363 @@
+{% extends "base.html" %} 
+{% load evaluation_tags %}
+{% block content %}
+<div class="container mx-auto px-4 py-6">
+  <div class="flex justify-between items-center mb-6">
+    <h2 class="text-xl sm:text-2xl font-bold">
+      Evaluar: {{ student.user.name|default:"Estudiante sin nombre" }}
+      <span class="badge badge-outline">{{ student.group }}</span>
+    </h2>
+    <div>
+      <a href="{% url 'pending_evaluations_table' %}" class="btn btn-outline">
+        Volver a la lista
+      </a>
+    </div>
+  </div>
+
+  <div class="card bg-base-100 shadow-xl">
+    <div class="card-body p-5">
+      <h3 class="card-title">
+        {{ evaluation_item.name }}
+        {% if evaluation_item.term %}
+        <span class="badge">{{ evaluation_item.get_term_display }}</span>
+        {% endif %}
+      </h3>
+
+      <form
+        id="evaluation-form-{{ student.id }}-{{ evaluation_item.id }}"
+        action="{% url 'save_evaluation' student.id %}"
+        method="post"
+      >
+        {% csrf_token %}
+        <input type="hidden" name="evaluation_item_id" value="{{ evaluation_item.id }}">
+        <input type="hidden" name="redirect_to" value="detail">
+
+        <!-- Estado de classroom -->
+        <div class="form-control mb-4">
+          <label class="label cursor-pointer justify-start gap-2">
+            <input
+              class="checkbox checkbox-primary"
+              type="checkbox"
+              name="classroom_submission"
+              {% if pending_status.classroom_submission %}checked{% endif %}
+              {% if evaluation_item.force_web_submission %}disabled checked{% endif %}
+            />
+            <span class="label-text">
+              Entrega por Classroom
+              {% if evaluation_item.classroom_reduces_points %}
+              <span class="badge badge-warning badge-sm ml-1">Resta puntos</span>
+              {% endif %}
+              {% if evaluation_item.force_web_submission %}
+              <span class="badge badge-info badge-sm ml-1">Entrega web obligatoria</span>
+              {% endif %}
+            </span>
+          </label>
+              
+          {% with submission=pending_status.submission %}
+            {% if submission %}
+              <div class="mt-2 text-sm">
+                <p><strong>Archivos entregados:</strong></p>
+                {% for file in submission.files.all %}
+                  <div class="flex items-center gap-2 mt-1">
+                    <a href="{{ file.file.url }}" target="_blank" class="link link-primary flex items-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      </svg>
+                      {{ file.filename }}
+                    </a>
+                  </div>
+                {% endfor %}
+
+                {% for video in submission.videos.all %}
+                  <div class="flex items-center gap-2 mt-1">
+                    <a href="{{ video.video.url }}" target="_blank" class="link link-primary flex items-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Ver vídeo
+                    </a>
+                  </div>
+                {% endfor %}
+              </div>
+            {% endif %}
+          {% endwith %}
+        </div>
+
+        <!-- Calificación directa -->
+        <div class="form-control mb-4">
+          <label for="score_{{ student.id }}_{{ evaluation_item.id }}" class="label">
+            <span class="label-text">Nota directa (0-10):</span>
+          </label>
+          <div class="flex flex-col gap-2">
+            <input
+              type="number"
+              class="input input-bordered w-full"
+              id="score_{{ student.id }}_{{ evaluation_item.id }}"
+              name="direct_score"
+              min="0"
+              max="10"
+              step="0.1"
+              placeholder="Introduce una nota del 0 al 10"
+            />
+
+            <!-- Nota máxima seleccionable -->
+            <div class="mb-2">
+              <label class="label">
+                <span class="label-text">Nota máxima:</span>
+              </label>
+              <div class="btn-group">
+                <button
+                  type="button"
+                  class="btn btn-outline-primary max-score-btn"
+                  data-student-id="{{ student.id }}"
+                  data-evaluation-item-id="{{ evaluation_item.id }}"
+                  data-max-score="10"
+                  onclick="selectMaxScore(this, '{{ student.id }}', '{{ evaluation_item.id }}', 10)"
+                >
+                  10
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-outline-primary max-score-btn"
+                  data-student-id="{{ student.id }}"
+                  data-evaluation-item-id="{{ evaluation_item.id }}"
+                  data-max-score="8"
+                  onclick="selectMaxScore(this, '{{ student.id }}', '{{ evaluation_item.id }}', 8)"
+                >
+                  8
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-outline-primary max-score-btn"
+                  data-student-id="{{ student.id }}"
+                  data-evaluation-item-id="{{ evaluation_item.id }}"
+                  data-max-score="6"
+                  onclick="selectMaxScore(this, '{{ student.id }}', '{{ evaluation_item.id }}', 6)"
+                >
+                  6
+                </button>
+              </div>
+              <input
+                type="hidden"
+                id="max_score_{{ student.id }}_{{ evaluation_item.id }}"
+                name="max_score"
+                value="10"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- Campo de retroalimentación -->
+        <div class="form-control mb-4">
+          <label class="label">
+            <span class="label-text font-semibold">Retroalimentación para el alumno:</span>
+          </label>
+          
+          {% if evaluation_item.ai_prompt %}
+          <!-- Contenedor para la retroalimentación con botón de IA -->
+          <div class="relative" x-data="{ processingAi: false }" id="ai-container-{{ student.id }}-{{ evaluation_item.id }}">
+            <div id="feedback-container-{{ student.id }}-{{ evaluation_item.id }}">
+              <textarea 
+                id="feedback-text-{{ student.id }}-{{ evaluation_item.id }}"
+                class="textarea textarea-bordered h-24 w-full" 
+                name="feedback_text"
+              >{{ pending_status.feedback }}</textarea>
+            </div>
+            <button 
+              class="btn btn-sm btn-square btn-outline absolute right-2 top-2" 
+              x-on:click="processingAi = true"
+              hx-post="{% url 'process_feedback_with_ai' %}" 
+              hx-target="#feedback-container-{{ student.id }}-{{ evaluation_item.id }}"
+              hx-include="#feedback-text-{{ student.id }}-{{ evaluation_item.id }}"
+              hx-trigger="click"
+              hx-indicator="#spinner-{{ student.id }}-{{ evaluation_item.id }}"
+              hx-vals='{"student_id": "{{ student.id }}", "evaluation_item_id": "{{ evaluation_item.id }}"}'
+              title="Reescribir con IA"
+              id="ai-button-{{ student.id }}-{{ evaluation_item.id }}"
+              x-on:htmx:after-request="processingAi = false"
+            >
+              <template x-if="!processingAi">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </template>
+              <template x-if="processingAi">
+                <svg id="spinner-{{ student.id }}-{{ evaluation_item.id }}" class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              </template>
+            </button>
+          </div>
+          
+          <p class="text-xs text-gray-500 mt-1">Puedes usar el botón <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg> para reescribir tu retroalimentación con IA</p>
+          {% else %}
+          <!-- Versión simple sin IA -->
+          <textarea 
+            class="textarea textarea-bordered h-24" 
+            placeholder="Escribe aquí tu retroalimentación para el alumno..." 
+            name="feedback_text"
+          >{{ pending_status.feedback }}</textarea>
+          {% endif %}
+        </div>
+        
+        <!-- Rúbricas -->
+        {% if rubric_categories %}
+        <div class="mb-4">
+          <h6 class="font-semibold mb-3">O evalúa usando la rúbrica:</h6>
+          <div class="overflow-x-auto">
+            <table class="table table-zebra w-full">
+              <thead>
+                <tr>
+                  <th>Elementos de valoración</th>
+                  <th class="text-center">Puntuación (0-2)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for category in rubric_categories %}
+                <tr>
+                  <td>
+                    <strong>{{ category.name }}</strong>
+                    {% if category.description %}
+                    <br /><span class="text-sm opacity-70">{{ category.description }}</span>
+                    {% endif %}
+                  </td>
+                  <td class="align-middle">
+                    <div class="flex items-center gap-2">
+                      <input
+                        type="range"
+                        class="range range-primary flex-grow"
+                        name="category_{{ category.id }}"
+                        id="rubric_{{ student.id }}_{{ evaluation_item.id }}_{{ category.id }}"
+                        min="0"
+                        max="2"
+                        step="0.5"
+                        value="0"
+                        oninput="updateRubricValue('{{ student.id }}', '{{ evaluation_item.id }}', '{{ category.id }}', this.value)"
+                      />
+                      <input
+                        type="number"
+                        id="rubric_value_input_{{ student.id }}_{{ evaluation_item.id }}_{{ category.id }}"
+                        class="input input-bordered input-sm w-20"
+                        min="0"
+                        max="2"
+                        step="0.5"
+                        value="0"
+                        oninput="updateRubricSlider('{{ student.id }}', '{{ evaluation_item.id }}', '{{ category.id }}', this.value)"
+                      />
+                    </div>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        {% endif %}
+
+        <div class="flex justify-between mt-4">
+          <a href="{% url 'pending_evaluations_table' %}" class="btn btn-outline">Volver</a>
+          <button type="submit" class="btn btn-primary">Guardar Evaluación</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block inline_javascript %}
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    // Función para seleccionar la nota máxima
+    window.selectMaxScore = function(buttonElement, studentId, evaluationItemId, maxScore) {
+      const buttons = document.querySelectorAll(
+        `.max-score-btn[data-student-id="${studentId}"][data-evaluation-item-id="${evaluationItemId}"]`
+      );
+      buttons.forEach((btn) => {
+        btn.classList.remove("btn-primary");
+        btn.classList.add("btn-outline-primary");
+      });
+
+      buttonElement.classList.remove("btn-outline-primary");
+      buttonElement.classList.add("btn-primary");
+
+      // Actualizar el valor oculto
+      document.getElementById(
+        `max_score_${studentId}_${evaluationItemId}`
+      ).value = maxScore;
+
+      // Actualizar la nota directa
+      updateDirectScore(studentId, evaluationItemId);
+    };
+
+    // Función para actualizar el valor del slider de la rúbrica
+    window.updateRubricValue = function(studentId, evaluationItemId, categoryId, value) {
+      document.getElementById(
+        `rubric_value_input_${studentId}_${evaluationItemId}_${categoryId}`
+      ).value = value;
+
+      // Actualizar la nota directa basada en los valores de la rúbrica
+      updateDirectScore(studentId, evaluationItemId);
+    };
+
+    // Función para actualizar el slider desde el input numérico
+    window.updateRubricSlider = function(studentId, evaluationItemId, categoryId, value) {
+      document.getElementById(
+        `rubric_${studentId}_${evaluationItemId}_${categoryId}`
+      ).value = value;
+
+      // Actualizar la nota directa basada en los valores de la rúbrica
+      updateDirectScore(studentId, evaluationItemId);
+    };
+
+    // Función para calcular y actualizar la nota directa basada en los valores de la rúbrica
+    function updateDirectScore(studentId, evaluationItemId) {
+      // Obtener todos los sliders para este estudiante y esta evaluación
+      const sliders = document.querySelectorAll(
+        `input[id^="rubric_${studentId}_${evaluationItemId}_"][type="range"]`
+      );
+      if (!sliders.length) return;
+
+      // Calcular la puntuación total y la puntuación máxima posible
+      let totalPoints = 0;
+      let maxPossible = sliders.length * 2; // Cada categoría tiene un máximo de 2 puntos
+
+      sliders.forEach((slider) => {
+        totalPoints += parseFloat(slider.value || 0);
+      });
+
+      // Obtener la nota máxima seleccionada (por defecto 10)
+      const maxScoreInput = document.getElementById(
+        `max_score_${studentId}_${evaluationItemId}`
+      );
+      const maxScore = maxScoreInput ? parseFloat(maxScoreInput.value) : 10;
+
+      // Calcular la nota sobre la nota máxima seleccionada (regla de tres)
+      let score = (totalPoints / maxPossible) * maxScore;
+
+      // Actualizar el campo de nota directa
+      const directScoreInput = document.getElementById(
+        `score_${studentId}_${evaluationItemId}`
+      );
+      if (directScoreInput) {
+        directScoreInput.value = score.toFixed(1);
+      }
+    }
+
+    // Inicializar los botones de nota máxima
+    const maxScoreButtons = document.querySelectorAll(".max-score-btn");
+    maxScoreButtons.forEach((button) => {
+      const studentId = button.dataset.studentId;
+      const evaluationItemId = button.dataset.evaluationItemId;
+      const maxScore = button.dataset.maxScore;
+
+      // Si el botón tiene maxScore = 10, seleccionarlo por defecto
+      if (maxScore === "10") {
+        button.classList.remove("btn-outline-primary");
+        button.classList.add("btn-primary");
+      }
+    });
+  });
+</script>
+{% endblock %}

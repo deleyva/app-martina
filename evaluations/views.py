@@ -1,7 +1,8 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.views.generic import ListView, DetailView
+from django.views.generic import ListView, DetailView, View
+from django.urls import reverse
 from django.contrib import messages
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.template.loader import render_to_string
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -31,6 +32,7 @@ from .models import (
     RubricScore,
     PendingEvaluationStatus,
 )
+from .submission_models import ClassroomSubmission
 
 
 # Helper function to check if user is staff
@@ -121,6 +123,126 @@ def select_students(request, item_id):
             {"students": selected_students},
         )
     )
+
+
+class PendingEvaluationsTableView(LoginRequiredMixin, UserPassesTestMixin, ListView):
+    template_name = "evaluations/pending_table.html"
+    context_object_name = "students"
+    login_url = "/accounts/login/"
+
+    def test_func(self):
+        return self.request.user.is_staff
+
+    def handle_no_permission(self):
+        messages.error(
+            self.request, "Solo el personal autorizado puede acceder a esta sección."
+        )
+        return redirect("home")
+
+    def get_queryset(self):
+        query = Student.objects.filter(pending_statuses__isnull=False).distinct().select_related("user")
+
+        # Filtro por grupo si está presente
+        group = self.request.GET.get("group")
+        if group:
+            query = query.filter(group=group)
+
+        # Filtro por estado de classroom_submission
+        show_classroom = self.request.GET.get("show_classroom", "true")
+        if show_classroom.lower() != "true":
+            query = query.filter(
+                pending_statuses__classroom_submission=False
+            )
+
+        # Filtro por evaluation_item si está presente
+        evaluation_item_id = self.request.GET.get("evaluation_item")
+        if evaluation_item_id:
+            query = query.filter(pending_statuses__evaluation_item_id=evaluation_item_id)
+
+        return query.order_by("group", F("user__name").asc(nulls_last=True))
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Parámetros de filtrado
+        group = self.request.GET.get("group")
+        evaluation_item_id = self.request.GET.get("evaluation_item")
+        show_classroom = self.request.GET.get("show_classroom", "true")
+
+        # Obtener todos los estados pendientes que coincidan con los filtros
+        pending_query = PendingEvaluationStatus.objects.select_related(
+            "student", "student__user", "evaluation_item"
+        )
+        
+        if group:
+            pending_query = pending_query.filter(student__group=group)
+        
+        if show_classroom.lower() != "true":
+            pending_query = pending_query.filter(classroom_submission=False)
+            
+        if evaluation_item_id:
+            pending_query = pending_query.filter(evaluation_item_id=evaluation_item_id)
+            
+        # Lista de estados pendientes para la tabla
+        context["pending_statuses"] = pending_query.order_by(
+            "student__group", F("student__user__name").asc(nulls_last=True), "evaluation_item__name"
+        )
+        
+        # Listados para los filtros
+        context["groups"] = Student.objects.values_list("group", flat=True).distinct().order_by("group")
+        context["evaluation_items"] = EvaluationItem.objects.all().order_by("name")
+        
+        # Parámetros actuales para la construcción de URLs
+        context["selected_group"] = group
+        context["selected_evaluation_item"] = evaluation_item_id
+        context["show_classroom"] = show_classroom.lower() == "true"
+        
+        return context
+
+
+class StudentEvaluationDetailView(LoginRequiredMixin, UserPassesTestMixin, View):
+    template_name = "evaluations/student_evaluation_detail.html"
+    login_url = "/accounts/login/"
+    
+    def test_func(self):
+        return self.request.user.is_staff
+        
+    def handle_no_permission(self):
+        messages.error(
+            self.request, "Solo el personal autorizado puede acceder a esta sección."
+        )
+        return redirect("home")
+    
+    def get(self, request, student_id, evaluation_item_id):
+        student = get_object_or_404(Student, id=student_id)
+        evaluation_item = get_object_or_404(EvaluationItem, id=evaluation_item_id)
+        
+        # Verificar que exista un estado pendiente para este estudiante y evaluación
+        pending_status = get_object_or_404(
+            PendingEvaluationStatus, student=student, evaluation_item=evaluation_item
+        )
+        
+        # Intentar encontrar la entrega (submission) asociada
+        submission = ClassroomSubmission.objects.filter(
+            pending_status__student=student, pending_status__evaluation_item=evaluation_item
+        ).first()
+        
+        if submission:
+            pending_status.submission = submission
+        
+        # Obtener todas las categorías de rúbrica para esta evaluación
+        rubric_categories = RubricCategory.objects.filter(
+            evaluation_item=evaluation_item
+        ).order_by("order")
+        
+        context = {
+            "student": student,
+            "evaluation_item": evaluation_item,
+            "pending_status": pending_status,
+            "rubric_categories": rubric_categories,
+        }
+        
+        return render(request, self.template_name, context)
 
 
 class PendingEvaluationsView(LoginRequiredMixin, UserPassesTestMixin, ListView):
@@ -228,15 +350,16 @@ class PendingEvaluationsView(LoginRequiredMixin, UserPassesTestMixin, ListView):
 @user_passes_test(is_staff, login_url="/accounts/login/", redirect_field_name=None)
 def save_evaluation(request, student_id):
     student = get_object_or_404(Student, id=student_id)
-    evaluation_item_id = request.POST.get("evaluation_item_id")
+    evaluation_item_id = request.POST.get("evaluation_item_id") or request.GET.get("evaluation_item_id")
 
     if not evaluation_item_id:
         return HttpResponse("No se ha especificado un item de evaluación", status=400)
 
     evaluation_item = get_object_or_404(EvaluationItem, id=evaluation_item_id)
-    direct_score = request.POST.get("direct_score")
-    classroom_submission = request.POST.get("classroom_submission") == "on"
+    classroom_submission_str = request.POST.get("classroom_submission") or request.GET.get("classroom_submission", "false")
+    classroom_submission = classroom_submission_str.lower() == "true" or request.POST.get("classroom_submission") == "on"
     max_score = request.POST.get("max_score", "10")
+    direct_score = request.POST.get("direct_score")
 
     if not direct_score:
         return HttpResponse("No se ha proporcionado una puntuación", status=400)
@@ -438,7 +561,8 @@ def toggle_classroom_submission(request, student_id):
     try:
         data = request.POST
         evaluation_item_id = data.get("evaluation_item_id")
-        is_checked = data.get("is_checked") == "true"
+        # Obtener el valor del parámetro classroom_submission y convertirlo a booleano
+        is_checked = data.get("classroom_submission") == "true"
 
         # Log for debugging
         print(
@@ -474,7 +598,21 @@ def toggle_classroom_submission(request, student_id):
             f"Updated status for student {student.id}, item {evaluation_item.id}, classroom: {is_checked}"
         )
 
-        return HttpResponse(status=200)
+        if request.headers.get("HX-Request"):
+            # Si es una solicitud HTMX, devolvemos el HTML del checkbox con su estado actualizado
+            checkbox_html = f'''<input 
+                type="checkbox" 
+                class="toggle toggle-primary" 
+                {"checked" if is_checked else ""} 
+                hx-post="{reverse('toggle_classroom_submission', args=[student.id])}" 
+                hx-vals='{{"evaluation_item_id": "{evaluation_item.id}", "classroom_submission": {"false" if is_checked else "true"}}}' 
+                hx-target="#toggle-container-{student.id}-{evaluation_item.id}" 
+                hx-swap="innerHTML" 
+                hx-trigger="change" 
+            />'''
+            return HttpResponse(checkbox_html, status=200)
+        else:
+            return HttpResponse(status=200)
     except Exception as e:
         print(f"Error updating status: {e}")
         return HttpResponse(f"Error: {str(e)}", status=500)
@@ -578,13 +716,13 @@ def add_student_to_pending(request):
 @user_passes_test(is_staff, login_url="/accounts/login/", redirect_field_name=None)
 def process_feedback_with_ai(request):
     """Procesa un texto de retroalimentación con IA y devuelve el resultado"""
-    # Obtener el texto, prompt y estudiante del formulario
+    # Obtener el texto y datos de identificación
     feedback_text = request.POST.get("feedback_text", "")
-    prompt_id = request.POST.get("prompt_id")
     student_id = request.POST.get("student_id")
+    evaluation_item_id = request.POST.get("evaluation_item_id")
 
-    if not feedback_text or not prompt_id:
-        return HttpResponse("Se requiere texto y prompt", status=400)
+    if not feedback_text or not evaluation_item_id:
+        return HttpResponse("Se requiere texto y item de evaluación", status=400)
 
     # Obtener información del estudiante si se proporciona el ID
     student_name = ""
@@ -597,10 +735,12 @@ def process_feedback_with_ai(request):
             pass
 
     try:
-        # Obtener el prompt asociado al item de evaluación
-        evaluation_item = get_object_or_404(EvaluationItem, id=prompt_id)
+        # Obtener el item de evaluación que contiene el prompt
+        evaluation_item = get_object_or_404(EvaluationItem, id=evaluation_item_id)
+        
+        # El prompt está en el campo ai_prompt del EvaluationItem
         ai_prompt = evaluation_item.ai_prompt
-
+        
         if not ai_prompt:
             return HttpResponse("No hay prompt configurado para este item", status=400)
 
