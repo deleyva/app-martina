@@ -1,27 +1,26 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.views.generic import ListView, DetailView, View
+from django.views.generic import ListView, View
 from django.urls import reverse
 from django.contrib import messages
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse
 from django.template.loader import render_to_string
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.mixins import UserPassesTestMixin, LoginRequiredMixin
 import random
 from django.db.models import F, Q
+from django.db import DatabaseError
+from django.core.exceptions import ObjectDoesNotExist
 from decimal import Decimal, InvalidOperation
-from django.conf import settings
-import json
 import os
 import re
 
 # Intentar importar google-genai, pero no fallar si no está disponible
 try:
     from google import genai
-    from google.genai import types
-
     GEMINI_AVAILABLE = True
 except ImportError:
+    genai = None
     GEMINI_AVAILABLE = False
 
 from .models import (
@@ -172,6 +171,8 @@ class PendingEvaluationsTableView(LoginRequiredMixin, UserPassesTestMixin, ListV
         # Obtener todos los estados pendientes que coincidan con los filtros
         pending_query = PendingEvaluationStatus.objects.select_related(
             "student", "student__user", "evaluation_item"
+        ).prefetch_related(
+            "submission", "submission__videos", "submission__images"
         )
         
         if group:
@@ -214,33 +215,86 @@ class StudentEvaluationDetailView(LoginRequiredMixin, UserPassesTestMixin, View)
         return redirect("home")
     
     def get(self, request, student_id, evaluation_item_id):
-        student = get_object_or_404(Student, id=student_id)
-        evaluation_item = get_object_or_404(EvaluationItem, id=evaluation_item_id)
-        
-        # Verificar que exista un estado pendiente para este estudiante y evaluación
-        pending_status = get_object_or_404(
-            PendingEvaluationStatus, student=student, evaluation_item=evaluation_item
-        )
-        
-        # Intentar encontrar la entrega (submission) asociada
-        submission = ClassroomSubmission.objects.filter(
-            pending_status__student=student, pending_status__evaluation_item=evaluation_item
-        ).first()
-        
-        if submission:
-            pending_status.submission = submission
-        
-        # Obtener todas las categorías de rúbrica para esta evaluación
-        rubric_categories = RubricCategory.objects.filter(
-            evaluation_item=evaluation_item
-        ).order_by("order")
-        
-        context = {
-            "student": student,
-            "evaluation_item": evaluation_item,
-            "pending_status": pending_status,
-            "rubric_categories": rubric_categories,
-        }
+        try:
+            student = get_object_or_404(Student, id=student_id)
+            evaluation_item = get_object_or_404(EvaluationItem, id=evaluation_item_id)
+            
+            # Verificar que exista un estado pendiente para este estudiante y evaluación
+            pending_status = get_object_or_404(
+                PendingEvaluationStatus, student=student, evaluation_item=evaluation_item
+            )
+            
+            # Intentar encontrar la entrega (submission) asociada directamente desde PendingEvaluationStatus
+            try:
+                # Log de información inicial
+                print(f"Buscando submission para student_id={student_id}, evaluation_item_id={evaluation_item_id}")
+                print(f"PendingEvaluationStatus ID: {pending_status.id if pending_status else 'No encontrado'}")
+                
+                # Intentamos obtener la submission con todas sus relaciones precargas para un mejor rendimiento
+                submissions = ClassroomSubmission.objects.filter(
+                    pending_status=pending_status
+                ).prefetch_related('videos', 'images')
+                
+                submission = submissions.first()
+                print(f"Método 1 - Submission encontrada: {submission is not None}")
+                
+                # Si no se encuentra, intentar con la relación inversa
+                if not submission:
+                    print("Intentando búsqueda alternativa por relación inversa")
+                    submissions = ClassroomSubmission.objects.filter(
+                        pending_status__student=student, 
+                        pending_status__evaluation_item=evaluation_item
+                    ).prefetch_related('videos', 'images')
+                    
+                    submission = submissions.first()
+                    print(f"Método 2 - Submission encontrada: {submission is not None}")
+                
+                # Información detallada sobre la submission si existe
+                if submission:
+                    print(f"Submission ID: {submission.id}")
+                    print(f"Videos: {submission.videos.count()}, Imágenes: {submission.images.count()}, Notas: {'Sí' if submission.notes else 'No'}")
+                    
+                    # Listar detalles de cada archivo para depuración
+                    if submission.images.count() > 0:
+                        print("Detalle de imágenes:")
+                        for i, image in enumerate(submission.images.all()):
+                            print(f"  - Imagen {i+1}: {image.original_filename}, URL: {image.image.url if image.image else 'Sin imagen'}")
+                else:
+                    print("¡ALERTA! No se encontró ninguna submission asociada")
+            except ObjectDoesNotExist as e:
+                print(f"Error: Objeto no encontrado - {str(e)}")
+                submission = None
+            except Exception as e:
+                print(f"Error crítico al cargar submission: {type(e).__name__}: {str(e)}")
+                submission = None
+            
+            # Obtener todas las categorías de rúbrica para esta evaluación
+            rubric_categories = RubricCategory.objects.filter(
+                evaluation_item=evaluation_item
+            ).order_by("order")
+            
+            # Obtener evaluación existente si la hay
+            existing_evaluation = Evaluation.objects.filter(
+                student=student,
+                evaluation_item=evaluation_item
+            ).first()
+            
+            context = {
+                "student": student,
+                "evaluation_item": evaluation_item,
+                "pending_status": pending_status,
+                "submission": submission,  # Pasar la submission directamente al contexto
+                "rubric_categories": rubric_categories,
+                "existing_evaluation": existing_evaluation
+            }
+        except (ObjectDoesNotExist, DatabaseError) as e:
+            messages.error(request, f"Error al cargar los datos de evaluación: {str(e)}")
+            return redirect('pending_evaluations_table')
+            
+        except Exception as e:
+            print(f"Error crítico al cargar detalles de evaluación: {type(e).__name__}: {str(e)}")
+            messages.error(request, "Ha ocurrido un error al cargar los datos de evaluación")
+            return redirect('pending_evaluations_table')
         
         return render(request, self.template_name, context)
 
@@ -444,11 +498,23 @@ def save_evaluation(request, student_id):
                         "No se ha configurado la clave API de Gemini en settings.GEMINI_API_KEY.",
                     )
 
-            except Exception as e:
+            except (ValueError, RuntimeError, ConnectionError, TimeoutError) as e:
                 messages.error(request, f"Error al procesar con IA: {str(e)}")
+            except (KeyError, TypeError, AttributeError) as e:
+                # Excepciones de programación más comunes
+                messages.error(request, f"Error en el formato de datos de IA: {str(e)}")
+                print(f"Error de formato en procesamiento IA: {type(e).__name__}: {str(e)}")
+            except DatabaseError as e:
+                # Errores específicos de la base de datos
+                messages.error(request, f"Error de base de datos en procesamiento IA: {str(e)}")
+                print(f"Error de base de datos en procesamiento IA: {type(e).__name__}: {str(e)}")
+            except Exception as e:
+                # Mantenemos un catch-all final, pero con logging adecuado
+                messages.error(request, f"Error inesperado al procesar con IA")
+                print(f"Error crítico en procesamiento IA: {type(e).__name__}: {str(e)}")
 
     # Guardar la evaluación
-    evaluation, created = Evaluation.objects.update_or_create(
+    evaluation, _ = Evaluation.objects.update_or_create(
         student=student,
         evaluation_item=evaluation_item,
         defaults={
@@ -570,9 +636,9 @@ def toggle_classroom_submission(request, student_id):
         )
         print(f"POST data: {request.POST}")
 
-    except Exception as e:
-        print(f"Error processing request data: {e}")
-        return HttpResponse(f"Error processing request data: {e}", status=400)
+    except (ValueError, KeyError, TypeError) as e:
+        print(f"Error al procesar datos de la solicitud: {e}")
+        return HttpResponse(f"Error en los datos de la solicitud: {e}", status=400)
 
     if not evaluation_item_id:
         return HttpResponse("No se ha especificado un item de evaluación", status=400)
@@ -588,7 +654,7 @@ def toggle_classroom_submission(request, student_id):
             )
 
         # Buscar o crear un registro de estado para esta evaluación pendiente específica
-        status, created = PendingEvaluationStatus.objects.update_or_create(
+        _, _ = PendingEvaluationStatus.objects.update_or_create(
             student=student,
             evaluation_item=evaluation_item,
             defaults={"classroom_submission": is_checked},
@@ -613,9 +679,15 @@ def toggle_classroom_submission(request, student_id):
             return HttpResponse(checkbox_html, status=200)
         else:
             return HttpResponse(status=200)
-    except Exception as e:
-        print(f"Error updating status: {e}")
-        return HttpResponse(f"Error: {str(e)}", status=500)
+    except (ValueError, TypeError) as e:
+        print(f"Error de valor o tipo al actualizar estado: {e}")
+        return HttpResponse(f"Error en los datos: {str(e)}", status=400)
+    except ObjectDoesNotExist as e:
+        print(f"Objeto no encontrado: {e}")
+        return HttpResponse(f"Estudiante o evaluación no encontrados", status=404)
+    except DatabaseError as e:
+        print(f"Error de base de datos: {e}")
+        return HttpResponse(f"Error de base de datos", status=500)
 
 
 @require_http_methods(["GET"])
@@ -725,13 +797,13 @@ def process_feedback_with_ai(request):
         return HttpResponse("Se requiere texto y item de evaluación", status=400)
 
     # Obtener información del estudiante si se proporciona el ID
-    student_name = ""
+    # Inicializar variable para el estudiante
+    student = None
     if student_id:
         try:
             student = get_object_or_404(Student, id=student_id)
-            student_name = student.user.name
-        except Exception:
-            # Si hay algún error, continuamos sin el nombre del estudiante
+        except (ValueError, TypeError):
+            # Si hay algún error con el ID del estudiante, continuamos sin él
             pass
 
     try:
@@ -831,13 +903,18 @@ def process_feedback_with_ai(request):
                 if pending_status:
                     pending_status.feedback = final_feedback
                     pending_status.save()
-            except Exception as e:
-                print(f"Error al guardar feedback en estado pendiente: {e}")
+            except (DatabaseError, ValueError) as e:
+                print(f"Error de base de datos al guardar feedback en estado pendiente: {e}")
 
         # Devolver el texto procesado
         return HttpResponse(
             f"<textarea id='feedback-text-{student_id}-{evaluation_item.id}' class='textarea textarea-bordered h-24 w-full' name='feedback_text'>{final_feedback}</textarea>",
             status=200
         )
-    except Exception as e:
-        return HttpResponse(f"Error: {str(e)}", status=500)
+    except ObjectDoesNotExist as e:
+        return HttpResponse(f"No se encontró el recurso solicitado: {str(e)}", status=404)
+    except (ValueError, TypeError) as e:
+        return HttpResponse(f"Error en los datos proporcionados: {str(e)}", status=400)
+    except (DatabaseError, IOError) as e:
+        print(f"Error grave al procesar la solicitud: {type(e).__name__}: {str(e)}")
+        return HttpResponse(f"Error en el servidor: {str(e)}", status=500)

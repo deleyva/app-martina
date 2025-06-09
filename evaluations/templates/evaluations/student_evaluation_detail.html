@@ -1,5 +1,85 @@
 {% extends "base.html" %} 
 {% load evaluation_tags %}
+{% block extra_head %}
+<!-- GLightbox CSS para la galería de imágenes y videos -->
+<link href="https://cdn.jsdelivr.net/npm/glightbox@3.2.0/dist/css/glightbox.min.css" rel="stylesheet">
+
+<style>
+  .criteria-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  .criteria-item {
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  /* Estilos para miniaturas de la galería */
+  .gallery-grid { 
+    display: grid; 
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); 
+    gap: 16px; 
+    margin-bottom: 20px;
+  }
+  
+  .thumbnail-container {
+    position: relative;
+    overflow: hidden;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.12);
+    height: 0;
+    padding-bottom: 75%; /* Proporción 4:3, más natural para fotos */
+    background-color: #f0f0f0;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(0,0,0,0.05);
+  }
+  
+  .thumbnail-container:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+  }
+  
+  .thumbnail-image {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* Asegura que la imagen cubra el contenedor sin distorsionarse */
+  }
+  
+  .video-thumbnail {
+    position: relative;
+  }
+  
+  .play-icon {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: rgba(0,0,0,0.6);
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s ease;
+  }
+  
+  .thumbnail-container:hover .play-icon {
+    background-color: rgba(0,0,0,0.8);
+  }
+  
+  .play-icon svg {
+    width: 24px;
+    height: 24px;
+    fill: white;
+  }
+</style>
+{% endblock %}
 {% block content %}
 <div class="container mx-auto px-4 py-6">
   <div class="flex justify-between items-center mb-6">
@@ -53,35 +133,85 @@
             </span>
           </label>
               
-          {% with submission=pending_status.submission %}
-            {% if submission %}
-              <div class="mt-2 text-sm">
-                <p><strong>Archivos entregados:</strong></p>
-                {% for file in submission.files.all %}
-                  <div class="flex items-center gap-2 mt-1">
-                    <a href="{{ file.file.url }}" target="_blank" class="link link-primary flex items-center">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+          {% if submission %}
+              <div class="divider divider-primary">Entrega del estudiante</div>
+              
+              <!-- Sección de comentarios del alumno -->
+              {% if submission.notes %}
+              <div class="mt-4 mb-4">
+                <div class="card bg-base-200 shadow-sm">
+                  <div class="card-body p-4">
+                    <h3 class="card-title text-base flex items-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                       </svg>
-                      {{ file.filename }}
-                    </a>
+                      Comentarios del estudiante:
+                    </h3>
+                    <div class="whitespace-pre-wrap text-sm p-2 bg-base-100 rounded">{{ submission.notes }}</div>
                   </div>
-                {% endfor %}
-
-                {% for video in submission.videos.all %}
-                  <div class="flex items-center gap-2 mt-1">
-                    <a href="{{ video.video.url }}" target="_blank" class="link link-primary flex items-center">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      Ver vídeo
-                    </a>
-                  </div>
-                {% endfor %}
+                </div>
               </div>
+              {% endif %}
+              
+              <!-- Sección de vídeos -->
+              {% if submission.videos.all %}
+              <div class="bg-white shadow rounded-lg p-6 mb-6 mt-6">
+                <h2 class="text-xl font-bold mb-4">Vídeos ({{ submission.videos.all|length }})</h2>
+                
+                <div class="space-y-6">
+                  {% for video in submission.videos.all %}
+                  <div class="border rounded-lg p-4">
+                    <p class="text-sm text-gray-700 mb-2">{{ video.original_filename|default:"Video sin nombre" }}</p>
+                    <div class="aspect-w-16 aspect-h-9">
+                      {% if video.compressed_video and video.compressed_video.url %}
+                        <video controls class="rounded shadow-sm w-full" preload="metadata">
+                          <source src="{{ video.compressed_video.url }}" type="video/mp4">
+                          Tu navegador no soporta la reproducción de vídeos. (Comprimido)
+                        </video>
+                      {% elif video.video and video.video.url %}
+                        <video controls class="rounded shadow-sm w-full" preload="metadata">
+                          <source src="{{ video.video.url }}" type="video/mp4">
+                          Tu navegador no soporta la reproducción de vídeos. (Original)
+                        </video>
+                      {% else %}
+                        <div class="bg-gray-100 p-3 rounded text-center flex items-center justify-center h-full">
+                          <div>
+                            <p class="text-sm text-gray-600">El vídeo no está disponible o se está procesando.</p>
+                            <p class="text-xs text-gray-500 mt-1">Estado: {{ video.get_processing_status_display }}</p>
+                            {% if video.processing_status == 'FAILED' and video.processing_error %}
+                              <p class="text-xs text-red-500 mt-1">Error: {{ video.processing_error }}</p>
+                            {% endif %}
+                          </div>
+                        </div>
+                      {% endif %}
+                    </div>
+                  </div>
+                  {% endfor %}
+                </div>
+              </div>
+              {% endif %}
+              
+              <!-- Sección de imágenes -->
+              {% if submission.images.all %}
+              <div class="bg-white shadow rounded-lg p-6 mb-6 mt-6">
+                <h2 class="text-xl font-bold mb-4">Imágenes ({{ submission.images.all|length }})</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {% for image in submission.images.all %}
+                  <div class="border rounded-lg p-2">
+                    <p class="text-sm text-gray-700 mb-1 truncate" title="{{ image.original_filename }}">
+                      {{ image.original_filename|default:"Imagen sin nombre" }}
+                    </p>
+                    <a href="{{ image.image.url }}" target="_blank" class="block">
+                      <img src="{{ image.image.url }}" alt="Imagen de {{ student.user.name }}" 
+                           class="w-full h-auto rounded shadow-sm">
+                    </a>
+                  </div>
+                  {% endfor %}
+                </div>
+              </div>
+              {% endif %}
             {% endif %}
-          {% endwith %}
         </div>
 
         <!-- Calificación directa -->
@@ -358,6 +488,26 @@
         button.classList.add("btn-primary");
       }
     });
+    
+    // Inicializar GLightbox para videos e imágenes
+    const videoLightbox = GLightbox({
+      selector: '.video-thumbnail .glightbox',
+      touchNavigation: true,
+      loop: false,
+      autoplayVideos: true,
+      zoomable: false
+    });
+    
+    // Inicializar GLightbox para imágenes
+    const imageLightbox = GLightbox({
+      selector: '.glightbox:not(.video-thumbnail .glightbox)',
+      touchNavigation: true,
+      loop: true,
+      zoomable: true
+    });
   });
 </script>
+
+<!-- Script para cargar la librería GLightbox -->
+<script src="https://cdn.jsdelivr.net/npm/glightbox@3.2.0/dist/js/glightbox.min.js"></script>
 {% endblock %}

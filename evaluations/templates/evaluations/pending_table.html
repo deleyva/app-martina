@@ -6,54 +6,8 @@
     <h2 class="text-xl sm:text-2xl font-bold whitespace-nowrap mr-2">
       Evaluaciones Pendientes
     </h2>
-    <div class="flex flex-wrap gap-4">
-      <!-- Filtro por grupo -->
-      <div>
-        <label class="label label-text font-semibold">Grupo:</label>
-        <div class="join join-horizontal flex-nowrap overflow-x-auto">
-          <a
-            href="{% url 'pending_evaluations_table' %}?show_classroom={{ show_classroom }}{% if selected_evaluation_item %}&evaluation_item={{ selected_evaluation_item }}{% endif %}"
-            class="join-item btn btn-xs sm:btn-sm {% if not selected_group %}btn-primary{% else %}btn-outline{% endif %}"
-            >Todos</a
-          >
-          {% for group in groups %}
-          <a
-            href="{% url 'pending_evaluations_table' %}?group={{ group }}&show_classroom={{ show_classroom }}{% if selected_evaluation_item %}&evaluation_item={{ selected_evaluation_item }}{% endif %}"
-            class="join-item btn btn-xs sm:btn-sm {% if selected_group == group %}btn-primary{% else %}btn-outline{% endif %}"
-            >{{ group }}</a
-          >
-          {% endfor %}
-        </div>
-      </div>
-      
-      <!-- Filtro por item de evaluación -->
-      <div>
-        <label class="label label-text font-semibold">Item de evaluación:</label>
-        <div class="join join-horizontal flex-nowrap overflow-x-auto">
-          <a
-            href="{% url 'pending_evaluations_table' %}?{% if selected_group %}group={{ selected_group }}&{% endif %}show_classroom={{ show_classroom }}"
-            class="join-item btn btn-xs sm:btn-sm {% if not selected_evaluation_item %}btn-primary{% else %}btn-outline{% endif %}"
-            >Todos</a
-          >
-          {% for item in evaluation_items %}
-          <a
-            href="{% url 'pending_evaluations_table' %}?{% if selected_group %}group={{ selected_group }}&{% endif %}show_classroom={{ show_classroom }}&evaluation_item={{ item.id }}"
-            class="join-item btn btn-xs sm:btn-sm {% if selected_evaluation_item|stringformat:'s' == item.id|stringformat:'s' %}btn-primary{% else %}btn-outline{% endif %}"
-            >{{ item.name }}</a
-          >
-          {% endfor %}
-        </div>
-      </div>
-    </div>
     
-    <div class="flex items-center flex-nowrap mt-2">
-      <a
-        href="{% url 'pending_evaluations_table' %}?{% if selected_group %}group={{ selected_group }}&{% endif %}{% if selected_evaluation_item %}evaluation_item={{ selected_evaluation_item }}&{% endif %}show_classroom={% if show_classroom %}false{% else %}true{% endif %}"
-        class="btn btn-xs sm:btn-sm {% if show_classroom %}btn-primary{% else %}btn-outline{% endif %} mr-1"
-      >
-        {% if show_classroom %} Ocultar entregados vía web {% else %} Mostrar entregados vía web
-        {% endif %}
-      </a>
+    <div class="flex items-center flex-nowrap">
       <a
         href="{% url 'evaluation_item_list' %}"
         class="btn btn-xs sm:btn-sm btn-outline"
@@ -68,17 +22,83 @@
     <table class="table table-zebra w-full">
       <thead>
         <tr>
-          <th>Estudiante</th>
-          <th>Grupo</th>
-          <th>Evaluación</th>
-          <th class="text-center">Entrega por Classroom</th>
+          <th>
+            <div class="flex flex-col gap-2">
+              <span>Estudiante</span>
+              <div class="join join-vertical">
+                <a href="?{% if selected_group %}group={{ selected_group }}&{% endif %}{% if selected_evaluation_item %}evaluation_item={{ selected_evaluation_item }}&{% endif %}show_classroom={{ show_classroom }}&sort=student&dir=asc" class="join-item btn btn-xs btn-outline btn-ghost">
+                  <i class="fas fa-sort-up"></i>
+                </a>
+                <a href="?{% if selected_group %}group={{ selected_group }}&{% endif %}{% if selected_evaluation_item %}evaluation_item={{ selected_evaluation_item }}&{% endif %}show_classroom={{ show_classroom }}&sort=student&dir=desc" class="join-item btn btn-xs btn-outline btn-ghost">
+                  <i class="fas fa-sort-down"></i>
+                </a>
+              </div>
+              <input type="text" id="studentFilter" onkeyup="filterTable(0)" class="input input-xs input-bordered" placeholder="Buscar...">
+            </div>
+          </th>
+          <th>
+            <div class="flex flex-col gap-2">
+              <span>Grupo</span>
+              <div class="join join-vertical">
+                <a href="?{% if selected_group %}group={{ selected_group }}&{% endif %}{% if selected_evaluation_item %}evaluation_item={{ selected_evaluation_item }}&{% endif %}show_classroom={{ show_classroom }}&sort=group&dir=asc" class="join-item btn btn-xs btn-outline btn-ghost">
+                  <i class="fas fa-sort-up"></i>
+                </a>
+                <a href="?{% if selected_group %}group={{ selected_group }}&{% endif %}{% if selected_evaluation_item %}evaluation_item={{ selected_evaluation_item }}&{% endif %}show_classroom={{ show_classroom }}&sort=group&dir=desc" class="join-item btn btn-xs btn-outline btn-ghost">
+                  <i class="fas fa-sort-down"></i>
+                </a>
+              </div>
+              <select id="groupFilter" class="select select-xs select-bordered" onchange="filterTableByGroup()">
+                <option value="">Todos</option>
+                {% for group in groups %}
+                <option value="{{ group }}">{{ group }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </th>
+          <th>
+            <div class="flex flex-col gap-2">
+              <span>Evaluación</span>
+              <div class="join join-vertical">
+                <a href="?{% if selected_group %}group={{ selected_group }}&{% endif %}{% if selected_evaluation_item %}evaluation_item={{ selected_evaluation_item }}&{% endif %}show_classroom={{ show_classroom }}&sort=evaluation&dir=asc" class="join-item btn btn-xs btn-outline btn-ghost">
+                  <i class="fas fa-sort-up"></i>
+                </a>
+                <a href="?{% if selected_group %}group={{ selected_group }}&{% endif %}{% if selected_evaluation_item %}evaluation_item={{ selected_evaluation_item }}&{% endif %}show_classroom={{ show_classroom }}&sort=evaluation&dir=desc" class="join-item btn btn-xs btn-outline btn-ghost">
+                  <i class="fas fa-sort-down"></i>
+                </a>
+              </div>
+              <select id="evaluationFilter" class="select select-xs select-bordered" onchange="filterTableByEvaluation()">
+                <option value="">Todas</option>
+                {% for item in evaluation_items %}
+                <option value="{{ item.name }}">{{ item.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </th>
+          <th class="text-center">
+            <div class="flex flex-col gap-2 items-center">
+              <span>Entrega por Classroom</span>
+              <div class="join join-vertical">
+                <a href="?{% if selected_group %}group={{ selected_group }}&{% endif %}{% if selected_evaluation_item %}evaluation_item={{ selected_evaluation_item }}&{% endif %}show_classroom={{ show_classroom }}&sort=classroom&dir=asc" class="join-item btn btn-xs btn-outline btn-ghost">
+                  <i class="fas fa-sort-up"></i>
+                </a>
+                <a href="?{% if selected_group %}group={{ selected_group }}&{% endif %}{% if selected_evaluation_item %}evaluation_item={{ selected_evaluation_item }}&{% endif %}show_classroom={{ show_classroom }}&sort=classroom&dir=desc" class="join-item btn btn-xs btn-outline btn-ghost">
+                  <i class="fas fa-sort-down"></i>
+                </a>
+              </div>
+              <select id="classroomFilter" class="select select-xs select-bordered" onchange="filterTableByClassroom()">
+                <option value="">Todos</option>
+                <option value="si">Sí</option>
+                <option value="no">No</option>
+              </select>
+            </div>
+          </th>
           <th class="text-center">Acciones</th>
         </tr>
       </thead>
       <tbody>
         {% for status in pending_statuses %}
-        <tr class="hover:bg-base-200 cursor-pointer" data-student-id="{{ status.student.id }}" data-evaluation-id="{{ status.evaluation_item.id }}">
-          <td onclick="window.location='{% url 'student_evaluation_detail' status.student.id status.evaluation_item.id %}'">{{ status.student.user.name|default:"Estudiante sin nombre" }}</td>
+        <tr class="hover:bg-base-200 cursor-pointer{% if status.submission %} has-submission{% endif %}" data-student-id="{{ status.student.id }}" data-evaluation-id="{{ status.evaluation_item.id }}">
+          <td onclick="window.location='{% url 'student_evaluation_detail' status.student.id status.evaluation_item.id %}'">{{ status.student.user.name|default:"Estudiante sin nombre" }}{% if status.submission %}{% with total_media=status.submission.videos.all.count|add:status.submission.images.all.count %}{% if total_media > 0 %} <span class="badge badge-accent ml-1" title="{{ status.submission.videos.all.count }} vídeos y {{ status.submission.images.all.count }} imágenes"><i class="fas fa-file-image mr-1"></i>{{ total_media }}</span>{% endif %}{% endwith %}{% endif %}</td>
           <td onclick="window.location='{% url 'student_evaluation_detail' status.student.id status.evaluation_item.id %}'">{{ status.student.group }}</td>
           <td onclick="window.location='{% url 'student_evaluation_detail' status.student.id status.evaluation_item.id %}'">{{ status.evaluation_item.name }}</td>
           <td class="text-center">
@@ -121,19 +141,103 @@
 {% block inline_javascript %}
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    // HTMX no muestra notificaciones por defecto, añadimos este listener para mostrar feedback visual
+    // Agregar iconos de Font Awesome si no están incluidos en el head
+    if (!document.querySelector('link[href*="fontawesome"]')) {
+      let fontAwesome = document.createElement('link');
+      fontAwesome.rel = 'stylesheet';
+      fontAwesome.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css';
+      document.head.appendChild(fontAwesome);
+    }
+    
+    // HTMX listener para actualización de checkbox
     document.body.addEventListener('htmx:afterRequest', function(event) {
-      if (event.detail.target && event.detail.target.classList.contains('toggle')) {
+      if (event.detail.target && event.detail.target.id.startsWith('toggle-container-')) {
         if (event.detail.successful) {
-          // Podríamos mostrar un mensaje de éxito aquí
-          const checkbox = event.detail.elt;
-          const isChecked = checkbox.checked;
-          
-          // Actualiza visualmente el checkbox después de la respuesta exitosa
-          checkbox.checked = isChecked;
+          // Todo bien, HTMX ya actualizó el contenido
+          console.log('Toggle actualizado correctamente');
         }
       }
     });
   });
+
+  // Función para filtrar la tabla por el nombre del estudiante
+  function filterTable(columnIndex) {
+    const filter = document.getElementById('studentFilter').value.toUpperCase();
+    const table = document.querySelector('.table');
+    const rows = table.getElementsByTagName('tr');
+
+    for (let i = 1; i < rows.length; i++) { // Empezar por 1 para saltar el encabezado
+      const cell = rows[i].getElementsByTagName('td')[columnIndex];
+      if (cell) {
+        const textValue = cell.textContent || cell.innerText;
+        if (textValue.toUpperCase().indexOf(filter) > -1) {
+          rows[i].style.display = '';
+        } else {
+          rows[i].style.display = 'none';
+        }
+      }
+    }
+  }
+
+  // Función para filtrar por grupo
+  function filterTableByGroup() {
+    const filter = document.getElementById('groupFilter').value;
+    const table = document.querySelector('.table');
+    const rows = table.getElementsByTagName('tr');
+
+    for (let i = 1; i < rows.length; i++) {
+      const cell = rows[i].getElementsByTagName('td')[1]; // Columna de grupo
+      if (cell) {
+        const textValue = cell.textContent || cell.innerText;
+        if (filter === '' || textValue.trim() === filter) {
+          rows[i].style.display = '';
+        } else {
+          rows[i].style.display = 'none';
+        }
+      }
+    }
+  }
+
+  // Función para filtrar por evaluación
+  function filterTableByEvaluation() {
+    const filter = document.getElementById('evaluationFilter').value;
+    const table = document.querySelector('.table');
+    const rows = table.getElementsByTagName('tr');
+
+    for (let i = 1; i < rows.length; i++) {
+      const cell = rows[i].getElementsByTagName('td')[2]; // Columna de evaluación
+      if (cell) {
+        const textValue = cell.textContent || cell.innerText;
+        if (filter === '' || textValue.trim() === filter) {
+          rows[i].style.display = '';
+        } else {
+          rows[i].style.display = 'none';
+        }
+      }
+    }
+  }
+
+  // Función para filtrar por entrega por classroom
+  function filterTableByClassroom() {
+    const filter = document.getElementById('classroomFilter').value;
+    const table = document.querySelector('.table');
+    const rows = table.getElementsByTagName('tr');
+
+    for (let i = 1; i < rows.length; i++) {
+      const cell = rows[i].getElementsByTagName('td')[3]; // Columna de classroom
+      if (cell) {
+        const checkbox = cell.querySelector('input[type="checkbox"]');
+        const isChecked = checkbox && checkbox.checked;
+        
+        if (filter === '' || 
+           (filter === 'si' && isChecked) || 
+           (filter === 'no' && !isChecked)) {
+          rows[i].style.display = '';
+        } else {
+          rows[i].style.display = 'none';
+        }
+      }
+    }
+  }
 </script>
 {% endblock %}
