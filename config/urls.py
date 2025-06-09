@@ -19,9 +19,11 @@ from api_keys.api import router as api_keys_router
 api.add_router("/evaluations/", evaluations_router)
 api.add_router("/keys/", api_keys_router)
 
+
 @api.get("/add")
 def add(request, a: int, b: int):
     return {"result": a + b}
+
 
 urlpatterns = [
     path("", TemplateView.as_view(template_name="pages/home.html"), name="home"),
@@ -43,6 +45,8 @@ urlpatterns = [
     path("api-keys/", include("api_keys.urls", namespace="api_keys")),
     # Song Ranking app
     path("songs/", include("songs_ranking.urls", namespace="songs_ranking")),
+    # django-sql-explorer
+    path("explorer/", include("explorer.urls")),
     # ...
     # Media files
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
