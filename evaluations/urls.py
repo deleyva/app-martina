@@ -21,6 +21,7 @@ urlpatterns = [
     
     # Dashboard del estudiante
     path('dashboard/', student_dashboard, name='student_dashboard'),
+    path('student-dashboard/<int:student_id>/', views.teacher_view_student_dashboard, name='teacher_view_student_dashboard'),
     
     # URLs para el sistema de envíos
     path('submission/create/<int:status_id>/', create_submission, name='create_submission'),

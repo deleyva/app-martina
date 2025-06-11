@@ -399,6 +399,47 @@ class PendingEvaluationsView(LoginRequiredMixin, UserPassesTestMixin, ListView):
         return context
 
 
+@login_required
+@user_passes_test(is_staff)
+def teacher_view_student_dashboard(request, student_id):
+    """
+    Dashboard view for teachers to see a specific student's dashboard.
+    """
+    try:
+        student = Student.objects.get(id=student_id)
+    except Student.DoesNotExist:
+        messages.error(request, "El estudiante solicitado no existe.")
+        return redirect('pending_evaluations')
+
+    # Get all evaluations for this student
+    evaluations = Evaluation.objects.filter(student=student).select_related('evaluation_item')
+    
+    # Get pending submissions
+    pending_statuses = PendingEvaluationStatus.objects.filter(student=student).select_related('evaluation_item')
+    
+    # Group evaluations by term
+    evaluations_by_term = {}
+    for evaluation in evaluations:
+        term = evaluation.evaluation_item.term or 'Sin periodo'
+        if term not in evaluations_by_term:
+            evaluations_by_term[term] = []
+        evaluations_by_term[term].append(evaluation)
+    
+    # Check which pending items have submissions
+    has_submission = {}
+    for status in pending_statuses:
+        has_submission[status.id] = hasattr(status, 'submission')
+    
+    context = {
+        'student': student,
+        'evaluations_by_term': evaluations_by_term,
+        'pending_statuses': pending_statuses,
+        'has_submission': has_submission,
+        'viewing_as_teacher': True, # Flag to indicate teacher view
+    }
+    
+    return render(request, 'evaluations/student_dashboard.html', context)
+
 @require_http_methods(["POST"])
 @login_required
 @user_passes_test(is_staff, login_url="/accounts/login/", redirect_field_name=None)
