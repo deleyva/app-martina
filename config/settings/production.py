@@ -176,3 +176,6 @@ SITE_ID = env.int("DJANGO_SITE_ID", default=1)
 
 # OAuth Debug - En caso de problemas
 OAUTH_DEBUG = True  # Para obtener más información de depuración
+
+# Wagtail
+WAGTAILADMIN_BASE_URL = "https://apps.iesmartinabescos.es/"
