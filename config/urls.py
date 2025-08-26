@@ -8,6 +8,10 @@ from django.views import defaults as default_views
 from django.views.generic import TemplateView
 from ninja import NinjaAPI, Router
 
+from wagtail.admin import urls as wagtailadmin_urls
+from wagtail import urls as wagtail_urls
+from wagtail.documents import urls as wagtaildocs_urls
+
 # Crear una única instancia de NinjaAPI para toda la aplicación
 api = NinjaAPI(title="Martina Bescós App API", version="1.0.0")
 
@@ -47,6 +51,9 @@ urlpatterns = [
     path("songs/", include("songs_ranking.urls", namespace="songs_ranking")),
     # django-sql-explorer
     path("explorer/", include("explorer.urls")),
+    path("cms/", include(wagtailadmin_urls)),
+    path("documents/", include(wagtaildocs_urls)),
+    path("pages/", include(wagtail_urls)),
     # ...
     # Media files
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -81,3 +81,6 @@ ACCOUNT_ALLOW_REGISTRATION = True
 
 # Sobrescribir SITE_ID para usar el sitio de desarrollo local
 SITE_ID = 2
+
+# Wagtail
+WAGTAILADMIN_BASE_URL = "http://localhost:8000"
