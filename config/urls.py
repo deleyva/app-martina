@@ -54,6 +54,7 @@ urlpatterns = [
     path("cms/", include(wagtailadmin_urls)),
     path("documents/", include(wagtaildocs_urls)),
     path("pages/", include(wagtail_urls)),
+    path("music-cards/", include("music_cards.urls", namespace="music_cards")),
     # ...
     # Media files
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

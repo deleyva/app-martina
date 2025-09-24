@@ -14,12 +14,7 @@ SECRET_KEY = env(
     default="JtAoPdUhrpItD1KYbA58Ebo3bDj6rtJQQzx8eiyuKpn4DIjXtGiOQkqyIfaOfynS",
 )
 # https://docs.djangoproject.com/en/dev/ref/settings/#allowed-hosts
-ALLOWED_HOSTS = [
-    "localhost",
-    "0.0.0.0",
-    "127.0.0.1",
-    "apps.iesmartinabescos.es",
-]  # noqa: S104
+# ALLOWED_HOSTS se configura más abajo para manejar proxies
 
 # CACHES
 # ------------------------------------------------------------------------------
@@ -84,3 +79,23 @@ SITE_ID = 2
 
 # Wagtail
 WAGTAILADMIN_BASE_URL = "http://localhost:8000"
+
+# Security settings for development - Deshabilitar para Google OAuth
+# ------------------------------------------------------------------------------
+SECURE_CONTENT_TYPE_NOSNIFF = False
+SECURE_BROWSER_XSS_FILTER = False
+SECURE_SSL_REDIRECT = False
+X_FRAME_OPTIONS = "ALLOWALL"  # Permitir todos los frames para desarrollo
+
+# Deshabilitar completamente CSP en desarrollo
+SECURE_CROSS_ORIGIN_OPENER_POLICY = None
+SECURE_REFERRER_POLICY = None
+
+# Configuración para proxies (Windsurf browser preview)
+# ------------------------------------------------------------------------------
+USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_PORT = True
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# Deshabilitar verificación de host para desarrollo
+ALLOWED_HOSTS = ["*"]  # Permitir cualquier host en desarrollo

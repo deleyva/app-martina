@@ -1,1 +1,26 @@
-hola {{review}}
+{% extends "music_cards/base.html" %}
+
+{% block content %}
+<div class="container mx-auto p-6">
+    <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+            <h1 class="card-title text-3xl mb-4">
+                <i class="fas fa-study text-primary mr-2"></i>
+                Estudiar Item
+            </h1>
+            
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i>
+                <span>Contenido del item de estudio: {{ review }}</span>
+            </div>
+            
+            <div class="card-actions justify-center mt-6">
+                <button class="btn btn-success btn-lg">
+                    <i class="fas fa-check mr-2"></i>
+                    Marcar como Estudiado
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}

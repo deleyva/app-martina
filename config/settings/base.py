@@ -93,6 +93,7 @@ THIRD_PARTY_APPS = [
     "wagtail",
     "modelcluster",
     "taggit",
+    "music_cards",
 ]
 
 LOCAL_APPS = [
@@ -329,8 +330,11 @@ SOCIALACCOUNT_PROVIDERS = {
         "AUTH_PARAMS": {
             "access_type": "online",
         },
+        # Permitir callback dinámico para desarrollo
+        "OAUTH_PKCE_ENABLED": True,
     }
 }
+
 
 # HUEY Configuration
 # ------------------------------------------------------------------------------

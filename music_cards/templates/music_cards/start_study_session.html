@@ -1,4 +1,4 @@
-{% extends "_base.html" %}
+{% extends "base.html" %}
 
 {% block content %}
 
@@ -6,24 +6,28 @@
     <form method="post">
         {% csrf_token %}
         <h3 class="text-lg font-bold mb-2">Filtrar por estilo:</h3>
-        <div class="mb-4">
+        <div class="mb-4 space-y-2">
             {% for tag in style_tags %}
-                <div class="flex items-center mb-2">
-                    <input class="form-check-input h-4 w-4 border border-gray-300 rounded-sm bg-white checked:bg-blue-600 checked:border-blue-600 focus:outline-none transition duration-200" type="checkbox" name="tags" value="{{ tag.id }}" id="style-{{ tag.id }}">
-                    <label class="ml-2 text-gray-700" for="style-{{ tag.id }}">{{ tag.value }}</label>
+                <div class="form-control">
+                    <label class="label cursor-pointer justify-start">
+                        <input type="checkbox" name="tags" value="{{ tag.id }}" id="style-{{ tag.id }}" class="checkbox checkbox-primary mr-3">
+                        <span class="label-text">{{ tag.value }}</span>
+                    </label>
                 </div>
             {% endfor %}
         </div>
         <h3 class="text-lg font-bold mb-2">Filtrar por instrumento:</h3>
-        <div class="mb-4">
+        <div class="mb-4 space-y-2">
             {% for tag in instrument_tags %}
-                <div class="flex items-center mb-2">
-                    <input class="form-check-input h-4 w-4 border border-gray-300 rounded-sm bg-white checked:bg-blue-600 checked:border-blue-600 focus:outline-none transition duration-200" type="checkbox" name="tags" value="{{ tag.id }}" id="instrument-{{ tag.id }}">
-                    <label class="ml-2 text-gray-700" for="instrument-{{ tag.id }}">{{ tag.value }}</label>
+                <div class="form-control">
+                    <label class="label cursor-pointer justify-start">
+                        <input type="checkbox" name="tags" value="{{ tag.id }}" id="instrument-{{ tag.id }}" class="checkbox checkbox-secondary mr-3">
+                        <span class="label-text">{{ tag.value }}</span>
+                    </label>
                 </div>
             {% endfor %}
         </div>
-        <input class="btn btn-primary bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" type="submit" value="Iniciar sesión de estudio">
+        <input class="btn btn-primary" type="submit" value="Iniciar sesión de estudio">
     </form>
 
     {% if last_study_session %}
@@ -31,13 +35,15 @@
         <h3 class="text-lg font-bold mb-2">Última sesión de estudio no terminada:</h3>
         <p class="mb-4">{{ last_study_session }}</p>
         <!-- Puedes agregar un enlace para continuar con la última sesión de estudio si lo deseas -->
-        <a class="text-blue-500 hover:underline" href="{% url 'music_cards:study_session' study_session_id=last_study_session.id %}">Continuar con la última sesión</a>
-        <button class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded mt-2"
-            hx-get="{% url 'music_cards:finish_study_session' study_session_id=last_study_session.id %}"
-            hx-trigger="click"
-            hx-target="#continue-study-session"
-            hx-swap="outerHTML"
-        >Cerrar la última sesión</button>
+        <div class="flex gap-4 mt-4">
+            <a class="btn btn-outline btn-info" href="{% url 'music_cards:study_session' study_session_id=last_study_session.id %}">Continuar con la última sesión</a>
+            <button class="btn btn-outline btn-error"
+                hx-get="{% url 'music_cards:finish_study_session' study_session_id=last_study_session.id %}"
+                hx-trigger="click"
+                hx-target="#continue-study-session"
+                hx-swap="outerHTML"
+            >Cerrar la última sesión</button>
+        </div>
     </div>
     {% endif %}
 </div>

@@ -37,10 +37,10 @@ urlpatterns = [
     path("categories/<int:pk>", views.category_detail, name="category_detail"),
 ]
 
-htmx_patterns = [
+htmx_urlpatterns = [
     path("update-order/", views.update_order, name="update_order"),
     path("delete-text/<int:pk>/", views.delete_text, name="delete_text"),
     path("text-detail/<int:pk>/", views.text_detail, name="text_detail"),
 ]
 
-urlpatterns += htmx_patterns
+urlpatterns += htmx_urlpatterns

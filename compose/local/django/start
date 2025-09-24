@@ -14,8 +14,19 @@ mkdir -p /app/martina_bescos_app/static/css
 echo "Archivos en el directorio CSS antes de npm build:"
 ls -la /app/martina_bescos_app/static/css/
 
+# Instalar dependencias de Node.js
 npm install
-npm run build
+
+# Crear el archivo CSS fuente si no existe (el entrypoint puede haberlo eliminado)
+echo "Creando archivo CSS fuente..."
+npm run create-css
+
+# Compilar CSS con Tailwind
+echo "Compilando CSS con Tailwind..."
+npx @tailwindcss/cli --input ./martina_bescos_app/static/css/index.css --output ./martina_bescos_app/static/css/output.css --minify
+
+echo "Archivos en el directorio CSS después de compilar:"
+ls -la /app/martina_bescos_app/static/css/
 
 python manage.py migrate
 exec python manage.py runserver_plus 0.0.0.0:8000

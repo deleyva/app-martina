@@ -2,7 +2,7 @@
 
 {% load static i18n compress%}<!DOCTYPE html>
 {% get_current_language as LANGUAGE_CODE %}
-<html lang="{{ LANGUAGE_CODE }}">
+<html lang="{{ LANGUAGE_CODE }}" data-theme="light">
   <head>
     <meta charset="utf-8" />
     <meta http-equiv="x-ua-compatible" content="ie=edge" />
@@ -18,22 +18,14 @@
         content="Jesús López de Leyva" />
   <link rel="icon" href="{% static 'images/favicons/favicon.ico' %}" />
   {% block css %}
-    <!-- Latest compiled and minified Bootstrap CSS -->
-    <link rel="stylesheet"
-          href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.2.3/css/bootstrap.min.css"
-          integrity="sha512-SbiR/eusphKoMVVXysTKG/7VseWii+Y3FdHrt0EpKgpToZeemhqHeZeLWLhJutz/2ut2Vw1uQEj2MbRF+TVBUA=="
-          crossorigin="anonymous"
-          referrerpolicy="no-referrer" />
-<!-- Your stuff: Third-party CSS libraries go here -->
-<!-- This file stores project-specific CSS -->
+    <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
-
+    <!-- Tailwind CSS with DaisyUI is loaded from the main project -->
 
 {% compress css %}
   <link href="{% static 'css/project.css' %}" rel="stylesheet" />
 {% endcompress %}
-
 
 {% endblock css %}
 <!-- Le javascript
@@ -42,23 +34,119 @@
 {% block javascript %}
 
 
-<!-- Bootstrap JS -->
-<script defer 
-        src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.2.3/js/bootstrap.bundle.min.js" 
-        integrity="sha512-i9cEfJwUwViEPFKdC1enz4ZRGBj8YQo6QByFTF92YXHi7waCqyexvRD75S5NVTsSiTv7rKWqG9Y5eFxmRsOn0A==" 
-        crossorigin="anonymous" 
-        referrerpolicy="no-referrer"></script>
-<!-- Your stuff: Third-party javascript libraries go here -->
-    <!-- Cargamos HTMX -->
-    <script defer src="https://unpkg.com/htmx.org@1.6.1"></script>
-    <!-- Cargamos Alpine.js -->
-    <script defer src="https://cdn.jsdelivr.net/gh/alpinejs/alpine@v2.x.x/dist/alpine.min.js" defer></script>
-    <script src="
-    https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js
-    "></script>
-    <link href="
-    https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/web/pdf_viewer.min.css
-    " rel="stylesheet">
+<!-- ABCJS for music notation (versión completa) - Cargar primero -->
+<script src="https://cdn.jsdelivr.net/npm/abcjs@6.5.2/dist/abcjs-basic-min.min.js"></script>
+<!-- Music Cards specific JavaScript - Inline para evitar problemas de carga -->
+<script>
+/* Music Cards specific JavaScript */
+
+// Función para inicializar ABCJS cuando esté disponible
+function initializeABCJS() {
+  console.log('Attempting to initialize ABCJS...');
+  
+  if (typeof ABCJS !== 'undefined') {
+    console.log('ABCJS loaded successfully, version:', ABCJS.signature);
+    
+    // Buscar contenedores ABC
+    const containers = document.querySelectorAll('.abc-notation-container');
+    console.log('Found', containers.length, 'ABC containers');
+    
+    // Renderizar todas las notaciones ABC existentes en la página
+    containers.forEach(function(container, index) {
+      const abcContent = container.getAttribute('data-abc-content');
+      console.log('Container', index + 1, '- ID:', container.id, '- Content length:', abcContent ? abcContent.length : 0);
+      
+      if (abcContent && abcContent.trim() !== '') {
+        try {
+          console.log('Rendering ABC for container:', container.id);
+          console.log('ABC Content preview:', abcContent.substring(0, 100) + '...');
+          
+          const result = ABCJS.renderAbc(container.id, abcContent, {
+            viewportHorizontal: true,
+            scrollHorizontal: true,
+            responsive: "resize",
+            scale: 0.8,
+            staffwidth: 400
+          });
+          
+          console.log('Render result:', result);
+          
+          // Verificar si se creó contenido SVG
+          const svgElements = container.querySelectorAll('svg');
+          console.log('SVG elements created:', svgElements.length);
+          
+        } catch (error) {
+          console.error('Error rendering ABC notation for', container.id, ':', error);
+        }
+      } else {
+        console.warn('No ABC content found for container:', container.id);
+      }
+    });
+  } else {
+    console.error('ABCJS not loaded, retrying in 500ms...');
+    // Intentar de nuevo en 500ms
+    setTimeout(initializeABCJS, 500);
+  }
+}
+
+// Función de test para probar ABCJS manualmente
+function testABCJS() {
+  console.log('Testing ABCJS...');
+  
+  // Crear un contenedor de prueba
+  const testContainer = document.createElement('div');
+  testContainer.id = 'test-abc-container';
+  testContainer.style.border = '2px solid red';
+  testContainer.style.padding = '10px';
+  testContainer.style.margin = '10px';
+  document.body.appendChild(testContainer);
+  
+  // Notación ABC simple de prueba
+  const testABC = `X:1
+T:Test Song
+M:4/4
+L:1/4
+K:C
+C D E F | G A B c |`;
+  
+  console.log('Test ABC content:', testABC);
+  
+  try {
+    const result = ABCJS.renderAbc('test-abc-container', testABC, {
+      scale: 1.0,
+      staffwidth: 400
+    });
+    console.log('Test render result:', result);
+  } catch (error) {
+    console.error('Test render error:', error);
+  }
+}
+
+// Inicializar cuando el DOM esté listo
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('DOM loaded, initializing ABCJS...');
+  // Esperar un poco para asegurar que ABCJS se ha cargado
+  setTimeout(initializeABCJS, 100);
+});
+
+// También inicializar después de peticiones HTMX
+document.addEventListener('htmx:afterSwap', function() {
+  setTimeout(initializeABCJS, 100);
+});
+
+// Exportar funciones para uso global
+window.testABCJS = testABCJS;
+window.initializeABCJS = initializeABCJS;
+</script>
+<!-- HTMX -->
+<script defer src="https://unpkg.com/htmx.org@1.6.1"></script>
+<!-- Alpine.js -->
+<script defer src="https://cdn.jsdelivr.net/gh/alpinejs/alpine@v2.x.x/dist/alpine.min.js"></script>
+<!-- PDF.js -->
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/web/pdf_viewer.min.css" rel="stylesheet">
+<!-- Sortable.js for drag and drop -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 
 
 <!-- place project specific Javascript in this file -->
@@ -71,7 +159,7 @@
 
 {% endblock javascript %}
 </head>
-<body>
+<body class="min-h-screen bg-base-100">
 
 {% block content %}
     <!-- Incluimos el navbar -->

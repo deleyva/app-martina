@@ -116,6 +116,20 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
     ) -> bool:
         # Permitir el registro con cuentas sociales si está habilitado globalmente
         return getattr(settings, "ACCOUNT_ALLOW_REGISTRATION", True)
+    
+    def get_callback_url(self, request, app):
+        """
+        Genera dinámicamente la URL de callback basada en el host y puerto actual.
+        Esto permite que funcione tanto con localhost:8000 como con el proxy de Windsurf.
+        """
+        # Obtener el host y puerto actual de la request
+        host = request.get_host()
+        scheme = 'https' if request.is_secure() else 'http'
+        
+        # Construir la URL de callback dinámicamente
+        callback_url = f"{scheme}://{host}/accounts/google/login/callback/"
+        
+        return callback_url
         
     def pre_social_login(self, request, sociallogin):
         """
@@ -140,10 +154,14 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
             # Vincular la cuenta existente con la cuenta social
             sociallogin.connect(request, user)
             
-            # No continuamos con el flujo normal porque ya hemos vinculado manualmente
-            # Esto evita que se cree un nuevo usuario
         except User.DoesNotExist:
             # No existe un usuario con ese email, se creará uno nuevo
+            pass
+        except Exception as e:
+            # Log del error para debugging
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error en pre_social_login: {e}")
             pass
 
     def populate_user(
