@@ -103,6 +103,8 @@ LOCAL_APPS = [
     "songs_ranking",
     "explorer",
     "cms",
+    "classroom",
+    "study_sessions",
     # Your stuff: custom apps go here
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps

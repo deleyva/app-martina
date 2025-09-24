@@ -1,16 +1,18 @@
 from django.contrib import admin
 from django.urls import path
 from django.shortcuts import redirect, get_object_or_404
-from django.template.response import TemplateResponse  # Añade esta línea
+from django.template.response import TemplateResponse
 from django.utils.html import format_html
-from django.contrib.contenttypes.models import ContentType
 
 from .models import (
     Author,
     Category,
     CategoryItem,
+    ContentLibrary,
     Embed,
     File,
+    LibraryCollaboration,
+    LibraryItem,
     MusicItem,
     Tag,
     Text,
@@ -20,9 +22,26 @@ from .models import (
 
 
 class MusicItemAdmin(admin.ModelAdmin):
-    list_display = ["title", "display_tags", "created_at", "updated_at"]
-    search_fields = ["title"]
-    filter_horizontal = ["tags", "texts", "files", "embeds"]
+    list_display = ["title", "display_tags", "visibility", "created_by", "is_template", "created_at", "updated_at"]
+    search_fields = ["title", "created_by__username"]
+    list_filter = ["visibility", "is_template", "created_at", "tags"]
+    filter_horizontal = ["tags", "texts", "files", "embeds", "shared_with"]
+    
+    fieldsets = (
+        (None, {
+            'fields': ('title', 'created_by')
+        }),
+        ('Contenido', {
+            'fields': ('texts', 'files', 'embeds', 'tags')
+        }),
+        ('Compartir y Visibilidad', {
+            'fields': ('visibility', 'shared_with', 'is_template')
+        }),
+        ('Metadatos', {
+            'fields': ('original_item',),
+            'classes': ('collapse',)
+        })
+    )
 
     def display_tags(self, obj):
         return ", ".join(
@@ -33,6 +52,11 @@ class MusicItemAdmin(admin.ModelAdmin):
         )
 
     display_tags.short_description = "Tags"
+    
+    def save_model(self, request, obj, form, change):
+        if not change:  # Si es un objeto nuevo
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)
 
 
 class CategoryItemInline(admin.TabularInline):
@@ -132,6 +156,41 @@ class FileAdmin(admin.ModelAdmin):
     inlines = [CategoryInline]
 
 
+class LibraryItemInline(admin.TabularInline):
+    model = LibraryItem
+    extra = 1
+    fields = ['music_item', 'added_by', 'order', 'notes']
+    readonly_fields = ['added_by']
+
+
+class LibraryCollaborationInline(admin.TabularInline):
+    model = LibraryCollaboration
+    extra = 1
+    fields = ['collaborator', 'permission_level']
+
+
+class ContentLibraryAdmin(admin.ModelAdmin):
+    list_display = ['name', 'owner', 'is_public', 'created_at', 'updated_at']
+    search_fields = ['name', 'description', 'owner__username']
+    list_filter = ['is_public', 'created_at', 'tags']
+    filter_horizontal = ['tags']
+    inlines = [LibraryCollaborationInline, LibraryItemInline]
+    
+    fieldsets = (
+        (None, {
+            'fields': ('name', 'description', 'owner')
+        }),
+        ('Configuración', {
+            'fields': ('is_public', 'tags')
+        })
+    )
+    
+    def save_model(self, request, obj, form, change):
+        if not change:  # Si es un objeto nuevo
+            obj.owner = request.user
+        super().save_model(request, obj, form, change)
+
+
 admin.site.register(Author)
 admin.site.register(Tag)
 admin.site.register(Category, CategoryAdmin)
@@ -142,3 +201,6 @@ admin.site.register(File, FileAdmin)
 admin.site.register(Text, TextAdmin)
 admin.site.register(UserReview)
 admin.site.register(UserStudySession)
+admin.site.register(ContentLibrary, ContentLibraryAdmin)
+admin.site.register(LibraryCollaboration)
+admin.site.register(LibraryItem)

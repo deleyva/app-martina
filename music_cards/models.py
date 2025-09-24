@@ -1,8 +1,7 @@
 from django.db import models
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.contenttypes.fields import GenericForeignKey
 from martina_bescos_app.users.models import User
-
-# from django.contrib.contenttypes.models import ContentType
-# from django.contrib.contenttypes.fields import GenericForeignKey
 
 # Create your models here.
 
@@ -93,18 +92,72 @@ class Category(models.Model):
 
 
 class MusicItem(models.Model):
+    VISIBILITY_CHOICES = [
+        ('private', 'Privado'),
+        ('shared', 'Compartido con profesores'),
+        ('public', 'Público'),
+        ('course_only', 'Solo para mi curso'),
+    ]
+    
     title = models.CharField(max_length=200)
     texts = models.ManyToManyField("Text", blank=True, related_name="music_items")
     files = models.ManyToManyField("File", blank=True, related_name="music_items")
     embeds = models.ManyToManyField("Embed", blank=True, related_name="music_items")
     tags = models.ManyToManyField(Tag, blank=True, related_name="music_items")
+    
+    # Nuevos campos para compartir y colaboración
+    visibility = models.CharField(max_length=20, choices=VISIBILITY_CHOICES, default='private')
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_music_items', null=True, blank=True)
+    shared_with = models.ManyToManyField(User, blank=True, related_name='shared_music_items')
+    
+    # Metadatos para plantillas y reutilización
+    is_template = models.BooleanField(default=False, help_text="Marca como plantilla reutilizable")
+    original_item = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, 
+                                    help_text="Referencia al item original si es una copia")
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     objects = MusicItemManager()
 
+    class Meta:
+        permissions = [
+            ('can_share_content', 'Can share content with other teachers'),
+            ('can_use_shared_content', 'Can use shared content'),
+            ('can_create_templates', 'Can create content templates'),
+        ]
+
     def __str__(self):
         return f"Song: {self.title}"
+    
+    def can_be_viewed_by(self, user):
+        """Verifica si un usuario puede ver este item"""
+        if self.visibility == 'public':
+            return True
+        if self.created_by == user:
+            return True
+        if self.visibility == 'shared' and user in self.shared_with.all():
+            return True
+        # TODO: Implementar lógica para 'course_only' cuando tengamos el modelo Course
+        return False
+    
+    def duplicate_for_user(self, user):
+        """Crea una copia del item para otro usuario"""
+        new_item = MusicItem.objects.create(
+            title=f"{self.title} (copia)",
+            visibility='private',
+            created_by=user,
+            is_template=False,
+            original_item=self
+        )
+        
+        # Copiar relaciones ManyToMany
+        new_item.texts.set(self.texts.all())
+        new_item.files.set(self.files.all())
+        new_item.embeds.set(self.embeds.all())
+        new_item.tags.set(self.tags.all())
+        
+        return new_item
 
 
 class Embed(models.Model):
@@ -313,3 +366,77 @@ class UserStudySession(models.Model):
 
     def __str__(self):
         return f"User: {self.user.name} {self.user.surname} - Study Session: {self.created_at} - {self.updated_at}"
+
+
+######### Modelos para bibliotecas de contenido compartido #########
+
+
+class ContentLibrary(models.Model):
+    """Biblioteca de contenido compartido entre profesores"""
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_libraries')
+    collaborators = models.ManyToManyField(User, through='LibraryCollaboration', related_name='collaborated_libraries')
+    items = models.ManyToManyField(MusicItem, through='LibraryItem', related_name='libraries')
+    
+    is_public = models.BooleanField(default=False)
+    tags = models.ManyToManyField(Tag, blank=True, related_name='libraries')
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name_plural = "Content Libraries"
+        ordering = ['-updated_at']
+    
+    def __str__(self):
+        return f"Library: {self.name} (by {self.owner})"
+    
+    def can_be_accessed_by(self, user):
+        """Verifica si un usuario puede acceder a esta biblioteca"""
+        if self.is_public:
+            return True
+        if self.owner == user:
+            return True
+        if self.collaborators.filter(id=user.id).exists():
+            return True
+        return False
+
+
+class LibraryCollaboration(models.Model):
+    """Colaboración en biblioteca de contenido"""
+    PERMISSION_LEVELS = [
+        ('view', 'Solo visualización'),
+        ('contribute', 'Puede añadir contenido'),
+        ('edit', 'Puede editar contenido'),
+        ('admin', 'Administrador completo'),
+    ]
+    
+    library = models.ForeignKey(ContentLibrary, on_delete=models.CASCADE)
+    collaborator = models.ForeignKey(User, on_delete=models.CASCADE)
+    permission_level = models.CharField(max_length=20, choices=PERMISSION_LEVELS, default='view')
+    joined_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ['library', 'collaborator']
+    
+    def __str__(self):
+        return f"{self.collaborator} - {self.library.name} ({self.permission_level})"
+
+
+class LibraryItem(models.Model):
+    """Relación entre biblioteca y items de contenido"""
+    library = models.ForeignKey(ContentLibrary, on_delete=models.CASCADE)
+    music_item = models.ForeignKey(MusicItem, on_delete=models.CASCADE)
+    added_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    order = models.PositiveIntegerField(default=0)
+    notes = models.TextField(blank=True, help_text="Notas sobre este item en la biblioteca")
+    
+    added_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['order', 'added_at']
+        unique_together = ['library', 'music_item']
+    
+    def __str__(self):
+        return f"{self.music_item.title} in {self.library.name}"
