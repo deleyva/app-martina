@@ -1,0 +1,45 @@
+<form id="sortable-container" class="space-y-4 sortable" hx-post="{% url 'music_cards:update_order' %}" hx-trigger="end" hx-target="#sortable-container" hx-swap="outerHTML">
+    {% csrf_token %}
+    <input type="hidden" name="category" value="{{ category.id }}">
+    {% for item in category_items %}
+    <div class="bg-white rounded-lg shadow-md p-2 flex items-start">
+        <input type="hidden" name="item" value="{{ item.id }}">
+        <div class="w-1/8">
+            <h3 class="text-xl font-semibold hover:underline cursor-pointer"
+                hx-get="{% url 'music_cards:text_detail' item.text.id %}"
+                hx-target="#sortable-container"
+                hx-swap="outerHTML"
+                hx-trigger="click"
+            >{{ item.name }} {{ item.order }}</h3>
+            {% if user.is_staff or user.is_superuser %}
+                <div class="flex space-x-4 mt-4">
+                    <a href="{% url 'admin:music_cards_text_change' item.text.id %}" class="text-blue-500 hover:underline"><i class="fas fa-edit"></i></a>
+                    <a href="{% url 'music_cards:duplicate_text' item.text.id %}" class="text-blue-500 hover:underline"><i class="fas fa-copy"></i></a>
+                    <span class="text-red-500 hover:underline cursor-pointer" 
+                        hx-delete="{% url 'music_cards:delete_text' item.id %}"
+                        hx-headers='{"X-CSRFToken": "{{ csrf_token}}"}'
+                        hx-confirm="¿Estás seguro de eliminar este elemento?"
+                        hx-target="#sortable-container"
+                        hx-swap="outerHTML">
+                        <i class="fas fa-trash"></i>
+                    </span>
+                </div>
+            {% endif %}
+        </div>
+        <div class="w-7/8 pr-4">
+            {% if item.text %}
+                {% include 'music_cards/partials/text_list.html' with text=item.text %}
+            {% elif item.file %}
+                {% include 'music_cards/partials/file_template.html' with file=item.file %}
+            {% elif item.embed %}
+                {% include 'partials/embed_template.html' with embed=item.embed %}
+            {% elif item.music_item %}
+                {% include 'music_cards/partials/music_item_template.html' with music_item=item.music_item %}
+            {% else %}
+                <p>No content available.</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</form>
+<!-- Compare this snippet from music_cards/templates/music_cards/category_detail.html: -->

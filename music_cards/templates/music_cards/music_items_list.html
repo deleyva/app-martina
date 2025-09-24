@@ -1,0 +1,79 @@
+{% extends "_base.html" %}
+
+{% load static %}
+
+{% block title %}Music Items{% endblock %}
+
+{% block content %}
+<script src="{% static 'js/opensheetmusicdisplay.min.js' %}"></script>
+<div class="container mx-auto p-4">
+    <h2 class="text-2xl font-bold mb-4">Music Items</h2>
+    <div class="space-y-4">  <!-- Usamos `space-y-4` para agregar espacio entre las filas -->
+        {% for music_item in music_items %}
+        <div class="bg-white rounded-lg shadow-md p-2 flex items-start">
+            <div class="w-1/4">
+                <h3 class="text-xl font-semibold">{{ music_item.title }}</h3>
+                {% comment %} <p class="text-gray-600">Autor: {{ music_item.author.name }}</p>
+                <p class="text-gray-600">Fecha de creación: {{ music_item.created_at }}</p> {% endcomment %}
+                <a href="{% url 'music_cards:music_item_detail' music_item.id %}" class="text-blue-500 hover:underline mt-4"><i class="fas fa-info-circle"></i></a>
+                {% if user.is_staff or user.is_superuser %}
+                    <a href="{% url 'admin:music_cards_musicitem_change' music_item.id %}" class="text-blue-500 hover:underline mt-4"><i class="fas fa-edit"></i></a>
+                {% endif %}
+            </div>
+            <div class="w-3/4 pr-4">  <!-- Ajustar el ancho según sea necesario -->
+                
+                {% if  music_item.text %}
+                    <div id="abc-container{{ forloop.counter }}"></div>
+                    <script>
+                        document.addEventListener("DOMContentLoaded", function() {
+                            // Tu código que usa ABCJS
+                            var abcNotation = "{{ music_item.text.content|escapejs }}";
+                            ABCJS.renderAbc("abc-container{{ forloop.counter }}", abcNotation);
+                        });
+                    </script>
+                {% elif music_item.mxml_file %}
+                    <!-- Mostrar vista previa de MXML -->
+                    <div id="osmdContainer{{ forloop.counter }}" class="osmd-container h-16 overflow-hidden"></div>
+                    <script>
+                        var osmd = new opensheetmusicdisplay.OpenSheetMusicDisplay("osmdContainer{{ forloop.counter }}");
+                        console.log("XML file URL:", "{{ music_item.mxml_file.file.url }}");  // Verificar la URL en la consola
+                        osmd.setOptions({
+                            backend: "svg",
+                            drawTitle: false,
+                            drawSubtitle: false,
+                            drawLyricist: false,
+                            drawComposer: false,
+                            drawPartNames: false,
+                            useXMLMeasureNumbers: false,
+                            drawUpToMeasureNumber: 8,
+                        });
+                        osmd
+                            .load("{{ music_item.mxml_file.file.url|escapejs }}")
+                            .then(function () {
+                                osmd.render();
+
+                                // Ajustar el SVG después de que se ha renderizado
+                                var osmdContainer = document.getElementById("osmdContainer{{ forloop.counter }}");
+                                var svgElement = osmdContainer.querySelector("svg");
+
+                                if (svgElement) {
+                                    // Centrando verticalmente el SVG en el contenedor
+                                    svgElement.style.transform = "translateY(-30%)";
+                                    svgElement.style.position = "relative";
+                                    svgElement.style.top = "50%";
+                                }
+                            });
+                    </script>
+                {% elif music_item.pdf_file %}
+                    <!-- Mostrar vista previa de PDF -->
+                    <embed src="{{ music_item.pdf_file.file.url }}" type="application/pdf" class="w-full h-48">
+                {% elif music_item.first_embed %}
+                    <!-- Mostrar embed si no hay PDF ni MXML -->
+                    <iframe src="{{ music_item.first_embed.url }}" class="w-full h-48"></iframe>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock content %}

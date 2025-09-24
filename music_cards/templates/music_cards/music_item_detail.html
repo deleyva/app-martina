@@ -1,0 +1,74 @@
+{% extends '_base.html' %}
+{% load static %}
+
+{% block title %}Music Item Detail{% endblock %}
+{% block content %}
+
+<div class="container mx-auto p-4">
+    <div class="bg-white rounded-lg shadow-md p-4">
+        <h2 class="text-2xl font-bold mb-2">{{ music_item.title }}</h2>
+        <p class="text-gray-700"><strong>Autor:</strong> {{ music_item.author.name }}</p>
+        <p class="text-gray-700"><strong>Fecha de creación:</strong> {{ music_item.created_at }}</p>
+        <p class="text-gray-700"><strong>Descripción:</strong> {{ xml_file.file.url }}</p>
+        <p class="text-gray-700"><strong>Etiquetas:</strong>
+            {% for tag in music_item.tags.all %}
+                <span class="bg-gray-200 text-gray-700 px-2 py-1 rounded-full text-sm">{{ tag.key }} : {{ tag.value }}</span>
+            {% endfor %}
+
+        {% if text %}
+            <div id="abc-container"></div>
+            <script>
+                var abcNotation = `{{ text.content|escapejs }}`;  // Escapar el contenido para JavaScript
+                ABCJS.renderAbc("abc-container", abcNotation);
+            </script>
+        {% elif xml_file %}
+            <div id="osmdContainer" class="mt-4"></div>
+            <script src="{% static 'js/opensheetmusicdisplay.min.js' %}"></script>
+            <script>
+                // Asegúrate de que la URL no tenga caracteres adicionales
+                var xmlFileUrl = "{{ xml_file.file.url|escapejs }}";
+                console.log("XML file URL:", xmlFileUrl);  // Verificar la URL en la consola
+                var osmd = new opensheetmusicdisplay.OpenSheetMusicDisplay("osmdContainer");
+                osmd.setOptions({
+                    backend: "svg",
+                    drawTitle: false,
+                    drawSubtitle: false,
+                    drawLyricist: false,
+                    drawComposer: false,
+                    drawPartNames: false,
+                });
+                osmd
+                    .load(xmlFileUrl)
+                    .then(
+                        function () {
+                            osmd.render();
+                        }
+                    );
+            </script>
+        {% else %}
+            <p class="text-red-500">No XML file available for this music item.</p>
+        {% endif %}
+    </div>
+    <a href="{% url 'music_cards:music_items_list' %}" class="text-blue-500 hover:underline mt-4 inline-block">Volver a la lista</a>
+</div>
+
+{% endblock content %}
+
+
+{% comment %} {% block extrajs %}
+<script>
+    const observer = new MutationObserver((mutationsList) => {
+        for (let mutation of mutationsList) {
+            if (mutation.type === 'childList') {
+                const vfTextElements = document.querySelectorAll('.vf-text');
+                vfTextElements.forEach(element => {
+                    element.style.display = 'none';
+                });
+            }
+        }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+</script>
+
+{% endblock extrajs %} {% endcomment %}
+    

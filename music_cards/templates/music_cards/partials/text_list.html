@@ -1,0 +1,10 @@
+<div id="abc-container{{ forloop.counter }}" class="abcjs-inner flex justify-center"></div>
+<script>
+  htmx.onLoad(function () {
+    var abcNotation = "{{ text.content|escapejs }}";
+    ABCJS.renderAbc("abc-container{{ forloop.counter }}", abcNotation, {
+      viewportHorizontal: true,
+      scrollHorizontal: true,
+    });
+  });
+</script>

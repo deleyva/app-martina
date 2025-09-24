@@ -1,0 +1,117 @@
+{% load static %}
+<div class="row h-100 m-0">
+    <canvas id="the-canvas"></canvas>
+</div>
+<!-- <div>
+        <button id="prev-page">Página Anterior</button>
+        <span id="page-num"></span>
+        <button id="next-page">Página Siguiente</button>
+    </div> -->
+</div>
+
+<script>
+    var url = "{% static 'images/double-stop-applications.pdf' %}";
+    var pdfjsLib = window['pdfjs-dist/build/pdf'];
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    var pdfDoc = null,
+        pageNum = 1,
+        pageIsRendering = false,
+        pageNumIsPending = null;
+
+    var canvas = document.getElementById('the-canvas'),
+        ctx = canvas.getContext('2d');
+
+    // Render the page
+    function renderPage(num, callback) {
+        pageIsRendering = true;
+
+        pdfDoc.getPage(num).then(function (page) {
+            var scale = 4;
+            var viewport = page.getViewport({ scale });
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+
+            var renderCtx = {
+                canvasContext: ctx,
+                viewport
+            };
+
+            page.render(renderCtx).promise.then(function () {
+                pageIsRendering = false;
+
+                if (pageNumIsPending !== null) {
+                    renderPage(pageNumIsPending, callback);
+                    pageNumIsPending = null;
+                }
+
+                if (callback) callback();
+
+                document.querySelector('#page-num').textContent = num;
+            });
+        });
+    }
+
+    function queueRenderPage(num, callback) {
+        if (pageIsRendering) {
+            pageNumIsPending = num;
+            pageRenderingCallback = callback;  // Guarda el callback
+        } else {
+            renderPage(num, callback);
+        }
+    }
+
+    function scrollToBottom() {
+        window.scrollTo(0, document.body.scrollHeight);
+    }
+
+
+    document.addEventListener('keydown', function (event) {
+        // Verifica si el documento está completamente desplazado hacia abajo o arriba
+        var scrollAtBottom = (window.innerHeight + window.scrollY) >= document.body.offsetHeight;
+        var scrollAtTop = window.scrollY === 0;
+
+        switch (event.key) {
+            case 'ArrowRight':
+                showNextPage();
+                break;
+            case 'PageDown':
+                if (scrollAtBottom) {
+                    showNextPage();
+                }
+                break;
+            case 'ArrowLeft':
+                showPrevPage();
+                break;
+            case 'PageUp':
+                if (scrollAtTop) {
+                    showPrevPage();
+                }
+                break;
+        }
+    });
+
+    function showPrevPage() {
+        if (pageNum <= 1) { return; } pageNum--; queueRenderPage(pageNum, scrollToBottom);
+    } function showNextPage() {
+        if
+            (pageNum >= pdfDoc.numPages) {
+            return;
+        }
+        pageNum++;
+        queueRenderPage(pageNum);
+        window.scrollTo(0, 0); // Vuelve al inicio de la página
+    }
+
+
+    // Get document
+    pdfjsLib.getDocument(url).promise.then(function (pdfDoc_) {
+        pdfDoc = pdfDoc_;
+
+        renderPage(pageNum);
+    });
+
+    // Button Events
+    document.querySelector('#prev-page').addEventListener('click', showPrevPage);
+    document.querySelector('#next-page').addEventListener('click', showNextPage);
+</script>

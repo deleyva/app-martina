@@ -1,0 +1,28 @@
+{% extends "music_cards/base.html" %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <!-- Muestra una lista de los music items -->
+    <h3>Selecciona un item para estudiar:</h3>
+    {{ texto }}
+    {{ study_session }} {{ study_session.id }}
+
+    <!-- Collapsible aside -->
+    <aside x-data="{ isOpen: false, toggle() { this.isOpen = !this.isOpen; console.log('isOpen:', this.isOpen); } }">
+        <a href="#user_reviews" @click.prevent="toggle">User Reviews</a>
+        <div id="user_reviews" x-show="isOpen">
+            <ul>
+                {% for review in user_reviews %}
+                <li>
+                    <a href="#review_{{ review.id }}">{{ review.music_item.title }} - Box: {{ review.box }}</a>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </aside>
+</div>
+
+<!-- ve pidiendo a los diferentes -->
+<!-- {% include "music_cards/partials/pdfviewerjs.html" %} -->
+
+{% endblock content %}

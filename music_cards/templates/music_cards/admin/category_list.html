@@ -1,0 +1,45 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block content %}
+<h2 class="text-2xl font-bold mb-4">
+    {% if parent %}
+        Subcategorías de {{ parent.name }}
+    {% else %}
+        Categorías principales
+    {% endif %}
+</h2>
+
+<table class="table-auto w-full">
+    <thead>
+        <tr>
+            <th class="px-4 py-2">Nombre de la Categoría</th>
+            <th class="px-4 py-2">Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for category in categories %}
+        <tr>
+            <td class="border px-4 py-2">
+                <a href="{% url 'admin:music_cards_subcategory_list' category.id %}" class="text-blue-500 hover:underline">
+                    {{ category.name }}
+                </a>
+            </td>
+            <td class="border px-4 py-2">
+                <a href="{% url 'admin:music_cards_category_change' category.id %}" class="text-blue-500 hover:underline">
+                    Editar
+                </a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% if parent %}
+    <div class="mt-4">
+        <a href="{% url 'admin:music_cards_category_list' %}" class="text-blue-500 hover:underline">
+            ← Volver a Categorías Principales
+        </a>
+    </div>
+{% endif %}
+{% endblock %}

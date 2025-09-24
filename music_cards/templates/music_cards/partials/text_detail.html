@@ -1,0 +1,15 @@
+<div class="flex justify-center">
+    <div id="abc-text"></div>
+</div>
+</div>
+<script>
+  htmx.onLoad(function () {
+    var abcNotation = "{{ single_text.content|escapejs }}";
+    ABCJS.renderAbc("abc-text", abcNotation, {
+      viewportHorizontal: true,
+      scrollHorizontal: true,
+    }, {responsive: "resize"});
+  });
+</script>
+
+<a href="{% url 'music_cards:category_detail' 1 %}" class="text-blue-500 hover:underline"><i class="fas fa-arrow-left"></i> Volver</a>

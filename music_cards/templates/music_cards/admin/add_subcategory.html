@@ -1,0 +1,16 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block content %}
+  <h1>Añadir Subcategoría a {{ parent.name }}</h1>
+  
+  <form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="button save">Guardar</button>
+  </form>
+
+  <p>
+    <a href="{% url 'admin:music_cards_category_changelist' %}" class="button">Cancelar</a>
+  </p>
+{% endblock %}

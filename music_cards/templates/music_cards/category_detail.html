@@ -1,0 +1,28 @@
+{% extends "_base.html" %}
+{% load static %}
+
+{% block content %}
+
+{% include "music_cards/partials/category_detail.html" %}
+
+<script>
+    htmx.onLoad(function(content) {
+        var sortables = document.querySelectorAll(".sortable");
+        for (var i = 0; i < sortables.length; i++) {
+            var sortable = sortables[i];
+            new Sortable(sortable, {
+                animation: 150,
+                ghostClass: 'blue-background-class',
+                onEnd: function (evt) {
+                    this.option("disabled", true);  // Disable sorting on end event
+                }
+            });
+
+            // Re-enable sorting on the `htmx:afterSwap` event
+            sortable.addEventListener("htmx:afterSwap", function() {
+                sortableInstance.option("disabled", false);
+            });
+        }
+    });
+</script>
+{% endblock %}

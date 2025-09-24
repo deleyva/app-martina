@@ -1,0 +1,32 @@
+{% extends '_base.html' %}
+{% load static %}
+
+{% block title %}Humdrum test{% endblock %}
+
+{% block content %}
+
+<div id="notation"></div>
+<script>
+    document.addEventListener("DOMContentLoaded", (event) => {
+        verovio.module.onRuntimeInitialized = async _ => {
+        let tk = new verovio.toolkit();
+        console.log("Verovio has loaded!");
+        tk.setOptions({
+            scale: 40,
+            landscape: false,
+            adjustPageWidth: true,
+            shrinkToFit: true,
+            svgViewBox: true,
+        });
+        console.log("Verovio options:", tk.getOptions());
+        
+        fetch("https://www.verovio.org/examples/downloads/Schubert_Lindenbaum.mei")
+            .then( (response) => response.text() )
+            .then( (meiXML) => {
+                let svg = tk.renderData(meiXML, {});
+                document.getElementById("notation").innerHTML = svg;
+                });
+            }
+        });
+    </script>
+{% endblock content %}

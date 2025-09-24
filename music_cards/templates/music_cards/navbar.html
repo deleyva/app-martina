@@ -1,0 +1,47 @@
+{% load static i18n compress%}
+<nav class="navbar navbar-light bg-light">
+    <div class="container-fluid justify-content-between">
+        <a class="navbar-brand" href="https://www.youtube.com">
+            <i class="fab fa-youtube fa-2x"></i>
+        </a>
+        <a class="navbar-brand" href="#">
+            <img src="{% static 'images/icons/live-music.png' %}" alt="Live Music" width="40" height="40">
+        </a>
+        <a class="navbar-brand" href="#">
+            <i class="fas fa-arrow-up fa-2x"></i>
+        </a>
+        <a class="navbar-brand" href="#">
+            <i class="fas fa-equals fa-2x"></i>
+        </a>
+        <a class="navbar-brand" href="#">
+            <i class="fas fa-arrow-down fa-2x"></i>
+        </a>
+
+        <div class="dropdown">
+            <a class="navbar-brand dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="fas fa-user fa-2x"></i>
+            </a>
+
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenuLink">
+                {% if request.user.is_authenticated %}
+                    <li>
+                        <a class="dropdown-item"
+                            href="{% url 'users:detail' request.user.username %}">{% translate "My Profile" %}</a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" href="{% url 'account_logout' %}">{% translate "Sign Out" %}</a>
+                    </li>
+                {% else %}
+                    {% if ACCOUNT_ALLOW_REGISTRATION %}
+                        <li>
+                            <a id="sign-up-link" class="dropdown-item" href="{% url 'account_signup' %}">{% translate "Sign Up" %}</a>
+                        </li>
+                    {% endif %}
+                    <li>
+                        <a id="log-in-link" class="dropdown-item" href="{% url 'account_login' %}">{% translate "Sign In" %}</a>
+                    </li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+</nav>
