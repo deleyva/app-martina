@@ -1,0 +1,23 @@
+<div class="slide-content text-center">
+    {% if slide.title %}
+        <h2 class="slide-title">{{ slide.title }}</h2>
+    {% endif %}
+    
+    {% if slide.image %}
+        <div class="flex justify-center items-center flex-1">
+            <img src="{{ slide.image.url }}" alt="{{ slide.title }}" class="max-w-full max-h-96 object-contain rounded-lg shadow-lg">
+        </div>
+    {% endif %}
+    
+    {% if slide.text_content %}
+        <div class="mt-6 text-lg">
+            <div class="whitespace-pre-line">{{ slide.text_content }}</div>
+        </div>
+    {% endif %}
+    
+    {% if slide.notes %}
+        <div class="slide-notes mt-6 p-4 bg-gray-50 rounded-lg border-l-4 border-gray-400">
+            <strong>Notas:</strong> {{ slide.notes }}
+        </div>
+    {% endif %}
+</div>

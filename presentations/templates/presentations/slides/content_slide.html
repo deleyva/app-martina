@@ -1,0 +1,29 @@
+<div class="slide-content">
+    {% if slide.title %}
+        <h2 class="slide-title">{{ slide.title }}</h2>
+    {% endif %}
+    
+    {% if slide.text_content %}
+        <div class="prose prose-lg max-w-none">
+            <div class="whitespace-pre-line text-lg leading-relaxed">{{ slide.text_content }}</div>
+        </div>
+    {% endif %}
+    
+    {% if slide.image %}
+        <div class="mt-6 text-center">
+            <img src="{{ slide.image.url }}" alt="{{ slide.title }}" class="max-w-full h-auto rounded-lg shadow-lg">
+        </div>
+    {% endif %}
+    
+    {% if slide.notes %}
+        <div class="slide-notes mt-6 p-4 bg-blue-50 rounded-lg border-l-4 border-blue-400">
+            <strong>Notas:</strong> {{ slide.notes }}
+        </div>
+    {% endif %}
+    
+    {% if slide.duration %}
+        <div class="mt-4 text-sm text-gray-500">
+            ⏱️ Duración estimada: {{ slide.duration }}
+        </div>
+    {% endif %}
+</div>

@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Header de la sesión -->
+    <div class="hero bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg mb-8">
+        <div class="hero-content text-center py-12">
+            <div class="max-w-md">
+                <h1 class="mb-5 text-5xl font-bold">{{ page.title }}</h1>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                    <div class="stat">
+                        <div class="stat-title text-blue-100">Curso</div>
+                        <div class="stat-value text-lg">{{ page.course.name }}</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-title text-blue-100">Fecha</div>
+                        <div class="stat-value text-lg">{{ page.session_date|date:"d/m/Y" }}</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-title text-blue-100">Estado</div>
+                        <div class="stat-value text-lg">
+                            <span class="badge badge-{% if page.status == 'completed' %}success{% elif page.status == 'in_progress' %}warning{% else %}info{% endif %}">
+                                {{ page.get_status_display }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Información de la sesión -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+        <!-- Descripción -->
+        {% if page.description %}
+        <div class="lg:col-span-2">
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <h2 class="card-title text-2xl mb-4">📋 Descripción de la Sesión</h2>
+                    <div class="prose max-w-none">
+                        {{ page.description|richtext }}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Objetivos -->
+        {% if page.objectives %}
+        <div class="{% if not page.description %}lg:col-span-3{% endif %}">
+            <div class="card bg-green-50 shadow-xl">
+                <div class="card-body">
+                    <h2 class="card-title text-2xl mb-4 text-green-800">🎯 Objetivos</h2>
+                    <div class="prose max-w-none">
+                        {{ page.objectives|richtext }}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Contenido Musical -->
+    {% if page.session_music_items.all %}
+    <div class="card bg-base-100 shadow-xl mb-8">
+        <div class="card-body">
+            <h2 class="card-title text-3xl mb-6">🎵 Contenido Musical</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {% for session_item in page.session_music_items.all %}
+                <div class="card bg-gradient-to-br from-purple-100 to-blue-100 shadow-md">
+                    <div class="card-body">
+                        <div class="flex justify-between items-start mb-4">
+                            <h3 class="card-title text-xl">{{ session_item.music_item.title }}</h3>
+                            {% if session_item.activity_type %}
+                                <span class="badge badge-primary">{{ session_item.get_activity_type_display }}</span>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Tags del music item -->
+                        {% if session_item.music_item.tags.all %}
+                        <div class="mb-3">
+                            {% for tag in session_item.music_item.tags.all %}
+                                <span class="badge badge-outline badge-sm mr-1">
+                                    {{ tag.key }}{% if tag.value %}:{{ tag.value }}{% endif %}
+                                </span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        <!-- Duración estimada -->
+                        {% if session_item.estimated_duration %}
+                        <div class="mb-3">
+                            <span class="text-sm text-gray-600">⏱️ {{ session_item.estimated_duration }}</span>
+                        </div>
+                        {% endif %}
+
+                        <!-- Notas de la sesión -->
+                        {% if session_item.session_notes %}
+                        <div class="bg-white p-3 rounded-lg">
+                            <h4 class="font-semibold mb-2">📝 Notas:</h4>
+                            <div class="prose prose-sm max-w-none">
+                                {{ session_item.session_notes|richtext }}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Enlace al music item -->
+                        <div class="card-actions justify-end mt-4">
+                            <a href="/music-cards/music-items/{{ session_item.music_item.id }}/" class="btn btn-sm btn-primary">
+                                Ver Detalle
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Notas del Profesor -->
+    {% if page.teacher_notes %}
+    <div class="card bg-yellow-50 shadow-xl">
+        <div class="card-body">
+            <h2 class="card-title text-2xl mb-4 text-yellow-800">👨‍🏫 Notas del Profesor</h2>
+            <div class="prose max-w-none">
+                {{ page.teacher_notes|richtext }}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Acciones -->
+    <div class="flex justify-center mt-8 gap-4">
+        {% if page.status == 'draft' %}
+            <button class="btn btn-success">Iniciar Sesión</button>
+        {% elif page.status == 'in_progress' %}
+            <button class="btn btn-warning">Pausar Sesión</button>
+            <button class="btn btn-success">Completar Sesión</button>
+        {% endif %}
+        <button class="btn btn-primary">Generar Presentación</button>
+        <button class="btn btn-secondary">Exportar PDF</button>
+    </div>
+</div>
+{% endblock %}

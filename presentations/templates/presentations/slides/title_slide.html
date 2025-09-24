@@ -1,0 +1,14 @@
+<div class="slide-content text-center">
+    <h1 class="slide-title text-6xl mb-8">{{ slide.title }}</h1>
+    {% if slide.text_content %}
+        <div class="text-xl text-gray-600 whitespace-pre-line">{{ slide.text_content }}</div>
+    {% endif %}
+    {% if presentation.created_by %}
+        <div class="mt-8 text-lg text-gray-500">
+            Presentado por: {{ presentation.created_by.get_full_name|default:presentation.created_by.username }}
+        </div>
+    {% endif %}
+    <div class="mt-4 text-sm text-gray-400">
+        Generado el {{ presentation.generated_at|date:"d/m/Y H:i" }}
+    </div>
+</div>

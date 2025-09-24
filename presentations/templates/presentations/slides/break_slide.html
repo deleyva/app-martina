@@ -1,0 +1,22 @@
+<div class="slide-content text-center flex items-center justify-center">
+    <div class="text-center">
+        <div class="text-8xl mb-8">☕</div>
+        <h2 class="slide-title text-5xl">{{ slide.title|default:"Descanso" }}</h2>
+        
+        {% if slide.text_content %}
+            <div class="mt-6 text-2xl text-gray-600">
+                <div class="whitespace-pre-line">{{ slide.text_content }}</div>
+            </div>
+        {% else %}
+            <div class="mt-6 text-2xl text-gray-600">
+                Tómate un momento para relajarte
+            </div>
+        {% endif %}
+        
+        {% if slide.duration %}
+            <div class="mt-8 text-xl text-gray-500">
+                ⏱️ {{ slide.duration }}
+            </div>
+        {% endif %}
+    </div>
+</div>

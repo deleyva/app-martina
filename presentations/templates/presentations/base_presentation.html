@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ presentation.title }}</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- DaisyUI -->
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" type="text/css" />
+    
+    <!-- CSS personalizado para presentaciones -->
+    <style>
+        @media screen {
+            .slide {
+                min-height: 100vh;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                padding: 2rem;
+                page-break-after: always;
+            }
+            
+            .presentation-container {
+                scroll-snap-type: y mandatory;
+                overflow-y: scroll;
+                height: 100vh;
+            }
+            
+            .slide {
+                scroll-snap-align: start;
+            }
+        }
+        
+        @media print {
+            .slide {
+                page-break-after: always;
+                min-height: 90vh;
+                padding: 1cm;
+            }
+            
+            .slide:last-child {
+                page-break-after: avoid;
+            }
+            
+            .no-print {
+                display: none !important;
+            }
+        }
+        
+        .slide-title {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 2rem;
+            color: #2c3e50;
+        }
+        
+        .slide-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .music-item {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .music-item-title {
+            font-size: 1.8rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+        }
+        
+        .exercise {
+            background-color: #f8f9fa;
+            border-left: 4px solid #3498db;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            border-radius: 0.5rem;
+        }
+        
+        .slide-notes {
+            font-style: italic;
+            color: #666;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+        }
+        
+        /* Tema personalizado según la plantilla */
+        {% if template.theme == 'dark' %}
+        body {
+            background-color: #1a202c;
+            color: #e2e8f0;
+        }
+        .slide {
+            background-color: #2d3748;
+        }
+        {% elif template.theme == 'music' %}
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .slide {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 1rem;
+            margin: 1rem;
+        }
+        {% endif %}
+        
+        /* CSS personalizado de la plantilla */
+        {{ template.custom_css|safe }}
+    </style>
+</head>
+<body>
+    <div class="presentation-container">
+        {% for slide in slides %}
+            <div class="slide" id="slide-{{ slide.order }}">
+                {% block slide_content %}
+                    {% if slide.slide_type == 'title' %}
+                        {% include 'presentations/slides/title_slide.html' %}
+                    {% elif slide.slide_type == 'content' %}
+                        {% include 'presentations/slides/content_slide.html' %}
+                    {% elif slide.slide_type == 'music_item' %}
+                        {% include 'presentations/slides/music_item_slide.html' %}
+                    {% elif slide.slide_type == 'exercise' %}
+                        {% include 'presentations/slides/exercise_slide.html' %}
+                    {% elif slide.slide_type == 'image' %}
+                        {% include 'presentations/slides/image_slide.html' %}
+                    {% elif slide.slide_type == 'text' %}
+                        {% include 'presentations/slides/text_slide.html' %}
+                    {% elif slide.slide_type == 'break' %}
+                        {% include 'presentations/slides/break_slide.html' %}
+                    {% endif %}
+                {% endblock %}
+            </div>
+        {% endfor %}
+    </div>
+    
+    <!-- Controles de navegación (solo en pantalla) -->
+    <div class="no-print fixed bottom-4 right-4 flex gap-2">
+        <button onclick="previousSlide()" class="btn btn-circle btn-primary">
+            ←
+        </button>
+        <button onclick="nextSlide()" class="btn btn-circle btn-primary">
+            →
+        </button>
+        <button onclick="window.print()" class="btn btn-circle btn-secondary">
+            🖨️
+        </button>
+    </div>
+    
+    <!-- Indicador de progreso -->
+    <div class="no-print fixed bottom-4 left-4">
+        <div class="badge badge-primary">
+            <span id="current-slide">1</span> / {{ slides.count }}
+        </div>
+    </div>
+    
+    <script>
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const totalSlides = slides.length;
+        
+        function updateSlideIndicator() {
+            document.getElementById('current-slide').textContent = currentSlide + 1;
+        }
+        
+        function goToSlide(index) {
+            if (index >= 0 && index < totalSlides) {
+                currentSlide = index;
+                slides[currentSlide].scrollIntoView({ behavior: 'smooth' });
+                updateSlideIndicator();
+            }
+        }
+        
+        function nextSlide() {
+            goToSlide(currentSlide + 1);
+        }
+        
+        function previousSlide() {
+            goToSlide(currentSlide - 1);
+        }
+        
+        // Navegación con teclado
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'ArrowRight' || e.key === ' ') {
+                e.preventDefault();
+                nextSlide();
+            } else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                previousSlide();
+            }
+        });
+        
+        // Detectar scroll para actualizar indicador
+        let scrollTimeout;
+        document.querySelector('.presentation-container').addEventListener('scroll', function() {
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(function() {
+                const scrollTop = document.querySelector('.presentation-container').scrollTop;
+                const slideHeight = window.innerHeight;
+                const newSlide = Math.round(scrollTop / slideHeight);
+                if (newSlide !== currentSlide && newSlide >= 0 && newSlide < totalSlides) {
+                    currentSlide = newSlide;
+                    updateSlideIndicator();
+                }
+            }, 100);
+        });
+    </script>
+</body>
+</html>

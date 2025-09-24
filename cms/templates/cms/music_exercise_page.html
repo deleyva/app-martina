@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Header del ejercicio -->
+    <div class="hero bg-gradient-to-r from-green-500 to-teal-600 text-white rounded-lg mb-8">
+        <div class="hero-content text-center py-12">
+            <div class="max-w-md">
+                <div class="text-6xl mb-4">🎯</div>
+                <h1 class="mb-5 text-5xl font-bold">{{ page.title }}</h1>
+                <div class="flex justify-center gap-4 mt-6">
+                    <div class="stat">
+                        <div class="stat-title text-green-100">Nivel</div>
+                        <div class="stat-value text-2xl">{{ page.difficulty_level }}/5</div>
+                    </div>
+                    {% if page.estimated_duration %}
+                    <div class="stat">
+                        <div class="stat-title text-green-100">Duración</div>
+                        <div class="stat-value text-lg">{{ page.estimated_duration }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Contenido principal -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Instrucciones -->
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <h2 class="card-title text-2xl mb-4 text-blue-800">📋 Instrucciones</h2>
+                    <div class="prose max-w-none">
+                        {{ page.instructions|richtext }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Objetivos de aprendizaje -->
+            {% if page.learning_objectives %}
+            <div class="card bg-green-50 shadow-xl">
+                <div class="card-body">
+                    <h2 class="card-title text-2xl mb-4 text-green-800">🎯 Objetivos de Aprendizaje</h2>
+                    <div class="prose max-w-none">
+                        {{ page.learning_objectives|richtext }}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Elemento musical relacionado -->
+            {% if page.related_music_item %}
+            <div class="card bg-purple-50 shadow-xl">
+                <div class="card-body">
+                    <h2 class="card-title text-2xl mb-4 text-purple-800">🎵 Material Relacionado</h2>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="text-xl font-semibold">{{ page.related_music_item.title }}</h3>
+                            {% if page.related_music_item.tags.all %}
+                            <div class="mt-2">
+                                {% for tag in page.related_music_item.tags.all %}
+                                    <span class="badge badge-outline badge-sm mr-1">
+                                        {{ tag.key }}{% if tag.value %}:{{ tag.value }}{% endif %}
+                                    </span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        <a href="/music-cards/music-items/{{ page.related_music_item.id }}/" class="btn btn-primary">
+                            Ver Material
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar -->
+        <div class="space-y-6">
+            <!-- Información del ejercicio -->
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <h3 class="card-title text-lg mb-4">ℹ️ Información</h3>
+                    <div class="space-y-3">
+                        <div class="flex justify-between">
+                            <span class="font-semibold">Dificultad:</span>
+                            <div class="rating rating-sm">
+                                {% for i in "12345" %}
+                                    <input type="radio" class="mask mask-star-2 bg-orange-400" 
+                                           {% if forloop.counter <= page.difficulty_level %}checked{% endif %} disabled />
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% if page.estimated_duration %}
+                        <div class="flex justify-between">
+                            <span class="font-semibold">Duración:</span>
+                            <span>{{ page.estimated_duration }}</span>
+                        </div>
+                        {% endif %}
+                        <div class="flex justify-between">
+                            <span class="font-semibold">Creado:</span>
+                            <span>{{ page.first_published_at|date:"d/m/Y" }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Acciones -->
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <h3 class="card-title text-lg mb-4">⚡ Acciones</h3>
+                    <div class="space-y-2">
+                        <button class="btn btn-primary btn-block">Comenzar Ejercicio</button>
+                        <button class="btn btn-secondary btn-block">Añadir a Sesión</button>
+                        <button class="btn btn-outline btn-block">Imprimir</button>
+                        <button class="btn btn-outline btn-block">Compartir</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Progreso del estudiante (si está logueado) -->
+            {% if user.is_authenticated %}
+            <div class="card bg-blue-50 shadow-xl">
+                <div class="card-body">
+                    <h3 class="card-title text-lg mb-4 text-blue-800">📊 Tu Progreso</h3>
+                    <div class="space-y-3">
+                        <div>
+                            <div class="flex justify-between text-sm">
+                                <span>Completado</span>
+                                <span>75%</span>
+                            </div>
+                            <progress class="progress progress-primary w-full" value="75" max="100"></progress>
+                        </div>
+                        <div class="text-sm text-gray-600">
+                            <p>Última práctica: Hace 2 días</p>
+                            <p>Próxima revisión: En 3 días</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Navegación -->
+    <div class="flex justify-between mt-8">
+        <a href="javascript:history.back()" class="btn btn-outline">
+            ← Volver
+        </a>
+        <div class="flex gap-2">
+            <button class="btn btn-primary">Siguiente Ejercicio →</button>
+        </div>
+    </div>
+</div>
+{% endblock %}

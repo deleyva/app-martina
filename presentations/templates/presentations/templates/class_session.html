@@ -1,0 +1,39 @@
+{% extends 'presentations/base_presentation.html' %}
+
+{% block slide_content %}
+    {% if slide.slide_type == 'title' %}
+        <div class="slide-content text-center">
+            <h1 class="slide-title text-6xl mb-8 text-blue-800">{{ slide.title }}</h1>
+            {% if slide.text_content %}
+                <div class="text-2xl text-gray-700 whitespace-pre-line mb-6">{{ slide.text_content }}</div>
+            {% endif %}
+            
+            <!-- Información específica de la sesión de clase -->
+            {% if presentation.source_content %}
+                {% with session=presentation.source_content %}
+                    <div class="bg-blue-50 p-6 rounded-lg mt-8">
+                        <div class="text-xl font-semibold text-blue-800 mb-4">📚 Información de la Sesión</div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-lg">
+                            <div><strong>Curso:</strong> {{ session.course.name }}</div>
+                            <div><strong>Fecha:</strong> {{ session.date|date:"d/m/Y" }}</div>
+                            {% if session.start_time %}
+                                <div><strong>Hora:</strong> {{ session.start_time|time:"H:i" }}</div>
+                            {% endif %}
+                            {% if session.end_time %}
+                                <div><strong>Duración:</strong> {{ session.start_time|time:"H:i" }} - {{ session.end_time|time:"H:i" }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endwith %}
+            {% endif %}
+            
+            {% if presentation.created_by %}
+                <div class="mt-8 text-lg text-gray-600">
+                    👨‍🏫 {{ presentation.created_by.get_full_name|default:presentation.created_by.username }}
+                </div>
+            {% endif %}
+        </div>
+    {% else %}
+        {{ block.super }}
+    {% endif %}
+{% endblock %}
