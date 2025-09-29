@@ -1,6 +1,4 @@
-{% load static i18n compress%}
-
-{% load static i18n compress%}<!DOCTYPE html>
+{% load static i18n %}<!DOCTYPE html>
 {% get_current_language as LANGUAGE_CODE %}
 <html lang="{{ LANGUAGE_CODE }}" data-theme="light">
   <head>
@@ -21,11 +19,97 @@
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
-    <!-- Tailwind CSS with DaisyUI is loaded from the main project -->
+    <!-- Tailwind CSS with DaisyUI -->
+<link href="{% static 'css/output.css' %}" rel="stylesheet" />
 
-{% compress css %}
-  <link href="{% static 'css/project.css' %}" rel="stylesheet" />
-{% endcompress %}
+    <!-- Music Cards specific styles -->
+    <style>
+        /* ChordSheetJS styling - Based on official CSS */
+        .chord-sheet-rendered {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        /* Table-based layout (HtmlTableFormatter) */
+        .chord-sheet-rendered .paragraph {
+            margin-bottom: 1em;
+        }
+        
+        .chord-sheet-rendered .row {
+            display: table-row;
+        }
+        
+        .chord-sheet-rendered .column {
+            display: table-cell;
+            vertical-align: top;
+        }
+        
+        .chord-sheet-rendered .chord {
+            font-weight: bold;
+            color: #0066cc;
+            font-size: 12px;
+            line-height: 1.2;
+        }
+        
+        .chord-sheet-rendered .lyrics {
+            color: #333;
+            font-size: 14px;
+            line-height: 1.2;
+        }
+        
+        .chord-sheet-rendered .comment {
+            font-style: italic;
+            color: #666;
+            margin: 0.5em 0;
+        }
+        
+        .chord-sheet-rendered .sectionLabel {
+            font-weight: bold;
+            color: #666;
+            margin: 1em 0 0.5em 0;
+            text-transform: uppercase;
+        }
+        
+        /* Table styling for better alignment */
+        .chord-sheet-rendered table {
+            border-collapse: separate;
+            border-spacing: 0;
+            width: 100%;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .chord-sheet-rendered td {
+            padding: 0 2px 0 0;
+            margin: 0;
+            vertical-align: top;
+            white-space: nowrap;
+        }
+        
+        .chord-sheet-rendered .chords-cell {
+            color: #0066cc;
+            font-weight: bold;
+            font-size: 12px;
+            line-height: 1;
+            padding-bottom: 2px;
+            white-space: nowrap;
+        }
+        
+        .chord-sheet-rendered .lyrics-cell {
+            color: #333;
+            font-size: 14px;
+            line-height: 1.2;
+        }
+        
+        .chord-sheet-fallback {
+            font-family: 'Courier New', monospace;
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            overflow-x: auto;
+        }
+    </style>
 
 {% endblock css %}
 <!-- Le javascript
@@ -152,9 +236,7 @@ window.initializeABCJS = initializeABCJS;
 <!-- place project specific Javascript in this file -->
 
 
-{% compress js %}
-  <script defer src="{% static 'js/project.js' %}"></script>
-{% endcompress %}
+<script defer src="{% static 'js/music_cards.js' %}"></script>
 
 
 {% endblock javascript %}
@@ -170,16 +252,5 @@ window.initializeABCJS = initializeABCJS;
     {% include "music_cards/partials/pdfviewerjs.html" %}
 {% endblock content %}
 
-<!-- <div class="row">
-  <div x-data="{ contador: 0 }">
-      <button @click="contador++">Haz clic</button>
-      <p x-text="contador"></p>
-  </div>
-</div>
-<div class="row">
-  <div hx-get="{% url 'music_cards:counter' %}" hx-trigger="every 120s">
-      Aquí se cargará el contenido de la vista cada 2 minutos.
-  </div>
-</div> -->
 </body>
 </html>

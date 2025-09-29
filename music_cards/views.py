@@ -4,7 +4,6 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from django.views.generic import ListView, DetailView
 import json
-import re
 
 from .models import (
     UserStudySession,
@@ -22,11 +21,6 @@ from .forms import TextForm, MusicItemForm
 
 
 # Create your views here.
-def counter(request):
-    # devolver la hora inicial
-    return render(request, "music_cards/partials/counter.html")
-
-
 def start_study_session(request, study_session_id=None):
     # Obtener las etiquetas de estilo e instrumento
     style_tags = Tag.objects.filter(key="style")
