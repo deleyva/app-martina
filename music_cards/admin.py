@@ -63,7 +63,7 @@ class CategoryItemInline(admin.TabularInline):
     model = CategoryItem
     extra = 1
     ordering = ["order"]
-    fields = ["text", "file", "embed", "music_item", "order"]
+    fields = ["text", "file", "embed", "order"]
 
 
 class CategoryInline(admin.TabularInline):

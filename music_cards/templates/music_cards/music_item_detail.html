@@ -1,7 +1,7 @@
-{% extends 'base.html' %}
+{% extends 'music_cards/music_cards_base.html' %}
 {% load static %}
 
-{% block title %}Music Item Detail{% endblock %}
+{% block title %}{{ music_item.title }} - Music Cards{% endblock title %}
 {% block content %}
 
 <div class="container mx-auto p-6">
@@ -14,41 +14,58 @@
                         <i class="fas fa-arrow-left mr-2"></i>
                         Volver a la lista
                     </a>
-                    {% if user.is_staff or user.is_superuser %}
-                        <a href="{% url 'admin:music_cards_musicitem_change' music_item.id %}" class="btn btn-outline btn-warning">
+                    {% if music_item.created_by == request.user or request.user.is_staff %}
+                        <a href="{% url 'music_cards:music_item_edit' music_item.id %}" class="btn btn-outline btn-warning">
                             <i class="fas fa-edit mr-2"></i>
                             Editar
+                        </a>
+                        <a href="{% url 'music_cards:music_item_delete' music_item.id %}" class="btn btn-outline btn-error">
+                            <i class="fas fa-trash mr-2"></i>
+                            Eliminar
                         </a>
                     {% endif %}
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            <!-- Metadata -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 <div class="stats shadow">
                     <div class="stat">
-                        <div class="stat-title">Fecha de creación</div>
-                        <div class="stat-value text-lg">{{ music_item.created_at|date:"d/m/Y" }}</div>
+                        <div class="stat-title">Creado por</div>
+                        <div class="stat-value text-sm">{{ music_item.created_by.username }}</div>
+                        <div class="stat-desc">{{ music_item.created_at|date:"d/m/Y H:i" }}</div>
                     </div>
                 </div>
                 
-                {% if xml_file %}
                 <div class="stats shadow">
                     <div class="stat">
-                        <div class="stat-title">Archivo XML</div>
+                        <div class="stat-title">Contenido</div>
                         <div class="stat-value text-sm">
-                            <a href="{{ xml_file.file.url }}" class="link link-primary" target="_blank">
-                                <i class="fas fa-download mr-1"></i>
-                                Descargar
-                            </a>
+                            <i class="fas fa-file-text mr-1"></i>{{ music_item.texts.count }}
+                            <i class="fas fa-file ml-2 mr-1"></i>{{ music_item.files.count }}
+                            <i class="fas fa-link ml-2 mr-1"></i>{{ music_item.embeds.count }}
                         </div>
+                        <div class="stat-desc">Textos, Archivos, Enlaces</div>
                     </div>
                 </div>
-                {% endif %}
+
+                <div class="stats shadow">
+                    <div class="stat">
+                        <div class="stat-title">Visibilidad</div>
+                        <div class="stat-value text-sm">{{ music_item.get_visibility_display }}</div>
+                        {% if music_item.is_template %}
+                        <div class="stat-desc">
+                            <span class="badge badge-primary badge-sm">Plantilla</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
 
                 <div class="stats shadow">
                     <div class="stat">
                         <div class="stat-title">Etiquetas</div>
-                        <div class="stat-value text-sm">{{ music_item.tags.count }} tags</div>
+                        <div class="stat-value text-sm">{{ music_item.tags.count }}</div>
+                        <div class="stat-desc">Tags asignados</div>
                     </div>
                 </div>
             </div>
@@ -71,43 +88,173 @@
 
             <div class="divider">Contenido Musical</div>
 
-            {% if text %}
-                <div class="bg-base-200 rounded-lg p-6">
-                    <h3 class="text-lg font-semibold mb-4">Notación ABC</h3>
-                    <div id="abc-container" 
-                         data-abc-content="{{ text.content|escapejs }}"
-                         class="abc-notation-container"></div>
+            <!-- Textos -->
+            {% if music_item.texts.exists %}
+            <div class="mb-6">
+                <h3 class="text-xl font-semibold mb-4">
+                    <i class="fas fa-file-text mr-2"></i>Textos ({{ music_item.texts.count }})
+                </h3>
+                <div class="space-y-4">
+                    {% for text in music_item.texts.all %}
+                    <div class="card bg-base-200 shadow-sm">
+                        <div class="card-body">
+                            <h4 class="card-title text-lg">{{ text.name }}</h4>
+                            
+                            <!-- Detectar tipo de contenido -->
+                            {% if '[' in text.content and ']' in text.content %}
+                            <!-- ChordPro -->
+                            <div class="bg-white p-4 rounded border">
+                                <div class="chordpro-container font-mono text-sm leading-relaxed"
+                                     data-chordpro-content="{{ text.content }}">
+                                    {{ text.content|linebreaks }}
+                                </div>
+                            </div>
+                            {% elif 'X:' in text.content %}
+                            <!-- ABC Notation -->
+                            <div class="bg-white p-4 rounded border">
+                                <div id="abc-container-{{ forloop.counter }}" 
+                                     data-abc-content="{{ text.content|safe }}"
+                                     class="abc-notation-container">
+                                </div>
+                            </div>
+                            {% else %}
+                            <!-- Texto normal -->
+                            <div class="bg-white p-4 rounded border">
+                                <div class="prose max-w-none">
+                                    {{ text.content|linebreaks }}
+                                </div>
+                            </div>
+                            {% endif %}
+                            
+                            <!-- Tags del texto -->
+                            {% if text.tags.exists %}
+                            <div class="flex flex-wrap gap-1 mt-2">
+                                {% for tag in text.tags.all %}
+                                <span class="badge badge-outline badge-xs">{{ tag.key }}: {{ tag.value }}</span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
                 </div>
-            {% elif xml_file %}
-                <div class="bg-base-200 rounded-lg p-6">
-                    <h3 class="text-lg font-semibold mb-4">Partitura (XML)</h3>
-                    <div id="osmdContainer" class="min-h-96"></div>
-                    <!-- OpenSheetMusicDisplay no está disponible actualmente -->
-                    <script>
-                        /*
-                        var xmlFileUrl = "{{ xml_file.file.url|escapejs }}";
-                        console.log("XML file URL:", xmlFileUrl);
-                        var osmd = new opensheetmusicdisplay.OpenSheetMusicDisplay("osmdContainer");
-                        osmd.setOptions({
-                            backend: "svg",
-                            drawTitle: false,
-                            drawSubtitle: false,
-                            drawLyricist: false,
-                            drawComposer: false,
-                            drawPartNames: false,
-                        });
-                        osmd.load(xmlFileUrl).then(function () {
-                            osmd.render();
-                        });
-                        */
-                        console.log("OpenSheetMusicDisplay no está disponible");
-                    </script>
+            </div>
+            {% endif %}
+
+            <!-- Archivos -->
+            {% if music_item.files.exists %}
+            <div class="mb-6">
+                <h3 class="text-xl font-semibold mb-4">
+                    <i class="fas fa-file mr-2"></i>Archivos ({{ music_item.files.count }})
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {% for file in music_item.files.all %}
+                    <div class="card bg-base-200 shadow-sm">
+                        <div class="card-body">
+                            <h4 class="card-title text-lg">{{ file.name }}</h4>
+                            
+                            <!-- Mostrar archivo según tipo -->
+                            {% if file.file.name|slice:"-4:" == ".pdf" %}
+                            <div class="bg-white rounded border" style="height: 400px;">
+                                <embed src="{{ file.file.url }}" type="application/pdf" class="w-full h-full rounded">
+                            </div>
+                            {% elif file.file.name|slice:"-4:" in ".jpg,.png,.gif" or file.file.name|slice:"-5:" in ".jpeg,.webp" %}
+                            <div class="bg-white rounded border">
+                                <img src="{{ file.file.url }}" alt="{{ file.name }}" class="w-full h-auto rounded">
+                            </div>
+                            {% elif file.file.name|slice:"-4:" in ".mp3,.wav,.m4a" %}
+                            <div class="bg-white p-4 rounded border">
+                                <audio controls class="w-full">
+                                    <source src="{{ file.file.url }}" type="audio/mpeg">
+                                    Tu navegador no soporta audio.
+                                </audio>
+                            </div>
+                            {% elif file.file.name|slice:"-4:" in ".mp4,.mov,.avi" %}
+                            <div class="bg-white p-4 rounded border">
+                                <video controls class="w-full max-h-96">
+                                    <source src="{{ file.file.url }}" type="video/mp4">
+                                    Tu navegador no soporta video.
+                                </video>
+                            </div>
+                            {% else %}
+                            <div class="bg-white p-4 rounded border text-center">
+                                <i class="fas fa-file text-4xl text-gray-500 mb-2"></i>
+                                <p class="text-sm">{{ file.file.name }}</p>
+                                <a href="{{ file.file.url }}" class="btn btn-sm btn-primary mt-2" target="_blank">
+                                    <i class="fas fa-download mr-1"></i>Descargar
+                                </a>
+                            </div>
+                            {% endif %}
+                            
+                            <!-- Tags del archivo -->
+                            {% if file.tags.exists %}
+                            <div class="flex flex-wrap gap-1 mt-2">
+                                {% for tag in file.tags.all %}
+                                <span class="badge badge-outline badge-xs">{{ tag.key }}: {{ tag.value }}</span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
                 </div>
-            {% else %}
-                <div class="alert alert-warning">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <span>No hay contenido musical disponible para este elemento.</span>
+            </div>
+            {% endif %}
+
+            <!-- Enlaces/Embeds -->
+            {% if music_item.embeds.exists %}
+            <div class="mb-6">
+                <h3 class="text-xl font-semibold mb-4">
+                    <i class="fas fa-link mr-2"></i>Enlaces ({{ music_item.embeds.count }})
+                </h3>
+                <div class="space-y-4">
+                    {% for embed in music_item.embeds.all %}
+                    <div class="card bg-base-200 shadow-sm">
+                        <div class="card-body">
+                            <h4 class="card-title text-lg">{{ embed.name }}</h4>
+                            <div class="bg-white rounded border">
+                                <div class="aspect-video">
+                                    <iframe src="{{ embed.url }}" 
+                                            class="w-full h-full rounded"
+                                            frameborder="0" 
+                                            allowfullscreen>
+                                    </iframe>
+                                </div>
+                            </div>
+                            <div class="mt-2">
+                                <a href="{{ embed.url }}" class="link link-primary" target="_blank">
+                                    <i class="fas fa-external-link-alt mr-1"></i>Abrir en nueva pestaña
+                                </a>
+                            </div>
+                            
+                            <!-- Tags del embed -->
+                            {% if embed.tags.exists %}
+                            <div class="flex flex-wrap gap-1 mt-2">
+                                {% for tag in embed.tags.all %}
+                                <span class="badge badge-outline badge-xs">{{ tag.key }}: {{ tag.value }}</span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
                 </div>
+            </div>
+            {% endif %}
+
+            <!-- Si no hay contenido -->
+            {% if not music_item.texts.exists and not music_item.files.exists and not music_item.embeds.exists %}
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span>No hay contenido musical disponible para este elemento.</span>
+                {% if music_item.created_by == request.user or request.user.is_staff %}
+                <div class="mt-2">
+                    <a href="{% url 'music_cards:music_item_edit' music_item.id %}" class="btn btn-sm btn-primary">
+                        <i class="fas fa-plus mr-1"></i>Añadir Contenido
+                    </a>
+                </div>
+                {% endif %}
+            </div>
             {% endif %}
         </div>
     </div>

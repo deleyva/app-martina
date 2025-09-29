@@ -169,10 +169,15 @@ class Embed(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        music_item_title = (
-            self.music_item.title if self.music_item else "No music score"
-        )
-        return f"Embed: {self.name} - Music Item: {music_item_title}"
+        # Como es ManyToMany, puede haber múltiples music_items
+        music_items = self.music_items.all()
+        if music_items.exists():
+            music_item_titles = ", ".join([item.title for item in music_items[:3]])  # Mostrar máximo 3
+            if music_items.count() > 3:
+                music_item_titles += f" (+{music_items.count() - 3} más)"
+        else:
+            music_item_titles = "No music items"
+        return f"Embed: {self.name} - Music Items: {music_item_titles}"
 
 
 class File(models.Model):
@@ -240,14 +245,13 @@ class UserReview(models.Model):
     music_item = models.ForeignKey(
         MusicItem, on_delete=models.CASCADE, related_name="user_review"
     )
-    # boxes
+    # boxes - Sistema Leitner de 4 cajas
     box = models.IntegerField(
         choices=[
-            (1, "Iniciando"),
-            (2, "Analizando"),
-            (3, "Practicando"),
-            (4, "Revisando"),
-            (5, "Dominado"),
+            (1, "No lo sé"),
+            (2, "Difícil"),
+            (3, "Bien"),
+            (4, "Fácil"),
         ]
     )
     n_times_reiewed = models.IntegerField(default=0)
@@ -258,23 +262,35 @@ class UserReview(models.Model):
     def __str__(self):
         return f"User: {self.user} - Music Item: {self.music_item} - Box: {self.box} - Times Reviewed: {self.n_times_reiewed}"
 
-    def update_box(self, action):
+    def update_box(self, rating):
         """
-        Actualiza el box de la review basándose en la acción dada.
-
+        Actualiza el box de la review basándose en la calificación dada (1-4).
+        
+        Sistema Leitner simplificado:
+        - Rating 1 (No lo sé): Vuelve a caja 1
+        - Rating 2 (Difícil): Se mantiene en la misma caja o baja una
+        - Rating 3 (Bien): Sube una caja
+        - Rating 4 (Fácil): Sube una caja (o dos si está en caja 1-2)
+        
         Parámetros:
-        action (str): Puede ser 'up', 'down' o 'same' para subir, bajar o mantener el mismo box, respectivamente.
+        rating (int): Calificación del 1 al 4
         """
-
-        if action == "up" and self.box < 5:
-            self.box += 1
-        elif action == "down" and self.box > 1:
-            self.box -= 1
-        elif action == "same":
-            pass  # No se realiza ninguna acción si se elige mantener el mismo box
-        else:
-            raise ValueError("La acción debe ser 'up', 'down' o 'same'.")
-
+        if rating not in [1, 2, 3, 4]:
+            raise ValueError("La calificación debe ser 1, 2, 3 o 4.")
+        
+        if rating == 1:  # No lo sé - volver a empezar
+            self.box = 1
+        elif rating == 2:  # Difícil - mantener o bajar
+            if self.box > 1:
+                self.box -= 1
+        elif rating == 3:  # Bien - subir una caja
+            if self.box < 4:
+                self.box += 1
+        elif rating == 4:  # Fácil - subir rápidamente
+            if self.box < 4:
+                self.box = min(4, self.box + 2)
+        
+        self.n_times_reiewed += 1
         self.save()
 
 
@@ -365,7 +381,7 @@ class UserStudySession(models.Model):
         self.save()
 
     def __str__(self):
-        return f"User: {self.user.name} {self.user.surname} - Study Session: {self.created_at} - {self.updated_at}"
+        return f"User: {self.user.username} - Study Session: {self.created_at} - {self.updated_at}"
 
 
 ######### Modelos para bibliotecas de contenido compartido #########
