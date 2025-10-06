@@ -20,6 +20,8 @@ urlpatterns = [
     ),
     path("study/<int:study_session_id>/", views.study_session, name="study_session"),
     path("study-new/<int:study_session_id>/", views.study_session_new, name="study_session_new"),
+    path("study-fullscreen/<int:study_session_id>/", views.study_session_fullscreen, name="study_session_fullscreen"),
+    path("fullscreen-navigate/<int:study_session_id>/", views.fullscreen_navigate, name="fullscreen_navigate"),
     path("study/item/", views.study_item, name="study_item"),
     path("rate-item/", views.rate_item, name="rate_item"),
     path(

@@ -14,9 +14,10 @@
             <p class="text-base-content/70">{{ user_reviews|length }} elementos para estudiar</p>
         </div>
         <div class="flex gap-2">
-            <button @click="enterFullscreen()" class="btn btn-primary">
+            <a href="{% url 'music_cards:study_session_fullscreen' study_session.id %}" 
+               class="btn btn-primary">
                 <i class="fas fa-expand mr-2"></i>Pantalla Completa
-            </button>
+            </a>
             <button @click="finishSession()" class="btn btn-outline btn-error">
                 <i class="fas fa-stop mr-2"></i>Terminar Sesión
             </button>

@@ -1,0 +1,477 @@
+{% extends "music_cards/base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="fullscreen-study" x-data="{ 
+    currentIndex: 0, 
+    showOverlays: false,
+    showThumbnails: false,
+    studyItems: [],
+    hideTimer: null
+}">
+    <!-- Progress bar (always visible) -->
+    <div class="progress-bar-container">
+        <div class="progress-bar" :style="'width: ' + (((currentIndex + 1) / {{ user_reviews|length }}) * 100) + '%'"></div>
+    </div>
+    
+    <!-- Top overlay -->
+    <div class="study-overlay study-overlay-top" 
+         @mouseenter="showOverlays = true" 
+         @mouseleave="hideTimer = setTimeout(() => showOverlays = false, 3000)">
+        
+        <div class="study-header" x-show="showOverlays" x-transition>
+            <div class="flex justify-between items-center p-4 bg-black bg-opacity-75 text-white">
+                <div class="flex items-center space-x-4">
+                    <button @click="window.history.back()" class="btn btn-sm btn-ghost text-white">
+                        <i class="fas fa-times"></i> Salir
+                    </button>
+                    <h1 class="text-lg font-semibold">
+                        {% for review in user_reviews %}
+                        <span x-show="currentIndex === {{ forloop.counter0 }}">{{ review.music_item.title }}</span>
+                        {% endfor %}
+                    </h1>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm" x-text="(currentIndex + 1) + ' / {{ user_reviews|length }}'"></span>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-sm">Box:</span>
+                        {% for review in user_reviews %}
+                        <span x-show="currentIndex === {{ forloop.counter0 }}" class="badge badge-primary">{{ review.box }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main content area -->
+    <div class="study-content" 
+         @click="showOverlays = !showOverlays">
+        
+        <!-- Content containers for each study item -->
+        {% for review in user_reviews %}
+            <div class="study-item-container" x-show="currentIndex === {{ forloop.counter0 }}">
+                <div class="study-content-wrapper">
+                    <!-- Show first text if available -->
+                    {% for text in review.music_item.texts.all %}
+                        {% if forloop.first %}
+                            <div class="study-text-content">
+                                {% if 'X:' in text.content %}
+                                    <!-- ABC Notation -->
+                                    <div class="abc-notation-fullscreen" 
+                                         id="abc-fs-{{ text.id }}"
+                                         data-abc-content="{{ text.content|safe }}">
+                                    </div>
+                                {% else %}
+                                    <!-- Chord sheets -->
+                                    <div class="chord-sheet-fullscreen" 
+                                         id="chord-fs-{{ text.id }}"
+                                         data-chord-content="{{ text.content|safe }}">
+                                        <!-- Content will be rendered by JavaScript -->
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    {% empty %}
+                        <!-- Show first file if no texts -->
+                        {% for file in review.music_item.files.all %}
+                            {% if forloop.first %}
+                                {% if '.pdf' in file.file.name %}
+                                    <!-- PDF content -->
+                                    <div class="study-pdf-content">
+                                        <iframe src="{{ file.file.url }}" 
+                                                class="w-full h-full border-0">
+                                        </iframe>
+                                    </div>
+                                {% elif file.file.name|slice:"-4:" in ".mp3,.wav,.m4a" %}
+                                    <!-- Audio content -->
+                                    <div class="study-audio-content">
+                                        <div class="audio-player-fullscreen">
+                                            <audio controls class="w-full max-w-2xl mx-auto">
+                                                <source src="{{ file.file.url }}" type="audio/mpeg">
+                                            </audio>
+                                            <div class="audio-info mt-4 text-center">
+                                                <h3 class="text-2xl font-bold mb-2">{{ file.name }}</h3>
+                                                <p class="text-lg text-gray-600">{{ review.music_item.title }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% else %}
+                                    <!-- Video content -->
+                                    <div class="study-video-content">
+                                        <video controls class="max-w-full max-h-full mx-auto">
+                                            <source src="{{ file.file.url }}" type="video/mp4">
+                                        </video>
+                                    </div>
+                                {% endif %}
+                            {% endif %}
+                        {% endfor %}
+                    {% endfor %}
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+    <!-- Bottom overlay -->
+    <div class="study-overlay study-overlay-bottom" 
+         @mouseenter="showOverlays = true" 
+         @mouseleave="hideTimer = setTimeout(() => showOverlays = false, 3000)">
+        
+        <div class="study-controls" x-show="showOverlays" x-transition>
+            <div class="bg-black bg-opacity-75 p-4">
+                <!-- Navigation controls -->
+                <div class="flex justify-center items-center space-x-4 mb-4">
+                    <button @click="if(currentIndex > 0) { currentIndex--; setTimeout(() => renderCurrentItem(), 100); }" 
+                            :disabled="currentIndex === 0"
+                            class="btn btn-circle btn-primary"
+                            :class="currentIndex === 0 ? 'btn-disabled' : ''">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    
+                    <span class="text-white text-lg font-bold" x-text="(currentIndex + 1) + ' / {{ user_reviews|length }}'"></span>
+                    
+                    <button @click="if(currentIndex < {{ user_reviews|length }} - 1) { currentIndex++; setTimeout(() => renderCurrentItem(), 100); }" 
+                            :disabled="currentIndex >= {{ user_reviews|length }} - 1"
+                            class="btn btn-circle btn-primary"
+                            :class="currentIndex >= {{ user_reviews|length }} - 1 ? 'btn-disabled' : ''">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+                
+                <!-- Rating controls -->
+                <div class="flex justify-center items-center space-x-2 mb-4">
+                    <span class="text-white text-sm">¿Qué tal lo sabes?</span>
+                    {% for review in user_reviews %}
+                    <div x-show="currentIndex === {{ forloop.counter0 }}" class="flex space-x-1">
+                        {% csrf_token %}
+                        <button hx-post="{% url 'music_cards:rate_item' %}" 
+                                hx-vals='{"review_id": {{ review.id }}, "rating": 1}'
+                                hx-trigger="click"
+                                class="btn btn-sm btn-warning">1★</button>
+                        <button hx-post="{% url 'music_cards:rate_item' %}" 
+                                hx-vals='{"review_id": {{ review.id }}, "rating": 2}'
+                                hx-trigger="click"
+                                class="btn btn-sm btn-warning">2★</button>
+                        <button hx-post="{% url 'music_cards:rate_item' %}" 
+                                hx-vals='{"review_id": {{ review.id }}, "rating": 3}'
+                                hx-trigger="click"
+                                class="btn btn-sm btn-warning">3★</button>
+                        <button hx-post="{% url 'music_cards:rate_item' %}" 
+                                hx-vals='{"review_id": {{ review.id }}, "rating": 4}'
+                                hx-trigger="click"
+                                class="btn btn-sm btn-warning">4★</button>
+                        <button hx-post="{% url 'music_cards:rate_item' %}" 
+                                hx-vals='{"review_id": {{ review.id }}, "rating": 5}'
+                                hx-trigger="click"
+                                class="btn btn-sm btn-warning">5★</button>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <!-- Thumbnails -->
+                <div x-show="showThumbnails" class="mb-4">
+                    <div class="flex space-x-2 overflow-x-auto pb-2 justify-center">
+                        {% for review in user_reviews %}
+                        <div @click="currentIndex = {{ forloop.counter0 }}; setTimeout(() => renderCurrentItem(), 100);" 
+                             class="study-thumbnail cursor-pointer flex-shrink-0"
+                             :class="currentIndex === {{ forloop.counter0 }} ? 'ring-2 ring-primary' : ''">
+                            
+                            <div class="w-20 h-28 bg-gray-200 rounded border overflow-hidden">
+                                {% if review.music_item.texts.all %}
+                                    <!-- Text thumbnail -->
+                                    <div class="p-1 text-xs overflow-hidden h-full">
+                                        <div class="font-bold mb-1 text-gray-800">{{ review.music_item.texts.all.0.name|truncatechars:10 }}</div>
+                                        <div class="text-gray-600 leading-tight text-xs">
+                                            {{ review.music_item.texts.all.0.content|truncatechars:30 }}
+                                        </div>
+                                    </div>
+                                {% elif review.music_item.files.all %}
+                                    {% with review.music_item.files.all.0 as first_file %}
+                                        {% if '.pdf' in first_file.file.name %}
+                                            <!-- PDF thumbnail -->
+                                            <div class="flex items-center justify-center h-full bg-red-100">
+                                                <i class="fas fa-file-pdf text-red-600 text-lg"></i>
+                                            </div>
+                                        {% elif first_file.file.name|slice:"-4:" in ".mp3,.wav,.m4a" %}
+                                            <!-- Audio thumbnail -->
+                                            <div class="flex items-center justify-center h-full bg-blue-100">
+                                                <i class="fas fa-music text-blue-600 text-lg"></i>
+                                            </div>
+                                        {% else %}
+                                            <!-- Video thumbnail -->
+                                            <div class="flex items-center justify-center h-full bg-purple-100">
+                                                <i class="fas fa-video text-purple-600 text-lg"></i>
+                                            </div>
+                                        {% endif %}
+                                    {% endwith %}
+                                {% endif %}
+                            </div>
+                            
+                            <div class="text-xs text-center mt-1 text-white truncate">
+                                {{ review.music_item.title|truncatechars:12 }}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <!-- Thumbnails toggle -->
+                <div class="flex justify-center">
+                    <button @click="showThumbnails = !showThumbnails" 
+                            class="btn btn-sm btn-ghost text-white">
+                        <i class="fas fa-th"></i>
+                        <span x-text="showThumbnails ? 'Ocultar' : 'Mostrar'"></span> vista previa
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Initialize fullscreen and render content when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    // Enter fullscreen mode
+    if (document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen();
+    }
+    
+    // Function to render current item
+    function renderCurrentItem() {
+        const alpineData = document.querySelector('[x-data]').__x.$data;
+        const currentIndex = alpineData.currentIndex;
+        
+        // Render chord sheets for current item
+        const currentChordSheet = document.querySelector(`.study-item-container:nth-child(${currentIndex + 1}) .chord-sheet-fullscreen`);
+        if (currentChordSheet && window.parseUltimateGuitarChords) {
+            const chordContent = currentChordSheet.getAttribute('data-chord-content');
+            if (chordContent && chordContent.trim() !== '') {
+                console.log('Rendering chord sheet for item', currentIndex);
+                currentChordSheet.innerHTML = parseUltimateGuitarChords(chordContent);
+            }
+        }
+        
+        // Render ABC notation for current item
+        const currentABC = document.querySelector(`.study-item-container:nth-child(${currentIndex + 1}) .abc-notation-fullscreen`);
+        if (currentABC && window.ABCJS) {
+            const abcContent = currentABC.getAttribute('data-abc-content');
+            if (abcContent && abcContent.trim() !== '') {
+                console.log('Rendering ABC notation for item', currentIndex);
+                ABCJS.renderAbc(currentABC.id, abcContent, {
+                    responsive: "resize",
+                    viewportHorizontal: true,
+                    scrollHorizontal: true
+                });
+            }
+        }
+    }
+    
+    // Initial render
+    setTimeout(renderCurrentItem, 500);
+});
+
+// Add keyboard navigation
+document.addEventListener('keydown', function(e) {
+    const alpineData = document.querySelector('[x-data]').__x.$data;
+    
+    if (e.key === 'ArrowLeft' && alpineData.currentIndex > 0) {
+        alpineData.currentIndex--;
+        setTimeout(renderCurrentItem, 100);
+    } else if (e.key === 'ArrowRight' && alpineData.currentIndex < {{ user_reviews|length }} - 1) {
+        alpineData.currentIndex++;
+        setTimeout(renderCurrentItem, 100);
+    } else if (e.key === 'Escape') {
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        }
+        window.history.back();
+    }
+});
+
+// Rating function
+function rateCurrentItem(rating) {
+    // This would send the rating to the server
+    console.log('Rating item:', rating);
+    // You can implement the AJAX call here if needed
+}
+</script>
+
+<style>
+.fullscreen-study {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: white;
+    z-index: 9999;
+    overflow: hidden;
+}
+
+.study-overlay {
+    position: absolute;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    pointer-events: none;
+}
+
+.study-overlay > * {
+    pointer-events: auto;
+}
+
+.study-overlay-top {
+    top: 0;
+    height: 80px;
+}
+
+.study-overlay-bottom {
+    bottom: 0;
+    height: 200px;
+}
+
+.study-content {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.study-item-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.study-text-content {
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.abc-notation-fullscreen,
+.chord-sheet-fullscreen {
+    width: 100%;
+    max-width: 1200px;
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    max-height: 90vh;
+    overflow: auto;
+}
+
+.study-pdf-content {
+    width: 100%;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.study-pdf-content iframe {
+    width: 95%;
+    height: 95%;
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.study-audio-content,
+.study-video-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+}
+
+.audio-player-fullscreen {
+    text-align: center;
+}
+
+/* Smooth transitions */
+.study-item-container {
+    transition: opacity 0.3s ease-in-out;
+}
+
+/* Better overlay styling */
+.study-overlay {
+    transition: opacity 0.2s ease-in-out;
+}
+
+/* Thumbnail styling */
+.study-thumbnail {
+    transition: all 0.2s ease-in-out;
+}
+
+.study-thumbnail:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Rating button styling */
+.btn-warning:hover {
+    transform: scale(1.1);
+    transition: transform 0.1s ease-in-out;
+}
+
+/* Better chord sheet styling for fullscreen */
+.chord-sheet-fullscreen .chord-sheet-rendered {
+    font-size: 16px;
+    line-height: 1.6;
+}
+
+.chord-sheet-fullscreen .chord-sheet-rendered table {
+    width: 100%;
+    max-width: none;
+}
+
+/* ABC notation fullscreen styling */
+.abc-notation-fullscreen svg {
+    max-width: 100%;
+    height: auto;
+}
+
+/* PDF viewer improvements */
+.study-pdf-content iframe {
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Audio/Video player improvements */
+.study-audio-content audio,
+.study-video-content video {
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Progress bar styling */
+.progress-bar-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background-color: rgba(0, 0, 0, 0.2);
+    z-index: 20;
+}
+
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+    transition: width 0.3s ease-in-out;
+    border-radius: 0 2px 2px 0;
+}
+</style>
+{% endblock content %}

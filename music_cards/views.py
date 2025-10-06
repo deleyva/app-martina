@@ -341,6 +341,81 @@ def study_session_new(request, study_session_id):
     )
 
 
+def study_session_fullscreen(request, study_session_id):
+    """
+    Vista de sesión de estudio en pantalla completa estilo forScore.
+    Muestra cada elemento (texto, PDF, audio, video) individualmente en pantalla completa.
+    """
+    study_session = get_object_or_404(UserStudySession, id=study_session_id, user=request.user)
+    user_reviews = list(study_session.reviews.all())
+    
+    if not user_reviews:
+        # Redirect back if no reviews
+        return redirect('music_cards:study_session_new', study_session_id=study_session_id)
+    
+    # Get current index from session or default to 0
+    current_index = int(request.session.get(f'fullscreen_index_{study_session_id}', 0))
+    current_index = max(0, min(current_index, len(user_reviews) - 1))
+    
+    # Get current review
+    current_review = user_reviews[current_index]
+    
+    # Calculate progress
+    progress_percentage = ((current_index + 1) / len(user_reviews)) * 100
+
+    return render(
+        request,
+        "music_cards/study_session_fullscreen_static.html",
+        {
+            "study_session": study_session,
+            "user_reviews": user_reviews,
+            "current_review": current_review,
+            "current_index": current_index,
+            "total_items": len(user_reviews),
+            "progress_percentage": progress_percentage,
+        },
+    )
+
+
+def fullscreen_navigate(request, study_session_id):
+    """
+    HTMX endpoint para navegación en pantalla completa.
+    """
+    if request.method != 'POST':
+        return HttpResponse(status=405)  # Method not allowed
+        
+    study_session = get_object_or_404(UserStudySession, id=study_session_id, user=request.user)
+    user_reviews = list(study_session.reviews.all())
+    
+    direction = request.POST.get('direction', 'next')
+    current_index = int(request.POST.get('current_index', 0))
+    
+    if direction == 'next' and current_index < len(user_reviews) - 1:
+        current_index += 1
+    elif direction == 'prev' and current_index > 0:
+        current_index -= 1
+    
+    # Save current index in session
+    request.session[f'fullscreen_index_{study_session_id}'] = current_index
+    
+    # Get current review
+    current_review = user_reviews[current_index] if current_index < len(user_reviews) else None
+    
+    # Return the full page content for navigation
+    return render(
+        request,
+        "music_cards/study_session_fullscreen_simple.html",
+        {
+            "study_session": study_session,
+            "user_reviews": user_reviews,
+            "current_review": current_review,
+            "current_index": current_index,
+            "total_items": len(user_reviews),
+            "progress_percentage": ((current_index + 1) / len(user_reviews)) * 100,
+        },
+    )
+
+
 # CRUD Views for MusicItem
 
 def music_item_create(request):
