@@ -28,8 +28,8 @@
     <div class="study-header" id="study-header">
         <div class="header-content">
             <div class="header-left">
-                <a href="{% url 'music_cards:study_session_new' study_session.id %}" class="btn btn-sm btn-ghost text-white">
-                    <i class="fas fa-times"></i> Salir
+                <a href="{% url 'music_cards:finish_study_session' study_session.id %}" class="btn btn-sm btn-ghost text-white">
+                    <i class="fas fa-times"></i> Terminar Sesión
                 </a>
                 <h1 class="study-title" id="study-title">Cargando...</h1>
             </div>
@@ -438,19 +438,22 @@ const STUDY_DATA = {
     height: 120px; /* Bottom 120px of screen */
 }
 
-/* Show controls only on specific hover zones */
-.hover-zone-top:hover ~ .study-header {
-    opacity: 1;
+/* Simplified hover controls - always work */
+.study-controls {
+    opacity: 0;
+    transition: opacity 0.3s ease;
 }
 
-.hover-zone-bottom:hover ~ .study-controls {
-    opacity: 1;
-}
-
-/* Keep controls visible when hovering over them directly */
-.study-header:hover,
+/* Show controls when hovering bottom 120px of screen */
+.hover-zone-bottom:hover ~ .study-controls,
 .study-controls:hover {
-    opacity: 1;
+    opacity: 1 !important;
+}
+
+/* Show header when hovering top area */
+.hover-zone-top:hover ~ .study-header,
+.study-header:hover {
+    opacity: 1 !important;
 }
 
 /* Ensure controls are always on top */
@@ -1006,15 +1009,22 @@ function rateItem(rating) {
             'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
         },
         body: `review_id=${item.id}&rating=${rating}`
-    }).then(response => {
-        if (response.ok) {
+    }).then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Map rating to box (1-2 stars = box 1, 3 = box 2, 4 = box 3, 5 = box 4)
+            const boxMapping = {1: 1, 2: 1, 3: 2, 4: 3, 5: 4};
+            const newBox = boxMapping[rating];
+            
             // Update local data
-            item.box = rating;
-            document.getElementById('box-indicator').textContent = `Box: ${rating}`;
-            console.log('Rating updated successfully');
+            item.box = newBox;
+            document.getElementById('box-indicator').textContent = `Box: ${newBox}`;
+            console.log('Rating updated successfully. New box:', newBox);
+        } else {
+            console.error('Rating failed:', data.error);
         }
     }).catch(err => {
-        console.error('Rating failed:', err);
+        console.error('Rating request failed:', err);
     });
 }
 
@@ -1030,7 +1040,7 @@ document.addEventListener('keydown', function(e) {
         if (document.exitFullscreen) {
             document.exitFullscreen();
         }
-        window.location.href = '{% url "music_cards:study_session_new" study_session.id %}';
+        window.location.href = '{% url "music_cards:finish_study_session" study_session.id %}';
         e.preventDefault();
     }
 });

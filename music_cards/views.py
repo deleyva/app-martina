@@ -68,7 +68,9 @@ def start_study_session(request, study_session_id=None):
 def finish_study_session(request, study_session_id):
     study_session = UserStudySession.objects.get(id=study_session_id)
     study_session.finish_study_session()
-    return HttpResponse("")
+    
+    # Redirect to the main music cards page after finishing the session
+    return redirect('music_cards:home')
 
 
 def study_session(request, study_session_id):
@@ -292,29 +294,47 @@ def delete_text(request, pk):
 @require_POST
 def rate_item(request):
     """
-    Vista para calificar un elemento de estudio con el sistema Leitner de 4 cajas.
-    Recibe el ID de la review y la calificación (1-4) vía JSON.
+    Vista para calificar un elemento de estudio con el sistema Leitner.
+    Acepta tanto form data como JSON para compatibilidad.
     """
     try:
-        data = json.loads(request.body)
-        review_id = data.get('review_id')
-        rating = data.get('rating')
+        # Try form data first (from current rateItem function)
+        if request.POST:
+            review_id = request.POST.get('review_id')
+            rating = request.POST.get('rating')
+        else:
+            # Fallback to JSON
+            data = json.loads(request.body)
+            review_id = data.get('review_id')
+            rating = data.get('rating')
         
         if not review_id or not rating:
             return JsonResponse({'success': False, 'error': 'Faltan parámetros'})
         
-        if rating not in [1, 2, 3, 4]:
-            return JsonResponse({'success': False, 'error': 'Calificación inválida'})
+        # Convert to int
+        try:
+            review_id = int(review_id)
+            rating = int(rating)
+        except (ValueError, TypeError):
+            return JsonResponse({'success': False, 'error': 'Parámetros inválidos'})
+        
+        if rating not in [1, 2, 3, 4, 5]:
+            return JsonResponse({'success': False, 'error': 'Calificación inválida (1-5)'})
         
         # Obtener la review y verificar que pertenece al usuario actual
         review = get_object_or_404(UserReview, id=review_id, user=request.user)
         
+        # Map 1-5 stars to 1-4 boxes (1-2 stars = box 1, 3 = box 2, 4 = box 3, 5 = box 4)
+        box_mapping = {1: 1, 2: 1, 3: 2, 4: 3, 5: 4}
+        box_rating = box_mapping[rating]
+        
         # Actualizar la caja usando el nuevo método
-        review.update_box(rating)
+        review.update_box(box_rating)
         
         return JsonResponse({
             'success': True, 
             'new_box': review.box,
+            'rating': rating,
             'times_reviewed': review.n_times_reiewed
         })
         

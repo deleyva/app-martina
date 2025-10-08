@@ -411,16 +411,32 @@
                                 const canvas = document.createElement('canvas');
                                 const context = canvas.getContext('2d');
                                 
-                                // Scale to fit container width
+                                // Scale to fit container dimensions
                                 const containerWidth = container.clientWidth;
-                                const scale = containerWidth / viewport.width;
+                                const containerHeight = container.clientHeight;
+                                
+                                // Calculate scale to fit both width and height
+                                const scaleX = containerWidth / viewport.width;
+                                const scaleY = containerHeight / viewport.height;
+                                const scale = Math.min(scaleX, scaleY); // Use smaller scale to fit completely
+                                
                                 const scaledViewport = page.getViewport({ scale: scale });
                                 
                                 canvas.height = scaledViewport.height;
                                 canvas.width = scaledViewport.width;
+                                canvas.style.maxWidth = '100%';
+                                canvas.style.maxHeight = '100%';
+                                canvas.style.objectFit = 'contain';
+                                canvas.style.display = 'block';
+                                canvas.style.margin = '0 auto';
+                                
+                                // Create canvas container
+                                const canvasContainer = document.createElement('div');
+                                canvasContainer.style.cssText = 'flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden;';
+                                canvasContainer.appendChild(canvas);
                                 
                                 container.innerHTML = '';
-                                container.appendChild(canvas);
+                                container.appendChild(canvasContainer);
                                 
                                 page.render({
                                     canvasContext: context,
@@ -431,16 +447,16 @@
                         
                         renderPage(currentPage);
                         
-                        // Add navigation controls
+                        // Add navigation controls inside container
                         const navControls = document.createElement('div');
                         navControls.className = 'pdf-nav-controls';
-                        navControls.style.cssText = 'position: absolute; top: 10px; left: 10px; z-index: 1003;';
+                        navControls.style.cssText = 'position: relative; top: 0; left: 0; z-index: 1; background: rgba(0,0,0,0.7); color: white; padding: 8px; border-radius: 4px; margin-bottom: 8px; text-align: center;';
                         navControls.innerHTML = `
-                            <button onclick="previousPage()" class="btn btn-sm btn-circle">‹</button>
-                            <span id="page-info">${currentPage} / ${pdf.numPages}</span>
-                            <button onclick="nextPage()" class="btn btn-sm btn-circle">›</button>
+                            <button onclick="previousPage()" class="btn btn-sm btn-circle btn-ghost text-white">‹</button>
+                            <span id="page-info" class="mx-2">${currentPage} / ${pdf.numPages}</span>
+                            <button onclick="nextPage()" class="btn btn-sm btn-circle btn-ghost text-white">›</button>
                         `;
-                        container.parentElement.appendChild(navControls);
+                        container.parentElement.insertBefore(navControls, container);
                         
                         window.previousPage = function() {
                             if (currentPage > 1) {

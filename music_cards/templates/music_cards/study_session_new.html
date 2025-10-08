@@ -134,8 +134,8 @@
                                 {% if file.file.name|slice:"-4:" == ".pdf" %}
                                 <div class="mb-4">
                                     <h4 class="font-semibold mb-2">{{ file.name }}</h4>
-                                    <div class="relative bg-white rounded border" style="height: 500px;">
-                                        <div id="pdf-{{ review.id }}-{{ forloop.counter }}" class="pdf-container"></div>
+                                    <div class="relative bg-white rounded border" style="height: 500px; overflow: hidden;">
+                                        <div id="pdf-{{ review.id }}-{{ forloop.counter }}" class="pdf-container" style="width: 100%; height: 100%; display: flex; flex-direction: column;"></div>
                                         <script>
                                             document.addEventListener('DOMContentLoaded', function() {
                                                 initializePDFViewer('{{ file.file.url }}', 'pdf-{{ review.id }}-{{ forloop.counter }}');
