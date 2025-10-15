@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
+from django.utils import timezone
 from martina_bescos_app.users.models import User
 
 # Create your models here.
@@ -25,6 +26,12 @@ class Tag(models.Model):
 
 
 class MusicItemManager(models.Manager):
+    """Manager que excluye automáticamente los elementos borrados lógicamente"""
+    
+    def get_queryset(self):
+        """Sobrescribe get_queryset para excluir elementos borrados"""
+        return super().get_queryset().filter(deleted_at__isnull=True)
+    
     def filter_by_tags(self, tags=None, file_type=None, embed_type=None, text=None):
         queryset = self.get_queryset()
 
@@ -46,6 +53,11 @@ class MusicItemManager(models.Manager):
             queryset = queryset.filter(embeds__url__icontains=text).distinct()
 
         return queryset
+
+
+class AllMusicItemManager(models.Manager):
+    """Manager que incluye TODOS los elementos (incluso los borrados)"""
+    pass
 
 
 class Category(models.Model):
@@ -115,10 +127,15 @@ class MusicItem(models.Model):
     original_item = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, 
                                     help_text="Referencia al item original si es una copia")
     
+    # Borrado lógico (soft delete)
+    deleted_at = models.DateTimeField(null=True, blank=True, help_text="Fecha de borrado lógico")
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    objects = MusicItemManager()
+    # Managers
+    objects = MusicItemManager()  # Excluye elementos borrados
+    all_objects = AllMusicItemManager()  # Incluye todos los elementos
 
     class Meta:
         permissions = [
@@ -158,6 +175,30 @@ class MusicItem(models.Model):
         new_item.tags.set(self.tags.all())
         
         return new_item
+    
+    # Métodos de borrado lógico
+    def delete(self, using=None, keep_parents=False):
+        """Borrado lógico: marca el elemento como borrado sin eliminarlo físicamente"""
+        if self.deleted_at is None:
+            self.deleted_at = timezone.now()
+            self.save(using=using)
+        return self
+    
+    def hard_delete(self, using=None, keep_parents=False):
+        """Borrado físico: elimina realmente el elemento de la base de datos"""
+        return super().delete(using=using, keep_parents=keep_parents)
+    
+    def restore(self):
+        """Restaura un elemento borrado lógicamente"""
+        if self.deleted_at is not None:
+            self.deleted_at = None
+            self.save()
+        return self
+    
+    @property
+    def is_deleted(self):
+        """Verifica si el elemento está borrado lógicamente"""
+        return self.deleted_at is not None
 
 
 class Embed(models.Model):
@@ -254,13 +295,21 @@ class UserReview(models.Model):
             (4, "Fácil"),
         ]
     )
-    n_times_reiewed = models.IntegerField(default=0)
+    n_times_reviewed = models.IntegerField(default=0)
     last_reviewed = models.DateTimeField(auto_now=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['user', 'music_item']),  # Consultas por usuario y item
+            models.Index(fields=['user', 'box']),  # Filtrado por usuario y caja
+            models.Index(fields=['user', 'last_reviewed']),  # Ordenamiento por fecha de repaso
+            models.Index(fields=['box', 'last_reviewed']),  # Consultas por caja y fecha
+        ]
+
     def __str__(self):
-        return f"User: {self.user} - Music Item: {self.music_item} - Box: {self.box} - Times Reviewed: {self.n_times_reiewed}"
+        return f"User: {self.user} - Music Item: {self.music_item} - Box: {self.box} - Times Reviewed: {self.n_times_reviewed}"
 
     def update_box(self, rating):
         """
@@ -290,7 +339,7 @@ class UserReview(models.Model):
             if self.box < 4:
                 self.box = min(4, self.box + 2)
         
-        self.n_times_reiewed += 1
+        self.n_times_reviewed += 1
         self.save()
 
 
