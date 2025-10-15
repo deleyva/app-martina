@@ -1,0 +1,46 @@
+FILOSOFÍA GENERAL Y ESTILO DE CÓDIGO
+=====================================
+- Eres un programador experto en Django que valora la simplicidad y la eficiencia.
+- Sigue la guía de estilo PEP 8 para todo el código Python.
+- Prioriza la legibilidad y la claridad sobre la optimización prematura.
+- Escribe código modular, manteniendo las responsabilidades bien separadas en cada aplicación de Django.
+
+-----------------------------------------
+
+ARQUITECTURA BACKEND (DJANGO)
+=============================
+- Adopta estrictamente el patrón "Tiny Views - Fat Models".
+    - Toda la lógica de negocio, consultas complejas (QuerySets) y manipulación de datos debe residir en los modelos (models.py) o en sus managers personalizados.
+    - Las vistas (views.py) deben ser extremadamente delgadas. Su única función es conectar las peticiones HTTP con la lógica del modelo y renderizar la plantilla.
+- Prefiere siempre el uso de Vistas Basadas en Funciones (Function Views) sobre Vistas Basadas en Clases (CBVs) para mantener la explicitud y la sencillez.
+- Estoy desarrollando y desplegando usando docker. Estoy usando just para ejecutar comandos. Todo esta en el .justfile de la presente carpeta
+
+-----------------------------------------
+
+FRONTEND (TAILWIND CSS, DAISYUI Y HTMX)
+========================================
+- Toda la estilización se realiza utilizando Tailwind CSS como framework principal.
+- Se utiliza DaisyUI 5.0 como plugin de Tailwind para disponer de un sistema de componentes predefinidos (botones, cards, modales, etc.), acelerando el desarrollo de la interfaz.
+- La interactividad del frontend se gestiona completamente con HTMX. El objetivo es mejorar el HTML directamente desde el backend.
+- Evita escribir bloques de JavaScript personalizados. La lógica debe residir en el backend y ser activada mediante atributos hx-*.
+- No se utiliza Alpine.js. Cualquier necesidad de manipulación ligera del DOM debe ser reevaluada para ver si puede resolverse con HTMX y respuestas HTML desde el servidor.
+
+-----------------------------------------
+
+ESTRUCTURA DE ARCHIVOS CLAVE
+============================
+- La lógica de negocio principal y los métodos de modelo se encuentran en [nombre_app]/models.py.
+- Las vistas delgadas basadas en funciones están definidas en [nombre_app]/views.py.
+- Las plantillas de Django, enriquecidas con clases de Tailwind/DaisyUI y atributos de HTMX, están ubicadas en templates/.
+- La configuración de URLs específica de una aplicación se encuentra en [nombre_app]/urls.py.
+- El archivo de configuración de Tailwind es tailwind.config.js (y debe incluir el plugin de DaisyUI).
+- El CSS compilado por Tailwind se encuentra en static/css/dist/.
+
+-----------------------------------------
+
+HERRAMIENTAS Y FORMATEO
+=======================
+- Usa Black para el formateo automático del código Python.
+- Usa djhtml para formatear las plantillas HTML de Django.
+- Se recomienda el uso de django-browser-reload para el desarrollo en vivo junto al proceso "watch" de Tailwind.
+

@@ -382,6 +382,48 @@ def study_session_fullscreen(request, study_session_id):
     
     # Calculate progress
     progress_percentage = ((current_index + 1) / len(user_reviews)) * 100
+    
+    # Prepare enhanced data for each review
+    enhanced_reviews = []
+    for review in user_reviews:
+        music_item = review.music_item
+        
+        # Get all files and texts
+        all_files = list(music_item.files.all())
+        all_texts = list(music_item.texts.all())
+        
+        # Determine primary content (PDF priority)
+        primary_content = _get_primary_content(all_files, all_texts)
+        
+        # Prepare file data
+        files_data = []
+        for file_obj in all_files:
+            file_type = _get_file_type(file_obj.file.name)
+            files_data.append({
+                'type': file_type,
+                'url': file_obj.file.url,
+                'name': file_obj.name,
+                'filename': file_obj.file.name
+            })
+        
+        # Prepare text data
+        texts_data = []
+        for text_obj in all_texts:
+            is_abc = 'X:' in text_obj.content
+            texts_data.append({
+                'type': 'text',
+                'name': text_obj.name,
+                'content': text_obj.content,
+                'isABC': is_abc
+            })
+        
+        enhanced_review = {
+            'review': review,
+            'primary_content': primary_content,
+            'all_files': files_data,
+            'all_texts': texts_data
+        }
+        enhanced_reviews.append(enhanced_review)
 
     return render(
         request,
@@ -389,12 +431,65 @@ def study_session_fullscreen(request, study_session_id):
         {
             "study_session": study_session,
             "user_reviews": user_reviews,
+            "enhanced_reviews": enhanced_reviews,
             "current_review": current_review,
             "current_index": current_index,
             "total_items": len(user_reviews),
             "progress_percentage": progress_percentage,
         },
     )
+
+def _get_primary_content(all_files, all_texts):
+    """
+    Determina el contenido principal siguiendo la prioridad: PDF > texto > otros archivos
+    """
+    # Buscar PDF primero
+    for file_obj in all_files:
+        if '.pdf' in file_obj.file.name.lower():
+            return {
+                'type': 'pdf',
+                'url': file_obj.file.url,
+                'name': file_obj.name
+            }
+    
+    # Si no hay PDF, usar primer texto
+    if all_texts:
+        first_text = all_texts[0]
+        is_abc = 'X:' in first_text.content
+        return {
+            'type': 'text',
+            'content': first_text.content,
+            'name': first_text.name,
+            'isABC': is_abc
+        }
+    
+    # Si no hay texto, usar primer archivo
+    if all_files:
+        first_file = all_files[0]
+        file_type = _get_file_type(first_file.file.name)
+        return {
+            'type': file_type,
+            'url': first_file.file.url,
+            'name': first_file.name
+        }
+    
+    # Sin contenido
+    return {
+        'type': 'empty',
+        'content': 'No hay contenido disponible'
+    }
+
+def _get_file_type(filename):
+    """
+    Determina el tipo de archivo basándose en la extensión
+    """
+    filename_lower = filename.lower()
+    if '.pdf' in filename_lower:
+        return 'pdf'
+    elif any(ext in filename_lower for ext in ['.mp3', '.wav', '.m4a', '.ogg']):
+        return 'audio'
+    else:
+        return 'video'
 
 
 def fullscreen_navigate(request, study_session_id):

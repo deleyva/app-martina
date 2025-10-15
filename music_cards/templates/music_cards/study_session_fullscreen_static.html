@@ -33,6 +33,34 @@
                 </a>
                 <h1 class="study-title" id="study-title">Cargando...</h1>
             </div>
+            <div class="header-center">
+                <!-- File Selection Menu -->
+                <div class="file-selector" id="file-selector">
+                    <button class="file-selector-btn" id="file-selector-btn">
+                        <i class="fas fa-file"></i>
+                        <span id="current-file-name">Archivo actual</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="file-dropdown" id="file-dropdown">
+                        <div class="file-dropdown-content">
+                            <!-- Archivos -->
+                            <div class="file-section" id="files-section">
+                                <div class="file-section-title">Archivos</div>
+                                <div class="file-list" id="file-list">
+                                    <!-- Se llenarán dinámicamente -->
+                                </div>
+                            </div>
+                            <!-- Textos -->
+                            <div class="file-section" id="texts-section">
+                                <div class="file-section-title">Textos</div>
+                                <div class="file-list" id="text-list">
+                                    <!-- Se llenarán dinámicamente -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
             <div class="header-right">
                 <span class="progress-text" id="progress-text">1 / {{ total_items }}</span>
                 <span class="box-indicator" id="box-indicator">Box: 1</span>
@@ -87,27 +115,48 @@ const STUDY_DATA = {
     currentIndex: {{ current_index }},
     totalItems: {{ total_items }},
     items: [
-        {% for review in user_reviews %}
+        {% for enhanced in enhanced_reviews %}
         {
-            id: {{ review.id }},
-            title: "{{ review.music_item.title|escapejs }}",
-            box: {{ review.box }},
-            {% if review.music_item.texts.all %}
-                {% with review.music_item.texts.all.0 as first_text %}
-                type: "text",
-                content: `{{ first_text.content|escapejs }}`,
-                isABC: {% if 'X:' in first_text.content %}true{% else %}false{% endif %}
-                {% endwith %}
-            {% elif review.music_item.files.all %}
-                {% with review.music_item.files.all.0 as first_file %}
-                type: "{% if '.pdf' in first_file.file.name %}pdf{% elif first_file.file.name|slice:'-4:' in '.mp3,.wav,.m4a' %}audio{% else %}video{% endif %}",
-                url: "{{ first_file.file.url }}",
-                name: "{{ first_file.name|escapejs }}"
-                {% endwith %}
-            {% else %}
-                type: "empty",
-                content: "No hay contenido disponible"
+            id: {{ enhanced.review.id }},
+            title: "{{ enhanced.review.music_item.title|escapejs }}",
+            box: {{ enhanced.review.box }},
+            
+            // Contenido principal (prioridad: PDF > texto > otros archivos)
+            type: "{{ enhanced.primary_content.type }}",
+            {% if enhanced.primary_content.url %}
+            url: "{{ enhanced.primary_content.url }}",
             {% endif %}
+            {% if enhanced.primary_content.content %}
+            content: `{{ enhanced.primary_content.content|escapejs }}`,
+            {% endif %}
+            {% if enhanced.primary_content.isABC %}
+            isABC: {{ enhanced.primary_content.isABC|yesno:"true,false" }},
+            {% endif %}
+            name: "{{ enhanced.primary_content.name|escapejs }}",
+            
+            // Todos los archivos disponibles para el menú
+            allFiles: [
+                {% for file in enhanced.all_files %}
+                {
+                    type: "{{ file.type }}",
+                    url: "{{ file.url }}",
+                    name: "{{ file.name|escapejs }}",
+                    filename: "{{ file.filename|escapejs }}"
+                }{% if not forloop.last %},{% endif %}
+                {% endfor %}
+            ],
+            
+            // Todos los textos disponibles
+            allTexts: [
+                {% for text in enhanced.all_texts %}
+                {
+                    type: "text",
+                    name: "{{ text.name|escapejs }}",
+                    content: `{{ text.content|escapejs }}`,
+                    isABC: {{ text.isABC|yesno:"true,false" }}
+                }{% if not forloop.last %},{% endif %}
+                {% endfor %}
+            ]
         }{% if not forloop.last %},{% endif %}
         {% endfor %}
     ]
@@ -169,6 +218,21 @@ const STUDY_DATA = {
     display: flex;
     align-items: center;
     gap: 1rem;
+    flex: 1;
+}
+
+.header-center {
+    display: flex;
+    justify-content: center;
+    flex: 1;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex: 1;
+    justify-content: flex-end;
 }
 
 .study-title {
@@ -176,10 +240,130 @@ const STUDY_DATA = {
     font-weight: bold;
 }
 
-.header-right {
+/* File Selector Styles */
+.file-selector {
+    position: relative;
+    display: inline-block;
+}
+
+.file-selector-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+    min-width: 200px;
+    justify-content: space-between;
+}
+
+.file-selector-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.file-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 0.5rem;
+    min-width: 300px;
+    max-width: 400px;
+    max-height: 400px;
+    overflow-y: auto;
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateX(-50%) translateY(-10px);
+    transition: all 0.2s ease;
+    margin-top: 0.5rem;
+}
+
+.file-selector:hover .file-dropdown {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
+}
+
+.file-dropdown-content {
+    padding: 0.5rem;
+}
+
+.file-section {
+    margin-bottom: 1rem;
+}
+
+.file-section:last-child {
+    margin-bottom: 0;
+}
+
+.file-section-title {
+    font-size: 0.8rem;
+    font-weight: bold;
+    color: rgba(255, 255, 255, 0.7);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+    padding: 0 0.5rem;
+}
+
+.file-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.file-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: white;
+    text-decoration: none;
+}
+
+.file-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+.file-item.active {
+    background: rgba(59, 130, 246, 0.3);
+    border: 1px solid rgba(59, 130, 246, 0.5);
+}
+
+.file-item-icon {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+}
+
+.file-item-name {
+    flex: 1;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.file-item-type {
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.6);
+    text-transform: uppercase;
 }
 
 .progress-text, .box-indicator {
@@ -672,6 +856,157 @@ function updateUI(item) {
     // Update navigation buttons
     document.getElementById('nav-prev').disabled = currentIndex === 0;
     document.getElementById('nav-next').disabled = currentIndex >= totalItems - 1;
+    
+    // Update file selector
+    updateFileSelector(item);
+}
+
+function updateFileSelector(item) {
+    const fileSelector = document.getElementById('file-selector');
+    const currentFileName = document.getElementById('current-file-name');
+    const fileList = document.getElementById('file-list');
+    const textList = document.getElementById('text-list');
+    const filesSection = document.getElementById('files-section');
+    const textsSection = document.getElementById('texts-section');
+    
+    // Update current file name
+    if (item.type === 'pdf' || item.type === 'audio' || item.type === 'video') {
+        currentFileName.textContent = item.name || 'Archivo actual';
+    } else if (item.type === 'text') {
+        currentFileName.textContent = item.name || 'Texto actual';
+    } else {
+        currentFileName.textContent = 'Sin contenido';
+    }
+    
+    // Clear existing lists
+    fileList.innerHTML = '';
+    textList.innerHTML = '';
+    
+    // Show/hide file selector based on available content
+    const hasMultipleItems = (item.allFiles && item.allFiles.length > 1) || 
+                            (item.allTexts && item.allTexts.length > 0) ||
+                            (item.allFiles && item.allFiles.length > 0 && item.allTexts && item.allTexts.length > 0);
+    
+    if (!hasMultipleItems) {
+        fileSelector.style.display = 'none';
+        return;
+    }
+    
+    fileSelector.style.display = 'inline-block';
+    
+    // Populate file list
+    if (item.allFiles && item.allFiles.length > 0) {
+        filesSection.style.display = 'block';
+        item.allFiles.forEach((file, index) => {
+            const fileItem = createFileItem(file, 'file', index);
+            fileList.appendChild(fileItem);
+        });
+    } else {
+        filesSection.style.display = 'none';
+    }
+    
+    // Populate text list
+    if (item.allTexts && item.allTexts.length > 0) {
+        textsSection.style.display = 'block';
+        item.allTexts.forEach((text, index) => {
+            const textItem = createFileItem(text, 'text', index);
+            textList.appendChild(textItem);
+        });
+    } else {
+        textsSection.style.display = 'none';
+    }
+}
+
+function createFileItem(content, contentType, index) {
+    const item = document.createElement('div');
+    item.className = 'file-item';
+    item.setAttribute('data-content-type', contentType);
+    item.setAttribute('data-index', index);
+    
+    // Determine icon based on content type
+    let icon = 'fas fa-file';
+    let typeLabel = contentType.toUpperCase();
+    
+    if (contentType === 'file') {
+        if (content.type === 'pdf') {
+            icon = 'fas fa-file-pdf';
+            typeLabel = 'PDF';
+        } else if (content.type === 'audio') {
+            icon = 'fas fa-file-audio';
+            typeLabel = 'AUDIO';
+        } else if (content.type === 'video') {
+            icon = 'fas fa-file-video';
+            typeLabel = 'VIDEO';
+        }
+    } else if (contentType === 'text') {
+        if (content.isABC) {
+            icon = 'fas fa-music';
+            typeLabel = 'ABC';
+        } else {
+            icon = 'fas fa-file-alt';
+            typeLabel = 'TEXTO';
+        }
+    }
+    
+    item.innerHTML = `
+        <div class="file-item-icon">
+            <i class="${icon}"></i>
+        </div>
+        <div class="file-item-name">${content.name}</div>
+        <div class="file-item-type">${typeLabel}</div>
+    `;
+    
+    // Add click handler
+    item.addEventListener('click', () => {
+        switchToContent(contentType, index);
+    });
+    
+    return item;
+}
+
+function switchToContent(contentType, index) {
+    const currentItem = items[currentIndex];
+    let newContent;
+    
+    if (contentType === 'file') {
+        newContent = currentItem.allFiles[index];
+    } else if (contentType === 'text') {
+        newContent = currentItem.allTexts[index];
+    }
+    
+    if (!newContent) return;
+    
+    // Update current item with new content
+    const updatedItem = {
+        ...currentItem,
+        type: newContent.type,
+        name: newContent.name,
+        url: newContent.url,
+        content: newContent.content,
+        isABC: newContent.isABC
+    };
+    
+    // Update UI
+    updateFileSelector(updatedItem);
+    
+    // Load new content
+    loadContent(updatedItem);
+    
+    // Update active state in dropdown
+    updateActiveFileItem(contentType, index);
+}
+
+function updateActiveFileItem(activeType, activeIndex) {
+    // Remove active class from all items
+    document.querySelectorAll('.file-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    
+    // Add active class to selected item
+    const activeItem = document.querySelector(`[data-content-type="${activeType}"][data-index="${activeIndex}"]`);
+    if (activeItem) {
+        activeItem.classList.add('active');
+    }
 }
 
 function loadContent(item) {
