@@ -11,9 +11,11 @@ También he conseguido que se pueda calificar un music_item con un número de ca
 - [X] Hacer gráfico de la relación de la base de datos de `music_cards`.
 - [X] Mostrar pordefecto la versión pdf de un music_item. Mostrar un desplegable si ese music item tuviera más archivos asociados para poder navegar por ellos.
 
-### Trabajo para mañana
+### 15 de octubre de 2025.
 - [X] Preguntar, usando los gráficos de las bases de datos, si es un sistema bien optimizado.
 - [X] Probar a estudiar usando la app.
+
+
 
 ## Algoritmo de Estudio
 

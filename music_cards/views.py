@@ -19,7 +19,6 @@ from .models import (
 from .forms import TextForm, MusicItemForm
 
 
-
 # Create your views here.
 def start_study_session(request, study_session_id=None):
     # Obtener las etiquetas de estilo e instrumento
@@ -68,9 +67,9 @@ def start_study_session(request, study_session_id=None):
 def finish_study_session(request, study_session_id):
     study_session = UserStudySession.objects.get(id=study_session_id)
     study_session.finish_study_session()
-    
+
     # Redirect to the main music cards page after finishing the session
-    return redirect('music_cards:home')
+    return redirect("music_cards:home")
 
 
 def study_session(request, study_session_id):
@@ -300,55 +299,61 @@ def rate_item(request):
     try:
         # Try form data first (from current rateItem function)
         if request.POST:
-            review_id = request.POST.get('review_id')
-            rating = request.POST.get('rating')
+            review_id = request.POST.get("review_id")
+            rating = request.POST.get("rating")
         else:
             # Fallback to JSON
             data = json.loads(request.body)
-            review_id = data.get('review_id')
-            rating = data.get('rating')
-        
+            review_id = data.get("review_id")
+            rating = data.get("rating")
+
         if not review_id or not rating:
-            return JsonResponse({'success': False, 'error': 'Faltan parámetros'})
-        
+            return JsonResponse({"success": False, "error": "Faltan parámetros"})
+
         # Convert to int
         try:
             review_id = int(review_id)
             rating = int(rating)
         except (ValueError, TypeError):
-            return JsonResponse({'success': False, 'error': 'Parámetros inválidos'})
-        
+            return JsonResponse({"success": False, "error": "Parámetros inválidos"})
+
         if rating not in [1, 2, 3, 4, 5]:
-            return JsonResponse({'success': False, 'error': 'Calificación inválida (1-5)'})
-        
+            return JsonResponse(
+                {"success": False, "error": "Calificación inválida (1-5)"}
+            )
+
         # Obtener la review y verificar que pertenece al usuario actual
         review = get_object_or_404(UserReview, id=review_id, user=request.user)
-        
+
         # Map 1-5 stars to 1-4 boxes (1-2 stars = box 1, 3 = box 2, 4 = box 3, 5 = box 4)
         box_mapping = {1: 1, 2: 1, 3: 2, 4: 3, 5: 4}
         box_rating = box_mapping[rating]
-        
+
         # Actualizar la caja usando el nuevo método
         review.update_box(box_rating)
-        
-        return JsonResponse({
-            'success': True, 
-            'new_box': review.box,
-            'rating': rating,
-            'times_reviewed': review.n_times_reiewed
-        })
-        
+
+        return JsonResponse(
+            {
+                "success": True,
+                "new_box": review.box,
+                "rating": rating,
+                "times_reviewed": review.n_times_reiewed,
+            }
+        )
+
     except json.JSONDecodeError:
-        return JsonResponse({'success': False, 'error': 'JSON inválido'})
+        return JsonResponse({"success": False, "error": "JSON inválido"})
     except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)})
+        return JsonResponse({"success": False, "error": str(e)})
 
 
 def study_session_new(request, study_session_id):
     """
     Nueva vista de sesión de estudio con interfaz mejorada y full-screen.
     """
-    study_session = get_object_or_404(UserStudySession, id=study_session_id, user=request.user)
+    study_session = get_object_or_404(
+        UserStudySession, id=study_session_id, user=request.user
+    )
     user_reviews = study_session.reviews.all()
 
     return render(
@@ -366,62 +371,70 @@ def study_session_fullscreen(request, study_session_id):
     Vista de sesión de estudio en pantalla completa estilo forScore.
     Muestra cada elemento (texto, PDF, audio, video) individualmente en pantalla completa.
     """
-    study_session = get_object_or_404(UserStudySession, id=study_session_id, user=request.user)
+    study_session = get_object_or_404(
+        UserStudySession, id=study_session_id, user=request.user
+    )
     user_reviews = list(study_session.reviews.all())
-    
+
     if not user_reviews:
         # Redirect back if no reviews
-        return redirect('music_cards:study_session_new', study_session_id=study_session_id)
-    
+        return redirect(
+            "music_cards:study_session_new", study_session_id=study_session_id
+        )
+
     # Get current index from session or default to 0
-    current_index = int(request.session.get(f'fullscreen_index_{study_session_id}', 0))
+    current_index = int(request.session.get(f"fullscreen_index_{study_session_id}", 0))
     current_index = max(0, min(current_index, len(user_reviews) - 1))
-    
+
     # Get current review
     current_review = user_reviews[current_index]
-    
+
     # Calculate progress
     progress_percentage = ((current_index + 1) / len(user_reviews)) * 100
-    
+
     # Prepare enhanced data for each review
     enhanced_reviews = []
     for review in user_reviews:
         music_item = review.music_item
-        
+
         # Get all files and texts
         all_files = list(music_item.files.all())
         all_texts = list(music_item.texts.all())
-        
+
         # Determine primary content (PDF priority)
         primary_content = _get_primary_content(all_files, all_texts)
-        
+
         # Prepare file data
         files_data = []
         for file_obj in all_files:
             file_type = _get_file_type(file_obj.file.name)
-            files_data.append({
-                'type': file_type,
-                'url': file_obj.file.url,
-                'name': file_obj.name,
-                'filename': file_obj.file.name
-            })
-        
+            files_data.append(
+                {
+                    "type": file_type,
+                    "url": file_obj.file.url,
+                    "name": file_obj.name,
+                    "filename": file_obj.file.name,
+                }
+            )
+
         # Prepare text data
         texts_data = []
         for text_obj in all_texts:
-            is_abc = 'X:' in text_obj.content
-            texts_data.append({
-                'type': 'text',
-                'name': text_obj.name,
-                'content': text_obj.content,
-                'isABC': is_abc
-            })
-        
+            is_abc = "X:" in text_obj.content
+            texts_data.append(
+                {
+                    "type": "text",
+                    "name": text_obj.name,
+                    "content": text_obj.content,
+                    "isABC": is_abc,
+                }
+            )
+
         enhanced_review = {
-            'review': review,
-            'primary_content': primary_content,
-            'all_files': files_data,
-            'all_texts': texts_data
+            "review": review,
+            "primary_content": primary_content,
+            "all_files": files_data,
+            "all_texts": texts_data,
         }
         enhanced_reviews.append(enhanced_review)
 
@@ -439,83 +452,78 @@ def study_session_fullscreen(request, study_session_id):
         },
     )
 
+
 def _get_primary_content(all_files, all_texts):
     """
     Determina el contenido principal siguiendo la prioridad: PDF > texto > otros archivos
     """
     # Buscar PDF primero
     for file_obj in all_files:
-        if '.pdf' in file_obj.file.name.lower():
-            return {
-                'type': 'pdf',
-                'url': file_obj.file.url,
-                'name': file_obj.name
-            }
-    
+        if ".pdf" in file_obj.file.name.lower():
+            return {"type": "pdf", "url": file_obj.file.url, "name": file_obj.name}
+
     # Si no hay PDF, usar primer texto
     if all_texts:
         first_text = all_texts[0]
-        is_abc = 'X:' in first_text.content
+        is_abc = "X:" in first_text.content
         return {
-            'type': 'text',
-            'content': first_text.content,
-            'name': first_text.name,
-            'isABC': is_abc
+            "type": "text",
+            "content": first_text.content,
+            "name": first_text.name,
+            "isABC": is_abc,
         }
-    
+
     # Si no hay texto, usar primer archivo
     if all_files:
         first_file = all_files[0]
         file_type = _get_file_type(first_file.file.name)
-        return {
-            'type': file_type,
-            'url': first_file.file.url,
-            'name': first_file.name
-        }
-    
+        return {"type": file_type, "url": first_file.file.url, "name": first_file.name}
+
     # Sin contenido
-    return {
-        'type': 'empty',
-        'content': 'No hay contenido disponible'
-    }
+    return {"type": "empty", "content": "No hay contenido disponible"}
+
 
 def _get_file_type(filename):
     """
     Determina el tipo de archivo basándose en la extensión
     """
     filename_lower = filename.lower()
-    if '.pdf' in filename_lower:
-        return 'pdf'
-    elif any(ext in filename_lower for ext in ['.mp3', '.wav', '.m4a', '.ogg']):
-        return 'audio'
+    if ".pdf" in filename_lower:
+        return "pdf"
+    elif any(ext in filename_lower for ext in [".mp3", ".wav", ".m4a", ".ogg"]):
+        return "audio"
     else:
-        return 'video'
+        return "video"
 
 
 def fullscreen_navigate(request, study_session_id):
     """
     HTMX endpoint para navegación en pantalla completa.
     """
-    if request.method != 'POST':
+    if request.method != "POST":
         return HttpResponse(status=405)  # Method not allowed
-        
-    study_session = get_object_or_404(UserStudySession, id=study_session_id, user=request.user)
+
+    study_session = get_object_or_404(
+        UserStudySession, id=study_session_id, user=request.user
+    )
     user_reviews = list(study_session.reviews.all())
-    
-    direction = request.POST.get('direction', 'next')
-    current_index = int(request.POST.get('current_index', 0))
-    
-    if direction == 'next' and current_index < len(user_reviews) - 1:
+
+    direction = request.POST.get("direction", "next")
+    current_index = int(request.POST.get("current_index", 0))
+
+    if direction == "next" and current_index < len(user_reviews) - 1:
         current_index += 1
-    elif direction == 'prev' and current_index > 0:
+    elif direction == "prev" and current_index > 0:
         current_index -= 1
-    
+
     # Save current index in session
-    request.session[f'fullscreen_index_{study_session_id}'] = current_index
-    
+    request.session[f"fullscreen_index_{study_session_id}"] = current_index
+
     # Get current review
-    current_review = user_reviews[current_index] if current_index < len(user_reviews) else None
-    
+    current_review = (
+        user_reviews[current_index] if current_index < len(user_reviews) else None
+    )
+
     # Return the full page content for navigation
     return render(
         request,
@@ -533,82 +541,77 @@ def fullscreen_navigate(request, study_session_id):
 
 # CRUD Views for MusicItem
 
+
 def music_item_create(request):
     """
     Vista para crear un nuevo MusicItem con contenido asociado.
     """
-    if request.method == 'POST':
+    if request.method == "POST":
         form = MusicItemForm(request.POST)
         if form.is_valid():
             music_item = form.save(commit=False)
             music_item.created_by = request.user
             music_item.save()
-            
+
             # Lista para almacenar todas las etiquetas del MusicItem (inicializar antes de procesar contenido)
             music_item_tags = []
-            
+
             # Procesar textos
             text_count = 0
-            while f'text_name_{text_count}' in request.POST:
-                name = request.POST.get(f'text_name_{text_count}')
-                content = request.POST.get(f'text_content_{text_count}')
-                copyrighted = f'text_copyrighted_{text_count}' in request.POST
-                
+            while f"text_name_{text_count}" in request.POST:
+                name = request.POST.get(f"text_name_{text_count}")
+                content = request.POST.get(f"text_content_{text_count}")
+                copyrighted = f"text_copyrighted_{text_count}" in request.POST
+
                 if name and content:
                     text = Text.objects.create(
-                        name=name,
-                        content=content,
-                        copyrighted=copyrighted
+                        name=name, content=content, copyrighted=copyrighted
                     )
                     music_item.texts.add(text)
                     # Heredar etiquetas del MusicItem
                     for tag in music_item_tags:
                         text.tags.add(tag)
                 text_count += 1
-            
+
             # Procesar archivos
             file_count = 0
-            while f'file_name_{file_count}' in request.POST:
-                name = request.POST.get(f'file_name_{file_count}')
-                file_upload = request.FILES.get(f'file_upload_{file_count}')
-                copyrighted = f'file_copyrighted_{file_count}' in request.POST
-                
+            while f"file_name_{file_count}" in request.POST:
+                name = request.POST.get(f"file_name_{file_count}")
+                file_upload = request.FILES.get(f"file_upload_{file_count}")
+                copyrighted = f"file_copyrighted_{file_count}" in request.POST
+
                 if name and file_upload:
                     file_obj = File.objects.create(
-                        name=name,
-                        file=file_upload,
-                        copyrighted=copyrighted
+                        name=name, file=file_upload, copyrighted=copyrighted
                     )
                     music_item.files.add(file_obj)
                     # Heredar etiquetas del MusicItem
                     for tag in music_item_tags:
                         file_obj.tags.add(tag)
                 file_count += 1
-            
+
             # Procesar embeds
             embed_count = 0
-            while f'embed_name_{embed_count}' in request.POST:
-                name = request.POST.get(f'embed_name_{embed_count}')
-                url = request.POST.get(f'embed_url_{embed_count}')
-                copyrighted = f'embed_copyrighted_{embed_count}' in request.POST
-                
+            while f"embed_name_{embed_count}" in request.POST:
+                name = request.POST.get(f"embed_name_{embed_count}")
+                url = request.POST.get(f"embed_url_{embed_count}")
+                copyrighted = f"embed_copyrighted_{embed_count}" in request.POST
+
                 if name and url:
                     embed = Embed.objects.create(
-                        name=name,
-                        url=url,
-                        copyrighted=copyrighted
+                        name=name, url=url, copyrighted=copyrighted
                     )
                     music_item.embeds.add(embed)
                     # Heredar etiquetas del MusicItem
                     for tag in music_item_tags:
                         embed.tags.add(tag)
                 embed_count += 1
-            
+
             # Procesar tags existentes
-            style_tag_id = request.POST.get('style_tag')
-            instrument_tag_id = request.POST.get('instrument_tag')
-            difficulty = request.POST.get('difficulty_tag')
-            
+            style_tag_id = request.POST.get("style_tag")
+            instrument_tag_id = request.POST.get("instrument_tag")
+            difficulty = request.POST.get("difficulty_tag")
+
             if style_tag_id:
                 music_item.tags.add(style_tag_id)
                 music_item_tags.append(Tag.objects.get(id=style_tag_id))
@@ -618,69 +621,68 @@ def music_item_create(request):
             if difficulty:
                 # Crear o obtener tag de dificultad
                 difficulty_tag, created = Tag.objects.get_or_create(
-                    key='difficulty',
-                    value=difficulty
+                    key="difficulty", value=difficulty
                 )
                 music_item.tags.add(difficulty_tag)
                 music_item_tags.append(difficulty_tag)
-            
+
             # Procesar nuevas etiquetas
-            new_style = request.POST.get('new_style_value')
-            new_instrument = request.POST.get('new_instrument_value')
-            new_difficulty = request.POST.get('new_difficulty_value')
-            
+            new_style = request.POST.get("new_style_value")
+            new_instrument = request.POST.get("new_instrument_value")
+            new_difficulty = request.POST.get("new_difficulty_value")
+
             if new_style:
                 style_tag, created = Tag.objects.get_or_create(
-                    key='style',
-                    value=new_style
+                    key="style", value=new_style
                 )
                 music_item.tags.add(style_tag)
                 music_item_tags.append(style_tag)
-                
+
             if new_instrument:
                 instrument_tag, created = Tag.objects.get_or_create(
-                    key='instrument',
-                    value=new_instrument
+                    key="instrument", value=new_instrument
                 )
                 music_item.tags.add(instrument_tag)
                 music_item_tags.append(instrument_tag)
-                
+
             if new_difficulty:
                 difficulty_tag, created = Tag.objects.get_or_create(
-                    key='difficulty',
-                    value=new_difficulty
+                    key="difficulty", value=new_difficulty
                 )
                 music_item.tags.add(difficulty_tag)
                 music_item_tags.append(difficulty_tag)
-            
+
             # Procesar etiquetas personalizadas
             custom_tag_count = 0
-            while f'custom_tag_key_{custom_tag_count}' in request.POST:
-                key = request.POST.get(f'custom_tag_key_{custom_tag_count}')
-                value = request.POST.get(f'custom_tag_value_{custom_tag_count}')
-                
+            while f"custom_tag_key_{custom_tag_count}" in request.POST:
+                key = request.POST.get(f"custom_tag_key_{custom_tag_count}")
+                value = request.POST.get(f"custom_tag_value_{custom_tag_count}")
+
                 if key and value:
                     custom_tag, created = Tag.objects.get_or_create(
-                        key=key,
-                        value=value
+                        key=key, value=value
                     )
                     music_item.tags.add(custom_tag)
                     music_item_tags.append(custom_tag)
                 custom_tag_count += 1
-            
-            return redirect('music_cards:music_item_detail', pk=music_item.pk)
+
+            return redirect("music_cards:music_item_detail", pk=music_item.pk)
     else:
         form = MusicItemForm()
-    
+
     # Obtener tags para el formulario
-    style_tags = Tag.objects.filter(key='style')
-    instrument_tags = Tag.objects.filter(key='instrument')
-    
-    return render(request, 'music_cards/music_item_form.html', {
-        'form': form,
-        'style_tags': style_tags,
-        'instrument_tags': instrument_tags,
-    })
+    style_tags = Tag.objects.filter(key="style")
+    instrument_tags = Tag.objects.filter(key="instrument")
+
+    return render(
+        request,
+        "music_cards/music_item_form.html",
+        {
+            "form": form,
+            "style_tags": style_tags,
+            "instrument_tags": instrument_tags,
+        },
+    )
 
 
 def music_item_edit(request, pk):
@@ -688,35 +690,35 @@ def music_item_edit(request, pk):
     Vista para editar un MusicItem existente.
     """
     music_item = get_object_or_404(MusicItem, pk=pk)
-    
+
     # Verificar permisos
     if music_item.created_by != request.user and not request.user.is_staff:
-        return redirect('music_cards:music_items_list')
-    
-    if request.method == 'POST':
+        return redirect("music_cards:music_items_list")
+
+    if request.method == "POST":
         form = MusicItemForm(request.POST, instance=music_item)
         if form.is_valid():
             music_item = form.save()
-            
+
             # Limpiar contenido existente si se especifica
-            if 'clear_content' in request.POST:
+            if "clear_content" in request.POST:
                 music_item.texts.clear()
                 music_item.files.clear()
                 music_item.embeds.clear()
-            
+
             # En edición: actualizar textos existentes o crear nuevos
             # Primero, obtener textos existentes
             existing_texts = list(music_item.texts.all())
-            
+
             # Procesar textos del formulario
             text_count = 0
             processed_text_ids = []
-            
-            while f'text_name_{text_count}' in request.POST:
-                name = request.POST.get(f'text_name_{text_count}')
-                content = request.POST.get(f'text_content_{text_count}')
-                copyrighted = f'text_copyrighted_{text_count}' in request.POST
-                
+
+            while f"text_name_{text_count}" in request.POST:
+                name = request.POST.get(f"text_name_{text_count}")
+                content = request.POST.get(f"text_content_{text_count}")
+                copyrighted = f"text_copyrighted_{text_count}" in request.POST
+
                 if name and content:
                     # Si hay un texto existente en esta posición, actualizarlo
                     if text_count < len(existing_texts):
@@ -729,35 +731,112 @@ def music_item_edit(request, pk):
                     else:
                         # Crear nuevo texto si no existe
                         new_text = Text.objects.create(
-                            name=name,
-                            content=content,
-                            copyrighted=copyrighted
+                            name=name, content=content, copyrighted=copyrighted
                         )
                         music_item.texts.add(new_text)
                         processed_text_ids.append(new_text.id)
-                
+
                 text_count += 1
-            
+
             # Eliminar textos que ya no están en el formulario
             for existing_text in existing_texts:
                 if existing_text.id not in processed_text_ids:
                     music_item.texts.remove(existing_text)
                     existing_text.delete()
-            
+
+            # Procesar archivos del formulario
+            existing_files = list(music_item.files.all())
+            file_count = 0
+            processed_file_ids = []
+
+            while f"file_name_{file_count}" in request.POST:
+                name = request.POST.get(f"file_name_{file_count}")
+                file_upload = request.FILES.get(f"file_upload_{file_count}")
+                copyrighted = f"file_copyrighted_{file_count}" in request.POST
+
+                if name and file_upload:
+                    # Si hay un archivo existente en esta posición, eliminarlo y crear uno nuevo
+                    if file_count < len(existing_files):
+                        existing_file = existing_files[file_count]
+                        music_item.files.remove(existing_file)
+                        existing_file.delete()
+
+                    # Crear nuevo archivo
+                    new_file = File.objects.create(
+                        name=name, file=file_upload, copyrighted=copyrighted
+                    )
+                    music_item.files.add(new_file)
+                    processed_file_ids.append(new_file.id)
+                elif (
+                    name
+                ):  # Si solo hay nombre pero no archivo nuevo, mantener el existente
+                    if file_count < len(existing_files):
+                        existing_file = existing_files[file_count]
+                        existing_file.name = name
+                        existing_file.copyrighted = copyrighted
+                        existing_file.save()
+                        processed_file_ids.append(existing_file.id)
+
+                file_count += 1
+
+            # Eliminar archivos que ya no están en el formulario
+            for existing_file in existing_files:
+                if existing_file.id not in processed_file_ids:
+                    music_item.files.remove(existing_file)
+                    existing_file.delete()
+
+            # Procesar embeds del formulario
+            existing_embeds = list(music_item.embeds.all())
+            embed_count = 0
+            processed_embed_ids = []
+
+            while f"embed_name_{embed_count}" in request.POST:
+                name = request.POST.get(f"embed_name_{embed_count}")
+                url = request.POST.get(f"embed_url_{embed_count}")
+                copyrighted = f"embed_copyrighted_{embed_count}" in request.POST
+
+                if name and url:
+                    # Si hay un embed existente en esta posición, actualizarlo
+                    if embed_count < len(existing_embeds):
+                        existing_embed = existing_embeds[embed_count]
+                        existing_embed.name = name
+                        existing_embed.url = url
+                        existing_embed.copyrighted = copyrighted
+                        existing_embed.save()
+                        processed_embed_ids.append(existing_embed.id)
+                    else:
+                        # Crear nuevo embed si no existe
+                        new_embed = Embed.objects.create(
+                            name=name, url=url, copyrighted=copyrighted
+                        )
+                        music_item.embeds.add(new_embed)
+                        processed_embed_ids.append(new_embed.id)
+
+                embed_count += 1
+
+            # Mantener embeds existentes que no se modificaron
+            for existing_embed in existing_embeds:
+                if existing_embed.id not in processed_embed_ids:
+                    processed_embed_ids.append(existing_embed.id)
+
             return redirect('music_cards:music_item_detail', pk=music_item.pk)
     else:
         form = MusicItemForm(instance=music_item)
-    
+
     # Obtener tags para el formulario
-    style_tags = Tag.objects.filter(key='style')
-    instrument_tags = Tag.objects.filter(key='instrument')
-    
-    return render(request, 'music_cards/music_item_form.html', {
-        'form': form,
-        'music_item': music_item,
-        'style_tags': style_tags,
-        'instrument_tags': instrument_tags,
-    })
+    style_tags = Tag.objects.filter(key="style")
+    instrument_tags = Tag.objects.filter(key="instrument")
+
+    return render(
+        request,
+        "music_cards/music_item_form.html",
+        {
+            "form": form,
+            "music_item": music_item,
+            "style_tags": style_tags,
+            "instrument_tags": instrument_tags,
+        },
+    )
 
 
 def music_item_delete(request, pk):
@@ -765,18 +844,20 @@ def music_item_delete(request, pk):
     Vista para eliminar un MusicItem.
     """
     music_item = get_object_or_404(MusicItem, pk=pk)
-    
+
     # Verificar permisos
     if music_item.created_by != request.user and not request.user.is_staff:
-        return redirect('music_cards:music_items_list')
-    
-    if request.method == 'POST':
+        return redirect("music_cards:music_items_list")
+
+    if request.method == "POST":
         music_item.delete()
-        return redirect('music_cards:music_items_list')
-    
-    return render(request, 'music_cards/music_item_confirm_delete.html', {
-        'music_item': music_item
-    })
+        return redirect("music_cards:music_items_list")
+
+    return render(
+        request,
+        "music_cards/music_item_confirm_delete.html",
+        {"music_item": music_item},
+    )
 
 
 # Vista HTMX eliminada - ahora la conversión se hace automáticamente en el backend
