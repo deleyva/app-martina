@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags %}
+
+{# MUSIC PILLS - Plantilla de página de setlist #}
+{# Esta plantilla puede ser extraída para usar en otra instalación de Wagtail #}
+
+{% block title %}{{ page.title }} - Music Pills{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="flex flex-col lg:flex-row justify-between items-start gap-6 mb-8">
+        <div class="flex-1">
+            <h1 class="text-4xl font-bold mb-2">📋 {{ page.title }}</h1>
+            {% if page.description %}
+            <div class="prose max-w-none mb-4">
+                {{ page.description|richtext }}
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Actions -->
+        <div class="flex gap-2">
+            <a href="/cms/pages/{{ page.id }}/edit/" class="btn btn-primary">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                </svg>
+                Edit Setlist
+            </a>
+            <div class="dropdown dropdown-end">
+                <div tabindex="0" role="button" class="btn btn-ghost">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path>
+                    </svg>
+                </div>
+                <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+                    <li><a href="/cms/pages/{{ page.id }}/copy/">Duplicate</a></li>
+                    <li><a>Export PDF</a></li>
+                    <li><a>Share</a></li>
+                    <li><a>Print</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats shadow mb-8 w-full">
+        <div class="stat">
+            <div class="stat-figure text-primary">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                </svg>
+            </div>
+            <div class="stat-title">Total Items</div>
+            <div class="stat-value text-primary">{{ page.setlist_items|length }}</div>
+            <div class="stat-desc">Scores and sections</div>
+        </div>
+        
+        <div class="stat">
+            <div class="stat-figure text-secondary">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            <div class="stat-title">Created</div>
+            <div class="stat-value text-secondary">{{ page.first_published_at|date:"M d" }}</div>
+            <div class="stat-desc">{{ page.first_published_at|date:"Y" }}</div>
+        </div>
+        
+        <div class="stat">
+            <div class="stat-figure text-accent">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                </svg>
+            </div>
+            <div class="stat-title">Performance</div>
+            <div class="stat-value text-accent">Ready</div>
+            <div class="stat-desc">All scores available</div>
+        </div>
+    </div>
+
+    <!-- Setlist Items -->
+    <div class="space-y-4">
+        {% for block in page.setlist_items %}
+            {% if block.block_type == 'score_reference' %}
+            <!-- Score Reference -->
+            {% with score=block.value %}
+            <div class="card bg-base-100 shadow-lg hover:shadow-xl transition-shadow">
+                <div class="card-body">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            <div class="text-2xl font-bold text-primary">{{ forloop.counter }}</div>
+                            <div>
+                                <h3 class="card-title">{{ score.title }}</h3>
+                                {% if score.composer %}
+                                <p class="text-base-content/70">{{ score.composer.name }}</p>
+                                {% endif %}
+                                <div class="flex gap-2 mt-2">
+                                    {% if score.difficulty_level %}
+                                    <div class="badge badge-primary badge-sm">{{ score.get_difficulty_level_display }}</div>
+                                    {% endif %}
+                                    {% for tag in score.tags.all|slice:":3" %}
+                                    <div class="badge badge-outline badge-sm">{{ tag.name }}</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex gap-2">
+                            <a href="{{ score.get_url }}" class="btn btn-primary btn-sm">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                </svg>
+                                View
+                            </a>
+                            <div class="dropdown dropdown-end">
+                                <div tabindex="0" role="button" class="btn btn-ghost btn-sm">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path>
+                                    </svg>
+                                </div>
+                                <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+                                    <li><a href="{{ score.get_url }}">Open Score</a></li>
+                                    <li><a href="/cms/pages/{{ score.id }}/edit/">Edit Score</a></li>
+                                    <li><a>Move Up</a></li>
+                                    <li><a>Move Down</a></li>
+                                    <li><a class="text-error">Remove</a></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endwith %}
+            
+            {% elif block.block_type == 'separator' %}
+            <!-- Section Separator -->
+            <div class="divider divider-primary">
+                <div class="badge badge-primary badge-lg">{{ block.value.title }}</div>
+            </div>
+            
+            {% elif block.block_type == 'notes' %}
+            <!-- Notes Block -->
+            <div class="card bg-base-200 shadow-lg">
+                <div class="card-body">
+                    <h3 class="card-title">📝 Notes</h3>
+                    <div class="prose max-w-none">
+                        {{ block.value|richtext }}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        {% empty %}
+        <!-- Empty Setlist -->
+        <div class="text-center py-12">
+            <div class="text-6xl mb-4">📋</div>
+            <h2 class="text-2xl font-bold mb-2">Empty Setlist</h2>
+            <p class="text-base-content/70 mb-6">Add scores to this setlist to organize your performance repertoire.</p>
+            <a href="/cms/pages/{{ page.id }}/edit/" class="btn btn-primary">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                Add Scores to Setlist
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Performance Mode -->
+    {% if page.setlist_items %}
+    <div class="mt-12">
+        <div class="card bg-gradient-to-r from-primary to-secondary text-primary-content shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title">🎭 Performance Mode</h2>
+                <p>Start performance mode to navigate through this setlist with full-screen PDF viewing.</p>
+                <div class="card-actions justify-end">
+                    <button class="btn btn-accent">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h8m2-10V5a2 2 0 00-2-2H9a2 2 0 00-2 2v1M7 7h10"></path>
+                        </svg>
+                        Start Performance
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Navigation -->
+    <div class="flex justify-between items-center mt-8">
+        <a href="{{ page.get_parent.get_url }}" class="btn btn-ghost">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+            </svg>
+            Back to Library
+        </a>
+        
+        <div class="text-sm text-base-content/50">
+            Last updated: {{ page.last_published_at|date:"M d, Y" }}
+        </div>
+    </div>
+</div>
+{% endblock %}

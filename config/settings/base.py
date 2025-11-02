@@ -102,7 +102,7 @@ LOCAL_APPS = [
     "api_keys",
     "songs_ranking",
     "explorer",
-    "cms",
+    "cms",  # Incluye Music Pills integrado
     "classroom",
     "study_sessions",
     "presentations",

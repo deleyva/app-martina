@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags %}
+
+{# MUSIC PILLS - Plantilla de biblioteca musical #}
+{# Esta plantilla puede ser extraída para usar en otra instalación de Wagtail #}
+
+{% block title %}{{ page.title }} - Music Pills{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="hero bg-gradient-to-r from-primary to-secondary text-primary-content rounded-lg mb-8">
+        <div class="hero-content text-center">
+            <div class="max-w-2xl">
+                <h1 class="mb-5 text-5xl font-bold">🎼 {{ page.title }}</h1>
+                {% if page.intro %}
+                    <div class="mb-5 text-lg">{{ page.intro|richtext }}</div>
+                {% endif %}
+                <div class="flex gap-4 justify-center">
+                    <a href="/cms/pages/{{ page.id }}/add_subpage/" class="btn btn-accent">
+                        📄 Add New Score
+                    </a>
+                    <a href="/cms/pages/{{ page.id }}/add_subpage/" class="btn btn-secondary">
+                        📋 Create Setlist
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats shadow mb-8 w-full">
+        <div class="stat">
+            <div class="stat-figure text-primary">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+            </div>
+            <div class="stat-title">Total Scores</div>
+            <div class="stat-value text-primary">{{ scores_count }}</div>
+            <div class="stat-desc">PDF sheet music files</div>
+        </div>
+        
+        <div class="stat">
+            <div class="stat-figure text-secondary">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                </svg>
+            </div>
+            <div class="stat-title">Setlists</div>
+            <div class="stat-value text-secondary">{{ page.get_children.count }}</div>
+            <div class="stat-desc">Organized collections</div>
+        </div>
+    </div>
+
+    <!-- Scores Grid -->
+    {% if scores %}
+    <div class="mb-6">
+        <h2 class="text-2xl font-bold mb-4">📚 Your Scores</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {% for score in scores %}
+            <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow">
+                <figure class="px-4 pt-4">
+                    <div class="w-full h-48 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-lg flex items-center justify-center">
+                        <div class="text-center">
+                            <div class="text-4xl mb-2">📄</div>
+                            <div class="text-xs text-base-content/50">PDF Score</div>
+                        </div>
+                    </div>
+                </figure>
+                <div class="card-body">
+                    <h2 class="card-title text-base">{{ score.title|truncatechars:40 }}</h2>
+                    
+                    {% if score.composer %}
+                    <p class="text-sm text-base-content/70">{{ score.composer.name }}</p>
+                    {% endif %}
+                    
+                    <div class="flex flex-wrap gap-1 mt-2">
+                        {% if score.difficulty_level %}
+                        <div class="badge badge-primary badge-sm">{{ score.get_difficulty_level_display }}</div>
+                        {% endif %}
+                        {% for tag in score.tags.all|slice:":2" %}
+                        <div class="badge badge-outline badge-sm">{{ tag.name }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="card-actions justify-between items-center mt-4">
+                        <div class="text-xs text-base-content/50">
+                            {{ score.first_published_at|date:"M d, Y" }}
+                        </div>
+                        <div class="flex gap-1">
+                            <a href="{{ score.get_url }}" class="btn btn-primary btn-sm">Open</a>
+                            <div class="dropdown dropdown-end">
+                                <div tabindex="0" role="button" class="btn btn-ghost btn-sm">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path>
+                                    </svg>
+                                </div>
+                                <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+                                    <li><a href="/cms/pages/{{ score.id }}/edit/">Edit</a></li>
+                                    <li><a href="{{ score.get_url }}">View</a></li>
+                                    <li><a href="/cms/pages/{{ score.id }}/copy/">Duplicate</a></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+    <!-- Empty State -->
+    <div class="text-center py-12">
+        <div class="text-6xl mb-4">📚</div>
+        <h2 class="text-2xl font-bold mb-2">No scores yet</h2>
+        <p class="text-base-content/70 mb-6">Create your first score to get started with your digital sheet music library.</p>
+        <a href="/cms/pages/{{ page.id }}/add_subpage/" class="btn btn-primary">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+            Create Your First Score
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Quick Actions -->
+    <div class="mt-12">
+        <h2 class="text-2xl font-bold mb-4">⚡ Quick Actions</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <a href="/cms/pages/{{ page.id }}/add_subpage/" class="card bg-base-200 shadow-lg hover:shadow-xl transition-shadow">
+                <div class="card-body text-center">
+                    <div class="text-4xl mb-2">📄</div>
+                    <h3 class="card-title justify-center">Add Score</h3>
+                    <p class="text-sm">Upload a new PDF score</p>
+                </div>
+            </a>
+            
+            <a href="/cms/pages/{{ page.id }}/add_subpage/" class="card bg-base-200 shadow-lg hover:shadow-xl transition-shadow">
+                <div class="card-body text-center">
+                    <div class="text-4xl mb-2">📋</div>
+                    <h3 class="card-title justify-center">Create Setlist</h3>
+                    <p class="text-sm">Organize scores for performance</p>
+                </div>
+            </a>
+            
+            <a href="/cms/" class="card bg-base-200 shadow-lg hover:shadow-xl transition-shadow">
+                <div class="card-body text-center">
+                    <div class="text-4xl mb-2">⚙️</div>
+                    <h3 class="card-title justify-center">Manage Content</h3>
+                    <p class="text-sm">Access Wagtail admin</p>
+                </div>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
