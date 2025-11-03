@@ -7,16 +7,15 @@
 {% block title %}{{ page.title }} - Music Pills{% endblock %}
 
 {% block extra_css %}
-<!-- PDF.js CSS -->
 <style>
-    .pdf-viewer {
-        width: 100%;
-        height: 80vh;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-    }
     .streamfield-content {
         max-width: none;
+    }
+    
+    /* PDF preview card hover effects */
+    .pdf-preview-card:hover {
+        transform: translateY(-2px);
+        transition: transform 0.2s ease-in-out;
     }
 </style>
 {% endblock %}
@@ -110,17 +109,15 @@
                     
                     {% if block.value.pdf_file %}
                     <div class="mt-4">
-                        <div class="flex justify-between items-center mb-2">
-                            <span class="text-sm font-medium">PDF Viewer</span>
+                        <div class="flex justify-between items-center mb-4">
+                            <span class="text-sm font-medium">PDF Document</span>
                             <div class="flex gap-2">
-                                <button class="btn btn-sm btn-outline" onclick="zoomOut()">-</button>
-                                <button class="btn btn-sm btn-outline" onclick="zoomIn()">+</button>
                                 <a href="{{ block.value.pdf_file.url }}" target="_blank" class="btn btn-sm btn-primary">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                                     </svg>
-                                    View PDF
+                                    Open PDF
                                 </a>
                                 <a href="{{ block.value.pdf_file.url }}" download class="btn btn-sm btn-success">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -130,17 +127,44 @@
                                 </a>
                             </div>
                         </div>
-                        <iframe 
-                            src="{{ block.value.pdf_file.url }}" 
-                            class="pdf-viewer"
-                            type="application/pdf">
-                            <p>Your browser doesn't support PDF viewing. 
-                               <a href="{{ block.value.pdf_file.url }}" class="link">Download the PDF</a> instead.
-                            </p>
-                        </iframe>
-                        {% if block.value.page_count %}
-                        <p class="text-xs text-base-content/50 mt-2">{{ block.value.page_count }} pages</p>
-                        {% endif %}
+                        
+                        <!-- PDF Preview Card -->
+                        <div class="bg-base-200 rounded-lg p-6 text-center pdf-preview-card">
+                            <div class="flex flex-col items-center gap-4">
+                                <!-- PDF Icon -->
+                                <div class="text-6xl text-red-500">
+                                    <svg class="w-16 h-16 mx-auto" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+                                        <path d="M10.5,10.5H12.5V12.5H10.5V10.5M10.5,13.5H12.5V15.5H10.5V13.5M8.5,10.5H10V12.5H8.5V10.5M8.5,13.5H10V15.5H8.5V13.5M12.5,10.5H14V12.5H12.5V10.5M12.5,13.5H14V15.5H12.5V13.5"/>
+                                    </svg>
+                                </div>
+                                
+                                <!-- PDF Info -->
+                                <div>
+                                    <h3 class="font-semibold text-lg mb-2">{{ block.value.pdf_file.title }}</h3>
+                                    {% if block.value.page_count %}
+                                    <p class="text-base-content/70 mb-2">{{ block.value.page_count }} pages</p>
+                                    {% endif %}
+                                    <p class="text-sm text-base-content/50 mb-4">Click "Open PDF" to view in a new tab or download to your device</p>
+                                </div>
+                                
+                                <!-- Action Buttons -->
+                                <div class="flex gap-3">
+                                    <a href="{{ block.value.pdf_file.url }}" target="_blank" class="btn btn-primary">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                                        </svg>
+                                        Open in New Tab
+                                    </a>
+                                    <a href="{{ block.value.pdf_file.url }}" download class="btn btn-outline">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                        </svg>
+                                        Download
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     {% endif %}
                 </div>
@@ -316,17 +340,9 @@
 </div>
 
 <script>
-function zoomIn() {
-    // Basic zoom functionality - can be enhanced with PDF.js
-    const iframe = document.querySelector('.pdf-viewer');
-    const currentWidth = iframe.style.width || '100%';
-    // Simple zoom implementation
-}
-
-function zoomOut() {
-    // Basic zoom functionality - can be enhanced with PDF.js
-    const iframe = document.querySelector('.pdf-viewer');
-    // Simple zoom implementation
+// PDF handling functions
+function openPDFInNewTab(url) {
+    window.open(url, '_blank');
 }
 
 function shareAudio(audioUrl, title) {
@@ -414,9 +430,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Menu functions
 function downloadAllPDFs() {
-    const pdfLinks = document.querySelectorAll('a[href$=".pdf"]');
+    const pdfLinks = document.querySelectorAll('a[download][href*=".pdf"], a[download][href*="/documents/"]');
     if (pdfLinks.length === 0) {
-        alert('No PDF files found in this score.');
+        const toast = document.createElement('div');
+        toast.className = 'toast toast-top toast-end';
+        toast.innerHTML = `
+            <div class="alert alert-warning">
+                <span>No PDF files found in this score.</span>
+            </div>
+        `;
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            document.body.removeChild(toast);
+        }, 3000);
         return;
     }
     
@@ -435,7 +462,7 @@ function downloadAllPDFs() {
     const toast = document.createElement('div');
     toast.className = 'toast toast-top toast-end';
     toast.innerHTML = `
-        <div class="alert alert-info">
+        <div class="alert alert-success">
             <span>Downloading ${pdfLinks.length} PDF file(s)...</span>
         </div>
     `;
