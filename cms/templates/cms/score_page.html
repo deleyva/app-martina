@@ -67,10 +67,30 @@
                     </svg>
                 </div>
                 <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
-                    <li><a href="/cms/pages/{{ page.id }}/copy/">Duplicate</a></li>
-                    <li><a>Add to Setlist</a></li>
-                    <li><a>Download PDF</a></li>
-                    <li><a>Share</a></li>
+                    <li><a href="/cms/pages/{{ page.id }}/copy/">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                        </svg>
+                        Duplicate
+                    </a></li>
+                    <li><a onclick="addToSetlist('{{ page.id }}')">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                        </svg>
+                        Add to Setlist
+                    </a></li>
+                    <li><a onclick="downloadAllPDFs()">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        Download All PDFs
+                    </a></li>
+                    <li><a onclick="shareScore('{{ page.get_url }}', '{{ page.title }}')">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"></path>
+                        </svg>
+                        Share Score
+                    </a></li>
                 </ul>
             </div>
         </div>
@@ -83,7 +103,7 @@
             <!-- PDF Score Block -->
             <div class="card bg-base-100 shadow-xl mb-6">
                 <div class="card-body">
-                    <h2 class="card-title">📄 {{ block.value.title }}</h2>
+                    <h2 class="card-title">{{ block.value.title }}</h2>
                     {% if block.value.description %}
                     <p class="text-base-content/70">{{ block.value.description }}</p>
                     {% endif %}
@@ -96,7 +116,17 @@
                                 <button class="btn btn-sm btn-outline" onclick="zoomOut()">-</button>
                                 <button class="btn btn-sm btn-outline" onclick="zoomIn()">+</button>
                                 <a href="{{ block.value.pdf_file.url }}" target="_blank" class="btn btn-sm btn-primary">
-                                    Open Full PDF
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                    </svg>
+                                    View PDF
+                                </a>
+                                <a href="{{ block.value.pdf_file.url }}" download class="btn btn-sm btn-success">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    Download PDF
                                 </a>
                             </div>
                         </div>
@@ -210,6 +240,62 @@
                     </div>
                 </div>
             </div>
+            
+            {% elif block.block_type == 'audio' %}
+            <!-- Audio Block -->
+            <div class="card bg-base-100 shadow-lg mb-6">
+                <div class="card-body">
+                    <h2 class="card-title">🎵 {{ block.value.title }}</h2>
+                    {% if block.value.description %}
+                    <p class="text-base-content/70 mb-4">{{ block.value.description }}</p>
+                    {% endif %}
+                    
+                    {% if block.value.audio_file %}
+                    <div class="bg-base-200 rounded-lg p-4">
+                        <!-- Audio Player -->
+                        <div class="mb-4">
+                            <audio controls class="w-full" preload="metadata">
+                                <source src="{{ block.value.audio_file.url }}" type="audio/mpeg">
+                                <source src="{{ block.value.audio_file.url }}" type="audio/wav">
+                                <source src="{{ block.value.audio_file.url }}" type="audio/ogg">
+                                Your browser does not support the audio element.
+                                <a href="{{ block.value.audio_file.url }}" class="link">Download audio file</a>
+                            </audio>
+                        </div>
+                        
+                        <!-- Audio Info and Actions -->
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                            <div class="flex-1">
+                                <div class="text-sm text-base-content/70">
+                                    <span class="font-medium">File:</span> {{ block.value.audio_file.title }}
+                                </div>
+                                {% if block.value.duration %}
+                                <div class="text-sm text-base-content/70">
+                                    <span class="font-medium">Duration:</span> {{ block.value.duration }}
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Download Button -->
+                            <div class="flex gap-2">
+                                <a href="{{ block.value.audio_file.url }}" download class="btn btn-sm btn-primary">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    Download Audio
+                                </a>
+                                <button class="btn btn-sm btn-ghost" onclick="shareAudio('{{ block.value.audio_file.url }}', '{{ block.value.title }}')">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"></path>
+                                    </svg>
+                                    Share
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
             {% endif %}
         {% endfor %}
     </div>
@@ -241,6 +327,179 @@ function zoomOut() {
     // Basic zoom functionality - can be enhanced with PDF.js
     const iframe = document.querySelector('.pdf-viewer');
     // Simple zoom implementation
+}
+
+function shareAudio(audioUrl, title) {
+    // Check if Web Share API is supported
+    if (navigator.share) {
+        navigator.share({
+            title: title,
+            text: `Listen to this audio: ${title}`,
+            url: audioUrl
+        }).then(() => {
+            console.log('Audio shared successfully');
+        }).catch((error) => {
+            console.log('Error sharing audio:', error);
+            fallbackShare(audioUrl, title);
+        });
+    } else {
+        // Fallback for browsers that don't support Web Share API
+        fallbackShare(audioUrl, title);
+    }
+}
+
+function fallbackShare(audioUrl, title) {
+    // Copy URL to clipboard
+    navigator.clipboard.writeText(audioUrl).then(() => {
+        // Show success message
+        const toast = document.createElement('div');
+        toast.className = 'toast toast-top toast-end';
+        toast.innerHTML = `
+            <div class="alert alert-success">
+                <span>Audio URL copied to clipboard!</span>
+            </div>
+        `;
+        document.body.appendChild(toast);
+        
+        // Remove toast after 3 seconds
+        setTimeout(() => {
+            document.body.removeChild(toast);
+        }, 3000);
+    }).catch((error) => {
+        console.log('Error copying to clipboard:', error);
+        // Show error message
+        alert(`Share this audio: ${audioUrl}`);
+    });
+}
+
+// Enhanced audio player functionality
+document.addEventListener('DOMContentLoaded', function() {
+    // Add keyboard shortcuts for audio players
+    const audioElements = document.querySelectorAll('audio');
+    
+    audioElements.forEach((audio, index) => {
+        // Add play/pause on spacebar when audio is focused
+        audio.addEventListener('keydown', function(e) {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                if (audio.paused) {
+                    audio.play();
+                } else {
+                    audio.pause();
+                }
+            }
+        });
+        
+        // Add loading and error handling
+        audio.addEventListener('loadstart', function() {
+            console.log(`Loading audio ${index + 1}...`);
+        });
+        
+        audio.addEventListener('canplay', function() {
+            console.log(`Audio ${index + 1} ready to play`);
+        });
+        
+        audio.addEventListener('error', function(e) {
+            console.error(`Error loading audio ${index + 1}:`, e);
+            const errorMsg = audio.parentElement.querySelector('.audio-error');
+            if (!errorMsg) {
+                const error = document.createElement('div');
+                error.className = 'audio-error alert alert-error mt-2';
+                error.innerHTML = '<span>Error loading audio file. Please try downloading instead.</span>';
+                audio.parentElement.appendChild(error);
+            }
+        });
+    });
+});
+
+// Menu functions
+function downloadAllPDFs() {
+    const pdfLinks = document.querySelectorAll('a[href$=".pdf"]');
+    if (pdfLinks.length === 0) {
+        alert('No PDF files found in this score.');
+        return;
+    }
+    
+    pdfLinks.forEach((link, index) => {
+        setTimeout(() => {
+            const a = document.createElement('a');
+            a.href = link.href;
+            a.download = '';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }, index * 500); // Delay each download by 500ms
+    });
+    
+    // Show success message
+    const toast = document.createElement('div');
+    toast.className = 'toast toast-top toast-end';
+    toast.innerHTML = `
+        <div class="alert alert-info">
+            <span>Downloading ${pdfLinks.length} PDF file(s)...</span>
+        </div>
+    `;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        document.body.removeChild(toast);
+    }, 3000);
+}
+
+function shareScore(scoreUrl, title) {
+    const fullUrl = window.location.origin + scoreUrl;
+    
+    if (navigator.share) {
+        navigator.share({
+            title: title,
+            text: `Check out this music score: ${title}`,
+            url: fullUrl
+        }).then(() => {
+            console.log('Score shared successfully');
+        }).catch((error) => {
+            console.log('Error sharing score:', error);
+            fallbackShareScore(fullUrl, title);
+        });
+    } else {
+        fallbackShareScore(fullUrl, title);
+    }
+}
+
+function fallbackShareScore(url, title) {
+    navigator.clipboard.writeText(url).then(() => {
+        const toast = document.createElement('div');
+        toast.className = 'toast toast-top toast-end';
+        toast.innerHTML = `
+            <div class="alert alert-success">
+                <span>Score URL copied to clipboard!</span>
+            </div>
+        `;
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            document.body.removeChild(toast);
+        }, 3000);
+    }).catch((error) => {
+        console.log('Error copying to clipboard:', error);
+        alert(`Share this score: ${url}`);
+    });
+}
+
+function addToSetlist(pageId) {
+    // This would typically open a modal or redirect to setlist management
+    // For now, show a placeholder message
+    const toast = document.createElement('div');
+    toast.className = 'toast toast-top toast-end';
+    toast.innerHTML = `
+        <div class="alert alert-info">
+            <span>Setlist functionality coming soon!</span>
+        </div>
+    `;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        document.body.removeChild(toast);
+    }, 3000);
 }
 </script>
 {% endblock %}

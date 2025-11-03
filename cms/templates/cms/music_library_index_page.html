@@ -93,6 +93,11 @@
                                     <li><a onclick="filterByTag('{{ doc_tag.name }}')" class="text-sm tag-filter-option" data-tag="{{ doc_tag.name }}">📎 {{ doc_tag.name }}</a></li>
                                 {% endfor %}
                             {% endfor %}
+                            {% for audio in score.get_audios %}
+                                {% for doc_tag in audio.audio_file.tags.all %}
+                                    <li><a onclick="filterByTag('{{ doc_tag.name }}')" class="text-sm tag-filter-option" data-tag="{{ doc_tag.name }}">🎵 {{ doc_tag.name }}</a></li>
+                                {% endfor %}
+                            {% endfor %}
                         {% endfor %}
                     </ul>
                 </div>
@@ -128,7 +133,8 @@
                 data-tags="{% for tag in score.tags.all %}{{ tag.name|lower }} {% endfor %}"
                 data-categories="{% for category in score.categories.all %}{{ category.name|lower }} {% endfor %}"
                 data-pdfs="{% for pdf in score.get_pdf_blocks %}{{ pdf.title|lower }} {% endfor %}"
-                data-document-tags="{% for pdf in score.get_pdf_blocks %}{% for doc_tag in pdf.pdf_file.tags.all %}{{ doc_tag.name|lower }} {% endfor %}{% endfor %}"
+                data-audios="{% for audio in score.get_audios %}{{ audio.title|lower }} {% endfor %}"
+                data-document-tags="{% for pdf in score.get_pdf_blocks %}{% for doc_tag in pdf.pdf_file.tags.all %}{{ doc_tag.name|lower }} {% endfor %}{% endfor %}{% for audio in score.get_audios %}{% for doc_tag in audio.audio_file.tags.all %}{{ doc_tag.name|lower }} {% endfor %}{% endfor %}"
                 data-difficulty="{{ score.difficulty_level }}">
                 
                 <!-- Score Icon/Thumbnail -->
@@ -143,16 +149,29 @@
                         {% if score.composer %}{{ score.composer.name }}{% else %}Unknown Composer{% endif %}
                     </div>
                     
-                    <!-- PDF Info -->
-                    {% with pdf_blocks=score.get_pdf_blocks %}
-                    {% if pdf_blocks %}
-                    <div class="text-xs opacity-50 mt-1">
-                        📄 {{ pdf_blocks|length }} PDF{% if pdf_blocks|length > 1 %}s{% endif %}
-                        {% for pdf in pdf_blocks|slice:":2" %}
-                            {% if forloop.first %} - {% endif %}{{ pdf.title }}{% if not forloop.last %}, {% endif %}
-                        {% endfor %}
-                        {% if pdf_blocks|length > 2 %}...{% endif %}
+                    <!-- PDF and Audio Info -->
+                    {% with pdf_blocks=score.get_pdf_blocks audio_blocks=score.get_audios %}
+                    {% if pdf_blocks or audio_blocks %}
+                    <div class="text-xs opacity-50 mt-1 flex gap-3">
+                        {% if pdf_blocks %}
+                        <span>📄 {{ pdf_blocks|length }} PDF{% if pdf_blocks|length > 1 %}s{% endif %}</span>
+                        {% endif %}
+                        {% if audio_blocks %}
+                        <span>🎵 {{ audio_blocks|length }} Audio{% if audio_blocks|length > 1 %}s{% endif %}</span>
+                        {% endif %}
                     </div>
+                    
+                    <!-- File Titles -->
+                    {% if pdf_blocks %}
+                    <div class="text-xs opacity-40 mt-1">
+                        📄 {% for pdf in pdf_blocks|slice:":2" %}{{ pdf.title }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if pdf_blocks|length > 2 %}...{% endif %}
+                    </div>
+                    {% endif %}
+                    {% if audio_blocks %}
+                    <div class="text-xs opacity-40 mt-1">
+                        🎵 {% for audio in audio_blocks|slice:":2" %}{{ audio.title }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if audio_blocks|length > 2 %}...{% endif %}
+                    </div>
+                    {% endif %}
                     
                     <!-- PDF Document Tags -->
                     <div class="flex flex-wrap gap-1 mt-1">
@@ -161,6 +180,17 @@
                                 {% for doc_tag in pdf.pdf_file.tags.all|slice:":3" %}
                                 <div class="badge badge-secondary badge-xs">
                                     📎 {{ doc_tag.name }}
+                                </div>
+                                {% endfor %}
+                            {% endif %}
+                        {% endfor %}
+                        
+                        <!-- Audio Document Tags -->
+                        {% for audio in audio_blocks %}
+                            {% if audio.audio_file.tags.all %}
+                                {% for doc_tag in audio.audio_file.tags.all|slice:":3" %}
+                                <div class="badge badge-accent badge-xs">
+                                    🎵 {{ doc_tag.name }}
                                 </div>
                                 {% endfor %}
                             {% endif %}
@@ -301,6 +331,7 @@ function filterScores() {
         const tags = item.dataset.tags || '';
         const categories = item.dataset.categories || '';
         const pdfs = item.dataset.pdfs || '';
+        const audios = item.dataset.audios || '';
         const documentTags = item.dataset.documentTags || '';
         const difficulty = item.dataset.difficulty || '';
         
@@ -311,6 +342,7 @@ function filterScores() {
             tags.includes(searchTerm) ||
             categories.includes(searchTerm) ||
             pdfs.includes(searchTerm) ||
+            audios.includes(searchTerm) ||
             documentTags.includes(searchTerm);
         
         // Check tag filter (both ScorePage tags and document tags)
