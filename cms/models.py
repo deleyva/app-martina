@@ -110,6 +110,9 @@ class BlogPage(Page):
         FieldPanel("body"),
     ]
 
+    # Permitir BlogPage como hijo de BlogIndexPage y MusicLibraryIndexPage
+    parent_page_types = ["cms.BlogIndexPage", "cms.MusicLibraryIndexPage"]
+
     class Meta:
         verbose_name = "Artículo de Blog"
 
@@ -510,8 +513,8 @@ class MusicLibraryIndexPage(Page):
         FieldPanel("intro"),
     ]
 
-    # Solo permitir ScorePage y SetlistPage como hijos
-    subpage_types = ["cms.ScorePage", "cms.SetlistPage"]
+    # Permitir ScorePage, SetlistPage y BlogPage como hijos
+    subpage_types = ["cms.ScorePage", "cms.SetlistPage", "cms.BlogPage"]
 
     class Meta:
         verbose_name = "Biblioteca Musical"
