@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load wagtailcore_tags %}
+{% load wagtailcore_tags wagtailimages_tags %}
 
 {# MUSIC PILLS - Plantilla de biblioteca musical #}
 {# Esta plantilla puede ser extraída para usar en otra instalación de Wagtail #}
@@ -296,7 +296,7 @@
             <div class="card bg-base-100 shadow-lg hover:shadow-xl transition-shadow">
                 {% if post.featured_image %}
                 <figure class="aspect-video">
-                    <img src="{{ post.featured_image.url }}" alt="{{ post.title }}" class="w-full h-full object-cover">
+                    {% image post.featured_image width-400 class="w-full h-full object-cover" %}
                 </figure>
                 {% endif %}
                 
