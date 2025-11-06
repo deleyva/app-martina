@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags wagtailimages_tags %}
+
+{# MUSIC PILLS - Plantilla de partituras filtradas #}
+
+{% block title %}{{ page_title }} - Music Pills{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="text-4xl font-bold mb-4">{{ page_title }}</h1>
+        
+        <!-- Filtros activos -->
+        {% if filter_tags or filter_categories or filter_document_tags or filter_difficulty %}
+        <div class="bg-base-200 rounded-lg p-4 mb-6">
+            <h2 class="text-lg font-semibold mb-3">🔍 Filtros activos:</h2>
+            <div class="flex flex-wrap gap-2">
+                {% for tag in filter_tags %}
+                <div class="badge badge-primary">Etiqueta: {{ tag }}</div>
+                {% endfor %}
+                {% for category in filter_categories %}
+                <div class="badge badge-info">Categoría: {{ category }}</div>
+                {% endfor %}
+                {% for doc_tag in filter_document_tags %}
+                <div class="badge badge-accent">Doc. Etiqueta: {{ doc_tag }}</div>
+                {% endfor %}
+                {% if filter_difficulty %}
+                <div class="badge badge-warning">Dificultad: {{ filter_difficulty }}</div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Resultados -->
+        <div class="flex justify-between items-center mb-6">
+            <p class="text-base-content/70">
+                {% if total_results %}
+                    Mostrando {{ total_results }} partitura{{ total_results|pluralize }} encontrada{{ total_results|pluralize }}
+                {% else %}
+                    No se encontraron partituras con los filtros especificados
+                {% endif %}
+            </p>
+            
+            <a href="{% url 'filtered_scores' %}" class="btn btn-ghost btn-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+                Limpiar filtros
+            </a>
+        </div>
+    </div>
+    
+    <!-- Lista de partituras -->
+    {% if scores %}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
+        {% for score in scores %}
+        <div class="card bg-base-100 shadow-lg hover:shadow-xl transition-shadow">
+            <div class="card-body p-4">
+                <!-- Título y compositor -->
+                <h3 class="card-title text-lg mb-2">{{ score.title }}</h3>
+                {% if score.composer %}
+                <p class="text-sm text-base-content/70 mb-3">by {{ score.composer.name }}</p>
+                {% endif %}
+                
+                <!-- Categorías -->
+                {% if score.categories.all %}
+                <div class="flex flex-wrap gap-1 mb-2">
+                    {% for category in score.categories.all|slice:":2" %}
+                    <div class="badge badge-info badge-xs">
+                        {% if category.icon %}{{ category.icon }} {% endif %}{{ category.name }}
+                    </div>
+                    {% endfor %}
+                    {% if score.categories.all|length > 2 %}
+                    <div class="badge badge-ghost badge-xs">+{{ score.categories.all|length|add:"-2" }}</div>
+                    {% endif %}
+                </div>
+                {% endif %}
+                
+                <!-- Tags -->
+                {% if score.tags.all %}
+                <div class="flex flex-wrap gap-1 mb-3">
+                    {% for tag in score.tags.all|slice:":3" %}
+                    <div class="badge badge-outline badge-xs" style="{% if tag.color %}border-color: {{ tag.color }}; color: {{ tag.color }};{% endif %}">
+                        🏷️ {{ tag.name }}
+                    </div>
+                    {% endfor %}
+                    {% if score.tags.all|length > 3 %}
+                    <div class="badge badge-ghost badge-xs">+{{ score.tags.all|length|add:"-3" }}</div>
+                    {% endif %}
+                </div>
+                {% endif %}
+                
+                <!-- Información de documentos -->
+                <div class="text-xs text-base-content/60 mb-3">
+                    {% with pdf_count=score.get_pdf_blocks|length audio_count=score.get_audios|length image_count=score.get_images|length %}
+                    {% if pdf_count %}<span class="mr-2">📄 {{ pdf_count }} PDF{{ pdf_count|pluralize }}</span>{% endif %}
+                    {% if audio_count %}<span class="mr-2">🎵 {{ audio_count }} Audio{{ audio_count|pluralize }}</span>{% endif %}
+                    {% if image_count %}<span class="mr-2">🖼️ {{ image_count }} Imagen{{ image_count|pluralize:"es" }}</span>{% endif %}
+                    {% endwith %}
+                </div>
+                
+                <!-- Acciones -->
+                <div class="card-actions justify-end">
+                    <a href="{{ score.get_url }}" class="btn btn-primary btn-sm">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                        </svg>
+                        Ver
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- Paginación -->
+    {% if scores.has_other_pages %}
+    <div class="flex justify-center">
+        <div class="join">
+            {% if scores.has_previous %}
+            <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ scores.previous_page_number }}" class="join-item btn">«</a>
+            {% endif %}
+            
+            {% for num in scores.paginator.page_range %}
+                {% if num == scores.number %}
+                <span class="join-item btn btn-active">{{ num }}</span>
+                {% elif num > scores.number|add:'-3' and num < scores.number|add:'3' %}
+                <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ num }}" class="join-item btn">{{ num }}</a>
+                {% endif %}
+            {% endfor %}
+            
+            {% if scores.has_next %}
+            <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ scores.next_page_number }}" class="join-item btn">»</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+    
+    {% else %}
+    <!-- Sin resultados -->
+    <div class="text-center py-12">
+        <div class="text-6xl mb-4">🔍</div>
+        <h2 class="text-2xl font-bold mb-2">No se encontraron partituras</h2>
+        <p class="text-base-content/70 mb-6">Intenta ajustar los filtros o <a href="{% url 'filtered_scores' %}" class="link">ver todas las partituras</a>.</p>
+        
+        <!-- Sugerencias de filtros -->
+        <div class="bg-base-200 rounded-lg p-6 max-w-md mx-auto">
+            <h3 class="font-semibold mb-3">💡 Ejemplos de filtros:</h3>
+            <div class="space-y-2 text-sm">
+                <a href="{% url 'filtered_scores' %}?document_tags=3/8,lectura-rítmica" class="block link">Documentos con "3/8" y "lectura-rítmica"</a>
+                <a href="{% url 'filtered_scores' %}?difficulty=beginner" class="block link">Dificultad principiante</a>
+                <a href="{% url 'filtered_scores' %}?categories=ejercicios" class="block link">Categoría "ejercicios"</a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Navegación -->
+    <div class="mt-12 pt-8 border-t border-base-300">
+        <a href="/" class="btn btn-ghost">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+            </svg>
+            Volver al inicio
+        </a>
+    </div>
+</div>
+{% endblock %}
