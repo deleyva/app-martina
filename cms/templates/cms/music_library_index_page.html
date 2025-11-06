@@ -286,6 +286,76 @@
     </div>
     {% endif %}
 
+    <!-- Blog Posts Section -->
+    {% if blog_posts %}
+    <div class="mt-12">
+        <h2 class="text-2xl font-bold mb-6">📝 Artículos del Blog</h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for post in blog_posts %}
+            <div class="card bg-base-100 shadow-lg hover:shadow-xl transition-shadow">
+                {% if post.featured_image %}
+                <figure class="aspect-video">
+                    <img src="{{ post.featured_image.url }}" alt="{{ post.title }}" class="w-full h-full object-cover">
+                </figure>
+                {% endif %}
+                
+                <div class="card-body">
+                    <h3 class="card-title text-lg">{{ post.title }}</h3>
+                    <p class="text-sm text-base-content/70 mb-2">{{ post.intro }}</p>
+                    
+                    <!-- Categories and Tags -->
+                    {% if post.categories.all or post.tags.all %}
+                    <div class="flex flex-wrap gap-1 mb-3">
+                        {% for category in post.categories.all|slice:":3" %}
+                        <div class="badge badge-info badge-sm">
+                            {% if category.icon %}{{ category.icon }} {% endif %}{{ category.name }}
+                        </div>
+                        {% endfor %}
+                        {% for tag in post.tags.all|slice:":3" %}
+                        <div class="badge badge-outline badge-sm" style="{% if tag.color %}border-color: {{ tag.color }}; color: {{ tag.color }};{% endif %}">
+                            🏷️ {{ tag.name }}
+                        </div>
+                        {% endfor %}
+                        {% if post.categories.all|length > 3 or post.tags.all|length > 3 %}
+                        <div class="badge badge-ghost badge-sm">+más</div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Date and Actions -->
+                    <div class="flex justify-between items-center mt-4">
+                        <div class="text-xs text-base-content/50">
+                            📅 {{ post.date|date:"d M Y" }}
+                        </div>
+                        
+                        <div class="flex gap-2">
+                            <a href="{{ post.get_url }}" class="btn btn-sm btn-primary">
+                                Leer más
+                            </a>
+                            {% if user.is_staff %}
+                            <div class="dropdown dropdown-end">
+                                <div tabindex="0" role="button" class="btn btn-sm btn-ghost">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path>
+                                    </svg>
+                                </div>
+                                <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+                                    <li><a href="{{ post.get_url }}">Ver</a></li>
+                                    <li><a href="/cms/pages/{{ post.id }}/edit/">Editar</a></li>
+                                    <li><a href="/cms/pages/{{ post.id }}/copy/">Duplicar</a></li>
+                                </ul>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
     {% comment %} <!-- Quick Actions -->
     <div class="mt-12">
         <h2 class="text-2xl font-bold mb-4">⚡ Quick Actions</h2>

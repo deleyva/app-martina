@@ -102,12 +102,21 @@ class BlogPage(Page):
         related_name="+",
         help_text="Imagen destacada del artículo",
     )
+    
+    # Categorías y tags
+    categories = ParentalManyToManyField(MusicCategory, blank=True)
+    tags = ParentalManyToManyField(MusicTag, blank=True)
 
     content_panels = Page.content_panels + [
         FieldPanel("date"),
         FieldPanel("intro"),
         FieldPanel("featured_image"),
         FieldPanel("body"),
+    ]
+
+    promote_panels = Page.promote_panels + [
+        FieldPanel("categories", widget=forms.CheckboxSelectMultiple),
+        FieldPanel("tags", widget=forms.CheckboxSelectMultiple),
     ]
 
     # Permitir BlogPage como hijo de BlogIndexPage y MusicLibraryIndexPage
@@ -534,6 +543,19 @@ class MusicLibraryIndexPage(Page):
             # Si la tabla ScorePage no existe aún, devolver lista vacía
             context["scores"] = []
             context["scores_count"] = 0
+        
+        # Obtener todas las páginas de blog que son hijas de esta página
+        try:
+            blog_posts = (
+                BlogPage.objects.child_of(self).live().order_by("-first_published_at")
+            )
+            context["blog_posts"] = blog_posts
+            context["blog_posts_count"] = blog_posts.count()
+        except:
+            # Si la tabla BlogPage no existe aún, devolver lista vacía
+            context["blog_posts"] = []
+            context["blog_posts_count"] = 0
+        
         return context
 
 

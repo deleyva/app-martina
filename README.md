@@ -94,3 +94,37 @@ See detailed [cookiecutter-django Docker documentation](https://cookiecutter-dja
 
 ## Resumen diario de lo trabajado
 
+
+## Tareas Futuras - Mejoras Técnicas
+
+### Tailwind Typography (Prose) - Revisión Pendiente
+
+**Fecha de creación**: Noviembre 2025  
+**Prioridad**: Media  
+
+#### Problema Identificado:
+Las plantillas de blog (`cms/templates/cms/blog_page.html`) actualmente usan CSS personalizado para el formateo de contenido rich text en lugar de utilizar Tailwind Typography (`@tailwindcss/typography` con clases `prose`).
+
+#### Situación Actual:
+- Se implementó CSS personalizado con la clase `.blog-content` para resolver problemas de formateo de encabezados H2, H3, etc.
+- Los estilos funcionan correctamente pero no aprovechan las ventajas de Tailwind Typography.
+
+#### Acción Requerida:
+1. **Investigar** por qué las clases `prose` de Tailwind Typography no funcionaron inicialmente
+2. **Verificar** si `@tailwindcss/typography` está correctamente instalado y configurado en `tailwind.config.js`
+3. **Revisar** la configuración de Tailwind CSS para asegurar que el plugin Typography esté habilitado
+4. **Migrar** de CSS personalizado a clases `prose` estándar de Tailwind cuando sea posible
+5. **Beneficios esperados**:
+   - Mejor consistencia con el ecosistema Tailwind
+   - Menos CSS personalizado que mantener
+   - Mejor soporte para temas y personalización
+   - Estilos más robustos y probados
+
+#### Archivos Afectados:
+- `cms/templates/cms/blog_page.html` (CSS personalizado en `{% block extra_css %}`)
+- `tailwind.config.js` (verificar configuración del plugin)
+- Posiblemente otros archivos de configuración de frontend
+
+#### Notas Técnicas:
+El CSS personalizado actual funciona correctamente y usa variables CSS de DaisyUI, por lo que no es urgente, pero sería beneficioso para la mantenibilidad a largo plazo.
+
