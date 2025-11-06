@@ -104,8 +104,8 @@ class BlogPage(Page):
     )
     
     # Categorías y tags
-    categories = ParentalManyToManyField(MusicCategory, blank=True)
-    tags = ParentalManyToManyField(MusicTag, blank=True)
+    categories = ParentalManyToManyField("MusicCategory", blank=True)
+    tags = ParentalManyToManyField("MusicTag", blank=True)
 
     content_panels = Page.content_panels + [
         FieldPanel("date"),
@@ -564,14 +564,14 @@ class ScorePage(Page):
 
     # Metadatos básicos
     composer = models.ForeignKey(
-        MusicComposer,
+        "MusicComposer",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         help_text="Seleccionar o añadir un compositor",
     )
-    categories = ParentalManyToManyField(MusicCategory, blank=True)
-    tags = ParentalManyToManyField(MusicTag, blank=True)
+    categories = ParentalManyToManyField("MusicCategory", blank=True)
+    tags = ParentalManyToManyField("MusicTag", blank=True)
 
     # StreamField para contenido flexible
     content = StreamField(
