@@ -32,16 +32,7 @@
             
             <!-- Metadata badges -->
             <div class="flex flex-wrap gap-2 mb-4">
-                {% if page.difficulty_level %}
-                <div class="badge badge-primary">{{ page.get_difficulty_level_display }}</div>
-                {% endif %}
-                {% if page.rating %}
-                <div class="badge badge-secondary">
-                    {% for i in "12345" %}
-                        {% if forloop.counter <= page.rating %}★{% else %}☆{% endif %}
-                    {% endfor %}
-                </div>
-                {% endif %}
+                <!-- Difficulty levels are now shown per individual PDF/Audio block -->
                 {% for category in page.categories.all %}
                 <div class="badge badge-outline">{{ category.name }}</div>
                 {% endfor %}
@@ -123,9 +114,14 @@
                                 <!-- PDF Info -->
                                 <div>
                                     <h3 class="font-semibold text-lg mb-2">{{ block.value.pdf_file.title }}</h3>
-                                    {% if block.value.page_count %}
-                                    <p class="text-base-content/70 mb-2">{{ block.value.page_count }} pages</p>
-                                    {% endif %}
+                                    <div class="flex flex-wrap gap-2 mb-2">
+                                        {% if block.value.page_count %}
+                                        <div class="badge badge-ghost">{{ block.value.page_count }} pages</div>
+                                        {% endif %}
+                                        {% if block.value.difficulty_level %}
+                                        <div class="badge badge-primary">{{ block.value.get_difficulty_level_display }}</div>
+                                        {% endif %}
+                                    </div>
                                     <p class="text-sm text-base-content/50 mb-4">Click "Open PDF" to view in a new tab or download to your device</p>
                                 </div>
                                 
@@ -185,12 +181,6 @@
                         <div>
                             <span class="font-medium">Duration:</span>
                             <span>{{ block.value.duration_minutes }} min</span>
-                        </div>
-                        {% endif %}
-                        {% if block.value.rating %}
-                        <div>
-                            <span class="font-medium">Rating:</span>
-                            <span>{{ block.value.rating }}/5 ⭐</span>
                         </div>
                         {% endif %}
                         {% if block.value.reference %}
@@ -271,12 +261,17 @@
                         <!-- Audio Info and Actions -->
                         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                             <div class="flex-1">
-                                <div class="text-sm text-base-content/70">
+                                <div class="text-sm text-base-content/70 mb-2">
                                     <span class="font-medium">File:</span> {{ block.value.audio_file.title }}
                                 </div>
                                 {% if block.value.duration %}
-                                <div class="text-sm text-base-content/70">
+                                <div class="text-sm text-base-content/70 mb-2">
                                     <span class="font-medium">Duration:</span> {{ block.value.duration }}
+                                </div>
+                                {% endif %}
+                                {% if block.value.difficulty_level %}
+                                <div class="mb-2">
+                                    <div class="badge badge-primary badge-sm">{{ block.value.get_difficulty_level_display }}</div>
                                 </div>
                                 {% endif %}
                             </div>

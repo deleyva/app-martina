@@ -345,6 +345,18 @@ class PDFBlock(StructBlock):
     pdf_file = DocumentChooserBlock(help_text="Seleccionar archivo PDF")
     description = TextBlock(required=False, help_text="Descripción opcional")
     page_count = CharBlock(max_length=10, required=False, help_text="Número de páginas")
+    difficulty_level = CharBlock(
+        max_length=20,
+        choices=[
+            ("beginner", "Principiante"),
+            ("easy", "Fácil"),
+            ("intermediate", "Intermedio"),
+            ("advanced", "Avanzado"),
+            ("expert", "Experto"),
+        ],
+        required=False,
+        help_text="Nivel de dificultad de este PDF específico",
+    )
 
     class Meta:
         icon = "doc-full"
@@ -385,7 +397,6 @@ class MetadataBlock(StructBlock):
         help_text="Principiante, Fácil, Intermedio, Avanzado, Experto",
     )
     duration_minutes = CharBlock(max_length=10, required=False)
-    rating = CharBlock(max_length=5, required=False, help_text="1-5 estrellas")
     reference = CharBlock(
         max_length=200, required=False, help_text="Número de catálogo, opus, etc."
     )
@@ -401,6 +412,18 @@ class AudioBlock(StructBlock):
     title = CharBlock(max_length=200, help_text="Título del audio")
     audio_file = DocumentChooserBlock(help_text="Seleccionar archivo audio")
     description = TextBlock(required=False, help_text="Descripción opcional")
+    difficulty_level = CharBlock(
+        max_length=20,
+        choices=[
+            ("beginner", "Principiante"),
+            ("easy", "Fácil"),
+            ("intermediate", "Intermedio"),
+            ("advanced", "Avanzado"),
+            ("expert", "Experto"),
+        ],
+        required=False,
+        help_text="Nivel de dificultad de este audio específico",
+    )
 
     class Meta:
         icon = "media"
@@ -586,26 +609,10 @@ class ScorePage(Page):
         use_json_field=True,
     )
 
-    # Campos adicionales
-    difficulty_level = models.CharField(
-        max_length=20,
-        choices=[
-            ("beginner", "Principiante"),
-            ("easy", "Fácil"),
-            ("intermediate", "Intermedio"),
-            ("advanced", "Avanzado"),
-            ("expert", "Experto"),
-        ],
-        blank=True,
-    )
-    rating = models.PositiveSmallIntegerField(
-        null=True, blank=True, help_text="1-5 estrellas"
-    )
+    # Campos adicionales eliminados - difficulty_level y rating ahora están en los bloques individuales
 
     content_panels = Page.content_panels + [
         FieldPanel("composer"),
-        FieldPanel("difficulty_level"),
-        FieldPanel("rating"),
         FieldPanel("content"),
     ]
 
