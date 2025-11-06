@@ -430,6 +430,35 @@ class AudioBlock(StructBlock):
         label = "Audio"
 
 
+class ImageBlock(StructBlock):
+    """Block para imágenes - MUSIC PILLS"""
+
+    title = CharBlock(max_length=200, help_text="Título de la imagen")
+    image = ImageChooserBlock(help_text="Seleccionar imagen")
+    caption = TextBlock(required=False, help_text="Descripción o pie de foto")
+    alt_text = CharBlock(
+        max_length=200, 
+        required=False, 
+        help_text="Texto alternativo para accesibilidad"
+    )
+    difficulty_level = CharBlock(
+        max_length=20,
+        choices=[
+            ("beginner", "Principiante"),
+            ("easy", "Fácil"),
+            ("intermediate", "Intermedio"),
+            ("advanced", "Avanzado"),
+            ("expert", "Experto"),
+        ],
+        required=False,
+        help_text="Nivel de dificultad de esta imagen específica",
+    )
+
+    class Meta:
+        icon = "image"
+        label = "Image"
+
+
 # Snippets para Music Pills
 # -----------------------------------------------------------------------------
 
@@ -604,6 +633,7 @@ class ScorePage(Page):
             ("bookmarks", ListBlock(BookmarkBlock())),
             ("notes", RichTextBlock()),
             ("audio", AudioBlock()),
+            ("image", ImageBlock()),
         ],
         blank=True,
         use_json_field=True,
@@ -659,6 +689,14 @@ class ScorePage(Page):
             if block.block_type == "audio":
                 audios.append(block.value)
         return audios
+
+    def get_images(self):
+        """Obtener todos los bloques de imagen del StreamField de contenido"""
+        images = []
+        for block in self.content:
+            if block.block_type == "image":
+                images.append(block.value)
+        return images
 
 
 class SetlistPage(Page):

@@ -297,6 +297,42 @@
                 </div>
             </div>
             {% endif %}
+            
+            {% elif block.block_type == 'image' %}
+            <!-- Image Block -->
+            <div class="card bg-base-100 shadow-xl mb-6">
+                <div class="card-body">
+                    <h2 class="card-title">{{ block.value.title }}</h2>
+                    {% if block.value.caption %}
+                    <p class="text-base-content/70 mb-4">{{ block.value.caption }}</p>
+                    {% endif %}
+                    
+                    {% if block.value.image %}
+                    <figure class="mb-4">
+                        {% image block.value.image width-800 class="w-full rounded-lg shadow-lg" alt=block.value.alt_text %}
+                    </figure>
+                    {% endif %}
+                    
+                    <!-- Image Info -->
+                    <div class="flex flex-wrap gap-2 justify-between items-center">
+                        <div class="flex flex-wrap gap-2">
+                            {% if block.value.difficulty_level %}
+                            <div class="badge badge-primary">{{ block.value.get_difficulty_level_display }}</div>
+                            {% endif %}
+                            <div class="badge badge-ghost">{{ block.value.image.width }}×{{ block.value.image.height }}px</div>
+                        </div>
+                        
+                        <!-- Download Button -->
+                        <a href="{{ block.value.image.url }}" download class="btn btn-sm btn-outline">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            Download Image
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
         {% endfor %}
     </div>
 
