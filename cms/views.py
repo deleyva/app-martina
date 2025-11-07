@@ -46,28 +46,57 @@ def filtered_scores_view(request):
         # Filtrar scores que tengan documentos con las etiquetas especificadas
         filtered_score_ids = []
         for score in scores:
+            has_matching_tags = False
+            
             # Verificar PDFs
             pdf_blocks = score.get_pdf_blocks()
             audio_blocks = score.get_audios()
             
-            has_matching_tags = False
-            
             # Buscar en PDFs
             for pdf_block in pdf_blocks:
-                if hasattr(pdf_block, 'pdf_file') and pdf_block.pdf_file:
-                    pdf_tags = [tag.name.lower() for tag in pdf_block.pdf_file.tags.all()]
-                    if any(tag_name.lower() in pdf_tags for tag_name in document_tag_names):
-                        has_matching_tags = True
-                        break
+                # Acceder al archivo PDF usando la clave del diccionario
+                if 'pdf_file' in pdf_block and pdf_block['pdf_file']:
+                    try:
+                        pdf_document = pdf_block['pdf_file']
+                        if hasattr(pdf_document, 'tags'):
+                            pdf_tags = [tag.name.lower() for tag in pdf_document.tags.all()]
+                            # Verificar si CUALQUIERA de las etiquetas buscadas está presente
+                            if any(tag_name.lower() in pdf_tags for tag_name in document_tag_names):
+                                has_matching_tags = True
+                                break
+                    except AttributeError:
+                        continue
             
             # Buscar en Audios si no se encontró en PDFs
             if not has_matching_tags:
                 for audio_block in audio_blocks:
-                    if hasattr(audio_block, 'audio_file') and audio_block.audio_file:
-                        audio_tags = [tag.name.lower() for tag in audio_block.audio_file.tags.all()]
-                        if any(tag_name.lower() in audio_tags for tag_name in document_tag_names):
-                            has_matching_tags = True
-                            break
+                    if 'audio_file' in audio_block and audio_block['audio_file']:
+                        try:
+                            audio_document = audio_block['audio_file']
+                            if hasattr(audio_document, 'tags'):
+                                audio_tags = [tag.name.lower() for tag in audio_document.tags.all()]
+                                # Verificar si CUALQUIERA de las etiquetas buscadas está presente
+                                if any(tag_name.lower() in audio_tags for tag_name in document_tag_names):
+                                    has_matching_tags = True
+                                    break
+                        except AttributeError:
+                            continue
+            
+            # Buscar en Imágenes si no se encontró en PDFs ni Audios
+            if not has_matching_tags:
+                image_blocks = score.get_images()
+                for image_block in image_blocks:
+                    if 'image' in image_block and image_block['image']:
+                        try:
+                            image_document = image_block['image']
+                            if hasattr(image_document, 'tags'):
+                                image_tags = [tag.name.lower() for tag in image_document.tags.all()]
+                                # Verificar si CUALQUIERA de las etiquetas buscadas está presente
+                                if any(tag_name.lower() in image_tags for tag_name in document_tag_names):
+                                    has_matching_tags = True
+                                    break
+                        except AttributeError:
+                            continue
             
             if has_matching_tags:
                 filtered_score_ids.append(score.id)

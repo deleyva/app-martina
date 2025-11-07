@@ -1,5 +1,86 @@
 # Martina Bescós App
 
+## 🎼 Sistema de Filtros Avanzados para Partituras
+
+La aplicación incluye un sistema completo de filtros avanzados que permite buscar partituras por diferentes criterios.
+
+### 🔍 **Acceso a los Filtros**
+
+**URL Base:** `/scores/filtered/`
+
+**Desde la interfaz:** Botón "Filtros Avanzados" en la página principal de la biblioteca musical.
+
+### 📋 **Parámetros de Filtrado Disponibles**
+
+#### **1. Etiquetas de Documentos (`document_tags`)**
+Busca en las etiquetas de PDFs, Audios e Imágenes asociados a las partituras.
+
+**Ejemplos:**
+```
+/scores/filtered/?document_tags=piano
+/scores/filtered/?document_tags=piano,leadsheet
+/scores/filtered/?document_tags=3/8,lectura-rítmica
+```
+
+#### **2. Etiquetas de Página (`tags`)**
+Busca en las etiquetas asignadas directamente a la ScorePage.
+
+**Ejemplos:**
+```
+/scores/filtered/?tags=ejercicios
+/scores/filtered/?tags=escalas,arpegios
+```
+
+#### **3. Categorías (`categories`)**
+Filtra por categorías de las ScorePages.
+
+**Ejemplos:**
+```
+/scores/filtered/?categories=estudios
+/scores/filtered/?categories=jazz,clásico
+```
+
+#### **4. Nivel de Dificultad (`difficulty`)**
+Busca documentos con un nivel de dificultad específico.
+
+**Valores disponibles:** `beginner`, `easy`, `intermediate`, `advanced`, `expert`
+
+**Ejemplos:**
+```
+/scores/filtered/?difficulty=beginner
+/scores/filtered/?difficulty=advanced
+```
+
+### 🔗 **Filtros Combinados**
+
+Puedes combinar múltiples filtros para búsquedas más específicas:
+
+```
+/scores/filtered/?document_tags=piano&difficulty=intermediate
+/scores/filtered/?categories=jazz&document_tags=leadsheet
+/scores/filtered/?tags=ejercicios&difficulty=beginner&document_tags=3/8
+```
+
+### 🎯 **Casos de Uso Prácticos**
+
+- **Profesor de piano:** `?document_tags=piano&difficulty=beginner`
+- **Estudiante de jazz:** `?categories=jazz&document_tags=leadsheet`
+- **Práctica de ritmo:** `?document_tags=3/8,lectura-rítmica`
+- **Ejercicios avanzados:** `?tags=ejercicios&difficulty=advanced`
+
+### 🔧 **Características Técnicas**
+
+- **Búsqueda case-insensitive:** No importan mayúsculas/minúsculas
+- **Múltiples etiquetas:** Separadas por comas
+- **Paginación:** 12 resultados por página
+- **Filtros activos:** Se muestran como badges en la interfaz
+- **Sin resultados:** Página con sugerencias útiles
+
+### 📊 **Tipos de Documentos Soportados**
+
+- **📄 PDFs:** Partituras, ejercicios, métodos
+- **🎵 Audios:** Grabaciones, ejemplos, acompañamientos  
+- **🖼️ Imágenes:** Diagramas, fotos de instrumentos, notación
 
 ## Siguientes pasos
 

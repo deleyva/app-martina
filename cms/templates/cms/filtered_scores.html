@@ -149,9 +149,11 @@
         <div class="bg-base-200 rounded-lg p-6 max-w-md mx-auto">
             <h3 class="font-semibold mb-3">💡 Ejemplos de filtros:</h3>
             <div class="space-y-2 text-sm">
-                <a href="{% url 'filtered_scores' %}?document_tags=3/8,lectura-rítmica" class="block link">Documentos con "3/8" y "lectura-rítmica"</a>
-                <a href="{% url 'filtered_scores' %}?difficulty=beginner" class="block link">Dificultad principiante</a>
-                <a href="{% url 'filtered_scores' %}?categories=ejercicios" class="block link">Categoría "ejercicios"</a>
+                <a href="{% url 'filtered_scores' %}?document_tags=piano" class="block link">📄 Documentos con "piano"</a>
+                <a href="{% url 'filtered_scores' %}?document_tags=3/8,lectura-rítmica" class="block link">🎵 Documentos con "3/8" y "lectura-rítmica"</a>
+                <a href="{% url 'filtered_scores' %}?difficulty=beginner" class="block link">📊 Dificultad principiante</a>
+                <a href="{% url 'filtered_scores' %}?categories=ejercicios" class="block link">🏷️ Categoría "ejercicios"</a>
+                <a href="{% url 'filtered_scores' %}?document_tags=diagrama" class="block link">🖼️ Imágenes con "diagrama"</a>
             </div>
         </div>
     </div>
