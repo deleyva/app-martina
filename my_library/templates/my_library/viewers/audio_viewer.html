@@ -1,0 +1,41 @@
+{% load wagtailcore_tags %}
+
+<div class="w-full max-w-2xl">
+    <div class="bg-base-100 rounded-box shadow-xl p-8">
+        {% for audio in audios %}
+        <div class="mb-6 {% if not forloop.last %}border-b border-base-300 pb-6{% endif %}">
+            <h3 class="text-xl font-bold mb-2">{{ audio.title|default:"Audio sin título" }}</h3>
+            
+            {% if audio.description %}
+            <p class="text-sm opacity-70 mb-4">{{ audio.description }}</p>
+            {% endif %}
+            
+            <!-- Reproductor de audio HTML5 -->
+            <audio controls class="w-full">
+                {% if audio.audio_file %}
+                <source src="{{ audio.audio_file.url }}" type="{{ audio.audio_file.file.content_type }}">
+                {% elif audio.file %}
+                <source src="{{ audio.file.url }}" type="{{ audio.file.content_type }}">
+                {% endif %}
+                Tu navegador no soporta el elemento de audio.
+            </audio>
+            
+            {% if audio.audio_file or audio.file %}
+            <div class="mt-2 text-xs opacity-50">
+                <a href="{% if audio.audio_file %}{{ audio.audio_file.url }}{% else %}{{ audio.file.url }}{% endif %}" 
+                   download 
+                   class="link link-hover">
+                    Descargar audio
+                </a>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+        
+        {% if not audios %}
+        <div class="text-center py-8">
+            <p class="text-base-content/70">No hay archivos de audio disponibles</p>
+        </div>
+        {% endif %}
+    </div>
+</div>

@@ -1,0 +1,231 @@
+{% load wagtailcore_tags %}
+
+<style>
+    #pdf-container {
+        width: 100%;
+        height: 100vh;
+        overflow-y: auto;
+        overflow-x: hidden;
+        background: white;
+    }
+    #the-canvas {
+        display: block;
+        margin: 0 auto;
+    }
+    #page-indicator {
+        position: fixed;
+        bottom: 16px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 9998;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 4px 12px;
+        border-radius: 999px;
+        font-size: 12px;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+</style>
+
+<!-- Contenedor fullscreen para PDF -->
+<div id="pdf-container">
+    <canvas id="the-canvas"></canvas>
+</div>
+
+<!-- Indicador de página (pequeño, abajo centro) -->
+<div id="page-indicator">
+    <span id="page-info"></span>
+</div>
+
+<script>
+    // Configuración PDF.js
+    var pdfjsLib = window['pdfjs-dist/build/pdf'];
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    var pdfDoc = null,
+        currentPage = 1,
+        totalPages = 0,
+        rendering = false;
+
+    var canvas = document.getElementById('the-canvas'),
+        ctx = canvas.getContext('2d'),
+        container = document.getElementById('pdf-container'),
+        pageIndicator = document.getElementById('page-indicator'),
+        pageInfo = document.getElementById('page-info');
+    
+    var indicatorTimeout = null;
+
+    // Mostrar indicador de página temporalmente
+    function showPageIndicator() {
+        pageInfo.textContent = `${currentPage} / ${totalPages}`;
+        pageIndicator.style.opacity = '1';
+        
+        clearTimeout(indicatorTimeout);
+        indicatorTimeout = setTimeout(() => {
+            pageIndicator.style.opacity = '0';
+        }, 1500);
+    }
+    
+    // Renderizar página actual
+    function renderPage(num) {
+        if (rendering || !pdfDoc) return;
+        rendering = true;
+        
+        currentPage = Math.max(1, Math.min(num, totalPages));
+        
+        pdfDoc.getPage(currentPage).then(function (page) {
+            // Escala para ajustar al ancho de ventana
+            var scale = window.innerWidth / page.getViewport({ scale: 1 }).width;
+            var viewport = page.getViewport({ scale: scale });
+            
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+
+            var renderContext = {
+                canvasContext: ctx,
+                viewport: viewport
+            };
+
+            page.render(renderContext).promise.then(function () {
+                rendering = false;
+                showPageIndicator();
+                container.scrollTop = 0; // Scroll al inicio de la página
+            });
+        });
+    }
+    
+    // Navegar por tercios (como forScore)
+    function scrollByThird(direction) {
+        var viewportHeight = window.innerHeight;
+        var third = viewportHeight / 3;
+        var currentScroll = container.scrollTop;
+        var maxScroll = container.scrollHeight - viewportHeight;
+        
+        if (direction === 'down') {
+            var newScroll = currentScroll + third;
+            
+            // Si llegamos cerca del final de la página, ir a siguiente página
+            if (newScroll >= maxScroll - 50) {
+                if (currentPage < totalPages) {
+                    renderPage(currentPage + 1);
+                }
+            } else {
+                container.scrollTo({
+                    top: newScroll,
+                    behavior: 'smooth'
+                });
+                showPageIndicator();
+            }
+        } else if (direction === 'up') {
+            var newScroll = currentScroll - third;
+            
+            // Si estamos al inicio de la página, ir a página anterior
+            if (currentScroll <= 50) {
+                if (currentPage > 1) {
+                    renderPage(currentPage - 1);
+                    // Scroll al final de la página anterior
+                    setTimeout(() => {
+                        container.scrollTop = container.scrollHeight - viewportHeight;
+                    }, 100);
+                }
+            } else {
+                container.scrollTo({
+                    top: Math.max(0, newScroll),
+                    behavior: 'smooth'
+                });
+                showPageIndicator();
+            }
+        }
+    }
+    
+    // Click en los lados de la pantalla para navegar
+    container.addEventListener('click', function(e) {
+        var clickX = e.clientX;
+        var screenWidth = window.innerWidth;
+        
+        if (clickX > screenWidth * 0.7) {
+            // Click en lado derecho - avanzar
+            scrollByThird('down');
+        } else if (clickX < screenWidth * 0.3) {
+            // Click en lado izquierdo - retroceder
+            scrollByThird('up');
+        }
+    });
+    
+    // Navegación con teclado
+    document.addEventListener('keydown', function (e) {
+        switch (e.key) {
+            case 'Escape':
+                // Dejar que se maneje en viewer.html
+                break;
+            case 'ArrowRight':
+            case 'ArrowDown':
+            case 'PageDown':
+            case ' ': // Espacio
+                e.preventDefault();
+                scrollByThird('down');
+                break;
+            case 'ArrowLeft':
+            case 'ArrowUp':
+            case 'PageUp':
+                e.preventDefault();
+                scrollByThird('up');
+                break;
+        }
+    });
+
+    // Cargar PDF
+    function loadPDF(url) {
+        pdfjsLib.getDocument(url).promise.then(function (doc) {
+            pdfDoc = doc;
+            totalPages = doc.numPages;
+            currentPage = 1;
+            renderPage(1);
+        });
+    }
+
+    // Cargar primer PDF
+    {% if pdfs %}
+    var initialUrl = "{% if pdfs.0.pdf_file %}{{ pdfs.0.pdf_file.url }}{% elif pdfs.0.file %}{{ pdfs.0.file.url }}{% else %}{{ pdfs.0.url }}{% endif %}";
+    loadPDF(initialUrl);
+    {% endif %}
+    
+    // Re-renderizar al cambiar tamaño de ventana
+    window.addEventListener('resize', function() {
+        if (pdfDoc) {
+            renderPage(currentPage);
+        }
+    });
+    
+    // Auto-ocultar botón de cerrar después de 3 segundos
+    var closeBtn = document.getElementById('close-btn');
+    var hideCloseTimeout;
+    
+    function showCloseButton() {
+        closeBtn.style.opacity = '1';
+        clearTimeout(hideCloseTimeout);
+        hideCloseTimeout = setTimeout(() => {
+            closeBtn.style.opacity = '0.3';
+        }, 3000);
+    }
+    
+    // Mostrar botón al mover el mouse
+    document.addEventListener('mousemove', showCloseButton);
+    document.addEventListener('touchstart', showCloseButton);
+    
+    // Mantener botón visible al hover
+    closeBtn.addEventListener('mouseenter', function() {
+        clearTimeout(hideCloseTimeout);
+        closeBtn.style.opacity = '1';
+    });
+    
+    closeBtn.addEventListener('mouseleave', function() {
+        hideCloseTimeout = setTimeout(() => {
+            closeBtn.style.opacity = '0.3';
+        }, 1000);
+    });
+    
+    // Inicial: mostrar y luego ocultar
+    showCloseButton();
+</script>

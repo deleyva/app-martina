@@ -1,0 +1,69 @@
+{% load wagtailimages_tags %}
+
+<div class="w-full px-4">
+    <!-- Selector de imagen si hay múltiples -->
+    {% if images|length > 1 %}
+    <div class="mb-4 flex justify-center gap-2 flex-wrap max-w-md mx-auto print:hidden">
+        {% for image in images %}
+        <button onclick="showImage({{ forloop.counter0 }})" 
+                class="btn btn-sm {% if forloop.first %}btn-primary{% else %}btn-ghost{% endif %}"
+                id="img-btn-{{ forloop.counter0 }}">
+            Imagen {{ forloop.counter }}
+        </button>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    <!-- Contenedor de imágenes -->
+    <div class="bg-white rounded-lg shadow-xl p-4 flex justify-center">
+        {% for image in images %}
+        <div id="image-{{ forloop.counter0 }}" 
+             class="image-container {% if not forloop.first %}hidden{% endif %}">
+            {% if image.title %}
+            <h3 class="text-lg font-bold mb-2">{{ image.title }}</h3>
+            {% endif %}
+            
+            {% if image.image %}
+                {# Block from ScorePage with .image field #}
+                {% image image.image original as img %}
+                <img src="{{ img.url }}" 
+                     alt="{{ image.title|default:'Imagen' }}" 
+                     class="max-w-full h-auto rounded shadow-lg">
+            {% elif image.file %}
+                {# Wagtail Image object directly - has .file attribute #}
+                <img src="{{ image.file.url }}" 
+                     alt="{{ image.title|default:'Imagen' }}" 
+                     class="max-w-full h-auto rounded shadow-lg">
+            {% else %}
+                {# Try direct rendering if it's an Image model #}
+                {% image image original as img %}
+                <img src="{{ img.url }}" 
+                     alt="{{ image.title|default:'Imagen' }}" 
+                     class="max-w-full h-auto rounded shadow-lg">
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+{% if images|length > 1 %}
+<script>
+function showImage(index) {
+    // Ocultar todas las imágenes
+    document.querySelectorAll('.image-container').forEach(function(el) {
+        el.classList.add('hidden');
+    });
+    
+    // Mostrar imagen seleccionada
+    document.getElementById('image-' + index).classList.remove('hidden');
+    
+    // Actualizar botones
+    document.querySelectorAll('[id^="img-btn-"]').forEach(function(btn) {
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-ghost');
+    });
+    document.getElementById('img-btn-' + index).classList.remove('btn-ghost');
+    document.getElementById('img-btn-' + index).classList.add('btn-primary');
+}
+</script>
+{% endif %}

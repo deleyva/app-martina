@@ -106,6 +106,7 @@ LOCAL_APPS = [
     "classroom",
     "study_sessions",
     "presentations",
+    "my_library",  # Biblioteca personal de usuario
     # Your stuff: custom apps go here
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps

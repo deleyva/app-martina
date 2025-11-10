@@ -55,6 +55,8 @@ urlpatterns = [
     path("documents/", include(wagtaildocs_urls)),
     path("pages/", include(wagtail_urls)),
     path("music-cards/", include("music_cards.urls", namespace="music_cards")),
+    # My Library - Biblioteca personal de usuario
+    path("my-library/", include("my_library.urls", namespace="my_library")),
     # CMS custom views (filtros de partituras)
     path("", include("cms.urls")),
     # music-pills integrado en Wagtail CMS - accesible via /cms/ y páginas públicas
