@@ -45,6 +45,10 @@
                     · Visto {{ item.times_viewed }} vez{% if item.times_viewed > 1 %}es{% endif %}
                     {% endif %}
                 </div>
+                <!-- Nivel de conocimiento -->
+                <div class="mt-2">
+                    {% include "my_library/partials/proficiency_stars.html" with item=item %}
+                </div>
             </div>
             
             <!-- Actions -->

@@ -24,17 +24,29 @@ class LibraryItem(models.Model):
 
     # Metadatos
     added_at = models.DateTimeField(auto_now_add=True)
+    times_viewed = models.PositiveIntegerField(default=0)
     last_viewed = models.DateTimeField(null=True, blank=True)
+    
+    # Nivel de conocimiento (1=apenas lo conozco, 4=me lo sé muy bien)
+    proficiency_level = models.PositiveSmallIntegerField(
+        default=1,
+        choices=[
+            (1, "⭐ Apenas lo conozco"),
+            (2, "⭐⭐ Lo estoy aprendiendo"),
+            (3, "⭐⭐⭐ Lo conozco bien"),
+            (4, "⭐⭐⭐⭐ Me lo sé muy bien"),
+        ],
+        help_text="Nivel de dominio de este contenido (1-4)",
+    )
     notes = models.TextField(
         blank=True, help_text="Notas personales sobre este elemento"
     )
 
     # Organización (futuro)
     favorite = models.BooleanField(default=False)
-    times_viewed = models.PositiveIntegerField(default=0)
 
     class Meta:
-        ordering = ["-added_at"]
+        ordering = ["proficiency_level", "times_viewed", "-added_at"]
         unique_together = ["user", "content_type", "object_id"]
         indexes = [
             models.Index(fields=["user", "-added_at"]),

@@ -132,3 +132,27 @@ def view_library_item(request, pk):
             "documents": documents,
         },
     )
+
+
+@login_required
+def update_proficiency(request, pk):
+    """
+    Actualizar nivel de conocimiento de un item (via HTMX).
+    TINY VIEW: solo actualiza y renderiza.
+    """
+    if request.method != "POST":
+        return HttpResponse(status=405)
+    
+    item = get_object_or_404(LibraryItem, pk=pk, user=request.user)
+    level = request.POST.get("level")
+    
+    if level and level.isdigit() and 1 <= int(level) <= 4:
+        item.proficiency_level = int(level)
+        item.save(update_fields=["proficiency_level"])
+    
+    # Renderizar partial con las estrellas actualizadas
+    return render(
+        request,
+        "my_library/partials/proficiency_stars.html",
+        {"item": item}
+    )
