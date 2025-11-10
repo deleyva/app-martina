@@ -99,7 +99,7 @@
             {% if request.user.is_authenticated %}
               <li><a href="{% url 'users:detail' request.user.pk %}">{% translate "My Profile" %}</a></li>
               {% if request.user.student_profile %}
-                <li><a href="{% url 'student_dashboard' %}">{% translate "Mi Dashboard" %}</a></li>
+                <li><a href="{% url 'my_library:index' %}">{% translate "Mi librería" %}</a></li>
               {% endif %}
               <li><a href="{% url 'account_logout' %}">{% translate "Sign Out" %}</a></li>
             {% else %}
@@ -163,7 +163,7 @@
             <li><a href="{% url 'evaluation_item_list' %}">{% translate "Evaluaciones" %}</a></li>
           {% endif %}
           {% if request.user.student_profile %}
-            <li><a href="{% url 'student_dashboard' %}">{% translate "Mi Dashboard" %}</a></li>
+            <li><a href="{% url 'my_library:index' %}">{% translate "Mi librería" %}</a></li>
           {% endif %}
           <li><a href="{% url 'account_logout' %}">{% translate "Sign Out" %}</a></li>
         {% else %}

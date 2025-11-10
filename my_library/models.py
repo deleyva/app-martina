@@ -58,23 +58,45 @@ class LibraryItem(models.Model):
 
     def get_content_type_name(self):
         """Tipo de contenido legible"""
+        model_name = self.content_type.model
+        
+        # Si es un Document de Wagtail, verificar el tipo de archivo
+        if model_name == "document" and hasattr(self.content_object, "file"):
+            filename = self.content_object.file.name.lower()
+            # Detectar audios
+            if filename.endswith(('.mp3', '.wav', '.ogg', '.m4a', '.aac', '.flac')):
+                return "Audio"
+            # Detectar PDFs
+            elif filename.endswith('.pdf'):
+                return "Documento PDF"
+            else:
+                return "Documento"
+        
+        # Mapping para otros tipos
         mapping = {
             "scorepage": "Partitura",
-            "document": "Documento PDF",
             "image": "Imagen",
         }
-        model_name = self.content_type.model
         return mapping.get(model_name, model_name.title())
 
     def get_icon(self):
         """Icono según tipo de contenido"""
         model_name = self.content_type.model
+        
+        # Si es un Document, verificar si es audio
+        if model_name == "document" and hasattr(self.content_object, "file"):
+            filename = self.content_object.file.name.lower()
+            if filename.endswith(('.mp3', '.wav', '.ogg', '.m4a', '.aac', '.flac')):
+                return "🎵"
+            elif filename.endswith('.pdf'):
+                return "📄"
+        
         icons = {
             "scorepage": "🎼",
             "document": "📄",
             "image": "🖼️",
         }
-        return icons.get(model_name, "📦")
+        return icons.get(model_name, "📁")
 
     def get_viewer_url(self):
         """URL para ver el elemento en fullscreen"""
@@ -101,6 +123,13 @@ class LibraryItem(models.Model):
                 "images": score.get_images() if hasattr(score, "get_images") else [],
             }
         elif self.content_type.model == "document":
+            # Verificar si es audio o PDF
+            if hasattr(self.content_object, "file"):
+                filename = self.content_object.file.name.lower()
+                if filename.endswith(('.mp3', '.wav', '.ogg', '.m4a', '.aac', '.flac')):
+                    return {"audios": [self.content_object]}
+                else:
+                    return {"pdfs": [self.content_object]}
             return {"pdfs": [self.content_object]}
         elif self.content_type.model == "image":
             return {"images": [self.content_object]}
