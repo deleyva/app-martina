@@ -1,6 +1,6 @@
-# My Library - Biblioteca Personal de Usuario
+# My Library - Biblioteca Personal Musical
 
-Sistema simple de biblioteca personal que permite a los usuarios guardar y organizar contenido de Wagtail para revisarlo más tarde.
+Sistema de biblioteca personal integrado con Wagtail CMS que permite a los usuarios guardar y organizar contenido musical.
 
 ## ✅ Implementación Completa
 
@@ -123,3 +123,143 @@ LibraryItem
 - ✅ **HTMX**: Sin Alpine.js ni JavaScript innecesario
 - ✅ **Tailwind + DaisyUI**: Componentes predefinidos
 - ✅ **Docker + Just**: Comandos con `just manage`
+
+---
+
+## 🎵 Visor de Partituras - Sistema de Scroll Inteligente (forScore Style)
+
+### Características del Visor
+
+El visor de PDFs implementa un **sistema de navegación con solapamiento visual** inspirado en forScore, optimizado para músicos.
+
+#### Comportamiento Clave
+
+- **Avance con solapamiento**: 75% de avance + 25% de overlap visual
+- **Sin saltos bruscos**: Siempre ves el final de lo que acabas de tocar
+- **Último scroll inteligente**: Va al final exacto antes de cambiar de página
+- **Fullscreen optimizado**: PDF renderizado a todo el ancho de pantalla
+- **Smooth scroll**: Transiciones fluidas entre vistas
+
+### Lógica de Navegación
+
+#### Comportamiento del Avance (→ o click derecho)
+
+```text
+Vista 1 (inicio):
+┌─────────────────┐
+│ █████████ (100%)│ ← Todo el contenido visible
+│ █████████       │
+│ █████████       │
+│ █████████       │
+└─────────────────┘
+        ↓ Avanzar (75%)
+
+Vista 2:
+┌─────────────────┐
+│ █████████ (25%) │ ← OVERLAP: Ya lo viste (contexto)
+│ █████████       │ ← NUEVO contenido (75%)
+│ █████████       │
+│ █████████       │
+└─────────────────┘
+        ↓ Avanzar (75%)
+
+Vista 3:
+┌─────────────────┐
+│ █████████ (25%) │ ← OVERLAP de vista anterior
+│ █████████       │ ← NUEVO contenido
+│ █████████       │
+│ █████████       │
+└─────────────────┘
+        ↓ Avanzar (75% se pasaría del final)
+
+Última Vista (final exacto):
+┌─────────────────┐
+│ █████████ (25%) │ ← OVERLAP de vista anterior
+│ █████████       │ ← Contenido visible
+│ █████████       │
+│ █████████ ◄──── Final exacto alineado abajo
+└─────────────────┘
+        ↓ Avanzar de nuevo
+
+→ AHORA SÍ cambia a Página 2
+```
+
+#### Algoritmo de Navegación
+
+```javascript
+// Calcular avance con solapamiento
+var overlap = viewportHeight * 0.25;  // 25% de overlap
+var advance = viewportHeight - overlap; // 75% de avance
+var newScroll = currentScroll + advance;
+
+// Lógica inteligente de final de página
+if (newScroll > maxScroll) {
+    if (currentScroll >= maxScroll - 5) {
+        // YA estamos al final exacto → cambiar a siguiente página
+        renderPage(currentPage + 1);
+    } else {
+        // NO estamos al final → hacer último scroll al final exacto
+        container.scrollTo({ top: maxScroll, behavior: 'smooth' });
+    }
+} else {
+    // Scroll normal con solapamiento
+    container.scrollTo({ top: newScroll, behavior: 'smooth' });
+}
+```
+
+### Controles Disponibles
+
+#### Teclado
+
+- `→` `↓` `PageDown` `Espacio` → Avanzar con overlap
+- `←` `↑` `PageUp` → Retroceder con overlap
+- `ESC` → Cerrar visor y volver a biblioteca
+
+#### Mouse/Touch
+
+- **Click derecho** (70% de pantalla) → Avanzar
+- **Click izquierdo** (30% de pantalla) → Retroceder
+- **Botón X** (arriba derecha) → Cerrar visor
+  - Se auto-oculta después de 3 segundos (opacity: 0.3)
+  - Reaparece al mover el ratón
+
+### Ventajas para Músicos
+
+✅ **Nunca pierdes el contexto**: El 25% de overlap siempre muestra el final de lo que acabas de tocar
+
+✅ **No se salta contenido**: El último scroll va al final exacto, mostrando todos los pentagramas
+
+✅ **Transición fluida**: Smooth scroll hace que el avance sea natural, no abrupto
+
+✅ **Sin espacio en blanco**: El final de la página se alinea exactamente con el borde inferior
+
+✅ **Optimizado para lectura**: PDF a todo el ancho, máximo aprovechamiento del espacio
+
+### Detalles Técnicos
+
+**Archivo**: `my_library/templates/my_library/viewers/pdf_viewer.html`
+
+**Función clave**: `scrollByThird(direction)`
+
+**CSS**: Inline (no depende de Tailwind compilado)
+
+**Renderizado**: PDF.js con escala dinámica según ancho de ventana
+
+**Indicador de página**: Badge discreto abajo-centro que aparece al navegar (auto-oculta 1.5s)
+
+### Ejemplo de Uso Real
+
+```text
+Músico tocando una partitura:
+
+1. Carga PDF → Vista 1 (inicio perfecto arriba)
+2. Toca primeros pentagramas
+3. Click → Vista 2 (ve el final de lo que tocó + siguientes pentagramas)
+4. Continúa tocando
+5. Click → Vista 3 (overlap permite no perderse)
+...
+N. Último click → Final exacto (ve últimos pentagramas completos)
+N+1. Click → Cambia a siguiente página de PDF
+```
+
+Este sistema emula perfectamente el comportamiento de **forScore**, la app profesional de partituras para músicos.

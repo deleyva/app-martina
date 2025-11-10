@@ -95,22 +95,37 @@
         });
     }
     
-    // Navegar por tercios (como forScore)
+    // Navegar con solapamiento inteligente (como forScore)
     function scrollByThird(direction) {
         var viewportHeight = window.innerHeight;
-        var third = viewportHeight / 3;
         var currentScroll = container.scrollTop;
         var maxScroll = container.scrollHeight - viewportHeight;
         
+        // Avance del 75% con 25% de solapamiento
+        var overlap = viewportHeight * 0.25; // 25% de overlap
+        var advance = viewportHeight - overlap; // 75% de avance
+        
         if (direction === 'down') {
-            var newScroll = currentScroll + third;
+            var newScroll = currentScroll + advance;
             
-            // Si llegamos cerca del final de la página, ir a siguiente página
-            if (newScroll >= maxScroll - 50) {
-                if (currentPage < totalPages) {
-                    renderPage(currentPage + 1);
+            // Si el scroll calculado se pasa del final
+            if (newScroll > maxScroll) {
+                // Verificar si ya estamos en el final exacto
+                if (currentScroll >= maxScroll - 5) {
+                    // Ya estamos al final, cambiar a siguiente página
+                    if (currentPage < totalPages) {
+                        renderPage(currentPage + 1);
+                    }
+                } else {
+                    // Hacer último scroll al final exacto (sin pasarse)
+                    container.scrollTo({
+                        top: maxScroll,
+                        behavior: 'smooth'
+                    });
+                    showPageIndicator();
                 }
             } else {
+                // Scroll normal con solapamiento
                 container.scrollTo({
                     top: newScroll,
                     behavior: 'smooth'
@@ -118,20 +133,32 @@
                 showPageIndicator();
             }
         } else if (direction === 'up') {
-            var newScroll = currentScroll - third;
+            var newScroll = currentScroll - advance;
             
-            // Si estamos al inicio de la página, ir a página anterior
-            if (currentScroll <= 50) {
-                if (currentPage > 1) {
-                    renderPage(currentPage - 1);
-                    // Scroll al final de la página anterior
-                    setTimeout(() => {
-                        container.scrollTop = container.scrollHeight - viewportHeight;
-                    }, 100);
+            // Si el scroll calculado se pasa del inicio
+            if (newScroll < 0) {
+                // Verificar si ya estamos en el inicio exacto
+                if (currentScroll <= 5) {
+                    // Ya estamos al inicio, cambiar a página anterior
+                    if (currentPage > 1) {
+                        renderPage(currentPage - 1);
+                        setTimeout(() => {
+                            var newMaxScroll = container.scrollHeight - viewportHeight;
+                            container.scrollTop = newMaxScroll;
+                        }, 100);
+                    }
+                } else {
+                    // Hacer último scroll al inicio exacto (sin pasarse)
+                    container.scrollTo({
+                        top: 0,
+                        behavior: 'smooth'
+                    });
+                    showPageIndicator();
                 }
             } else {
+                // Scroll normal con solapamiento
                 container.scrollTo({
-                    top: Math.max(0, newScroll),
+                    top: newScroll,
                     behavior: 'smooth'
                 });
                 showPageIndicator();
