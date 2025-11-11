@@ -354,6 +354,33 @@
                 </div>
             </div>
             {% endif %}
+            
+            {% if block.block_type == 'embed' %}
+            <!-- Embed Block -->
+            <div class="card bg-base-100 shadow-xl mb-6">
+                <div class="card-body">
+                    <h2 class="card-title">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                        </svg>
+                        Multimedia Embed
+                    </h2>
+                    
+                    <!-- Embed responsive container -->
+                    <div class="aspect-video w-full">
+                        {{ block.value }}
+                    </div>
+                    
+                    <div class="text-xs text-base-content/50 mt-2">
+                        {% if block.value.url %}
+                        <a href="{{ block.value.url }}" target="_blank" rel="noopener noreferrer" class="link link-hover">
+                            Ver en el sitio original ↗
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
         {% endfor %}
     </div>
 
