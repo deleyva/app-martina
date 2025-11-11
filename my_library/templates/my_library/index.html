@@ -57,7 +57,7 @@
                 <div class="text-xs opacity-40 mt-1">
                     Añadido: {{ item.added_at|date:"d/m/Y" }}
                     {% if item.times_viewed > 0 %}
-                    · Visto {{ item.times_viewed }} vez{% if item.times_viewed > 1 %}es{% endif %}
+                    · Visto {{ item.times_viewed }} ve{% if item.times_viewed > 1 %}ces{% else %}z{% endif %}
                     {% endif %}
                 </div>
                 <!-- Nivel de conocimiento -->
