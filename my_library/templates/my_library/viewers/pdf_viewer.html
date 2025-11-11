@@ -108,22 +108,20 @@
         if (direction === 'down') {
             var newScroll = currentScroll + advance;
             
-            // Si el scroll calculado se pasa del final
-            if (newScroll > maxScroll) {
-                // Verificar si ya estamos en el final exacto
-                if (currentScroll >= maxScroll - 5) {
-                    // Ya estamos al final, cambiar a siguiente página
-                    if (currentPage < totalPages) {
-                        renderPage(currentPage + 1);
-                    }
-                } else {
-                    // Hacer último scroll al final exacto (sin pasarse)
-                    container.scrollTo({
-                        top: maxScroll,
-                        behavior: 'smooth'
-                    });
-                    showPageIndicator();
+            // Verificar si ya estamos en el final (tolerancia de 30px para móviles)
+            if (currentScroll >= maxScroll - 30) {
+                // Ya estamos al final, cambiar a siguiente página
+                if (currentPage < totalPages) {
+                    renderPage(currentPage + 1);
                 }
+                // Si ya estamos en la última página, no hacer nada
+            } else if (newScroll > maxScroll) {
+                // El scroll se pasaría del final, ir al final exacto
+                container.scrollTo({
+                    top: maxScroll,
+                    behavior: 'smooth'
+                });
+                showPageIndicator();
             } else {
                 // Scroll normal con solapamiento
                 container.scrollTo({
@@ -135,26 +133,24 @@
         } else if (direction === 'up') {
             var newScroll = currentScroll - advance;
             
-            // Si el scroll calculado se pasa del inicio
-            if (newScroll < 0) {
-                // Verificar si ya estamos en el inicio exacto
-                if (currentScroll <= 5) {
-                    // Ya estamos al inicio, cambiar a página anterior
-                    if (currentPage > 1) {
-                        renderPage(currentPage - 1);
-                        setTimeout(() => {
-                            var newMaxScroll = container.scrollHeight - viewportHeight;
-                            container.scrollTop = newMaxScroll;
-                        }, 100);
-                    }
-                } else {
-                    // Hacer último scroll al inicio exacto (sin pasarse)
-                    container.scrollTo({
-                        top: 0,
-                        behavior: 'smooth'
-                    });
-                    showPageIndicator();
+            // Verificar si ya estamos en el inicio (tolerancia de 30px para móviles)
+            if (currentScroll <= 30) {
+                // Ya estamos al inicio, cambiar a página anterior
+                if (currentPage > 1) {
+                    renderPage(currentPage - 1);
+                    setTimeout(() => {
+                        var newMaxScroll = container.scrollHeight - viewportHeight;
+                        container.scrollTop = newMaxScroll;
+                    }, 100);
                 }
+                // Si ya estamos en la primera página, no hacer nada
+            } else if (newScroll < 0) {
+                // El scroll se pasaría del inicio, ir al inicio exacto
+                container.scrollTo({
+                    top: 0,
+                    behavior: 'smooth'
+                });
+                showPageIndicator();
             } else {
                 // Scroll normal con solapamiento
                 container.scrollTo({
