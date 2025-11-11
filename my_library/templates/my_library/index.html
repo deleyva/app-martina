@@ -39,6 +39,21 @@
             <div class="flex-1 min-w-0">
                 <div class="font-medium truncate">{{ item.get_content_title }}</div>
                 <div class="text-xs opacity-60">{{ item.get_content_type_name }}</div>
+                
+                <!-- Enlace al ScorePage relacionado si existe -->
+                {% with related_score=item.get_related_scorepage %}
+                {% if related_score %}
+                <div class="text-xs mt-1">
+                    <a href="{{ related_score.get_url }}" class="link link-primary link-hover flex items-center gap-1">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        De: {{ related_score.title }}
+                    </a>
+                </div>
+                {% endif %}
+                {% endwith %}
+                
                 <div class="text-xs opacity-40 mt-1">
                     Añadido: {{ item.added_at|date:"d/m/Y" }}
                     {% if item.times_viewed > 0 %}

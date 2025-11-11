@@ -120,6 +120,28 @@ class LibraryItem(models.Model):
         self.last_viewed = timezone.now()
         self.save(update_fields=["times_viewed", "last_viewed"])
 
+    def get_related_scorepage(self):
+        """
+        Obtener ScorePage relacionado si este item es un Document o Image individual.
+        Busca en todas las ScorePages para ver cuál contiene este documento/imagen.
+        """
+        if self.content_type.model in ["document", "image"]:
+            from cms.models import ScorePage
+            
+            # Buscar en todas las ScorePages
+            for score in ScorePage.objects.live():
+                # Revisar el StreamField content
+                for block in score.content:
+                    # Para PDFs/Audios
+                    if block.block_type in ["pdf_score", "audio"] and hasattr(block.value, "file"):
+                        if block.value.file == self.content_object:
+                            return score
+                    # Para imágenes
+                    elif block.block_type == "image" and hasattr(block.value, "image"):
+                        if block.value.image == self.content_object:
+                            return score
+        return None
+    
     def get_documents(self):
         """
         Obtener documentos/archivos del contenido.

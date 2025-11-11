@@ -13,6 +13,7 @@ from wagtail.blocks import (
 )
 from wagtail.images.blocks import ImageChooserBlock
 from wagtail.documents.blocks import DocumentChooserBlock
+from wagtail.embeds.blocks import EmbedBlock
 from wagtail.snippets.models import register_snippet
 from modelcluster.fields import ParentalKey, ParentalManyToManyField
 from modelcluster.models import ClusterableModel
@@ -634,6 +635,7 @@ class ScorePage(Page):
             ("notes", RichTextBlock()),
             ("audio", AudioBlock()),
             ("image", ImageBlock()),
+            ("embed", EmbedBlock()),
         ],
         blank=True,
         use_json_field=True,
