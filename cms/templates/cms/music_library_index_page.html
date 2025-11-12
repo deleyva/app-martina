@@ -7,6 +7,29 @@
 
 {% block title %}{{ page.title }} - Music Pills{% endblock %}
 
+{% block extra_css %}
+<style>
+    /* Fila clickeable completa */
+    .score-item .list-row {
+        text-decoration: none;
+        color: inherit;
+        display: flex;
+        width: 100%;
+    }
+    
+    .score-item .list-row:hover {
+        background-color: rgba(0, 0, 0, 0.05);
+    }
+    
+    .score-item {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     {% comment %} <!-- Header -->
@@ -112,24 +135,6 @@
                         {% endfor %}
                     </ul>
                 </div>
-                
-                <!-- Difficulty Filter -->
-                <div class="dropdown dropdown-end">
-                    <div tabindex="0" role="button" class="btn btn-outline">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
-                        </svg>
-                        Difficulty
-                    </div>
-                    <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
-                        <li><a onclick="clearDifficultyFilter()" class="text-sm">All Levels</a></li>
-                        <li><a onclick="filterByDifficulty('beginner')" class="text-sm">Principiante</a></li>
-                        <li><a onclick="filterByDifficulty('easy')" class="text-sm">Fácil</a></li>
-                        <li><a onclick="filterByDifficulty('intermediate')" class="text-sm">Intermedio</a></li>
-                        <li><a onclick="filterByDifficulty('advanced')" class="text-sm">Avanzado</a></li>
-                        <li><a onclick="filterByDifficulty('expert')" class="text-sm">Experto</a></li>
-                    </ul>
-                </div>
             </div>
         </div>
 
@@ -138,7 +143,7 @@
             <li class="p-4 pb-2 text-xs opacity-60 tracking-wide">Your Music Library</li>
             
             {% for score in scores %}
-            <li class="list-row score-item" 
+            <li class="score-item" 
                 data-title="{{ score.title|lower }}" 
                 data-composer="{% if score.composer %}{{ score.composer.name|lower }}{% endif %}"
                 data-tags="{% for tag in score.tags.all %}{{ tag.name|lower }} {% endfor %}"
@@ -148,13 +153,15 @@
                 data-document-tags="{% for pdf in score.get_pdf_blocks %}{% for doc_tag in pdf.pdf_file.tags.all %}{{ doc_tag.name|lower }} {% endfor %}{% endfor %}{% for audio in score.get_audios %}{% for doc_tag in audio.audio_file.tags.all %}{{ doc_tag.name|lower }} {% endfor %}{% endfor %}"
                 data-difficulty="">
                 
-                <!-- Score Icon/Thumbnail -->
-                <div class="flex items-center justify-center size-10 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-box">
-                    <div class="text-lg">📄</div>
-                </div>
-                
-                <!-- Score Info -->
-                <div class="flex-1 min-w-0">
+                <!-- Enlace clickeable en toda la fila -->
+                <a href="{{ score.get_url }}" class="list-row flex items-center gap-4 p-4 hover:bg-base-200 transition-colors">
+                    <!-- Score Icon/Thumbnail -->
+                    <div class="flex items-center justify-center size-10 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-box flex-shrink-0">
+                        <div class="text-lg">📄</div>
+                    </div>
+                    
+                    <!-- Score Info -->
+                    <div class="flex-1 min-w-0">
                     <div class="font-medium truncate">{{ score.title }}</div>
                     <div class="text-xs uppercase font-semibold opacity-60 truncate">
                         {% if score.composer %}{{ score.composer.name }}{% else %}Unknown Composer{% endif %}
@@ -235,27 +242,19 @@
                         <div class="badge badge-ghost badge-xs">+{{ score.tags.all|length|add:"-4" }} tags</div>
                         {% endif %}
                     </div>
-                </div>
-                
-                <!-- Rating removed - difficulty levels are now shown per individual document -->
-                
-                <!-- Actions -->
-                <a href="{{ score.get_url }}" class="btn btn-square btn-ghost btn-sm" title="View Score">
-                    <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                    </svg>
+                    </div>
                 </a>
                 
-                <!-- Library Button (HTMX) -->
+                <!-- Library Button (HTMX) - fuera del enlace principal -->
                 {% if user.is_authenticated %}
-                <div id="library-btn-{{ score.pk }}">
+                <div id="library-btn-{{ score.pk }}" onclick="event.stopPropagation()">
                     {% library_button score %}
                 </div>
                 {% endif %}
                 
+                <!-- Admin menu - fuera del enlace principal -->
                 {% if user.is_staff %}
-                <div class="dropdown dropdown-end">
+                <div class="dropdown dropdown-end" onclick="event.stopPropagation()">
                     <div tabindex="0" role="button" class="btn btn-square btn-ghost btn-sm">
                         <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path>
@@ -398,7 +397,6 @@
 <script>
 // MUSIC PILLS - Filtros de biblioteca musical
 let currentTagFilter = '';
-let currentDifficultyFilter = '';
 
 function filterScores() {
     const searchTerm = document.getElementById('searchInput').value.toLowerCase();
@@ -406,34 +404,30 @@ function filterScores() {
     let visibleCount = 0;
     
     scoreItems.forEach(item => {
-        const title = item.dataset.title || '';
-        const composer = item.dataset.composer || '';
-        const tags = item.dataset.tags || '';
-        const categories = item.dataset.categories || '';
-        const pdfs = item.dataset.pdfs || '';
-        const audios = item.dataset.audios || '';
-        const documentTags = item.dataset.documentTags || '';
-        const difficulty = item.dataset.difficulty || '';
+        const title = item.dataset.title;
+        const composer = item.dataset.composer;
+        const tags = item.dataset.tags;
+        const categories = item.dataset.categories;
+        const pdfs = item.dataset.pdfs;
+        const audios = item.dataset.audios;
+        const documentTags = item.dataset.documentTags;
         
         // Check search term
         const matchesSearch = searchTerm === '' || 
             title.includes(searchTerm) || 
-            composer.includes(searchTerm) || 
+            composer.includes(searchTerm) ||
             tags.includes(searchTerm) ||
             categories.includes(searchTerm) ||
             pdfs.includes(searchTerm) ||
             audios.includes(searchTerm) ||
             documentTags.includes(searchTerm);
         
-        // Check tag filter (both ScorePage tags and document tags)
+        // Check tag filter
         const matchesTag = currentTagFilter === '' || 
             tags.includes(currentTagFilter.toLowerCase()) ||
             documentTags.includes(currentTagFilter.toLowerCase());
         
-        // Check difficulty filter
-        const matchesDifficulty = currentDifficultyFilter === '' || difficulty === currentDifficultyFilter;
-        
-        if (matchesSearch && matchesTag && matchesDifficulty) {
+        if (matchesSearch && matchesTag) {
             item.style.display = '';
             visibleCount++;
         } else {
@@ -442,14 +436,7 @@ function filterScores() {
     });
     
     // Show/hide no results message
-    const noResults = document.getElementById('noResults');
-    const scoresList = document.getElementById('scoresList');
-    
-    if (visibleCount === 0) {
-        scoresList.style.display = 'none';
-        noResults.classList.remove('hidden');
-    } else {
-        scoresList.style.display = '';
+    document.getElementById('noResults').classList.toggle('hidden', visibleCount > 0);
         noResults.classList.add('hidden');
     }
 }
@@ -488,54 +475,9 @@ function clearTagFilter() {
     filterScores();
 }
 
-function filterByDifficulty(difficulty) {
-    currentDifficultyFilter = difficulty;
-    
-    const difficultyNames = {
-        'beginner': 'Principiante',
-        'easy': 'Fácil',
-        'intermediate': 'Intermedio',
-        'advanced': 'Avanzado',
-        'expert': 'Experto'
-    };
-    
-    // Update button text
-    const difficultyButtons = document.querySelectorAll('.dropdown .btn');
-    const difficultyButton = difficultyButtons[1]; // Second dropdown button
-    if (difficultyButton) {
-        difficultyButton.innerHTML = `
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
-            </svg>
-            ${difficultyNames[difficulty]}
-        `;
-    }
-    
-    filterScores();
-}
-
-function clearDifficultyFilter() {
-    currentDifficultyFilter = '';
-    
-    // Reset button text
-    const difficultyButtons = document.querySelectorAll('.dropdown .btn');
-    const difficultyButton = difficultyButtons[1]; // Second dropdown button
-    if (difficultyButton) {
-        difficultyButton.innerHTML = `
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
-            </svg>
-            Difficulty
-        `;
-    }
-    
-    filterScores();
-}
-
 function clearAllFilters() {
     document.getElementById('searchInput').value = '';
     clearTagFilter();
-    clearDifficultyFilter();
     filterScores();
 }
 

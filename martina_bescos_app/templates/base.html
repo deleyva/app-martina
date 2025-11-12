@@ -181,6 +181,10 @@
   {% endblock body %}
   {% block modal %}
   {% endblock modal %}
+  
+  <!-- Toast Container para notificaciones -->
+  <div class="toast toast-end toast-top z-50" id="toastContainer"></div>
+  
   {% block inline_javascript %}
     {% comment %}
     Script tags with only code, no src (defer by default). To run
@@ -191,6 +195,34 @@
       });
     </script>
     {% endcomment %}
+    
+    <script>
+      // Sistema de notificaciones Toast
+      function showToast(message, type = 'info') {
+        const toastContainer = document.getElementById('toastContainer');
+        
+        // Crear el elemento toast
+        const toast = document.createElement('div');
+        toast.className = `alert alert-${type} shadow-lg`;
+        toast.innerHTML = `
+          <div>
+            <span>${message}</span>
+          </div>
+        `;
+        
+        // Añadir al contenedor
+        toastContainer.appendChild(toast);
+        
+        // Auto-eliminar después de 3 segundos
+        setTimeout(() => {
+          toast.style.opacity = '0';
+          toast.style.transition = 'opacity 0.3s';
+          setTimeout(() => {
+            toast.remove();
+          }, 300);
+        }, 3000);
+      }
+    </script>
   {% endblock inline_javascript %}
 </body>
 </html>

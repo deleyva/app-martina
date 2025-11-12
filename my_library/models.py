@@ -137,14 +137,24 @@ class LibraryItem(models.Model):
             for score in ScorePage.objects.live():
                 # Revisar el StreamField content
                 for block in score.content:
-                    # Para PDFs/Audios (DocumentChooser)
-                    if block.block_type in ["pdf_score", "audio"] and hasattr(block.value, "file"):
-                        if block.value.file == self.content_object:
-                            return score
-                    # Para imágenes (ImageChooser)
-                    elif block.block_type == "image" and hasattr(block.value, "image"):
-                        if block.value.image == self.content_object:
-                            return score
+                    try:
+                        # Para PDFs (PDFBlock usa 'pdf_file')
+                        if block.block_type == "pdf_score":
+                            if block.value.get('pdf_file') == self.content_object:
+                                return score
+                        
+                        # Para Audios (AudioBlock usa 'audio_file')
+                        elif block.block_type == "audio":
+                            if block.value.get('audio_file') == self.content_object:
+                                return score
+                        
+                        # Para Imágenes (ImageBlock usa 'image')
+                        elif block.block_type == "image":
+                            if block.value.get('image') == self.content_object:
+                                return score
+                    except (AttributeError, KeyError):
+                        # Si el bloque no tiene la estructura esperada, continuar
+                        continue
         
         return None
     
