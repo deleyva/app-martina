@@ -1,12 +1,12 @@
 {% load wagtailimages_tags %}
 
-<div class="w-full h-full flex flex-col">
+<div class="w-full flex flex-col" style="min-height: 100vh;">
     <!-- Selector de imagen si hay múltiples -->
     {% if images|length > 1 %}
-    <div class="py-2 px-2 flex justify-center gap-2 flex-wrap print:hidden">
+    <div class="py-4 px-2 flex justify-center gap-2 flex-wrap print:hidden" style="background: #000;">
         {% for image in images %}
         <button onclick="showImage({{ forloop.counter0 }})" 
-                class="btn btn-sm {% if forloop.first %}btn-primary{% else %}btn-ghost{% endif %}"
+                style="padding: 0.5rem 1rem; border-radius: 0.5rem; cursor: pointer; border: none; {% if forloop.first %}background: #3b82f6; color: white;{% else %}background: rgba(255,255,255,0.1); color: white;{% endif %}"
                 id="img-btn-{{ forloop.counter0 }}">
             Imagen {{ forloop.counter }}
         </button>
@@ -14,13 +14,13 @@
     </div>
     {% endif %}
     
-    <!-- Contenedor de imágenes - sin padding, full width -->
-    <div class="flex-1 flex items-center justify-center bg-white overflow-auto">
+    <!-- Contenedor de imágenes - sin restricciones de altura -->
+    <div class="w-full bg-white">
         {% for image in images %}
         <div id="image-{{ forloop.counter0 }}" 
              class="image-container w-full {% if not forloop.first %}hidden{% endif %}">
             {% if image.title %}
-            <h3 class="text-lg font-bold px-4 py-2 bg-gray-100">{{ image.title }}</h3>
+            <div class="px-4 py-3 bg-gray-100 text-lg font-bold">{{ image.title }}</div>
             {% endif %}
             
             {% if image.image %}
@@ -28,18 +28,18 @@
                 {% image image.image original as img %}
                 <img src="{{ img.url }}" 
                      alt="{{ image.title|default:'Imagen' }}" 
-                     class="w-full h-auto block">
+                     style="width: 100%; height: auto; display: block;">
             {% elif image.file %}
                 {# Wagtail Image object directly - has .file attribute #}
                 <img src="{{ image.file.url }}" 
                      alt="{{ image.title|default:'Imagen' }}" 
-                     class="w-full h-auto block">
+                     style="width: 100%; height: auto; display: block;">
             {% else %}
                 {# Try direct rendering if it's an Image model #}
                 {% image image original as img %}
                 <img src="{{ img.url }}" 
                      alt="{{ image.title|default:'Imagen' }}" 
-                     class="w-full h-auto block">
+                     style="width: 100%; height: auto; display: block;">
             {% endif %}
         </div>
         {% endfor %}
@@ -59,11 +59,12 @@ function showImage(index) {
     
     // Actualizar botones
     document.querySelectorAll('[id^="img-btn-"]').forEach(function(btn) {
-        btn.classList.remove('btn-primary');
-        btn.classList.add('btn-ghost');
+        btn.style.background = 'rgba(255,255,255,0.1)';
+        btn.style.color = 'white';
     });
-    document.getElementById('img-btn-' + index).classList.remove('btn-ghost');
-    document.getElementById('img-btn-' + index).classList.add('btn-primary');
+    var activeBtn = document.getElementById('img-btn-' + index);
+    activeBtn.style.background = '#3b82f6';
+    activeBtn.style.color = 'white';
 }
 </script>
 {% endif %}

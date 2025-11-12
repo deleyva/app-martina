@@ -9,8 +9,9 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
             background: #000; 
-            overflow: hidden; 
+            overflow: auto; 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            min-height: 100vh;
         }
         #close-btn {
             position: fixed;
@@ -37,6 +38,60 @@
             width: 16px;
             height: 16px;
         }
+        .hidden {
+            display: none !important;
+        }
+        .w-full {
+            width: 100%;
+        }
+        .flex {
+            display: flex;
+        }
+        .flex-col {
+            flex-direction: column;
+        }
+        .flex-wrap {
+            flex-wrap: wrap;
+        }
+        .justify-center {
+            justify-content: center;
+        }
+        .gap-2 {
+            gap: 0.5rem;
+        }
+        .py-4 {
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+        }
+        .px-2 {
+            padding-left: 0.5rem;
+            padding-right: 0.5rem;
+        }
+        .px-4 {
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+        .py-3 {
+            padding-top: 0.75rem;
+            padding-bottom: 0.75rem;
+        }
+        .bg-white {
+            background-color: #fff;
+        }
+        .bg-gray-100 {
+            background-color: #f3f4f6;
+        }
+        .text-lg {
+            font-size: 1.125rem;
+        }
+        .font-bold {
+            font-weight: 700;
+        }
+        @media print {
+            .print\:hidden {
+                display: none !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -49,10 +104,12 @@
         </svg>
     </a>
     
-    <div style="width: 100%; height: 100vh; overflow: hidden;">
+    <div style="width: 100%; min-height: 100vh;">
         {% if documents.pdfs %}
             <!-- Visor PDF -->
-            {% include "my_library/viewers/pdf_viewer.html" with pdfs=documents.pdfs %}
+            <div style="height: 100vh; overflow: hidden;">
+                {% include "my_library/viewers/pdf_viewer.html" with pdfs=documents.pdfs %}
+            </div>
         {% elif documents.images %}
             <!-- Visor Imagen -->
             {% include "my_library/viewers/image_viewer.html" with images=documents.images %}
