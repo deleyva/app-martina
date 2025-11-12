@@ -122,9 +122,14 @@ class LibraryItem(models.Model):
 
     def get_related_scorepage(self):
         """
-        Obtener ScorePage relacionado si este item es un Document o Image individual.
-        Busca en todas las ScorePages para ver cuál contiene este documento/imagen.
+        Obtener ScorePage relacionado si este item es un Document, Image o Embed individual.
+        Busca en todas las ScorePages para ver cuál contiene este elemento.
         """
+        # Si ya es una ScorePage completa, retornar ella misma
+        if self.content_type.model == "scorepage":
+            return self.content_object
+            
+        # Para documentos, imágenes y otros tipos, buscar en ScorePages
         if self.content_type.model in ["document", "image"]:
             from cms.models import ScorePage
             
@@ -132,14 +137,15 @@ class LibraryItem(models.Model):
             for score in ScorePage.objects.live():
                 # Revisar el StreamField content
                 for block in score.content:
-                    # Para PDFs/Audios
+                    # Para PDFs/Audios (DocumentChooser)
                     if block.block_type in ["pdf_score", "audio"] and hasattr(block.value, "file"):
                         if block.value.file == self.content_object:
                             return score
-                    # Para imágenes
+                    # Para imágenes (ImageChooser)
                     elif block.block_type == "image" and hasattr(block.value, "image"):
                         if block.value.image == self.content_object:
                             return score
+        
         return None
     
     def get_documents(self):
