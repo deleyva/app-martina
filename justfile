@@ -283,8 +283,14 @@ stage-restore-media backup_file:
     docker compose -f docker-compose.stage.yml run --rm django /restore_media.sh {{backup_file}}"
 
 # stage-download-backup: Download a backup from stage to local machine
+# Usage: just stage-download-backup postgres backup_2025_11_13.sql.gz
+#        just stage-download-backup media media_backup_2025_11_13.tar.gz
 stage-download-backup backup_type backup_file:
     @echo "Downloading {{backup_type}} backup from stage: {{backup_file}}"
-    @mkdir -p ./backups/{{backup_type}}
-    @scp $SSH_MARTINA_USER_AND_IP:app-martina-stage/backups/{{backup_type}}/{{backup_file}} ./backups/{{backup_type}}/
-    @echo "✓ Downloaded to ./backups/{{backup_type}}/{{backup_file}}"
+    @mkdir -p ./backups/
+    @if [ "{{backup_type}}" = "postgres" ]; then \
+        scp $SSH_MARTINA_USER_AND_IP:app-martina-stage/backups/{{backup_file}} ./backups/; \
+    else \
+        scp $SSH_MARTINA_USER_AND_IP:app-martina-stage/backups/media/{{backup_file}} ./backups/; \
+    fi
+    @echo "✓ Downloaded to ./backups/{{backup_file}}"
