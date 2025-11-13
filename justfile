@@ -238,3 +238,53 @@ production-download-backup backup_type backup_file:
     @mkdir -p ./backups/{{backup_type}}
     @scp $SSH_MARTINA_USER_AND_IP:app-martina-production/backups/{{backup_type}}/{{backup_file}} ./backups/{{backup_type}}/
     @echo "✓ Downloaded to ./backups/{{backup_type}}/{{backup_file}}"
+
+# stage-backup-db: Create a database backup (stage)
+stage-backup-db:
+    @echo "Creating stage database backup..."
+    @ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-stage && \
+    docker compose -f docker-compose.stage.yml exec postgres backup"
+
+# stage-backup-media: Create a media files backup (stage)
+stage-backup-media:
+    @echo "Creating stage media backup..."
+    @ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-stage && \
+    docker compose -f docker-compose.stage.yml run --rm django /backup_media.sh"
+
+# stage-backup-full: Create a complete backup (database + media) (stage)
+stage-backup-full:
+    @echo "Creating complete stage backup..."
+    @just stage-backup-db
+    @just stage-backup-media
+
+# stage-list-backups: List available backups (stage)
+stage-list-backups:
+    @echo "Stage database backups:"
+    @ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-stage && \
+    docker compose -f docker-compose.stage.yml exec postgres backups"
+    @echo "\nStage media backups:"
+    @ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-stage && \
+    docker compose -f docker-compose.stage.yml exec django ls -lh /backups/media 2>/dev/null || echo 'No media backups found'"
+
+# stage-restore-db: Restore database from backup (stage)
+stage-restore-db backup_file:
+    @echo "⚠️  WARNING: This will restore stage database from {{backup_file}}"
+    @echo "Press Ctrl+C to cancel, or Enter to continue..."
+    @read
+    @ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-stage && \
+    docker compose -f docker-compose.stage.yml exec postgres restore {{backup_file}}"
+
+# stage-restore-media: Restore media files from backup (stage)
+stage-restore-media backup_file:
+    @echo "⚠️  WARNING: This will restore stage media files from {{backup_file}}"
+    @echo "Press Ctrl+C to cancel, or Enter to continue..."
+    @read
+    @ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-stage && \
+    docker compose -f docker-compose.stage.yml run --rm django /restore_media.sh {{backup_file}}"
+
+# stage-download-backup: Download a backup from stage to local machine
+stage-download-backup backup_type backup_file:
+    @echo "Downloading {{backup_type}} backup from stage: {{backup_file}}"
+    @mkdir -p ./backups/{{backup_type}}
+    @scp $SSH_MARTINA_USER_AND_IP:app-martina-stage/backups/{{backup_type}}/{{backup_file}} ./backups/{{backup_type}}/
+    @echo "✓ Downloaded to ./backups/{{backup_type}}/{{backup_file}}"

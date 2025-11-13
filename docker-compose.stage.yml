@@ -1,6 +1,5 @@
 volumes:
   stage_postgres_data: {}
-  stage_postgres_data_backups: {}
   stage_django_media: {}
 
 services:
@@ -12,6 +11,7 @@ services:
     image: martina_bescos_app_stage_django
     volumes:
       - stage_django_media:/app/martina_bescos_app/media
+      - ./backups:/backups
     depends_on:
       - postgres
       - redis
@@ -29,7 +29,7 @@ services:
     image: martina_bescos_app_stage_postgres
     volumes:
       - stage_postgres_data:/var/lib/postgresql/data
-      - stage_postgres_data_backups:/backups
+      - ./backups:/backups
     env_file:
       - ./.envs/.production/.postgres
     networks:
