@@ -5,6 +5,8 @@ from .submission_views import (
     upload_image, delete_video, delete_image, teacher_view_submission
 )
 
+app_name = 'evaluations'
+
 urlpatterns = [
     path('', views.EvaluationItemListView.as_view(), name='evaluation_item_list'),
     path('select/<int:item_id>/', views.select_students, name='select_students'),
@@ -33,4 +35,22 @@ urlpatterns = [
     
     # Vista del profesor para submissions
     path('submission/view/<int:status_id>/', teacher_view_submission, name='teacher_view_submission'),
+    
+    # URLs para biblioteca de grupo
+    path('group-library/<int:group_id>/', views.group_library_index, name='group_library_index'),
+    path('group-library/<int:group_id>/add/', views.group_library_add, name='group_library_add'),
+    path('group-library/<int:group_id>/remove/<int:pk>/', views.group_library_remove, name='group_library_remove'),
+    path('group-library/<int:group_id>/remove-by-content/', views.group_library_remove_by_content, name='group_library_remove_by_content'),
+    
+    # URLs para sesiones de clase
+    path('class-sessions/', views.class_session_list, name='class_session_list'),
+    path('class-sessions/create/', views.class_session_create, name='class_session_create'),
+    path('class-sessions/<int:pk>/edit/', views.class_session_edit, name='class_session_edit'),
+    path('class-sessions/<int:pk>/delete/', views.class_session_delete, name='class_session_delete'),
+    path('class-sessions/<int:session_id>/add-item/', views.class_session_add_item, name='class_session_add_item'),
+    path('class-sessions/<int:session_id>/remove-item/<int:item_id>/', views.class_session_remove_item, name='class_session_remove_item'),
+    path('class-sessions/<int:session_id>/reorder/', views.class_session_reorder_items, name='class_session_reorder_items'),
+    
+    # URL para añadir a múltiples bibliotecas (personal + grupos)
+    path('add-to-multiple-libraries/', views.add_to_multiple_libraries, name='add_to_multiple_libraries'),
 ]

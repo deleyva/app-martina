@@ -1,0 +1,19 @@
+# Crontab para backups automáticos
+# 
+# Instrucciones de instalación:
+# 1. Editar scheduled_backup.sh con tus rutas reales
+# 2. Darle permisos: chmod +x ~/app-martina-production/compose/production/django/scheduled_backup.sh
+# 3. Instalar este crontab: crontab -e
+# 4. Copiar las líneas de abajo
+# 
+# Para ver el crontab actual: crontab -l
+# Para editar el crontab: crontab -e
+
+# Backup diario a las 2:00 AM
+0 2 * * * $HOME/app-martina-production/compose/production/django/scheduled_backup.sh
+
+# Backup semanal extra los domingos a las 3:00 AM
+0 3 * * 0 $HOME/app-martina-production/compose/production/django/scheduled_backup.sh
+
+# Limpieza de logs antiguos (mantener últimos 90 días)
+0 4 1 * * find $HOME/app-martina-production/backups -name "backup.log.*" -mtime +90 -delete

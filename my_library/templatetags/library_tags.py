@@ -18,12 +18,23 @@ def is_in_library(context, content_object):
     "my_library/partials/add_button.html", takes_context=True
 )
 def library_button(context, content_object):
-    """Renderiza botón de añadir/quitar de biblioteca con HTMX"""
+    """Renderiza botón de añadir/quitar de biblioteca con HTMX
+    
+    Para profesores: muestra un botón que abre modal con opciones múltiples
+    Para estudiantes: toggle simple entre añadir/quitar
+    """
     user = context.request.user
     in_library = False
+    teaching_groups = []
+    is_teacher = False
 
     if user.is_authenticated:
         in_library = LibraryItem.is_in_library(user, content_object)
+        
+        # Verificar si es profesor y obtener sus grupos
+        if user.is_staff and hasattr(user, 'teaching_groups'):
+            teaching_groups = user.teaching_groups.all()
+            is_teacher = teaching_groups.exists()
 
     content_type = ContentType.objects.get_for_model(content_object)
 
@@ -32,4 +43,6 @@ def library_button(context, content_object):
         "content_type": content_type,
         "in_library": in_library,
         "user": user,
+        "is_teacher": is_teacher,
+        "teaching_groups": teaching_groups,
     }

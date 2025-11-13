@@ -215,14 +215,14 @@
 
                 {% if has_submission|get_item:status.id %}
                 <a
-                  href="{% url 'edit_submission' submission_id=status.submission.id %}"
+                  href="{% url 'evaluations:edit_submission' submission_id=status.submission.id %}"
                   class="mt-2 inline-flex items-center px-3 py-2 border border-indigo-300 text-sm leading-4 font-medium rounded-md text-indigo-700 bg-white hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 >
                   Editar mi entrega
                 </a>
                 {% else %}
                 <a
-                  href="{% url 'create_submission' status_id=status.id %}"
+                  href="{% url 'evaluations:create_submission' status_id=status.id %}"
                   class="mt-2 inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 >
                   Realizar entrega

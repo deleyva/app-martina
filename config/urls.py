@@ -44,7 +44,7 @@ urlpatterns = [
     path("users/", include("martina_bescos_app.users.urls", namespace="users")),
     path("accounts/", include("allauth.urls")),
     # Your stuff: custom urls includes go here
-    path("evaluations/", include("evaluations.urls")),
+    path("evaluations/", include("evaluations.urls", namespace="evaluations")),
     # API Keys management UI
     path("api-keys/", include("api_keys.urls", namespace="api_keys")),
     # Song Ranking app

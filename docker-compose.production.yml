@@ -1,6 +1,5 @@
 volumes:
   production_postgres_data: {}
-  production_postgres_data_backups: {}
   production_django_media: {}
 
 services:
@@ -13,6 +12,7 @@ services:
     container_name: martina_bescos_app_production_django
     volumes:
       - production_django_media:/app/martina_bescos_app/media
+      - ./backups:/backups
     depends_on:
       - postgres
       - redis
@@ -31,7 +31,7 @@ services:
     container_name: martina_bescos_app_production_postgres
     volumes:
       - production_postgres_data:/var/lib/postgresql/data
-      - production_postgres_data_backups:/backups
+      - ./backups:/backups
     env_file:
       - ./.envs/.production/.postgres
     networks:

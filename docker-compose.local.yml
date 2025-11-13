@@ -1,6 +1,5 @@
 volumes:
   martina_bescos_app_local_postgres_data: {}
-  martina_bescos_app_local_postgres_data_backups: {}
   
 
 services:
@@ -16,6 +15,7 @@ services:
       - redis
     volumes:
       - .:/app:z
+      - ./backups:/backups
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
@@ -31,7 +31,7 @@ services:
     container_name: martina_bescos_app_local_postgres
     volumes:
       - martina_bescos_app_local_postgres_data:/var/lib/postgresql/data
-      - martina_bescos_app_local_postgres_data_backups:/backups
+      - ./backups:/backups
     env_file:
       - ./.envs/.local/.postgres
 

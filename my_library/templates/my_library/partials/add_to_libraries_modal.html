@@ -1,0 +1,105 @@
+{# Modal para profesores: permite seleccionar múltiples bibliotecas destino #}
+<dialog id="library_modal_{{ content_object.pk }}_{{ content_type.id }}" class="modal">
+    <div class="modal-box w-11/12 max-w-md">
+        {# Header #}
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+        </form>
+        <h3 class="font-bold text-lg mb-4">
+            <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+            </svg>
+            Añadir a bibliotecas
+        </h3>
+        
+        {# Mostrar título del recurso #}
+        <div class="bg-base-200 p-3 rounded-lg mb-4">
+            <p class="text-sm text-base-content/70">Recurso:</p>
+            <p class="font-semibold truncate">{{ content_object }}</p>
+        </div>
+        
+        {# Formulario con checkboxes #}
+        <form id="library_form_{{ content_object.pk }}_{{ content_type.id }}"
+              hx-post="{% url 'evaluations:add_to_multiple_libraries' %}"
+              hx-on::after-request="library_modal_{{ content_object.pk }}_{{ content_type.id }}.close(); showToast('✓ Añadido a las bibliotecas seleccionadas', 'success')"
+              class="space-y-3">
+            
+            {# Hidden fields para identificar el contenido #}
+            <input type="hidden" name="content_type_id" value="{{ content_type.id }}">
+            <input type="hidden" name="object_id" value="{{ content_object.pk }}">
+            
+            {# Checkbox para biblioteca personal #}
+            <div class="form-control">
+                <label class="label cursor-pointer justify-start gap-3 hover:bg-base-200 rounded-lg p-2 transition-colors">
+                    <input type="checkbox" 
+                           name="personal_library" 
+                           value="true"
+                           {% if in_library %}checked disabled{% endif %}
+                           class="checkbox checkbox-primary">
+                    <span class="label-text flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        </svg>
+                        <span class="font-medium">Mi biblioteca personal</span>
+                        {% if in_library %}
+                            <span class="badge badge-success badge-sm">Ya añadido</span>
+                        {% endif %}
+                    </span>
+                </label>
+            </div>
+            
+            <div class="divider my-2">Bibliotecas de grupo</div>
+            
+            {# Checkboxes para cada grupo #}
+            {% if teaching_groups %}
+                <div class="space-y-2 max-h-64 overflow-y-auto">
+                    {% for group in teaching_groups %}
+                        <div class="form-control">
+                            <label class="label cursor-pointer justify-start gap-3 hover:bg-base-200 rounded-lg p-2 transition-colors">
+                                <input type="checkbox" 
+                                       name="group_ids" 
+                                       value="{{ group.id }}"
+                                       class="checkbox checkbox-secondary">
+                                <span class="label-text flex items-center gap-2">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                                    </svg>
+                                    <span>{{ group.name }}</span>
+                                    <span class="text-xs text-base-content/60">({{ group.students.count }} estudiantes)</span>
+                                </span>
+                            </label>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span>No tienes grupos asignados</span>
+                </div>
+            {% endif %}
+            
+            {# Botones de acción #}
+            <div class="modal-action mt-6">
+                <button type="button" 
+                        onclick="library_modal_{{ content_object.pk }}_{{ content_type.id }}.close()"
+                        class="btn btn-ghost">
+                    Cancelar
+                </button>
+                <button type="submit" 
+                        class="btn btn-primary">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    Añadir
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    {# Backdrop para cerrar al hacer clic fuera #}
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>

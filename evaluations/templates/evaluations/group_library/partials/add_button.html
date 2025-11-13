@@ -1,0 +1,29 @@
+{% if user.is_staff %}
+    {% if in_library %}
+    <div class="tooltip tooltip-left" data-tip="Ya está en la biblioteca del grupo">
+        <button hx-post="{% url 'evaluations:group_library_remove_by_content' group.id %}"
+                hx-vals='{"content_type_id": "{{ content_type.id }}", "object_id": "{{ content_object.pk }}"}'
+                hx-target="closest div"
+                hx-swap="outerHTML"
+                hx-on::after-request="showToast('Eliminado de la biblioteca del grupo', 'info')"
+                class="btn btn-sm btn-success btn-square">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+            </svg>
+        </button>
+    </div>
+    {% else %}
+    <div class="tooltip tooltip-left" data-tip="Añadir a biblioteca del grupo">
+        <button hx-post="{% url 'evaluations:group_library_add' group.id %}"
+                hx-vals='{"content_type_id": "{{ content_type.id }}", "object_id": "{{ content_object.pk }}"}'
+                hx-target="closest div"
+                hx-swap="outerHTML"
+                hx-on::after-request="showToast('✓ Añadido a biblioteca del grupo', 'success')"
+                class="btn btn-sm btn-primary btn-square">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+        </button>
+    </div>
+    {% endif %}
+{% endif %}

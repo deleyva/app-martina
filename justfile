@@ -151,3 +151,90 @@ migrate *args:
 createapp +args:
     @echo "Creating new django app..."
     @docker compose run --rm django python ./manage.py startapp {{args}}
+
+# =============================================================================
+# BACKUP COMMANDS
+# =============================================================================
+
+# backup: Create a database backup (local)
+backup-db:
+    @echo "Creating database backup..."
+    @docker compose exec postgres backup
+
+# backup-media: Create a media files backup (local)
+backup-media:
+    @echo "Creating media files backup..."
+    @docker compose run --rm django /backup_media.sh
+
+# backup-full: Create a complete backup (database + media) (local)
+backup-full:
+    @echo "Creating complete backup..."
+    @just backup-db
+    @just backup-media
+
+# list-backups: List available backups (local)
+list-backups:
+    @echo "Database backups:"
+    @docker compose exec postgres backups
+    @echo "\nMedia backups:"
+    @docker compose exec django ls -lh /backups/media 2>/dev/null || echo "No media backups found"
+
+# restore-db: Restore database from backup (local)
+restore-db backup_file:
+    @echo "Restoring database from {{backup_file}}..."
+    @docker compose exec postgres restore {{backup_file}}
+
+# restore-media: Restore media files from backup (local)
+restore-media backup_file:
+    @echo "Restoring media files from {{backup_file}}..."
+    @docker compose run --rm django /restore_media.sh {{backup_file}}
+
+# production-backup-db: Create a database backup (production)
+production-backup-db:
+    @echo "Creating production database backup..."
+    @ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-production && \
+    docker compose -f docker-compose.production.yml exec postgres backup"
+
+# production-backup-media: Create a media files backup (production)
+production-backup-media:
+    @echo "Creating production media backup..."
+    @ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-production && \
+    docker compose -f docker-compose.production.yml run --rm django /backup_media.sh"
+
+# production-backup-full: Create a complete backup (database + media) (production)
+production-backup-full:
+    @echo "Creating complete production backup..."
+    @just production-backup-db
+    @just production-backup-media
+
+# production-list-backups: List available backups (production)
+production-list-backups:
+    @echo "Production database backups:"
+    @ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-production && \
+    docker compose -f docker-compose.production.yml exec postgres backups"
+    @echo "\nProduction media backups:"
+    @ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-production && \
+    docker compose -f docker-compose.production.yml exec django ls -lh /backups/media 2>/dev/null || echo 'No media backups found'"
+
+# production-restore-db: Restore database from backup (production)
+production-restore-db backup_file:
+    @echo "⚠️  WARNING: This will restore production database from {{backup_file}}"
+    @echo "Press Ctrl+C to cancel, or Enter to continue..."
+    @read
+    @ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-production && \
+    docker compose -f docker-compose.production.yml exec postgres restore {{backup_file}}"
+
+# production-restore-media: Restore media files from backup (production)
+production-restore-media backup_file:
+    @echo "⚠️  WARNING: This will restore production media files from {{backup_file}}"
+    @echo "Press Ctrl+C to cancel, or Enter to continue..."
+    @read
+    @ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-production && \
+    docker compose -f docker-compose.production.yml run --rm django /restore_media.sh {{backup_file}}"
+
+# production-download-backup: Download a backup from production to local machine
+production-download-backup backup_type backup_file:
+    @echo "Downloading {{backup_type}} backup: {{backup_file}}"
+    @mkdir -p ./backups/{{backup_type}}
+    @scp $SSH_MARTINA_USER_AND_IP:app-martina-production/backups/{{backup_type}}/{{backup_file}} ./backups/{{backup_type}}/
+    @echo "✓ Downloaded to ./backups/{{backup_type}}/{{backup_file}}"

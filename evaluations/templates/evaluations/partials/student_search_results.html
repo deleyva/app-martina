@@ -16,7 +16,7 @@
             <td>
               <button 
                 class="btn btn-xs btn-primary"
-                hx-post="{% url 'add_student_to_pending' %}"
+                hx-post="{% url 'evaluations:add_student_to_pending' %}"
                 hx-vals='{"student_id": "{{ student.id }}", "item_id": "{{ request.GET.item_id }}"}'
                 hx-target="#student-search-results-{{ request.GET.item_id }}"
                 hx-swap="innerHTML">

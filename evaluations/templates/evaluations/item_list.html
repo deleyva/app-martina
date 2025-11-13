@@ -30,7 +30,7 @@
         <!-- Panel de selección aleatoria -->
         <div x-show="activeTab === 'random'">
           <form
-            hx-get="{% url 'select_students' item.id %}"
+            hx-get="{% url 'evaluations:select_students' item.id %}"
             hx-target="#selected-students-{{ item.id }}"
           >
             <div class="form-control mb-3">
@@ -76,7 +76,7 @@
 
         <!-- Panel de búsqueda de estudiantes -->
         <div x-show="activeTab === 'search'">
-          <form class="mb-4" hx-get="{% url 'search_students' %}" hx-target="#student-search-results-{{ item.id }}">
+          <form class="mb-4" hx-get="{% url 'evaluations:search_students' %}" hx-target="#student-search-results-{{ item.id }}">
             <div class="form-control">
               <label for="search-student-{{ item.id }}" class="label">
                 <span class="label-text">Buscar estudiante:</span>
@@ -89,7 +89,7 @@
                   name="query"
                   placeholder="Nombre del estudiante (mínimo 3 caracteres)"
                   hx-trigger="keyup changed delay:500ms"
-                  hx-get="{% url 'search_students' %}"
+                  hx-get="{% url 'evaluations:search_students' %}"
                   hx-target="#student-search-results-{{ item.id }}"
                   hx-vals='{"item_id": {{ item.id }}}'
                 />

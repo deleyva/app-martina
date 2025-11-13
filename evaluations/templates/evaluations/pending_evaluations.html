@@ -12,13 +12,13 @@
         <label class="label label-text font-semibold">Grupo:</label>
         <div class="join join-horizontal flex-nowrap overflow-x-auto">
           <a
-            href="{% url 'pending_evaluations' %}?show_classroom={{ show_classroom }}{% if selected_evaluation_item %}&evaluation_item={{ selected_evaluation_item }}{% endif %}"
+            href="{% url 'evaluations:pending_evaluations' %}?show_classroom={{ show_classroom }}{% if selected_evaluation_item %}&evaluation_item={{ selected_evaluation_item }}{% endif %}"
             class="join-item btn btn-xs sm:btn-sm {% if not selected_group %}btn-primary{% else %}btn-outline{% endif %}"
             >Todos</a
           >
           {% for group in groups %}
           <a
-            href="{% url 'pending_evaluations' %}?group={{ group }}&show_classroom={{ show_classroom }}{% if selected_evaluation_item %}&evaluation_item={{ selected_evaluation_item }}{% endif %}"
+            href="{% url 'evaluations:pending_evaluations' %}?group={{ group }}&show_classroom={{ show_classroom }}{% if selected_evaluation_item %}&evaluation_item={{ selected_evaluation_item }}{% endif %}"
             class="join-item btn btn-xs sm:btn-sm {% if selected_group == group %}btn-primary{% else %}btn-outline{% endif %}"
             >{{ group }}</a
           >
@@ -31,13 +31,13 @@
         <label class="label label-text font-semibold">Item de evaluación:</label>
         <div class="join join-horizontal flex-nowrap overflow-x-auto">
           <a
-            href="{% url 'pending_evaluations' %}?{% if selected_group %}group={{ selected_group }}&{% endif %}show_classroom={{ show_classroom }}"
+            href="{% url 'evaluations:pending_evaluations' %}?{% if selected_group %}group={{ selected_group }}&{% endif %}show_classroom={{ show_classroom }}"
             class="join-item btn btn-xs sm:btn-sm {% if not selected_evaluation_item %}btn-primary{% else %}btn-outline{% endif %}"
             >Todos</a
           >
           {% for item in evaluation_items %}
           <a
-            href="{% url 'pending_evaluations' %}?{% if selected_group %}group={{ selected_group }}&{% endif %}show_classroom={{ show_classroom }}&evaluation_item={{ item.id }}"
+            href="{% url 'evaluations:pending_evaluations' %}?{% if selected_group %}group={{ selected_group }}&{% endif %}show_classroom={{ show_classroom }}&evaluation_item={{ item.id }}"
             class="join-item btn btn-xs sm:btn-sm {% if selected_evaluation_item|stringformat:'s' == item.id|stringformat:'s' %}btn-primary{% else %}btn-outline{% endif %}"
             >{{ item.name }}</a
           >
@@ -48,14 +48,14 @@
     
     <div class="flex items-center flex-nowrap mt-2">
       <a
-        href="{% url 'pending_evaluations' %}?{% if selected_group %}group={{ selected_group }}&{% endif %}{% if selected_evaluation_item %}evaluation_item={{ selected_evaluation_item }}&{% endif %}show_classroom={% if show_classroom %}false{% else %}true{% endif %}"
+        href="{% url 'evaluations:pending_evaluations' %}?{% if selected_group %}group={{ selected_group }}&{% endif %}{% if selected_evaluation_item %}evaluation_item={{ selected_evaluation_item }}&{% endif %}show_classroom={% if show_classroom %}false{% else %}true{% endif %}"
         class="btn btn-xs sm:btn-sm {% if show_classroom %}btn-primary{% else %}btn-outline{% endif %} mr-1"
       >
         {% if show_classroom %} Ocultar entregados vía web {% else %} Mostrar entregados vía web
         {% endif %}
       </a>
       <a
-        href="{% url 'evaluation_item_list' %}"
+        href="{% url 'evaluations:evaluation_item_list' %}"
         class="btn btn-xs sm:btn-sm btn-outline"
       >
         Volver a Items

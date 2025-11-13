@@ -1,29 +1,46 @@
 {% if user.is_authenticated %}
-    {% if in_library %}
-    <div class="tooltip tooltip-left" data-tip="Ya está en tu biblioteca">
-        <button hx-post="{% url 'my_library:remove_by_content' %}"
-                hx-vals='{"content_type_id": "{{ content_type.id }}", "object_id": "{{ content_object.pk }}"}'
-                hx-target="closest div"
-                hx-swap="outerHTML"
-                hx-on::after-request="showToast('Eliminado de tu biblioteca', 'info')"
-                class="btn btn-sm btn-success btn-square">
-            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
-            </svg>
-        </button>
-    </div>
+    {% if is_teacher %}
+        {# PROFESORES: Botón que abre modal para seleccionar destinos #}
+        <div class="tooltip tooltip-left" data-tip="Añadir a bibliotecas">
+            <button onclick="library_modal_{{ content_object.pk }}_{{ content_type.id }}.showModal()"
+                    class="btn btn-sm btn-primary btn-square">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+            </button>
+        </div>
+        
+        {# Modal para seleccionar bibliotecas #}
+        {% include "my_library/partials/add_to_libraries_modal.html" %}
+        
     {% else %}
-    <div class="tooltip tooltip-left" data-tip="Añadir a mi biblioteca">
-        <button hx-post="{% url 'my_library:add' %}"
-                hx-vals='{"content_type_id": "{{ content_type.id }}", "object_id": "{{ content_object.pk }}"}'
-                hx-target="closest div"
-                hx-swap="outerHTML"
-                hx-on::after-request="showToast('✓ Se ha añadido a tu biblioteca', 'success')"
-                class="btn btn-sm btn-primary btn-square">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-            </svg>
-        </button>
-    </div>
+        {# ESTUDIANTES: Toggle simple como antes #}
+        {% if in_library %}
+        <div class="tooltip tooltip-left" data-tip="Ya está en tu biblioteca">
+            <button hx-post="{% url 'my_library:remove_by_content' %}"
+                    hx-vals='{"content_type_id": "{{ content_type.id }}", "object_id": "{{ content_object.pk }}"}'
+                    hx-target="closest div"
+                    hx-swap="outerHTML"
+                    hx-on::after-request="showToast('Eliminado de tu biblioteca', 'info')"
+                    class="btn btn-sm btn-success btn-square">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                </svg>
+            </button>
+        </div>
+        {% else %}
+        <div class="tooltip tooltip-left" data-tip="Añadir a mi biblioteca">
+            <button hx-post="{% url 'my_library:add' %}"
+                    hx-vals='{"content_type_id": "{{ content_type.id }}", "object_id": "{{ content_object.pk }}"}'
+                    hx-target="closest div"
+                    hx-swap="outerHTML"
+                    hx-on::after-request="showToast('✓ Se ha añadido a tu biblioteca', 'success')"
+                    class="btn btn-sm btn-primary btn-square">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+            </button>
+        </div>
+        {% endif %}
     {% endif %}
 {% endif %}

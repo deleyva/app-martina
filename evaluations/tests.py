@@ -198,13 +198,13 @@ class ViewTests(TestCase):
         self.client.login(email="teacher@example.com", password="password123")
     
     def test_evaluation_item_list_view(self):
-        response = self.client.get(reverse('evaluation_item_list'))
+        response = self.client.get(reverse('evaluations:evaluation_item_list'))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'evaluations/item_list.html')
         self.assertContains(response, "Test Evaluation")
     
     def test_pending_evaluations_view(self):
-        url = reverse('pending_evaluations')
+        url = reverse('evaluations:pending_evaluations')
         response = self.client.get(f"{url}?evaluation_item={self.evaluation_item.id}")
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'evaluations/pending_evaluations.html')
@@ -227,7 +227,7 @@ class ViewTests(TestCase):
         self.assertContains(response, "Test Student")
     
     def test_toggle_classroom_submission(self):
-        url = reverse('toggle_classroom_submission', args=[self.student.id])
+        url = reverse('evaluations:toggle_classroom_submission', args=[self.student.id])
         
         # Toggle to true
         response = self.client.post(url, {
@@ -304,14 +304,14 @@ class HtmxViewTests(TestCase):
     
     def test_search_student_htmx(self):
         # La vista search_students espera 'query', no 'q', y necesita al menos 3 caracteres
-        url = reverse('search_students') 
+        url = reverse('evaluations:search_students') 
         response = self.client.get(f"{url}?query=Test", HTTP_HX_REQUEST='true')
         
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Test Student")
     
     def test_save_evaluation_htmx(self):
-        url = reverse('save_evaluation', args=[self.student.id])
+        url = reverse('evaluations:save_evaluation', args=[self.student.id])
         
         # HTMX save evaluation request con los parámetros que espera la vista
         data = {

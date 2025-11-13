@@ -80,7 +80,14 @@ COPY ./compose/local/django/start /start
 RUN sed -i 's/\r$//g' /start
 RUN chmod +x /start
 
+# Scripts de backup de media
+COPY ./compose/production/django/backup_media.sh /backup_media.sh
+RUN sed -i 's/\r$//g' /backup_media.sh
+RUN chmod +x /backup_media.sh
 
+COPY ./compose/production/django/restore_media.sh /restore_media.sh
+RUN sed -i 's/\r$//g' /restore_media.sh
+RUN chmod +x /restore_media.sh
 
 # copy application code to WORKDIR
 COPY . ${APP_HOME}

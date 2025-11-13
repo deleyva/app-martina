@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block title %}Editar {{ session.title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .sortable-ghost {
+        opacity: 0.4;
+    }
+    .sortable-drag {
+        cursor: grabbing !important;
+    }
+    .session-item {
+        cursor: grab;
+    }
+    .session-item:active {
+        cursor: grabbing;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
+        <div>
+            <h1 class="text-2xl sm:text-3xl font-bold">{{ session.title }}</h1>
+            <div class="text-sm text-base-content/70 mt-1">
+                {{ session.group.name }} · {{ session.date|date:"d/m/Y" }}
+            </div>
+        </div>
+        <a href="{% url 'evaluations:class_session_list' %}" class="btn btn-ghost btn-sm">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+            </svg>
+            Volver
+        </a>
+    </div>
+    
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Columna izquierda: Lista ordenable de items -->
+        <div class="lg:col-span-2">
+            <div class="card bg-base-100 shadow-md">
+                <div class="card-body">
+                    <h2 class="card-title">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                        </svg>
+                        Contenido de la Sesión
+                    </h2>
+                    
+                    <div id="session-items" class="space-y-2 mt-4">
+                        {% if items %}
+                            {% for item in items %}
+                            {% include "evaluations/class_sessions/partials/session_item.html" with item=item session=session %}
+                            {% endfor %}
+                        {% else %}
+                            <div id="empty-state" class="text-center py-8 text-base-content/70">
+                                <div class="text-4xl mb-2">📝</div>
+                                <p>Aún no hay elementos en esta sesión.</p>
+                                <p class="text-sm">Añade contenido desde la biblioteca del grupo →</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Columna derecha: Biblioteca del grupo -->
+        <div>
+            <div class="card bg-base-100 shadow-md">
+                <div class="card-body">
+                    <h2 class="card-title text-base">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"></path>
+                        </svg>
+                        Biblioteca del Grupo
+                    </h2>
+                    
+                    {% if library_items %}
+                    <div class="space-y-2 mt-4 max-h-[600px] overflow-y-auto">
+                        {% for lib_item in library_items %}
+                        <div class="p-3 bg-base-200 rounded-lg">
+                            <div class="flex items-start gap-2">
+                                <div class="text-2xl flex-shrink-0">{{ lib_item.get_icon }}</div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm font-semibold truncate">{{ lib_item.get_content_title }}</div>
+                                    <div class="text-xs text-base-content/60">{{ lib_item.get_content_type_name }}</div>
+                                </div>
+                                <button hx-post="{% url 'evaluations:class_session_add_item' session.pk %}"
+                                        hx-vals='{"content_type_id": "{{ lib_item.content_type.id }}", "object_id": "{{ lib_item.object_id }}"}'
+                                        hx-target="#session-items"
+                                        hx-swap="beforeend"
+                                        hx-on::after-request="const emptyState = document.getElementById('empty-state'); if(emptyState) emptyState.remove();"
+                                        class="btn btn-xs btn-primary btn-square flex-shrink-0"
+                                        title="Añadir a sesión">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-6 text-base-content/70 text-sm">
+                        <div class="text-3xl mb-2">📚</div>
+                        <p>La biblioteca del grupo está vacía.</p>
+                        <a href="{% url 'evaluations:group_library_index' session.group.pk %}" 
+                           class="link link-primary mt-2 inline-block">
+                            Añadir contenido
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- SortableJS CDN -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const sessionItems = document.getElementById('session-items');
+        
+        if (sessionItems) {
+            // Inicializar SortableJS
+            const sortable = new Sortable(sessionItems, {
+                animation: 150,
+                handle: '.session-item',
+                ghostClass: 'sortable-ghost',
+                dragClass: 'sortable-drag',
+                onEnd: function(evt) {
+                    // Obtener IDs en el nuevo orden
+                    const itemIds = Array.from(sessionItems.children).map(el => 
+                        el.dataset.itemId
+                    );
+                    
+                    // Enviar al servidor via HTMX
+                    htmx.ajax('POST', '{% url "evaluations:class_session_reorder_items" session.pk %}', {
+                        values: {
+                            item_ids: JSON.stringify(itemIds)
+                        }
+                    });
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

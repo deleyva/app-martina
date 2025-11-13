@@ -61,6 +61,15 @@ COPY ./compose/production/django/start-huey /start-huey
 RUN sed -i 's/\r$//g' /start-huey
 RUN chmod +x /start-huey
 
+# Scripts de backup de media
+COPY ./compose/production/django/backup_media.sh /backup_media.sh
+RUN sed -i 's/\r$//g' /backup_media.sh
+RUN chmod +x /backup_media.sh
+
+COPY ./compose/production/django/restore_media.sh /restore_media.sh
+RUN sed -i 's/\r$//g' /restore_media.sh
+RUN chmod +x /restore_media.sh
+
 # Copiar el código de la aplicación
 COPY . ${APP_HOME}
 
