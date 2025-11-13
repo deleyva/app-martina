@@ -233,11 +233,17 @@ production-restore-media backup_file:
     docker compose -f docker-compose.production.yml run --rm django /restore_media.sh {{backup_file}}"
 
 # production-download-backup: Download a backup from production to local machine
+# Usage: just production-download-backup postgres production_backup_2025_11_13.sql.gz
+#        just production-download-backup media production_media_backup_2025_11_13.tar.gz
 production-download-backup backup_type backup_file:
     @echo "Downloading {{backup_type}} backup: {{backup_file}}"
-    @mkdir -p ./backups/{{backup_type}}
-    @scp $SSH_MARTINA_USER_AND_IP:app-martina-production/backups/{{backup_type}}/{{backup_file}} ./backups/{{backup_type}}/
-    @echo "✓ Downloaded to ./backups/{{backup_type}}/{{backup_file}}"
+    @mkdir -p ./backups/
+    @if [ "{{backup_type}}" = "postgres" ]; then \
+        scp $SSH_MARTINA_USER_AND_IP:app-martina-production/backups/{{backup_file}} ./backups/; \
+    else \
+        scp $SSH_MARTINA_USER_AND_IP:app-martina-production/backups/media/{{backup_file}} ./backups/; \
+    fi
+    @echo "✓ Downloaded to ./backups/{{backup_file}}"
 
 # stage-backup-db: Create a database backup (stage)
 stage-backup-db:
