@@ -44,6 +44,7 @@ urlpatterns = [
     path("users/", include("martina_bescos_app.users.urls", namespace="users")),
     path("accounts/", include("allauth.urls")),
     # Your stuff: custom urls includes go here
+    path("clases/", include("clases.urls")),
     path("evaluations/", include("evaluations.urls", namespace="evaluations")),
     # API Keys management UI
     path("api-keys/", include("api_keys.urls", namespace="api_keys")),
@@ -54,7 +55,6 @@ urlpatterns = [
     path("cms/", include(wagtailadmin_urls)),
     path("documents/", include(wagtaildocs_urls)),
     path("pages/", include(wagtail_urls)),
-    path("music-cards/", include("music_cards.urls", namespace="music_cards")),
     # My Library - Biblioteca personal de usuario
     path("my-library/", include("my_library.urls", namespace="my_library")),
     # CMS custom views (filtros de partituras)

@@ -1,37 +1,18 @@
 from django.contrib import admin
 from django.urls import reverse
 from django.utils.html import format_html
+from clases.models import Group, Student
 from .models import (
-    Group,
-    Student,
     EvaluationItem,
     Evaluation,
     RubricCategory,
     RubricScore,
     PendingEvaluationStatus,
-    GroupLibraryItem,
-    ClassSession,
-    ClassSessionItem,
 )
 from .submission_models import ClassroomSubmission, SubmissionVideo, SubmissionImage
 
 # Register your models here.
-
-
-@admin.register(Group)
-class GroupAdmin(admin.ModelAdmin):
-    list_display = ("name", "get_teachers_count", "get_students_count", "created_at")
-    search_fields = ("name",)
-    filter_horizontal = ("teachers",)
-    readonly_fields = ("created_at",)
-    
-    def get_teachers_count(self, obj):
-        return obj.teachers.count()
-    get_teachers_count.short_description = "Profesores"
-    
-    def get_students_count(self, obj):
-        return obj.students.count()
-    get_students_count.short_description = "Estudiantes"
+# Group y Student ahora se administran en clases/admin.py
 
 
 class RubricCategoryInline(admin.StackedInline):
@@ -40,23 +21,6 @@ class RubricCategoryInline(admin.StackedInline):
     fields = ("name", "description", "max_points", "order")
     ordering = ("order",)
     classes = ["collapse", "open"]
-
-
-@admin.register(Student)
-class StudentAdmin(admin.ModelAdmin):
-    list_display = ("get_name", "group", "get_pending_count")
-    list_filter = ("group",)
-    search_fields = ("user__name", "group")
-
-    def get_name(self, obj):
-        return obj.user.name if obj.user else f"Student {obj.id}"
-
-    get_name.short_description = "Nombre"
-
-    def get_pending_count(self, obj):
-        return obj.pending_statuses.count()
-
-    get_pending_count.short_description = "Evaluaciones pendientes"
 
 
 @admin.register(EvaluationItem)
@@ -274,79 +238,4 @@ class SubmissionImageAdmin(admin.ModelAdmin):
     search_fields = ("submission__pending_status__student__user__name", "original_filename")
 
 
-@admin.register(GroupLibraryItem)
-class GroupLibraryItemAdmin(admin.ModelAdmin):
-    list_display = ("group", "get_content_title", "get_content_type", "added_by", "added_at")
-    list_filter = ("group", "content_type", "added_at")
-    search_fields = ("group__name", "notes")
-    readonly_fields = ("added_at", "content_type", "object_id")
-    date_hierarchy = "added_at"
-    
-    def get_content_title(self, obj):
-        return obj.get_content_title()
-    get_content_title.short_description = "Contenido"
-    
-    def get_content_type(self, obj):
-        return obj.get_content_type_name()
-    get_content_type.short_description = "Tipo"
-
-
-class ClassSessionItemInline(admin.TabularInline):
-    model = ClassSessionItem
-    extra = 0
-    fields = ("order", "get_content_title", "get_content_type", "notes")
-    readonly_fields = ("get_content_title", "get_content_type")
-    ordering = ("order",)
-    
-    def get_content_title(self, obj):
-        return obj.get_content_title() if obj.pk else ""
-    get_content_title.short_description = "Contenido"
-    
-    def get_content_type(self, obj):
-        return obj.get_content_type_name() if obj.pk else ""
-    get_content_type.short_description = "Tipo"
-
-
-@admin.register(ClassSession)
-class ClassSessionAdmin(admin.ModelAdmin):
-    list_display = ("title", "group", "date", "teacher", "get_items_count", "created_at")
-    list_filter = ("group", "teacher", "date")
-    search_fields = ("title", "group__name", "teacher__name")
-    readonly_fields = ("created_at", "updated_at")
-    date_hierarchy = "date"
-    inlines = [ClassSessionItemInline]
-    
-    fieldsets = (
-        (None, {
-            "fields": ("teacher", "group", "date", "title")
-        }),
-        ("Contenido", {
-            "fields": ("notes",),
-            "classes": ("wide",)
-        }),
-        ("Información", {
-            "fields": ("created_at", "updated_at"),
-            "classes": ("collapse",)
-        }),
-    )
-    
-    def get_items_count(self, obj):
-        return obj.items.count()
-    get_items_count.short_description = "Items"
-
-
-@admin.register(ClassSessionItem)
-class ClassSessionItemAdmin(admin.ModelAdmin):
-    list_display = ("session", "order", "get_content_title", "get_content_type", "added_at")
-    list_filter = ("session__group", "content_type")
-    search_fields = ("session__title", "notes")
-    readonly_fields = ("added_at", "content_type", "object_id")
-    ordering = ("session", "order")
-    
-    def get_content_title(self, obj):
-        return obj.get_content_title()
-    get_content_title.short_description = "Contenido"
-    
-    def get_content_type(self, obj):
-        return obj.get_content_type_name()
-    get_content_type.short_description = "Tipo"
+# GroupLibraryItem, ClassSession y ClassSessionItem ahora se administran en clases/admin.py

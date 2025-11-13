@@ -96,7 +96,23 @@ Behold My Awesome Project!
 [![Built with Cookiecutter Django](https://img.shields.io/badge/built%20with-Cookiecutter%20Django-ff69b4.svg?logo=cookiecutter)](https://github.com/cookiecutter/cookiecutter-django/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
-License: MIT
+## Roadmap
+
+### Refactorización Técnica
+
+- [ ] **Renombrar tablas de base de datos**: Actualmente las tablas de la app `clases` usan nombres con prefijo `evaluations_*` (ej: `evaluations_group`, `evaluations_student`). En el futuro, migrar a nombres coherentes como `clases_group`, `clases_student`, etc.
+- [ ] **Soporte multi-asignatura**: Actualmente un estudiante solo puede estar en un grupo (una asignatura). Implementar soporte para que un estudiante pueda estar en múltiples asignaturas simultáneamente mediante relación ManyToMany.
+
+### Funcionalidades
+
+- [ ] Integración completa de biblioteca de grupo con Wagtail CMS
+- [ ] Sistema de permisos por asignatura
+- [ ] Dashboard de profesor multi-asignatura
+- [ ] Exportación de datos en formato Excel/PDF
+
+## License
+
+MIT
 
 ## Settings
 

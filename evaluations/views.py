@@ -23,17 +23,13 @@ except ImportError:
     genai = None
     GEMINI_AVAILABLE = False
 
+from clases.models import Group, Student, GroupLibraryItem, ClassSession, ClassSessionItem
 from .models import (
-    Group,
-    Student,
     EvaluationItem,
     RubricCategory,
     Evaluation,
     RubricScore,
     PendingEvaluationStatus,
-    GroupLibraryItem,
-    ClassSession,
-    ClassSessionItem,
 )
 from .submission_models import ClassroomSubmission
 from django.contrib.contenttypes.models import ContentType
@@ -991,7 +987,7 @@ def group_library_index(request, group_id):
     
     return render(
         request,
-        "evaluations/group_library/index.html",
+        "clases/group_library/index.html",
         {
             "group": group,
             "items": items,
@@ -1032,7 +1028,7 @@ def group_library_add(request, group_id):
         # Renderizar botón actualizado (HTMX swap)
         return render(
             request,
-            "evaluations/group_library/partials/add_button.html",
+            "clases/group_library/partials/add_button.html",
             {
                 "group": group,
                 "content_object": content_object,
@@ -1065,7 +1061,7 @@ def group_library_remove(request, group_id, pk):
     # Renderizar botón actualizado (HTMX swap)
     return render(
         request,
-        "evaluations/group_library/partials/add_button.html",
+        "clases/group_library/partials/add_button.html",
         {
             "group": group,
             "content_object": content_object,
@@ -1105,7 +1101,7 @@ def group_library_remove_by_content(request, group_id):
         # Renderizar botón actualizado (HTMX swap)
         return render(
             request,
-            "evaluations/group_library/partials/add_button.html",
+            "clases/group_library/partials/add_button.html",
             {
                 "group": group,
                 "content_object": content_object,
@@ -1137,7 +1133,7 @@ def class_session_list(request):
     
     return render(
         request,
-        "evaluations/class_sessions/list.html",
+        "clases/class_sessions/list.html",
         {
             "sessions": sessions,
             "groups": groups,
@@ -1163,7 +1159,7 @@ def class_session_create(request):
         # Verificar que el profesor pertenece a este grupo
         if not group.teachers.filter(pk=request.user.pk).exists():
             messages.error(request, "No tienes permiso para crear sesiones en este grupo.")
-            return redirect("evaluations:class_session_list")
+            return redirect("clases:class_session_list")
         
         # Crear sesión
         session = ClassSession.objects.create(
@@ -1175,13 +1171,13 @@ def class_session_create(request):
         )
         
         messages.success(request, f"Sesión '{title}' creada exitosamente.")
-        return redirect("evaluations:class_session_edit", pk=session.pk)
+        return redirect("clases:class_session_edit", pk=session.pk)
     
     # GET: Mostrar formulario
     groups = request.user.teaching_groups.all()
     return render(
         request,
-        "evaluations/class_sessions/create.html",
+        "clases/class_sessions/create.html",
         {"groups": groups},
     )
 
@@ -1201,7 +1197,7 @@ def class_session_edit(request, pk):
     
     return render(
         request,
-        "evaluations/class_sessions/edit.html",
+        "clases/class_sessions/edit.html",
         {
             "session": session,
             "items": items,
@@ -1237,7 +1233,7 @@ def class_session_add_item(request, session_id):
         # Renderizar item añadido (HTMX swap)
         return render(
             request,
-            "evaluations/class_sessions/partials/session_item.html",
+            "clases/class_sessions/partials/session_item.html",
             {
                 "item": item,
                 "session": session,
@@ -1295,7 +1291,7 @@ def class_session_delete(request, pk):
     session.delete()
     
     messages.success(request, f"Sesión '{title}' eliminada exitosamente.")
-    return redirect("evaluations:class_session_list")
+    return redirect("clases:class_session_list")
 
 
 # ============================================================================

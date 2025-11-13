@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Mis Sesiones de Clase{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
+        <h1 class="text-2xl sm:text-3xl font-bold">📅 Mis Sesiones de Clase</h1>
+        <a href="{% url 'clases:class_session_create' %}" class="btn btn-primary">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+            Nueva Sesión
+        </a>
+    </div>
+    
+    {% if sessions %}
+    <!-- Lista de sesiones -->
+    <div class="grid gap-4">
+        {% for session in sessions %}
+        <div class="card bg-base-100 shadow-md hover:shadow-lg transition-shadow">
+            <div class="card-body">
+                <div class="flex flex-col sm:flex-row justify-between items-start gap-3">
+                    <div class="flex-1">
+                        <h2 class="card-title">{{ session.title }}</h2>
+                        <div class="flex flex-wrap gap-3 text-sm mt-2">
+                            <div class="badge badge-primary">{{ session.group.name }}</div>
+                            <div class="text-base-content/70">
+                                <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                </svg>
+                                {{ session.date|date:"d/m/Y" }}
+                            </div>
+                            <div class="text-base-content/70">
+                                <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                                </svg>
+                                {{ session.items.count }} elemento{{ session.items.count|pluralize }}
+                            </div>
+                        </div>
+                        {% if session.notes %}
+                        <p class="text-sm text-base-content/70 mt-2">{{ session.notes|truncatewords:20 }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="flex gap-2">
+                        <a href="{% url 'clases:class_session_edit' session.pk %}" class="btn btn-sm btn-primary">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                            </svg>
+                            Editar
+                        </a>
+                        <a href="{% url 'clases:class_session_delete' session.pk %}" 
+                           onclick="return confirm('¿Eliminar sesión {{ session.title }}?')"
+                           class="btn btn-sm btn-ghost btn-square">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            </svg>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <!-- Empty State -->
+    <div class="text-center py-12 bg-base-100 rounded-box shadow">
+        <div class="text-6xl mb-4">📅</div>
+        <h2 class="text-2xl font-bold mb-2">No tienes sesiones de clase</h2>
+        <p class="text-base-content/70 mb-6">
+            Crea tu primera sesión para organizar el contenido de tus clases.
+        </p>
+        <a href="{% url 'clases:class_session_create' %}" class="btn btn-primary">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+            Crear Primera Sesión
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

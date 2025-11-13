@@ -9,7 +9,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('cms', '0003_alter_classsessionpage_course'),
+        ('cms', '0001_initial'),
         ('wagtailcore', '0095_groupsitepermission'),
     ]
 

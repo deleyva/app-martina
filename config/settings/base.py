@@ -93,19 +93,16 @@ THIRD_PARTY_APPS = [
     "wagtail",
     "modelcluster",
     "taggit",
-    "music_cards",
 ]
 
 LOCAL_APPS = [
     "martina_bescos_app.users",
+    "clases",  # Gestión de grupos, estudiantes y sesiones de clase
     "evaluations",
     "api_keys",
     "songs_ranking",
     "explorer",
     "cms",  # Incluye Music Pills integrado
-    "classroom",
-    "study_sessions",
-    "presentations",
     "my_library",  # Biblioteca personal de usuario
     # Your stuff: custom apps go here
 ]
