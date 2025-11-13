@@ -70,9 +70,11 @@ just production-list-backups
 just production-download-backup postgres backup_2024_01_15T14_30_00.sql.gz
 
 # Descargar media
-just production-download-backup media media_backup_2024_01_15T14_30_00.tar.gz
+just production-download-backup media production_media_backup_2024_01_15T14_30_00.tar.gz
 
-# Los backups se guardan en ./backups/postgres/ y ./backups/media/
+# Los backups se guardan en:
+# - Base de datos: ./backups/ (raíz)
+# - Archivos media: ./backups/media/
 ```
 
 ## Configurar Backups Automáticos

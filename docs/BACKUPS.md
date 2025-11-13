@@ -160,8 +160,8 @@ mkdir -p .envs/.production
 # Copiar archivos .django y .postgres desde backup seguro
 
 # 3. Copiar backups al servidor
-scp ./backups/postgres/backup_*.sql.gz user@server:~/app-martina-production/backups/postgres/
-scp ./backups/media/media_backup_*.tar.gz user@server:~/app-martina-production/backups/media/
+scp ./backups/production_backup_*.sql.gz user@server:~/app-martina-production/backups/
+scp ./backups/production_media_backup_*.tar.gz user@server:~/app-martina-production/backups/media/
 
 # 4. Iniciar contenedores
 docker compose -f docker-compose.production.yml up -d
