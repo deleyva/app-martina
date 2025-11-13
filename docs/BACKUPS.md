@@ -343,6 +343,31 @@ just production-download-backup media media_backup_2024_01_01T02_00_00.tar.gz
 # Guardarlos en ubicación segura (externa al proyecto)
 ```
 
+## 🚀 Roadmap / TODOs
+
+### Pendientes de Implementación
+
+- [ ] **Configurar Cron para Backups Automáticos**
+  - Instalar cron en stage (backups diarios a las 2:00 AM)
+  - Instalar cron en production (backups diarios + semanales)
+  - Opcionalmente añadir limpieza automática para PostgreSQL (ej: mantener últimos 90 días)
+  - Archivo de ejemplo: `compose/production/crontab`
+
+- [ ] **Integración con Healthchecks.io**
+  - Configurar monitoreo de backups con [healthchecks.io](https://healthchecks.io/)
+  - Enviar ping al inicio y fin de cada backup
+  - Alertas por email/Slack si un backup falla
+  - Detectar backups que no se ejecutaron
+  - Dashboard de estado de backups
+
+### Mejoras Futuras
+
+- [ ] Añadir limpieza automática para backups de PostgreSQL (actualmente infinitos)
+- [ ] Implementar verificación de integridad de backups
+- [ ] Backup incremental para archivos media (actualmente siempre completo)
+- [ ] Compresión adicional con zstd en lugar de gzip
+- [ ] Estadísticas de backups (tamaño, tiempo de ejecución)
+
 ## 📞 Soporte
 
 Para problemas o preguntas sobre el sistema de backups:
