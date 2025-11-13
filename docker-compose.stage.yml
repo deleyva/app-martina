@@ -12,6 +12,8 @@ services:
     volumes:
       - stage_django_media:/app/martina_bescos_app/media
       - ./backups:/backups
+    environment:
+      - BACKUP_ENV=stage
     depends_on:
       - postgres
       - redis
@@ -30,6 +32,8 @@ services:
     volumes:
       - stage_postgres_data:/var/lib/postgresql/data
       - ./backups:/backups
+    environment:
+      - BACKUP_ENV=stage
     env_file:
       - ./.envs/.production/.postgres
     networks:

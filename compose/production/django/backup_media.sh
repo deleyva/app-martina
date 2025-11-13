@@ -34,7 +34,9 @@ message_info() {
 # Configuración
 MEDIA_DIR="/app/martina_bescos_app/media"
 BACKUP_DIR="/backups/media"
-BACKUP_PREFIX="media_backup"
+# Detectar entorno desde variable de entorno o usar 'unknown'
+BACKUP_ENV="${BACKUP_ENV:-unknown}"
+BACKUP_PREFIX="${BACKUP_ENV}_media_backup"
 DAYS_TO_KEEP=30  # Mantener backups de los últimos 30 días
 
 # Crear directorio de backups si no existe

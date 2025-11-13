@@ -19,6 +19,8 @@ services:
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
+    environment:
+      - BACKUP_ENV=local
     ports:
       - '8000:8000'
     command: /start
@@ -34,6 +36,8 @@ services:
       - ./backups:/backups
     env_file:
       - ./.envs/.local/.postgres
+    environment:
+      - BACKUP_ENV=local
 
   mailpit:
     image: docker.io/axllent/mailpit:latest

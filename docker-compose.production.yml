@@ -13,6 +13,8 @@ services:
     volumes:
       - production_django_media:/app/martina_bescos_app/media
       - ./backups:/backups
+    environment:
+      - BACKUP_ENV=production
     depends_on:
       - postgres
       - redis
@@ -32,6 +34,8 @@ services:
     volumes:
       - production_postgres_data:/var/lib/postgresql/data
       - ./backups:/backups
+    environment:
+      - BACKUP_ENV=production
     env_file:
       - ./.envs/.production/.postgres
     networks:
