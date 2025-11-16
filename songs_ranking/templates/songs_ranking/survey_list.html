@@ -23,7 +23,7 @@
         <div class="card bg-base-200 shadow-lg hover:shadow-xl transition-shadow">
           <div class="card-body">
             <h2 class="card-title text-primary">{{ survey.title }}</h2>
-            <p class="text-sm text-base-content/70 mb-2">Created by {{ survey.creator.username }}</p>
+            <p class="text-sm text-base-content/70 mb-2">Created by {% if survey.creator.name %}{{ survey.creator.name }}{% elif survey.creator.first_name and survey.creator.last_name %}{{ survey.creator.first_name }} {{ survey.creator.last_name }}{% else %}{{ survey.creator.email }}{% endif %}</p>
             
             {% if survey.current_phase == "not_started" %}
               <div class="badge badge-neutral">Not Started Yet</div>

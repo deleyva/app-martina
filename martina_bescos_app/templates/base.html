@@ -15,6 +15,7 @@
         content="Behold My Awesome Project!" />
   <meta name="author"
         content="Jesús López de Leyva" />
+  <meta name="referrer" content="origin" />
   <meta name="csrf-token" content="{{ csrf_token }}">
   <link rel="icon" href="{% static 'images/favicons/favicon.ico' %}" />
   {% block css %}
@@ -112,9 +113,15 @@
         </div>
         <div class="flex-none">
           {% if request.user.is_authenticated %}
-            <div class="avatar placeholder mr-2">
-              <div class="bg-neutral text-neutral-content rounded-full w-8">
-                <span>{{ request.user.username|slice:":2"|upper }}</span>
+            <div class="avatar {% if not user_profile_picture %}placeholder {% endif %}mr-2">
+              <div class="{% if not user_profile_picture %}bg-neutral text-neutral-content {% endif %}rounded-full w-8">
+                {% if user_profile_picture %}
+                  <img src="{{ user_profile_picture }}" 
+                       alt="{{ request.user.email }}" 
+                       referrerpolicy="origin" />
+                {% else %}
+                  <span>{% if request.user.name %}{{ request.user.name|slice:":2"|upper }}{% elif request.user.first_name %}{{ request.user.first_name|slice:":1"|upper }}{{ request.user.last_name|slice:":1"|upper }}{% else %}{{ request.user.email|slice:":2"|upper }}{% endif %}</span>
+                {% endif %}
               </div>
             </div>
           {% endif %}

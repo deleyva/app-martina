@@ -19,7 +19,7 @@
     <div class="card-body">
       <div class="flex flex-wrap justify-between items-start gap-3">
         <div>
-          <p class="text-sm text-base-content/70">Created by {{ survey.creator.username }}</p>
+          <p class="text-sm text-base-content/70">Created by {% if survey.creator.name %}{{ survey.creator.name }}{% elif survey.creator.first_name and survey.creator.last_name %}{{ survey.creator.first_name }} {{ survey.creator.last_name }}{% else %}{{ survey.creator.email }}{% endif %}</p>
           <p class="text-sm text-base-content/70">Created on {{ survey.created_at|date:"F j, Y" }}</p>
         </div>
         
