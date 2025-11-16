@@ -16,13 +16,18 @@
     .session-item:active {
         cursor: grabbing;
     }
+    /* Tabla a ancho completo */
+    .library-table-container {
+        width: 100%;
+        overflow-x: auto;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8">
+<div class="w-full px-4 py-8">
     <!-- Header -->
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6 max-w-7xl mx-auto">
         <div>
             <h1 class="text-2xl sm:text-3xl font-bold">{{ session.title }}</h1>
             <div class="text-sm text-base-content/70 mt-1">
@@ -37,71 +42,101 @@
         </a>
     </div>
     
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Columna izquierda: Lista ordenable de items -->
-        <div class="lg:col-span-2">
-            <div class="card bg-base-100 shadow-md">
-                <div class="card-body">
-                    <h2 class="card-title">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
-                        </svg>
-                        Contenido de la Sesión
-                    </h2>
-                    
-                    <div id="session-items" class="space-y-2 mt-4">
-                        {% if items %}
-                            {% for item in items %}
-                            {% include "clases/class_sessions/partials/session_item.html" with item=item session=session %}
-                            {% endfor %}
-                        {% else %}
-                            <div id="empty-state" class="text-center py-8 text-base-content/70">
-                                <div class="text-4xl mb-2">📝</div>
-                                <p>Aún no hay elementos en esta sesión.</p>
-                                <p class="text-sm">Añade contenido desde la biblioteca del grupo →</p>
-                            </div>
-                        {% endif %}
-                    </div>
+    <div class="max-w-7xl mx-auto">
+        <!-- Contenido de la sesión (ordenable) -->
+        <div class="card bg-base-100 shadow-md mb-6">
+            <div class="card-body">
+                <h2 class="card-title">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                    </svg>
+                    Contenido de la Sesión
+                </h2>
+                
+                <div id="session-items" class="space-y-2 mt-4">
+                    {% if items %}
+                        {% for item in items %}
+                        {% include "clases/class_sessions/partials/session_item.html" with item=item session=session %}
+                        {% endfor %}
+                    {% else %}
+                        <div id="empty-state" class="text-center py-8 text-base-content/70">
+                            <div class="text-4xl mb-2">📝</div>
+                            <p>Aún no hay elementos en esta sesión.</p>
+                            <p class="text-sm">Añade contenido desde la biblioteca del grupo ↓</p>
+                        </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
         
-        <!-- Columna derecha: Biblioteca del grupo -->
-        <div>
-            <div class="card bg-base-100 shadow-md">
-                <div class="card-body">
-                    <h2 class="card-title text-base">
+        <!-- Biblioteca del grupo (con búsqueda, filtros y paginación) -->
+        <div class="card bg-base-100 shadow-md">
+            <div class="card-body">
+                <!-- Header con búsqueda y filtros -->
+                <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 mb-4">
+                    <h2 class="card-title">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"></path>
                         </svg>
                         Biblioteca del Grupo
                     </h2>
                     
-                    {% if library_items %}
-                    <div class="space-y-2 mt-4 max-h-[600px] overflow-y-auto">
-                        {% for lib_item in library_items %}
-                        <div class="p-3 bg-base-200 rounded-lg">
-                            <div class="flex items-start gap-2">
-                                <div class="text-2xl flex-shrink-0">{{ lib_item.get_icon }}</div>
-                                <div class="flex-1 min-w-0">
-                                    <div class="text-sm font-semibold truncate">{{ lib_item.get_content_title }}</div>
-                                    <div class="text-xs text-base-content/60">{{ lib_item.get_content_type_name }}</div>
-                                </div>
-                                <button hx-post="{% url 'clases:class_session_add_item' session.pk %}"
-                                        hx-vals='{"content_type_id": "{{ lib_item.content_type.id }}", "object_id": "{{ lib_item.object_id }}"}'
-                                        hx-target="#session-items"
-                                        hx-swap="beforeend"
-                                        hx-on::after-request="const emptyState = document.getElementById('empty-state'); if(emptyState) emptyState.remove();"
-                                        class="btn btn-xs btn-primary btn-square flex-shrink-0"
-                                        title="Añadir a sesión">
-                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
-                        {% endfor %}
+                    <!-- Filtros -->
+                    <div class="flex flex-wrap gap-2">
+                        <!-- Buscador -->
+                        <input type="text" 
+                               placeholder="🔍 Buscar por título..."
+                               class="input input-bordered input-sm w-full lg:w-64"
+                               name="search"
+                               value="{{ search }}"
+                               hx-get="{% url 'clases:class_session_edit' session.pk %}"
+                               hx-trigger="keyup changed delay:500ms"
+                               hx-target="#library-table-body"
+                               hx-include="[name='page_size']">
+                        
+                        <!-- Selector de filas por página -->
+                        <select name="page_size" 
+                                class="select select-bordered select-sm"
+                                hx-get="{% url 'clases:class_session_edit' session.pk %}"
+                                hx-trigger="change"
+                                hx-target="#library-table-body"
+                                hx-include="[name='search']">
+                            <option value="5" {% if page_size == 5 %}selected{% endif %}>5 filas</option>
+                            <option value="10" {% if page_size == 10 %}selected{% endif %}>10 filas</option>
+                            <option value="20" {% if page_size == 20 %}selected{% endif %}>20 filas</option>
+                            <option value="50" {% if page_size == 50 %}selected{% endif %}>50 filas</option>
+                        </select>
                     </div>
+                </div>
+                
+                <!-- Tabla a ancho completo -->
+                <div class="library-table-container">
+                    {% if library_items %}
+                    <table class="table table-zebra w-full">
+                        <thead>
+                            <tr>
+                                <th class="w-12"></th>
+                                <th>Título y detalles</th>
+                                <th class="text-right">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="library-table-body">
+                            {% include "clases/class_sessions/partials/library_rows.html" %}
+                        </tbody>
+                    </table>
+                    
+                    <!-- Botón "Mostrar más" -->
+                    {% if has_more %}
+                    <div class="text-center mt-4">
+                        <button class="btn btn-sm btn-ghost"
+                                hx-get="{% url 'clases:class_session_edit' session.pk %}?offset={{ next_offset }}&page_size={{ page_size }}&search={{ search }}"
+                                hx-target="#library-table-body"
+                                hx-swap="beforeend">
+                            Mostrar más ({{ page_size }})
+                        </button>
+                    </div>
+                    {% endif %}
+                    
                     {% else %}
                     <div class="text-center py-6 text-base-content/70 text-sm">
                         <div class="text-3xl mb-2">📚</div>

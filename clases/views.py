@@ -28,14 +28,16 @@ def group_library_index(request, group_id):
     Solo profesores del grupo pueden acceder.
     """
     group = get_object_or_404(Group, pk=group_id)
-    
+
     # Verificar que el profesor pertenece a este grupo
     if not group.teachers.filter(pk=request.user.pk).exists():
-        messages.error(request, "No tienes permiso para acceder a la biblioteca de este grupo.")
+        messages.error(
+            request, "No tienes permiso para acceder a la biblioteca de este grupo."
+        )
         return redirect("evaluations:evaluation_item_list")
-    
+
     items = GroupLibraryItem.objects.filter(group=group)
-    
+
     return render(
         request,
         "clases/group_library/index.html",
@@ -56,11 +58,11 @@ def group_library_add(request, group_id):
     """
     if request.method == "POST":
         group = get_object_or_404(Group, pk=group_id)
-        
+
         # Verificar que el profesor pertenece a este grupo
         if not group.teachers.filter(pk=request.user.pk).exists():
             return HttpResponse("No autorizado", status=403)
-        
+
         content_type_id = request.POST.get("content_type_id")
         object_id = request.POST.get("object_id")
         notes = request.POST.get("notes", "")
@@ -73,7 +75,7 @@ def group_library_add(request, group_id):
             group=group,
             content_object=content_object,
             added_by=request.user,
-            notes=notes
+            notes=notes,
         )
 
         # Renderizar botón actualizado (HTMX swap)
@@ -99,11 +101,11 @@ def group_library_remove(request, group_id, pk):
     TINY VIEW: solo elimina y renderiza.
     """
     group = get_object_or_404(Group, pk=group_id)
-    
+
     # Verificar que el profesor pertenece a este grupo
     if not group.teachers.filter(pk=request.user.pk).exists():
         return HttpResponse("No autorizado", status=403)
-    
+
     item = get_object_or_404(GroupLibraryItem, pk=pk, group=group)
     content_object = item.content_object
     content_type = item.content_type
@@ -131,11 +133,11 @@ def group_library_remove_by_content(request, group_id):
     """
     if request.method in ["POST", "DELETE"]:
         group = get_object_or_404(Group, pk=group_id)
-        
+
         # Verificar que el profesor pertenece a este grupo
         if not group.teachers.filter(pk=request.user.pk).exists():
             return HttpResponse("No autorizado", status=403)
-        
+
         content_type_id = request.POST.get("content_type_id")
         object_id = request.POST.get("object_id")
 
@@ -178,10 +180,10 @@ def class_session_list(request):
     """
     # Obtener grupos del profesor
     groups = request.user.teaching_groups.all()
-    
+
     # Obtener sesiones del profesor ordenadas
     sessions = ClassSession.objects.filter(teacher=request.user).select_related("group")
-    
+
     return render(
         request,
         "clases/class_sessions/list.html",
@@ -204,26 +206,24 @@ def class_session_create(request):
         date = request.POST.get("date")
         title = request.POST.get("title")
         notes = request.POST.get("notes", "")
-        
+
         group = get_object_or_404(Group, pk=group_id)
-        
+
         # Verificar que el profesor pertenece a este grupo
         if not group.teachers.filter(pk=request.user.pk).exists():
-            messages.error(request, "No tienes permiso para crear sesiones en este grupo.")
+            messages.error(
+                request, "No tienes permiso para crear sesiones en este grupo."
+            )
             return redirect("clases:class_session_list")
-        
+
         # Crear sesión
         session = ClassSession.objects.create(
-            teacher=request.user,
-            group=group,
-            date=date,
-            title=title,
-            notes=notes
+            teacher=request.user, group=group, date=date, title=title, notes=notes
         )
-        
+
         messages.success(request, f"Sesión '{title}' creada exitosamente.")
         return redirect("clases:class_session_edit", pk=session.pk)
-    
+
     # GET: Mostrar formulario
     groups = request.user.teaching_groups.all()
     return render(
@@ -238,22 +238,76 @@ def class_session_create(request):
 def class_session_edit(request, pk):
     """
     Editar sesión de clase con drag & drop.
-    TINY VIEW: solo renderiza.
+    TINY VIEW: solo renderiza con paginación y filtros.
     """
     session = get_object_or_404(ClassSession, pk=pk, teacher=request.user)
     items = session.get_items_ordered()
-    
-    # Obtener elementos de la biblioteca del grupo para añadir
+
+    # Parámetros de búsqueda y paginación para biblioteca
+    search = request.GET.get("search", "")
+    tag_filter = request.GET.get("tag", "")
+    page_size = int(request.GET.get("page_size", 5))
+    offset = int(request.GET.get("offset", 0))
+
+    # Query base de biblioteca del grupo
+    from django.db.models import Q
+
     library_items = GroupLibraryItem.objects.filter(group=session.group)
-    
+
+    # Filtrar por búsqueda
+    if search:
+        library_items = library_items.filter(
+            Q(content_type__model__icontains=search) | Q(notes__icontains=search)
+        )
+
+    # Filtrar por tag (búsqueda en ScorePages relacionadas)
+    # Nota: Esto es complejo, lo dejamos para después si es necesario
+
+    # Ordenar: por fecha añadido (el contador de sesiones se muestra pero no ordena)
+    library_items = library_items.order_by("-added_at")
+
+    # Paginación
+    total_library_items = library_items.count()
+    library_items_page = library_items[offset : offset + page_size]
+    has_more = total_library_items > (offset + page_size)
+    next_offset = offset + page_size if has_more else None
+
+    # Obtener todos los tags disponibles (de ScorePages en la biblioteca)
+    # Para el filtro dropdown
+    available_tags = set()
+    for lib_item in library_items:
+        tags = lib_item.get_related_tags()
+        for tag in tags:
+            available_tags.add(tag)
+
+    context = {
+        "session": session,
+        "items": items,
+        "library_items": library_items_page,
+        "total_library_items": total_library_items,
+        "has_more": has_more,
+        "next_offset": next_offset,
+        "page_size": page_size,
+        "search": search,
+        "tag_filter": tag_filter,
+        "available_tags": sorted(
+            available_tags, key=lambda t: t.name if hasattr(t, "name") else str(t)
+        ),
+    }
+
+    # Si es petición HTMX, devolver solo las filas
+    if request.headers.get("HX-Request"):
+        return render(
+            request,
+            "clases/class_sessions/partials/library_rows.html",
+            context,
+        )
+
+    # Si es petición normal, devolver template completo
     return render(
         request,
         "clases/class_sessions/edit.html",
-        {
-            "session": session,
-            "items": items,
-            "library_items": library_items,
-        },
+        context,
     )
 
 
@@ -266,21 +320,19 @@ def class_session_add_item(request, session_id):
     """
     if request.method == "POST":
         session = get_object_or_404(ClassSession, pk=session_id, teacher=request.user)
-        
+
         content_type_id = request.POST.get("content_type_id")
         object_id = request.POST.get("object_id")
         notes = request.POST.get("notes", "")
-        
+
         content_type = get_object_or_404(ContentType, id=content_type_id)
         content_object = content_type.get_object_for_this_type(pk=object_id)
-        
+
         # Lógica en el modelo (FAT MODEL)
         item = ClassSessionItem.add_to_session(
-            session=session,
-            content_object=content_object,
-            notes=notes
+            session=session, content_object=content_object, notes=notes
         )
-        
+
         # Renderizar item añadido (HTMX swap)
         return render(
             request,
@@ -290,7 +342,7 @@ def class_session_add_item(request, session_id):
                 "session": session,
             },
         )
-    
+
     return HttpResponse(status=405)
 
 
@@ -304,7 +356,7 @@ def class_session_remove_item(request, session_id, item_id):
     session = get_object_or_404(ClassSession, pk=session_id, teacher=request.user)
     item = get_object_or_404(ClassSessionItem, pk=item_id, session=session)
     item.delete()
-    
+
     return HttpResponse("")  # Empty response para swap outerHTML
 
 
@@ -317,17 +369,17 @@ def class_session_reorder_items(request, session_id):
     """
     if request.method == "POST":
         session = get_object_or_404(ClassSession, pk=session_id, teacher=request.user)
-        
+
         # Obtener IDs en el nuevo orden desde el POST
         item_ids_json = request.POST.get("item_ids", "[]")
         item_ids = json.loads(item_ids_json)
-        
+
         # Lógica en el modelo (FAT MODEL)
         session.reorder_items(item_ids)
-        
+
         # Devolver 204 No Content para que HTMX no reemplace nada
         return HttpResponse(status=204)
-    
+
     return HttpResponse(status=405)
 
 
@@ -341,7 +393,7 @@ def class_session_delete(request, pk):
     session = get_object_or_404(ClassSession, pk=pk, teacher=request.user)
     title = session.title
     session.delete()
-    
+
     messages.success(request, f"Sesión '{title}' eliminada exitosamente.")
     return redirect("clases:class_session_list")
 
@@ -349,6 +401,7 @@ def class_session_delete(request, pk):
 # ============================================================================
 # VISTAS DE BIBLIOTECA MÚLTIPLE (Personal + Grupos)
 # ============================================================================
+
 
 @require_http_methods(["POST"])
 @login_required
@@ -359,22 +412,22 @@ def add_to_multiple_libraries(request):
     TINY VIEW: orquesta y delega al modelo.
     """
     from my_library.models import LibraryItem
-    
+
     content_type_id = request.POST.get("content_type_id")
     object_id = request.POST.get("object_id")
     personal_library = request.POST.get("personal_library") == "true"
     group_ids = request.POST.getlist("group_ids")
-    
+
     # Validar parámetros
     if not content_type_id or not object_id:
         return HttpResponse("Error: Parámetros inválidos", status=400)
-    
+
     content_type = get_object_or_404(ContentType, pk=content_type_id)
     model_class = content_type.model_class()
     content_object = get_object_or_404(model_class, pk=object_id)
-    
+
     added_count = 0
-    
+
     # Añadir a biblioteca personal
     if personal_library:
         item, created = LibraryItem.objects.get_or_create(
@@ -384,27 +437,95 @@ def add_to_multiple_libraries(request):
         )
         if created:
             added_count += 1
-    
+
     # Añadir a bibliotecas de grupo
     for group_id in group_ids:
         group = get_object_or_404(Group, pk=group_id)
-        
+
         # Verificar que el profesor pertenece al grupo
         if not group.teachers.filter(pk=request.user.pk).exists():
             continue
-        
+
         # Usar el método del modelo para añadir
         item, created = GroupLibraryItem.objects.get_or_create(
             group=group,
             content_type=content_type,
             object_id=object_id,
-            defaults={"added_by": request.user}
+            defaults={"added_by": request.user},
         )
         if created:
             added_count += 1
-    
+
     # Respuesta HTMX simple
     if added_count > 0:
         return HttpResponse(f"✓ Añadido a {added_count} biblioteca(s)", status=200)
     else:
-        return HttpResponse("El recurso ya estaba en las bibliotecas seleccionadas", status=200)
+        return HttpResponse(
+            "El recurso ya estaba en las bibliotecas seleccionadas", status=200
+        )
+
+
+@login_required
+@user_passes_test(is_staff)
+def group_library_item_viewer(request, group_id, pk):
+    """
+    Visor fullscreen para items de biblioteca de grupo.
+    TINY VIEW: Similar a my_library viewer.
+    """
+    group = get_object_or_404(Group, pk=group_id)
+
+    # Verificar que el profesor pertenece a este grupo
+    if not group.teachers.filter(pk=request.user.pk).exists():
+        messages.error(request, "No tienes permiso para ver este contenido.")
+        return redirect("clases:group_library_index", group_id=group_id)
+
+    item = get_object_or_404(GroupLibraryItem, pk=pk, group=group)
+
+    # Preparar documentos según tipo de contenido
+    documents = {
+        "pdfs": [],
+        "images": [],
+        "audios": [],
+    }
+
+    content_type = item.content_type.model
+    content = item.content_object
+
+    # Clasificar según tipo
+    if content_type == "document":
+        # Wagtail Document
+        if hasattr(content, "file"):
+            filename = content.file.name.lower()
+            if filename.endswith(".pdf"):
+                documents["pdfs"].append(content)
+            elif filename.endswith((".mp3", ".wav", ".ogg", ".m4a", ".aac", ".flac")):
+                documents["audios"].append(content)
+    elif content_type == "image":
+        # Wagtail Image
+        documents["images"].append(content)
+    elif content_type == "scorepage":
+        # ScorePage: extraer sus PDFs, audios, imágenes
+        if hasattr(content, "content"):
+            for block in content.content:
+                if block.block_type == "pdf_score":
+                    pdf_file = block.value.get("pdf_file")
+                    if pdf_file:
+                        documents["pdfs"].append(pdf_file)
+                elif block.block_type == "audio":
+                    audio_file = block.value.get("audio_file")
+                    if audio_file:
+                        documents["audios"].append(audio_file)
+                elif block.block_type == "image":
+                    image = block.value.get("image")
+                    if image:
+                        documents["images"].append(image)
+
+    return render(
+        request,
+        "clases/group_library/viewer.html",
+        {
+            "group": group,
+            "item": item,
+            "documents": documents,
+        },
+    )

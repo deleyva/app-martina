@@ -27,7 +27,11 @@ urlpatterns = [
         views.group_library_remove_by_content,
         name="group_library_remove_by_content",
     ),
-    
+    path(
+        "groups/<int:group_id>/library/view/<int:pk>/",
+        views.group_library_item_viewer,
+        name="group_library_item_viewer",
+    ),
     # =============================================================================
     # SESIONES DE CLASE
     # =============================================================================
@@ -66,7 +70,6 @@ urlpatterns = [
         views.class_session_reorder_items,
         name="class_session_reorder_items",
     ),
-    
     # =============================================================================
     # BIBLIOTECA MÚLTIPLE
     # =============================================================================

@@ -1,45 +1,85 @@
-<div class="session-item p-4 bg-base-200 rounded-lg flex items-center gap-3 hover:bg-base-300 transition-colors"
+<div class="session-item p-4 bg-base-200 rounded-lg hover:bg-base-300 transition-colors"
      data-item-id="{{ item.pk }}">
-    <!-- Drag Handle -->
-    <div class="cursor-grab text-base-content/40">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path>
-        </svg>
-    </div>
-    
-    <!-- Icon -->
-    <div class="text-2xl flex-shrink-0">{{ item.get_icon }}</div>
-    
-    <!-- Content Info -->
-    <div class="flex-1 min-w-0">
-        <div class="font-semibold truncate">{{ item.get_content_title }}</div>
-        <div class="text-xs text-base-content/60">{{ item.get_content_type_name }}</div>
-        {% if item.notes %}
-        <div class="text-sm text-base-content/70 mt-1">📝 {{ item.notes|truncatewords:10 }}</div>
-        {% endif %}
-    </div>
-    
-    <!-- Actions -->
-    <div class="flex gap-2 flex-shrink-0">
-        {% with url=item.get_content_url %}
-        {% if url %}
-        <a href="{{ url }}" target="_blank" class="btn btn-xs btn-ghost btn-square" title="Ver contenido">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+    <div class="flex items-start gap-3">
+        <!-- Drag Handle -->
+        <div class="cursor-grab text-base-content/40 mt-1">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path>
             </svg>
-        </a>
-        {% endif %}
-        {% endwith %}
+        </div>
         
-        <button hx-delete="{% url 'clases:class_session_remove_item' session.pk item.pk %}"
-                hx-target="closest .session-item"
-                hx-swap="outerHTML"
-                hx-confirm="¿Quitar este elemento de la sesión?"
-                class="btn btn-xs btn-ghost btn-square"
-                title="Quitar">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-            </svg>
-        </button>
+        <!-- Icon -->
+        <div class="text-2xl flex-shrink-0">{{ item.get_icon }}</div>
+        
+        <!-- Content Info -->
+        <div class="flex-1 min-w-0">
+            <div class="font-semibold">{{ item.get_content_title }}</div>
+            <div class="text-xs text-base-content/60">{{ item.get_content_type_name }}</div>
+            
+            <!-- ScorePage relacionada -->
+            {% with related_score=item.get_related_scorepage %}
+            {% if related_score and item.content_type.model != 'scorepage' %}
+            <div class="mt-1">
+                <a href="{{ related_score.get_url }}" 
+                   target="_blank"
+                   class="inline-flex items-center gap-1 text-xs link link-primary link-hover">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    De: {{ related_score.title }}
+                </a>
+            </div>
+            {% endif %}
+            {% endwith %}
+            
+            {% if item.notes %}
+            <div class="text-sm text-base-content/70 mt-1 p-2 bg-base-300 rounded">
+                📝 {{ item.notes }}
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Actions -->
+        <div class="flex gap-2 flex-shrink-0">
+            <!-- Botón Ver -->
+            {% if item.content_type.model == 'scorepage' %}
+                <a href="{{ item.content_object.get_url }}" 
+                   target="_blank"
+                   class="btn btn-xs btn-ghost btn-square" 
+                   title="Ver partitura">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                    </svg>
+                </a>
+            {% else %}
+                <!-- Para Documents/Images/Embeds: usar get_content_url -->
+                {% with url=item.get_content_url %}
+                {% if url %}
+                <a href="{{ url }}" 
+                   target="_blank"
+                   class="btn btn-xs btn-ghost btn-square" 
+                   title="Ver archivo">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                    </svg>
+                </a>
+                {% endif %}
+                {% endwith %}
+            {% endif %}
+            
+            <!-- Botón Quitar -->
+            <button hx-delete="{% url 'clases:class_session_remove_item' session.pk item.pk %}"
+                    hx-target="closest .session-item"
+                    hx-swap="outerHTML"
+                    hx-confirm="¿Quitar este elemento de la sesión?"
+                    class="btn btn-xs btn-ghost btn-square"
+                    title="Quitar">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
     </div>
 </div>

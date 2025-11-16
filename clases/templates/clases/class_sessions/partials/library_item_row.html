@@ -1,0 +1,108 @@
+<tr class="hover" data-item-id="{{ lib_item.pk }}">
+    <!-- Icono -->
+    <td class="w-12">
+        <div class="text-2xl">{{ lib_item.get_icon }}</div>
+    </td>
+    
+    <!-- Título y metadata -->
+    <td>
+        <div class="flex flex-col gap-1">
+            <!-- Título -->
+            <div class="font-semibold">{{ lib_item.get_content_title }}</div>
+            
+            <!-- Badges de metadata (compás, tonalidad, dificultad) -->
+            {% with metadata=lib_item.get_metadata_badges %}
+            {% if metadata %}
+            <div class="flex flex-wrap gap-1">
+                {% if metadata.time_signature %}
+                <div class="badge badge-sm badge-neutral">{{ metadata.time_signature }}</div>
+                {% endif %}
+                {% if metadata.key %}
+                <div class="badge badge-sm badge-neutral">{{ metadata.key }}</div>
+                {% endif %}
+                {% if metadata.difficulty %}
+                <div class="badge badge-sm badge-warning">{{ metadata.difficulty }}</div>
+                {% endif %}
+            </div>
+            {% endif %}
+            {% endwith %}
+            
+            <!-- Tags y categorías -->
+            <div class="flex flex-wrap gap-1">
+                <!-- ScorePage relacionada -->
+                {% with related_score=lib_item.get_related_scorepage %}
+                {% if related_score and lib_item.content_type.model != 'scorepage' %}
+                <div class="badge badge-sm badge-info">
+                    🎼 {{ related_score.title|truncatewords:3 }}
+                </div>
+                {% endif %}
+                {% endwith %}
+                
+                <!-- Tags musicales -->
+                {% for tag in lib_item.get_related_tags|slice:":3" %}
+                <div class="badge badge-sm badge-secondary">
+                    🏷️ {{ tag.name }}
+                </div>
+                {% endfor %}
+                
+                <!-- Categorías musicales -->
+                {% for category in lib_item.get_related_categories|slice:":2" %}
+                <div class="badge badge-sm badge-accent">
+                    {% if category.icon %}{{ category.icon }} {% endif %}{{ category.name }}
+                </div>
+                {% endfor %}
+            </div>
+            
+            <!-- Meta info -->
+            <div class="text-xs opacity-60">
+                Añadido: {{ lib_item.added_at|date:"d/m/Y" }}
+            </div>
+        </div>
+    </td>
+    
+    <!-- Acciones -->
+    <td class="text-right">
+        <div class="flex gap-2 justify-end">
+            <!-- Botón Ver (👁️) -->
+            {% if lib_item.content_type.model == 'scorepage' %}
+                <!-- ScorePage: abrir en nueva pestaña -->
+                <a href="{{ lib_item.content_object.get_url }}" 
+                   target="_blank"
+                   class="btn btn-xs btn-ghost btn-square" 
+                   title="Ver partitura">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                    </svg>
+                </a>
+            {% else %}
+                <!-- Document/Image/Embed: visor fullscreen -->
+                <a href="{% url 'clases:group_library_item_viewer' session.group.pk lib_item.pk %}" 
+                   target="_blank"
+                   class="btn btn-xs btn-ghost btn-square" 
+                   title="Ver en pantalla completa">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                    </svg>
+                </a>
+            {% endif %}
+            
+            <!-- Botón Añadir (➕) -->
+            <button hx-post="{% url 'clases:class_session_add_item' session.pk %}"
+                    hx-vals='{"content_type_id": "{{ lib_item.content_type.id }}", "object_id": "{{ lib_item.object_id }}"}'
+                    hx-target="#session-items"
+                    hx-swap="beforeend"
+                    hx-on::after-request="const emptyState = document.getElementById('empty-state'); if(emptyState) emptyState.remove();"
+                    class="btn btn-xs btn-primary btn-square"
+                    title="Añadir a sesión">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+            </button>
+            
+            <!-- Contador de sesiones -->
+            <div class="badge badge-sm badge-ghost">{{ lib_item.get_session_count }}</div>
+        </div>
+    </td>
+</tr>
