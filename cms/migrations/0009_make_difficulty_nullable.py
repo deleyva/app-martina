@@ -9,19 +9,30 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Primero: hacer el campo nullable si existe
+        # Hacer nullable SOLO si la columna existe
         migrations.RunSQL(
-            sql="ALTER TABLE cms_scorepage ALTER COLUMN difficulty_level DROP NOT NULL;",
-            reverse_sql="ALTER TABLE cms_scorepage ALTER COLUMN difficulty_level SET NOT NULL;",
-            state_operations=[],  # No cambia el estado de Django
-        ),
-        # Segundo: eliminar el campo si existe
-        migrations.RunSQL(
-            sql="ALTER TABLE cms_scorepage DROP COLUMN IF EXISTS difficulty_level;",
-            reverse_sql="",  # No reversible
+            sql="""
+                DO $$
+                BEGIN
+                    IF EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'cms_scorepage'
+                        AND column_name = 'difficulty_level'
+                    ) THEN
+                        ALTER TABLE cms_scorepage ALTER COLUMN difficulty_level DROP NOT NULL;
+                    END IF;
+                END $$;
+            """,
+            reverse_sql="",
             state_operations=[],
         ),
-        # Tercero: eliminar el campo rating si existe
+        # Eliminar el campo si existe
+        migrations.RunSQL(
+            sql="ALTER TABLE cms_scorepage DROP COLUMN IF EXISTS difficulty_level;",
+            reverse_sql="",
+            state_operations=[],
+        ),
+        # Eliminar el campo rating si existe
         migrations.RunSQL(
             sql="ALTER TABLE cms_scorepage DROP COLUMN IF EXISTS rating;",
             reverse_sql="",
