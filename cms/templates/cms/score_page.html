@@ -18,6 +18,18 @@
         transform: translateY(-2px);
         transition: transform 0.2s ease-in-out;
     }
+    
+    /* Responsive embeds - hacer iframes 100% */
+    .aspect-video iframe,
+    .aspect-video embed,
+    .aspect-video object,
+    .aspect-video video {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+    }
 </style>
 {% endblock %}
 
@@ -369,8 +381,10 @@
                 </div>
                 
                 <!-- Embed sin padding - full width -->
-                <div class="w-full aspect-video">
-                    {{ block.value }}
+                <div class="w-full aspect-video relative">
+                    <div class="absolute inset-0">
+                        {{ block.value }}
+                    </div>
                 </div>
                 
                 <!-- Footer con padding -->

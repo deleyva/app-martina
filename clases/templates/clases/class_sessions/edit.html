@@ -43,32 +43,6 @@
     </div>
     
     <div class="max-w-7xl mx-auto">
-        <!-- Contenido de la sesión (ordenable) -->
-        <div class="card bg-base-100 shadow-md mb-6">
-            <div class="card-body">
-                <h2 class="card-title">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
-                    </svg>
-                    Contenido de la Sesión
-                </h2>
-                
-                <div id="session-items" class="space-y-2 mt-4">
-                    {% if items %}
-                        {% for item in items %}
-                        {% include "clases/class_sessions/partials/session_item.html" with item=item session=session %}
-                        {% endfor %}
-                    {% else %}
-                        <div id="empty-state" class="text-center py-8 text-base-content/70">
-                            <div class="text-4xl mb-2">📝</div>
-                            <p>Aún no hay elementos en esta sesión.</p>
-                            <p class="text-sm">Añade contenido desde la biblioteca del grupo ↓</p>
-                        </div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-        
         <!-- Biblioteca del grupo (con búsqueda, filtros y paginación) -->
         <div class="card bg-base-100 shadow-md">
             <div class="card-body">
@@ -150,6 +124,33 @@
                 </div>
             </div>
         </div>
+        
+        <!-- Contenido de la sesión (ordenable) -->
+        <div class="card bg-base-100 shadow-md mb-6">
+            <div class="card-body">
+                <h2 class="card-title">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                    </svg>
+                    Contenido de la Sesión
+                </h2>
+                
+                <div id="session-items" class="space-y-2 mt-4">
+                    {% if items %}
+                        {% for item in items %}
+                        {% include "clases/class_sessions/partials/session_item.html" with item=item session=session %}
+                        {% endfor %}
+                    {% else %}
+                        <div id="empty-state" class="text-center py-8 text-base-content/70">
+                            <div class="text-4xl mb-2">📝</div>
+                            <p>Aún no hay elementos en esta sesión.</p>
+                            <p class="text-sm">Añade contenido desde la biblioteca del grupo ↓</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
     </div>
 </div>
 {% endblock %}

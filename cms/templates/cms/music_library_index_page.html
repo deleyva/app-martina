@@ -436,8 +436,9 @@ function filterScores() {
     });
     
     // Show/hide no results message
-    document.getElementById('noResults').classList.toggle('hidden', visibleCount > 0);
-        noResults.classList.add('hidden');
+    const noResults = document.getElementById('noResults');
+    if (noResults) {
+        noResults.classList.toggle('hidden', visibleCount > 0);
     }
 }
 

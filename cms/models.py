@@ -103,7 +103,7 @@ class BlogPage(Page):
         related_name="+",
         help_text="Imagen destacada del artículo",
     )
-    
+
     # Categorías y tags
     categories = ParentalManyToManyField("MusicCategory", blank=True)
     tags = ParentalManyToManyField("MusicTag", blank=True)
@@ -138,7 +138,7 @@ class BlogPage(Page):
 #     session_date = models.DateField(help_text="Fecha de la sesión de clase")
 #     course = models.ForeignKey("clases.Group", on_delete=models.PROTECT, ...)
 #     ...
-# 
+#
 # class SessionMusicItem(Orderable):
 #     """Relación entre sesión de clase y elementos musicales"""
 #     page = ParentalKey(ClassSessionPage, ...)
@@ -164,27 +164,15 @@ class BlogPage(Page):
 
 
 class PDFBlock(StructBlock):
-    """Block para documentos PDF - MUSIC PILLS"""
+    """Block para PDF - MUSIC PILLS"""
 
     title = CharBlock(max_length=200, help_text="Título del PDF")
     pdf_file = DocumentChooserBlock(help_text="Seleccionar archivo PDF")
     description = TextBlock(required=False, help_text="Descripción opcional")
     page_count = CharBlock(max_length=10, required=False, help_text="Número de páginas")
-    difficulty_level = CharBlock(
-        max_length=20,
-        choices=[
-            ("beginner", "Principiante"),
-            ("easy", "Fácil"),
-            ("intermediate", "Intermedio"),
-            ("advanced", "Avanzado"),
-            ("expert", "Experto"),
-        ],
-        required=False,
-        help_text="Nivel de dificultad de este PDF específico",
-    )
 
     class Meta:
-        icon = "doc-full"
+        icon = "doc-full-inverse"
         label = "PDF Score"
 
 
@@ -237,18 +225,6 @@ class AudioBlock(StructBlock):
     title = CharBlock(max_length=200, help_text="Título del audio")
     audio_file = DocumentChooserBlock(help_text="Seleccionar archivo audio")
     description = TextBlock(required=False, help_text="Descripción opcional")
-    difficulty_level = CharBlock(
-        max_length=20,
-        choices=[
-            ("beginner", "Principiante"),
-            ("easy", "Fácil"),
-            ("intermediate", "Intermedio"),
-            ("advanced", "Avanzado"),
-            ("expert", "Experto"),
-        ],
-        required=False,
-        help_text="Nivel de dificultad de este audio específico",
-    )
 
     class Meta:
         icon = "media"
@@ -260,23 +236,8 @@ class ImageBlock(StructBlock):
 
     title = CharBlock(max_length=200, help_text="Título de la imagen")
     image = ImageChooserBlock(help_text="Seleccionar imagen")
-    caption = TextBlock(required=False, help_text="Descripción o pie de foto")
-    alt_text = CharBlock(
-        max_length=200, 
-        required=False, 
-        help_text="Texto alternativo para accesibilidad"
-    )
-    difficulty_level = CharBlock(
-        max_length=20,
-        choices=[
-            ("beginner", "Principiante"),
-            ("easy", "Fácil"),
-            ("intermediate", "Intermedio"),
-            ("advanced", "Avanzado"),
-            ("expert", "Experto"),
-        ],
-        required=False,
-        help_text="Nivel de dificultad de esta imagen específica",
+    caption = TextBlock(
+        required=False, help_text="Texto alternativo para accesibilidad"
     )
 
     class Meta:
@@ -420,7 +381,7 @@ class MusicLibraryIndexPage(Page):
             # Si la tabla ScorePage no existe aún, devolver lista vacía
             context["scores"] = []
             context["scores_count"] = 0
-        
+
         # Obtener todas las páginas de blog que son hijas de esta página
         try:
             blog_posts = (
@@ -432,7 +393,7 @@ class MusicLibraryIndexPage(Page):
             # Si la tabla BlogPage no existe aún, devolver lista vacía
             context["blog_posts"] = []
             context["blog_posts_count"] = 0
-        
+
         return context
 
 
@@ -465,7 +426,7 @@ class ScorePage(Page):
         use_json_field=True,
     )
 
-    # Campos adicionales eliminados - difficulty_level y rating ahora están en los bloques individuales
+    # Campos difficulty_level y rating eliminados - usar tags para clasificación de dificultad
 
     content_panels = Page.content_panels + [
         FieldPanel("composer"),
