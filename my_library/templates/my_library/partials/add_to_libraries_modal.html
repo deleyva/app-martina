@@ -21,6 +21,7 @@
         {# Formulario con checkboxes #}
         <form id="library_form_{{ content_object.pk }}_{{ content_type.id }}"
               hx-post="{% url 'evaluations:add_to_multiple_libraries' %}"
+              hx-swap="none"
               hx-on::after-request="library_modal_{{ content_object.pk }}_{{ content_type.id }}.close(); showToast('✓ Añadido a las bibliotecas seleccionadas', 'success')"
               class="space-y-3">
             

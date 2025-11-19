@@ -100,8 +100,18 @@
                     {% if item.added_by %}
                     <span>· Por: {% if item.added_by.name %}{{ item.added_by.name }}{% elif item.added_by.first_name and item.added_by.last_name %}{{ item.added_by.first_name }} {{ item.added_by.last_name }}{% else %}{{ item.added_by.email }}{% endif %}</span>
                     {% endif %}
+                    {% with session_count=item.get_session_count %}
+                    {% if session_count > 0 %}
+                    <span>· Usado en {{ session_count }} sesión{% if session_count != 1 %}es{% endif %} de clase</span>
+                    {% endif %}
+                    {% endwith %}
                 </div>
-                
+
+                <!-- Nivel del grupo -->
+                <div class="mt-2">
+                    {% include "clases/group_library/partials/group_proficiency_stars.html" with item=item group=group %}
+                </div>
+
                 <!-- Notas del profesor -->
                 {% if item.notes %}
                 <div class="mt-2 text-sm text-base-content/70 p-2 bg-base-200 rounded">
@@ -116,8 +126,12 @@
                 <a href="{{ item.content_object.get_url }}" class="btn btn-sm btn-primary">
                     Ver Partitura
                 </a>
+                {% else %}
+                <a href="{{ item.get_viewer_url }}" class="btn btn-sm btn-primary">
+                    Abrir visor
+                </a>
                 {% endif %}
-                
+
                 <button hx-delete="{% url 'clases:group_library_remove' group.id item.pk %}"
                         hx-target="#library-item-{{ item.pk }}"
                         hx-swap="outerHTML"

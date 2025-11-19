@@ -32,6 +32,11 @@ urlpatterns = [
         views.group_library_item_viewer,
         name="group_library_item_viewer",
     ),
+    path(
+        "groups/<int:group_id>/library/<int:pk>/proficiency/",
+        views.group_library_update_proficiency,
+        name="group_library_update_proficiency",
+    ),
     # =============================================================================
     # SESIONES DE CLASE
     # =============================================================================

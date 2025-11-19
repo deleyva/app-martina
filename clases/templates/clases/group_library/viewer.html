@@ -96,7 +96,7 @@
 </head>
 <body>
     <!-- Botón cerrar flotante (sobre el contenido) -->
-    <a href="javascript:window.close();" 
+    <a href="{% url 'clases:group_library_index' group.id %}" 
        id="close-btn"
        title="Cerrar (ESC)">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -125,12 +125,18 @@
     </div>
     
     <script>
-    // Cerrar con ESC
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            window.close();
+    // Cerrar con ESC (volver a la biblioteca del grupo)
+    (function() {
+        function handleEscape(e) {
+            var key = e.key || e.keyCode;
+            if (key === 'Escape' || key === 'Esc' || key === 27) {
+                e.preventDefault();
+                window.location.href = "{% url 'clases:group_library_index' group.id %}";
+            }
         }
-    });
+        // Modo captura para asegurarnos de que se ejecute incluso si otros listeners existen
+        window.addEventListener('keydown', handleEscape, true);
+    })();
     </script>
 </body>
 </html>

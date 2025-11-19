@@ -95,6 +95,37 @@ def group_library_add(request, group_id):
 
 @login_required
 @user_passes_test(is_staff)
+def group_library_update_proficiency(request, group_id, pk):
+    """Actualizar nivel de conocimiento del grupo para un item de biblioteca (via HTMX).
+
+    TINY VIEW: solo actualiza y renderiza.
+    """
+
+    if request.method != "POST":
+        return HttpResponse(status=405)
+
+    group = get_object_or_404(Group, pk=group_id)
+
+    # Verificar que el profesor pertenece a este grupo
+    if not group.teachers.filter(pk=request.user.pk).exists():
+        return HttpResponse("No autorizado", status=403)
+
+    item = get_object_or_404(GroupLibraryItem, pk=pk, group=group)
+    level = request.POST.get("level")
+
+    if level and level.isdigit() and 1 <= int(level) <= 4:
+        item.group_proficiency_level = int(level)
+        item.save(update_fields=["group_proficiency_level"])
+
+    return render(
+        request,
+        "clases/group_library/partials/group_proficiency_stars.html",
+        {"item": item, "group": group},
+    )
+
+
+@login_required
+@user_passes_test(is_staff)
 def group_library_remove(request, group_id, pk):
     """
     Endpoint HTMX para quitar item de biblioteca de grupo por ID.

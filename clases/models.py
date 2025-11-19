@@ -2,6 +2,7 @@ from django.db import models
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
+from django.urls import reverse
 
 # =============================================================================
 # ASIGNATURAS Y GESTIÓN DE GRUPOS
@@ -159,6 +160,17 @@ class GroupLibraryItem(models.Model):
         verbose_name="Notas",
         help_text="Notas del profesor sobre este elemento para el grupo",
     )
+    group_proficiency_level = models.PositiveSmallIntegerField(
+        default=1,
+        choices=[
+            (1, "⭐ El grupo apenas lo conoce"),
+            (2, "⭐⭐ Lo está aprendiendo"),
+            (3, "⭐⭐⭐ Lo trabaja con soltura"),
+            (4, "⭐⭐⭐⭐ Lo domina muy bien"),
+        ],
+        verbose_name="Nivel del grupo",
+        help_text="Nivel de dominio de este contenido por el grupo (1-4)",
+    )
 
     class Meta:
         db_table = "evaluations_grouplibraryitem"  # Mantener tabla existente
@@ -227,6 +239,13 @@ class GroupLibraryItem(models.Model):
             "blogpage": "📝",
         }
         return icons.get(model_name, "📁")
+
+    def get_viewer_url(self):
+        """URL para ver el elemento en fullscreen dentro de la biblioteca de grupo."""
+        return reverse(
+            "clases:group_library_item_viewer",
+            args=[self.group.pk, self.pk],
+        )
 
     def get_related_scorepage(self):
         """

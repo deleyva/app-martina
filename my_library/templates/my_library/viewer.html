@@ -125,12 +125,18 @@
     </div>
     
     <script>
-    // Cerrar con ESC
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            window.location.href = "{% url 'my_library:index' %}";
+    // Cerrar con ESC (volver al índice de Mi Biblioteca)
+    (function() {
+        function handleEscape(e) {
+            var key = e.key || e.keyCode;
+            if (key === 'Escape' || key === 'Esc' || key === 27) {
+                e.preventDefault();
+                window.location.href = "{% url 'my_library:index' %}";
+            }
         }
-    });
+        // Fase de captura para asegurarnos de que se ejecute aunque haya otros listeners
+        window.addEventListener('keydown', handleEscape, true);
+    })();
     </script>
 </body>
 </html>
