@@ -12,13 +12,39 @@
     .streamfield-content {
         max-width: none;
     }
-    
+
     /* PDF preview card hover effects */
     .pdf-preview-card:hover {
         transform: translateY(-2px);
         transition: transform 0.2s ease-in-out;
     }
-    
+
+    .pdf-preview-fullwidth {
+        width: 100%;
+        border-radius: 0.75rem;
+        background-color: transparent;
+        overflow: hidden;
+    }
+
+    .pdf-preview-frame-wrapper {
+        width: 100%;
+        overflow: hidden;
+    }
+
+    .pdf-preview-frame {
+        width: 100%;
+        height: clamp(150px, 28vh, 220px);
+        border: none;
+        background-color: var(--fallback-b1, #fff);
+        display: block;
+    }
+
+    @media (max-width: 768px) {
+        .pdf-preview-frame {
+            height: 180px;
+        }
+    }
+
     /* Responsive embeds - hacer iframes 100% */
     .aspect-video iframe,
     .aspect-video embed,
@@ -112,19 +138,20 @@
                     {% endif %}
                     
                     {% if block.value.pdf_file %}
-                    <div class="mt-4">
-                        <!-- PDF Preview Card -->
-                        <div class="bg-base-200 rounded-lg p-6 text-center pdf-preview-card">
-                            <div class="flex flex-col items-center gap-4">
-                                <!-- PDF Icon -->
-                                <div class="text-6xl text-red-500">
-                                    <svg class="w-16 h-16 mx-auto" fill="currentColor" viewBox="0 0 24 24">
-                                        <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
-                                        <path d="M10.5,10.5H12.5V12.5H10.5V10.5M10.5,13.5H12.5V15.5H10.5V13.5M8.5,10.5H10V12.5H8.5V10.5M8.5,13.5H10V15.5H8.5V13.5M12.5,10.5H14V12.5H12.5V10.5M12.5,13.5H14V15.5H12.5V13.5"/>
-                                    </svg>
-                                </div>
-                                
-                                <!-- PDF Info -->
+                    <div class="mt-4 space-y-6">
+                        <div class="pdf-preview-fullwidth">
+                            <div class="pdf-preview-frame-wrapper">
+                                <iframe
+                                    src="{{ block.value.pdf_file.url }}#toolbar=0&navpanes=0&scrollbar=0&view=FitH"
+                                    title="Preview {{ block.value.pdf_file.title }}"
+                                    class="pdf-preview-frame"
+                                ></iframe>
+                            </div>
+                        </div>
+
+                        <!-- PDF Info + Actions -->
+                        <div class="bg-base-200 rounded-lg p-6 pdf-preview-card">
+                            <div class="flex flex-col gap-4">
                                 <div>
                                     <h3 class="font-semibold text-lg mb-2">{{ block.value.pdf_file.title }}</h3>
                                     <div class="flex flex-wrap gap-2 mb-2">
@@ -135,11 +162,10 @@
                                         <div class="badge badge-primary">{{ block.value.get_difficulty_level_display }}</div>
                                         {% endif %}
                                     </div>
-                                    <p class="text-sm text-base-content/50 mb-4">Click "Open PDF" to view in a new tab or download to your device</p>
+                                    <p class="text-sm text-base-content/50">Abre el PDF en una pestaña nueva para verlo completo o descárgalo para estudiarlo sin conexión.</p>
                                 </div>
-                                
-                                <!-- Action Buttons -->
-                                <div class="flex gap-3">
+
+                                <div class="flex flex-wrap gap-3">
                                     <a href="{{ block.value.pdf_file.url }}" target="_blank" class="btn btn-primary">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
@@ -152,7 +178,6 @@
                                         </svg>
                                         Download
                                     </a>
-                                    <!-- Add to Library Button -->
                                     {% if user.is_authenticated %}
                                     <div id="library-btn-doc-{{ block.value.pdf_file.id }}">
                                         {% library_button block.value.pdf_file %}
