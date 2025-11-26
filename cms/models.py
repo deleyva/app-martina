@@ -1,9 +1,13 @@
 from django.db import models
 from django import forms
+from django.core.exceptions import ValidationError
+from django.db.utils import OperationalError, ProgrammingError
+from django.utils import timezone
 from wagtail.models import Page, Orderable
 from wagtail.fields import RichTextField, StreamField
 from wagtail.admin.panels import FieldPanel, MultiFieldPanel, InlinePanel
 from wagtail.blocks import (
+    BooleanBlock,
     CharBlock,
     TextBlock,
     RichTextBlock,
@@ -125,6 +129,107 @@ class BlogPage(Page):
 
     class Meta:
         verbose_name = "Artículo de Blog"
+
+
+class AnswerOptionBlock(StructBlock):
+    """Opción de respuesta para preguntas tipo test"""
+
+    text = CharBlock(max_length=255, help_text="Texto de la respuesta")
+    image = ImageChooserBlock(required=False, help_text="Imagen opcional")
+    is_correct = BooleanBlock(
+        required=False, help_text="Marca esta casilla si la respuesta es correcta"
+    )
+
+    class Meta:
+        icon = "tick"
+        label = "Opción"
+
+
+class QuestionBlock(StructBlock):
+    """Pregunta con 4 opciones"""
+
+    prompt = CharBlock(max_length=255, help_text="Enunciado principal de la pregunta")
+    description = TextBlock(required=False, help_text="Contexto o aclaraciones")
+    illustration = ImageChooserBlock(required=False, help_text="Imagen opcional")
+    options = ListBlock(
+        AnswerOptionBlock(),
+        min_num=4,
+        max_num=4,
+        help_text="Cada pregunta debe tener exactamente 4 opciones",
+    )
+    explanation = TextBlock(
+        required=False,
+        help_text="Explicación que se mostrará al revelar la respuesta",
+    )
+
+    class Meta:
+        icon = "help"
+        label = "Pregunta de Test"
+
+
+class TestPage(Page):
+    """Página con preguntas tipo test"""
+
+    date = models.DateField("Fecha de publicación", default=timezone.now)
+    intro = models.CharField(
+        max_length=250,
+        blank=True,
+        help_text="Breve descripción del test",
+    )
+    featured_image = models.ForeignKey(
+        "wagtailimages.Image",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+        help_text="Imagen destacada para la tarjeta del test",
+    )
+    questions = StreamField(
+        [
+            ("question", QuestionBlock()),
+        ],
+        use_json_field=True,
+    )
+    categories = ParentalManyToManyField("MusicCategory", blank=True)
+    tags = ParentalManyToManyField("MusicTag", blank=True)
+
+    content_panels = Page.content_panels + [
+        FieldPanel("date"),
+        FieldPanel("intro"),
+        FieldPanel("featured_image"),
+        FieldPanel("questions"),
+    ]
+
+    promote_panels = Page.promote_panels + [
+        FieldPanel("categories", widget=forms.CheckboxSelectMultiple),
+        FieldPanel("tags", widget=forms.CheckboxSelectMultiple),
+    ]
+
+    parent_page_types = ["cms.MusicLibraryIndexPage"]
+    subpage_types = []
+
+    class Meta:
+        verbose_name = "Test Musical"
+        verbose_name_plural = "Tests Musicales"
+
+    def clean(self):
+        super().clean()
+        errors = []
+        for block in self.questions:
+            if block.block_type != "question":
+                continue
+            correct_count = sum(
+                1 for option in block.value["options"] if option["is_correct"]
+            )
+            if correct_count != 1:
+                prompt = block.value["prompt"]
+                errors.append(
+                    ValidationError(
+                        f"La pregunta '{prompt}' debe tener exactamente una respuesta correcta."
+                    )
+                )
+        if errors:
+            raise ValidationError({"questions": errors})
 
 
 # Modelos para sesiones de clase musicales
@@ -360,8 +465,13 @@ class MusicLibraryIndexPage(Page):
         FieldPanel("intro"),
     ]
 
-    # Permitir ScorePage, SetlistPage y BlogPage como hijos
-    subpage_types = ["cms.ScorePage", "cms.SetlistPage", "cms.BlogPage"]
+    # Permitir ScorePage, SetlistPage, BlogPage y TestPage como hijos
+    subpage_types = [
+        "cms.ScorePage",
+        "cms.SetlistPage",
+        "cms.BlogPage",
+        "cms.TestPage",
+    ]
 
     class Meta:
         verbose_name = "Biblioteca Musical"
@@ -377,7 +487,7 @@ class MusicLibraryIndexPage(Page):
             context["scores"] = scores
             # Forzar evaluación del queryset para capturar errores de DB aquí
             context["scores_count"] = scores.count()
-        except:
+        except (ProgrammingError, OperationalError):
             # Si la tabla ScorePage no existe aún, devolver lista vacía
             context["scores"] = []
             context["scores_count"] = 0
@@ -389,10 +499,37 @@ class MusicLibraryIndexPage(Page):
             )
             context["blog_posts"] = blog_posts
             context["blog_posts_count"] = blog_posts.count()
-        except:
+        except (ProgrammingError, OperationalError):
             # Si la tabla BlogPage no existe aún, devolver lista vacía
             context["blog_posts"] = []
             context["blog_posts_count"] = 0
+
+        # Obtener todas las páginas de test que son hijas de esta página
+        try:
+            test_pages = (
+                TestPage.objects.child_of(self).live().order_by("-first_published_at")
+            )
+            context["test_pages"] = test_pages
+            context["test_pages_count"] = test_pages.count()
+        except (ProgrammingError, OperationalError):
+            context["test_pages"] = []
+            context["test_pages_count"] = 0
+
+        # Combinar entradas tipo blog/test para la sección de artículos
+        combined_entries = []
+        for post in context["blog_posts"]:
+            combined_entries.append({"type": "blog", "page": post})
+        for test in context["test_pages"]:
+            combined_entries.append({"type": "test", "page": test})
+        combined_entries.sort(
+            key=lambda item: (
+                item["page"].first_published_at
+                or item["page"].latest_revision_created_at
+            ),
+            reverse=True,
+        )
+        context["blog_entries"] = combined_entries
+        context["blog_entries_count"] = len(combined_entries)
 
         return context
 

@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags wagtailimages_tags %}
+
+{% block title %}{{ page.title }} - Test Musical{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-base-200 py-10">
+    <div class="container mx-auto px-4">
+        <div class="card bg-base-100 shadow-xl mb-8">
+            <div class="card-body">
+                <div class="flex flex-col lg:flex-row justify-between gap-4">
+                    <div>
+                        <p class="text-sm text-base-content/60">🧠 Test Musical</p>
+                        <h1 class="text-4xl font-bold mb-2">{{ page.title }}</h1>
+                        {% if page.intro %}
+                        <p class="text-base-content/70">{{ page.intro }}</p>
+                        {% endif %}
+                        <div class="flex flex-wrap gap-2 mt-4">
+                            <span class="badge badge-outline">📅 {{ page.date|date:"d M Y" }}</span>
+                            {% for category in page.categories.all %}
+                            <span class="badge badge-info badge-outline">{{ category.name }}</span>
+                            {% endfor %}
+                            {% for tag in page.tags.all %}
+                            <span class="badge badge-outline" style="{% if tag.color %}border-color: {{ tag.color }}; color: {{ tag.color }};{% endif %}">🏷️ {{ tag.name }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="flex flex-col items-start gap-3">
+                        <div class="badge badge-lg badge-primary">{{ page.questions|length }} preguntas</div>
+                        {% if user.is_staff %}
+                        <a href="/cms/pages/{{ page.id }}/edit/" class="btn btn-outline btn-sm">Editar en Wagtail</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% if page.featured_image %}
+            <figure class="max-h-96 overflow-hidden">
+                {% image page.featured_image width-1200 class="w-full object-cover" %}
+            </figure>
+            {% endif %}
+        </div>
+
+        <div class="space-y-6">
+            {% for question in page.questions %}
+            {% if question.block_type == "question" %}
+            <div class="card bg-base-100 shadow-lg">
+                <div class="card-body">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="badge badge-secondary badge-outline">Pregunta {{ forloop.counter }}</div>
+                        <span class="text-sm text-base-content/60">4 opciones · elige la correcta</span>
+                    </div>
+                    <h2 class="text-2xl font-semibold mb-2">{{ question.value.prompt }}</h2>
+                    {% if question.value.description %}
+                    <p class="text-base-content/70 mb-4">{{ question.value.description }}</p>
+                    {% endif %}
+
+                    {% if question.value.illustration %}
+                    <div class="mb-4">
+                        {% image question.value.illustration width-800 class="rounded-xl w-full object-cover" %}
+                    </div>
+                    {% endif %}
+
+                    <div class="grid gap-3">
+                        {% for option in question.value.options %}
+                        <div class="flex flex-col md:flex-row gap-4 border border-base-200 rounded-xl p-4 hover:border-primary transition-colors">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-base-200 flex items-center justify-center font-semibold">
+                                    {{ forloop.counter }}
+                                </div>
+                                <p class="font-medium">{{ option.text }}</p>
+                            </div>
+                            {% if option.image %}
+                            <div class="flex-1">
+                                {% image option.image width-600 class="rounded-lg max-h-32 object-cover" %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <details class="collapse collapse-arrow bg-base-200 mt-6">
+                        <summary class="collapse-title text-md font-medium cursor-pointer">
+                            Mostrar respuesta correcta
+                        </summary>
+                        <div class="collapse-content">
+                            <p class="font-semibold mb-2">Respuesta correcta:</p>
+                            {% for option in question.value.options %}
+                                {% if option.is_correct %}
+                                <div class="flex flex-col gap-3">
+                                    <p>✅ {{ option.text }}</p>
+                                    {% if option.image %}
+                                    {% image option.image width-600 class="rounded-lg max-h-40 object-cover" %}
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                            {% endfor %}
+                            {% if question.value.explanation %}
+                            <div class="mt-4 bg-base-100 rounded-xl p-4 border border-base-300">
+                                <p class="text-sm text-base-content/70">{{ question.value.explanation }}</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </details>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
