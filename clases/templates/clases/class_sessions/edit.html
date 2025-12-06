@@ -185,5 +185,100 @@
             });
         }
     });
+
+    // Variable global para almacenar datos antes de eliminar
+    let pendingCounterUpdate = null;
+    let isDeleting = false;
+
+    // Función para guardar datos antes de eliminar
+    function storeCounterData(button) {
+        console.log('🗑️ ELIMINANDO - Guardando datos del elemento:', {
+            contentTypeId: button.getAttribute('data-content-type-id'),
+            objectId: button.getAttribute('data-object-id')
+        });
+        isDeleting = true;
+        pendingCounterUpdate = {
+            contentTypeId: button.getAttribute('data-content-type-id'),
+            objectId: button.getAttribute('data-object-id')
+        };
+    }
+
+    // Función para actualizar contadores de sesiones en la biblioteca
+    function updateCounters(contentTypeId, objectId, parentScorePageId) {
+        // Actualizar contador individual
+        const counterId = 'counter-' + contentTypeId + '-' + objectId;
+        const counterElement = document.getElementById(counterId);
+        
+        if (counterElement) {
+            htmx.ajax('GET', '{% url "clases:get_item_session_count" session.group.pk %}?content_type_id=' + contentTypeId + '&object_id=' + objectId, {
+                target: '#' + counterId,
+                swap: 'innerHTML'
+            });
+        }
+        
+        // Si hay parentScorePageId, actualizar también el contador sumatorio de la ScorePage padre
+        if (parentScorePageId) {
+            const parentCounterId = 'counter-scorepage-total-' + parentScorePageId;
+            const parentCounterElement = document.getElementById(parentCounterId);
+            
+            if (parentCounterElement) {
+                htmx.ajax('GET', '{% url "clases:get_scorepage_total_count" session.group.pk %}?library_item_id=' + parentScorePageId, {
+                    target: '#' + parentCounterId,
+                    swap: 'innerHTML'
+                });
+            }
+        }
+    }
+
+    // Detectar TODOS los eventos HTMX para debugging
+    document.body.addEventListener('htmx:beforeRequest', function(event) {
+        console.log('📤 htmx:beforeRequest disparado');
+    });
+    
+    document.body.addEventListener('htmx:beforeSwap', function(event) {
+        console.log('🔄 htmx:beforeSwap disparado. isDeleting:', isDeleting);
+    });
+    
+    // Listener principal para actualizar contadores después de DELETE
+    document.body.addEventListener('htmx:afterRequest', function(event) {
+        console.log('📥 htmx:afterRequest PROCESANDO. isDeleting:', isDeleting, 'pendingCounterUpdate:', pendingCounterUpdate);
+        
+        // Solo si estamos eliminando un elemento
+        if (isDeleting && pendingCounterUpdate) {
+            console.log('✅ Condiciones cumplidas - Actualizando contadores...');
+            
+            // Delay más largo para asegurar que el swap se complete
+            setTimeout(function() {
+                console.log('⏱️ Actualizando contadores después de eliminar:', pendingCounterUpdate);
+                updateCounters(pendingCounterUpdate.contentTypeId, pendingCounterUpdate.objectId);
+                
+                // Actualizar TODOS los contadores sumatorios de ScorePages visibles
+                const scorePageCounters = document.querySelectorAll('[id^="counter-scorepage-total-"]');
+                console.log('📊 Encontrados', scorePageCounters.length, 'contadores sumatorios para actualizar');
+                
+                scorePageCounters.forEach(function(counter) {
+                    const libraryItemId = counter.id.replace('counter-scorepage-total-', '');
+                    console.log('🔢 Actualizando contador sumatorio:', libraryItemId);
+                    htmx.ajax('GET', '{% url "clases:get_scorepage_total_count" session.group.pk %}?library_item_id=' + libraryItemId, {
+                        target: '#' + counter.id,
+                        swap: 'innerHTML'
+                    });
+                });
+                
+                // Reset flags
+                console.log('🔄 Reset flags');
+                isDeleting = false;
+                pendingCounterUpdate = null;
+            }, 200);  // Delay más largo: 200ms en lugar de 100ms
+        } else {
+            if (isDeleting || pendingCounterUpdate) {
+                console.log('⚠️ Solo una condición cumplida. isDeleting:', isDeleting, 'pendingCounterUpdate:', pendingCounterUpdate);
+            }
+        }
+    });
+    
+    document.body.addEventListener('htmx:afterSettle', function(event) {
+        console.log('✨ htmx:afterSettle disparado. isDeleting:', isDeleting);
+    });
 </script>
 {% endblock %}

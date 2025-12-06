@@ -282,17 +282,54 @@ def class_session_edit(request, pk):
 
     # Query base de biblioteca del grupo
     from django.db.models import Q
+    from cms.models import ScorePage
 
     library_items = GroupLibraryItem.objects.filter(group=session.group)
 
-    # Filtrar por búsqueda
+    # Filtrar por búsqueda (título del contenido y tags)
     if search:
-        library_items = library_items.filter(
-            Q(content_type__model__icontains=search) | Q(notes__icontains=search)
+        # Obtener IDs de ScorePages que coinciden con la búsqueda
+        matching_score_ids = (
+            ScorePage.objects.filter(
+                Q(title__icontains=search)
+                | Q(tags__name__icontains=search)
+                | Q(categories__name__icontains=search)
+            )
+            .values_list("pk", flat=True)
+            .distinct()
         )
 
-    # Filtrar por tag (búsqueda en ScorePages relacionadas)
-    # Nota: Esto es complejo, lo dejamos para después si es necesario
+        # Obtener content_type de ScorePage
+        from django.contrib.contenttypes.models import ContentType
+        from wagtail.documents.models import Document
+        from wagtail.images.models import Image
+
+        scorepage_ct = ContentType.objects.get_for_model(ScorePage)
+        document_ct = ContentType.objects.get_for_model(Document)
+        image_ct = ContentType.objects.get_for_model(Image)
+
+        # Buscar Documents e Images que coincidan con el título
+        matching_doc_ids = Document.objects.filter(title__icontains=search).values_list(
+            "pk", flat=True
+        )
+
+        matching_img_ids = Image.objects.filter(title__icontains=search).values_list(
+            "pk", flat=True
+        )
+
+        # object_id es CharField en GenericForeignKey, convertir a strings
+        matching_score_ids_str = [str(pk) for pk in matching_score_ids]
+        matching_doc_ids_str = [str(pk) for pk in matching_doc_ids]
+        matching_img_ids_str = [str(pk) for pk in matching_img_ids]
+
+        # Filtrar library_items: por tipo/notas o por matches en contenido
+        library_items = library_items.filter(
+            Q(content_type__model__icontains=search)
+            | Q(notes__icontains=search)
+            | Q(content_type=scorepage_ct, object_id__in=matching_score_ids_str)
+            | Q(content_type=document_ct, object_id__in=matching_doc_ids_str)
+            | Q(content_type=image_ct, object_id__in=matching_img_ids_str)
+        )
 
     # Ordenar: por fecha añadido (el contador de sesiones se muestra pero no ordena)
     library_items = library_items.order_by("-added_at")
@@ -389,6 +426,54 @@ def class_session_remove_item(request, session_id, item_id):
     item.delete()
 
     return HttpResponse("")  # Empty response para swap outerHTML
+
+
+@login_required
+@user_passes_test(is_staff)
+def get_item_session_count(request, group_id):
+    """
+    Endpoint HTMX para obtener el contador actualizado de sesiones de un item.
+    Devuelve solo el número para innerHTML swap.
+    """
+    from django.contrib.contenttypes.models import ContentType
+
+    content_type_id = request.GET.get("content_type_id")
+    object_id = request.GET.get("object_id")
+
+    # Verificar que el usuario tiene acceso al grupo
+    group = get_object_or_404(Group, pk=group_id)
+    if request.user not in group.teachers.all() and not request.user.is_staff:
+        return HttpResponse("0")
+
+    # Obtener content_type y contar sesiones
+    content_type = get_object_or_404(ContentType, pk=content_type_id)
+    count = GroupLibraryItem.get_session_count_for_object(
+        group, content_type.get_object_for_this_type(pk=object_id)
+    )
+
+    return HttpResponse(str(count))
+
+
+@login_required
+@user_passes_test(is_staff)
+def get_scorepage_total_count(request, group_id):
+    """
+    Endpoint HTMX para obtener el contador sumatorio de una ScorePage.
+    Suma todos los elementos (PDFs, audios, imágenes, embeds) añadidos a sesiones.
+    Devuelve solo el número para innerHTML swap.
+    """
+    library_item_id = request.GET.get("library_item_id")
+
+    # Verificar que el usuario tiene acceso al grupo
+    group = get_object_or_404(Group, pk=group_id)
+    if request.user not in group.teachers.all() and not request.user.is_staff:
+        return HttpResponse("0")
+
+    # Obtener GroupLibraryItem y su contador sumatorio
+    library_item = get_object_or_404(GroupLibraryItem, pk=library_item_id, group=group)
+    count = library_item.get_scorepage_total_session_count()
+
+    return HttpResponse(str(count))
 
 
 @login_required

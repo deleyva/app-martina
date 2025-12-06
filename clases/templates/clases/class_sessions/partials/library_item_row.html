@@ -1,82 +1,234 @@
-<tr class="hover" data-item-id="{{ lib_item.pk }}">
-    <!-- Icono -->
-    <td class="w-12">
-        <div class="text-2xl">{{ lib_item.get_icon }}</div>
-    </td>
+{% if lib_item.content_type.model == 'scorepage' %}
+    {# ScorePage: Mostrar fila principal + elementos colapsables #}
     
-    <!-- Título y metadata -->
-    <td>
-        <div class="flex flex-col gap-1">
-            <!-- Título -->
-            <div class="font-semibold">{{ lib_item.get_content_title }}</div>
-            
-            <!-- Badges de metadata (compás, tonalidad, dificultad) -->
-            {% with metadata=lib_item.get_metadata_badges %}
-            {% if metadata %}
-            <div class="flex flex-wrap gap-1">
-                {% if metadata.time_signature %}
-                <div class="badge badge-sm badge-neutral">{{ metadata.time_signature }}</div>
+    {# Fila principal de ScorePage #}
+    <tr class="hover bg-base-200" data-item-id="{{ lib_item.pk }}">
+        <!-- Icono + Toggle -->
+        <td class="w-12">
+            <div class="flex items-center gap-1">
+                <!-- Botón collapse/expand -->
+                {% with elements=lib_item.get_scorepage_elements %}
+                {% if elements %}
+                <label for="toggle-{{ lib_item.pk }}" 
+                       class="cursor-pointer swap swap-rotate"
+                       onclick="toggleElements({{ lib_item.pk }})">
+                    <input type="checkbox" id="toggle-{{ lib_item.pk }}" class="hidden" />
+                    <!-- Chevron derecha (contraído) -->
+                    <svg class="swap-off w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                    <!-- Chevron abajo (expandido) -->
+                    <svg class="swap-on w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </label>
                 {% endif %}
-                {% if metadata.key %}
-                <div class="badge badge-sm badge-neutral">{{ metadata.key }}</div>
-                {% endif %}
-                {% if metadata.difficulty %}
-                <div class="badge badge-sm badge-warning">{{ metadata.difficulty }}</div>
-                {% endif %}
+                {% endwith %}
+                
+                <!-- Icono ScorePage -->
+                <div class="text-2xl">{{ lib_item.get_icon }}</div>
             </div>
-            {% endif %}
-            {% endwith %}
-            
-            <!-- Tags y categorías -->
-            <div class="flex flex-wrap gap-1">
-                <!-- ScorePage relacionada -->
-                {% with related_score=lib_item.get_related_scorepage %}
-                {% if related_score and lib_item.content_type.model != 'scorepage' %}
-                <div class="badge badge-sm badge-info">
-                    🎼 {{ related_score.title|truncatewords:3 }}
+        </td>
+        
+        <!-- Título y metadata -->
+        <td>
+            <div class="flex flex-col gap-1">
+                <!-- Título con indicador de elementos -->
+                <div class="flex items-center gap-2">
+                    <span class="font-bold text-base">{{ lib_item.get_content_title }}</span>
+                    {% with elements=lib_item.get_scorepage_elements %}
+                    {% if elements %}
+                    <span class="badge badge-xs badge-ghost">{{ elements|length }} elemento{{ elements|length|pluralize }}</span>
+                    {% endif %}
+                    {% endwith %}
+                </div>
+                
+                <!-- Badges de metadata (compás, tonalidad, dificultad) -->
+                {% with metadata=lib_item.get_metadata_badges %}
+                {% if metadata %}
+                <div class="flex flex-wrap gap-1">
+                    {% if metadata.time_signature %}
+                    <div class="badge badge-sm badge-neutral">{{ metadata.time_signature }}</div>
+                    {% endif %}
+                    {% if metadata.key %}
+                    <div class="badge badge-sm badge-neutral">{{ metadata.key }}</div>
+                    {% endif %}
+                    {% if metadata.difficulty %}
+                    <div class="badge badge-sm badge-warning">{{ metadata.difficulty }}</div>
+                    {% endif %}
                 </div>
                 {% endif %}
                 {% endwith %}
                 
-                <!-- Tags musicales -->
-                {% for tag in lib_item.get_related_tags|slice:":3" %}
-                <div class="badge badge-sm badge-secondary">
-                    🏷️ {{ tag.name }}
+                <!-- Tags y categorías de ScorePage -->
+                <div class="flex flex-wrap gap-1">
+                    <!-- Tags musicales -->
+                    {% for tag in lib_item.get_related_tags %}
+                    <div class="badge badge-sm badge-secondary">
+                        🏷️ {{ tag.name }}
+                    </div>
+                    {% endfor %}
+                    
+                    <!-- Categorías musicales -->
+                    {% for category in lib_item.get_related_categories %}
+                    <div class="badge badge-sm badge-accent">
+                        {% if category.icon %}{{ category.icon }} {% endif %}{{ category.name }}
+                    </div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
                 
-                <!-- Categorías musicales -->
-                {% for category in lib_item.get_related_categories|slice:":2" %}
-                <div class="badge badge-sm badge-accent">
-                    {% if category.icon %}{{ category.icon }} {% endif %}{{ category.name }}
+                <!-- Meta info -->
+                <div class="text-xs opacity-60">
+                    Añadido: {{ lib_item.added_at|date:"d/m/Y" }}
                 </div>
-                {% endfor %}
             </div>
-            
-            <!-- Meta info -->
-            <div class="text-xs opacity-60">
-                Añadido: {{ lib_item.added_at|date:"d/m/Y" }}
-            </div>
-        </div>
-    </td>
-    
-    <!-- Acciones -->
-    <td class="text-right">
-        <div class="flex gap-2 justify-end">
-            <!-- Botón Ver (👁️) -->
-            {% if lib_item.content_type.model == 'scorepage' %}
-                <!-- ScorePage: abrir en nueva pestaña -->
+        </td>
+        
+        <!-- Acciones -->
+        <td class="text-right">
+            <div class="flex gap-2 justify-end">
+                <!-- Botón Ver ScorePage completa -->
                 <a href="{{ lib_item.content_object.get_url }}" 
                    target="_blank"
-                   class="btn btn-xs btn-ghost btn-square" 
-                   title="Ver partitura">
+                   class="btn btn-xs btn-success btn-square" 
+                   title="Ver partitura completa">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                     </svg>
                 </a>
-            {% else %}
-                <!-- Document/Image/Embed: visor fullscreen -->
+                
+                <!-- Contador de sesiones SUMATORIO (suma de todos los elementos añadidos) -->
+                <div id="counter-scorepage-total-{{ lib_item.pk }}" 
+                     class="badge badge-sm badge-info tooltip tooltip-left" 
+                     data-tip="Total de elementos añadidos">
+                    {{ lib_item.get_scorepage_total_session_count }}
+                </div>
+            </div>
+        </td>
+    </tr>
+    
+    {# Sub-filas de elementos de ScorePage (PDFs, audios, imágenes, embeds) - ocultas por defecto #}
+    {% for element in lib_item.get_scorepage_elements %}
+    <tr class="hover scorepage-element-{{ lib_item.pk }}" 
+        data-parent-id="{{ lib_item.pk }}" 
+        data-item-id="element-{{ element.object.pk }}"
+        style="display: none;">
+        <!-- Icono indentado -->
+        <td class="w-12">
+            <div class="text-xl ml-4">
+                {% if element.type == 'pdf' %}📄
+                {% elif element.type == 'audio' %}🎵
+                {% elif element.type == 'image' %}🖼️
+                {% elif element.type == 'embed' %}▶️
+                {% endif %}
+            </div>
+        </td>
+        
+        <!-- Título del elemento -->
+        <td>
+            <div class="flex flex-col gap-1 ml-4">
+                <div class="font-medium text-sm">{{ element.title }}</div>
+                
+                <!-- Tags del elemento si existen -->
+                {% if element.tags %}
+                <div class="flex flex-wrap gap-1">
+                    {% for tag in element.tags %}
+                    <div class="badge badge-xs badge-outline">{{ tag.name }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                
+                <div class="text-xs opacity-50">De: {{ lib_item.get_content_title }}</div>
+            </div>
+        </td>
+        
+        <!-- Acciones para elemento individual -->
+        <td class="text-right">
+            <div class="flex gap-2 justify-end">
+                <!-- Botón Ver elemento individual en visor -->
+                <a href="{% url 'clases:group_library_item_viewer' session.group.pk lib_item.pk %}?element_type={{ element.type }}&element_id={{ element.object.pk }}" 
+                   target="_blank"
+                   class="btn btn-xs btn-ghost btn-square" 
+                   title="Ver {{ element.type }} en pantalla completa">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                    </svg>
+                </a>
+                
+                <!-- Botón Añadir elemento individual a sesión -->
+                <button hx-post="{% url 'clases:class_session_add_item' session.pk %}"
+                        hx-vals='{"content_type_id": "{{ element.content_type_id }}", "object_id": "{{ element.object.pk }}"}'
+                        hx-target="#session-items"
+                        hx-swap="beforeend"
+                        hx-on::after-request="const emptyState = document.getElementById('empty-state'); if(emptyState) emptyState.remove(); updateCounters({{ element.content_type_id }}, {{ element.object.pk }}, {{ lib_item.pk }});"
+                        class="btn btn-xs btn-primary btn-square"
+                        title="Añadir este {{ element.type }} a sesión">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                </button>
+                
+                <!-- Contador de sesiones para elemento individual -->
+                <div id="counter-{{ element.content_type_id }}-{{ element.object.pk }}" 
+                     class="badge badge-sm badge-ghost">{{ element.session_count }}</div>
+            </div>
+        </td>
+    </tr>
+    {% endfor %}
+    
+{% else %}
+    {# Elemento individual (Document/Image que NO es ScorePage) #}
+    <tr class="hover" data-item-id="{{ lib_item.pk }}">
+        <!-- Icono -->
+        <td class="w-12">
+            <div class="text-2xl">{{ lib_item.get_icon }}</div>
+        </td>
+        
+        <!-- Título y metadata -->
+        <td>
+            <div class="flex flex-col gap-1">
+                <!-- Título -->
+                <div class="font-semibold">{{ lib_item.get_content_title }}</div>
+                
+                <!-- Tags y categorías -->
+                <div class="flex flex-wrap gap-1">
+                    <!-- ScorePage relacionada -->
+                    {% with related_score=lib_item.get_related_scorepage %}
+                    {% if related_score %}
+                    <div class="badge badge-sm badge-info">
+                        🎼 {{ related_score.title|truncatewords:3 }}
+                    </div>
+                    {% endif %}
+                    {% endwith %}
+                    
+                    <!-- Tags musicales -->
+                    {% for tag in lib_item.get_related_tags|slice:":3" %}
+                    <div class="badge badge-sm badge-secondary">
+                        🏷️ {{ tag.name }}
+                    </div>
+                    {% endfor %}
+                    
+                    <!-- Categorías musicales -->
+                    {% for category in lib_item.get_related_categories|slice:":2" %}
+                    <div class="badge badge-sm badge-accent">
+                        {% if category.icon %}{{ category.icon }} {% endif %}{{ category.name }}
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <!-- Meta info -->
+                <div class="text-xs opacity-60">
+                    Añadido: {{ lib_item.added_at|date:"d/m/Y" }}
+                </div>
+            </div>
+        </td>
+        
+        <!-- Acciones -->
+        <td class="text-right">
+            <div class="flex gap-2 justify-end">
+                <!-- Botón Ver en visor fullscreen -->
                 <a href="{% url 'clases:group_library_item_viewer' session.group.pk lib_item.pk %}" 
                    target="_blank"
                    class="btn btn-xs btn-ghost btn-square" 
@@ -86,23 +238,24 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                     </svg>
                 </a>
-            {% endif %}
-            
-            <!-- Botón Añadir (➕) -->
-            <button hx-post="{% url 'clases:class_session_add_item' session.pk %}"
-                    hx-vals='{"content_type_id": "{{ lib_item.content_type.id }}", "object_id": "{{ lib_item.object_id }}"}'
-                    hx-target="#session-items"
-                    hx-swap="beforeend"
-                    hx-on::after-request="const emptyState = document.getElementById('empty-state'); if(emptyState) emptyState.remove();"
-                    class="btn btn-xs btn-primary btn-square"
-                    title="Añadir a sesión">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                </svg>
-            </button>
-            
-            <!-- Contador de sesiones -->
-            <div class="badge badge-sm badge-ghost">{{ lib_item.get_session_count }}</div>
-        </div>
-    </td>
-</tr>
+                
+                <!-- Botón Añadir -->
+                <button hx-post="{% url 'clases:class_session_add_item' session.pk %}"
+                        hx-vals='{"content_type_id": "{{ lib_item.content_type.id }}", "object_id": "{{ lib_item.object_id }}"}'
+                        hx-target="#session-items"
+                        hx-swap="beforeend"
+                        hx-on::after-request="const emptyState = document.getElementById('empty-state'); if(emptyState) emptyState.remove(); updateCounters({{ lib_item.content_type.id }}, {{ lib_item.object_id }});"
+                        class="btn btn-xs btn-primary btn-square"
+                        title="Añadir a sesión">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                </button>
+                
+                <!-- Contador de sesiones -->
+                <div id="counter-{{ lib_item.content_type.id }}-{{ lib_item.object_id }}" 
+                     class="badge badge-sm badge-ghost">{{ lib_item.get_session_count }}</div>
+            </div>
+        </td>
+    </tr>
+{% endif %}

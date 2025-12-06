@@ -75,6 +75,16 @@ urlpatterns = [
         views.class_session_reorder_items,
         name="class_session_reorder_items",
     ),
+    path(
+        "groups/<int:group_id>/item-session-count/",
+        views.get_item_session_count,
+        name="get_item_session_count",
+    ),
+    path(
+        "groups/<int:group_id>/scorepage-total-count/",
+        views.get_scorepage_total_count,
+        name="get_scorepage_total_count",
+    ),
     # =============================================================================
     # BIBLIOTECA MÚLTIPLE
     # =============================================================================

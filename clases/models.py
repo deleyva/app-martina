@@ -336,6 +336,43 @@ class GroupLibraryItem(models.Model):
             .count()
         )
 
+    @staticmethod
+    def get_session_count_for_object(group, content_object):
+        """
+        Contar en cuántas sesiones del grupo se ha usado un objeto específico.
+        Útil para elementos dentro de ScorePage que no tienen GroupLibraryItem propio.
+        """
+        content_type = ContentType.objects.get_for_model(content_object)
+        return (
+            ClassSessionItem.objects.filter(
+                session__group=group,
+                content_type=content_type,
+                object_id=content_object.pk,
+            )
+            .values("session")
+            .distinct()
+            .count()
+        )
+
+    def get_scorepage_total_session_count(self):
+        """
+        Para ScorePages: obtener el contador SUMATORIO de todos sus elementos.
+        Retorna la suma de veces que cada elemento (PDF, audio, imagen, embed)
+        ha sido añadido a sesiones de este grupo.
+        Solo funciona si este GroupLibraryItem apunta a una ScorePage.
+        """
+        if self.content_type.model != "scorepage":
+            return 0
+
+        total_count = 0
+        elements = self.get_scorepage_elements()
+
+        for element in elements:
+            count = self.get_session_count_for_object(self.group, element["object"])
+            total_count += count
+
+        return total_count
+
     def get_related_tags(self):
         """
         Obtener tags asociados al contenido.
@@ -412,6 +449,96 @@ class GroupLibraryItem(models.Model):
                     break  # Solo el primer bloque de metadata
 
         return badges
+
+    def get_scorepage_elements(self):
+        """
+        Obtener todos los elementos de una ScorePage (PDFs, audios, imágenes, embeds).
+        Retorna lista de dicts con estructura:
+        {
+            'type': 'pdf'|'audio'|'image'|'embed',
+            'title': str,
+            'object': Document|Image object,
+            'content_type_id': int,  # ID del ContentType para HTMX
+            'tags': QuerySet de MusicTag (si existen),
+            'block': el block del StreamField
+        }
+        Solo funciona si este GroupLibraryItem apunta a una ScorePage.
+        """
+        elements = []
+
+        # Solo procesar si es ScorePage
+        if self.content_type.model != "scorepage":
+            return elements
+
+        score = self.content_object
+        if not score or not hasattr(score, "content"):
+            return elements
+
+        # Obtener ContentTypes una sola vez
+        from wagtail.documents.models import Document
+        from wagtail.images.models import Image
+
+        document_ct = ContentType.objects.get_for_model(Document)
+        image_ct = ContentType.objects.get_for_model(Image)
+
+        # Iterar sobre el StreamField
+        for block in score.content:
+            element = None
+
+            if block.block_type == "pdf_score":
+                pdf_file = block.value.get("pdf_file")
+                if pdf_file:
+                    element = {
+                        "type": "pdf",
+                        "title": block.value.get("title", pdf_file.title),
+                        "object": pdf_file,
+                        "content_type_id": document_ct.id,
+                        "tags": [],  # Documents no tienen tags directos en este modelo
+                        "block": block,
+                        "session_count": self.get_session_count_for_object(
+                            self.group, pdf_file
+                        ),
+                    }
+
+            elif block.block_type == "audio":
+                audio_file = block.value.get("audio_file")
+                if audio_file:
+                    element = {
+                        "type": "audio",
+                        "title": block.value.get("title", audio_file.title),
+                        "object": audio_file,
+                        "content_type_id": document_ct.id,
+                        "tags": [],
+                        "block": block,
+                        "session_count": self.get_session_count_for_object(
+                            self.group, audio_file
+                        ),
+                    }
+
+            elif block.block_type == "image":
+                image = block.value.get("image")
+                if image:
+                    element = {
+                        "type": "image",
+                        "title": block.value.get("title", image.title),
+                        "object": image,
+                        "content_type_id": image_ct.id,
+                        "tags": [],
+                        "block": block,
+                        "session_count": self.get_session_count_for_object(
+                            self.group, image
+                        ),
+                    }
+
+            elif block.block_type == "embed":
+                # Los embeds no son objetos de BD, no se pueden añadir individualmente
+                # Se omiten por ahora (solo la ScorePage completa se puede añadir)
+                continue
+
+            if element:
+                elements.append(element)
+
+        return elements
 
 
 # =============================================================================
