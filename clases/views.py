@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import render, redirect, get_object_or_404, reverse
 from django.contrib import messages
 from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -261,6 +261,26 @@ def class_session_create(request):
         request,
         "clases/class_sessions/create.html",
         {"groups": groups},
+    )
+
+
+@login_required
+@user_passes_test(is_staff)
+def class_session_view(request, pk):
+    """
+    Vista de solo lectura de la sesión (sin edición).
+    TINY VIEW: solo muestra el contenido de la sesión.
+    """
+    session = get_object_or_404(ClassSession, pk=pk, teacher=request.user)
+    items = session.get_items_ordered()
+
+    return render(
+        request,
+        "clases/class_sessions/view.html",
+        {
+            "session": session,
+            "items": items,
+        },
     )
 
 
@@ -587,6 +607,7 @@ def group_library_item_viewer(request, group_id, pk):
     """
     Visor fullscreen para items de biblioteca de grupo.
     TINY VIEW: Similar a my_library viewer.
+    Soporta visualización de elementos específicos dentro de ScorePages.
     """
     group = get_object_or_404(Group, pk=group_id)
 
@@ -607,6 +628,10 @@ def group_library_item_viewer(request, group_id, pk):
     content_type = item.content_type.model
     content = item.content_object
 
+    # Verificar si se solicita un elemento específico dentro de una ScorePage
+    element_type = request.GET.get("element_type")
+    element_id = request.GET.get("element_id")
+
     # Clasificar según tipo
     if content_type == "document":
         # Wagtail Document
@@ -626,15 +651,40 @@ def group_library_item_viewer(request, group_id, pk):
                 if block.block_type == "pdf_score":
                     pdf_file = block.value.get("pdf_file")
                     if pdf_file:
-                        documents["pdfs"].append(pdf_file)
+                        # Si se solicita un elemento específico, solo añadir ese
+                        if (
+                            element_type == "pdf"
+                            and element_id
+                            and str(pdf_file.pk) == element_id
+                        ):
+                            documents["pdfs"] = [pdf_file]
+                            break
+                        elif not element_type:
+                            documents["pdfs"].append(pdf_file)
                 elif block.block_type == "audio":
                     audio_file = block.value.get("audio_file")
                     if audio_file:
-                        documents["audios"].append(audio_file)
+                        if (
+                            element_type == "audio"
+                            and element_id
+                            and str(audio_file.pk) == element_id
+                        ):
+                            documents["audios"] = [audio_file]
+                            break
+                        elif not element_type:
+                            documents["audios"].append(audio_file)
                 elif block.block_type == "image":
                     image = block.value.get("image")
                     if image:
-                        documents["images"].append(image)
+                        if (
+                            element_type == "image"
+                            and element_id
+                            and str(image.pk) == element_id
+                        ):
+                            documents["images"] = [image]
+                            break
+                        elif not element_type:
+                            documents["images"].append(image)
 
     return render(
         request,
@@ -643,5 +693,67 @@ def group_library_item_viewer(request, group_id, pk):
             "group": group,
             "item": item,
             "documents": documents,
+        },
+    )
+
+
+@login_required
+@user_passes_test(is_staff)
+def class_session_item_viewer(request, session_id, item_id):
+    """
+    Visor fullscreen para items de sesión.
+    TINY VIEW: Usa mismo template que my_library para consistencia.
+    Soporta parámetro 'from' para volver a la vista correcta (view o edit).
+    """
+    session = get_object_or_404(ClassSession, pk=session_id)
+
+    # Verificar que el profesor pertenece al grupo
+    if not session.group.teachers.filter(pk=request.user.pk).exists():
+        messages.error(request, "No tienes permiso para ver este contenido.")
+        return redirect("clases:class_session_edit", pk=session_id)
+
+    item = get_object_or_404(ClassSessionItem, pk=item_id, session=session)
+
+    # Preparar documentos según tipo de contenido
+    documents = {
+        "pdfs": [],
+        "images": [],
+        "audios": [],
+    }
+
+    content_type = item.content_type.model
+    content = item.content_object
+
+    # Clasificar según tipo (similar a my_library)
+    if content_type == "document":
+        # Wagtail Document
+        if hasattr(content, "file"):
+            filename = content.file.name.lower()
+            if filename.endswith(".pdf"):
+                documents["pdfs"].append(content)
+            elif filename.endswith((".mp3", ".wav", ".ogg", ".m4a", ".aac", ".flac")):
+                documents["audios"].append(content)
+    elif content_type == "image":
+        # Wagtail Image
+        documents["images"].append(content)
+    elif content_type == "blogpage":
+        # BlogPage: podría tener imágenes en el futuro
+        pass
+
+    # Determinar URL de retorno según parámetro 'from'
+    from_view = request.GET.get("from", "edit")
+    if from_view == "view":
+        back_url = reverse("clases:class_session_view", args=[session_id])
+    else:
+        back_url = reverse("clases:class_session_edit", args=[session_id])
+
+    # Usar el mismo template de my_library para consistencia
+    return render(
+        request,
+        "my_library/viewer.html",
+        {
+            "item": item,
+            "documents": documents,
+            "back_url": back_url,
         },
     )

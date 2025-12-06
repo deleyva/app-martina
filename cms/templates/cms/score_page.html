@@ -8,6 +8,7 @@
 {% block title %}{{ page.title }} - Music Pills{% endblock %}
 
 {% block extra_css %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
     .streamfield-content {
         max-width: none;
@@ -22,26 +23,38 @@
     .pdf-preview-fullwidth {
         width: 100%;
         border-radius: 0.75rem;
-        background-color: transparent;
+        background-color: #f5f5f5;
         overflow: hidden;
+        position: relative;
     }
 
-    .pdf-preview-frame-wrapper {
+    .pdf-preview-canvas-wrapper {
         width: 100%;
         overflow: hidden;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 220px;
+        background: #f5f5f5;
     }
 
-    .pdf-preview-frame {
-        width: 100%;
-        height: clamp(150px, 28vh, 220px);
-        border: none;
-        background-color: var(--fallback-b1, #fff);
+    .pdf-preview-canvas {
+        max-width: 100%;
+        height: auto;
         display: block;
     }
 
+    .pdf-loading {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+    }
+
     @media (max-width: 768px) {
-        .pdf-preview-frame {
-            height: 180px;
+        .pdf-preview-canvas-wrapper {
+            min-height: 180px;
         }
     }
 
@@ -139,13 +152,17 @@
                     
                     {% if block.value.pdf_file %}
                     <div class="mt-4 space-y-6">
-                        <div class="pdf-preview-fullwidth">
-                            <div class="pdf-preview-frame-wrapper">
-                                <iframe
-                                    src="{{ block.value.pdf_file.url }}#toolbar=0&navpanes=0&scrollbar=0&view=FitH"
-                                    title="Preview {{ block.value.pdf_file.title }}"
-                                    class="pdf-preview-frame"
-                                ></iframe>
+                        <div class="pdf-preview-fullwidth" id="pdf-preview-{{ forloop.counter }}">
+                            <div class="pdf-loading">
+                                <span class="loading loading-spinner loading-lg"></span>
+                                <p class="text-sm mt-2">Cargando vista previa...</p>
+                            </div>
+                            <div class="pdf-preview-canvas-wrapper">
+                                <canvas 
+                                    class="pdf-preview-canvas" 
+                                    data-pdf-url="{{ block.value.pdf_file.url }}"
+                                    id="pdf-canvas-{{ forloop.counter }}"
+                                ></canvas>
                             </div>
                         </div>
 
@@ -443,6 +460,63 @@
 </div>
 
 <script>
+// Configurar PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// Renderizar previsualizaciones de PDF al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+    const pdfCanvases = document.querySelectorAll('.pdf-preview-canvas');
+    
+    pdfCanvases.forEach(function(canvas, index) {
+        const pdfUrl = canvas.getAttribute('data-pdf-url');
+        const loadingDiv = canvas.closest('.pdf-preview-fullwidth').querySelector('.pdf-loading');
+        
+        if (pdfUrl) {
+            // Cargar PDF
+            pdfjsLib.getDocument(pdfUrl).promise.then(function(pdf) {
+                // Renderizar primera página
+                pdf.getPage(1).then(function(page) {
+                    const scale = 1.5;
+                    const viewport = page.getViewport({ scale: scale });
+                    
+                    // Configurar canvas
+                    const context = canvas.getContext('2d');
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
+                    
+                    // Renderizar PDF en canvas
+                    const renderContext = {
+                        canvasContext: context,
+                        viewport: viewport
+                    };
+                    
+                    page.render(renderContext).promise.then(function() {
+                        // Ocultar loading
+                        if (loadingDiv) {
+                            loadingDiv.style.display = 'none';
+                        }
+                        console.log('PDF preview rendered successfully');
+                    });
+                });
+            }).catch(function(error) {
+                console.error('Error loading PDF preview:', error);
+                // Mostrar mensaje de error
+                if (loadingDiv) {
+                    loadingDiv.innerHTML = `
+                        <div class="text-center text-error">
+                            <svg class="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <p class="text-sm">No se pudo cargar la vista previa</p>
+                            <p class="text-xs mt-1">Usa los botones de abajo para ver el PDF</p>
+                        </div>
+                    `;
+                }
+            });
+        }
+    });
+});
+
 // PDF handling functions
 function openPDFInNewTab(url) {
     window.open(url, '_blank');

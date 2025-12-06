@@ -41,33 +41,15 @@
         
         <!-- Actions -->
         <div class="flex gap-2 flex-shrink-0">
-            <!-- Botón Ver -->
-            {% if item.content_type.model == 'scorepage' %}
-                <a href="{{ item.content_object.get_url }}" 
-                   target="_blank"
-                   class="btn btn-xs btn-ghost btn-square" 
-                   title="Ver partitura">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                    </svg>
-                </a>
-            {% else %}
-                <!-- Para Documents/Images/Embeds: usar get_content_url -->
-                {% with url=item.get_content_url %}
-                {% if url %}
-                <a href="{{ url }}" 
-                   target="_blank"
-                   class="btn btn-xs btn-ghost btn-square" 
-                   title="Ver archivo">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                    </svg>
-                </a>
-                {% endif %}
-                {% endwith %}
-            {% endif %}
+            <!-- Botón Ver en fullscreen viewer (misma página, estilo my_library) -->
+            <a href="{% url 'clases:class_session_item_viewer' session.pk item.pk %}" 
+               class="btn btn-xs btn-ghost btn-square" 
+               title="Ver en pantalla completa">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                </svg>
+            </a>
             
             <!-- Botón Quitar -->
             <button hx-delete="{% url 'clases:class_session_remove_item' session.pk item.pk %}"

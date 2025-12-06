@@ -96,7 +96,7 @@
 </head>
 <body>
     <!-- Botón cerrar flotante (sobre el PDF) -->
-    <a href="{% url 'my_library:index' %}" 
+    <a href="{% if back_url %}{{ back_url }}{% else %}{% url 'my_library:index' %}{% endif %}" 
        id="close-btn"
        title="Cerrar (ESC)">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -125,13 +125,15 @@
     </div>
     
     <script>
-    // Cerrar con ESC (volver al índice de Mi Biblioteca)
+    // Cerrar con ESC (volver a biblioteca o a la URL anterior)
     (function() {
+        var backUrl = "{% if back_url %}{{ back_url }}{% else %}{% url 'my_library:index' %}{% endif %}";
+        
         function handleEscape(e) {
             var key = e.key || e.keyCode;
             if (key === 'Escape' || key === 'Esc' || key === 27) {
                 e.preventDefault();
-                window.location.href = "{% url 'my_library:index' %}";
+                window.location.href = backUrl;
             }
         }
         // Fase de captura para asegurarnos de que se ejecute aunque haya otros listeners

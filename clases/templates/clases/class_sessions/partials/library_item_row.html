@@ -146,9 +146,8 @@
         <!-- Acciones para elemento individual -->
         <td class="text-right">
             <div class="flex gap-2 justify-end">
-                <!-- Botón Ver elemento individual en visor -->
+                <!-- Botón Ver elemento individual en visor fullscreen (misma página) -->
                 <a href="{% url 'clases:group_library_item_viewer' session.group.pk lib_item.pk %}?element_type={{ element.type }}&element_id={{ element.object.pk }}" 
-                   target="_blank"
                    class="btn btn-xs btn-ghost btn-square" 
                    title="Ver {{ element.type }} en pantalla completa">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -228,9 +227,8 @@
         <!-- Acciones -->
         <td class="text-right">
             <div class="flex gap-2 justify-end">
-                <!-- Botón Ver en visor fullscreen -->
+                <!-- Botón Ver en visor fullscreen (misma página) -->
                 <a href="{% url 'clases:group_library_item_viewer' session.group.pk lib_item.pk %}" 
-                   target="_blank"
                    class="btn btn-xs btn-ghost btn-square" 
                    title="Ver en pantalla completa">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

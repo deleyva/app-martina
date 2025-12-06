@@ -100,11 +100,21 @@
                     {% if item.added_by %}
                     <span>· Por: {% if item.added_by.name %}{{ item.added_by.name }}{% elif item.added_by.first_name and item.added_by.last_name %}{{ item.added_by.first_name }} {{ item.added_by.last_name }}{% else %}{{ item.added_by.email }}{% endif %}</span>
                     {% endif %}
-                    {% with session_count=item.get_session_count %}
-                    {% if session_count > 0 %}
-                    <span>· Usado en {{ session_count }} sesión{% if session_count != 1 %}es{% endif %} de clase</span>
+                    {% if item.content_type.model == 'scorepage' %}
+                        {# Para ScorePages: mostrar contador sumatorio de todos sus elementos #}
+                        {% with session_count=item.get_scorepage_total_session_count %}
+                        {% if session_count > 0 %}
+                        <span>· Usado en {{ session_count }} sesión{% if session_count != 1 %}es{% endif %} de clase</span>
+                        {% endif %}
+                        {% endwith %}
+                    {% else %}
+                        {# Para otros elementos: mostrar contador individual #}
+                        {% with session_count=item.get_session_count %}
+                        {% if session_count > 0 %}
+                        <span>· Usado en {{ session_count }} sesión{% if session_count != 1 %}es{% endif %} de clase</span>
+                        {% endif %}
+                        {% endwith %}
                     {% endif %}
-                    {% endwith %}
                 </div>
 
                 <!-- Nivel del grupo -->

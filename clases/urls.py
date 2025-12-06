@@ -51,6 +51,11 @@ urlpatterns = [
         name="class_session_create",
     ),
     path(
+        "sessions/<int:pk>/view/",
+        views.class_session_view,
+        name="class_session_view",
+    ),
+    path(
         "sessions/<int:pk>/edit/",
         views.class_session_edit,
         name="class_session_edit",
@@ -84,6 +89,11 @@ urlpatterns = [
         "groups/<int:group_id>/scorepage-total-count/",
         views.get_scorepage_total_count,
         name="get_scorepage_total_count",
+    ),
+    path(
+        "sessions/<int:session_id>/items/<int:item_id>/view/",
+        views.class_session_item_viewer,
+        name="class_session_item_viewer",
     ),
     # =============================================================================
     # BIBLIOTECA MÚLTIPLE

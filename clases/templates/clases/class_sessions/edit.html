@@ -34,12 +34,23 @@
                 {{ session.group.name }} · {{ session.date|date:"d/m/Y" }}
             </div>
         </div>
-        <a href="{% url 'clases:class_session_list' %}" class="btn btn-ghost btn-sm">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
-            </svg>
-            Volver
-        </a>
+        <div class="flex gap-2">
+            <!-- Botón Ver Sesión (solo lectura) -->
+            <a href="{% url 'clases:class_session_view' session.pk %}" class="btn btn-ghost btn-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                </svg>
+                Ver Sesión
+            </a>
+            <!-- Botón Volver -->
+            <a href="{% url 'clases:class_session_list' %}" class="btn btn-ghost btn-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                </svg>
+                Volver
+            </a>
+        </div>
     </div>
     
     <div class="max-w-7xl mx-auto">
@@ -48,12 +59,23 @@
             <div class="card-body">
                 <!-- Header con búsqueda y filtros -->
                 <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 mb-4">
-                    <h2 class="card-title">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"></path>
-                        </svg>
-                        Biblioteca del Grupo
-                    </h2>
+                    <div class="flex items-center gap-3">
+                        <h2 class="card-title">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"></path>
+                            </svg>
+                            Biblioteca del Grupo
+                        </h2>
+                        <!-- Botón para ver biblioteca completa -->
+                        <a href="{% url 'clases:group_library_index' session.group.pk %}" 
+                           class="btn btn-xs btn-outline btn-primary"
+                           title="Ver biblioteca completa del grupo">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                            </svg>
+                            Ver completa
+                        </a>
+                    </div>
                     
                     <!-- Filtros -->
                     <div class="flex flex-wrap gap-2">
