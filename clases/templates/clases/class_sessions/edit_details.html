@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Detalles de Sesión{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-2xl">
+    <div class="mb-6">
+        <h1 class="text-2xl sm:text-3xl font-bold">✏️ Editar Detalles de Sesión</h1>
+        <p class="text-base-content/70 mt-2">Modifica el grupo, fecha, título y notas de la sesión</p>
+    </div>
+    
+    <div class="card bg-base-100 shadow-md">
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                
+                <!-- Grupo -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-semibold">Grupo *</span>
+                    </label>
+                    <select name="group" class="select select-bordered" required>
+                        <option value="">Selecciona un grupo</option>
+                        {% for group in groups %}
+                        <option value="{{ group.pk }}" {% if group.pk == session.group.pk %}selected{% endif %}>
+                            {{ group.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Fecha -->
+                <div class="form-control mt-4">
+                    <label class="label">
+                        <span class="label-text font-semibold">Fecha de la sesión *</span>
+                    </label>
+                    <input type="date" name="date" class="input input-bordered" required
+                           value="{{ session.date|date:'Y-m-d' }}">
+                </div>
+                
+                <!-- Título -->
+                <div class="form-control mt-4">
+                    <label class="label">
+                        <span class="label-text font-semibold">Título *</span>
+                    </label>
+                    <input type="text" name="title" class="input input-bordered" 
+                           value="{{ session.title }}"
+                           placeholder="Ej: Escalas mayores y menores" required>
+                </div>
+                
+                <!-- Notas -->
+                <div class="form-control mt-4">
+                    <label class="label">
+                        <span class="label-text font-semibold">Notas (opcional)</span>
+                    </label>
+                    <textarea name="notes" class="textarea textarea-bordered h-24" 
+                              placeholder="Notas generales sobre la sesión...">{{ session.notes }}</textarea>
+                </div>
+                
+                <!-- Botones -->
+                <div class="card-actions justify-between mt-6">
+                    <a href="{% url 'clases:class_session_list' %}" class="btn btn-ghost">
+                        Cancelar
+                    </a>
+                    <div class="flex gap-2">
+                        <a href="{% url 'clases:class_session_edit' session.pk %}" class="btn btn-secondary">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                            </svg>
+                            Editar Elementos
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            Guardar Cambios
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

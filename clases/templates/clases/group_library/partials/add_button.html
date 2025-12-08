@@ -13,17 +13,48 @@
         </button>
     </div>
     {% else %}
-    <div class="tooltip tooltip-left" data-tip="Añadir a biblioteca del grupo">
-        <button hx-post="{% url 'clases:group_library_add' group.id %}"
-                hx-vals='{"content_type_id": "{{ content_type.id }}", "object_id": "{{ content_object.pk }}"}'
-                hx-target="closest div"
-                hx-swap="outerHTML"
-                hx-on::after-request="showToast('✓ Añadido a biblioteca del grupo', 'success')"
-                class="btn btn-sm btn-primary btn-square">
+    <!-- Dropdown con opciones de asignación -->
+    <div class="dropdown dropdown-end">
+        <div tabindex="0" role="button" class="btn btn-sm btn-primary btn-square">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
             </svg>
-        </button>
+        </div>
+        <ul tabindex="0" class="dropdown-content z-[100] menu p-2 shadow-lg bg-base-100 rounded-box w-64 border border-base-300">
+            <!-- Opción 1: Añadir a biblioteca del grupo -->
+            <li>
+                <button hx-post="{% url 'clases:group_library_add' group.id %}"
+                        hx-vals='{"content_type_id": "{{ content_type.id }}", "object_id": "{{ content_object.pk }}"}'
+                        hx-target="closest .dropdown"
+                        hx-swap="outerHTML"
+                        hx-on::after-request="showToast('✓ Añadido a biblioteca del grupo', 'success')"
+                        class="flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                    </svg>
+                    <div class="flex-1">
+                        <div class="font-medium">Biblioteca del grupo</div>
+                        <div class="text-xs opacity-60">Visible para todos</div>
+                    </div>
+                </button>
+            </li>
+            
+            <!-- Opción 2: Asignar a estudiantes -->
+            <li>
+                <button hx-get="{% url 'clases:show_assign_to_students_modal' group.id %}?content_type_id={{ content_type.id }}&object_id={{ content_object.pk }}"
+                        hx-target="body"
+                        hx-swap="beforeend"
+                        class="flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                    </svg>
+                    <div class="flex-1">
+                        <div class="font-medium">Asignar a estudiantes</div>
+                        <div class="text-xs opacity-60">Bibliotecas personales</div>
+                    </div>
+                </button>
+            </li>
+        </ul>
     </div>
     {% endif %}
 {% endif %}

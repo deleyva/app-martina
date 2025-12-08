@@ -1,3 +1,5 @@
+{% load library_tags %}
+
 <div class="session-item p-4 bg-base-200 rounded-lg hover:bg-base-300 transition-colors"
      data-item-id="{{ item.pk }}">
     <div class="flex items-start gap-3">
@@ -50,6 +52,11 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                 </svg>
             </a>
+            
+            <!-- Botón Añadir a Biblioteca (con modal para profesores) -->
+            <div id="library-btn-{{ item.content_type.model }}-{{ item.object_id }}">
+                {% library_button item.content_object %}
+            </div>
             
             <!-- Botón Quitar -->
             <button hx-delete="{% url 'clases:class_session_remove_item' session.pk item.pk %}"

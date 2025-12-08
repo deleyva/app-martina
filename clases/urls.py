@@ -61,6 +61,16 @@ urlpatterns = [
         name="class_session_edit",
     ),
     path(
+        "sessions/<int:pk>/edit-details/",
+        views.class_session_edit_details,
+        name="class_session_edit_details",
+    ),
+    path(
+        "sessions/<int:pk>/duplicate/",
+        views.class_session_duplicate,
+        name="class_session_duplicate",
+    ),
+    path(
         "sessions/<int:pk>/delete/",
         views.class_session_delete,
         name="class_session_delete",
@@ -102,5 +112,18 @@ urlpatterns = [
         "libraries/add-multiple/",
         views.add_to_multiple_libraries,
         name="add_to_multiple_libraries",
+    ),
+    # =============================================================================
+    # ASIGNACIÓN A ESTUDIANTES
+    # =============================================================================
+    path(
+        "groups/<int:group_id>/assign-to-students/modal/",
+        views.show_assign_to_students_modal,
+        name="show_assign_to_students_modal",
+    ),
+    path(
+        "groups/<int:group_id>/assign-to-students/",
+        views.assign_to_students,
+        name="assign_to_students",
     ),
 ]

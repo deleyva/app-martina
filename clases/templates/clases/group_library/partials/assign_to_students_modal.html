@@ -1,0 +1,147 @@
+<!-- Modal para asignar contenido a bibliotecas personales de estudiantes -->
+<div class="modal modal-open" id="assign-modal">
+    <div class="modal-box max-w-2xl">
+        <!-- Header -->
+        <div class="flex justify-between items-start mb-4">
+            <div>
+                <h3 class="font-bold text-lg">📚 Asignar a bibliotecas personales</h3>
+                <p class="text-sm text-base-content/70 mt-1">
+                    {{ content_object.title|default:"Recurso" }}
+                </p>
+            </div>
+            <button onclick="document.getElementById('assign-modal').remove()" 
+                    class="btn btn-sm btn-circle btn-ghost">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Formulario -->
+        <form hx-post="{% url 'clases:assign_to_students' group.id %}"
+              hx-target="#assign-response"
+              hx-swap="innerHTML"
+              hx-on::after-request="if(event.detail.successful){setTimeout(()=>{document.getElementById('assign-modal').remove()},2000)}">
+            
+            <!-- Hidden fields -->
+            <input type="hidden" name="content_type_id" value="{{ content_type.id }}">
+            <input type="hidden" name="object_id" value="{{ content_object.pk }}">
+            
+            <!-- Selector múltiple de estudiantes -->
+            <div class="form-control mb-4">
+                <label class="label">
+                    <span class="label-text font-semibold">Seleccionar estudiantes de {{ group.name }}</span>
+                    <span class="label-text-alt">
+                        <button type="button" 
+                                onclick="selectAllStudents()" 
+                                class="link link-primary text-xs">
+                            Seleccionar todos
+                        </button>
+                        /
+                        <button type="button" 
+                                onclick="deselectAllStudents()" 
+                                class="link text-xs">
+                            Deseleccionar
+                        </button>
+                    </span>
+                </label>
+                
+                {% if students %}
+                <!-- Lista de estudiantes con checkboxes -->
+                <div class="border border-base-300 rounded-lg max-h-96 overflow-y-auto p-3 bg-base-200/50">
+                    <div class="space-y-2">
+                        {% for student in students %}
+                        <label class="flex items-center gap-3 p-2 rounded-lg hover:bg-base-100 cursor-pointer transition-colors">
+                            <input type="checkbox" 
+                                   name="student_ids" 
+                                   value="{{ student.pk }}"
+                                   class="checkbox checkbox-primary student-checkbox">
+                            <div class="flex-1">
+                                <div class="font-medium">
+                                    {% if student.user.name %}
+                                        {{ student.user.name }}
+                                    {% elif student.user.first_name and student.user.last_name %}
+                                        {{ student.user.first_name }} {{ student.user.last_name }}
+                                    {% else %}
+                                        {{ student.user.email }}
+                                    {% endif %}
+                                </div>
+                                <div class="text-xs text-base-content/60">{{ student.user.email }}</div>
+                            </div>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <!-- Contador de seleccionados -->
+                <label class="label">
+                    <span class="label-text-alt" id="selected-count">
+                        <span class="font-semibold">0</span> estudiantes seleccionados
+                    </span>
+                </label>
+                {% else %}
+                <div class="alert">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span>No hay estudiantes en este grupo</span>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Área de respuesta -->
+            <div id="assign-response" class="mb-4"></div>
+
+            <!-- Botones de acción -->
+            <div class="modal-action">
+                <button type="button" 
+                        onclick="document.getElementById('assign-modal').remove()" 
+                        class="btn btn-ghost">
+                    Cancelar
+                </button>
+                {% if students %}
+                <button type="submit" class="btn btn-primary">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    Asignar a seleccionados
+                </button>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+    
+    <!-- Backdrop -->
+    <div class="modal-backdrop" onclick="document.getElementById('assign-modal').remove()"></div>
+</div>
+
+<script>
+// Funciones JavaScript mínimas para selección múltiple
+function selectAllStudents() {
+    document.querySelectorAll('.student-checkbox').forEach(cb => cb.checked = true);
+    updateSelectedCount();
+}
+
+function deselectAllStudents() {
+    document.querySelectorAll('.student-checkbox').forEach(cb => cb.checked = false);
+    updateSelectedCount();
+}
+
+function updateSelectedCount() {
+    const count = document.querySelectorAll('.student-checkbox:checked').length;
+    const countEl = document.getElementById('selected-count');
+    if (countEl) {
+        countEl.innerHTML = `<span class="font-semibold">${count}</span> estudiante${count !== 1 ? 's' : ''} seleccionado${count !== 1 ? 's' : ''}`;
+    }
+}
+
+// Actualizar contador cuando cambian los checkboxes
+document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('student-checkbox')) {
+        updateSelectedCount();
+    }
+});
+
+// Inicializar contador
+document.addEventListener('DOMContentLoaded', updateSelectedCount);
+</script>

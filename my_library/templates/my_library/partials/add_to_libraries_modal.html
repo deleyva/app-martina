@@ -20,7 +20,7 @@
         
         {# Formulario con checkboxes #}
         <form id="library_form_{{ content_object.pk }}_{{ content_type.id }}"
-              hx-post="{% url 'evaluations:add_to_multiple_libraries' %}"
+              hx-post="{% url 'clases:add_to_multiple_libraries' %}"
               hx-swap="none"
               hx-on::after-request="library_modal_{{ content_object.pk }}_{{ content_type.id }}.close(); showToast('✓ Añadido a las bibliotecas seleccionadas', 'success')"
               class="space-y-3">
@@ -53,7 +53,7 @@
             
             {# Checkboxes para cada grupo #}
             {% if teaching_groups %}
-                <div class="space-y-2 max-h-64 overflow-y-auto">
+                <div class="space-y-2 max-h-48 overflow-y-auto">
                     {% for group in teaching_groups %}
                         <div class="form-control">
                             <label class="label cursor-pointer justify-start gap-3 hover:bg-base-200 rounded-lg p-2 transition-colors">
@@ -79,6 +79,194 @@
                     </svg>
                     <span>No tienes grupos asignados</span>
                 </div>
+            {% endif %}
+            
+            {# Sección de estudiantes individuales con búsqueda #}
+            {% if all_students %}
+            <div class="divider my-2">Bibliotecas personales de estudiantes</div>
+            
+            {# Campo de búsqueda #}
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text text-sm">Buscar estudiantes</span>
+                    <span class="label-text-alt">
+                        <button type="button" 
+                                onclick="selectAllStudents_{{ content_object.pk }}_{{ content_type.id }}()"
+                                class="link link-primary text-xs">
+                            Todos
+                        </button>
+                        /
+                        <button type="button" 
+                                onclick="clearStudents_{{ content_object.pk }}_{{ content_type.id }}()"
+                                class="link text-xs">
+                            Limpiar
+                        </button>
+                    </span>
+                </label>
+                <input type="text" 
+                       id="student_search_{{ content_object.pk }}_{{ content_type.id }}"
+                       placeholder="Escribe para buscar estudiantes..."
+                       class="input input-bordered input-sm"
+                       autocomplete="off"
+                       oninput="filterStudents_{{ content_object.pk }}_{{ content_type.id }}()">
+            </div>
+            
+            {# Lista de estudiantes filtrable #}
+            <div class="mt-2 max-h-48 overflow-y-auto border border-base-300 rounded-lg bg-base-200/50">
+                <div id="students_list_{{ content_object.pk }}_{{ content_type.id }}" class="space-y-1 p-2">
+                    {% regroup all_students by group as students_by_group %}
+                    {% for group_students in students_by_group %}
+                        <div class="student-group" data-group="{{ group_students.grouper.name }}">
+                            <div class="font-semibold text-xs text-base-content/70 mt-2 mb-1 px-1 group-header">
+                                {{ group_students.grouper.name }}
+                            </div>
+                            {% for student in group_students.list %}
+                                {% if student.user %}
+                                {% with student_name=student.user.name|default:student.user.get_full_name|default:student.user.email %}
+                                <div class="student-item" 
+                                     data-student-id="{{ student.pk }}"
+                                     data-student-name="{{ student_name|lower }}"
+                                     data-group="{{ group_students.grouper.name }}">
+                                    <label class="label cursor-pointer justify-start gap-2 hover:bg-base-100 rounded p-1 transition-colors py-1">
+                                        <input type="checkbox" 
+                                               class="checkbox checkbox-xs checkbox-primary student-checkbox"
+                                               data-student-id="{{ student.pk }}"
+                                               data-student-name="{{ student_name }}"
+                                               data-group="{{ group_students.grouper.name }}"
+                                               onchange="updateSelectedStudents_{{ content_object.pk }}_{{ content_type.id }}()">
+                                        <span class="label-text text-sm">{{ student_name }}</span>
+                                    </label>
+                                </div>
+                                {% endwith %}
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            {# Lista de seleccionados (badges) #}
+            <div class="mt-3">
+                <label class="label pb-1">
+                    <span class="label-text text-sm font-semibold">Seleccionados <span id="student_count_{{ content_object.pk }}_{{ content_type.id }}" class="text-primary">(0)</span></span>
+                </label>
+                <div id="selected_students_{{ content_object.pk }}_{{ content_type.id }}" 
+                     class="flex flex-wrap gap-2 min-h-[2rem] p-2 border border-base-300 rounded-lg bg-base-100">
+                    <span class="text-sm text-base-content/50 empty-message">Ningún estudiante seleccionado</span>
+                </div>
+            </div>
+            
+            {# Hidden inputs para enviar al backend #}
+            <div id="student_inputs_{{ content_object.pk }}_{{ content_type.id }}"></div>
+            
+            <script>
+            (function() {
+                const modalId = '{{ content_object.pk }}_{{ content_type.id }}';
+                const studentsList = document.getElementById('students_list_' + modalId);
+                const selectedContainer = document.getElementById('selected_students_' + modalId);
+                const inputsContainer = document.getElementById('student_inputs_' + modalId);
+                const searchInput = document.getElementById('student_search_' + modalId);
+                const countSpan = document.getElementById('student_count_' + modalId);
+                
+                // Filtrar estudiantes según búsqueda
+                window['filterStudents_' + modalId] = function() {
+                    const searchTerm = searchInput.value.toLowerCase().trim();
+                    const items = studentsList.querySelectorAll('.student-item');
+                    const groups = studentsList.querySelectorAll('.student-group');
+                    
+                    groups.forEach(group => {
+                        let hasVisibleStudents = false;
+                        const groupItems = group.querySelectorAll('.student-item');
+                        
+                        groupItems.forEach(item => {
+                            const studentName = item.dataset.studentName;
+                            if (!searchTerm || studentName.includes(searchTerm)) {
+                                item.style.display = '';
+                                hasVisibleStudents = true;
+                            } else {
+                                item.style.display = 'none';
+                            }
+                        });
+                        
+                        // Mostrar/ocultar header del grupo
+                        const header = group.querySelector('.group-header');
+                        header.style.display = hasVisibleStudents ? '' : 'none';
+                    });
+                };
+                
+                // Actualizar lista de seleccionados
+                window['updateSelectedStudents_' + modalId] = function() {
+                    const checkboxes = studentsList.querySelectorAll('.student-checkbox:checked');
+                    const count = checkboxes.length;
+                    
+                    // Actualizar contador
+                    countSpan.textContent = '(' + count + ')';
+                    
+                    // Limpiar contenedores
+                    selectedContainer.innerHTML = '';
+                    inputsContainer.innerHTML = '';
+                    
+                    if (count === 0) {
+                        selectedContainer.innerHTML = '<span class="text-sm text-base-content/50 empty-message">Ningún estudiante seleccionado</span>';
+                        return;
+                    }
+                    
+                    // Crear badges para seleccionados
+                    checkboxes.forEach(cb => {
+                        const studentId = cb.dataset.studentId;
+                        const studentName = cb.dataset.studentName;
+                        const groupName = cb.dataset.group;
+                        
+                        // Badge
+                        const badge = document.createElement('div');
+                        badge.className = 'badge badge-primary gap-2';
+                        badge.innerHTML = `
+                            <span class="text-xs">${studentName}</span>
+                            <button type="button" 
+                                    class="btn btn-ghost btn-xs p-0 h-4 min-h-0"
+                                    onclick="removeStudent_${modalId}('${studentId}')"
+                                    title="Eliminar">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </button>
+                        `;
+                        selectedContainer.appendChild(badge);
+                        
+                        // Hidden input
+                        const input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = 'student_ids';
+                        input.value = studentId;
+                        inputsContainer.appendChild(input);
+                    });
+                };
+                
+                // Remover estudiante seleccionado
+                window['removeStudent_' + modalId] = function(studentId) {
+                    const checkbox = studentsList.querySelector(`.student-checkbox[data-student-id="${studentId}"]`);
+                    if (checkbox) {
+                        checkbox.checked = false;
+                        window['updateSelectedStudents_' + modalId]();
+                    }
+                };
+                
+                // Seleccionar todos (visibles)
+                window['selectAllStudents_' + modalId] = function() {
+                    const visibleCheckboxes = studentsList.querySelectorAll('.student-item:not([style*="display: none"]) .student-checkbox');
+                    visibleCheckboxes.forEach(cb => cb.checked = true);
+                    window['updateSelectedStudents_' + modalId]();
+                };
+                
+                // Limpiar selección
+                window['clearStudents_' + modalId] = function() {
+                    studentsList.querySelectorAll('.student-checkbox').forEach(cb => cb.checked = false);
+                    searchInput.value = '';
+                    window['filterStudents_' + modalId]();
+                    window['updateSelectedStudents_' + modalId]();
+                };
+            })();
+            </script>
             {% endif %}
             
             {# Botones de acción #}
