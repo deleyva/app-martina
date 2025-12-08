@@ -87,23 +87,20 @@
         </div>
         <div class="flex-none hidden lg:block">
           <ul class="menu menu-horizontal">
-            <li><a href="{% url 'home' %}">Home</a></li>
-            <li><a href="{% url 'about' %}">About</a></li>
+            {% comment %} <li><a href="{% url 'home' %}">Home</a></li>
+            <li><a href="{% url 'about' %}">About</a></li> {% endcomment %}
             {% if request.user.is_staff %}
               <li><a href="{% url 'admin:index' %}">Admin</a></li>
-              <li><a href="{% url 'evaluations:evaluation_item_list' %}">{% translate "Lista de Evaluaciones" %}</a></li>
-              <li><a href="{% url 'evaluations:pending_evaluations_table' %}">{% translate "Evaluaciones Pendientes" %}</a></li>
+              {% comment %} <li><a href="{% url 'evaluations:evaluation_item_list' %}">{% translate "Lista de Evaluaciones" %}</a></li>
+              <li><a href="{% url 'evaluations:pending_evaluations_table' %}">{% translate "Evaluaciones Pendientes" %}</a></li> {% endcomment %}
             {% endif %}
             {% if request.user.is_superuser %}
               <li><a href="{% url 'users:impersonate-list' %}">{% translate "Impersonar Usuario" %}</a></li>
             {% endif %}
             {% if request.user.is_authenticated %}
               <li><a href="{% url 'users:detail' request.user.pk %}">{% translate "My Profile" %}</a></li>
-              {% if request.user.student_profile %}
+              {% if request.user.student_profile or request.user.is_staff %}
                 <li><a href="{% url 'my_library:index' %}">{% translate "Mi librería" %}</a></li>
-                <li><a href="{% url 'clases:class_session_list' %}">{% translate "Sesiones" %}</a></li>
-              {% endif %}
-              {% if request.user.is_staff %}
                 <li><a href="{% url 'clases:class_session_list' %}">{% translate "Sesiones" %}</a></li>
               {% endif %}
               <li><a href="{% url 'account_logout' %}">{% translate "Sign Out" %}</a></li>
