@@ -14,27 +14,60 @@
         max-width: none;
     }
 
-    /* PDF preview card hover effects */
-    .pdf-preview-card:hover {
-        transform: translateY(-2px);
+    /* Grid responsivo para cards */
+    .content-grid {
+        display: grid;
+        grid-template-columns: repeat(1, 1fr);
+        gap: 1.5rem;
+    }
+
+    @media (min-width: 768px) {
+        .content-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    @media (min-width: 1024px) {
+        .content-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+
+    @media (min-width: 1536px) {
+        .content-grid {
+            grid-template-columns: repeat(4, 1fr);
+        }
+    }
+
+    /* Card styles */
+    .content-card {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .content-card:hover {
+        transform: translateY(-4px);
         transition: transform 0.2s ease-in-out;
     }
 
-    .pdf-preview-fullwidth {
+    /* PDF preview - media página */
+    .pdf-preview-compact {
         width: 100%;
-        border-radius: 0.75rem;
+        border-radius: 0.5rem;
         background-color: #f5f5f5;
         overflow: hidden;
         position: relative;
+        height: 300px;
     }
 
     .pdf-preview-canvas-wrapper {
         width: 100%;
+        height: 100%;
         overflow: hidden;
         display: flex;
         justify-content: center;
-        align-items: center;
-        min-height: 220px;
+        align-items: flex-start;
         background: #f5f5f5;
     }
 
@@ -50,12 +83,34 @@
         left: 50%;
         transform: translate(-50%, -50%);
         text-align: center;
+        z-index: 10;
     }
 
-    @media (max-width: 768px) {
-        .pdf-preview-canvas-wrapper {
-            min-height: 180px;
-        }
+    /* Imágenes responsive en cards */
+    .card-image-wrapper {
+        width: 100%;
+        height: 250px;
+        overflow: hidden;
+        border-radius: 0.5rem;
+    }
+
+    .card-image-wrapper img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    /* Truncar texto a 2 líneas */
+    .line-clamp-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    /* Asegurar que las cards tengan tamaño uniforme */
+    .content-card .card-body {
+        min-height: 200px;
     }
 
     /* Responsive embeds - hacer iframes 100% */
@@ -139,78 +194,71 @@
     </div>
 
     <!-- StreamField Content -->
-    <div class="streamfield-content">
+    <div class="streamfield-content content-grid">
         {% for block in page.content %}
             {% if block.block_type == 'pdf_score' %}
-            <!-- PDF Score Block -->
-            <div class="card bg-base-100 shadow-xl mb-6">
-                <div class="card-body">
-                    <h2 class="card-title">{{ block.value.title }}</h2>
+            <!-- PDF Score Card -->
+            <div class="card bg-base-100 shadow-xl content-card">
+                <!-- PDF Preview -->
+                {% if block.value.pdf_file %}
+                <div class="pdf-preview-compact" id="pdf-preview-{{ forloop.counter }}">
+                    <div class="pdf-loading">
+                        <span class="loading loading-spinner loading-md"></span>
+                        <p class="text-xs mt-1">Cargando...</p>
+                    </div>
+                    <div class="pdf-preview-canvas-wrapper">
+                        <canvas 
+                            class="pdf-preview-canvas" 
+                            data-pdf-url="{{ block.value.pdf_file.url }}"
+                            data-half-page="true"
+                            id="pdf-canvas-{{ forloop.counter }}"
+                        ></canvas>
+                    </div>
+                </div>
+                
+                <!-- Card Body -->
+                <div class="card-body p-4">
+                    <h3 class="card-title text-base">{{ block.value.title }}</h3>
+                    
+                    <!-- Badges -->
+                    <div class="flex flex-wrap gap-1 mb-2">
+                        {% if block.value.page_count %}
+                        <div class="badge badge-ghost badge-sm">{{ block.value.page_count }} pág.</div>
+                        {% endif %}
+                        {% if block.value.difficulty_level %}
+                        <div class="badge badge-primary badge-sm">{{ block.value.get_difficulty_level_display }}</div>
+                        {% endif %}
+                    </div>
+                    
                     {% if block.value.description %}
-                    <p class="text-base-content/70">{{ block.value.description }}</p>
+                    <p class="text-xs text-base-content/70 line-clamp-2">{{ block.value.description }}</p>
                     {% endif %}
                     
-                    {% if block.value.pdf_file %}
-                    <div class="mt-4 space-y-6">
-                        <div class="pdf-preview-fullwidth" id="pdf-preview-{{ forloop.counter }}">
-                            <div class="pdf-loading">
-                                <span class="loading loading-spinner loading-lg"></span>
-                                <p class="text-sm mt-2">Cargando vista previa...</p>
-                            </div>
-                            <div class="pdf-preview-canvas-wrapper">
-                                <canvas 
-                                    class="pdf-preview-canvas" 
-                                    data-pdf-url="{{ block.value.pdf_file.url }}"
-                                    id="pdf-canvas-{{ forloop.counter }}"
-                                ></canvas>
-                            </div>
+                    <!-- Actions -->
+                    <div class="card-actions justify-end mt-auto">
+                        <a href="{{ block.value.pdf_file.url }}" target="_blank" class="btn btn-primary btn-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                            </svg>
+                        </a>
+                        <a href="{{ block.value.pdf_file.url }}" download class="btn btn-ghost btn-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                        </a>
+                        {% if user.is_authenticated %}
+                        <div id="library-btn-doc-{{ block.value.pdf_file.id }}">
+                            {% library_button block.value.pdf_file %}
                         </div>
-
-                        <!-- PDF Info + Actions -->
-                        <div class="bg-base-200 rounded-lg p-6 pdf-preview-card">
-                            <div class="flex flex-col gap-4">
-                                <div>
-                                    <h3 class="font-semibold text-lg mb-2">{{ block.value.pdf_file.title }}</h3>
-                                    <div class="flex flex-wrap gap-2 mb-2">
-                                        {% if block.value.page_count %}
-                                        <div class="badge badge-ghost">{{ block.value.page_count }} pages</div>
-                                        {% endif %}
-                                        {% if block.value.difficulty_level %}
-                                        <div class="badge badge-primary">{{ block.value.get_difficulty_level_display }}</div>
-                                        {% endif %}
-                                    </div>
-                                    <p class="text-sm text-base-content/50">Abre el PDF en una pestaña nueva para verlo completo o descárgalo para estudiarlo sin conexión.</p>
-                                </div>
-
-                                <div class="flex flex-wrap gap-3">
-                                    <a href="{{ block.value.pdf_file.url }}" target="_blank" class="btn btn-primary">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
-                                        </svg>
-                                        Open in New Tab
-                                    </a>
-                                    <a href="{{ block.value.pdf_file.url }}" download class="btn btn-outline">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                        </svg>
-                                        Download
-                                    </a>
-                                    {% if user.is_authenticated %}
-                                    <div id="library-btn-doc-{{ block.value.pdf_file.id }}">
-                                        {% library_button block.value.pdf_file %}
-                                    </div>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
+                        {% endif %}
                     </div>
-                    {% endif %}
                 </div>
+                {% endif %}
             </div>
             
             {% elif block.block_type == 'metadata' %}
-            <!-- Metadata Block -->
-            <div class="card bg-base-200 shadow-lg mb-6">
+            <!-- Metadata Block (Full Width) -->
+            <div class="card bg-base-200 shadow-lg col-span-full">
                 <div class="card-body">
                     <h2 class="card-title">🏷️ Musical Information</h2>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -255,8 +303,8 @@
             </div>
             
             {% elif block.block_type == 'bookmarks' %}
-            <!-- Bookmarks Block -->
-            <div class="card bg-base-100 shadow-lg mb-6">
+            <!-- Bookmarks Block (Full Width) -->
+            <div class="card bg-base-100 shadow-lg col-span-full">
                 <div class="card-body">
                     <h2 class="card-title">🔖 Bookmarks</h2>
                     <div class="overflow-x-auto">
@@ -287,8 +335,8 @@
             </div>
             
             {% elif block.block_type == 'notes' %}
-            <!-- Notes Block -->
-            <div class="card bg-base-100 shadow-lg mb-6">
+            <!-- Notes Block (Full Width) -->
+            <div class="card bg-base-100 shadow-lg col-span-full">
                 <div class="card-body">
                     <h2 class="card-title">📝 Notes</h2>
                     <div class="prose max-w-none">
@@ -298,67 +346,45 @@
             </div>
             
             {% elif block.block_type == 'audio' %}
-            <!-- Audio Block -->
-            <div class="card bg-base-100 shadow-lg mb-6">
-                <div class="card-body">
-                    <h2 class="card-title">🎵 {{ block.value.title }}</h2>
+            <!-- Audio Card -->
+            <div class="card bg-base-100 shadow-xl content-card">
+                <div class="card-body p-4">
+                    <h3 class="card-title text-base">🎵 {{ block.value.title }}</h3>
+                    
+                    <!-- Badges -->
+                    <div class="flex flex-wrap gap-1 mb-2">
+                        {% if block.value.duration %}
+                        <div class="badge badge-ghost badge-sm">{{ block.value.duration }}</div>
+                        {% endif %}
+                        {% if block.value.difficulty_level %}
+                        <div class="badge badge-primary badge-sm">{{ block.value.get_difficulty_level_display }}</div>
+                        {% endif %}
+                    </div>
+                    
                     {% if block.value.description %}
-                    <p class="text-base-content/70 mb-4">{{ block.value.description }}</p>
+                    <p class="text-xs text-base-content/70 line-clamp-2 mb-3">{{ block.value.description }}</p>
                     {% endif %}
                     
                     {% if block.value.audio_file %}
-                    <div class="bg-base-200 rounded-lg p-4">
-                        <!-- Audio Player -->
-                        <div class="mb-4">
-                            <audio controls class="w-full" preload="metadata">
-                                <source src="{{ block.value.audio_file.url }}" type="audio/mpeg">
-                                <source src="{{ block.value.audio_file.url }}" type="audio/wav">
-                                <source src="{{ block.value.audio_file.url }}" type="audio/ogg">
-                                Your browser does not support the audio element.
-                                <a href="{{ block.value.audio_file.url }}" class="link">Download audio file</a>
-                            </audio>
+                    <!-- Audio Player -->
+                    <audio controls class="w-full mb-3" preload="metadata">
+                        <source src="{{ block.value.audio_file.url }}" type="audio/mpeg">
+                        <source src="{{ block.value.audio_file.url }}" type="audio/wav">
+                        <source src="{{ block.value.audio_file.url }}" type="audio/ogg">
+                    </audio>
+                    
+                    <!-- Actions -->
+                    <div class="card-actions justify-end mt-auto">
+                        <a href="{{ block.value.audio_file.url }}" download class="btn btn-primary btn-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                        </a>
+                        {% if user.is_authenticated %}
+                        <div id="library-btn-audio-{{ block.value.audio_file.id }}">
+                            {% library_button block.value.audio_file %}
                         </div>
-                        
-                        <!-- Audio Info and Actions -->
-                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                            <div class="flex-1">
-                                <div class="text-sm text-base-content/70 mb-2">
-                                    <span class="font-medium">File:</span> {{ block.value.audio_file.title }}
-                                </div>
-                                {% if block.value.duration %}
-                                <div class="text-sm text-base-content/70 mb-2">
-                                    <span class="font-medium">Duration:</span> {{ block.value.duration }}
-                                </div>
-                                {% endif %}
-                                {% if block.value.difficulty_level %}
-                                <div class="mb-2">
-                                    <div class="badge badge-primary badge-sm">{{ block.value.get_difficulty_level_display }}</div>
-                                </div>
-                                {% endif %}
-                            </div>
-                            
-                            <!-- Download Button -->
-                            <div class="flex gap-2">
-                                <a href="{{ block.value.audio_file.url }}" download class="btn btn-sm btn-primary">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                    </svg>
-                                    Download Audio
-                                </a>
-                                <button class="btn btn-sm btn-ghost" onclick="shareAudio('{{ block.value.audio_file.url }}', '{{ block.value.title }}')">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"></path>
-                                    </svg>
-                                    Share
-                                </button>
-                                <!-- Add to Library Button -->
-                                {% if user.is_authenticated %}
-                                <div id="library-btn-audio-{{ block.value.audio_file.id }}">
-                                    {% library_button block.value.audio_file %}
-                                </div>
-                                {% endif %}
-                            </div>
-                        </div>
+                        {% endif %}
                     </div>
                     {% endif %}
                 </div>
@@ -366,78 +392,74 @@
             {% endif %}
             
             {% if block.block_type == 'image' %}
-            <!-- Image Block -->
-            <div class="card bg-base-100 shadow-xl mb-6">
-                <div class="card-body">
-                    <h2 class="card-title">{{ block.value.title }}</h2>
+            <!-- Image Card -->
+            <div class="card bg-base-100 shadow-xl content-card">
+                {% if block.value.image %}
+                <div class="card-image-wrapper">
+                    {% image block.value.image fill-400x250 class="w-full h-full object-cover" alt=block.value.alt_text %}
+                </div>
+                {% endif %}
+                
+                <div class="card-body p-4">
+                    <h3 class="card-title text-base">{{ block.value.title }}</h3>
+                    
+                    <!-- Badges -->
+                    <div class="flex flex-wrap gap-1 mb-2">
+                        {% if block.value.difficulty_level %}
+                        <div class="badge badge-primary badge-sm">{{ block.value.get_difficulty_level_display }}</div>
+                        {% endif %}
+                    </div>
+                    
                     {% if block.value.caption %}
-                    <p class="text-base-content/70 mb-4">{{ block.value.caption }}</p>
+                    <p class="text-xs text-base-content/70 line-clamp-2">{{ block.value.caption }}</p>
                     {% endif %}
                     
-                    {% if block.value.image %}
-                    <figure class="mb-4">
-                        {% image block.value.image width-800 class="w-full rounded-lg shadow-lg" alt=block.value.alt_text %}
-                    </figure>
-                    {% endif %}
-                    
-                    <!-- Image Info -->
-                    <div class="flex flex-wrap gap-2 justify-between items-center">
-                        <div class="flex flex-wrap gap-2">
-                            {% if block.value.difficulty_level %}
-                            <div class="badge badge-primary">{{ block.value.get_difficulty_level_display }}</div>
-                            {% endif %}
-                            <div class="badge badge-ghost">{{ block.value.image.width }}×{{ block.value.image.height }}px</div>
+                    <!-- Actions -->
+                    <div class="card-actions justify-end mt-auto">
+                        <a href="{{ block.value.image.url }}" download class="btn btn-primary btn-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                        </a>
+                        {% if user.is_authenticated %}
+                        <div id="library-btn-img-{{ block.value.image.id }}">
+                            {% library_button block.value.image %}
                         </div>
-                        
-                        <!-- Action Buttons -->
-                        <div class="flex gap-2">
-                            <a href="{{ block.value.image.url }}" download class="btn btn-sm btn-outline">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                </svg>
-                                Download Image
-                            </a>
-                            <!-- Add to Library Button -->
-                            {% if user.is_authenticated %}
-                            <div id="library-btn-img-{{ block.value.image.id }}">
-                                {% library_button block.value.image %}
-                            </div>
-                            {% endif %}
-                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
             {% endif %}
             
             {% if block.block_type == 'embed' %}
-            <!-- Embed Block -->
-            <div class="card bg-base-100 shadow-xl mb-6 overflow-hidden">
-                <!-- Header con padding -->
-                <div class="card-body pb-0">
-                    <h2 class="card-title">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
-                        </svg>
-                        Multimedia Embed
-                    </h2>
-                </div>
-                
-                <!-- Embed sin padding - full width -->
-                <div class="w-full aspect-video relative">
+            <!-- Embed Card -->
+            <div class="card bg-base-100 shadow-xl content-card overflow-hidden">
+                <!-- Embed container -->
+                <div class="w-full aspect-video relative bg-base-200">
                     <div class="absolute inset-0">
                         {{ block.value }}
                     </div>
                 </div>
                 
-                <!-- Footer con padding -->
-                <div class="card-body pt-2">
-                    <div class="text-xs text-base-content/50">
-                        {% if block.value.url %}
-                        <a href="{{ block.value.url }}" target="_blank" rel="noopener noreferrer" class="link link-hover">
-                            Ver en el sitio original ↗
+                <!-- Card Body -->
+                <div class="card-body p-4">
+                    <h3 class="card-title text-base">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                        </svg>
+                        Embed
+                    </h3>
+                    
+                    {% if block.value.url %}
+                    <div class="card-actions justify-end mt-auto">
+                        <a href="{{ block.value.url }}" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm">
+                            Ver original
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                            </svg>
                         </a>
-                        {% endif %}
                     </div>
+                    {% endif %}
                 </div>
             </div>
             {% endif %}
@@ -469,20 +491,25 @@ document.addEventListener('DOMContentLoaded', function() {
     
     pdfCanvases.forEach(function(canvas, index) {
         const pdfUrl = canvas.getAttribute('data-pdf-url');
-        const loadingDiv = canvas.closest('.pdf-preview-fullwidth').querySelector('.pdf-loading');
+        const isHalfPage = canvas.getAttribute('data-half-page') === 'true';
+        const previewContainer = canvas.closest('.pdf-preview-compact') || canvas.closest('.pdf-preview-fullwidth');
+        const loadingDiv = previewContainer?.querySelector('.pdf-loading');
         
         if (pdfUrl) {
             // Cargar PDF
             pdfjsLib.getDocument(pdfUrl).promise.then(function(pdf) {
                 // Renderizar primera página
                 pdf.getPage(1).then(function(page) {
-                    const scale = 1.5;
+                    // Calcular escala para ajustar al ancho del contenedor
+                    const containerWidth = previewContainer.clientWidth;
+                    const originalViewport = page.getViewport({ scale: 1 });
+                    const scale = containerWidth / originalViewport.width;
                     const viewport = page.getViewport({ scale: scale });
                     
                     // Configurar canvas
                     const context = canvas.getContext('2d');
-                    canvas.height = viewport.height;
                     canvas.width = viewport.width;
+                    canvas.height = viewport.height;
                     
                     // Renderizar PDF en canvas
                     const renderContext = {
@@ -495,7 +522,14 @@ document.addEventListener('DOMContentLoaded', function() {
                         if (loadingDiv) {
                             loadingDiv.style.display = 'none';
                         }
-                        console.log('PDF preview rendered successfully');
+                        
+                        // Si es media página, ajustar la altura visible del canvas
+                        if (isHalfPage) {
+                            // El overflow:hidden del wrapper cortará la mitad inferior automáticamente
+                            console.log('PDF half-page preview rendered successfully');
+                        } else {
+                            console.log('PDF preview rendered successfully');
+                        }
                     });
                 });
             }).catch(function(error) {
