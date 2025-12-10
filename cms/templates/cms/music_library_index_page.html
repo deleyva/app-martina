@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% load wagtailcore_tags wagtailimages_tags %}
 {% load library_tags %}
+{% load cms_tags %}
 
 {# MUSIC PILLS - Plantilla de biblioteca musical #}
 {# Esta plantilla puede ser extraída para usar en otra instalación de Wagtail #}
@@ -190,27 +191,34 @@
                         🎵 {% for audio in audio_blocks|slice:":2" %}{{ audio.title }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if audio_blocks|length > 2 %}...{% endif %}
                     </div>
                     {% endif %}
+                    {% endif %}
+                    {% endwith %}
                     
                     <!-- PDF & Audio Document Tags (clickable filters) -->
-                    <div class="flex flex-wrap gap-1 mt-1">
+                    {% with pdf_blocks=score.get_pdf_blocks audio_blocks=score.get_audios %}
+                    {% if pdf_blocks or audio_blocks %}
+                    <div class="flex flex-wrap gap-1 mt-1 doc-tags-container" data-score-id="{{ score.id }}">
+                        {# Tags de PDFs #}
                         {% for pdf in pdf_blocks %}
-                            {% if pdf.pdf_file.tags.all %}
-                                {% for doc_tag in pdf.pdf_file.tags.all|slice:":3" %}
-                                <div class="badge badge-secondary badge-xs cursor-pointer"
-                                     onclick="event.preventDefault(); event.stopPropagation(); filterByTag('{{ doc_tag.name|escapejs }}');">
-                                    📎 {{ doc_tag.name }}
+                            {% if pdf.pdf_file and pdf.pdf_file.tags.all %}
+                                {% for tag in pdf.pdf_file.tags.all %}
+                                <div class="badge badge-secondary badge-xs cursor-pointer doc-tag"
+                                     data-tag-name="{{ tag.name|lower }}"
+                                     onclick="event.preventDefault(); event.stopPropagation(); filterByTag('{{ tag.name|escapejs }}');">
+                                    📎 {{ tag.name }}
                                 </div>
                                 {% endfor %}
                             {% endif %}
                         {% endfor %}
                         
-                        <!-- Audio Document Tags -->
+                        {# Tags de Audios #}
                         {% for audio in audio_blocks %}
-                            {% if audio.audio_file.tags.all %}
-                                {% for doc_tag in audio.audio_file.tags.all|slice:":3" %}
-                                <div class="badge badge-accent badge-xs cursor-pointer"
-                                     onclick="event.preventDefault(); event.stopPropagation(); filterByTag('{{ doc_tag.name|escapejs }}');">
-                                    🎵 {{ doc_tag.name }}
+                            {% if audio.audio_file and audio.audio_file.tags.all %}
+                                {% for tag in audio.audio_file.tags.all %}
+                                <div class="badge badge-accent badge-xs cursor-pointer doc-tag"
+                                     data-tag-name="{{ tag.name|lower }}"
+                                     onclick="event.preventDefault(); event.stopPropagation(); filterByTag('{{ tag.name|escapejs }}');">
+                                    🎵 {{ tag.name }}
                                 </div>
                                 {% endfor %}
                             {% endif %}
@@ -515,6 +523,24 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             seenTags.add(tagKey);
         }
+    });
+    
+    // Remove duplicate document tags within each score
+    const tagContainers = document.querySelectorAll('.doc-tags-container');
+    tagContainers.forEach((container) => {
+        const seenScoreTags = new Set();
+        const tags = container.querySelectorAll('.doc-tag');
+        
+        tags.forEach((tag) => {
+            const tagName = tag.dataset.tagName || '';
+            const tagKey = tagName.trim().toLowerCase();
+            
+            if (seenScoreTags.has(tagKey)) {
+                tag.remove();
+            } else {
+                seenScoreTags.add(tagKey);
+            }
+        });
     });
 });
 </script>
