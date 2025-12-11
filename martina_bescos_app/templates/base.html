@@ -99,7 +99,7 @@
             {% endif %}
             {% if request.user.is_authenticated %}
               <li><a href="{% url 'users:detail' request.user.pk %}">{% translate "My Profile" %}</a></li>
-              {% if request.user.student_profile or request.user.is_staff %}
+              {% if request.user.enrollments.exists or request.user.is_staff %}
                 <li><a href="{% url 'my_library:index' %}">{% translate "Mi librería" %}</a></li>
                 <li><a href="{% url 'clases:class_session_list' %}">{% translate "Sesiones" %}</a></li>
               {% endif %}
@@ -178,7 +178,7 @@
             <li><a href="{% url 'evaluations:evaluation_item_list' %}">{% translate "Evaluaciones" %}</a></li>
             <li><a href="{% url 'clases:class_session_list' %}">{% translate "Sesiones" %}</a></li>
           {% endif %}
-          {% if request.user.student_profile %}
+          {% if request.user.enrollments.exists %}
             <li><a href="{% url 'my_library:index' %}">{% translate "Mi librería" %}</a></li>
             <li><a href="{% url 'clases:class_session_list' %}">{% translate "Sesiones" %}</a></li>
           {% endif %}

@@ -7,6 +7,7 @@ from .models import (
     ClassSession,
     ClassSessionItem,
     GroupInvitation,
+    Enrollment,
 )
 
 
@@ -62,6 +63,32 @@ class StudentAdmin(admin.ModelAdmin):
     list_filter = ("group__subject", "group")
     search_fields = ("user__name", "user__email", "group__name")
     raw_id_fields = ("user",)
+
+    def get_group_subject(self, obj):
+        return obj.group.subject.name
+
+    get_group_subject.short_description = "Asignatura"
+
+
+@admin.register(Enrollment)
+class EnrollmentAdmin(admin.ModelAdmin):
+    list_display = (
+        "user",
+        "group",
+        "get_group_subject",
+        "is_active",
+        "enrolled_at",
+    )
+    list_filter = ("is_active", "group__subject", "group", "enrolled_at")
+    search_fields = ("user__name", "user__email", "group__name")
+    raw_id_fields = ("user",)
+    readonly_fields = ("enrolled_at",)
+    date_hierarchy = "enrolled_at"
+
+    fieldsets = (
+        (None, {"fields": ("user", "group", "is_active")}),
+        ("Información", {"fields": ("enrolled_at",)}),
+    )
 
     def get_group_subject(self, obj):
         return obj.group.subject.name

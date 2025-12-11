@@ -95,7 +95,11 @@ class Group(models.Model):
 
 
 class Student(models.Model):
-    """Estudiante pertenece a un grupo"""
+    """Estudiante pertenece a un grupo.
+
+    DEPRECADO: Este modelo se mantiene por compatibilidad con datos existentes.
+    Usa Enrollment para la relación User-Group many-to-many.
+    """
 
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
@@ -110,17 +114,56 @@ class Student(models.Model):
         on_delete=models.PROTECT,
         related_name="students",
         verbose_name="Grupo",
-        help_text="Grupo al que pertenece el estudiante",
+        help_text="Grupo al que pertenece el estudiante (DEPRECADO: usar Enrollment)",
     )
 
     class Meta:
         db_table = "evaluations_student"  # Mantener tabla existente
         ordering = ["user__name"]
-        verbose_name = "Estudiante"
-        verbose_name_plural = "Estudiantes"
+        verbose_name = "Estudiante (Legacy)"
+        verbose_name_plural = "Estudiantes (Legacy)"
 
     def __str__(self):
         return f"{self.user.name}" if self.user else f"Student {self.id}"
+
+
+class Enrollment(models.Model):
+    """Matrícula de un usuario en un grupo (relación many-to-many User-Group)."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="enrollments",
+        verbose_name="Usuario",
+    )
+    group = models.ForeignKey(
+        Group,
+        on_delete=models.CASCADE,
+        related_name="enrollments",
+        verbose_name="Grupo",
+    )
+    enrolled_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Fecha de matrícula",
+    )
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Activo",
+        help_text="Si está desactivado, el usuario no verá este grupo",
+    )
+
+    class Meta:
+        ordering = ["-enrolled_at"]
+        unique_together = ["user", "group"]
+        verbose_name = "Matrícula"
+        verbose_name_plural = "Matrículas"
+        indexes = [
+            models.Index(fields=["user", "is_active"]),
+            models.Index(fields=["group", "is_active"]),
+        ]
+
+    def __str__(self):
+        return f"{self.user.name if hasattr(self.user, 'name') else self.user.email} → {self.group}"
 
 
 class GroupInvitation(models.Model):
@@ -202,32 +245,31 @@ class GroupInvitation(models.Model):
     def accept_for_user(self, user):
         """Aceptar la invitación para un usuario autenticado.
 
-        Retorna (student, status) donde status es:
-        - "joined": se ha creado el Student y unido al grupo
-        - "already_in_group": el usuario ya pertenece a este grupo
-        - "other_group": el usuario pertenece a otro grupo distinto
+        Retorna (enrollment, status) donde status es:
+        - "joined": se ha creado el Enrollment y unido al grupo
+        - "already_in_group": el usuario ya está matriculado en este grupo
         - "invalid": la invitación no es válida
         """
 
         if not self.is_valid():
             return None, "invalid"
 
-        student = getattr(user, "student_profile", None)
+        # Verificar si ya existe matrícula activa para este grupo
+        existing = Enrollment.objects.filter(
+            user=user, group=self.group, is_active=True
+        ).first()
 
-        if student and student.group == self.group:
-            return student, "already_in_group"
+        if existing:
+            return existing, "already_in_group"
 
-        if student and student.group != self.group:
-            return student, "other_group"
-
-        # Crear perfil de estudiante y unirlo al grupo
-        student = Student._default_manager.create(user=user, group=self.group)
+        # Crear nueva matrícula
+        enrollment = Enrollment.objects.create(user=user, group=self.group)
 
         self.uses += 1
         self.last_used_at = timezone.now()
         self.save(update_fields=["uses", "last_used_at"])
 
-        return student, "joined"
+        return enrollment, "joined"
 
 
 # =============================================================================

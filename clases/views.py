@@ -13,6 +13,7 @@ from .models import (
     ClassSessionItem,
     Student,
     GroupInvitation,
+    Enrollment,
 )
 
 
@@ -34,19 +35,14 @@ def group_join_by_invitation(request, token):
     TINY VIEW: delega en GroupInvitation (FAT MODEL) y muestra mensajes.
     """
     invitation = get_object_or_404(GroupInvitation, token=token)
-    student, status = invitation.accept_for_user(request.user)
+    enrollment, status = invitation.accept_for_user(request.user)
 
     if status == "invalid":
         messages.error(request, "Este enlace de invitación ya no es válido.")
     elif status == "already_in_group":
         messages.info(
             request,
-            f"Ya perteneces al grupo {invitation.group}.",
-        )
-    elif status == "other_group":
-        messages.error(
-            request,
-            "Tu cuenta ya está asociada a otro grupo. Pide a tu profesor que actualice tu grupo.",
+            f"Ya estás matriculado en el grupo {invitation.group}.",
         )
     elif status == "joined":
         messages.success(request, f"Te has unido al grupo {invitation.group}.")
@@ -252,7 +248,7 @@ def class_session_list(request):
     """
     Lista de sesiones de clase.
     - Para profesores: muestra todas sus sesiones
-    - Para estudiantes: muestra sesiones de su grupo
+    - Para estudiantes: muestra sesiones de sus grupos (multi-grupo)
     TINY VIEW: solo orquesta y renderiza.
     """
     user = request.user
@@ -263,16 +259,14 @@ def class_session_list(request):
         groups = user.teaching_groups.all()
         sessions = ClassSession.objects.filter(teacher=user).select_related("group")
     else:
-        # Estudiante: ver sesiones de su grupo
-        groups = []
-        sessions = []
-
-        if hasattr(user, "student_profile") and user.student_profile:
-            student_group = user.student_profile.group
-            groups = [student_group]
-            sessions = ClassSession.objects.filter(group=student_group).select_related(
-                "group", "teacher"
-            )
+        # Estudiante: ver sesiones de todos sus grupos activos
+        enrolled_groups = Group.objects.filter(
+            enrollments__user=user, enrollments__is_active=True
+        ).distinct()
+        groups = list(enrolled_groups)
+        sessions = ClassSession.objects.filter(
+            group__in=enrolled_groups
+        ).select_related("group", "teacher")
 
     return render(
         request,
@@ -375,7 +369,7 @@ def class_session_view(request, pk):
     """
     Ver sesión de clase (solo lectura).
     - Para profesores: pueden ver sus propias sesiones
-    - Para estudiantes: pueden ver sesiones de su grupo
+    - Para estudiantes: pueden ver sesiones de sus grupos (multi-grupo)
     TINY VIEW: solo renderiza.
     """
     user = request.user
@@ -385,19 +379,18 @@ def class_session_view(request, pk):
         # Profesor: ver su propia sesión
         session = get_object_or_404(ClassSession, pk=pk, teacher=user)
     else:
-        # Estudiante: ver sesión de su grupo
+        # Estudiante: ver sesión de cualquiera de sus grupos activos
         session = get_object_or_404(ClassSession, pk=pk)
 
-        # Verificar que el estudiante pertenece al grupo de la sesión
-        if hasattr(user, "student_profile") and user.student_profile:
-            if session.group != user.student_profile.group:
-                from django.core.exceptions import PermissionDenied
+        # Verificar que el estudiante está matriculado en el grupo de la sesión
+        is_enrolled = Enrollment.objects.filter(
+            user=user, group=session.group, is_active=True
+        ).exists()
 
-                raise PermissionDenied("No tienes permiso para ver esta sesión.")
-        else:
+        if not is_enrolled:
             from django.core.exceptions import PermissionDenied
 
-            raise PermissionDenied("No eres estudiante de ningún grupo.")
+            raise PermissionDenied("No tienes permiso para ver esta sesión.")
 
     items = session.get_items_ordered()
 
@@ -915,12 +908,12 @@ def class_session_item_viewer(request, session_id, item_id):
             messages.error(request, "No tienes permiso para ver este contenido.")
             return redirect("clases:class_session_list")
     else:
-        # Estudiante: debe pertenecer al grupo de la sesión
-        if hasattr(user, "student_profile") and user.student_profile:
-            if session.group != user.student_profile.group:
-                messages.error(request, "No tienes permiso para ver este contenido.")
-                return redirect("clases:class_session_list")
-        else:
+        # Estudiante: debe estar matriculado en el grupo de la sesión
+        is_enrolled = Enrollment.objects.filter(
+            user=user, group=session.group, is_active=True
+        ).exists()
+
+        if not is_enrolled:
             messages.error(request, "No tienes permiso para ver este contenido.")
             return redirect("clases:class_session_list")
 
