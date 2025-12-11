@@ -6,12 +6,57 @@ from django.views.decorators.http import require_http_methods
 from django.contrib.contenttypes.models import ContentType
 import json
 
-from .models import Group, GroupLibraryItem, ClassSession, ClassSessionItem, Student
+from .models import (
+    Group,
+    GroupLibraryItem,
+    ClassSession,
+    ClassSessionItem,
+    Student,
+    GroupInvitation,
+)
 
 
 # Helper function to check if user is staff
 def is_staff(user):
     return user.is_staff
+
+
+# =============================================================================
+# INVITACIONES A GRUPOS
+# =============================================================================
+
+
+@login_required
+@require_http_methods(["GET"])
+def group_join_by_invitation(request, token):
+    """Procesar enlace de invitación y unir al usuario al grupo.
+
+    TINY VIEW: delega en GroupInvitation (FAT MODEL) y muestra mensajes.
+    """
+    invitation = get_object_or_404(GroupInvitation, token=token)
+    student, status = invitation.accept_for_user(request.user)
+
+    if status == "invalid":
+        messages.error(request, "Este enlace de invitación ya no es válido.")
+    elif status == "already_in_group":
+        messages.info(
+            request,
+            f"Ya perteneces al grupo {invitation.group}.",
+        )
+    elif status == "other_group":
+        messages.error(
+            request,
+            "Tu cuenta ya está asociada a otro grupo. Pide a tu profesor que actualice tu grupo.",
+        )
+    elif status == "joined":
+        messages.success(request, f"Te has unido al grupo {invitation.group}.")
+    else:
+        messages.error(
+            request,
+            "No se ha podido procesar la invitación. Contacta con tu profesor.",
+        )
+
+    return redirect("clases:class_session_list")
 
 
 # =============================================================================

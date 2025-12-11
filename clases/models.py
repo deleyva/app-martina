@@ -1,8 +1,11 @@
+import uuid
+
 from django.db import models
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.urls import reverse
+from django.utils import timezone
 
 # =============================================================================
 # ASIGNATURAS Y GESTIÓN DE GRUPOS
@@ -118,6 +121,113 @@ class Student(models.Model):
 
     def __str__(self):
         return f"{self.user.name}" if self.user else f"Student {self.id}"
+
+
+class GroupInvitation(models.Model):
+    """Enlace de invitación para que usuarios se unan a un grupo concreto."""
+
+    group = models.ForeignKey(
+        Group,
+        on_delete=models.CASCADE,
+        related_name="invitations",
+        verbose_name="Grupo",
+    )
+    token = models.UUIDField(
+        default=uuid.uuid4,
+        unique=True,
+        editable=False,
+        verbose_name="Token de invitación",
+        help_text="Identificador único del enlace de invitación",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_group_invitations",
+        verbose_name="Creado por",
+    )
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Activa",
+        help_text="Si está desactivada, el enlace deja de funcionar",
+    )
+    max_uses = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Número máximo de usos",
+        help_text="Déjalo vacío para usos ilimitados",
+    )
+    uses = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Usos realizados",
+    )
+    expires_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Expira el",
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Creada el",
+    )
+    last_used_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Último uso",
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Invitación a grupo"
+        verbose_name_plural = "Invitaciones a grupos"
+
+    def __str__(self):
+        return f"Invitación a {self.group} ({self.token})"
+
+    def is_valid(self):
+        """Comprobar si la invitación sigue siendo válida."""
+        if not self.is_active:
+            return False
+        if self.expires_at and timezone.now() > self.expires_at:
+            return False
+        if self.max_uses is not None and self.uses >= self.max_uses:
+            return False
+        return True
+
+    def get_join_path(self):
+        """Path relativo que procesa esta invitación."""
+        return reverse("clases:group_join_by_invitation", args=[str(self.token)])
+
+    def accept_for_user(self, user):
+        """Aceptar la invitación para un usuario autenticado.
+
+        Retorna (student, status) donde status es:
+        - "joined": se ha creado el Student y unido al grupo
+        - "already_in_group": el usuario ya pertenece a este grupo
+        - "other_group": el usuario pertenece a otro grupo distinto
+        - "invalid": la invitación no es válida
+        """
+
+        if not self.is_valid():
+            return None, "invalid"
+
+        student = getattr(user, "student_profile", None)
+
+        if student and student.group == self.group:
+            return student, "already_in_group"
+
+        if student and student.group != self.group:
+            return student, "other_group"
+
+        # Crear perfil de estudiante y unirlo al grupo
+        student = Student._default_manager.create(user=user, group=self.group)
+
+        self.uses += 1
+        self.last_used_at = timezone.now()
+        self.save(update_fields=["uses", "last_used_at"])
+
+        return student, "joined"
 
 
 # =============================================================================
