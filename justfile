@@ -275,14 +275,14 @@ vps-docker-prune:
     @echo "✓ Docker cleanup complete (images + build cache)"
 
 # vps-docker-prune-full: Full Docker cleanup INCLUDING volumes - USE WITH CAUTION
-vps-docker-prune-full:
-    @echo "🚨 DANGER: This will remove ALL unused Docker data INCLUDING VOLUMES"
-    @echo "   This affects BOTH stage AND production on your shared VPS!"
-    @echo "   Make sure you have backups before proceeding."
-    @echo "Press Ctrl+C to cancel, or Enter to continue..."
-    @read
-    @ssh $SSH_MARTINA_USER_AND_IP "docker system prune -af --volumes"
-    @echo "✓ Full Docker cleanup complete"
+# vps-docker-prune-full:
+#     @echo "🚨 DANGER: This will remove ALL unused Docker data INCLUDING VOLUMES"
+#     @echo "   This affects BOTH stage AND production on your shared VPS!"
+#     @echo "   Make sure you have backups before proceeding."
+#     @echo "Press Ctrl+C to cancel, or Enter to continue..."
+#     @read
+#     @ssh $SSH_MARTINA_USER_AND_IP "docker system prune -af --volumes"
+#     @echo "✓ Full Docker cleanup complete"
 
 # production-disk-usage: Check disk usage on production server
 production-disk-usage:
