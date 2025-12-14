@@ -189,17 +189,23 @@ restore-media backup_file:
     @echo "Restoring media files from {{backup_file}}..."
     @docker compose run --rm django /restore_media.sh {{backup_file}}
 
-# production-backup-db: Create a database backup (production)
+# production-backup-db: Create a database backup and keep only 2 most recent (production)
 production-backup-db:
     @echo "Creating production database backup..."
     @ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-production && \
     docker compose -f docker-compose.production.yml exec postgres backup"
+    @echo "🧹 Cleaning old DB backups (keeping 2 most recent)..."
+    @ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-production/backups && \
+    ls -t *.sql.gz 2>/dev/null | tail -n +3 | xargs -r rm -v || echo 'No old DB backups to remove'"
 
-# production-backup-media: Create a media files backup (production)
+# production-backup-media: Create a media files backup and keep only 2 most recent (production)
 production-backup-media:
     @echo "Creating production media backup..."
     @ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-production && \
     docker compose -f docker-compose.production.yml run --rm django /backup_media.sh"
+    @echo "🧹 Cleaning old media backups (keeping 2 most recent)..."
+    @ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-production/backups/media && \
+    ls -t *.tar.gz 2>/dev/null | tail -n +3 | xargs -r rm -v || echo 'No old media backups to remove'"
 
 # production-backup-full: Create a complete backup (database + media) (production)
 production-backup-full:
@@ -231,6 +237,57 @@ production-restore-media backup_file:
     @read
     @ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-production && \
     docker compose -f docker-compose.production.yml run --rm django /restore_media.sh {{backup_file}}"
+
+# production-delete-backup-db: Delete a specific database backup (production)
+production-delete-backup-db backup_file:
+    @echo "⚠️  WARNING: This will DELETE production database backup: {{backup_file}}"
+    @echo "Press Ctrl+C to cancel, or Enter to continue..."
+    @read
+    @ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-production && rm -f backups/{{backup_file}}"
+    @echo "✓ Deleted {{backup_file}}"
+
+# production-delete-backup-media: Delete a specific media backup (production)
+production-delete-backup-media backup_file:
+    @echo "⚠️  WARNING: This will DELETE production media backup: {{backup_file}}"
+    @echo "Press Ctrl+C to cancel, or Enter to continue..."
+    @read
+    @ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-production && rm -f backups/media/{{backup_file}}"
+    @echo "✓ Deleted {{backup_file}}"
+
+# production-cleanup-backups: Keep only the 2 most recent backups of each type (production)
+production-cleanup-backups:
+    @echo "🧹 Cleaning up old backups, keeping only 2 most recent..."
+    @echo "\n📦 Database backups cleanup:"
+    @ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-production/backups && \
+    ls -t *.sql.gz 2>/dev/null | tail -n +3 | xargs -r rm -v || echo 'No old DB backups to remove'"
+    @echo "\n📁 Media backups cleanup:"
+    @ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-production/backups/media && \
+    ls -t *.tar.gz 2>/dev/null | tail -n +3 | xargs -r rm -v || echo 'No old media backups to remove'"
+    @echo "\n✓ Cleanup complete"
+
+# vps-docker-prune: Clean up Docker system (images, build cache) - safe for shared VPS (stage + production)
+vps-docker-prune:
+    @echo "⚠️  WARNING: This will remove unused Docker images and build cache"
+    @echo "   (Volumes are preserved to protect stage and production data)"
+    @echo "Press Ctrl+C to cancel, or Enter to continue..."
+    @read
+    @ssh $SSH_MARTINA_USER_AND_IP "docker image prune -af && docker builder prune -af"
+    @echo "✓ Docker cleanup complete (images + build cache)"
+
+# vps-docker-prune-full: Full Docker cleanup INCLUDING volumes - USE WITH CAUTION
+vps-docker-prune-full:
+    @echo "🚨 DANGER: This will remove ALL unused Docker data INCLUDING VOLUMES"
+    @echo "   This affects BOTH stage AND production on your shared VPS!"
+    @echo "   Make sure you have backups before proceeding."
+    @echo "Press Ctrl+C to cancel, or Enter to continue..."
+    @read
+    @ssh $SSH_MARTINA_USER_AND_IP "docker system prune -af --volumes"
+    @echo "✓ Full Docker cleanup complete"
+
+# production-disk-usage: Check disk usage on production server
+production-disk-usage:
+    @echo "📊 Production server disk usage:"
+    @ssh $SSH_MARTINA_USER_AND_IP "df -h && echo '\n📦 Docker disk usage:' && docker system df"
 
 # production-download-backup: Download a backup from production to local machine
 # Usage: just production-download-backup postgres production_backup_2025_11_13.sql.gz
