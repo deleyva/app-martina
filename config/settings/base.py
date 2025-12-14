@@ -218,6 +218,7 @@ TEMPLATES = [
                 "martina_bescos_app.users.context_processors.allauth_settings",
                 "martina_bescos_app.users.context_processors.impersonation_info",
                 "martina_bescos_app.users.context_processors.user_profile_picture",
+                "martina_bescos_app.users.context_processors.user_groups",
             ],
         },
     },

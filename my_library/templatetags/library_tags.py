@@ -20,6 +20,9 @@ def library_button(context, content_object):
 
     Para profesores: muestra un botón que abre modal con opciones múltiples
     Para estudiantes: toggle simple entre añadir/quitar
+
+    RESTRICCIÓN: No se muestran botones para ScorePages completas en bibliotecas personales.
+    Solo se pueden añadir elementos individuales (PDFs, audios, imágenes).
     """
     from clases.models import Student
 
@@ -28,6 +31,11 @@ def library_button(context, content_object):
     teaching_groups = []
     all_students = []
     is_teacher = False
+
+    content_type = ContentType.objects.get_for_model(content_object)
+
+    # RESTRICCIÓN: No mostrar botón para ScorePages (solo elementos individuales)
+    is_scorepage = content_type.model == "scorepage"
 
     if user.is_authenticated:
         in_library = LibraryItem.is_in_library(user, content_object)
@@ -45,8 +53,6 @@ def library_button(context, content_object):
                     .order_by("group__name", "user__name")
                 )
 
-    content_type = ContentType.objects.get_for_model(content_object)
-
     return {
         "content_object": content_object,
         "content_type": content_type,
@@ -55,4 +61,5 @@ def library_button(context, content_object):
         "is_teacher": is_teacher,
         "teaching_groups": teaching_groups,
         "all_students": all_students,
+        "is_scorepage": is_scorepage,
     }

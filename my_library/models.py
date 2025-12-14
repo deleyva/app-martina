@@ -26,7 +26,7 @@ class LibraryItem(models.Model):
     added_at = models.DateTimeField(auto_now_add=True)
     times_viewed = models.PositiveIntegerField(default=0)
     last_viewed = models.DateTimeField(null=True, blank=True)
-    
+
     # Nivel de conocimiento (1=apenas lo conozco, 4=me lo sé muy bien)
     proficiency_level = models.PositiveSmallIntegerField(
         default=1,
@@ -71,19 +71,19 @@ class LibraryItem(models.Model):
     def get_content_type_name(self):
         """Tipo de contenido legible"""
         model_name = self.content_type.model
-        
+
         # Si es un Document de Wagtail, verificar el tipo de archivo
         if model_name == "document" and hasattr(self.content_object, "file"):
             filename = self.content_object.file.name.lower()
             # Detectar audios
-            if filename.endswith(('.mp3', '.wav', '.ogg', '.m4a', '.aac', '.flac')):
+            if filename.endswith((".mp3", ".wav", ".ogg", ".m4a", ".aac", ".flac")):
                 return "Audio"
             # Detectar PDFs
-            elif filename.endswith('.pdf'):
+            elif filename.endswith(".pdf"):
                 return "Documento PDF"
             else:
                 return "Documento"
-        
+
         # Mapping para otros tipos
         mapping = {
             "scorepage": "Partitura",
@@ -94,15 +94,15 @@ class LibraryItem(models.Model):
     def get_icon(self):
         """Icono según tipo de contenido"""
         model_name = self.content_type.model
-        
+
         # Si es un Document, verificar si es audio
         if model_name == "document" and hasattr(self.content_object, "file"):
             filename = self.content_object.file.name.lower()
-            if filename.endswith(('.mp3', '.wav', '.ogg', '.m4a', '.aac', '.flac')):
+            if filename.endswith((".mp3", ".wav", ".ogg", ".m4a", ".aac", ".flac")):
                 return "🎵"
-            elif filename.endswith('.pdf'):
+            elif filename.endswith(".pdf"):
                 return "📄"
-        
+
         icons = {
             "scorepage": "🎼",
             "document": "📄",
@@ -128,11 +128,11 @@ class LibraryItem(models.Model):
         # Si ya es una ScorePage completa, retornar ella misma
         if self.content_type.model == "scorepage":
             return self.content_object
-            
+
         # Para documentos, imágenes y otros tipos, buscar en ScorePages
         if self.content_type.model in ["document", "image"]:
             from cms.models import ScorePage
-            
+
             # Buscar en todas las ScorePages
             for score in ScorePage.objects.live():
                 # Revisar el StreamField content
@@ -140,24 +140,24 @@ class LibraryItem(models.Model):
                     try:
                         # Para PDFs (PDFBlock usa 'pdf_file')
                         if block.block_type == "pdf_score":
-                            if block.value.get('pdf_file') == self.content_object:
+                            if block.value.get("pdf_file") == self.content_object:
                                 return score
-                        
+
                         # Para Audios (AudioBlock usa 'audio_file')
                         elif block.block_type == "audio":
-                            if block.value.get('audio_file') == self.content_object:
+                            if block.value.get("audio_file") == self.content_object:
                                 return score
-                        
+
                         # Para Imágenes (ImageBlock usa 'image')
                         elif block.block_type == "image":
-                            if block.value.get('image') == self.content_object:
+                            if block.value.get("image") == self.content_object:
                                 return score
                     except (AttributeError, KeyError):
                         # Si el bloque no tiene la estructura esperada, continuar
                         continue
-        
+
         return None
-    
+
     def get_documents(self):
         """
         Obtener documentos/archivos del contenido.
@@ -176,7 +176,7 @@ class LibraryItem(models.Model):
             # Verificar si es audio o PDF
             if hasattr(self.content_object, "file"):
                 filename = self.content_object.file.name.lower()
-                if filename.endswith(('.mp3', '.wav', '.ogg', '.m4a', '.aac', '.flac')):
+                if filename.endswith((".mp3", ".wav", ".ogg", ".m4a", ".aac", ".flac")):
                     return {"audios": [self.content_object]}
                 else:
                     return {"pdfs": [self.content_object]}
@@ -187,8 +187,20 @@ class LibraryItem(models.Model):
 
     @classmethod
     def add_to_library(cls, user, content_object):
-        """Añadir elemento a la biblioteca (evita duplicados)"""
+        """Añadir elemento a la biblioteca (evita duplicados).
+
+        RESTRICCIÓN: No se permiten ScorePages completas en bibliotecas personales.
+        Solo se pueden añadir elementos individuales (PDFs, audios, imágenes).
+        """
         content_type = ContentType.objects.get_for_model(content_object)
+
+        # Validación: rechazar ScorePages completas
+        if content_type.model == "scorepage":
+            raise ValueError(
+                "No se pueden añadir ScorePages completas a la biblioteca personal. "
+                "Añade los elementos individuales (PDFs, audios, imágenes) en su lugar."
+            )
+
         item, created = cls.objects.get_or_create(
             user=user, content_type=content_type, object_id=content_object.pk
         )

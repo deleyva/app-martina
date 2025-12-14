@@ -64,3 +64,27 @@ def user_profile_picture(request):
             pass
 
     return {"user_profile_picture": picture_url}
+
+
+def user_groups(request):
+    """Obtener los grupos del usuario (como alumno o profesor) para el menú de navegación."""
+    groups = []
+
+    if request.user.is_authenticated:
+        try:
+            from clases.models import Group
+
+            if request.user.is_staff:
+                # Profesores: obtener grupos donde es profesor
+                groups = list(request.user.teaching_groups.all().order_by("name"))
+            else:
+                # Alumnos: obtener grupos a través de enrollments
+                from clases.models import Student
+
+                student = Student.objects.filter(user=request.user).first()
+                if student and student.group:
+                    groups = [student.group]
+        except Exception:
+            pass
+
+    return {"user_groups": groups}

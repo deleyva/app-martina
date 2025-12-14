@@ -918,8 +918,20 @@ class ClassSessionItem(models.Model):
 
     @classmethod
     def add_to_session(cls, session, content_object, notes=""):
-        """Añadir elemento a la sesión"""
+        """Añadir elemento a la sesión.
+
+        RESTRICCIÓN: No se permiten ScorePages completas en sesiones de clase.
+        Solo se pueden añadir elementos individuales (PDFs, audios, imágenes).
+        """
         content_type = ContentType.objects.get_for_model(content_object)
+
+        # Validación: rechazar ScorePages completas
+        if content_type.model == "scorepage":
+            raise ValueError(
+                "No se pueden añadir ScorePages completas a sesiones de clase. "
+                "Añade los elementos individuales (PDFs, audios, imágenes) en su lugar."
+            )
+
         order = session.get_next_order()
 
         item = cls.objects.create(

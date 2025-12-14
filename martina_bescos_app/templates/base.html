@@ -100,7 +100,22 @@
             {% if request.user.is_authenticated %}
               <li><a href="{% url 'users:detail' request.user.pk %}">{% translate "My Profile" %}</a></li>
               {% if request.user.enrollments.exists or request.user.is_staff %}
-                <li><a href="{% url 'my_library:index' %}">{% translate "Mi librería" %}</a></li>
+                {# Dropdown de Librerías #}
+                <li>
+                  <details>
+                    <summary>{% translate "Librerías" %}</summary>
+                    <ul class="bg-base-100 rounded-t-none p-2 w-52 shadow-lg z-50">
+                      <li><a href="/pages/indice-de-recursos-musicales/">📚 {% translate "Librería global" %}</a></li>
+                      <li><a href="{% url 'my_library:index' %}">⭐ {% translate "Mi librería" %}</a></li>
+                      {% if user_groups %}
+                      <li class="menu-title pt-2">{% translate "Librerías de grupo" %}</li>
+                      {% for group in user_groups %}
+                      <li><a href="{% url 'clases:group_library_index' group.pk %}">🎵 {{ group.name }}</a></li>
+                      {% endfor %}
+                      {% endif %}
+                    </ul>
+                  </details>
+                </li>
                 <li><a href="{% url 'clases:class_session_list' %}">{% translate "Sesiones" %}</a></li>
               {% endif %}
               <li><a href="{% url 'account_logout' %}">{% translate "Sign Out" %}</a></li>
@@ -154,7 +169,7 @@
         {% endif %}
         {% block main %}
           {% block content %}
-            <p>Use this document as a way to quick start any new project.</p>
+            <p>Accede a tu <a href="{% url 'my_library:index' %}" class="link">biblioteca personal</a></p>
           {% endblock content %}
         {% endblock main %}
       </div>
@@ -175,11 +190,24 @@
           <li><a href="{% url 'users:detail' request.user.pk %}">{% translate "My Profile" %}</a></li>
           {% if request.user.is_staff %}
             <li><a href="{% url 'admin:index' %}">Admin</a></li>
-            <li><a href="{% url 'evaluations:evaluation_item_list' %}">{% translate "Evaluaciones" %}</a></li>
-            <li><a href="{% url 'clases:class_session_list' %}">{% translate "Sesiones" %}</a></li>
           {% endif %}
-          {% if request.user.enrollments.exists %}
-            <li><a href="{% url 'my_library:index' %}">{% translate "Mi librería" %}</a></li>
+          {% if request.user.enrollments.exists or request.user.is_staff %}
+            {# Dropdown de Librerías (móvil) #}
+            <li>
+              <details>
+                <summary>{% translate "Librerías" %}</summary>
+                <ul>
+                  <li><a href="/pages/indice-de-recursos-musicales/">📚 {% translate "Librería global" %}</a></li>
+                  <li><a href="{% url 'my_library:index' %}">⭐ {% translate "Mi librería" %}</a></li>
+                  {% if user_groups %}
+                  <li class="menu-title pt-2">{% translate "Librerías de grupo" %}</li>
+                  {% for group in user_groups %}
+                  <li><a href="{% url 'clases:group_library_index' group.pk %}">🎵 {{ group.name }}</a></li>
+                  {% endfor %}
+                  {% endif %}
+                </ul>
+              </details>
+            </li>
             <li><a href="{% url 'clases:class_session_list' %}">{% translate "Sesiones" %}</a></li>
           {% endif %}
           <li><a href="{% url 'account_logout' %}">{% translate "Sign Out" %}</a></li>

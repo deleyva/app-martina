@@ -35,20 +35,27 @@ def add_to_library(request):
         content_type = get_object_or_404(ContentType, id=content_type_id)
         content_object = content_type.get_object_for_this_type(pk=object_id)
 
-        # Lógica en el modelo (FAT MODEL)
-        item, created = LibraryItem.add_to_library(request.user, content_object)
+        try:
+            # Lógica en el modelo (FAT MODEL)
+            item, created = LibraryItem.add_to_library(request.user, content_object)
 
-        # Renderizar botón actualizado (HTMX swap)
-        return render(
-            request,
-            "my_library/partials/add_button.html",
-            {
-                "content_object": content_object,
-                "content_type": content_type,
-                "in_library": True,
-                "user": request.user,
-            },
-        )
+            # Renderizar botón actualizado (HTMX swap)
+            return render(
+                request,
+                "my_library/partials/add_button.html",
+                {
+                    "content_object": content_object,
+                    "content_type": content_type,
+                    "in_library": True,
+                    "user": request.user,
+                },
+            )
+        except ValueError as e:
+            # ScorePages no están permitidas en biblioteca personal
+            return HttpResponse(
+                f'<span class="text-error text-sm">{str(e)}</span>',
+                status=400,
+            )
 
     return HttpResponse(status=405)
 
@@ -142,17 +149,13 @@ def update_proficiency(request, pk):
     """
     if request.method != "POST":
         return HttpResponse(status=405)
-    
+
     item = get_object_or_404(LibraryItem, pk=pk, user=request.user)
     level = request.POST.get("level")
-    
+
     if level and level.isdigit() and 1 <= int(level) <= 4:
         item.proficiency_level = int(level)
         item.save(update_fields=["proficiency_level"])
-    
+
     # Renderizar partial con las estrellas actualizadas
-    return render(
-        request,
-        "my_library/partials/proficiency_stars.html",
-        {"item": item}
-    )
+    return render(request, "my_library/partials/proficiency_stars.html", {"item": item})

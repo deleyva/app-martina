@@ -537,20 +537,27 @@ def class_session_add_item(request, session_id):
         content_type = get_object_or_404(ContentType, id=content_type_id)
         content_object = content_type.get_object_for_this_type(pk=object_id)
 
-        # Lógica en el modelo (FAT MODEL)
-        item = ClassSessionItem.add_to_session(
-            session=session, content_object=content_object, notes=notes
-        )
+        try:
+            # Lógica en el modelo (FAT MODEL)
+            item = ClassSessionItem.add_to_session(
+                session=session, content_object=content_object, notes=notes
+            )
 
-        # Renderizar item añadido (HTMX swap)
-        return render(
-            request,
-            "clases/class_sessions/partials/session_item.html",
-            {
-                "item": item,
-                "session": session,
-            },
-        )
+            # Renderizar item añadido (HTMX swap)
+            return render(
+                request,
+                "clases/class_sessions/partials/session_item.html",
+                {
+                    "item": item,
+                    "session": session,
+                },
+            )
+        except ValueError as e:
+            # ScorePages no están permitidas en sesiones de clase
+            return HttpResponse(
+                f'<span class="text-error text-sm">{str(e)}</span>',
+                status=400,
+            )
 
     return HttpResponse(status=405)
 
