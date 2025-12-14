@@ -60,6 +60,7 @@
                                 <input type="checkbox" 
                                        name="group_ids" 
                                        value="{{ group.id }}"
+                                       {% if group.id in groups_with_content %}checked disabled{% endif %}
                                        class="checkbox checkbox-secondary">
                                 <span class="label-text flex items-center gap-2">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -67,6 +68,9 @@
                                     </svg>
                                     <span>{{ group.name }}</span>
                                     <span class="text-xs text-base-content/60">({{ group.students.count }} estudiantes)</span>
+                                    {% if group.id in groups_with_content %}
+                                        <span class="badge badge-success badge-sm">Ya añadido</span>
+                                    {% endif %}
                                 </span>
                             </label>
                         </div>

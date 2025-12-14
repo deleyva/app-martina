@@ -24,13 +24,14 @@ def library_button(context, content_object):
     RESTRICCIÓN: No se muestran botones para ScorePages completas en bibliotecas personales.
     Solo se pueden añadir elementos individuales (PDFs, audios, imágenes).
     """
-    from clases.models import Student
+    from clases.models import Student, GroupLibraryItem
 
     user = context.request.user
     in_library = False
     teaching_groups = []
     all_students = []
     is_teacher = False
+    groups_with_content = set()  # IDs de grupos que ya tienen este contenido
 
     content_type = ContentType.objects.get_for_model(content_object)
 
@@ -42,8 +43,8 @@ def library_button(context, content_object):
 
         # Verificar si es profesor y obtener sus grupos
         if user.is_staff and hasattr(user, "teaching_groups"):
-            teaching_groups = user.teaching_groups.all()
-            is_teacher = teaching_groups.exists()
+            teaching_groups = list(user.teaching_groups.all())
+            is_teacher = len(teaching_groups) > 0
 
             # Obtener todos los estudiantes de los grupos del profesor
             if is_teacher:
@@ -52,6 +53,14 @@ def library_button(context, content_object):
                     .select_related("user", "group")
                     .order_by("group__name", "user__name")
                 )
+
+                # Verificar qué grupos ya tienen este contenido
+                existing_items = GroupLibraryItem.objects.filter(
+                    group__in=teaching_groups,
+                    content_type=content_type,
+                    object_id=content_object.pk,
+                ).values_list("group_id", flat=True)
+                groups_with_content = set(existing_items)
 
     return {
         "content_object": content_object,
@@ -62,4 +71,5 @@ def library_button(context, content_object):
         "teaching_groups": teaching_groups,
         "all_students": all_students,
         "is_scorepage": is_scorepage,
+        "groups_with_content": groups_with_content,
     }

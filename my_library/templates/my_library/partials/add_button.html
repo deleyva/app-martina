@@ -1,5 +1,6 @@
-{# RESTRICCIÓN: No mostrar botón para ScorePages (solo elementos individuales) #}
-{% if user.is_authenticated and not is_scorepage %}
+{# Para profesores: mostrar siempre (incluyendo ScorePages) para acceder al modal con bibliotecas de grupo #}
+{# Para estudiantes: no mostrar ScorePages (solo elementos individuales) #}
+{% if user.is_authenticated and not is_scorepage or user.is_authenticated and is_scorepage and is_teacher %}
     {% if is_teacher %}
         {# PROFESORES: Botón que abre modal para seleccionar destinos #}
         <div class="tooltip tooltip-left" data-tip="Añadir a bibliotecas">

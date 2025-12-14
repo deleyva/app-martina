@@ -167,10 +167,15 @@ def group_library_update_proficiency(request, group_id, pk):
 
 @login_required
 @user_passes_test(is_staff)
+@require_http_methods(["POST", "DELETE"])
 def group_library_remove(request, group_id, pk):
     """
     Endpoint HTMX para quitar item de biblioteca de grupo por ID.
     TINY VIEW: solo elimina y renderiza.
+
+    Si viene de la página de índice de biblioteca (hx-target apunta a un li),
+    devuelve respuesta vacía para eliminar el elemento.
+    Si viene de otro lugar, devuelve el botón actualizado.
     """
     group = get_object_or_404(Group, pk=group_id)
 
@@ -182,6 +187,11 @@ def group_library_remove(request, group_id, pk):
     content_object = item.content_object
     content_type = item.content_type
     item.delete()
+
+    # Si viene de la página de índice (el target es library-item-X), devolver vacío
+    hx_target = request.headers.get("HX-Target", "")
+    if hx_target.startswith("library-item-"):
+        return HttpResponse("")
 
     # Renderizar botón actualizado (HTMX swap)
     return render(
