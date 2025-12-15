@@ -34,7 +34,7 @@ CACHES = {
 # SECURITY
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#secure-proxy-ssl-header
-SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_SCHEME", "https")
 # https://docs.djangoproject.com/en/dev/ref/settings/#secure-ssl-redirect
 SECURE_SSL_REDIRECT = env.bool("DJANGO_SECURE_SSL_REDIRECT", default=True)
 # https://docs.djangoproject.com/en/dev/ref/settings/#session-cookie-secure
@@ -96,7 +96,9 @@ EMAIL_SUBJECT_PREFIX = env(
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
-EMAIL_HOST_USER = env("DJANGO_EMAIL_HOST_USER", default="app.gestion.admin@iesmartinabescos.es")
+EMAIL_HOST_USER = env(
+    "DJANGO_EMAIL_HOST_USER", default="app.gestion.admin@iesmartinabescos.es"
+)
 EMAIL_HOST_PASSWORD = env("DJANGO_EMAIL_HOST_PASSWORD", default="")
 EMAIL_USE_TLS = True
 
@@ -115,7 +117,9 @@ INSTALLED_APPS += ["anymail"]
 
 # django-allauth
 # ------------------------------------------------------------------------------
-ACCOUNT_EMAIL_VERIFICATION = "optional"  # Cambiado de "none" a "optional" para permitir verificación
+ACCOUNT_EMAIL_VERIFICATION = (
+    "optional"  # Cambiado de "none" a "optional" para permitir verificación
+)
 
 # LOGGING
 # ------------------------------------------------------------------------------

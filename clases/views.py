@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404, reverse
 from django.contrib import messages
 from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.views import redirect_to_login
 from django.views.decorators.http import require_http_methods
 from django.contrib.contenttypes.models import ContentType
 import json
@@ -27,15 +28,26 @@ def is_staff(user):
 # =============================================================================
 
 
-@login_required
 @require_http_methods(["GET"])
 def group_join_by_invitation(request, token):
     """Procesar enlace de invitación y unir al usuario al grupo.
 
     TINY VIEW: delega en GroupInvitation (FAT MODEL) y muestra mensajes.
     """
+    if not request.is_secure():
+        absolute_url = request.build_absolute_uri()
+        if absolute_url.startswith("http://"):
+            absolute_url = "https://" + absolute_url.removeprefix("http://")
+        return redirect(absolute_url)
+
+    if not request.user.is_authenticated:
+        return redirect_to_login(
+            request.get_full_path(),
+            login_url=reverse("account_login"),
+        )
+
     invitation = get_object_or_404(GroupInvitation, token=token)
-    enrollment, status = invitation.accept_for_user(request.user)
+    _, status = invitation.accept_for_user(request.user)
 
     if status == "invalid":
         messages.error(request, "Este enlace de invitación ya no es válido.")

@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib import admin
 from .models import (
     Subject,
@@ -140,6 +141,9 @@ class GroupInvitationAdmin(admin.ModelAdmin):
     readonly_fields = ("token", "uses", "created_at", "last_used_at")
 
     def get_join_path(self, obj):
+        base_url = getattr(settings, "WAGTAILADMIN_BASE_URL", "").rstrip("/")
+        if base_url:
+            return f"{base_url}{obj.get_join_path()}"
         return obj.get_join_path()
 
     get_join_path.short_description = "Path de invitación"

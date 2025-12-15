@@ -76,7 +76,6 @@
     </div>
 </div>
 {% else %}
-<!-- Contenido eliminado -->
 <div class="session-item p-4 bg-base-200 rounded-lg opacity-50"
      data-item-id="{{ item.pk }}">
     <div class="flex items-start gap-3">
@@ -85,7 +84,6 @@
             <div class="font-semibold text-warning">Contenido no disponible</div>
             <div class="text-xs text-base-content/60">Este elemento fue eliminado</div>
         </div>
-        <!-- Botón Quitar -->
         <button hx-delete="{% url 'clases:class_session_remove_item' session.pk item.pk %}"
                 hx-target="closest .session-item"
                 hx-swap="outerHTML"

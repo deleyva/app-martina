@@ -26,7 +26,6 @@ def library_button(context, content_object):
     """
     from clases.models import Student, GroupLibraryItem
 
-    # Fix defensivo: si content_object es None, retornar contexto vacío
     if content_object is None:
         return {
             "content_object": None,
