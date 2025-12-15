@@ -14,6 +14,7 @@ from wagtail.blocks import (
     CharBlock,
     TextBlock,
     RichTextBlock,
+    URLBlock,
     PageChooserBlock,
     StructBlock,
     ListBlock,
@@ -23,7 +24,6 @@ from wagtail.documents.blocks import DocumentChooserBlock
 from wagtail.embeds.blocks import EmbedBlock
 from wagtail.snippets.models import register_snippet
 from modelcluster.fields import ParentalKey, ParentalManyToManyField
-from modelcluster.models import ClusterableModel
 
 
 class HomePage(Page):
@@ -432,6 +432,15 @@ class ImageBlock(StructBlock):
         label = "Image"
 
 
+class URLCardBlock(StructBlock):
+    title = CharBlock(max_length=200, help_text="Título del enlace")
+    url = URLBlock(help_text="URL")
+
+    class Meta:
+        icon = "link"
+        label = "URL"
+
+
 # Snippets para Music Pills
 # -----------------------------------------------------------------------------
 
@@ -639,6 +648,7 @@ class ScorePage(Page):
             ("notes", RichTextBlock()),
             ("audio", AudioBlock()),
             ("image", ImageBlock()),
+            ("url", URLCardBlock()),
             ("embed", EmbedBlock()),
         ],
         blank=True,

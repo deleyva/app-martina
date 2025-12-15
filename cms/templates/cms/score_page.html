@@ -467,6 +467,34 @@
                 </div>
             </div>
             {% endif %}
+
+            {% if block.block_type == 'url' %}
+            <div class="card bg-base-100 shadow-xl content-card">
+                <div class="card-body p-4">
+                    <h3 class="card-title text-base">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 010 5.656l-1.414 1.414a4 4 0 01-5.656 0l-1.414-1.414a4 4 0 010-5.656m6.828 0a4 4 0 00-5.656 0l-1.414 1.414m8.484-8.484a4 4 0 010 5.656l-1.414 1.414"></path>
+                        </svg>
+                        {{ block.value.title }}
+                    </h3>
+
+                    <div class="text-sm text-base-content/70 break-all">
+                        <a href="{{ block.value.url }}" target="_blank" rel="noopener noreferrer" class="link link-primary">
+                            {{ block.value.url }}
+                        </a>
+                    </div>
+
+                    <div class="card-actions justify-end mt-auto">
+                        <a href="{{ block.value.url }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm">
+                            Abrir
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                            </svg>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
         {% endfor %}
     </div>
 
