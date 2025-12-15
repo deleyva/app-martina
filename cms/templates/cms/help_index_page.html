@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags %}
+
+{% block content %}
+  <div class="container mx-auto px-4 py-8">
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold">{{ page.title }}</h1>
+      {% if page.intro %}
+        <div class="prose max-w-none mt-4">{{ page.intro|richtext }}</div>
+      {% endif %}
+    </div>
+
+    {% with videos=page.get_videos %}
+      {% if videos %}
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {% for video in videos %}
+            <div class="card bg-base-100 shadow-xl">
+              <figure class="aspect-video bg-base-200">
+                {% with thumb=video.get_thumbnail_url %}
+                  {% if thumb %}
+                    <img
+                      src="{{ thumb }}"
+                      alt="{{ video.title }}"
+                      class="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                  {% endif %}
+                {% endwith %}
+              </figure>
+              <div class="card-body">
+                <h2 class="card-title">{{ video.title }}</h2>
+                {% if video.intro %}
+                  <p class="text-base-content/70">{{ video.intro }}</p>
+                {% endif %}
+                <div class="card-actions justify-end mt-4">
+                  <a class="btn btn-primary" href="{% url 'help_video' video.slug %}">Ver videotutorial</a>
+                </div>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="alert">
+          <span>Aún no hay videotutoriales disponibles.</span>
+        </div>
+      {% endif %}
+    {% endwith %}
+  </div>
+{% endblock %}

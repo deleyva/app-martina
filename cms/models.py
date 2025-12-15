@@ -3,9 +3,12 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.db.utils import OperationalError, ProgrammingError
 from django.utils import timezone
-from wagtail.models import Page, Orderable
+from django.utils.safestring import mark_safe
+from wagtail.models import Page, Orderable, Site
 from wagtail.fields import RichTextField, StreamField
 from wagtail.admin.panels import FieldPanel, MultiFieldPanel, InlinePanel
+from wagtail.embeds.embeds import get_embed
+from wagtail.embeds.exceptions import EmbedException
 from wagtail.blocks import (
     BooleanBlock,
     CharBlock,
@@ -71,6 +74,85 @@ class StandardPage(Page):
 
     class Meta:
         verbose_name = "Página Estándar"
+
+
+class HelpIndexPage(Page):
+    intro = RichTextField(blank=True)
+
+    content_panels = Page.content_panels + [
+        FieldPanel("intro"),
+    ]
+
+    parent_page_types = [
+        "cms.HomePage",
+        "cms.StandardPage",
+        "cms.MusicLibraryIndexPage",
+    ]
+    subpage_types = ["cms.HelpVideoPage"]
+
+    class Meta:
+        verbose_name = "Ayuda (Índice)"
+        verbose_name_plural = "Ayuda"
+
+    @classmethod
+    def for_request(cls, request):
+        qs = cls.objects.live()
+        site = Site.find_for_request(request)
+        if site:
+            qs = qs.descendant_of(site.root_page, inclusive=True)
+        return qs.order_by("path").first()
+
+    def get_videos(self):
+        return HelpVideoPage.objects.child_of(self).live().order_by("title").specific()
+
+
+class HelpVideoPage(Page):
+    intro = models.CharField(
+        max_length=250,
+        blank=True,
+        help_text="Resumen corto del videotutorial",
+    )
+    video_url = models.URLField(
+        help_text="Enlace del vídeo (YouTube, Vimeo, etc.)",
+    )
+
+    content_panels = Page.content_panels + [
+        FieldPanel("intro"),
+        FieldPanel("video_url"),
+    ]
+
+    parent_page_types = ["cms.HelpIndexPage"]
+    subpage_types = []
+
+    class Meta:
+        verbose_name = "Videotutorial"
+        verbose_name_plural = "Videotutoriales"
+
+    @classmethod
+    def for_request_and_slug(cls, request, slug):
+        index = HelpIndexPage.for_request(request)
+        qs = cls.objects.live().filter(slug=slug)
+        if index:
+            qs = qs.descendant_of(index)
+        return qs.order_by("path").first()
+
+    def get_embed(self):
+        try:
+            return get_embed(self.video_url)
+        except (EmbedException, ValueError):
+            return None
+
+    def get_thumbnail_url(self):
+        embed = self.get_embed()
+        if not embed:
+            return ""
+        return getattr(embed, "thumbnail_url", "") or ""
+
+    def get_embed_html(self):
+        embed = self.get_embed()
+        if not embed:
+            return ""
+        return mark_safe(embed.html)
 
 
 class BlogIndexPage(Page):
