@@ -1,5 +1,6 @@
 {% load library_tags %}
 
+{% if item.content_object %}
 <div class="session-item p-4 bg-base-200 rounded-lg hover:bg-base-300 transition-colors"
      data-item-id="{{ item.pk }}">
     <div class="flex items-start gap-3">
@@ -74,3 +75,26 @@
         </div>
     </div>
 </div>
+{% else %}
+<!-- Contenido eliminado -->
+<div class="session-item p-4 bg-base-200 rounded-lg opacity-50"
+     data-item-id="{{ item.pk }}">
+    <div class="flex items-start gap-3">
+        <div class="text-2xl flex-shrink-0">⚠️</div>
+        <div class="flex-1 min-w-0">
+            <div class="font-semibold text-warning">Contenido no disponible</div>
+            <div class="text-xs text-base-content/60">Este elemento fue eliminado</div>
+        </div>
+        <!-- Botón Quitar -->
+        <button hx-delete="{% url 'clases:class_session_remove_item' session.pk item.pk %}"
+                hx-target="closest .session-item"
+                hx-swap="outerHTML"
+                class="btn btn-xs btn-ghost btn-square"
+                title="Quitar">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+        </button>
+    </div>
+</div>
+{% endif %}

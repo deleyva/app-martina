@@ -72,18 +72,20 @@ def user_groups(request):
 
     if request.user.is_authenticated:
         try:
-            from clases.models import Group
+            from clases.models import Group, Enrollment
 
             if request.user.is_staff:
                 # Profesores: obtener grupos donde es profesor
                 groups = list(request.user.teaching_groups.all().order_by("name"))
             else:
-                # Alumnos: obtener grupos a través de enrollments
-                from clases.models import Student
-
-                student = Student.objects.filter(user=request.user).first()
-                if student and student.group:
-                    groups = [student.group]
+                # Alumnos: obtener grupos a través de enrollments activos (soporta multi-grupo)
+                enrolled_group_ids = Enrollment.objects.filter(
+                    user=request.user,
+                    is_active=True,
+                ).values_list("group_id", flat=True)
+                groups = list(
+                    Group.objects.filter(pk__in=enrolled_group_ids).order_by("name")
+                )
         except Exception:
             pass
 

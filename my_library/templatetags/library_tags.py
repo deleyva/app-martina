@@ -26,6 +26,20 @@ def library_button(context, content_object):
     """
     from clases.models import Student, GroupLibraryItem
 
+    # Fix defensivo: si content_object es None, retornar contexto vacío
+    if content_object is None:
+        return {
+            "content_object": None,
+            "content_type": None,
+            "in_library": False,
+            "user": context.request.user if hasattr(context, "request") else None,
+            "is_teacher": False,
+            "teaching_groups": [],
+            "all_students": [],
+            "is_scorepage": False,
+            "groups_with_content": set(),
+        }
+
     user = context.request.user
     in_library = False
     teaching_groups = []

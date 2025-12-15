@@ -53,6 +53,7 @@
                     {% if items %}
                         {% for item in items %}
                         <!-- Session item en modo solo lectura (sin botón eliminar, sin drag) -->
+                        {% if item.content_object %}
                         <div class="flex gap-3 p-3 bg-base-200 rounded-lg hover:bg-base-300 transition-colors">
                             <!-- Icon -->
                             <div class="flex-shrink-0">
@@ -106,6 +107,18 @@
                                 </div>
                             </div>
                         </div>
+                        {% else %}
+                        <!-- Contenido eliminado -->
+                        <div class="flex gap-3 p-3 bg-base-200 rounded-lg opacity-50">
+                            <div class="flex-shrink-0">⚠️</div>
+                            <div class="flex-1 min-w-0">
+                                <div class="font-medium truncate text-warning">Contenido no disponible</div>
+                                <div class="text-sm text-base-content/60">
+                                    Este elemento fue eliminado o no está accesible
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
                         {% endfor %}
                     {% else %}
                         <div class="text-center py-8 text-base-content/70">
