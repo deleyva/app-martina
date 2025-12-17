@@ -54,14 +54,26 @@
     </div>
     
     {% if items %}
+    {% include "partials/library_filter_controls.html" %}
+
     <!-- Lista (una fila por elemento) -->
-    <ul class="list bg-base-100 rounded-box shadow-md">
+    <ul class="list bg-base-100 rounded-box shadow-md" id="libraryItemsList">
         <li class="p-4 pb-2 text-xs opacity-60 tracking-wide">
             Tu colección · Ordenado: de menos a más estrellas ⭐, luego de menos a más vistas 👁️
         </li>
         
         {% for item in items %}
-        <li class="list-row" id="library-item-{{ item.pk }}">
+        {% with related_score=item.get_related_scorepage %}
+        <li class="list-row library-item js-library-filter-item" id="library-item-{{ item.pk }}"
+            data-title="{{ item.get_content_title|lower }}"
+            data-type="{{ item.get_content_type_name|lower }}"
+            data-related-score="{% if related_score %}{{ related_score.title|lower }}{% endif %}"
+            data-composer="{% if related_score and related_score.composer %}{{ related_score.composer.name|lower }}{% endif %}"
+            data-categories="{% if related_score and related_score.categories.all %}{% for category in related_score.categories.all %}{{ category.name|lower }} {% endfor %}{% endif %}"
+            data-tags="{% if item.content_object and item.content_object.tags.all %}{% for tag in item.content_object.tags.all %}{{ tag.name|lower }} {% endfor %}{% endif %}{% if related_score and related_score.tags.all %}{% for tag in related_score.tags.all %}{{ tag.name|lower }} {% endfor %}{% endif %}"
+            data-pdfs="{% if related_score %}{% for pdf in related_score.get_pdf_blocks %}{{ pdf.title|lower }} {% endfor %}{% endif %}"
+            data-audios="{% if related_score %}{% for audio in related_score.get_audios %}{{ audio.title|lower }} {% endfor %}{% endif %}"
+            data-document-tags="{% if related_score %}{% for pdf in related_score.get_pdf_blocks %}{% for doc_tag in pdf.pdf_file.tags.all %}{{ doc_tag.name|lower }} {% endfor %}{% endfor %}{% for audio in related_score.get_audios %}{% for doc_tag in audio.audio_file.tags.all %}{{ doc_tag.name|lower }} {% endfor %}{% endfor %}{% endif %}">
             <!-- Icon -->
             <div class="flex items-center justify-center size-12 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-lg flex-shrink-0">
                 <div class="text-2xl">{{ item.get_icon }}</div>
@@ -73,7 +85,6 @@
                 <div class="text-xs opacity-60">{{ item.get_content_type_name }}</div>
                 
                 <!-- Enlace a ScorePage relacionada (SIEMPRE visible) -->
-                {% with related_score=item.get_related_scorepage %}
                 {% if related_score %}
                 <div class="mt-1">
                     <a href="{{ related_score.get_url }}" 
@@ -89,7 +100,6 @@
                     </a>
                 </div>
                 {% endif %}
-                {% endwith %}
                 
                 <!-- Meta info -->
                 <div class="text-xs opacity-40 mt-1 flex items-center gap-3">
@@ -129,8 +139,11 @@
                 </button>
             </div>
         </li>
+        {% endwith %}
         {% endfor %}
     </ul>
+
+    {% include "partials/library_filter_script.html" %}
     {% else %}
     <!-- Empty State -->
     <div class="text-center py-12 bg-base-100 rounded-box shadow">

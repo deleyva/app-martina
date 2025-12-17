@@ -1,0 +1,61 @@
+<div class="mb-6">
+    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
+        <div class="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+            <div class="form-control">
+                <input type="text"
+                       placeholder="Buscar..."
+                       class="input input-bordered w-full sm:w-64"
+                       id="searchInput"
+                       onkeyup="filterLibraryItems()">
+            </div>
+
+            <div class="dropdown dropdown-end">
+                <div tabindex="0" role="button" class="btn btn-outline" id="tagFilterButton">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+                    </svg>
+                    Filtrar por tags
+                </div>
+                <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-64 max-h-64 overflow-y-auto">
+                    <li><a onclick="clearTagFilter()" class="text-sm">Mostrar todo</a></li>
+
+                    <li class="menu-title"><span>Tags de partituras</span></li>
+                    {% for item in items %}
+                        {% with related_score=item.get_related_scorepage %}
+                            {% if related_score and related_score.tags.all %}
+                                {% for tag in related_score.tags.all %}
+                                    <li><a onclick="filterByTag('{{ tag.name|escapejs }}')" class="text-sm tag-filter-option" data-tag="{{ tag.name }}">🎼 {{ tag.name }}</a></li>
+                                {% endfor %}
+                            {% endif %}
+                        {% endwith %}
+                    {% endfor %}
+
+                    <li class="menu-title"><span>Tags de documentos</span></li>
+                    {% for item in items %}
+                        {% if item.content_object and item.content_object.tags.all %}
+                            {% for tag in item.content_object.tags.all %}
+                                <li><a onclick="filterByTag('{{ tag.name|escapejs }}')" class="text-sm tag-filter-option" data-tag="{{ tag.name }}">📎 {{ tag.name }}</a></li>
+                            {% endfor %}
+                        {% endif %}
+
+                        {% with related_score=item.get_related_scorepage %}
+                            {% if related_score %}
+                                {% for pdf in related_score.get_pdf_blocks %}
+                                    {% for doc_tag in pdf.pdf_file.tags.all %}
+                                        <li><a onclick="filterByTag('{{ doc_tag.name|escapejs }}')" class="text-sm tag-filter-option" data-tag="{{ doc_tag.name }}">📎 {{ doc_tag.name }}</a></li>
+                                    {% endfor %}
+                                {% endfor %}
+
+                                {% for audio in related_score.get_audios %}
+                                    {% for doc_tag in audio.audio_file.tags.all %}
+                                        <li><a onclick="filterByTag('{{ doc_tag.name|escapejs }}')" class="text-sm tag-filter-option" data-tag="{{ doc_tag.name }}">🎵 {{ doc_tag.name }}</a></li>
+                                    {% endfor %}
+                                {% endfor %}
+                            {% endif %}
+                        {% endwith %}
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>

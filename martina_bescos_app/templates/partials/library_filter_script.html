@@ -1,0 +1,118 @@
+<div id="noResults" class="text-center py-8 hidden">
+    <div class="text-4xl mb-2">🔍</div>
+    <p class="text-base-content/70">No hay elementos que coincidan con el filtro actual.</p>
+    <button onclick="clearAllFilters()" class="btn btn-sm btn-outline mt-2">Limpiar filtros</button>
+</div>
+
+<script>
+let currentTagFilter = '';
+
+function filterLibraryItems() {
+    const input = document.getElementById('searchInput');
+    if (!input) {
+        return;
+    }
+
+    const searchTerm = input.value.toLowerCase();
+    const items = document.querySelectorAll('.js-library-filter-item');
+    let visibleCount = 0;
+
+    items.forEach((item) => {
+        const title = item.dataset.title || '';
+        const type = item.dataset.type || '';
+        const relatedScore = item.dataset.relatedScore || '';
+        const composer = item.dataset.composer || '';
+        const categories = item.dataset.categories || '';
+        const tags = item.dataset.tags || '';
+        const pdfs = item.dataset.pdfs || '';
+        const audios = item.dataset.audios || '';
+        const documentTags = item.dataset.documentTags || '';
+
+        const matchesSearch =
+            searchTerm === '' ||
+            title.includes(searchTerm) ||
+            type.includes(searchTerm) ||
+            relatedScore.includes(searchTerm) ||
+            composer.includes(searchTerm) ||
+            categories.includes(searchTerm) ||
+            tags.includes(searchTerm) ||
+            pdfs.includes(searchTerm) ||
+            audios.includes(searchTerm) ||
+            documentTags.includes(searchTerm);
+
+        const matchesTag =
+            currentTagFilter === '' ||
+            tags.includes(currentTagFilter.toLowerCase()) ||
+            documentTags.includes(currentTagFilter.toLowerCase());
+
+        if (matchesSearch && matchesTag) {
+            item.style.display = '';
+            visibleCount++;
+        } else {
+            item.style.display = 'none';
+        }
+    });
+
+    const noResults = document.getElementById('noResults');
+    if (noResults) {
+        noResults.classList.toggle('hidden', visibleCount > 0);
+    }
+}
+
+function filterByTag(tagName) {
+    currentTagFilter = tagName;
+
+    const tagButton = document.getElementById('tagFilterButton');
+    if (tagButton) {
+        tagButton.innerHTML = `
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+            </svg>
+            ${tagName}
+        `;
+    }
+
+    filterLibraryItems();
+}
+
+function clearTagFilter() {
+    currentTagFilter = '';
+
+    const tagButton = document.getElementById('tagFilterButton');
+    if (tagButton) {
+        tagButton.innerHTML = `
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+            </svg>
+            Filtrar por tags
+        `;
+    }
+
+    filterLibraryItems();
+}
+
+function clearAllFilters() {
+    const input = document.getElementById('searchInput');
+    if (input) {
+        input.value = '';
+    }
+
+    clearTagFilter();
+    filterLibraryItems();
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    const tagOptions = document.querySelectorAll('.tag-filter-option');
+    const seenTags = new Set();
+
+    tagOptions.forEach((option) => {
+        const rawName = option.dataset.tag || '';
+        const tagKey = rawName.trim().toLowerCase();
+        if (seenTags.has(tagKey)) {
+            option.parentElement.remove();
+        } else {
+            seenTags.add(tagKey);
+        }
+    });
+});
+</script>
