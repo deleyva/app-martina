@@ -130,6 +130,7 @@ def view_library_item(request, pk):
     # Lógica en el modelo (FAT MODEL)
     item.mark_as_viewed()
     documents = item.get_documents()
+    score_media = item.get_related_scorepage_media()
 
     return render(
         request,
@@ -137,6 +138,7 @@ def view_library_item(request, pk):
         {
             "item": item,
             "documents": documents,
+            "score_media": score_media,
         },
     )
 

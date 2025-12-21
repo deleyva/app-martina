@@ -90,6 +90,7 @@
             page.render(renderContext).promise.then(function () {
                 rendering = false;
                 showPageIndicator();
+                window.__pdfAutoScrollToTopAt = Date.now();
                 container.scrollTop = 0; // Scroll al inicio de la página
             });
         });
@@ -173,6 +174,9 @@
         } else if (clickX < screenWidth * 0.3) {
             // Click en lado izquierdo - retroceder
             scrollByThird('up');
+        } else if (window.toggleViewerTopbar) {
+            // Centro: dejar que el viewer haga toggle de la barra
+            window.toggleViewerTopbar();
         }
     });
     

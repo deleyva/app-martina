@@ -837,6 +837,8 @@ def group_library_item_viewer(request, group_id, pk):
 
     item = get_object_or_404(GroupLibraryItem, pk=pk, group=group)
 
+    score_media = item.get_related_scorepage_media()
+
     # Preparar documentos según tipo de contenido
     documents = {
         "pdfs": [],
@@ -912,6 +914,7 @@ def group_library_item_viewer(request, group_id, pk):
             "group": group,
             "item": item,
             "documents": documents,
+            "score_media": score_media,
         },
     )
 
@@ -947,6 +950,8 @@ def class_session_item_viewer(request, session_id, item_id):
             return redirect("clases:class_session_list")
 
     item = get_object_or_404(ClassSessionItem, pk=item_id, session=session)
+
+    score_media = item.get_related_scorepage_media()
 
     # Preparar documentos según tipo de contenido
     documents = {
@@ -991,6 +996,7 @@ def class_session_item_viewer(request, session_id, item_id):
             "item": item,
             "documents": documents,
             "back_url": back_url,
+            "score_media": score_media,
         },
     )
 

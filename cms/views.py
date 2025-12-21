@@ -1,5 +1,6 @@
-from django.http import Http404
-from django.shortcuts import render
+from django.http import Http404, HttpResponse
+from django.shortcuts import get_object_or_404, render
+from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from .models import ScorePage
 
@@ -188,3 +189,16 @@ def help_video(request, slug):
     if not page:
         raise Http404
     return page.specific.serve(request)
+
+
+@login_required
+def score_embed_html(request):
+    score_id = request.GET.get("score_id")
+    embed_url = request.GET.get("url")
+
+    score = get_object_or_404(ScorePage, pk=score_id)
+    embed_html = score.get_embed_html_for_url(embed_url)
+    if not embed_html:
+        raise Http404
+
+    return HttpResponse(embed_html)

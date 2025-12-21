@@ -158,6 +158,22 @@ class LibraryItem(models.Model):
 
         return None
 
+    def get_related_scorepage_media(self):
+        """Obtener audios y embeds del ScorePage relacionado (si existe)."""
+        score = self.get_related_scorepage()
+        if not score:
+            return {
+                "score": None,
+                "audios": [],
+                "embeds": [],
+            }
+
+        return {
+            "score": score,
+            "audios": score.get_audios() if hasattr(score, "get_audios") else [],
+            "embeds": score.get_embeds() if hasattr(score, "get_embeds") else [],
+        }
+
     def get_documents(self):
         """
         Obtener documentos/archivos del contenido.

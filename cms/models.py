@@ -714,6 +714,28 @@ class ScorePage(Page):
                 images.append(block.value)
         return images
 
+    def get_embeds(self):
+        """Obtener todos los embeds del StreamField de contenido"""
+        embeds = []
+        for block in self.content:
+            if block.block_type == "embed":
+                embeds.append(block.value)
+        return embeds
+
+    def get_embed_html_for_url(self, embed_url):
+        if not embed_url:
+            return ""
+
+        if embed_url not in self.get_embeds():
+            return ""
+
+        try:
+            embed = get_embed(embed_url)
+        except (EmbedException, ValueError):
+            return ""
+
+        return getattr(embed, "html", "") or ""
+
 
 class SetlistPage(Page):
     """Página para organizar partituras en setlists - MUSIC PILLS"""

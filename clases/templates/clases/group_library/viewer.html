@@ -95,14 +95,54 @@
     </style>
 </head>
 <body>
-    <!-- Botón cerrar flotante (sobre el contenido) -->
-    <a href="{% url 'clases:group_library_index' group.id %}" 
-       id="close-btn"
-       title="Cerrar (ESC)">
-        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-        </svg>
-    </a>
+    <div id="viewer-topbar" class="hidden">
+        <a href="{% url 'clases:group_library_index' group.id %}"
+           id="close-btn"
+           title="Cerrar (ESC)">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+        </a>
+        <div id="viewer-title">{{ item.get_content_title }}</div>
+        {% if score_media and score_media.audios %}
+            <div id="viewer-audio-controls">
+                <button type="button" id="viewer-audio-rewind" class="viewer-audio-btn">-10s</button>
+                <button type="button" id="viewer-audio-toggle" class="viewer-audio-btn">Play</button>
+                <button type="button" id="viewer-audio-forward" class="viewer-audio-btn">+30s</button>
+            </div>
+        {% endif %}
+        {% if score_media and score_media.audios or score_media and score_media.embeds %}
+            <button type="button" id="viewer-media-btn">Media</button>
+        {% endif %}
+    </div>
+
+    <div id="viewer-media-panel" class="hidden">
+        {% if score_media and score_media.audios %}
+            <div class="viewer-media-section">
+                <div class="viewer-media-heading">Audio</div>
+                <select id="viewer-audio-select">
+                    {% for audio in score_media.audios %}
+                        <option value="{{ audio.audio_file.file.url }}">{{ audio.title }}</option>
+                    {% endfor %}
+                </select>
+                <audio id="viewer-audio-player" controls preload="none" style="width: 100%;"></audio>
+            </div>
+        {% endif %}
+
+        {% if score_media and score_media.embeds %}
+            <div class="viewer-media-section">
+                <div class="viewer-media-heading">Embeds</div>
+                <div id="viewer-embed-list">
+                    {% for embed_url in score_media.embeds %}
+                        <button type="button" class="viewer-embed-link" data-embed-url="{{ embed_url }}">{{ embed_url|truncatechars:60 }}</button>
+                    {% endfor %}
+                </div>
+                <div id="viewer-embed-container"></div>
+            </div>
+        {% endif %}
+    </div>
+
+    <button type="button" id="viewer-touch-toggle">Dispositivos de pantalla táctil</button>
     
     <div style="width: 100%; min-height: 100vh;">
         {% if documents.pdfs %}
@@ -137,6 +177,336 @@
         // Modo captura para asegurarnos de que se ejecute incluso si otros listeners existen
         window.addEventListener('keydown', handleEscape, true);
     })();
+    </script>
+
+    <style>
+        #viewer-topbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 10000;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 0 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #fff;
+        }
+        #close-btn {
+            position: relative;
+            z-index: 2;
+        }
+        #viewer-title {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 14px;
+            padding-right: 110px;
+        }
+        #viewer-audio-controls {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            gap: 6px;
+        }
+        .viewer-audio-btn {
+            height: 32px;
+            padding: 0 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            font-size: 12px;
+        }
+        #viewer-media-btn {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1;
+            height: 32px;
+            padding: 0 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+        #viewer-media-panel {
+            position: fixed;
+            top: 48px;
+            left: 0;
+            right: 0;
+            z-index: 9999;
+            max-height: 50vh;
+            overflow: auto;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.9);
+            color: #fff;
+        }
+        .viewer-media-section {
+            margin-bottom: 16px;
+        }
+        .viewer-media-heading {
+            font-size: 13px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        #viewer-audio-select {
+            width: 100%;
+            height: 36px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+            margin-bottom: 10px;
+        }
+        #viewer-embed-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 10px;
+        }
+        .viewer-embed-link {
+            text-align: left;
+            padding: 8px 10px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+        }
+        #viewer-embed-container {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            padding: 10px;
+            min-height: 120px;
+        }
+        #viewer-touch-toggle {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 9998;
+            display: none;
+            padding: 10px 14px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            background: rgba(0, 0, 0, 0.55);
+            color: #fff;
+            font-size: 13px;
+        }
+        @media (pointer: coarse) {
+            #viewer-touch-toggle {
+                display: block;
+            }
+        }
+    </style>
+
+    <script>
+        (function() {
+            var topbar = document.getElementById('viewer-topbar');
+            var mediaPanel = document.getElementById('viewer-media-panel');
+            var mediaBtn = document.getElementById('viewer-media-btn');
+            var touchToggle = document.getElementById('viewer-touch-toggle');
+            var pdfContainer = document.getElementById('pdf-container');
+            var hideTimeout = null;
+
+            function showTopbar() {
+                if (!topbar) return;
+                topbar.classList.remove('hidden');
+            }
+
+            function hideTopbar() {
+                if (!topbar) return;
+                topbar.classList.add('hidden');
+                if (mediaPanel) {
+                    mediaPanel.classList.add('hidden');
+                }
+            }
+
+            function showTopbarTemporary() {
+                showTopbar();
+                if (hideTimeout) {
+                    clearTimeout(hideTimeout);
+                }
+                hideTimeout = setTimeout(function() {
+                    hideTopbar();
+                }, 2500);
+            }
+
+            function toggleTopbar() {
+                if (!topbar) return;
+                if (topbar.classList.contains('hidden')) {
+                    showTopbar();
+                    if (hideTimeout) {
+                        clearTimeout(hideTimeout);
+                    }
+                    return;
+                }
+                hideTopbar();
+            }
+
+            window.toggleViewerTopbar = toggleTopbar;
+
+            function shouldIgnoreScrollTop() {
+                if (!window.__pdfAutoScrollToTopAt) return false;
+                return (Date.now() - window.__pdfAutoScrollToTopAt) < 350;
+            }
+
+            function handleScroll() {
+                if (shouldIgnoreScrollTop()) {
+                    return;
+                }
+
+                var scrollTop = 0;
+                if (pdfContainer) {
+                    scrollTop = pdfContainer.scrollTop;
+                } else {
+                    scrollTop = window.scrollY || document.documentElement.scrollTop || 0;
+                }
+
+                if (scrollTop <= 0) {
+                    showTopbarTemporary();
+                }
+            }
+
+            if (pdfContainer) {
+                pdfContainer.addEventListener('scroll', handleScroll, { passive: true });
+            } else {
+                window.addEventListener('scroll', handleScroll, { passive: true });
+            }
+
+            if (touchToggle) {
+                touchToggle.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    toggleTopbar();
+                });
+            }
+
+            document.addEventListener('click', function(e) {
+                if (e.target.closest('#viewer-topbar') || e.target.closest('#viewer-media-panel')) {
+                    return;
+                }
+                var x = e.clientX;
+                var y = e.clientY;
+                var w = window.innerWidth;
+                var h = window.innerHeight;
+                var inCenterX = x > (w * 0.3) && x < (w * 0.7);
+                var inCenterY = y > (h * 0.3) && y < (h * 0.7);
+                if (inCenterX && inCenterY) {
+                    toggleTopbar();
+                }
+            }, true);
+
+            if (mediaBtn && mediaPanel) {
+                mediaBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    showTopbar();
+                    mediaPanel.classList.toggle('hidden');
+                });
+            }
+
+            var audioSelect = document.getElementById('viewer-audio-select');
+            var audioPlayer = document.getElementById('viewer-audio-player');
+            var audioToggleBtn = document.getElementById('viewer-audio-toggle');
+            var audioRewindBtn = document.getElementById('viewer-audio-rewind');
+            var audioForwardBtn = document.getElementById('viewer-audio-forward');
+
+            function setAudio(url) {
+                if (!audioPlayer || !url) return;
+                audioPlayer.src = url;
+                audioPlayer.play().catch(function() {});
+            }
+
+            function clampAudioTime(t) {
+                if (!audioPlayer || Number.isNaN(t)) return 0;
+                if (t < 0) return 0;
+                if (audioPlayer.duration && t > audioPlayer.duration) return audioPlayer.duration;
+                return t;
+            }
+
+            function syncAudioToggleLabel() {
+                if (!audioPlayer || !audioToggleBtn) return;
+                audioToggleBtn.textContent = audioPlayer.paused ? 'Play' : 'Pause';
+            }
+
+            if (audioSelect && audioPlayer) {
+                audioSelect.addEventListener('change', function(e) {
+                    setAudio(e.target.value);
+                });
+                if (audioSelect.value) {
+                    setAudio(audioSelect.value);
+                }
+            }
+
+            if (audioPlayer && audioToggleBtn) {
+                audioToggleBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    if (audioPlayer.paused) {
+                        audioPlayer.play().catch(function() {});
+                    } else {
+                        audioPlayer.pause();
+                    }
+                    syncAudioToggleLabel();
+                });
+                audioPlayer.addEventListener('play', syncAudioToggleLabel);
+                audioPlayer.addEventListener('pause', syncAudioToggleLabel);
+                syncAudioToggleLabel();
+            }
+
+            if (audioPlayer && audioRewindBtn) {
+                audioRewindBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    audioPlayer.currentTime = clampAudioTime(audioPlayer.currentTime - 10);
+                });
+            }
+
+            if (audioPlayer && audioForwardBtn) {
+                audioForwardBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    audioPlayer.currentTime = clampAudioTime(audioPlayer.currentTime + 30);
+                });
+            }
+
+            var embedContainer = document.getElementById('viewer-embed-container');
+            var embedLinks = document.querySelectorAll('.viewer-embed-link');
+            if (embedContainer && embedLinks.length) {
+                var baseUrl = "{% url 'score_embed_html' %}";
+                var scoreId = "{% if score_media and score_media.score %}{{ score_media.score.id }}{% endif %}";
+
+                function loadEmbed(url) {
+                    if (!url || !scoreId) return;
+                    embedContainer.textContent = 'Cargando…';
+                    var fullUrl = baseUrl + '?score_id=' + encodeURIComponent(scoreId) + '&url=' + encodeURIComponent(url);
+                    fetch(fullUrl, { credentials: 'same-origin' })
+                        .then(function(r) {
+                            if (!r.ok) {
+                                throw new Error('error');
+                            }
+                            return r.text();
+                        })
+                        .then(function(html) {
+                            embedContainer.innerHTML = html;
+                        })
+                        .catch(function() {
+                            embedContainer.textContent = 'No se pudo cargar el embed.';
+                        });
+                }
+
+                embedLinks.forEach(function(btn) {
+                    btn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        showTopbar();
+                        if (mediaPanel) {
+                            mediaPanel.classList.remove('hidden');
+                        }
+                        loadEmbed(btn.getAttribute('data-embed-url'));
+                    });
+                });
+            }
+        })();
     </script>
 </body>
 </html>
