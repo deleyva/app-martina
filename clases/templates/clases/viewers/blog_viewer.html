@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ blog_page.title }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.tailwindcss.com/3.4.0"></script>
+    <script>
+        tailwind.config = {
+            plugins: [require('@tailwindcss/typography'), require('daisyui')]
+        }
+    </script>
+    <style>
+        /* Estilos personalizados para contenido de blog */
+        .blog-content h1 {
+            font-size: 1.875rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            margin-top: 2rem;
+        }
+        
+        .blog-content h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+            margin-top: 1.5rem;
+        }
+        
+        .blog-content h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            margin-top: 1rem;
+        }
+        
+        .blog-content p {
+            line-height: 1.625;
+            margin-bottom: 1rem;
+        }
+        
+        .blog-content ul, .blog-content ol {
+            margin-bottom: 1rem;
+            padding-left: 1.5rem;
+        }
+        
+        .blog-content blockquote {
+            border-left: 4px solid;
+            padding-left: 1rem;
+            margin: 1.5rem 0;
+            font-style: italic;
+        }
+        
+        .blog-content code {
+            background-color: rgb(243 244 246);
+            padding: 0.125rem 0.25rem;
+            border-radius: 0.25rem;
+            font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+            font-size: 0.875rem;
+        }
+        
+        .blog-content pre {
+            background-color: rgb(243 244 246);
+            padding: 1rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+        
+        .blog-content pre code {
+            background-color: transparent;
+            padding: 0;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Botón de cierre -->
+    <a href="{% url 'clases:class_session_edit' session.id %}" 
+       id="close-btn"
+       class="fixed top-4 right-4 z-50 w-10 h-10 flex items-center justify-center rounded-full bg-gray-800 text-white hover:bg-gray-700 transition-all duration-300 shadow-lg"
+       title="Cerrar (ESC)">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+    </a>
+
+    <!-- Contenedor principal -->
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <article class="bg-white rounded-lg shadow-lg overflow-hidden">
+            <!-- Header -->
+            <header class="p-6 lg:p-8 border-b border-gray-200">
+                <div class="flex flex-col lg:flex-row justify-between items-start gap-6">
+                    <div class="flex-1">
+                        <h1 class="text-3xl lg:text-4xl font-bold mb-4 text-gray-900">{{ blog_page.title }}</h1>
+                        
+                        <div class="flex flex-wrap items-center gap-4 mb-4">
+                            {% if blog_page.date %}
+                            <div class="flex items-center gap-2 text-gray-600">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                </svg>
+                                {{ blog_page.date|date:"d M Y" }}
+                            </div>
+                            {% endif %}
+                            
+                            <div class="flex items-center gap-2 text-gray-600">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+                                </svg>
+                                Blog Post
+                            </div>
+                        </div>
+                        
+                        {% if blog_page.intro %}
+                        <p class="text-lg text-gray-700 leading-relaxed mb-6">{{ blog_page.intro }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Categories and Tags -->
+                {% if blog_page.categories.all or blog_page.tags.all %}
+                <div class="flex flex-wrap gap-2 mb-6">
+                    {% for category in blog_page.categories.all %}
+                    <div class="badge badge-info">
+                        {% if category.icon %}{{ category.icon }} {% endif %}{{ category.name }}
+                    </div>
+                    {% endfor %}
+                    {% for tag in blog_page.tags.all %}
+                    <div class="badge badge-outline" style="{% if tag.color %}border-color: {{ tag.color }}; color: {{ tag.color }};{% endif %}">
+                        🏷️ {{ tag.name }}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </header>
+
+            <!-- Featured Image -->
+            {% if blog_page.featured_image %}
+            <div class="mb-8">
+                {% image blog_page.featured_image width-800 class="w-full h-64 lg:h-96 object-cover" %}
+            </div>
+            {% endif %}
+
+            <!-- Content -->
+            <div class="p-6 lg:p-8">
+                {% if blog_page.body %}
+                <div class="blog-content prose prose-lg max-w-none">
+                    {{ blog_page.body|richtext }}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Footer con info de sesión -->
+            <div class="bg-gray-50 px-6 lg:px-8 py-4 border-t border-gray-200">
+                <div class="flex justify-between items-center text-sm text-gray-600">
+                    <div>
+                        <strong>Sesión:</strong> {{ session.title }} - {{ session.group.name }}
+                    </div>
+                    <div>
+                        {{ session.date|date:"d M Y" }}
+                    </div>
+                </div>
+            </div>
+        </article>
+    </div>
+
+    <script>
+    // Cerrar con ESC
+    (function() {
+        function handleEscape(e) {
+            var key = e.key || e.keyCode;
+            if (key === 'Escape' || key === 'Esc' || key === 27) {
+                e.preventDefault();
+                window.location.href = "{% url 'clases:class_session_edit' session.id %}";
+            }
+        }
+        window.addEventListener('keydown', handleEscape, true);
+    })();
+    </script>
+</body>
+</html>

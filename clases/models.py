@@ -953,7 +953,7 @@ class ClassSessionItem(models.Model):
         """Añadir elemento a la sesión.
 
         RESTRICCIÓN: No se permiten ScorePages completas en sesiones de clase.
-        Solo se pueden añadir elementos individuales (PDFs, audios, imágenes).
+        Solo se pueden añadir elementos individuales (PDFs, audios, imágenes) y BlogPages.
         """
         content_type = ContentType.objects.get_for_model(content_object)
 

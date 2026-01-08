@@ -976,8 +976,16 @@ def class_session_item_viewer(request, session_id, item_id):
         # Wagtail Image
         documents["images"].append(content)
     elif content_type == "blogpage":
-        # BlogPage: podría tener imágenes en el futuro
-        pass
+        # BlogPage: usar viewer específico para blogs
+        return render(
+            request,
+            "clases/viewers/blog_viewer.html",
+            {
+                "blog_page": content,
+                "session": session,
+                "item": item,
+            },
+        )
 
     # Determinar URL de retorno según parámetro 'from' y rol
     from_view = request.GET.get("from", "edit")
