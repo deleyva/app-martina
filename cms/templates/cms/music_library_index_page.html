@@ -363,6 +363,11 @@
                         </div>
                         
                         <div class="flex gap-2">
+                            {% if user.is_authenticated %}
+                            <div id="library-btn-blog-{{ item.pk }}" onclick="event.stopPropagation()">
+                                {% library_button item %}
+                            </div>
+                            {% endif %}
                             <a href="{{ item.url }}" class="btn btn-sm btn-primary">
                                 {% if entry.type == 'test' %}Resolver test{% else %}Leer más{% endif %}
                             </a>

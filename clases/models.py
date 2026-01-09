@@ -412,32 +412,46 @@ class GroupLibraryItem(models.Model):
         if self.content_type.model in ["document", "image"]:
             from cms.models import ScorePage
 
-            # Buscar en todas las ScorePages
-            for score in ScorePage.objects.live():
-                # Revisar el StreamField content
+            if not self.content_object or not hasattr(self.content_object, "pk"):
+                return None
+
+            def _get_block_value(block_value, key):
+                value = getattr(block_value, key, None)
+                if value:
+                    return value
+                try:
+                    return block_value.get(key)
+                except (AttributeError, TypeError):
+                    return None
+
+            # Importante: si el mismo Document/Image se reutiliza en varias ScorePages,
+            # elegimos la ScorePage más reciente para evitar resultados no deterministas.
+            scores = ScorePage.objects.live().order_by(
+                "-last_published_at",
+                "-first_published_at",
+                "-pk",
+            )
+            for score in scores:
                 for block in score.content:
                     try:
-                        # Para PDFs
                         if block.block_type == "pdf_score":
-                            pdf_file = block.value.get("pdf_file")
+                            pdf_file = _get_block_value(block.value, "pdf_file")
                             if (
                                 pdf_file
                                 and hasattr(pdf_file, "pk")
                                 and pdf_file.pk == self.content_object.pk
                             ):
                                 return score
-                        # Para Audios
                         elif block.block_type == "audio":
-                            audio_file = block.value.get("audio_file")
+                            audio_file = _get_block_value(block.value, "audio_file")
                             if (
                                 audio_file
                                 and hasattr(audio_file, "pk")
                                 and audio_file.pk == self.content_object.pk
                             ):
                                 return score
-                        # Para Imágenes
                         elif block.block_type == "image":
-                            image = block.value.get("image")
+                            image = _get_block_value(block.value, "image")
                             if (
                                 image
                                 and hasattr(image, "pk")
@@ -895,32 +909,46 @@ class ClassSessionItem(models.Model):
         if self.content_type.model in ["document", "image"]:
             from cms.models import ScorePage
 
-            # Buscar en todas las ScorePages
-            for score in ScorePage.objects.live():
-                # Revisar el StreamField content
+            if not self.content_object or not hasattr(self.content_object, "pk"):
+                return None
+
+            def _get_block_value(block_value, key):
+                value = getattr(block_value, key, None)
+                if value:
+                    return value
+                try:
+                    return block_value.get(key)
+                except (AttributeError, TypeError):
+                    return None
+
+            # Importante: si el mismo Document/Image se reutiliza en varias ScorePages,
+            # elegimos la ScorePage más reciente para evitar resultados no deterministas.
+            scores = ScorePage.objects.live().order_by(
+                "-last_published_at",
+                "-first_published_at",
+                "-pk",
+            )
+            for score in scores:
                 for block in score.content:
                     try:
-                        # Para PDFs
                         if block.block_type == "pdf_score":
-                            pdf_file = block.value.get("pdf_file")
+                            pdf_file = _get_block_value(block.value, "pdf_file")
                             if (
                                 pdf_file
                                 and hasattr(pdf_file, "pk")
                                 and pdf_file.pk == self.content_object.pk
                             ):
                                 return score
-                        # Para Audios
                         elif block.block_type == "audio":
-                            audio_file = block.value.get("audio_file")
+                            audio_file = _get_block_value(block.value, "audio_file")
                             if (
                                 audio_file
                                 and hasattr(audio_file, "pk")
                                 and audio_file.pk == self.content_object.pk
                             ):
                                 return score
-                        # Para Imágenes
                         elif block.block_type == "image":
-                            image = block.value.get("image")
+                            image = _get_block_value(block.value, "image")
                             if (
                                 image
                                 and hasattr(image, "pk")

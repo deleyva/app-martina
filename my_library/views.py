@@ -1,7 +1,8 @@
-from django.shortcuts import render, get_object_or_404, redirect
+from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from django.contrib.contenttypes.models import ContentType
+from django.utils.http import url_has_allowed_host_and_scheme
 from .models import LibraryItem
 
 
@@ -37,7 +38,7 @@ def add_to_library(request):
 
         try:
             # Lógica en el modelo (FAT MODEL)
-            item, created = LibraryItem.add_to_library(request.user, content_object)
+            LibraryItem.add_to_library(request.user, content_object)
 
             # Renderizar botón actualizado (HTMX swap)
             return render(
@@ -139,6 +140,44 @@ def view_library_item(request, pk):
             "item": item,
             "documents": documents,
             "score_media": score_media,
+        },
+    )
+
+
+@login_required
+def view_content_object(request, content_type_id, object_id):
+    content_type = get_object_or_404(ContentType, pk=content_type_id)
+    model_class = content_type.model_class()
+    if model_class is None:
+        return HttpResponse(status=404)
+
+    content_object = get_object_or_404(model_class, pk=object_id)
+
+    item = LibraryItem(
+        user=request.user,
+        content_type=content_type,
+        object_id=content_object.pk,
+    )
+
+    back_url = request.GET.get("back")
+    if back_url and not url_has_allowed_host_and_scheme(
+        back_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        back_url = None
+
+    documents = item.get_documents()
+    score_media = item.get_related_scorepage_media()
+
+    return render(
+        request,
+        "my_library/viewer.html",
+        {
+            "item": item,
+            "documents": documents,
+            "score_media": score_media,
+            "back_url": back_url,
         },
     )
 

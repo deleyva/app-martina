@@ -417,9 +417,10 @@
             var audioForwardBtn = document.getElementById('viewer-audio-forward');
 
             function setAudio(url) {
-                if (!url) return;
+                if (!audioPlayer || !url) return;
                 audioPlayer.src = url;
-                audioPlayer.play().catch(function() {});
+                audioPlayer.load();
+                syncAudioToggleLabel();
             }
 
             function clampAudioTime(t) {

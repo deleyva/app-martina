@@ -417,7 +417,8 @@
             function setAudio(url) {
                 if (!audioPlayer || !url) return;
                 audioPlayer.src = url;
-                audioPlayer.play().catch(function() {});
+                audioPlayer.load();
+                syncAudioToggleLabel();
             }
 
             function clampAudioTime(t) {

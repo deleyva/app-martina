@@ -5,6 +5,11 @@ from my_library.models import LibraryItem
 register = template.Library()
 
 
+@register.filter
+def content_type_id(obj):
+    return ContentType.objects.get_for_model(obj).pk
+
+
 @register.simple_tag(takes_context=True)
 def is_in_library(context, content_object):
     """Verifica si un objeto está en la biblioteca del usuario"""

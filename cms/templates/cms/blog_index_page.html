@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load wagtailcore_tags wagtailimages_tags %}
+{% load library_tags %}
 
 {% block content %}
 <div class="container mx-auto px-4 py-8">
@@ -13,6 +14,7 @@
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {% for blog in blogpages %}
+        {% with item=blog.specific %}
         <article class="bg-white rounded-lg shadow-md overflow-hidden">
             {% if blog.specific.featured_image %}
             <a href="{% pageurl blog %}">
@@ -35,11 +37,19 @@
                 <p class="text-gray-600">{{ blog.specific.intro }}</p>
                 {% endif %}
                 
-                <a href="{% pageurl blog %}" class="inline-block mt-4 text-blue-600 hover:text-blue-800 font-medium">
-                    Leer más →
-                </a>
+                <div class="flex items-center justify-between mt-4">
+                    <a href="{% pageurl blog %}" class="text-blue-600 hover:text-blue-800 font-medium">
+                        Leer más →
+                    </a>
+                    {% if user.is_authenticated %}
+                    <div id="library-btn-blog-{{ item.pk }}" onclick="event.stopPropagation()">
+                        {% library_button item %}
+                    </div>
+                    {% endif %}
+                </div>
             </div>
         </article>
+        {% endwith %}
         {% empty %}
         <p class="col-span-full text-gray-500 text-center py-8">No hay artículos publicados aún.</p>
         {% endfor %}
