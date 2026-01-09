@@ -15,3 +15,16 @@
 -   Visor dedicado para artículos de blog en sesiones con botón de cierre y soporte de tecla ESC.
 
 -   Hotfix: migración correctiva para crear tablas M2M faltantes de `BlogPage` (`cms_blogpage_categories`, `cms_blogpage_tags`) cuando la migración estaba marcada como aplicada pero las tablas no existían.
+
+-   Botón/modal "Añadir a bibliotecas" para `BlogPage` (misma UI que otros items):
+    -   Cards en `cms/templates/cms/music_library_index_page.html` (sección "Contenido Editorial").
+    -   Cards en `cms/templates/cms/blog_index_page.html`.
+    -   Página individual en `cms/templates/cms/blog_page.html`.
+
+-   Visor fullscreen: desactivada la reproducción automática de audio al abrir/cambiar pista (se mantiene reproducción manual):
+    -   `my_library/templates/my_library/viewer.html`
+    -   `clases/templates/clases/group_library/viewer.html`
+
+-   Hotfix: resolución determinista de la ScorePage relacionada (texto "De: ...") para `Document`/`Image` en sesiones y bibliotecas.
+    -   Se prioriza la ScorePage más reciente (`last_published_at`/`first_published_at`/`pk`) para evitar resultados no deterministas entre entornos.
+    -   Archivos: `clases/models.py`, `my_library/models.py`.
