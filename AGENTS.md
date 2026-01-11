@@ -321,6 +321,51 @@ def music_item_convert(request, pk):
 
 -   Después de desarrollar una nueva funcionalidad, es importante ejecutar los tests para asegurarse de que todo funcione correctamente y desarrollar tests adicionales si es necesario.
 
+## Servicios (Services Layer)
+
+### Patrón de Servicios
+
+Además de Fat Models, para lógica compleja que involucra múltiples modelos o integraciones externas, usar el patrón de **Services**:
+
+-   **Ubicación**: `[app]/services/` directory
+-   **Propósito**: Encapsular lógica de negocio compleja que no pertenece a un solo modelo
+-   **Casos de uso**:
+    -   Integraciones con APIs externas (ej: IA, servicios de pago)
+    -   Operaciones que involucran múltiples modelos
+    -   Lógica de orquestación compleja
+
+**Ejemplo**: Sistema de publicación con IA (`cms/services/`)
+
+```python
+# cms/services/ai_metadata_extractor.py
+class AIMetadataExtractor:
+    """Servicio para extraer metadata con IA externa"""
+
+    def extract_metadata(self, description: str) -> dict:
+        # Lógica de llamada a API externa
+        # Procesamiento de respuesta
+        # Retorna datos estructurados
+        pass
+
+# cms/services/content_publisher.py
+class ContentPublisher:
+    """Servicio para crear contenido en Wagtail"""
+
+    def create_scorepage_from_ai(self, metadata: dict, files: list) -> ScorePage:
+        # Orquesta creación de múltiples entidades
+        # Usa transactions
+        # Retorna entidad creada
+        pass
+```
+
+**Reglas para Servicios**:
+-   Clases con métodos públicos claros
+-   Sin lógica en `__init__` (solo configuración)
+-   Usar type hints
+-   Logging apropiado
+-   Manejo de errores robusto
+-   Tests unitarios obligatorios
+
 ## Documentation
 
 -   **CHANGELOG**: Historial de cambios
@@ -330,5 +375,7 @@ def music_item_convert(request, pk):
 -   **AGENTS**: Reglas y patrones de desarrollo
 
 -   **README**: Documentación general
+
+-   **docs/**: Documentación técnica detallada por feature
 
 -   Después de desarrollar una nueva funcionalidad, revisa la documentación para asegurarte de que todo esté correctamente documentado. Si es necesario, actualiza la documentación.

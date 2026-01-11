@@ -18,6 +18,7 @@ La aplicación combina varios módulos pensados para profesorado y alumnado de c
 ## Características principales
 
 - **Biblioteca musical (Music Pills)** basada en Wagtail: partituras en PDF, metadatos ricos, categorías y tags.
+- **🤖 Publicación asistida por IA**: Sube archivos musicales (PDFs, audios, imágenes, MIDI) y describe en lenguaje natural. La IA extrae automáticamente título, compositor, dificultad, categorías y tags usando Google Gemini.
 - **Filtros avanzados de partituras** (`/scores/filtered/`) combinando etiquetas de documentos, tags de página, categorías y dificultad.
 - **Mi Biblioteca** personal del usuario con visor de PDFs, imágenes y audio adaptado a práctica musical.
 - **Music Cards**: sistema de repetición espaciada para estudiar material musical.
@@ -80,6 +81,56 @@ just manage createsuperuser       # crea un superusuario de Django
 - Aplicación principal: <http://localhost:8000/>
 - Admin de Django: <http://localhost:8000/admin/>
 - Admin de Wagtail: <http://localhost:8000/cms/>
+- **Publicación con IA**: <http://localhost:8000/ai-publish/>
+
+
+## Publicación de Contenido con IA
+
+La aplicación incluye un sistema de publicación asistido por IA que simplifica dramáticamente el proceso de añadir contenido musical.
+
+### Cómo funciona
+
+1. **Accede al formulario**: <http://localhost:8000/ai-publish/>
+2. **Sube archivos**: PDFs de partituras, audios (MP3/WAV), imágenes, archivos MIDI
+3. **Describe en lenguaje natural**:
+   ```
+   "Partitura de 'All of Me' de John Legend en Do mayor, nivel intermedio para piano y voz.
+   Incluyo PDF de la partitura, audio de mi interpretación, y la portada del álbum."
+   ```
+4. **La IA procesa automáticamente**:
+   - Extrae título, compositor, tonalidad, dificultad
+   - Crea categorías y tags coherentes
+   - Genera descripción mejorada
+   - Crea ScorePage en Wagtail como borrador
+5. **Revisa y publica**: Edita en Wagtail admin si es necesario y publica
+
+### Configuración requerida
+
+Añade tu API key de Google Gemini en `.envs/.local/.django`:
+
+```bash
+GEMINI_API_KEY=tu-api-key-aqui
+```
+
+Obtén tu API key gratis en: <https://makersuite.google.com/app/apikey>
+
+### Uso vía API
+
+También puedes usar el endpoint REST directamente:
+
+```bash
+POST /api/cms/ai-publish
+Content-Type: multipart/form-data
+
+- description: "Descripción en lenguaje natural"
+- pdf_files: [archivos PDF]
+- audio_files: [archivos de audio]
+- image_files: [archivos de imagen]
+- midi_files: [archivos MIDI]
+- publish_immediately: false (opcional)
+```
+
+Requiere autenticación por API key (ver `/api-keys/`).
 
 
 ## Tests

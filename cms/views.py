@@ -202,3 +202,15 @@ def score_embed_html(request):
         raise Http404
 
     return HttpResponse(embed_html)
+
+
+@login_required
+def ai_publish_form(request):
+    """
+    Vista del formulario de publicación asistida por IA.
+
+    Permite subir archivos musicales (PDFs, audios, imágenes, MIDI) junto con
+    una descripción en lenguaje natural. La IA procesa la descripción y crea
+    automáticamente una ScorePage en Wagtail.
+    """
+    return render(request, "cms/ai_publish_form.html")

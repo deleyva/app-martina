@@ -392,4 +392,11 @@ WAGTAILDOCS_EXTENSIONS = [
     "aac",
     "flac",
     "wma",
+    # MIDI formats for Music Pills
+    "mid",
+    "midi",
 ]
+
+# Google Gemini API
+# ------------------------------------------------------------------------------
+GEMINI_API_KEY = env("GEMINI_API_KEY", default="")

@@ -1,0 +1,275 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Publicar con IA{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-4xl">
+  <h1 class="text-3xl font-bold mb-2">Publicar Contenido Musical con IA</h1>
+  <p class="text-base-content/70 mb-6">
+    Sube tus archivos musicales y descríbelos en lenguaje natural. La IA extraerá automáticamente el título, compositor, dificultad y más.
+  </p>
+
+  <div class="card bg-base-100 shadow-xl">
+    <div class="card-body">
+      <form id="ai-publish-form" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <!-- Descripción -->
+        <div class="form-control mb-6">
+          <label class="label">
+            <span class="label-text text-lg font-semibold">📝 Descripción</span>
+            <span class="label-text-alt text-error">*Requerido</span>
+          </label>
+          <textarea
+            name="description"
+            class="textarea textarea-bordered h-32 focus:textarea-primary"
+            placeholder="Ej: Partitura de 'All of Me' de John Legend en Do mayor, nivel intermedio para piano y voz. Incluyo PDF de la partitura, audio de mi interpretación y la portada del álbum Love in the Future."
+            required
+          ></textarea>
+          <label class="label">
+            <span class="label-text-alt">Escribe en lenguaje natural. La IA extraerá automáticamente título, compositor, dificultad, categorías y tags.</span>
+          </label>
+        </div>
+
+        <!-- Dropzone para archivos -->
+        <div class="form-control mb-6">
+          <label class="label">
+            <span class="label-text text-lg font-semibold">📁 Archivos</span>
+            <span class="label-text-alt text-error">*Al menos uno requerido</span>
+          </label>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- PDFs -->
+            <div class="border-2 border-dashed border-base-300 rounded-lg p-4 hover:border-primary transition-colors">
+              <label class="label cursor-pointer">
+                <span class="label-text font-medium">📄 Partituras (PDF)</span>
+              </label>
+              <input
+                type="file"
+                name="pdf_files"
+                multiple
+                accept=".pdf"
+                class="file-input file-input-bordered file-input-sm w-full"
+              >
+              <div class="label">
+                <span class="label-text-alt">Archivos PDF de partituras</span>
+              </div>
+            </div>
+
+            <!-- Audios -->
+            <div class="border-2 border-dashed border-base-300 rounded-lg p-4 hover:border-primary transition-colors">
+              <label class="label cursor-pointer">
+                <span class="label-text font-medium">🎵 Audios</span>
+              </label>
+              <input
+                type="file"
+                name="audio_files"
+                multiple
+                accept=".mp3,.wav,.ogg,.m4a,.aac,.flac"
+                class="file-input file-input-bordered file-input-sm w-full"
+              >
+              <div class="label">
+                <span class="label-text-alt">MP3, WAV, OGG, M4A, AAC, FLAC</span>
+              </div>
+            </div>
+
+            <!-- Imágenes -->
+            <div class="border-2 border-dashed border-base-300 rounded-lg p-4 hover:border-primary transition-colors">
+              <label class="label cursor-pointer">
+                <span class="label-text font-medium">🖼️ Imágenes</span>
+              </label>
+              <input
+                type="file"
+                name="image_files"
+                multiple
+                accept="image/*"
+                class="file-input file-input-bordered file-input-sm w-full"
+              >
+              <div class="label">
+                <span class="label-text-alt">JPG, PNG, GIF, etc.</span>
+              </div>
+            </div>
+
+            <!-- MIDI -->
+            <div class="border-2 border-dashed border-base-300 rounded-lg p-4 hover:border-primary transition-colors">
+              <label class="label cursor-pointer">
+                <span class="label-text font-medium">🎹 Archivos MIDI</span>
+              </label>
+              <input
+                type="file"
+                name="midi_files"
+                multiple
+                accept=".mid,.midi"
+                class="file-input file-input-bordered file-input-sm w-full"
+              >
+              <div class="label">
+                <span class="label-text-alt">Archivos MIDI</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Opciones -->
+        <div class="form-control mb-6">
+          <label class="label cursor-pointer justify-start gap-3">
+            <input
+              type="checkbox"
+              name="publish_immediately"
+              class="checkbox checkbox-primary"
+            >
+            <div>
+              <span class="label-text font-medium">Publicar inmediatamente</span>
+              <span class="label-text-alt block">Si no se marca, se guardará como borrador para revisión</span>
+            </div>
+          </label>
+        </div>
+
+        <!-- Botón submit -->
+        <div class="card-actions justify-end mt-6">
+          <button type="submit" class="btn btn-primary btn-lg gap-2">
+            <span class="loading loading-spinner loading-sm hidden" id="loading-spinner"></span>
+            <span id="submit-text">🤖 Publicar con IA</span>
+          </button>
+        </div>
+      </form>
+
+      <!-- Resultado -->
+      <div id="result-container" class="hidden mt-6"></div>
+    </div>
+  </div>
+
+  <!-- Ejemplos de uso -->
+  <div class="mt-8">
+    <div class="collapse collapse-arrow bg-base-200">
+      <input type="checkbox" />
+      <div class="collapse-title text-lg font-medium">
+        💡 Ejemplos de descripciones
+      </div>
+      <div class="collapse-content">
+        <div class="space-y-4">
+          <div class="card bg-base-100 shadow">
+            <div class="card-body p-4">
+              <p class="font-semibold">Canción Pop:</p>
+              <p class="text-sm">"Partitura de 'Shape of You' de Ed Sheeran en Do sostenido menor, nivel principiante. Incluyo PDF de la partitura simplificada para ukelele y audio de referencia."</p>
+            </div>
+          </div>
+
+          <div class="card bg-base-100 shadow">
+            <div class="card-body p-4">
+              <p class="font-semibold">Pieza Clásica:</p>
+              <p class="text-sm">"Minueto en Sol mayor de Bach (BWV Anh. 114), nivel fácil para piano. Partitura en PDF y grabación MIDI incluida. Compás 3/4, tempo Moderato."</p>
+            </div>
+          </div>
+
+          <div class="card bg-base-100 shadow">
+            <div class="card-body p-4">
+              <p class="font-semibold">Ejercicio Técnico:</p>
+              <p class="text-sm">"Ejercicio de escalas cromáticas para guitarra, nivel avanzado. Incluyo PDF con digitaciones y archivo MIDI de acompañamiento. Dificultad alta, enfocado en velocidad y precisión."</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('ai-publish-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const form = e.target;
+  const formData = new FormData(form);
+  const submitBtn = form.querySelector('button[type="submit"]');
+  const loadingSpinner = document.getElementById('loading-spinner');
+  const submitText = document.getElementById('submit-text');
+  const resultContainer = document.getElementById('result-container');
+
+  // Validar que haya al menos un archivo
+  const hasFiles = Array.from(form.querySelectorAll('input[type="file"]')).some(
+    input => input.files.length > 0
+  );
+
+  if (!hasFiles) {
+    resultContainer.className = 'alert alert-error mt-6';
+    resultContainer.innerHTML = `
+      <div>
+        <h3 class="font-bold">Error</h3>
+        <p>Debes subir al menos un archivo.</p>
+      </div>
+    `;
+    resultContainer.classList.remove('hidden');
+    return;
+  }
+
+  // Mostrar loading
+  submitBtn.disabled = true;
+  loadingSpinner.classList.remove('hidden');
+  submitText.textContent = 'Procesando con IA...';
+  resultContainer.classList.add('hidden');
+
+  try {
+    const response = await fetch('/api/cms/ai-publish', {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'X-CSRFToken': form.querySelector('[name=csrfmiddlewaretoken]').value
+      }
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      // Éxito
+      resultContainer.className = 'alert alert-success mt-6';
+      resultContainer.innerHTML = `
+        <div class="w-full">
+          <h3 class="font-bold text-lg mb-2">✅ ${data.message}</h3>
+          <div class="space-y-1 text-sm mb-4">
+            <p><strong>Título:</strong> ${data.title}</p>
+            <p><strong>Compositor:</strong> ${data.created_items.composer || 'No especificado'}</p>
+            ${data.created_items.categories.length > 0 ? `<p><strong>Categorías:</strong> ${data.created_items.categories.join(', ')}</p>` : ''}
+            ${data.created_items.tags.length > 0 ? `<p><strong>Tags:</strong> ${data.created_items.tags.join(', ')}</p>` : ''}
+          </div>
+          <div class="flex gap-2 flex-wrap">
+            <a href="${data.edit_url}" class="btn btn-sm btn-primary">✏️ Editar en Wagtail</a>
+            <a href="${data.preview_url}" class="btn btn-sm btn-ghost">👁️ Ver Preview</a>
+          </div>
+        </div>
+      `;
+      resultContainer.classList.remove('hidden');
+
+      // Limpiar formulario
+      form.reset();
+
+      // Scroll al resultado
+      resultContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else {
+      // Error
+      resultContainer.className = 'alert alert-error mt-6';
+      resultContainer.innerHTML = `
+        <div>
+          <h3 class="font-bold">❌ Error</h3>
+          <p>${data.detail || 'Ocurrió un error al procesar la solicitud.'}</p>
+        </div>
+      `;
+      resultContainer.classList.remove('hidden');
+    }
+  } catch (error) {
+    resultContainer.className = 'alert alert-error mt-6';
+    resultContainer.innerHTML = `
+      <div>
+        <h3 class="font-bold">❌ Error de conexión</h3>
+        <p>${error.message}</p>
+      </div>
+    `;
+    resultContainer.classList.remove('hidden');
+  } finally {
+    // Restaurar botón
+    submitBtn.disabled = false;
+    loadingSpinner.classList.add('hidden');
+    submitText.textContent = '🤖 Publicar con IA';
+  }
+});
+</script>
+{% endblock %}
