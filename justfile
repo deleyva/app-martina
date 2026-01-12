@@ -38,6 +38,16 @@ prune *args:
 logs *args:
     @docker compose logs -f {{args}}
 
+# print-env: Print environment variables inside a running container.
+# Usage: just print-env [service] [VAR...]
+print-env service *vars:
+    @docker compose exec {{service}} printenv {{vars}}
+
+# print-env-django: Convenience shortcut for the django container.
+# Usage: just print-env-django [VAR...]
+print-env-django *vars:
+    @docker compose exec django printenv {{vars}}
+
 # manage: Executes `manage.py` command.
 manage +args:
     @docker compose run --rm django python ./manage.py {{args}}

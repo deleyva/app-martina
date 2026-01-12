@@ -82,7 +82,7 @@ Responde SOLO con el JSON válido, sin texto adicional antes o después. No uses
             )
 
         self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
-        self.model_id = "gemini-2.0-flash-exp"  # Latest fast model
+        self.model_id = "gemini-2.0-flash-exp"  # Latest fast experimental model
 
     def extract_metadata(
         self, description: str, file_names: list[str]

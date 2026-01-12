@@ -1,70 +1,228 @@
 {% load wagtailimages_tags %}
 
-<div class="w-full flex flex-col" style="min-height: 100vh;">
-    <!-- Selector de imagen si hay múltiples -->
-    {% if images|length > 1 %}
-    <div class="py-4 px-2 flex justify-center gap-2 flex-wrap print:hidden" style="background: #000;">
-        {% for image in images %}
-        <button onclick="showImage({{ forloop.counter0 }})" 
-                style="padding: 0.5rem 1rem; border-radius: 0.5rem; cursor: pointer; border: none; {% if forloop.first %}background: #3b82f6; color: white;{% else %}background: rgba(255,255,255,0.1); color: white;{% endif %}"
-                id="img-btn-{{ forloop.counter0 }}">
-            Imagen {{ forloop.counter }}
-        </button>
-        {% endfor %}
+<style>
+    #image-container {
+        width: 100%;
+        height: 100vh;
+        overflow-y: auto;
+        overflow-x: hidden;
+        background: white;
+    }
+    #image-indicator {
+        position: fixed;
+        bottom: 16px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 9998;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 4px 12px;
+        border-radius: 999px;
+        font-size: 12px;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    .image-content {
+        display: none;
+        width: 100%;
+    }
+    .image-content.active {
+        display: block;
+    }
+    .image-content img {
+        width: 100%;
+        height: auto;
+        display: block;
+    }
+</style>
+
+<!-- Contenedor fullscreen para imágenes -->
+<div id="image-container">
+    {% for image in images %}
+    <div class="image-content {% if forloop.first %}active{% endif %}" id="image-content-{{ forloop.counter0 }}">
+        {% if image.title %}
+        <div class="px-4 py-3 bg-gray-100 text-lg font-bold">{{ image.title }}</div>
+        {% endif %}
+
+        {% if image.image %}
+            {# Block from ScorePage with .image field #}
+            {% image image.image original as img %}
+            <img src="{{ img.url }}"
+                 alt="{{ image.title|default:'Imagen' }}"
+                 data-image-index="{{ forloop.counter0 }}">
+        {% elif image.file %}
+            {# Wagtail Image object directly - has .file attribute #}
+            <img src="{{ image.file.url }}"
+                 alt="{{ image.title|default:'Imagen' }}"
+                 data-image-index="{{ forloop.counter0 }}">
+        {% else %}
+            {# Try direct rendering if it's an Image model #}
+            {% image image original as img %}
+            <img src="{{ img.url }}"
+                 alt="{{ image.title|default:'Imagen' }}"
+                 data-image-index="{{ forloop.counter0 }}">
+        {% endif %}
     </div>
-    {% endif %}
-    
-    <!-- Contenedor de imágenes - sin restricciones de altura -->
-    <div class="w-full bg-white">
-        {% for image in images %}
-        <div id="image-{{ forloop.counter0 }}" 
-             class="image-container w-full {% if not forloop.first %}hidden{% endif %}">
-            {% if image.title %}
-            <div class="px-4 py-3 bg-gray-100 text-lg font-bold">{{ image.title }}</div>
-            {% endif %}
-            
-            {% if image.image %}
-                {# Block from ScorePage with .image field #}
-                {% image image.image original as img %}
-                <img src="{{ img.url }}" 
-                     alt="{{ image.title|default:'Imagen' }}" 
-                     style="width: 100%; height: auto; display: block;">
-            {% elif image.file %}
-                {# Wagtail Image object directly - has .file attribute #}
-                <img src="{{ image.file.url }}" 
-                     alt="{{ image.title|default:'Imagen' }}" 
-                     style="width: 100%; height: auto; display: block;">
-            {% else %}
-                {# Try direct rendering if it's an Image model #}
-                {% image image original as img %}
-                <img src="{{ img.url }}" 
-                     alt="{{ image.title|default:'Imagen' }}" 
-                     style="width: 100%; height: auto; display: block;">
-            {% endif %}
-        </div>
-        {% endfor %}
-    </div>
+    {% endfor %}
 </div>
 
+<!-- Indicador de imagen (pequeño, abajo centro) -->
 {% if images|length > 1 %}
-<script>
-function showImage(index) {
-    // Ocultar todas las imágenes
-    document.querySelectorAll('.image-container').forEach(function(el) {
-        el.classList.add('hidden');
-    });
-    
-    // Mostrar imagen seleccionada
-    document.getElementById('image-' + index).classList.remove('hidden');
-    
-    // Actualizar botones
-    document.querySelectorAll('[id^="img-btn-"]').forEach(function(btn) {
-        btn.style.background = 'rgba(255,255,255,0.1)';
-        btn.style.color = 'white';
-    });
-    var activeBtn = document.getElementById('img-btn-' + index);
-    activeBtn.style.background = '#3b82f6';
-    activeBtn.style.color = 'white';
-}
-</script>
+<div id="image-indicator">
+    <span id="image-info"></span>
+</div>
 {% endif %}
+
+<script>
+    var currentImage = 0,
+        totalImages = {{ images|length }};
+
+    var container = document.getElementById('image-container'),
+        imageIndicator = document.getElementById('image-indicator'),
+        imageInfo = document.getElementById('image-info');
+
+    var indicatorTimeout = null;
+
+    // Mostrar indicador de imagen temporalmente
+    function showImageIndicator() {
+        if (totalImages <= 1) return;
+        imageInfo.textContent = `${currentImage + 1} / ${totalImages}`;
+        imageIndicator.style.opacity = '1';
+
+        clearTimeout(indicatorTimeout);
+        indicatorTimeout = setTimeout(() => {
+            imageIndicator.style.opacity = '0';
+        }, 1500);
+    }
+
+    // Cambiar imagen
+    function showImage(index) {
+        if (index < 0 || index >= totalImages) return;
+
+        // Ocultar todas las imágenes
+        document.querySelectorAll('.image-content').forEach(function(el) {
+            el.classList.remove('active');
+        });
+
+        // Mostrar imagen seleccionada
+        currentImage = index;
+        document.getElementById('image-content-' + index).classList.add('active');
+
+        // Scroll al inicio
+        container.scrollTop = 0;
+
+        showImageIndicator();
+    }
+
+    // Navegar con solapamiento inteligente (como forScore y PDF viewer)
+    function scrollByThird(direction) {
+        var viewportHeight = window.innerHeight;
+        var currentScroll = container.scrollTop;
+        var maxScroll = container.scrollHeight - viewportHeight;
+
+        // Avance del 75% con 25% de solapamiento
+        var overlap = viewportHeight * 0.25; // 25% de overlap
+        var advance = viewportHeight - overlap; // 75% de avance
+
+        if (direction === 'down') {
+            var newScroll = currentScroll + advance;
+
+            // Verificar si ya estamos en el final (tolerancia de 30px para móviles)
+            if (currentScroll >= maxScroll - 30) {
+                // Ya estamos al final, cambiar a siguiente imagen
+                if (currentImage < totalImages - 1) {
+                    showImage(currentImage + 1);
+                }
+                // Si ya estamos en la última imagen, no hacer nada
+            } else if (newScroll > maxScroll) {
+                // El scroll se pasaría del final, ir al final exacto
+                container.scrollTo({
+                    top: maxScroll,
+                    behavior: 'smooth'
+                });
+                showImageIndicator();
+            } else {
+                // Scroll normal con solapamiento
+                container.scrollTo({
+                    top: newScroll,
+                    behavior: 'smooth'
+                });
+                showImageIndicator();
+            }
+        } else if (direction === 'up') {
+            var newScroll = currentScroll - advance;
+
+            // Verificar si ya estamos en el inicio (tolerancia de 30px para móviles)
+            if (currentScroll <= 30) {
+                // Ya estamos al inicio, cambiar a imagen anterior
+                if (currentImage > 0) {
+                    showImage(currentImage - 1);
+                    // Ir al final de la imagen anterior
+                    setTimeout(() => {
+                        var newMaxScroll = container.scrollHeight - viewportHeight;
+                        container.scrollTop = newMaxScroll;
+                    }, 100);
+                }
+                // Si ya estamos en la primera imagen, no hacer nada
+            } else if (newScroll < 0) {
+                // El scroll se pasaría del inicio, ir al inicio exacto
+                container.scrollTo({
+                    top: 0,
+                    behavior: 'smooth'
+                });
+                showImageIndicator();
+            } else {
+                // Scroll normal con solapamiento
+                container.scrollTo({
+                    top: newScroll,
+                    behavior: 'smooth'
+                });
+                showImageIndicator();
+            }
+        }
+    }
+
+    // Click en los lados de la pantalla para navegar
+    container.addEventListener('click', function(e) {
+        var clickX = e.clientX;
+        var screenWidth = window.innerWidth;
+
+        if (clickX > screenWidth * 0.7) {
+            // Click en lado derecho - avanzar
+            scrollByThird('down');
+        } else if (clickX < screenWidth * 0.3) {
+            // Click en lado izquierdo - retroceder
+            scrollByThird('up');
+        } else if (window.toggleViewerTopbar) {
+            // Centro: dejar que el viewer haga toggle de la barra
+            window.toggleViewerTopbar();
+        }
+    });
+
+    // Navegación con teclado
+    document.addEventListener('keydown', function (e) {
+        switch (e.key) {
+            case 'Escape':
+                // Dejar que se maneje en viewer.html
+                break;
+            case 'ArrowRight':
+            case 'ArrowDown':
+            case 'PageDown':
+            case ' ': // Espacio
+                e.preventDefault();
+                scrollByThird('down');
+                break;
+            case 'ArrowLeft':
+            case 'ArrowUp':
+            case 'PageUp':
+                e.preventDefault();
+                scrollByThird('up');
+                break;
+        }
+    });
+
+    // Mostrar indicador inicial si hay múltiples imágenes
+    if (totalImages > 1) {
+        showImageIndicator();
+    }
+</script>

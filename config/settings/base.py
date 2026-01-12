@@ -370,6 +370,9 @@ HUEY = {
 # django-sql-explorer
 EXPLORER_DEFAULT_CONNECTION = "default"
 EXPLORER_CONNECTIONS = {"readonly": "default"}
+EXPLORER_PERMISSION_VIEW = lambda r: r.user.is_staff  # Solo staff puede ver queries
+EXPLORER_PERMISSION_CHANGE = lambda r: r.user.is_staff  # Solo staff puede editar
+EXPLORER_PUBLIC_QUERY_MODE = True  # Permitir compartir queries públicamente
 
 # Wagtail
 WAGTAIL_SITE_NAME = "IES Blog"

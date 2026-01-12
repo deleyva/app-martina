@@ -22,3 +22,20 @@ class APIKeyAdmin(admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
         """Hacer que el campo key sea de solo lectura solo cuando se edita un objeto existente"""
         return self.readonly_fields if obj else ('created_at', 'last_used')
+
+    def get_fieldsets(self, request, obj=None):
+        """Excluir el campo key al crear un nuevo objeto"""
+        if obj:
+            # Editando objeto existente - mostrar key
+            return self.fieldsets
+        else:
+            # Creando nuevo objeto - excluir key
+            return (
+                (None, {
+                    'fields': ('name', 'user', 'is_active')
+                }),
+                ('Información', {
+                    'fields': ('created_at', 'last_used'),
+                    'classes': ('collapse',),
+                }),
+            )
