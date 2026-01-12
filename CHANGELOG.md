@@ -66,3 +66,62 @@
 -   Hotfix: resolución determinista de la ScorePage relacionada (texto "De: ...") para `Document`/`Image` en sesiones y bibliotecas.
     -   Se prioriza la ScorePage más reciente (`last_published_at`/`first_published_at`/`pk`) para evitar resultados no deterministas entre entornos.
     -   Archivos: `clases/models.py`, `my_library/models.py`.
+
+-   **Zonas táctiles invisibles** en viewers fullscreen (mejora UX móvil):
+    -   Reemplazado el botón visible "Dispositivos de pantalla táctil" por 3 zonas táctiles invisibles.
+    -   25% izquierda: retroceder página/scroll.
+    -   50% centro: mostrar/ocultar controles (topbar).
+    -   25% derecha: avanzar página/scroll.
+    -   Solo visible en dispositivos táctiles (`@media (pointer: coarse)`).
+    -   No tapa el contenido de la partitura.
+    -   Archivos: `my_library/templates/my_library/viewer.html`, `clases/templates/clases/group_library/viewer.html`.
+
+### 🧪 API REST para Tests Musicales
+
+-   **Nuevo endpoint**: `POST /api/cms/tests` para crear `TestPage` (tests tipo quiz) programáticamente.
+
+-   **Autenticación**: API Key mediante `DatabaseApiKey()`.
+
+-   **Request** (JSON):
+    ```json
+    {
+      "title": "Test de Teoría Musical",
+      "intro": "Evalúa tus conocimientos",
+      "date": "2026-01-12",
+      "featured_image_id": 123,
+      "parent_page_id": 456,
+      "category_ids": [1, 2],
+      "tag_ids": [3, 4],
+      "questions": [
+        {
+          "prompt": "¿Cuántos tiempos tiene un compás de 4/4?",
+          "description": "Selecciona la respuesta correcta",
+          "explanation": "Un compás de 4/4 tiene 4 tiempos...",
+          "illustration_image_id": null,
+          "options": [
+            {"text": "2 tiempos", "is_correct": false},
+            {"text": "3 tiempos", "is_correct": false},
+            {"text": "4 tiempos", "is_correct": true},
+            {"text": "6 tiempos", "is_correct": false}
+          ]
+        }
+      ]
+    }
+    ```
+
+-   **Validaciones**:
+    -   Cada pregunta debe tener exactamente 4 opciones.
+    -   Cada pregunta debe tener exactamente 1 respuesta correcta.
+    -   Al menos una pregunta requerida.
+
+-   **Response** (success):
+    ```json
+    {
+      "id": 789,
+      "title": "Test de Teoría Musical",
+      "url": "/biblioteca/test-de-teoria-musical/",
+      "question_count": 1
+    }
+    ```
+
+-   **Archivo**: `cms/api.py`.

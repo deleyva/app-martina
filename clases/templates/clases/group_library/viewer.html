@@ -142,7 +142,12 @@
         {% endif %}
     </div>
 
-    <button type="button" id="viewer-touch-toggle">Dispositivos de pantalla táctil</button>
+    <!-- Zonas táctiles invisibles (solo en dispositivos táctiles) -->
+    <div id="touch-zones">
+        <div id="touch-zone-left" class="touch-zone"></div>
+        <div id="touch-zone-center" class="touch-zone"></div>
+        <div id="touch-zone-right" class="touch-zone"></div>
+    </div>
     
     <div style="width: 100%; min-height: 100vh;">
         {% if documents.pdfs %}
@@ -283,22 +288,37 @@
             padding: 10px;
             min-height: 120px;
         }
-        #viewer-touch-toggle {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 9998;
+        /* Zonas táctiles invisibles - solo para dispositivos táctiles */
+        #touch-zones {
             display: none;
-            padding: 10px 14px;
-            border-radius: 999px;
-            border: 1px solid rgba(255, 255, 255, 0.35);
-            background: rgba(0, 0, 0, 0.55);
-            color: #fff;
-            font-size: 13px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 100;
+            pointer-events: none;
+        }
+        .touch-zone {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            pointer-events: auto;
+        }
+        #touch-zone-left {
+            left: 0;
+            width: 25%;
+        }
+        #touch-zone-center {
+            left: 25%;
+            width: 50%;
+        }
+        #touch-zone-right {
+            right: 0;
+            width: 25%;
         }
         @media (pointer: coarse) {
-            #viewer-touch-toggle {
+            #touch-zones {
                 display: block;
             }
         }
@@ -309,7 +329,6 @@
             var topbar = document.getElementById('viewer-topbar');
             var mediaPanel = document.getElementById('viewer-media-panel');
             var mediaBtn = document.getElementById('viewer-media-btn');
-            var touchToggle = document.getElementById('viewer-touch-toggle');
             var pdfContainer = document.getElementById('pdf-container');
             var hideTimeout = null;
 
@@ -378,10 +397,38 @@
                 window.addEventListener('scroll', handleScroll, { passive: true });
             }
 
-            if (touchToggle) {
-                touchToggle.addEventListener('click', function(e) {
+            // Zonas táctiles invisibles
+            var touchZoneLeft = document.getElementById('touch-zone-left');
+            var touchZoneCenter = document.getElementById('touch-zone-center');
+            var touchZoneRight = document.getElementById('touch-zone-right');
+
+            if (touchZoneCenter) {
+                touchZoneCenter.addEventListener('click', function(e) {
                     e.preventDefault();
+                    e.stopPropagation();
                     toggleTopbar();
+                });
+            }
+
+            if (touchZoneLeft) {
+                touchZoneLeft.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    // Llamar a la función de scroll del PDF viewer si existe
+                    if (typeof scrollByThird === 'function') {
+                        scrollByThird('up');
+                    }
+                });
+            }
+
+            if (touchZoneRight) {
+                touchZoneRight.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    // Llamar a la función de scroll del PDF viewer si existe
+                    if (typeof scrollByThird === 'function') {
+                        scrollByThird('down');
+                    }
                 });
             }
 

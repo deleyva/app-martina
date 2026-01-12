@@ -1,6 +1,6 @@
 ROADMAP
 
-## Barra superior invisible en viewers (ScorePage Media)
+## ✅ Barra superior invisible en viewers (ScorePage Media) - COMPLETADO
 
 ### Objetivo
 
@@ -18,7 +18,7 @@ Solo debe aparecer si:
 
 -   El usuario hace scroll hasta arriba.
 -   El usuario hace click/tap en el centro de la pantalla.
--   El usuario pulsa el botón central "Dispositivos de pantalla táctil".
+-   **Zonas táctiles invisibles** (reemplaza el botón visible "Dispositivos de pantalla táctil").
 
 ### Alcance
 
@@ -60,7 +60,31 @@ Solo debe aparecer si:
 -   Comportamiento de visibilidad:
     -   Oculta por defecto.
     -   Aparece temporalmente al llegar arriba con scroll (sin mostrarla por cambios de página del PDF).
-    -   Toggle al click en el centro (y botón central "Dispositivos de pantalla táctil").
+    -   Toggle al click en el centro.
+
+### Zonas Táctiles Invisibles (Mejora UX Móvil)
+
+Se reemplazó el botón visible "Dispositivos de pantalla táctil" por **3 zonas táctiles invisibles** que solo aparecen en dispositivos táctiles (`@media (pointer: coarse)`):
+
+    ┌─────────┬───────────────────────────┬─────────┐
+    │         │                           │         │
+    │  ◀ 25%  │      Centro 50%           │  25% ▶  │
+    │ Atrás   │   Toggle controles        │ Adelante│
+    │         │                           │         │
+    └─────────┴───────────────────────────┴─────────┘
+
+| Zona          | Ancho | Acción                                  |
+| ------------- | ----- | --------------------------------------- |
+| **Izquierda** | 25%   | Retrocede (scroll up / página anterior) |
+| **Centro**    | 50%   | Muestra/oculta controles (topbar)       |
+| **Derecha**   | 25%   | Avanza (scroll down / página siguiente) |
+
+**Ventajas**:
+
+-   No tapa el contenido de la partitura.
+-   Navegación intuitiva con taps en los laterales.
+-   Solo visible en dispositivos táctiles (móviles/tablets).
+-   En desktop se usa el comportamiento existente (click en zonas del PDF).
 
 ### Tests
 
