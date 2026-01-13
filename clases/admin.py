@@ -53,7 +53,8 @@ class GroupAdmin(admin.ModelAdmin):
     get_teachers_count.short_description = "Profesores"
 
     def get_students_count(self, obj):
-        return obj.students.count()
+        # Contar Enrollments activos, no el modelo Student legacy
+        return obj.enrollments.filter(is_active=True).count()
 
     get_students_count.short_description = "Estudiantes"
 
