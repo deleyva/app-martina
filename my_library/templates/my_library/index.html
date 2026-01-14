@@ -191,12 +191,18 @@
          * Este es el enfoque más robusto para HTMX - el servidor envía el evento via header
          */
         document.body.addEventListener('proficiencyUpdated', function(evt) {
+            console.log('🔄 proficiencyUpdated event received:', evt.detail);
             const detail = evt.detail;
-            if (!detail || !detail.itemId) return;
+            if (!detail || !detail.itemId) {
+                console.log('❌ No detail or itemId');
+                return;
+            }
             
             const li = document.getElementById('library-item-' + detail.itemId);
+            console.log('📍 Found li element:', li);
             if (li) {
                 li.dataset.proficiency = detail.newLevel;
+                console.log('✅ Calling reorderLibraryList');
                 setTimeout(reorderLibraryList, 100);
             }
         });
