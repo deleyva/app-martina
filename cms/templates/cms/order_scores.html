@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+{% load static wagtailimages_tags %}
+
+{% block title %}Ordenar Partituras por Categoría{% endblock %}
+
+{% block extra_css %}
+<style>
+    .sortable-ghost {
+        opacity: 0.4;
+    }
+    .sortable-drag {
+        box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+    }
+</style>
+{% endblock %}
+
+{% block javascript %}
+{{ block.super }}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.1/Sortable.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-6xl">
+    <!-- Header -->
+    <div class="mb-8">
+        <a href="/" class="link link-primary mb-4 inline-block">
+            ← Volver al inicio
+        </a>
+        <h1 class="text-4xl font-bold mb-2">Ordenar Partituras por Categoría</h1>
+        <p class="text-base-content/70">
+            Arrastra y suelta las partituras para cambiar su orden dentro de cada categoría
+        </p>
+    </div>
+
+    {% if categories %}
+        {% for category in categories %}
+        <div class="card bg-base-100 shadow-xl mb-6">
+            <div class="card-body">
+                <!-- Category Header -->
+                <div class="flex justify-between items-center mb-4 pb-4 border-b border-base-300">
+                    <h2 class="card-title text-2xl">{{ category.full_path }}</h2>
+                    <div class="badge badge-primary badge-lg">
+                        {{ category.scores|length }} partitura{{ category.scores|length|pluralize }}
+                    </div>
+                </div>
+
+                <!-- Sortable List -->
+                <ul class="sortable-list space-y-2" data-category-id="{{ category.id }}">
+                    {% for score in category.scores %}
+                    <li class="flex items-center gap-3 p-4 bg-base-200 rounded-lg hover:bg-base-300 transition-colors cursor-move score-item"
+                        data-relation-id="{{ score.id }}">
+                        <span class="drag-handle text-2xl text-base-content/40 hover:text-base-content cursor-grab active:cursor-grabbing">
+                            ☰
+                        </span>
+                        <div class="badge badge-primary badge-lg score-number">
+                            {{ forloop.counter }}
+                        </div>
+
+                        {% if score.first_image %}
+                        <div class="flex-shrink-0">
+                            {% image score.first_image width-80 class="rounded border border-base-300 shadow-sm" %}
+                        </div>
+                        {% elif score.first_pdf_url %}
+                        <div class="flex-shrink-0 w-20 h-28 bg-base-300 rounded border border-base-300 shadow-sm overflow-hidden relative">
+                            <canvas class="pdf-mini-canvas w-full h-full"
+                                    data-pdf-url="{{ score.first_pdf_url }}"
+                                    data-score-id="{{ score.id }}">
+                            </canvas>
+                        </div>
+                        {% else %}
+                        <div class="flex-shrink-0 w-20 h-20 bg-base-300 rounded flex items-center justify-center text-base-content/40">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                        </div>
+                        {% endif %}
+
+                        <span class="flex-1 font-medium score-title">
+                            {{ score.title }}
+                        </span>
+
+                        <a href="{{ score.url }}"
+                           class="btn btn-sm btn-ghost btn-circle"
+                           title="Ver partitura">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="alert alert-info shadow-lg">
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current flex-shrink-0 w-6 h-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <div>
+                    <h3 class="font-bold">No hay categorías con partituras</h3>
+                    <div class="text-xs">Asigna partituras a categorías desde el admin de Wagtail</div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Toast Notification -->
+<div class="toast toast-end hidden" id="saveToast">
+    <div class="alert" id="saveAlert">
+        <span id="saveMessage"></span>
+    </div>
+</div>
+
+<script>
+    // Obtener CSRF token del meta tag
+    const csrftoken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+    // Función para mostrar notificación
+    function showToast(message, isError = false) {
+        const toast = document.getElementById('saveToast');
+        const alert = document.getElementById('saveAlert');
+        const messageEl = document.getElementById('saveMessage');
+
+        messageEl.textContent = message;
+        alert.className = isError ? 'alert alert-error' : 'alert alert-success';
+        toast.classList.remove('hidden');
+
+        setTimeout(() => {
+            toast.classList.add('hidden');
+        }, 3000);
+    }
+
+    // Función para actualizar números
+    function updateNumbers(list) {
+        const items = list.querySelectorAll('.score-item');
+        items.forEach((item, index) => {
+            const numberEl = item.querySelector('.score-number');
+            numberEl.textContent = index + 1;
+        });
+    }
+
+    // Función para guardar el orden
+    async function saveOrder(categoryId, order) {
+        console.log('Guardando orden:', {categoryId, order, csrftoken});
+        try {
+            const response = await fetch('/update-scores-order/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrftoken,
+                },
+                body: JSON.stringify({
+                    category_id: categoryId,
+                    order: order
+                })
+            });
+
+            console.log('Response status:', response.status);
+
+            const data = await response.json();
+
+            if (response.ok) {
+                showToast('✓ Orden guardado correctamente');
+            } else {
+                showToast('✗ Error: ' + (data.error || 'Error desconocido'), true);
+            }
+        } catch (error) {
+            showToast('✗ Error de conexión: ' + error.message, true);
+        }
+    }
+
+    // Inicializar SortableJS en todas las listas
+    document.querySelectorAll('.sortable-list').forEach(list => {
+        new Sortable(list, {
+            animation: 150,
+            handle: '.drag-handle',
+            ghostClass: 'sortable-ghost',
+            dragClass: 'sortable-drag',
+            onEnd: function(evt) {
+                // Actualizar números visuales
+                updateNumbers(evt.to);
+
+                // Obtener el nuevo orden
+                const categoryId = evt.to.dataset.categoryId;
+                const items = evt.to.querySelectorAll('.score-item');
+                const order = Array.from(items).map(item =>
+                    parseInt(item.dataset.relationId)
+                );
+
+                // Guardar en servidor
+                saveOrder(categoryId, order);
+            }
+        });
+    });
+
+    // Renderizar thumbnails de PDFs
+    document.addEventListener('DOMContentLoaded', function() {
+        const pdfCanvases = document.querySelectorAll('.pdf-mini-canvas');
+
+        pdfCanvases.forEach(function(canvas) {
+            const pdfUrl = canvas.getAttribute('data-pdf-url');
+
+            if (pdfUrl) {
+                // Cargar PDF
+                pdfjsLib.getDocument(pdfUrl).promise.then(function(pdf) {
+                    // Obtener primera página
+                    pdf.getPage(1).then(function(page) {
+                        const viewport = page.getViewport({ scale: 0.5 });
+                        const context = canvas.getContext('2d');
+
+                        // Ajustar tamaño del canvas
+                        canvas.height = viewport.height;
+                        canvas.width = viewport.width;
+
+                        // Renderizar página
+                        const renderContext = {
+                            canvasContext: context,
+                            viewport: viewport
+                        };
+
+                        page.render(renderContext);
+                    });
+                }).catch(function(error) {
+                    console.error('Error cargando PDF:', error);
+                });
+            }
+        });
+    });
+</script>
+{% endblock %}

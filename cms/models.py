@@ -625,6 +625,45 @@ class MusicLibraryIndexPage(Page):
         return context
 
 
+class ScorePageCategory(Orderable):
+    """
+    Through model para ordenar ScorePages dentro de cada categoría.
+    Hereda 'sort_order' de Orderable automáticamente.
+    """
+
+    score_page = ParentalKey(
+        "ScorePage",
+        on_delete=models.CASCADE,
+        related_name="score_categories",
+    )
+    category = models.ForeignKey(
+        "MusicCategory",
+        on_delete=models.CASCADE,
+        related_name="category_scores",
+    )
+
+    class Meta:
+        unique_together = ["score_page", "category"]
+        ordering = ["sort_order"]  # Campo heredado de Orderable
+        verbose_name = "Partitura"
+        verbose_name_plural = "Partituras"
+
+    panels = [
+        FieldPanel("score_page"),
+    ]
+
+    def save(self, *args, **kwargs):
+        """Asegurar que sort_order tenga un valor válido al crear"""
+        if self.sort_order is None:
+            # Obtener el máximo sort_order actual para esta categoría
+            max_order = (
+                ScorePageCategory.objects.filter(category=self.category)
+                .aggregate(models.Max("sort_order"))["sort_order__max"]
+            )
+            self.sort_order = (max_order + 1) if max_order is not None else 0
+        super().save(*args, **kwargs)
+
+
 class ScorePage(Page):
     """Página individual de partitura con PDF y metadatos - MUSIC PILLS"""
 
@@ -636,7 +675,11 @@ class ScorePage(Page):
         blank=True,
         help_text="Seleccionar o añadir un compositor",
     )
-    categories = ParentalManyToManyField("MusicCategory", blank=True)
+    categories = ParentalManyToManyField(
+        "MusicCategory",
+        through="ScorePageCategory",
+        blank=True,
+    )
     tags = ParentalManyToManyField("MusicTag", blank=True)
 
     # StreamField para contenido flexible
@@ -735,6 +778,54 @@ class ScorePage(Page):
             return ""
 
         return getattr(embed, "html", "") or ""
+
+    def get_all_tags(self):
+        """
+        Obtener unión de todas las tags de:
+        1. Tags directas de ScorePage (MusicTag)
+        2. Tags de PDFs en el StreamField
+        3. Tags de audios en el StreamField
+        4. Tags de imágenes en el StreamField
+
+        Returns: Lista de objetos tag únicos (sin duplicados)
+        """
+        all_tags = []
+
+        # 1. Tags directas (MusicTag)
+        all_tags.extend(self.tags.all())
+
+        # 2. Tags de PDFs
+        for pdf_block in self.get_pdf_blocks():
+            if pdf_block.get("pdf_file") and hasattr(pdf_block["pdf_file"], "tags"):
+                all_tags.extend(pdf_block["pdf_file"].tags.all())
+
+        # 3. Tags de audios
+        for audio_block in self.get_audios():
+            if audio_block.get("audio_file") and hasattr(
+                audio_block["audio_file"], "tags"
+            ):
+                all_tags.extend(audio_block["audio_file"].tags.all())
+
+        # 4. Tags de imágenes
+        for image_block in self.get_images():
+            if image_block.get("image") and hasattr(image_block["image"], "tags"):
+                all_tags.extend(image_block["image"].tags.all())
+
+        # Deduplicar por nombre (case-insensitive)
+        seen_names = set()
+        unique_tags = []
+        for tag in all_tags:
+            tag_name_lower = tag.name.lower()
+            if tag_name_lower not in seen_names:
+                seen_names.add(tag_name_lower)
+                unique_tags.append(tag)
+
+        return unique_tags
+
+    @property
+    def all_tags(self):
+        """Property para acceso desde templates: {{ page.all_tags }}"""
+        return self.get_all_tags()
 
 
 class SetlistPage(Page):

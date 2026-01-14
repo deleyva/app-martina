@@ -214,3 +214,124 @@ def ai_publish_form(request):
     automáticamente una ScorePage en Wagtail.
     """
     return render(request, "cms/ai_publish_form.html")
+
+
+from django.contrib.admin.views.decorators import staff_member_required
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import csrf_exempt
+import json
+from .models import MusicCategory, ScorePageCategory
+
+
+@staff_member_required
+def order_scores_view(request):
+    """
+    Vista para ordenar ScorePages dentro de categorías.
+    Solo accesible por staff/profesores.
+    """
+    categories = MusicCategory.objects.all().prefetch_related(
+        "category_scores__score_page"
+    )
+
+    # Organizar datos para el template
+    categories_data = []
+    for category in categories:
+        scores = category.category_scores.all().order_by("sort_order")
+        if scores.exists():  # Solo mostrar categorías con ScorePages
+            scores_list = []
+            for relation in scores:
+                score_page = relation.score_page
+
+                # Obtener primera imagen o PDF como preview
+                first_image = None
+                first_pdf_url = None
+
+                # 1. Intentar obtener primera imagen
+                images = score_page.get_images()
+                if images and len(images) > 0:
+                    first_image_block = images[0]
+                    first_image = first_image_block.get('image')
+
+                # 2. Si no hay imagen, obtener primer PDF
+                if not first_image:
+                    pdf_blocks = score_page.get_pdf_blocks()
+                    if pdf_blocks and len(pdf_blocks) > 0:
+                        first_pdf_block = pdf_blocks[0]
+                        pdf_file = first_pdf_block.get('pdf_file')
+                        if pdf_file:
+                            first_pdf_url = pdf_file.url
+
+                scores_list.append({
+                    "id": relation.id,  # ID de ScorePageCategory
+                    "score_id": score_page.id,
+                    "title": score_page.title,
+                    "sort_order": relation.sort_order,
+                    "first_image": first_image,  # Objeto Wagtail Image o None
+                    "first_pdf_url": first_pdf_url,  # URL del PDF o None
+                    "url": score_page.get_url(request),  # URL de la ScorePage
+                })
+
+            categories_data.append({
+                "id": category.id,
+                "name": category.name,
+                "full_path": category.full_path,
+                "scores": scores_list,
+            })
+
+    return render(
+        request,
+        "cms/order_scores.html",
+        {
+            "categories": categories_data,
+        },
+    )
+
+
+from django.views.decorators.csrf import ensure_csrf_cookie
+
+
+@staff_member_required
+@require_POST
+def update_scores_order(request):
+    """
+    Endpoint API para actualizar el orden de ScorePages en una categoría.
+    Recibe: {"category_id": 1, "order": [relation_id1, relation_id2, ...]}
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    # Verificar que el request tenga permisos
+    if not request.user.is_staff:
+        logger.warning(f"Usuario sin permisos intentó actualizar orden: {request.user}")
+        return JsonResponse({"error": "Permiso denegado"}, status=403)
+
+    try:
+        data = json.loads(request.body)
+        category_id = data.get("category_id")
+        new_order = data.get("order", [])  # Lista de IDs de ScorePageCategory
+
+        logger.info(f"Actualizando orden - Categoría: {category_id}, Orden: {new_order}")
+
+        if not category_id or not new_order:
+            logger.error(f"Datos inválidos - category_id: {category_id}, order: {new_order}")
+            return JsonResponse({"error": "Datos inválidos"}, status=400)
+
+        # Actualizar sort_order de cada ScorePageCategory
+        updated_count = 0
+        for index, relation_id in enumerate(new_order):
+            result = ScorePageCategory.objects.filter(
+                id=relation_id, category_id=category_id
+            ).update(sort_order=index)
+            updated_count += result
+            logger.debug(f"Actualizado relation_id={relation_id} a sort_order={index}, affected={result}")
+
+        logger.info(f"Orden actualizado exitosamente. Registros actualizados: {updated_count}")
+        return JsonResponse({"success": True, "message": "Orden actualizado", "updated": updated_count})
+
+    except json.JSONDecodeError as e:
+        logger.error(f"Error parseando JSON: {e}")
+        return JsonResponse({"error": "JSON inválido"}, status=400)
+    except Exception as e:
+        logger.exception(f"Error actualizando orden: {e}")
+        return JsonResponse({"error": str(e)}, status=500)
