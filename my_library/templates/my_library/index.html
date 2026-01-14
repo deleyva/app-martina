@@ -160,8 +160,20 @@
          * Reordenar la lista dinámicamente según los criterios de la biblioteca
          */
         function reorderLibraryList() {
+            console.log('🔀 reorderLibraryList() called');
             const list = document.getElementById('libraryItemsList');
+            console.log('📋 List element:', list);
+            if (!list) {
+                console.log('❌ List not found!');
+                return;
+            }
             const items = Array.from(list.querySelectorAll('.library-item'));
+            console.log('📝 Items found:', items.length);
+            
+            // Log proficiency values before sort
+            items.forEach(item => {
+                console.log(`  - ${item.id}: proficiency=${item.dataset.proficiency}`);
+            });
             
             items.sort((a, b) => {
                 // 1. Proficiency (Ascendente: 0 -> 4)
@@ -180,10 +192,12 @@
                 return addedB - addedA;
             });
             
+            console.log('✅ Reordering complete, appending items...');
             // Reinsertar elementos en el nuevo orden con una pequeña animación
             items.forEach((item, index) => {
                 list.appendChild(item);
             });
+            console.log('🎉 Done!');
         }
 
         /**
