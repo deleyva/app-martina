@@ -35,6 +35,29 @@
     .range-error.proficiency-range { --range-color: var(--fallback-er,oklch(var(--er))); }
     .range-warning.proficiency-range { --range-color: var(--fallback-wa,oklch(var(--wa))); }
     .range-success.proficiency-range { --range-color: var(--fallback-su,oklch(var(--su))); }
+
+    /* Animaciones de reordenamiento */
+    @keyframes move-down {
+        0% { transform: translateY(-20px); opacity: 0.5; background-color: oklch(var(--su) / 0.2); }
+        50% { background-color: oklch(var(--su) / 0.3); }
+        100% { transform: translateY(0); opacity: 1; background-color: transparent; }
+    }
+    
+    @keyframes move-up {
+        0% { transform: translateY(20px); opacity: 0.5; background-color: oklch(var(--er) / 0.2); }
+        50% { background-color: oklch(var(--er) / 0.3); }
+        100% { transform: translateY(0); opacity: 1; background-color: transparent; }
+    }
+    
+    .animate-move-down {
+        animation: move-down 0.5s ease-out;
+        box-shadow: 0 4px 12px oklch(var(--su) / 0.3);
+    }
+    
+    .animate-move-up {
+        animation: move-up 0.5s ease-out;
+        box-shadow: 0 -4px 12px oklch(var(--er) / 0.3);
+    }
 </style>
 {% endblock %}
 
@@ -161,66 +184,68 @@
     <script>
         /**
          * Reordenar la lista dinámicamente según los criterios de la biblioteca
+         * Con animación visual para mostrar movimiento arriba/abajo
          */
-        function reorderLibraryList() {
-            console.log('🔀 reorderLibraryList() called');
+        function reorderLibraryList(changedItemId) {
             const list = document.getElementById('libraryItemsList');
-            console.log('📋 List element:', list);
-            if (!list) {
-                console.log('❌ List not found!');
-                return;
-            }
-            const items = Array.from(list.querySelectorAll('.library-item'));
-            console.log('📝 Items found:', items.length);
+            if (!list) return;
             
-            // Log proficiency values before sort
-            items.forEach(item => {
-                console.log(`  - ${item.id}: proficiency=${item.dataset.proficiency}`);
+            const items = Array.from(list.querySelectorAll('.library-item'));
+            
+            // Guardar posiciones originales
+            const originalPositions = {};
+            items.forEach((item, index) => {
+                originalPositions[item.id] = index;
             });
             
+            // Ordenar
             items.sort((a, b) => {
-                // 1. Proficiency (Ascendente: 0 -> 4)
-                const profA = parseInt(a.dataset.proficiency);
-                const profB = parseInt(b.dataset.proficiency);
+                const profA = parseInt(a.dataset.proficiency) || 0;
+                const profB = parseInt(b.dataset.proficiency) || 0;
                 if (profA !== profB) return profA - profB;
                 
-                // 2. Vistas (Ascendente)
-                const viewsA = parseInt(a.dataset.views);
-                const viewsB = parseInt(b.dataset.views);
+                const viewsA = parseInt(a.dataset.views) || 0;
+                const viewsB = parseInt(b.dataset.views) || 0;
                 if (viewsA !== viewsB) return viewsA - viewsB;
                 
-                // 3. Fecha añadido (Descendente: más reciente primero)
                 const addedA = new Date(a.dataset.added);
                 const addedB = new Date(b.dataset.added);
                 return addedB - addedA;
             });
             
-            console.log('✅ Reordering complete, appending items...');
-            // Reinsertar elementos en el nuevo orden con una pequeña animación
-            items.forEach((item, index) => {
+            // Calcular nuevas posiciones y aplicar animación
+            items.forEach((item, newIndex) => {
+                const oldIndex = originalPositions[item.id];
+                const moved = newIndex !== oldIndex;
+                
+                if (moved && item.id === 'library-item-' + changedItemId) {
+                    // Determinar dirección del movimiento
+                    const movedDown = newIndex > oldIndex;
+                    
+                    // Aplicar clase de animación
+                    item.classList.add(movedDown ? 'animate-move-down' : 'animate-move-up');
+                    
+                    // Quitar clase después de la animación
+                    setTimeout(() => {
+                        item.classList.remove('animate-move-down', 'animate-move-up');
+                    }, 600);
+                }
+                
                 list.appendChild(item);
             });
-            console.log('🎉 Done!');
         }
 
         /**
          * Escuchar el evento HX-Trigger enviado desde el servidor
-         * Este es el enfoque más robusto para HTMX - el servidor envía el evento via header
          */
         document.body.addEventListener('proficiencyUpdated', function(evt) {
-            console.log('🔄 proficiencyUpdated event received:', evt.detail);
             const detail = evt.detail;
-            if (!detail || !detail.itemId) {
-                console.log('❌ No detail or itemId');
-                return;
-            }
+            if (!detail || !detail.itemId) return;
             
             const li = document.getElementById('library-item-' + detail.itemId);
-            console.log('📍 Found li element:', li);
             if (li) {
                 li.dataset.proficiency = detail.newLevel;
-                console.log('✅ Calling reorderLibraryList');
-                setTimeout(reorderLibraryList, 100);
+                setTimeout(() => reorderLibraryList(detail.itemId), 100);
             }
         });
 
@@ -229,11 +254,8 @@
          */
         function updateRangeColor(input) {
             const val = parseInt(input.value);
-            
-            // Eliminar clases de color previas
             input.classList.remove('range-error', 'range-warning', 'range-success');
             
-            // Añadir nueva clase según el valor
             if (val === 0) {
                 input.classList.add('range-error');
             } else if (val <= 2) {
