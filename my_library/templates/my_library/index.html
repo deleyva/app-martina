@@ -187,18 +187,25 @@
         }
 
         // Escuchar el evento de HTMX después de que se actualiza el slider
-        document.body.addEventListener('htmx:afterSwap', function(evt) {
-            if (evt.detail.target.id.startsWith('proficiency-')) {
-                const itemId = evt.detail.target.id.replace('proficiency-', '');
-                const li = document.getElementById('library-item-' + itemId);
-                const newVal = evt.detail.target.querySelector('input').value;
-                
-                // Actualizar el dataset para el ordenamiento
-                li.dataset.proficiency = newVal;
-                
-                // Reordenar
-                reorderLibraryList();
-            }
+        // Usamos htmx:afterSettle que se dispara cuando el DOM está completamente actualizado
+        document.body.addEventListener('htmx:afterSettle', function(evt) {
+            const target = evt.detail.target;
+            if (!target || !target.id || !target.id.startsWith('proficiency-')) return;
+            
+            const itemId = target.id.replace('proficiency-', '');
+            const li = document.getElementById('library-item-' + itemId);
+            if (!li) return;
+            
+            const input = target.querySelector('input[type="range"]');
+            if (!input) return;
+            
+            const newVal = input.value;
+            
+            // Actualizar el dataset para el ordenamiento
+            li.dataset.proficiency = newVal;
+            
+            // Reordenar con un pequeño delay para asegurar que el DOM está listo
+            setTimeout(reorderLibraryList, 50);
         });
 
         /**

@@ -17,9 +17,10 @@
         content="Jesús López de Leyva" />
   <meta name="referrer" content="origin" />
   <meta name="csrf-token" content="{{ csrf_token }}">
-  <link rel="icon" type="image/svg+xml" href="{% static 'images/favicons/favicon.svg' %}" />
-  <link rel="icon" type="image/png" href="{% static 'images/favicons/favicon.svg' %}" />
-  <link rel="alternate icon" href="{% static 'images/favicons/favicon.ico' %}" />
+  <!-- Favicon: ICO primero para Chrome, SVG para navegadores modernos -->
+  <link rel="icon" href="{% static 'images/favicons/favicon.ico' %}" sizes="32x32" />
+  <link rel="icon" href="{% static 'images/favicons/favicon.svg' %}" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="{% static 'images/favicons/favicon.svg' %}" />
   {% block css %}
     <!-- Tailwind CSS con DaisyUI -->
     <link href="{% static 'css/output.css' %}" rel="stylesheet" />
