@@ -186,26 +186,19 @@
             });
         }
 
-        // Escuchar el evento de HTMX después de que se actualiza el slider
-        // Usamos htmx:afterSettle que se dispara cuando el DOM está completamente actualizado
-        document.body.addEventListener('htmx:afterSettle', function(evt) {
-            const target = evt.detail.target;
-            if (!target || !target.id || !target.id.startsWith('proficiency-')) return;
+        /**
+         * Escuchar el evento HX-Trigger enviado desde el servidor
+         * Este es el enfoque más robusto para HTMX - el servidor envía el evento via header
+         */
+        document.body.addEventListener('proficiencyUpdated', function(evt) {
+            const detail = evt.detail;
+            if (!detail || !detail.itemId) return;
             
-            const itemId = target.id.replace('proficiency-', '');
-            const li = document.getElementById('library-item-' + itemId);
-            if (!li) return;
-            
-            const input = target.querySelector('input[type="range"]');
-            if (!input) return;
-            
-            const newVal = input.value;
-            
-            // Actualizar el dataset para el ordenamiento
-            li.dataset.proficiency = newVal;
-            
-            // Reordenar con un pequeño delay para asegurar que el DOM está listo
-            setTimeout(reorderLibraryList, 50);
+            const li = document.getElementById('library-item-' + detail.itemId);
+            if (li) {
+                li.dataset.proficiency = detail.newLevel;
+                setTimeout(reorderLibraryList, 100);
+            }
         });
 
         /**

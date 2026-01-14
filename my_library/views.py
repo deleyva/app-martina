@@ -199,6 +199,20 @@ def update_proficiency(request, pk):
         item.save(update_fields=["proficiency_level"])
 
     # Renderizar partial con el slider actualizado
-    return render(
+    response = render(
         request, "my_library/partials/proficiency_slider.html", {"item": item}
     )
+
+    # Enviar evento HX-Trigger para que el cliente pueda reordenar la lista
+    import json
+
+    response["HX-Trigger"] = json.dumps(
+        {
+            "proficiencyUpdated": {
+                "itemId": str(item.pk),
+                "newLevel": item.proficiency_level,
+            }
+        }
+    )
+
+    return response
