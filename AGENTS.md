@@ -359,6 +359,7 @@ class ContentPublisher:
 ```
 
 **Reglas para Servicios**:
+
 -   Clases con métodos públicos claros
 -   Sin lógica en `__init__` (solo configuración)
 -   Usar type hints
@@ -379,3 +380,22 @@ class ContentPublisher:
 -   **docs/**: Documentación técnica detallada por feature
 
 -   Después de desarrollar una nueva funcionalidad, revisa la documentación para asegurarte de que todo esté correctamente documentado. Si es necesario, actualiza la documentación.
+
+## Cambios Recientes (Enero 2026)
+
+### Biblioteca Personal (`my_library`)
+
+-   **Sistema de Proficiency Visual**: Sustitución de estrellas ⭐ por un **Slider Dinámico** (`range` de DaisyUI).
+    -   **Colores dinámicos**: Cambio en tiempo real (Rojo -> Naranja -> Verde) mediante JavaScript (`oninput`).
+    -   **Soporte Nivel 0**: Implementado tanto en UI como en validación de backend.
+-   **Reordenamiento Dinámico**: Los elementos se reposicionan automáticamente al cambiar el nivel de proficiency.
+    -   **Animación**: Uso de transiciones CSS (`transition-all`) para movimientos suaves.
+    -   **Lógica**: Reordenamiento por Proficiency (ASC), Vistas (ASC) y Fecha (DESC).
+    -   **HTMX**: Integración con `htmx:afterSwap` para sincronizar el estado del DOM sin recargar.
+
+### Identidad Visual
+
+-   **Nuevo Favicon**: Implementación de favicon musical moderno en formato SVG y PNG.
+    -   **Ubicación**: `static/images/favicons/favicon.svg`
+    -   **Estilo**: Fondo índigo con icono de corchea blanca.
+    -   **Compatibilidad**: Configurado en `base.html` con fallback `.ico`.
