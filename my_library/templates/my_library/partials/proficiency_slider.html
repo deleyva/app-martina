@@ -1,0 +1,29 @@
+<div class="flex flex-col gap-1 w-full max-w-xs" id="proficiency-{{ item.pk }}">
+    <div class="flex justify-between text-[10px] px-1 opacity-70 font-medium">
+        <span class="text-error">A mejorar</span>
+        <span class="text-success">Dominado</span>
+    </div>
+    
+    <input type="range" 
+           min="0" max="4" 
+           value="{{ item.proficiency_level }}" 
+           class="range range-xs transition-all duration-300 proficiency-range
+                  {% if item.proficiency_level == 0 %}range-error
+                  {% elif item.proficiency_level <= 2 %}range-warning
+                  {% else %}range-success{% endif %}" 
+           step="1"
+           name="level"
+           hx-post="{% url 'my_library:update_proficiency' item.pk %}"
+           hx-trigger="change"
+           hx-target="#proficiency-{{ item.pk }}"
+           hx-swap="outerHTML"
+           oninput="updateRangeColor(this)" />
+    
+    <div class="w-full flex justify-between text-[10px] px-1 opacity-40">
+        <span>0</span>
+        <span>1</span>
+        <span>2</span>
+        <span>3</span>
+        <span>4</span>
+    </div>
+</div>

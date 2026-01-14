@@ -25,6 +25,16 @@
             width: 100%;
         }
     }
+
+    /* Estilos para el slider de progreso musical */
+    .proficiency-range::-webkit-slider-runnable-track {
+        background-size: var(--range-shading, 0%) 100%;
+        background-repeat: no-repeat;
+    }
+    
+    .range-error.proficiency-range { --range-color: var(--fallback-er,oklch(var(--er))); }
+    .range-warning.proficiency-range { --range-color: var(--fallback-wa,oklch(var(--wa))); }
+    .range-success.proficiency-range { --range-color: var(--fallback-su,oklch(var(--su))); }
 </style>
 {% endblock %}
 
@@ -111,7 +121,7 @@
                 
                 <!-- Nivel de conocimiento -->
                 <div class="mt-2">
-                    {% include "my_library/partials/proficiency_stars.html" with item=item %}
+                    {% include "my_library/partials/proficiency_slider.html" with item=item %}
                 </div>
             </div>
             
@@ -144,6 +154,72 @@
     </ul>
 
     {% include "partials/library_filter_script.html" %}
+    
+    <script>
+        /**
+         * Reordenar la lista dinámicamente según los criterios de la biblioteca
+         */
+        function reorderLibraryList() {
+            const list = document.getElementById('libraryItemsList');
+            const items = Array.from(list.querySelectorAll('.library-item'));
+            
+            items.sort((a, b) => {
+                // 1. Proficiency (Ascendente: 0 -> 4)
+                const profA = parseInt(a.dataset.proficiency);
+                const profB = parseInt(b.dataset.proficiency);
+                if (profA !== profB) return profA - profB;
+                
+                // 2. Vistas (Ascendente)
+                const viewsA = parseInt(a.dataset.views);
+                const viewsB = parseInt(b.dataset.views);
+                if (viewsA !== viewsB) return viewsA - viewsB;
+                
+                // 3. Fecha añadido (Descendente: más reciente primero)
+                const addedA = new Date(a.dataset.added);
+                const addedB = new Date(b.dataset.added);
+                return addedB - addedA;
+            });
+            
+            // Reinsertar elementos en el nuevo orden con una pequeña animación
+            items.forEach((item, index) => {
+                list.appendChild(item);
+            });
+        }
+
+        // Escuchar el evento de HTMX después de que se actualiza el slider
+        document.body.addEventListener('htmx:afterSwap', function(evt) {
+            if (evt.detail.target.id.startsWith('proficiency-')) {
+                const itemId = evt.detail.target.id.replace('proficiency-', '');
+                const li = document.getElementById('library-item-' + itemId);
+                const newVal = evt.detail.target.querySelector('input').value;
+                
+                // Actualizar el dataset para el ordenamiento
+                li.dataset.proficiency = newVal;
+                
+                // Reordenar
+                reorderLibraryList();
+            }
+        });
+
+        /**
+         * Actualiza el color del slider de forma dinámica mientras se arrastra
+         */
+        function updateRangeColor(input) {
+            const val = parseInt(input.value);
+            
+            // Eliminar clases de color previas
+            input.classList.remove('range-error', 'range-warning', 'range-success');
+            
+            // Añadir nueva clase según el valor
+            if (val === 0) {
+                input.classList.add('range-error');
+            } else if (val <= 2) {
+                input.classList.add('range-warning');
+            } else {
+                input.classList.add('range-success');
+            }
+        }
+    </script>
     {% else %}
     <!-- Empty State -->
     <div class="text-center py-12 bg-base-100 rounded-box shadow">

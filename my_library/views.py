@@ -194,9 +194,11 @@ def update_proficiency(request, pk):
     item = get_object_or_404(LibraryItem, pk=pk, user=request.user)
     level = request.POST.get("level")
 
-    if level and level.isdigit() and 1 <= int(level) <= 4:
+    if level is not None and level.isdigit() and 0 <= int(level) <= 4:
         item.proficiency_level = int(level)
         item.save(update_fields=["proficiency_level"])
 
-    # Renderizar partial con las estrellas actualizadas
-    return render(request, "my_library/partials/proficiency_stars.html", {"item": item})
+    # Renderizar partial con el slider actualizado
+    return render(
+        request, "my_library/partials/proficiency_slider.html", {"item": item}
+    )
