@@ -75,6 +75,9 @@
         {% for item in items %}
         {% with related_score=item.get_related_scorepage %}
         <li class="list-row library-item js-library-filter-item" id="library-item-{{ item.pk }}"
+            data-proficiency="{{ item.proficiency_level }}"
+            data-views="{{ item.times_viewed }}"
+            data-added="{{ item.added_at|date:'c' }}"
             data-title="{{ item.get_content_title|lower }}"
             data-type="{{ item.get_content_type_name|lower }}"
             data-related-score="{% if related_score %}{{ related_score.title|lower }}{% endif %}"
