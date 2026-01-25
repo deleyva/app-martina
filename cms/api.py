@@ -6,6 +6,7 @@ from django.utils import timezone
 from ninja import Router, Schema, File, Form
 from ninja.errors import HttpError
 from ninja.files import UploadedFile
+from ninja.security import django_auth
 from wagtail.images import get_image_model
 
 from api_keys.auth import DatabaseApiKey
@@ -18,7 +19,7 @@ from .models import (
 from .services import AIMetadataExtractor, ContentPublisher
 
 
-router = Router(tags=["CMS Tests"], auth=DatabaseApiKey())
+router = Router(tags=["CMS Tests"], auth=[DatabaseApiKey(), django_auth])
 ImageModel = get_image_model()
 
 
