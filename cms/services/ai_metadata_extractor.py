@@ -21,41 +21,62 @@ class AIMetadataExtractor:
     Extract structured metadata from natural language descriptions using Google Gemini.
     """
 
-    PROMPT_TEMPLATE = """Eres un asistente experto en catalogación musical. El usuario ha subido archivos musicales y ha proporcionado la siguiente descripción:
+    PROMPT_TEMPLATE = """Eres un asistente experto en catalogación musical y musicología. El usuario ha subido archivos musicales y ha proporcionado una descripción.
 
-DESCRIPCIÓN:
+DESCRIPCIÓN ORIGINAL:
 {description}
 
 ARCHIVOS SUBIDOS:
 {file_names}
 
-Tu tarea es extraer la siguiente información estructurada en formato JSON:
+Tu tarea es extraer y NORMALIZAR la información. Usa tu CONOCIMIENTO INTERNO sobre música para:
+1. Corregir nombres de artistas (ej: "Extremo Duro" -> "Extremoduro").
+2. Separar claramente Título de Compositor.
+3. Analizar la descripción para asignar etiquetas específicas a cada archivo.
+
+Formato JSON requerido:
 
 {{
-  "title": "Título de la obra musical",
-  "composer": "Nombre del compositor o autor",
-  "key_signature": "Tonalidad (ej: C mayor, F# menor, D menor)",
-  "tempo": "Indicación de tempo (ej: Allegro, Andante, 120 BPM)",
-  "time_signature": "Compás (ej: 4/4, 3/4, 6/8)",
-  "difficulty": "Nivel de dificultad: beginner, easy, intermediate, advanced, o expert",
-  "duration_minutes": Duración aproximada en minutos (número entero o null),
-  "reference_catalog": "Número de catálogo, opus, BWV, etc.",
-  "categories": ["Lista", "de", "categorías"],
-  "tags": ["Lista", "de", "etiquetas"],
-  "description": "Descripción mejorada y completa de la obra",
-  "notes": "Notas adicionales sobre la interpretación, técnicas, etc."
+  "title": "Título CORRECTO y estandarizado de la obra",
+  "composer": "Nombre CORRECTO del compositor/artista",
+  "key_signature": "Tonalidad en Notación Inglesa (ej: C, Am, F#, Bb)",
+  "tempo": "Indicación de tempo (ej: Allegro, 120 BPM)",
+  "time_signature": "Compás (ej: 4/4, 3/4)",
+  "difficulty": "beginner, easy, intermediate, advanced, o expert",
+  "duration_minutes": Duración aproximada en minutos (número o null),
+  "reference_catalog": "Número de catálogo si aplica",
+  "categories": ["Instrumentos", "Géneros", "Formaciones"],
+  "tags": ["Etiquetas descriptivas", "mood", "técnica"],
+  "files": [
+    {{
+      "filename": "nombre_del_archivo.pdf",
+      "tags": ["etiquetas", "específicas", "para", "este", "archivo"]
+    }}
+  ],
+  "description": "Descripción profesional mejorada",
+  "notes": "Consejos de interpretación"
 }}
 
-REGLAS:
-- Si algún campo no se puede determinar, usa "" para strings, [] para arrays, o null para números
-- Las categorías deben ser genéricas y en español (ej: "Jazz", "Clásica", "Pop", "Rock", "Folk", "Vocal", "Instrumental")
-- Los tags deben ser descriptivos y en español (ej: "vocal", "piano", "guitarra", "ejercicio", "principiante", "avanzado")
-- El título debe ser claro y conciso
-- Difficulty debe ser una de estas opciones exactas: beginner, easy, intermediate, advanced, expert
-- La descripción mejorada debe ser clara, informativa y en español
-- Las notas deben incluir consejos prácticos para el intérprete
+REGLAS CRÍTICAS:
+- **Corrección de Entidades**: Si el usuario escribe mal el nombre de una canción o grupo famoso, CORRÍGELO.
+- **Tonalidad**: Usa SIEMPRE Notación Inglesa estándar (ej: "F", "Fm", "C#", "Bb").
+- CATEGORÍAS: Instrumentos y Géneros van aquí ("Piano", "Rock", "Coro").
+- TAGS: Descriptores de técnica, ocasión, mood. NO incluyas instrumentos/géneros.
 
-Responde SOLO con el JSON válido, sin texto adicional antes o después. No uses markdown code blocks.
+**MUY IMPORTANTE - ARRAY 'files' OBLIGATORIO**:
+DEBES incluir SIEMPRE un array 'files' con una entrada por cada archivo subido.
+Para cada archivo, analiza la descripción del usuario y asigna etiquetas namespace:
+
+Ejemplos de cómo asignar etiquetas por descripción:
+- Descripción: "para coro" → tags: ["voice/choir"]
+- Descripción: "incluye soprano, alto, tenor" → tags: ["voice/soprano", "voice/alto", "voice/tenor"]
+- Descripción: "piano de acompañamiento" → tags: ["instrument/piano", "type/accompaniment"]
+- Descripción: "guitarra acústica" → tags: ["instrument/guitar"]
+- Descripción: "partitura para bajo" → tags: ["instrument/bass", "type/score"]
+
+SIEMPRE usa el patrón: instrument/INSTRUMENTO, voice/VOZ, type/TIPO
+
+Responde SOLO con el JSON válido. EL ARRAY 'files' ES OBLIGATORIO.
 """
 
     DEFAULT_METADATA = {
@@ -69,6 +90,7 @@ Responde SOLO con el JSON válido, sin texto adicional antes o después. No uses
         "reference_catalog": "",
         "categories": [],
         "tags": [],
+        "files": [],
         "description": "",
         "notes": "",
     }
@@ -214,7 +236,20 @@ Responde SOLO con el JSON válido, sin texto adicional antes o después. No uses
 
         response_text = response_text.strip()
 
-        return json.loads(response_text)
+        parsed = json.loads(response_text)
+        
+        # If AI returned a list (e.g. [metadata]), take the first item
+        if isinstance(parsed, list):
+            if parsed:
+                parsed = parsed[0]
+            else:
+                return {}
+                
+        if not isinstance(parsed, dict):
+            # If it's still not a dict (e.g. string or number), return empty
+            return {}
+            
+        return parsed
 
     def _validate_and_normalize(self, metadata: dict[str, Any]) -> dict[str, Any]:
         """

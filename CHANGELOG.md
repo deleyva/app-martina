@@ -1,5 +1,37 @@
 # CHANGELOG
 
+## [2026-01-26] - AI Publishing System Enhancements
+
+### ✨ Features
+
+- **Duplicate Detection**: El sistema ahora detecta ScorePages existentes con el mismo título y añade archivos a páginas existentes en lugar de crear duplicados
+- **AI-Based File Tagging**: Extracción inteligente de etiquetas desde la descripción del usuario, no solo del nombre de archivo
+  - Análisis del contenido de la descripción (ej: "para coro" → `voice/choir`)
+  - Detección de instrumentos, voces y tipos de partitura
+  - Fallback automático cuando la IA no provee tags específicos
+- **Tag Normalization**: Sistema de normalización de etiquetas para mantener coherencia
+  - Búsqueda case-insensitive de tags existentes
+  - Reutilización automática de tags (ej: `Instrument/Piano` reutiliza `instrument/piano`)
+  - Todo normalizado a minúsculas en formato `namespace/valor`
+- **Descriptive Document Titles**: Los documentos obtienen nombres descriptivos basados en sus tags
+  - Antes: "Si te vas 1", "Si te vas 2"
+  - Ahora: "Si te vas piano tenor", "Si te vas guitar chordsheet"
+- **PDF Score Block Title**: El campo Title del bloque PDF Score ahora usa el título descriptivo del documento
+
+### 🔧 Changes
+
+- Actualizado `AIMetadataExtractor` para solicitar tags por archivo en el prompt
+- Añadido `_extract_tags_from_description()` para análisis de texto como fallback
+- Añadido `_generate_descriptive_title()` para generar nombres desde tags
+- Implementado `_normalize_tag_name()` y `_find_existing_tag()` para normalización
+- Modificado `_apply_tags_to_document()` y `_apply_tags_to_image()` para usar normalización
+- Actualizado `_build_streamfield_content()` para usar títulos de documentos en bloques PDF
+
+### 📁 Files Modified
+
+- `cms/services/ai_metadata_extractor.py`: Prompt actualizado con instrucciones para tags por archivo
+- `cms/services/content_publisher.py`: Lógica de tagging, normalización y títulos descriptivos
+
 ## Unreleased
 
 ### 🤖 Sistema de Publicación Musical Asistido por IA

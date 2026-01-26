@@ -94,13 +94,15 @@ La aplicación incluye un sistema de publicación asistido por IA que simplifica
 2. **Sube archivos**: PDFs de partituras, audios (MP3/WAV), imágenes, archivos MIDI
 3. **Describe en lenguaje natural**:
    ```
-   "Partitura de 'All of Me' de John Legend en Do mayor, nivel intermedio para piano y voz.
-   Incluyo PDF de la partitura, audio de mi interpretación, y la portada del álbum."
+   "Partitura para coro de 'Si te vas' de Extremoduro. Incluye soprano, alto, tenor y piano de acompañamiento."
    ```
 4. **La IA procesa automáticamente**:
    - Extrae título, compositor, tonalidad, dificultad
-   - Crea categorías y tags coherentes
-   - Genera descripción mejorada
+   - Analiza la descripción para detectar instrumentos y voces
+   - Crea etiquetas namespace coherentes (ej: `voice/soprano`, `instrument/piano`)
+   - Genera títulos descriptivos para documentos (ej: "Si te vas soprano alto tenor piano")
+   - Normaliza etiquetas para reutilizar existentes (case-insensitive)
+   - Detecta duplicados y añade a páginas existentes
    - Crea ScorePage en Wagtail como borrador
 5. **Revisa y publica**: Edita en Wagtail admin si es necesario y publica
 
