@@ -228,6 +228,47 @@
             window.toggleViewerTopbar();
         }
     });
+
+    // Touch events para dispositivos móviles (más confiables que click)
+    var touchStartX = 0;
+    var touchStartY = 0;
+    var touchStartTime = 0;
+    
+    container.addEventListener('touchstart', function(e) {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        touchStartTime = Date.now();
+    }, { passive: true });
+    
+    container.addEventListener('touchend', function(e) {
+        var touchEndX = e.changedTouches[0].clientX;
+        var touchEndY = e.changedTouches[0].clientY;
+        var touchDuration = Date.now() - touchStartTime;
+        
+        // Solo procesar si es un tap rápido (no un scroll)
+        if (touchDuration < 300) {
+            var deltaX = Math.abs(touchEndX - touchStartX);
+            var deltaY = Math.abs(touchEndY - touchStartY);
+            
+            // Si el movimiento fue pequeño, es un tap
+            if (deltaX < 10 && deltaY < 10) {
+                var screenWidth = window.innerWidth;
+                
+                if (touchEndX > screenWidth * 0.7) {
+                    // Tap en lado derecho - avanzar
+                    e.preventDefault();
+                    scrollByThird('down');
+                } else if (touchEndX < screenWidth * 0.3) {
+                    // Tap en lado izquierdo - retroceder
+                    e.preventDefault();
+                    scrollByThird('up');
+                } else if (window.toggleViewerTopbar) {
+                    // Centro: toggle de la barra
+                    window.toggleViewerTopbar();
+                }
+            }
+        }
+    });
     
     // Navegación con teclado
     document.addEventListener('keydown', function (e) {
