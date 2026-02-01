@@ -7,6 +7,7 @@
         overflow-y: auto;
         overflow-x: hidden;
         background: white;
+        touch-action: none; /* Prevent default touch gestures */
     }
     #the-canvas {
         display: block;
@@ -177,6 +178,103 @@
         } else if (window.toggleViewerTopbar) {
             // Centro: dejar que el viewer haga toggle de la barra
             window.toggleViewerTopbar();
+        }
+    });
+    
+    // === TOUCH & MOUSE SWIPE NAVIGATION ===
+    var touchStartY = 0;
+    var touchStartX = 0;
+    var isSwiping = false;
+    var isMouseDown = false;
+    
+    // Touch events
+    container.addEventListener('touchstart', function(e) {
+        touchStartY = e.touches[0].clientY;
+        touchStartX = e.touches[0].clientX;
+        isSwiping = false;
+    });
+    
+    container.addEventListener('touchmove', function(e) {
+        var deltaY = Math.abs(e.touches[0].clientY - touchStartY);
+        var deltaX = Math.abs(e.touches[0].clientX - touchStartX);
+        
+        if (deltaY > 10 && deltaY > deltaX) {
+            isSwiping = true;
+            e.preventDefault();
+        }
+    });
+    
+    container.addEventListener('touchend', function(e) {
+        if (!isSwiping) {
+            return;
+        }
+        
+        var touchEndY = e.changedTouches[0].clientY;
+        var deltaY = touchStartY - touchEndY;
+        var deltaX = Math.abs(touchStartX - e.changedTouches[0].clientX);
+        
+        if (Math.abs(deltaY) > 50 && Math.abs(deltaY) > deltaX) {
+            e.preventDefault();
+            
+            if (deltaY > 0) {
+                scrollByThird('down');
+            } else {
+                scrollByThird('up');
+            }
+        }
+        
+        isSwiping = false;
+    });
+    
+    // Mouse events (for desktop testing)
+    container.addEventListener('mousedown', function(e) {
+        isMouseDown = true;
+        touchStartY = e.clientY;
+        touchStartX = e.clientX;
+        isSwiping = false;
+    });
+    
+    container.addEventListener('mousemove', function(e) {
+        if (!isMouseDown) return;
+        
+        var deltaY = Math.abs(e.clientY - touchStartY);
+        var deltaX = Math.abs(e.clientX - touchStartX);
+        
+        if (deltaY > 10 && deltaY > deltaX) {
+            isSwiping = true;
+            e.preventDefault();
+        }
+    });
+    
+    container.addEventListener('mouseup', function(e) {
+        if (!isMouseDown) return;
+        isMouseDown = false;
+        
+        if (!isSwiping) {
+            return;
+        }
+        
+        var mouseEndY = e.clientY;
+        var deltaY = touchStartY - mouseEndY;
+        var deltaX = Math.abs(touchStartX - e.clientX);
+        
+        if (Math.abs(deltaY) > 50 && Math.abs(deltaY) > deltaX) {
+            e.preventDefault();
+            
+            if (deltaY > 0) {
+                scrollByThird('down');
+            } else {
+                scrollByThird('up');
+            }
+        }
+        
+        isSwiping = false;
+    });
+    
+    container.addEventListener('mouseleave', function() {
+        if (isMouseDown) {
+            isMouseDown = false;
+            isSwiping = false;
         }
     });
     
