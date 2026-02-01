@@ -147,6 +147,12 @@ production-create-superuser:
         docker compose -f docker-compose.production.yml run --rm django python ./manage.py createsuperuser"
     @echo "INFO: Proceso de creación de superusuario finalizado."
 
+# production-logs: View production Django logs in real-time
+production-logs:
+    @echo "Connecting to production logs..."
+    @ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-production && \
+    docker compose -f docker-compose.production.yml logs -f django --tail=50"
+
 # migrations: Creates new migrations.
 migrations:
     @echo "Creating new migrations..."

@@ -290,40 +290,17 @@
             padding: 10px;
             min-height: 120px;
         }
-        /* Zonas táctiles invisibles - solo para dispositivos táctiles */
+        /* Zonas táctiles invisibles - DESACTIVADAS para permitir scroll nativo */
         #touch-zones {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            z-index: 100;
-            pointer-events: none;
+            display: none !important; /* Forzar desactivación */
         }
-        .touch-zone {
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            pointer-events: auto;
-        }
-        #touch-zone-left {
-            left: 0;
-            width: 25%;
-        }
-        #touch-zone-center {
-            left: 25%;
-            width: 50%;
-        }
-        #touch-zone-right {
-            right: 0;
-            width: 25%;
-        }
+        /* 
         @media (pointer: coarse) {
             #touch-zones {
                 display: block;
             }
         }
+        */
     </style>
 
     <script>
