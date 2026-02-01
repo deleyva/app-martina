@@ -194,28 +194,13 @@
         }
     });
     
-    // Detectar cuando llegamos al final del scroll para cambiar de página automáticamente
-    var scrollTimeout;
+    // Evento scroll eliminado para evitar cambio automático de página.
+    // El usuario debe hacer tap en los lados para cambiar de página.
+    /*
     container.addEventListener('scroll', function() {
-        // Ignorar eventos de scroll durante cambios programáticos de página
-        if (isChangingPage) return;
-
-        clearTimeout(scrollTimeout);
-        scrollTimeout = setTimeout(function() {
-            // Verificar de nuevo porque podría haber cambiado
-            if (isChangingPage) return;
-
-            var viewportHeight = container.clientHeight;
-            var currentScroll = Math.ceil(container.scrollTop);
-            var maxScroll = container.scrollHeight - viewportHeight;
-            
-            // Si llegamos al final, avanzar automáticamente a la siguiente página
-            // Tolerancia aumentada a 20px
-            if (currentScroll >= maxScroll - 20 && currentPage < totalPages) {
-                renderPage(currentPage + 1);
-            }
-        }, 150); // Esperar que el usuario termine de hacer scroll
+        // ... eliminado ...
     });
+    */
 
     // Click en los lados de la pantalla para navegar (recuperado)
     container.addEventListener('click', function(e) {

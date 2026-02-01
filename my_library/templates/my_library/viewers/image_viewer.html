@@ -211,28 +211,13 @@
         }
     });
     
-    // Detectar cuando llegamos al final del scroll para cambiar de imagen automáticamente
-    var scrollTimeout;
+    // Evento scroll eliminado para evitar cambio automático de página.
+    // El usuario debe hacer tap en los lados para cambiar de página.
+    /*
     container.addEventListener('scroll', function() {
-        // Ignorar eventos de scroll durante cambios programáticos de imagen
-        if (isChangingImage) return;
-
-        clearTimeout(scrollTimeout);
-        scrollTimeout = setTimeout(function() {
-            // Verificar de nuevo porque podría haber cambiado
-            if (isChangingImage) return;
-
-            var viewportHeight = container.clientHeight;
-            var currentScroll = Math.ceil(container.scrollTop);
-            var maxScroll = container.scrollHeight - viewportHeight;
-            
-            // Si llegamos al final, avanzar automáticamente a la siguiente imagen
-            // Tolerancia aumentada a 20px
-            if (currentScroll >= maxScroll - 20 && currentImage < totalImages - 1) {
-                showImage(currentImage + 1);
-            }
-        }, 150); // Esperar que el usuario termine de hacer scroll
+        // ... eliminado ...
     });
+    */
 
     // Click en los lados de la pantalla para navegar (recuperado)
     container.addEventListener('click', function(e) {
