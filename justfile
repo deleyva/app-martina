@@ -367,3 +367,42 @@ stage-download-backup backup_type backup_file:
         scp $SSH_MARTINA_USER_AND_IP:app-martina-stage/backups/media/{{backup_file}} ./backups/; \
     fi
     @echo "✓ Downloaded to ./backups/{{backup_file}}"
+
+# =============================================================================
+# AI METADATA DIAGNOSTIC COMMANDS
+# =============================================================================
+
+# test-ai-metadata: Test AI metadata extraction locally
+test-ai-metadata:
+    @echo "Testing AI metadata extraction locally..."
+    @docker compose run --rm django python ./manage.py test_ai_metadata
+
+# test-ai-metadata-custom: Test AI metadata extraction with custom input (local)
+# Usage: just test-ai-metadata-custom "Partitura de Extremoduro - So Payaso"
+test-ai-metadata-custom description:
+    @echo "Testing AI metadata extraction with custom description..."
+    @docker compose run --rm django python ./manage.py test_ai_metadata --description "{{description}}"
+
+# stage-test-ai-metadata: Test AI metadata extraction in staging
+stage-test-ai-metadata:
+    @echo "Testing AI metadata extraction in staging..."
+    @ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-stage && \
+    docker compose -f docker-compose.stage.yml run --rm django python ./manage.py test_ai_metadata"
+
+# production-test-ai-metadata: Test AI metadata extraction in production
+production-test-ai-metadata:
+    @echo "Testing AI metadata extraction in production..."
+    @ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-production && \
+    docker compose -f docker-compose.production.yml run --rm django python ./manage.py test_ai_metadata"
+
+# production-logs-ai: View AI-related logs in production (last 100 lines)
+production-logs-ai:
+    @echo "Fetching AI-related logs from production..."
+    @ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-production && \
+    docker compose -f docker-compose.production.yml logs --tail=100 django | grep -i 'ai\|gemini\|metadata'"
+
+# production-check-env-gemini: Check if GEMINI_API_KEY is configured in production
+production-check-env-gemini:
+    @echo "Checking GEMINI_API_KEY configuration in production..."
+    @ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-production && \
+    docker compose -f docker-compose.production.yml exec django printenv | grep GEMINI || echo '❌ GEMINI_API_KEY not found'"

@@ -251,10 +251,33 @@ def ai_publish_content(
     try:
         extractor = AIMetadataExtractor()
         metadata = extractor.extract_metadata(description, file_names)
+        
+        # Log the extracted metadata for debugging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(
+            f"AI metadata extraction result: title='{metadata.get('title')}', "
+            f"composer='{metadata.get('composer')}', "
+            f"categories={metadata.get('categories')}, "
+            f"tags={metadata.get('tags')}"
+        )
+        
+        # Check if we got fallback values (indicating API failure)
+        if metadata.get('title') == 'Sin título' or not metadata.get('composer'):
+            logger.warning(
+                "AI metadata extraction returned default values - possible API failure. "
+                f"Title: '{metadata.get('title')}', Composer: '{metadata.get('composer')}'"
+            )
+            
     except ValueError as e:
         raise HttpError(400, f"Error en la descripción: {str(e)}")
     except Exception as e:
-        raise HttpError(500, f"Error al procesar con IA: {str(e)}")
+        # More specific error message for AI failures
+        logger.error(f"AI metadata extraction failed: {e}", exc_info=True)
+        raise HttpError(
+            500, 
+            f"Error al procesar con IA: {str(e)}. Por favor, verifica la configuración de GEMINI_API_KEY."
+        )
 
     # Crear ScorePage con transaction
     try:

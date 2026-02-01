@@ -104,7 +104,9 @@ Responde SOLO con el JSON válido. EL ARRAY 'files' ES OBLIGATORIO.
             )
 
         self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
-        self.model_id = "gemini-2.0-flash-exp"  # Latest fast experimental model
+        # Use Gemini 2.0 Flash model (stable and fast)
+        # Note: "gemini-flash-latest" can also be used as an alias to latest version
+        self.model_id = "gemini-2.0-flash"
 
     def extract_metadata(
         self, description: str, file_names: list[str]
@@ -141,15 +143,32 @@ Responde SOLO con el JSON válido. EL ARRAY 'files' ES OBLIGATORIO.
         try:
             # Call Gemini API with retry logic
             metadata = self._call_gemini_with_retry(prompt)
-            logger.info(f"Successfully extracted metadata: {metadata.get('title', 'N/A')}")
+            logger.info(
+                f"Successfully extracted metadata: title='{metadata.get('title', 'N/A')}', "
+                f"composer='{metadata.get('composer', 'N/A')}'"
+            )
             return metadata
 
         except Exception as e:
-            logger.error(f"Failed to extract metadata after retries: {e}")
+            logger.error(
+                f"Failed to extract metadata after retries: {e}",
+                exc_info=True,
+                extra={
+                    "description": description[:100],
+                    "api_key_configured": bool(settings.GEMINI_API_KEY),
+                }
+            )
             # Return default metadata with original description
             fallback = self.DEFAULT_METADATA.copy()
             fallback["description"] = description
-            fallback["notes"] = "Metadata extraída automáticamente no disponible. Por favor, completa manualmente."
+            fallback["notes"] = (
+                "⚠️ Metadata automática no disponible. "
+                "La API de IA falló. Por favor, completa manualmente."
+            )
+            logger.warning(
+                f"Returning fallback metadata with title='Sin título' - "
+                f"This will prevent finding existing pages!"
+            )
             return fallback
 
     def _call_gemini_with_retry(
@@ -184,6 +203,7 @@ Responde SOLO con el JSON válido. EL ARRAY 'files' ES OBLIGATORIO.
 
                 # Extract text from response
                 response_text = response.text.strip()
+                logger.debug(f"Gemini API raw response (first 500 chars): {response_text[:500]}")
 
                 # Parse JSON
                 metadata = self._parse_json_response(response_text)
@@ -195,15 +215,18 @@ Responde SOLO con el JSON válido. EL ARRAY 'files' ES OBLIGATORIO.
 
             except json.JSONDecodeError as e:
                 logger.warning(
-                    f"Attempt {attempt + 1}/{max_retries}: JSON parsing failed: {e}"
+                    f"Attempt {attempt + 1}/{max_retries}: JSON parsing failed: {e}",
+                    extra={"raw_response": response_text[:500] if 'response_text' in locals() else "N/A"}
                 )
                 if attempt < max_retries - 1:
                     time.sleep(2**attempt)  # Exponential backoff
                 continue
 
             except Exception as e:
+                error_type = type(e).__name__
                 logger.warning(
-                    f"Attempt {attempt + 1}/{max_retries}: API call failed: {e}"
+                    f"Attempt {attempt + 1}/{max_retries}: API call failed ({error_type}): {e}",
+                    exc_info=True
                 )
                 if attempt < max_retries - 1:
                     time.sleep(2**attempt)  # Exponential backoff
