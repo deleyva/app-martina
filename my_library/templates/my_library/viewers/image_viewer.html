@@ -83,6 +83,7 @@
         imageInfo = document.getElementById('image-info');
 
     var indicatorTimeout = null;
+    var isChangingImage = false; // Flag para evitar loops durante cambios programáticos
 
     // Mostrar indicador de imagen temporalmente
     function showImageIndicator() {
@@ -100,6 +101,9 @@
     function showImage(index) {
         if (index < 0 || index >= totalImages) return;
 
+        // Marcar que estamos cambiando de imagen programáticamente
+        isChangingImage = true;
+
         // Ocultar todas las imágenes
         document.querySelectorAll('.image-content').forEach(function(el) {
             el.classList.remove('active');
@@ -113,6 +117,11 @@
         container.scrollTop = 0;
 
         showImageIndicator();
+
+        // Desactivar flag después de un momento
+        setTimeout(function() {
+            isChangingImage = false;
+        }, 300);
     }
 
     // Navegar con solapamiento inteligente (como forScore y PDF viewer)
@@ -203,26 +212,40 @@
     // Detectar cuando llegamos al final del scroll para cambiar de imagen automáticamente
     var scrollTimeout;
     container.addEventListener('scroll', function() {
+        // Ignorar eventos de scroll durante cambios programáticos de imagen
+        if (isChangingImage) return;
+
         clearTimeout(scrollTimeout);
         scrollTimeout = setTimeout(function() {
+            // Verificar de nuevo porque podría haber cambiado
+            if (isChangingImage) return;
+
             var viewportHeight = window.innerHeight;
             var currentScroll = container.scrollTop;
             var maxScroll = container.scrollHeight - viewportHeight;
             
             // Si llegamos al final, avanzar automáticamente a la siguiente imagen
-            if (currentScroll >= maxScroll - 10 && currentImage < totalImages - 1) {
+            if (currentScroll >= maxScroll - 5 && currentImage < totalImages - 1) {
                 showImage(currentImage + 1);
             }
-            // Si llegamos al inicio desde scroll hacia arriba, retroceder
-            else if (currentScroll <= 10 && currentImage > 0) {
-                showImage(currentImage - 1);
-                // Ir al final de la imagen anterior
-                setTimeout(() => {
-                    var newMaxScroll = container.scrollHeight - viewportHeight;
-                    container.scrollTop = newMaxScroll;
-                }, 100);
-            }
         }, 150); // Esperar que el usuario termine de hacer scroll
+    });
+
+    // Click en los lados de la pantalla para navegar (recuperado)
+    container.addEventListener('click', function(e) {
+        var clickX = e.clientX;
+        var screenWidth = window.innerWidth;
+
+        if (clickX > screenWidth * 0.7) {
+            // Click en lado derecho - avanzar
+            scrollByThird('down');
+        } else if (clickX < screenWidth * 0.3) {
+            // Click en lado izquierdo - retroceder
+            scrollByThird('up');
+        } else if (window.toggleViewerTopbar) {
+            // Centro: toggle de la barra
+            window.toggleViewerTopbar();
+        }
     });
 
     // Navegación con teclado

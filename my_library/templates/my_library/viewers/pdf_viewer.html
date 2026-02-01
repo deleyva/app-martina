@@ -56,6 +56,7 @@
         pageInfo = document.getElementById('page-info');
     
     var indicatorTimeout = null;
+    var isChangingPage = false; // Flag para evitar loops durante cambios programáticos
 
     // Mostrar indicador de página temporalmente
     function showPageIndicator() {
@@ -72,6 +73,9 @@
     function renderPage(num) {
         if (rendering || !pdfDoc) return;
         rendering = true;
+        
+        // Marcar que estamos cambiando de página programáticamente
+        isChangingPage = true;
         
         currentPage = Math.max(1, Math.min(num, totalPages));
         
@@ -93,6 +97,11 @@
                 showPageIndicator();
                 window.__pdfAutoScrollToTopAt = Date.now();
                 container.scrollTop = 0; // Scroll al inicio de la página
+                
+                // Desactivar flag después de un momento
+                setTimeout(function() {
+                    isChangingPage = false;
+                }, 300);
             });
         });
     }
@@ -184,26 +193,40 @@
     // Detectar cuando llegamos al final del scroll para cambiar de página automáticamente
     var scrollTimeout;
     container.addEventListener('scroll', function() {
+        // Ignorar eventos de scroll durante cambios programáticos de página
+        if (isChangingPage) return;
+
         clearTimeout(scrollTimeout);
         scrollTimeout = setTimeout(function() {
+            // Verificar de nuevo porque podría haber cambiado
+            if (isChangingPage) return;
+
             var viewportHeight = window.innerHeight;
             var currentScroll = container.scrollTop;
             var maxScroll = container.scrollHeight - viewportHeight;
             
             // Si llegamos al final, avanzar automáticamente a la siguiente página
-            if (currentScroll >= maxScroll - 10 && currentPage < totalPages) {
+            if (currentScroll >= maxScroll - 5 && currentPage < totalPages) {
                 renderPage(currentPage + 1);
             }
-            // Si llegamos al inicio desde scroll hacia arriba, retroceder
-            else if (currentScroll <= 10 && currentPage > 1) {
-                renderPage(currentPage - 1);
-                // Ir al final de la página anterior
-                setTimeout(() => {
-                    var newMaxScroll = container.scrollHeight - viewportHeight;
-                    container.scrollTop = newMaxScroll;
-                }, 100);
-            }
         }, 150); // Esperar que el usuario termine de hacer scroll
+    });
+
+    // Click en los lados de la pantalla para navegar (recuperado)
+    container.addEventListener('click', function(e) {
+        var clickX = e.clientX;
+        var screenWidth = window.innerWidth;
+        
+        if (clickX > screenWidth * 0.7) {
+            // Click en lado derecho - avanzar
+            scrollByThird('down');
+        } else if (clickX < screenWidth * 0.3) {
+            // Click en lado izquierdo - retroceder
+            scrollByThird('up');
+        } else if (window.toggleViewerTopbar) {
+            // Centro: toggle de la barra
+            window.toggleViewerTopbar();
+        }
     });
     
     // Navegación con teclado
