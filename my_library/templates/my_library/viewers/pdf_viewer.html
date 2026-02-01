@@ -108,19 +108,23 @@
     
     // Navegar con solapamiento inteligente (como forScore)
     function scrollByThird(direction) {
-        var viewportHeight = window.innerHeight;
-        var currentScroll = container.scrollTop;
-        var maxScroll = container.scrollHeight - viewportHeight;
-        
+        if (rendering || !pdfDoc) return;
+
+        // Usar container.clientHeight es más seguro que window.innerHeight
+        var viewportHeight = container.clientHeight;
+        var currentScroll = Math.ceil(container.scrollTop);
+        var totalHeight = container.scrollHeight;
+
         // Avance del 75% con 25% de solapamiento
         var overlap = viewportHeight * 0.25; // 25% de overlap
         var advance = viewportHeight - overlap; // 75% de avance
-        
+
         if (direction === 'down') {
             var newScroll = currentScroll + advance;
+            var maxScroll = totalHeight - viewportHeight;
             
-            // Verificar si ya estamos en el final (tolerancia de 30px para móviles)
-            if (currentScroll >= maxScroll - 30) {
+            // Verificar si ya estamos en el final (tolerancia aumentada a 50px para iOS)
+            if (currentScroll >= maxScroll - 50) {
                 // Ya estamos al final, cambiar a siguiente página
                 if (currentPage < totalPages) {
                     renderPage(currentPage + 1);
@@ -144,8 +148,8 @@
         } else if (direction === 'up') {
             var newScroll = currentScroll - advance;
             
-            // Verificar si ya estamos en el inicio (tolerancia de 30px para móviles)
-            if (currentScroll <= 30) {
+            // Verificar si ya estamos en el inicio (tolerancia aumentada a 50px)
+            if (currentScroll <= 50) {
                 // Ya estamos al inicio, cambiar a página anterior
                 if (currentPage > 1) {
                     renderPage(currentPage - 1);
@@ -201,12 +205,13 @@
             // Verificar de nuevo porque podría haber cambiado
             if (isChangingPage) return;
 
-            var viewportHeight = window.innerHeight;
-            var currentScroll = container.scrollTop;
+            var viewportHeight = container.clientHeight;
+            var currentScroll = Math.ceil(container.scrollTop);
             var maxScroll = container.scrollHeight - viewportHeight;
             
             // Si llegamos al final, avanzar automáticamente a la siguiente página
-            if (currentScroll >= maxScroll - 5 && currentPage < totalPages) {
+            // Tolerancia aumentada a 20px
+            if (currentScroll >= maxScroll - 20 && currentPage < totalPages) {
                 renderPage(currentPage + 1);
             }
         }, 150); // Esperar que el usuario termine de hacer scroll
@@ -250,8 +255,8 @@
             var deltaX = Math.abs(touchEndX - touchStartX);
             var deltaY = Math.abs(touchEndY - touchStartY);
             
-            // Si el movimiento fue pequeño, es un tap
-            if (deltaX < 10 && deltaY < 10) {
+            // Si el movimiento fue pequeño, es un tap (tolerancia de 20px)
+            if (deltaX < 20 && deltaY < 20) {
                 var screenWidth = window.innerWidth;
                 
                 if (touchEndX > screenWidth * 0.7) {
