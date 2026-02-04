@@ -213,6 +213,118 @@ class BlogPage(Page):
         verbose_name = "Artículo de Blog"
 
 
+# =============================================================================
+# DICTADO PAGE - StreamField Blocks
+# =============================================================================
+
+
+class AudioBlock(StructBlock):
+    """Bloque de audio para reproductores WaveSurfer.js"""
+
+    title = CharBlock(
+        max_length=255,
+        help_text="Título del audio (ej: 'Dictado 1', 'Ejercicio rítmico')",
+    )
+    audio_file = DocumentChooserBlock(
+        help_text="Archivo de audio (MP3, WAV, OGG, etc.)"
+    )
+    description = TextBlock(
+        required=False, help_text="Descripción o instrucciones opcionales"
+    )
+
+    class Meta:
+        icon = "media"
+        label = "Audio"
+        template = "cms/blocks/audio_block.html"
+
+
+class AnswerImageBlock(StructBlock):
+    """Bloque de imagen como respuesta (colapsable)"""
+
+    title = CharBlock(
+        max_length=255,
+        default="Ver respuesta",
+        help_text="Título del widget colapsable",
+    )
+    image = ImageChooserBlock(help_text="Imagen de la respuesta")
+    caption = TextBlock(required=False, help_text="Pie de imagen opcional")
+    is_collapsed = BooleanBlock(
+        default=True,
+        required=False,
+        help_text="Si está marcado, la respuesta estará oculta por defecto",
+    )
+
+    class Meta:
+        icon = "image"
+        label = "Respuesta (Imagen)"
+        template = "cms/blocks/answer_image_block.html"
+
+
+class AnswerPDFBlock(StructBlock):
+    """Bloque de PDF como respuesta (colapsable)"""
+
+    title = CharBlock(
+        max_length=255,
+        default="Ver partitura",
+        help_text="Título del widget colapsable",
+    )
+    pdf = DocumentChooserBlock(help_text="PDF de la respuesta")
+    description = TextBlock(required=False, help_text="Descripción opcional")
+    is_collapsed = BooleanBlock(
+        default=True,
+        required=False,
+        help_text="Si está marcado, la respuesta estará oculta por defecto",
+    )
+
+    class Meta:
+        icon = "doc-full"
+        label = "Respuesta (PDF)"
+        template = "cms/blocks/answer_pdf_block.html"
+
+
+class DictadoPage(Page):
+    """Página de dictado musical con audio y respuestas ocultas"""
+
+    date = models.DateField("Fecha de publicación", default=timezone.now)
+    intro = RichTextField(
+        blank=True,
+        help_text="Instrucciones del dictado o contexto para el estudiante",
+    )
+
+    # StreamField para contenido flexible: audios + respuestas
+    content = StreamField(
+        [
+            ("audio", AudioBlock()),
+            ("answer_image", AnswerImageBlock()),
+            ("answer_pdf", AnswerPDFBlock()),
+        ],
+        blank=True,
+        help_text="Añade audios y respuestas (imágenes o PDFs). Los audios se reproducen con WaveSurfer.js",
+    )
+
+    # Categorías y tags para organización
+    categories = ParentalManyToManyField("MusicCategory", blank=True)
+    tags = ParentalManyToManyField("MusicTag", blank=True)
+
+    content_panels = Page.content_panels + [
+        FieldPanel("date"),
+        FieldPanel("intro"),
+        FieldPanel("content"),
+    ]
+
+    promote_panels = Page.promote_panels + [
+        FieldPanel("categories", widget=forms.CheckboxSelectMultiple),
+        FieldPanel("tags", widget=forms.CheckboxSelectMultiple),
+    ]
+
+    parent_page_types = ["cms.MusicLibraryIndexPage"]
+    subpage_types = []
+
+    class Meta:
+        verbose_name = "Dictado"
+        verbose_name_plural = "Dictados"
+
+
 class AnswerOptionBlock(StructBlock):
     """Opción de respuesta para preguntas tipo test"""
 
@@ -556,12 +668,13 @@ class MusicLibraryIndexPage(Page):
         FieldPanel("intro"),
     ]
 
-    # Permitir ScorePage, SetlistPage, BlogPage y TestPage como hijos
+    # Permitir ScorePage, SetlistPage, BlogPage, TestPage y DictadoPage como hijos
     subpage_types = [
         "cms.ScorePage",
         "cms.SetlistPage",
         "cms.BlogPage",
         "cms.TestPage",
+        "cms.DictadoPage",
     ]
 
     class Meta:

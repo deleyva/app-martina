@@ -1,0 +1,176 @@
+{% load wagtailcore_tags %}
+
+{# Audio block template with WaveSurfer.js player #}
+<div class="audio-block mb-8" data-block-id="{{ self.id }}">
+    <div class="bg-base-200 rounded-lg p-6">
+        <h3 class="text-2xl font-bold mb-2">{{ self.title }}</h3>
+        
+        {% if self.description %}
+        <p class="text-sm opacity-70 mb-4">{{ self.description }}</p>
+        {% endif %}
+        
+        {# Loading indicator #}
+        <div id="audio-loading-{{ self.id }}" class="flex items-center justify-center py-12">
+            <div class="text-center">
+                <div class="loading loading-spinner loading-lg text-primary"></div>
+                <p class="text-sm mt-4 opacity-60">Cargando audio...</p>
+            </div>
+        </div>
+        
+        {# WaveSurfer container #}
+        <div id="waveform-{{ self.id }}" class="hidden rounded-lg overflow-hidden bg-base-300" style="min-height: 150px;"></div>
+        
+        {# Audio controls #}
+        <div id="controls-{{ self.id }}" class="hidden mt-4 flex items-center gap-4">
+            <button id="rewind-{{ self.id }}" class="btn btn-sm btn-circle btn-ghost" title="Retroceder 10 segundos">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0019 16V8a1 1 0 00-1.6-.8l-5.333 4zM4.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0011 16V8a1 1 0 00-1.6-.8l-5.334 4z"/>
+                </svg>
+            </button>
+            
+            <button id="play-pause-{{ self.id }}" class="btn btn-primary btn-circle btn-lg">
+                <svg class="play-icon w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z"/>
+                </svg>
+                <svg class="pause-icon w-6 h-6 hidden" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+                </svg>
+            </button>
+            
+            <button id="forward-{{ self.id }}" class="btn btn-sm btn-circle btn-ghost" title="Avanzar 10 segundos">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.933 12.8a1 1 0 000-1.6L6.6 7.2A1 1 0 005 8v8a1 1 0 001.6.8l5.333-4zM19.933 12.8a1 1 0 000-1.6l-5.333-4A1 1 0 0013 8v8a1 1 0 001.6.8l5.333-4z"/>
+                </svg>
+            </button>
+            
+            <div class="flex-1 flex justify-between items-center text-sm font-mono">
+                <span id="current-time-{{ self.id }}">0:00</span>
+                <span class="opacity-50">/</span>
+                <span id="duration-{{ self.id }}" class="opacity-70">0:00</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    var blockId = '{{ self.id }}';
+    var audioUrl = '{{ self.audio_file.url }}';
+    var loading = document.getElementById('audio-loading-' + blockId);
+    var waveform = document.getElementById('waveform-' + blockId);
+    var controls = document.getElementById('controls-' + blockId);
+    var playPauseBtn = document.getElementById('play-pause-' + blockId);
+    var rewindBtn = document.getElementById('rewind-' + blockId);
+    var forwardBtn = document.getElementById('forward-' + blockId);
+    var currentTimeEl = document.getElementById('current-time-' + blockId);
+    var durationEl = document.getElementById('duration-' + blockId);
+    
+    if (!waveform || !audioUrl) return;
+    
+    // Initialize WaveSurfer
+    var wavesurfer = WaveSurfer.create({
+        container: waveform,
+        waveColor: 'rgb(148, 163, 184)',
+        progressColor: 'rgb(139, 92, 246)',
+        cursorColor: 'rgb(168, 85, 247)',
+        barWidth: 3,
+        barRadius: 3,
+        barGap: 1,
+        height: 150,
+        responsive: true,
+        normalize: true,
+        backend: 'WebAudio',
+        mediaControls: false
+    });
+    
+    // Event handlers
+    wavesurfer.on('loading', function(percent) {
+        if (loading) {
+            loading.querySelector('p').textContent = 'Cargando: ' + percent + '%';
+        }
+    });
+    
+    wavesurfer.on('ready', function() {
+        if (loading) loading.classList.add('hidden');
+        if (waveform) waveform.classList.remove('hidden');
+        if (controls) controls.classList.remove('hidden');
+        
+        var duration = wavesurfer.getDuration();
+        if (durationEl) durationEl.textContent = formatTime(duration);
+    });
+    
+    wavesurfer.on('error', function(error) {
+        console.error('WaveSurfer error:', error);
+        if (loading) {
+            loading.querySelector('p').textContent = 'Error al cargar el audio';
+            loading.querySelector('.loading').classList.add('hidden');
+        }
+    });
+    
+    wavesurfer.on('audioprocess', function() {
+        updateTime();
+    });
+    
+    wavesurfer.on('seeking', function() {
+        updateTime();
+    });
+    
+    wavesurfer.on('play', function() {
+        updatePlayButton(true);
+    });
+    
+    wavesurfer.on('pause', function() {
+        updatePlayButton(false);
+    });
+    
+    // Button handlers
+    if (playPauseBtn) {
+        playPauseBtn.addEventListener('click', function() {
+            wavesurfer.playPause();
+        });
+    }
+    
+    if (rewindBtn) {
+        rewindBtn.addEventListener('click', function() {
+            var newTime = Math.max(0, wavesurfer.getCurrentTime() - 10);
+            wavesurfer.seekTo(newTime / wavesurfer.getDuration());
+        });
+    }
+    
+    if (forwardBtn) {
+        forwardBtn.addEventListener('click', function() {
+            var duration = wavesurfer.getDuration();
+            var newTime = Math.min(duration, wavesurfer.getCurrentTime() + 10);
+            wavesurfer.seekTo(newTime / duration);
+        });
+    }
+    
+    function updateTime() {
+        var currentTime = wavesurfer.getCurrentTime();
+        if (currentTimeEl) currentTimeEl.textContent = formatTime(currentTime);
+    }
+    
+    function updatePlayButton(isPlaying) {
+        if (!playPauseBtn) return;
+        var playIcon = playPauseBtn.querySelector('.play-icon');
+        var pauseIcon = playPauseBtn.querySelector('.pause-icon');
+        if (isPlaying) {
+            if (playIcon) playIcon.classList.add('hidden');
+            if (pauseIcon) pauseIcon.classList.remove('hidden');
+        } else {
+            if (playIcon) playIcon.classList.remove('hidden');
+            if (pauseIcon) pauseIcon.classList.add('hidden');
+        }
+    }
+    
+    function formatTime(seconds) {
+        if (!seconds || isNaN(seconds)) return '0:00';
+        var mins = Math.floor(seconds / 60);
+        var secs = Math.floor(seconds % 60);
+        return mins + ':' + (secs < 10 ? '0' : '') + secs;
+    }
+    
+    // Load audio
+    wavesurfer.load(audioUrl);
+})();
+</script>

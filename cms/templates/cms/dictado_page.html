@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags static %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/daisyui@3.9.4/dist/full.css" rel="stylesheet" type="text/css" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/wavesurfer.js@7"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-full">
+    <!-- Header -->
+    <div class="mb-8">
+        <a href="{{ page.get_parent.url }}" class="btn btn-ghost btn-sm mb-4">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+            Volver
+        </a>
+        
+        <h1 class="text-4xl font-bold mb-2">{{ page.title }}</h1>
+        
+        <div class="flex items-center gap-4 text-sm opacity-70 mb-4">
+            <span>{{ page.date|date:"d M Y" }}</span>
+            
+            {% if page.categories.all %}
+            <div class="flex gap-2">
+                {% for category in page.categories.all %}
+                <span class="badge badge-primary badge-sm">{{ category.name }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+            
+            {% if page.tags.all %}
+            <div class="flex gap-2">
+                {% for tag in page.tags.all %}
+                <span class="badge badge-outline badge-sm">{{ tag.name }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        
+        {% if page.intro %}
+        <div class="prose max-w-none mb-6">
+            {{ page.intro|richtext }}
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- StreamField Content (Full Width) -->
+    <div class="dictado-content w-full">
+        {% for block in page.content %}
+            {% include_block block %}
+        {% endfor %}
+    </div>
+    
+    {% if not page.content %}
+    <div class="text-center py-12 opacity-50">
+        <p>No hay contenido añadido aún.</p>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.dictado-content {
+    max-width: 100%;
+}
+
+.audio-block,
+.answer-block {
+    width: 100%;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+    .container {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+    
+    [id^="waveform-"] {
+        min-height: 120px !important;
+    }
+}
+</style>
+{% endblock %}
