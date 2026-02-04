@@ -13,8 +13,8 @@
     
     <div class="answer-content p-6 bg-base-100 mt-2 rounded-lg">
         {% if self.image %}
-            {% image self.image fill-2000x2000 as img %}
-            <img src="{{ img.url }}" alt="{{ self.image.title }}" class="w-full h-auto rounded-lg shadow-lg">
+            {% image self.image width-1200 as img %}
+            <img src="{{ img.url }}" alt="{{ self.image.title }}" class="rounded-lg shadow-lg" style="max-width: 100%; height: auto; display: block; margin: 0 auto;">
         {% endif %}
         
         {% if self.caption %}

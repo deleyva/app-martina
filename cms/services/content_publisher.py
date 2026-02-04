@@ -977,45 +977,35 @@ class ContentPublisher:
                     raise ValueError("No MusicLibraryIndexPage found. Please create one first.")
             
             # Create Wagtail documents and images
-            base_title = metadata.get('title', 'Sin título')
+            # For DictadoPage: preserve original filenames, use filename as title
+            import os
             
-            # Create audio documents
+            # Create audio documents (use original filename as title)
             audio_docs = []
-            for i, audio in enumerate(audio_files):
-                filename_tags = self._extract_tags_from_filename(audio.name)
-                ai_tags = self._get_ai_suggested_tags(metadata, audio.name)
-                all_tags = list(set(filename_tags + ai_tags))
-                title = self._generate_descriptive_title(base_title, audio.name, all_tags)
-                doc = self._create_wagtail_document(audio, title=title, tags=all_tags)
+            for audio in audio_files:
+                # Use original filename (without extension) as title
+                filename_base = os.path.splitext(audio.name)[0]
+                doc = self._create_wagtail_document(audio, title=filename_base, tags=[])
                 audio_docs.append(doc)
             
-            # MIDI files as audio
-            for i, midi in enumerate(midi_files):
-                filename_tags = self._extract_tags_from_filename(midi.name)
-                ai_tags = self._get_ai_suggested_tags(metadata, midi.name)
-                all_tags = list(set(filename_tags + ai_tags))
-                title = self._generate_descriptive_title(base_title, midi.name, all_tags)
-                doc = self._create_wagtail_document(midi, title=title, tags=all_tags)
+            # MIDI files as audio (use original filename as title)
+            for midi in midi_files:
+                filename_base = os.path.splitext(midi.name)[0]
+                doc = self._create_wagtail_document(midi, title=filename_base, tags=[])
                 audio_docs.append(doc)
             
-            # Create PDF documents (for answers)
+            # Create PDF documents for answers (use original filename as title)
             pdf_docs = []
-            for i, pdf in enumerate(pdf_files):
-                filename_tags = self._extract_tags_from_filename(pdf.name)
-                ai_tags = self._get_ai_suggested_tags(metadata, pdf.name)
-                all_tags = list(set(filename_tags + ai_tags))
-                title = self._generate_descriptive_title(base_title, pdf.name, all_tags)
-                doc = self._create_wagtail_document(pdf, title=title, tags=all_tags)
+            for pdf in pdf_files:
+                filename_base = os.path.splitext(pdf.name)[0]
+                doc = self._create_wagtail_document(pdf, title=filename_base, tags=[])
                 pdf_docs.append(doc)
             
-            # Create images (for answers)
+            # Create images for answers (use original filename as title)
             answer_images = []
-            for i, img in enumerate(image_files):
-                filename_tags = self._extract_tags_from_filename(img.name)
-                ai_tags = self._get_ai_suggested_tags(metadata, img.name)
-                all_tags = list(set(filename_tags + ai_tags))
-                title = self._generate_descriptive_title(base_title, img.name, all_tags)
-                image = self._create_wagtail_image(img, title=title, tags=all_tags)
+            for img in image_files:
+                filename_base = os.path.splitext(img.name)[0]
+                image = self._create_wagtail_image(img, title=filename_base, tags=[])
                 answer_images.append(image)
             
             # Build StreamField content for DictadoPage

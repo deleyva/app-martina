@@ -1,7 +1,7 @@
 {% load wagtailcore_tags %}
 
 {# Audio block template with WaveSurfer.js player #}
-<div class="audio-block mb-8" data-block-id="{{ self.id }}">
+<div class="audio-block mb-8" data-block-id="{{ self.audio_file.id }}">
     <div class="bg-base-200 rounded-lg p-6">
         <h3 class="text-2xl font-bold mb-2">{{ self.title }}</h3>
         
@@ -10,7 +10,7 @@
         {% endif %}
         
         {# Loading indicator #}
-        <div id="audio-loading-{{ self.id }}" class="flex items-center justify-center py-12">
+        <div id="audio-loading-{{ self.audio_file.id }}" class="flex items-center justify-center py-12">
             <div class="text-center">
                 <div class="loading loading-spinner loading-lg text-primary"></div>
                 <p class="text-sm mt-4 opacity-60">Cargando audio...</p>
@@ -18,17 +18,17 @@
         </div>
         
         {# WaveSurfer container #}
-        <div id="waveform-{{ self.id }}" class="hidden rounded-lg overflow-hidden bg-base-300" style="min-height: 150px;"></div>
+        <div id="waveform-{{ self.audio_file.id }}" class="hidden rounded-lg overflow-hidden bg-base-300" style="min-height: 150px;"></div>
         
         {# Audio controls #}
-        <div id="controls-{{ self.id }}" class="hidden mt-4 flex items-center gap-4">
-            <button id="rewind-{{ self.id }}" class="btn btn-sm btn-circle btn-ghost" title="Retroceder 10 segundos">
+        <div id="controls-{{ self.audio_file.id }}" class="hidden mt-4 flex items-center gap-4">
+            <button id="rewind-{{ self.audio_file.id }}" class="btn btn-sm btn-circle btn-ghost" title="Retroceder 10 segundos">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0019 16V8a1 1 0 00-1.6-.8l-5.333 4zM4.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0011 16V8a1 1 0 00-1.6-.8l-5.334 4z"/>
                 </svg>
             </button>
             
-            <button id="play-pause-{{ self.id }}" class="btn btn-primary btn-circle btn-lg">
+            <button id="play-pause-{{ self.audio_file.id }}" class="btn btn-primary btn-circle btn-lg">
                 <svg class="play-icon w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M8 5v14l11-7z"/>
                 </svg>
@@ -37,16 +37,16 @@
                 </svg>
             </button>
             
-            <button id="forward-{{ self.id }}" class="btn btn-sm btn-circle btn-ghost" title="Avanzar 10 segundos">
+            <button id="forward-{{ self.audio_file.id }}" class="btn btn-sm btn-circle btn-ghost" title="Avanzar 10 segundos">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.933 12.8a1 1 0 000-1.6L6.6 7.2A1 1 0 005 8v8a1 1 0 001.6.8l5.333-4zM19.933 12.8a1 1 0 000-1.6l-5.333-4A1 1 0 0013 8v8a1 1 0 001.6.8l5.333-4z"/>
                 </svg>
             </button>
             
             <div class="flex-1 flex justify-between items-center text-sm font-mono">
-                <span id="current-time-{{ self.id }}">0:00</span>
+                <span id="current-time-{{ self.audio_file.id }}">0:00</span>
                 <span class="opacity-50">/</span>
-                <span id="duration-{{ self.id }}" class="opacity-70">0:00</span>
+                <span id="duration-{{ self.audio_file.id }}" class="opacity-70">0:00</span>
             </div>
         </div>
     </div>
@@ -54,7 +54,7 @@
 
 <script>
 (function() {
-    var blockId = '{{ self.id }}';
+    var blockId = '{{ self.audio_file.id }}';
     var audioUrl = '{{ self.audio_file.url }}';
     var loading = document.getElementById('audio-loading-' + blockId);
     var waveform = document.getElementById('waveform-' + blockId);

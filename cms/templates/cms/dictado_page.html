@@ -71,6 +71,21 @@
     width: 100%;
 }
 
+/* Force images to fit container */
+.answer-content img {
+    max-width: 100% !important;
+    height: auto !important;
+    width: auto !important;
+    display: block !important;
+    margin: 0 auto !important;
+}
+
+/* Prevent image overflow */
+.answer-image-block .answer-content {
+    overflow: hidden;
+    max-width: 100%;
+}
+
 /* Responsive adjustments */
 @media (max-width: 640px) {
     .container {
