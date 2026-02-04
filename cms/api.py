@@ -177,6 +177,7 @@ class AIPublishOut(Schema):
 def ai_publish_content(
     request,
     description: str = Form(..., description="Descripción en lenguaje natural del contenido"),
+    page_type: str = Form("scorepage", description="Tipo de página: 'scorepage' o 'dictadopage'"),
     publish_immediately: bool = Form(False, description="Si True, publicar inmediatamente; si False, guardar como borrador"),
     parent_page_id: Optional[int] = Form(None, description="ID de la página padre (opcional)"),
     pdf_files: List[UploadedFile] = File(None, description="Archivos PDF de partituras"),
@@ -185,12 +186,15 @@ def ai_publish_content(
     midi_files: List[UploadedFile] = File(None, description="Archivos MIDI"),
 ):
     """
-    Crear ScorePage usando IA para procesar descripción en lenguaje natural.
+    Crear ScorePage o DictadoPage usando IA para procesar descripción en lenguaje natural.
 
     Este endpoint permite subir archivos musicales (PDFs, audios, imágenes, MIDI)
     junto con una descripción en lenguaje natural. La IA extrae automáticamente
-    metadata estructurada (título, compositor, dificultad, etc.) y crea una
-    ScorePage en Wagtail.
+    metadata estructurada (título, compositor, dificultad, etc.) y crea la página
+    correspondiente en Wagtail.
+    
+    Para ScorePage: PDFs, audios e imágenes se agregan como bloques de contenido.
+    Para DictadoPage: Audios se muestran con WaveSurfer.js, PDFs e imágenes como respuestas colapsables.
 
     Proceso:
     1. Validar archivos y descripción
@@ -279,19 +283,33 @@ def ai_publish_content(
             f"Error al procesar con IA: {str(e)}. Por favor, verifica la configuración de GEMINI_API_KEY."
         )
 
-    # Crear ScorePage con transaction
+    # Crear ScorePage o DictadoPage con transaction
     try:
         with transaction.atomic():
             publisher = ContentPublisher(user=request.auth)  # auth is the User from DatabaseApiKey
-            score_page = publisher.create_scorepage_from_ai(
-                metadata=metadata,
-                pdf_files=pdf_files,
-                audio_files=audio_files,
-                image_files=image_files,
-                midi_files=midi_files,
-                publish=publish_immediately,
-                parent_page=parent_page,
-            )
+            
+            if page_type == 'dictadopage':
+                # Create DictadoPage
+                page = publisher.create_dictadopage_from_ai(
+                    metadata=metadata,
+                    pdf_files=pdf_files,
+                    audio_files=audio_files,
+                    image_files=image_files,
+                    midi_files=midi_files,
+                    publish=publish_immediately,
+                    parent_page=parent_page,
+                )
+            else:
+                # Create ScorePage (default)
+                page = publisher.create_scorepage_from_ai(
+                    metadata=metadata,
+                    pdf_files=pdf_files,
+                    audio_files=audio_files,
+                    image_files=image_files,
+                    midi_files=midi_files,
+                    publish=publish_immediately,
+                    parent_page=parent_page,
+                )
 
             created_items = {
                 "composer": metadata.get("composer", ""),
@@ -301,28 +319,29 @@ def ai_publish_content(
     except ValueError as e:
         raise HttpError(400, str(e))
     except Exception as e:
-        raise HttpError(500, f"Error al crear ScorePage: {str(e)}")
+        raise HttpError(500, f"Error al crear la página: {str(e)}")
 
     # Construir URLs
-    edit_url = f"/cms/pages/{score_page.id}/edit/"
-    if score_page.live:
+    edit_url = f"/cms/pages/{page.id}/edit/"
+    if page.live:
         try:
-            preview_url = score_page.get_url(request)
+            preview_url = page.get_url(request)
         except Exception:
-            preview_url = f"/cms/pages/{score_page.id}/"
+            preview_url = f"/cms/pages/{page.id}/"
     else:
-        preview_url = f"/cms/pages/{score_page.id}/view_draft/"
-
+        preview_url = f"/cms/pages/{page.id}/view_draft/"
+    
+    page_type_name = "DictadoPage" if page_type == 'dictadopage' else "ScorePage"
     message = (
-        "ScorePage creada como borrador. Revísala y publica cuando estés listo."
+        f"{page_type_name} creada como borrador. Revísala y publica cuando estés listo."
         if not publish_immediately
-        else "ScorePage publicada correctamente."
+        else f"{page_type_name} publicada correctamente."
     )
 
     return AIPublishOut(
         success=True,
-        score_page_id=score_page.id,
-        title=score_page.title,
+        score_page_id=page.id,
+        title=page.title,
         edit_url=edit_url,
         preview_url=preview_url,
         message=message,

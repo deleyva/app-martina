@@ -17,6 +17,7 @@ from wagtail.images import get_image_model
 from wagtail.models import Page
 
 from cms.models import (
+    DictadoPage,
     MusicCategory,
     MusicComposer,
     MusicLibraryIndexPage,
@@ -934,3 +935,166 @@ class ContentPublisher:
             counter += 1
 
         return slug
+
+    @transaction.atomic
+    def create_dictadopage_from_ai(
+        self,
+        metadata: dict[str, Any],
+        pdf_files: list[UploadedFile],
+        audio_files: list[UploadedFile],
+        image_files: list[UploadedFile],
+        midi_files: list[UploadedFile],
+        publish: bool = False,
+        parent_page: MusicLibraryIndexPage = None,
+    ) -> 'DictadoPage':
+        """
+        Create DictadoPage from AI-extracted metadata and uploaded files.
+        
+        DictadoPage uses a StreamField with:
+        - audio blocks (WaveSurfer.js player)
+        - answer_image blocks (collapsible image answers)
+        - answer_pdf blocks (collapsible PDF answers)
+        
+        Args:
+            metadata: Dictionary with extracted metadata
+            pdf_files: List of PDF files (used as answers)
+            audio_files: List of audio files
+            image_files: List of image files (used as answers)
+            midi_files: List of MIDI files (converted to audio)
+            publish: If True, publish immediately; if False, save as draft
+            parent_page: Parent page for the DictadoPage
+            
+        Returns:
+            Created DictadoPage instance
+        """
+        logger.info(f"Creating DictadoPage from AI metadata: {metadata.get('title', 'N/A')}")
+        
+        try:
+            # Get or create parent page
+            if parent_page is None:
+                parent_page = MusicLibraryIndexPage.objects.live().first()
+                if not parent_page:
+                    raise ValueError("No MusicLibraryIndexPage found. Please create one first.")
+            
+            # Create Wagtail documents and images
+            base_title = metadata.get('title', 'Sin título')
+            
+            # Create audio documents
+            audio_docs = []
+            for i, audio in enumerate(audio_files):
+                filename_tags = self._extract_tags_from_filename(audio.name)
+                ai_tags = self._get_ai_suggested_tags(metadata, audio.name)
+                all_tags = list(set(filename_tags + ai_tags))
+                title = self._generate_descriptive_title(base_title, audio.name, all_tags)
+                doc = self._create_wagtail_document(audio, title=title, tags=all_tags)
+                audio_docs.append(doc)
+            
+            # MIDI files as audio
+            for i, midi in enumerate(midi_files):
+                filename_tags = self._extract_tags_from_filename(midi.name)
+                ai_tags = self._get_ai_suggested_tags(metadata, midi.name)
+                all_tags = list(set(filename_tags + ai_tags))
+                title = self._generate_descriptive_title(base_title, midi.name, all_tags)
+                doc = self._create_wagtail_document(midi, title=title, tags=all_tags)
+                audio_docs.append(doc)
+            
+            # Create PDF documents (for answers)
+            pdf_docs = []
+            for i, pdf in enumerate(pdf_files):
+                filename_tags = self._extract_tags_from_filename(pdf.name)
+                ai_tags = self._get_ai_suggested_tags(metadata, pdf.name)
+                all_tags = list(set(filename_tags + ai_tags))
+                title = self._generate_descriptive_title(base_title, pdf.name, all_tags)
+                doc = self._create_wagtail_document(pdf, title=title, tags=all_tags)
+                pdf_docs.append(doc)
+            
+            # Create images (for answers)
+            answer_images = []
+            for i, img in enumerate(image_files):
+                filename_tags = self._extract_tags_from_filename(img.name)
+                ai_tags = self._get_ai_suggested_tags(metadata, img.name)
+                all_tags = list(set(filename_tags + ai_tags))
+                title = self._generate_descriptive_title(base_title, img.name, all_tags)
+                image = self._create_wagtail_image(img, title=title, tags=all_tags)
+                answer_images.append(image)
+            
+            # Build StreamField content for DictadoPage
+            content = []
+            
+            # Add audio blocks first
+            for audio_doc in audio_docs:
+                content.append((
+                    'audio',
+                    {
+                        'title': audio_doc.title,
+                        'audio_file': audio_doc,
+                        'description': metadata.get('description', ''),
+                    }
+                ))
+            
+            # Add answer images (collapsible)
+            for image in answer_images:
+                content.append((
+                    'answer_image',
+                    {
+                        'title': 'Ver respuesta',
+                        'image': image,
+                        'caption': '',
+                        'is_collapsed': True,
+                    }
+                ))
+            
+            # Add answer PDFs (collapsible)
+            for pdf_doc in pdf_docs:
+                content.append((
+                    'answer_pdf',
+                    {
+                        'title': 'Ver partitura',
+                        'pdf': pdf_doc,
+                        'description': '',
+                        'is_collapsed': True,
+                    }
+                ))
+            
+            # Create DictadoPage
+            title = metadata.get('title', 'Sin título')
+            slug = self._generate_unique_slug(title, parent_page)
+            
+            dictado_page = DictadoPage(
+                title=title,
+                slug=slug,
+                date=timezone.now().date(),
+                intro=metadata.get('description', ''),
+                content=content,
+                owner=self.user,
+            )
+            
+            # Add as child of parent page
+            parent_page.add_child(instance=dictado_page)
+            
+            # Get or create categories and tags
+            if metadata.get('categories'):
+                categories = [
+                    self._get_or_create_category(cat) for cat in metadata['categories']
+                ]
+                dictado_page.categories.set(categories)
+            
+            if metadata.get('tags'):
+                tags = [self._get_or_create_tag(tag) for tag in metadata['tags']]
+                dictado_page.tags.set(tags)
+            
+            # Save and optionally publish
+            dictado_page.save()
+            
+            if publish:
+                dictado_page.save_revision().publish()
+                logger.info(f"Published DictadoPage: {dictado_page.title} (ID: {dictado_page.id})")
+            else:
+                dictado_page.save_revision()
+                logger.info(f"Created draft DictadoPage: {dictado_page.title} (ID: {dictado_page.id})")
+            
+            return dictado_page
+            
+        except Exception as e:
+            logger.error(f"Failed to create DictadoPage: {e}")
+            raise RuntimeError(f"Failed to create DictadoPage: {e}") from e

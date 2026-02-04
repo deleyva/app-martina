@@ -110,6 +110,40 @@
           </div>
         </div>
 
+        <!-- Tipo de Página -->
+        <div class="form-control mb-6">
+          <label class="label">
+            <span class="label-text text-lg font-semibold">📑 Tipo de Página</span>
+          </label>
+          <div class="flex gap-4">
+            <label class="label cursor-pointer gap-3 flex-1 border border-base-300 rounded-lg p-4 hover:border-primary transition-colors">
+              <input
+                type="radio"
+                name="page_type"
+                value="scorepage"
+                class="radio radio-primary"
+                checked
+              >
+              <div class="flex-1">
+                <span class="label-text font-medium block">ScorePage</span>
+                <span class="label-text-alt block opacity-70">Partitura tradicional con PDFs, audios e imágenes</span>
+              </div>
+            </label>
+            <label class="label cursor-pointer gap-3 flex-1 border border-base-300 rounded-lg p-4 hover:border-primary transition-colors">
+              <input
+                type="radio"
+                name="page_type"
+                value="dictadopage"
+                class="radio radio-primary"
+              >
+              <div class="flex-1">
+                <span class="label-text font-medium block">DictadoPage</span>
+                <span class="label-text-alt block opacity-70">Dictado musical con audios y respuestas ocultas</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
         <!-- Opciones -->
         <div class="form-control mb-6">
           <label class="label cursor-pointer justify-start gap-3">
