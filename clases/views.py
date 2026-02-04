@@ -837,6 +837,14 @@ def group_library_item_viewer(request, group_id, pk):
 
     item = get_object_or_404(GroupLibraryItem, pk=pk, group=group)
 
+    content_type = item.content_type.model
+    content = item.content_object
+
+    # BlogPages: redirigir a su visualización normal de Wagtail
+    if content_type == "blogpage":
+        if hasattr(content, "get_url"):
+            return redirect(content.get_url())
+
     score_media = item.get_related_scorepage_media()
 
     # Preparar documentos según tipo de contenido
@@ -845,9 +853,6 @@ def group_library_item_viewer(request, group_id, pk):
         "images": [],
         "audios": [],
     }
-
-    content_type = item.content_type.model
-    content = item.content_object
 
     # Verificar si se solicita un elemento específico dentro de una ScorePage
     element_type = request.GET.get("element_type")
@@ -951,6 +956,14 @@ def class_session_item_viewer(request, session_id, item_id):
 
     item = get_object_or_404(ClassSessionItem, pk=item_id, session=session)
 
+    content_type = item.content_type.model
+    content = item.content_object
+
+    # BlogPages: redirigir a su visualización normal de Wagtail
+    if content_type == "blogpage":
+        if hasattr(content, "get_url"):
+            return redirect(content.get_url())
+
     score_media = item.get_related_scorepage_media()
 
     # Preparar documentos según tipo de contenido
@@ -959,9 +972,6 @@ def class_session_item_viewer(request, session_id, item_id):
         "images": [],
         "audios": [],
     }
-
-    content_type = item.content_type.model
-    content = item.content_object
 
     # Clasificar según tipo (similar a my_library)
     if content_type == "document":
@@ -975,17 +985,6 @@ def class_session_item_viewer(request, session_id, item_id):
     elif content_type == "image":
         # Wagtail Image
         documents["images"].append(content)
-    elif content_type == "blogpage":
-        # BlogPage: usar viewer específico para blogs
-        return render(
-            request,
-            "clases/viewers/blog_viewer.html",
-            {
-                "blog_page": content,
-                "session": session,
-                "item": item,
-            },
-        )
 
     # Determinar URL de retorno según parámetro 'from' y rol
     from_view = request.GET.get("from", "edit")
