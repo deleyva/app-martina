@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ item.get_content_title }}</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://unpkg.com/wavesurfer.js@7"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
@@ -122,10 +123,24 @@
                 <div class="viewer-media-heading">Audio</div>
                 <select id="viewer-audio-select">
                     {% for audio in score_media.audios %}
-                        <option value="{{ audio.audio_file.file.url }}">{{ audio.title }}</option>
+                        <option value="{{ audio.audio_file.file.url }}" data-title="{{ audio.title }}">{{ audio.title }}</option>
                     {% endfor %}
                 </select>
-                <audio id="viewer-audio-player" controls preload="none" style="width: 100%;"></audio>
+                
+                <!-- Indicador de carga -->
+                <div id="viewer-audio-loading" class="viewer-audio-loading">
+                    <div style="text-align: center; padding: 20px;">
+                        <div style="font-size: 12px; opacity: 0.7;">Generando forma de onda...</div>
+                    </div>
+                </div>
+                
+                <!-- Contenedor WaveSurfer -->
+                <div id="viewer-audio-waveform" style="display: none; margin: 10px 0; border-radius: 8px; overflow: hidden; background: rgba(255,255,255,0.05);"></div>
+                
+                <!-- Controles de tiempo -->
+                <div id="viewer-audio-time" style="display: none; font-size: 11px; margin-top: 6px; opacity: 0.8; font-family: monospace;">
+                    <span id="viewer-audio-current">0:00</span> / <span id="viewer-audio-duration">0:00</span>
+                </div>
             </div>
         {% endif %}
 
@@ -290,6 +305,11 @@
             padding: 10px;
             min-height: 120px;
         }
+        .viewer-audio-loading {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            margin: 10px 0;
+        }
         /* Zonas táctiles invisibles - DESACTIVADAS para permitir scroll nativo */
         #touch-zones {
             display: none !important; /* Forzar desactivación */
@@ -434,32 +454,121 @@
                 });
             }
 
+            // WaveSurfer.js Audio Player Integration
             var audioSelect = document.getElementById('viewer-audio-select');
-            var audioPlayer = document.getElementById('viewer-audio-player');
             var audioToggleBtn = document.getElementById('viewer-audio-toggle');
             var audioRewindBtn = document.getElementById('viewer-audio-rewind');
             var audioForwardBtn = document.getElementById('viewer-audio-forward');
+            var audioWaveform = document.getElementById('viewer-audio-waveform');
+            var audioLoading = document.getElementById('viewer-audio-loading');
+            var audioTimeDisplay = document.getElementById('viewer-audio-time');
+            var audioCurrent = document.getElementById('viewer-audio-current');
+            var audioDuration = document.getElementById('viewer-audio-duration');
+            
+            var wavesurfer = null;
+
+            function formatTime(seconds) {
+                if (!seconds || isNaN(seconds)) return '0:00';
+                var mins = Math.floor(seconds / 60);
+                var secs = Math.floor(seconds % 60);
+                return mins + ':' + (secs < 10 ? '0' : '') + secs;
+            }
 
             function setAudio(url) {
-                if (!audioPlayer || !url) return;
-                audioPlayer.src = url;
-                audioPlayer.load();
-                syncAudioToggleLabel();
+                if (!url || !audioWaveform) return;
+                
+                // Mostrar loading, ocultar waveform y tiempo
+                if (audioLoading) audioLoading.style.display = 'block';
+                if (audioWaveform) audioWaveform.style.display = 'none';
+                if (audioTimeDisplay) audioTimeDisplay.style.display = 'none';
+                
+                // Destruir instancia anterior si existe
+                if (wavesurfer) {
+                    wavesurfer.destroy();
+                }
+                
+                // Crear nueva instancia de WaveSurfer
+                wavesurfer = WaveSurfer.create({
+                    container: audioWaveform,
+                    waveColor: 'rgba(255, 255, 255, 0.3)',
+                    progressColor: 'rgba(168, 85, 247, 0.8)',  // purple-500
+                    cursorColor: 'rgba(217, 70, 239, 0.8)',    // fuchsia-500
+                    barWidth: 2,
+                    barRadius: 2,
+                    barGap: 1,
+                    height: 80,
+                    responsive: true,
+                    normalize: true,
+                    backend: 'WebAudio',
+                    mediaControls: false,
+                    autoplay: false
+                });
+                
+                // Eventos de carga
+                wavesurfer.on('loading', function(percent) {
+                    if (audioLoading) {
+                        audioLoading.querySelector('div div').textContent = 'Cargando: ' + percent + '%';
+                    }
+                });
+                
+                // Cuando está listo
+                wavesurfer.on('ready', function() {
+                    if (audioLoading) audioLoading.style.display = 'none';
+                    if (audioWaveform) audioWaveform.style.display = 'block';
+                    if (audioTimeDisplay) audioTimeDisplay.style.display = 'block';
+                    
+                    var duration = wavesurfer.getDuration();
+                    if (audioDuration) {
+                        audioDuration.textContent = formatTime(duration);
+                    }
+                    
+                    syncAudioToggleLabel();
+                });
+                
+                // Error handling
+                wavesurfer.on('error', function(error) {
+                    console.error('WaveSurfer error:', error);
+                    if (audioLoading) {
+                        audioLoading.querySelector('div div').textContent = 'Error al cargar';
+                    }
+                });
+                
+                // Actualizar tiempo durante reproducción
+                wavesurfer.on('audioprocess', function() {
+                    if (audioCurrent) {
+                        audioCurrent.textContent = formatTime(wavesurfer.getCurrentTime());
+                    }
+                });
+                
+                wavesurfer.on('seeking', function() {
+                    if (audioCurrent) {
+                        audioCurrent.textContent = formatTime(wavesurfer.getCurrentTime());
+                    }
+                });
+                
+                // Eventos de play/pause
+                wavesurfer.on('play', syncAudioToggleLabel);
+                wavesurfer.on('pause', syncAudioToggleLabel);
+                wavesurfer.on('finish', syncAudioToggleLabel);
+                
+                // Cargar audio
+                wavesurfer.load(url);
             }
 
             function clampAudioTime(t) {
-                if (!audioPlayer || Number.isNaN(t)) return 0;
+                if (!wavesurfer || Number.isNaN(t)) return 0;
+                var duration = wavesurfer.getDuration();
                 if (t < 0) return 0;
-                if (audioPlayer.duration && t > audioPlayer.duration) return audioPlayer.duration;
+                if (duration && t > duration) return duration;
                 return t;
             }
 
             function syncAudioToggleLabel() {
-                if (!audioPlayer || !audioToggleBtn) return;
-                audioToggleBtn.textContent = audioPlayer.paused ? 'Play' : 'Pause';
+                if (!wavesurfer || !audioToggleBtn) return;
+                audioToggleBtn.textContent = wavesurfer.isPlaying() ? 'Pause' : 'Play';
             }
 
-            if (audioSelect && audioPlayer) {
+            if (audioSelect) {
                 audioSelect.addEventListener('change', function(e) {
                     setAudio(e.target.value);
                 });
@@ -468,32 +577,29 @@
                 }
             }
 
-            if (audioPlayer && audioToggleBtn) {
+            if (audioToggleBtn) {
                 audioToggleBtn.addEventListener('click', function(e) {
                     e.preventDefault();
-                    if (audioPlayer.paused) {
-                        audioPlayer.play().catch(function() {});
-                    } else {
-                        audioPlayer.pause();
-                    }
-                    syncAudioToggleLabel();
+                    if (!wavesurfer) return;
+                    wavesurfer.playPause();
                 });
-                audioPlayer.addEventListener('play', syncAudioToggleLabel);
-                audioPlayer.addEventListener('pause', syncAudioToggleLabel);
-                syncAudioToggleLabel();
             }
 
-            if (audioPlayer && audioRewindBtn) {
+            if (audioRewindBtn) {
                 audioRewindBtn.addEventListener('click', function(e) {
                     e.preventDefault();
-                    audioPlayer.currentTime = clampAudioTime(audioPlayer.currentTime - 10);
+                    if (!wavesurfer) return;
+                    var newTime = clampAudioTime(wavesurfer.getCurrentTime() - 10);
+                    wavesurfer.seekTo(newTime / wavesurfer.getDuration());
                 });
             }
 
-            if (audioPlayer && audioForwardBtn) {
+            if (audioForwardBtn) {
                 audioForwardBtn.addEventListener('click', function(e) {
                     e.preventDefault();
-                    audioPlayer.currentTime = clampAudioTime(audioPlayer.currentTime + 30);
+                    if (!wavesurfer) return;
+                    var newTime = clampAudioTime(wavesurfer.getCurrentTime() + 30);
+                    wavesurfer.seekTo(newTime / wavesurfer.getDuration());
                 });
             }
 

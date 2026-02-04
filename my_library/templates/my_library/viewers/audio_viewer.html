@@ -1,30 +1,58 @@
 {% load wagtailcore_tags %}
 
-<div class="w-full max-w-2xl">
+<div class="w-full max-w-3xl">
     <div class="bg-base-100 rounded-box shadow-xl p-8">
         {% for audio in audios %}
-        <div class="mb-6 {% if not forloop.last %}border-b border-base-300 pb-6{% endif %}">
+        <div class="mb-8 {% if not forloop.last %}border-b border-base-300 pb-8{% endif %}">
             <h3 class="text-xl font-bold mb-2">{{ audio.title|default:"Audio sin título" }}</h3>
             
             {% if audio.description %}
             <p class="text-sm opacity-70 mb-4">{{ audio.description }}</p>
             {% endif %}
             
-            <!-- Reproductor de audio HTML5 -->
-            <audio controls class="w-full">
-                {% if audio.audio_file %}
-                <source src="{{ audio.audio_file.url }}" type="{{ audio.audio_file.file.content_type }}">
-                {% elif audio.file %}
-                <source src="{{ audio.file.url }}" type="{{ audio.file.content_type }}">
-                {% endif %}
-                Tu navegador no soporta el elemento de audio.
-            </audio>
+            <!-- Contenedor de forma de onda -->
+            <div class="mb-4">
+                <!-- Indicador de carga -->
+                <div id="loading-{{ forloop.counter }}" class="flex items-center justify-center py-16 bg-base-200 rounded-lg">
+                    <div class="text-center">
+                        <div class="loading loading-spinner loading-lg text-primary"></div>
+                        <p class="text-sm mt-4 opacity-60">Generando forma de onda...</p>
+                    </div>
+                </div>
+                
+                <!-- Contenedor de WaveSurfer -->
+                <div id="waveform-{{ forloop.counter }}" class="hidden rounded-lg overflow-hidden bg-base-200" style="min-height: 128px;"></div>
+            </div>
+            
+            <!-- Controles de reproducción -->
+            <div class="flex items-center gap-3 mb-3">
+                <button id="play-pause-{{ forloop.counter }}" 
+                        class="btn btn-primary btn-circle btn-lg"
+                        aria-label="Reproducir/Pausar">
+                    <svg class="play-icon w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z"/>
+                    </svg>
+                    <svg class="pause-icon w-6 h-6 hidden" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+                    </svg>
+                </button>
+                
+                <div class="flex-1">
+                    <div class="flex justify-between text-sm mb-1">
+                        <span id="current-time-{{ forloop.counter }}" class="font-mono">0:00</span>
+                        <span id="duration-{{ forloop.counter }}" class="font-mono opacity-60">0:00</span>
+                    </div>
+                </div>
+            </div>
             
             {% if audio.audio_file or audio.file %}
-            <div class="mt-2 text-xs opacity-50">
+            <div class="flex gap-2">
                 <a href="{% if audio.audio_file %}{{ audio.audio_file.url }}{% else %}{{ audio.file.url }}{% endif %}" 
                    download 
-                   class="link link-hover">
+                   class="btn btn-sm btn-ghost gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                    </svg>
                     Descargar audio
                 </a>
             </div>
@@ -39,3 +67,148 @@
         {% endif %}
     </div>
 </div>
+
+<!-- WaveSurfer.js CDN -->
+<script src="https://unpkg.com/wavesurfer.js@7"></script>
+
+<script>
+(function() {
+    // Inicializar WaveSurfer para cada audio
+    {% for audio in audios %}
+    (function() {
+        var audioUrl = '{% if audio.audio_file %}{{ audio.audio_file.url }}{% elif audio.file %}{{ audio.file.url }}{% endif %}';
+        if (!audioUrl) return;
+        
+        var index = {{ forloop.counter }};
+        var container = document.getElementById('waveform-' + index);
+        var loading = document.getElementById('loading-' + index);
+        var playPauseBtn = document.getElementById('play-pause-' + index);
+        var currentTimeEl = document.getElementById('current-time-' + index);
+        var durationEl = document.getElementById('duration-' + index);
+        
+        if (!container) return;
+        
+        // Crear instancia de WaveSurfer
+        var wavesurfer = WaveSurfer.create({
+            container: container,
+            waveColor: 'rgb(148, 163, 184)',      // slate-400
+            progressColor: 'rgb(139, 92, 246)',   // violet-500
+            cursorColor: 'rgb(168, 85, 247)',     // purple-500
+            barWidth: 2,
+            barRadius: 3,
+            barGap: 1,
+            height: 128,
+            responsive: true,
+            normalize: true,
+            backend: 'WebAudio',
+            mediaControls: false,
+            autoplay: false
+        });
+        
+        // Manejar evento de carga
+        wavesurfer.on('loading', function(percent) {
+            if (loading) {
+                loading.querySelector('p').textContent = 'Cargando: ' + percent + '%';
+            }
+        });
+        
+        // Cuando está listo, ocultar loading y mostrar waveform
+        wavesurfer.on('ready', function() {
+            if (loading) loading.classList.add('hidden');
+            if (container) container.classList.remove('hidden');
+            
+            // Actualizar duración
+            var duration = wavesurfer.getDuration();
+            if (durationEl) {
+                durationEl.textContent = formatTime(duration);
+            }
+        });
+        
+        // Error handling
+        wavesurfer.on('error', function(error) {
+            console.error('WaveSurfer error:', error);
+            if (loading) {
+                loading.querySelector('p').textContent = 'Error al cargar el audio';
+                loading.querySelector('.loading').classList.add('hidden');
+            }
+        });
+        
+        // Actualizar tiempo actual durante reproducción
+        wavesurfer.on('audioprocess', function() {
+            var currentTime = wavesurfer.getCurrentTime();
+            if (currentTimeEl) {
+                currentTimeEl.textContent = formatTime(currentTime);
+            }
+        });
+        
+        // Actualizar tiempo cuando se hace seek
+        wavesurfer.on('seeking', function() {
+            var currentTime = wavesurfer.getCurrentTime();
+            if (currentTimeEl) {
+                currentTimeEl.textContent = formatTime(currentTime);
+            }
+        });
+        
+        // Manejar eventos de play/pause
+        wavesurfer.on('play', function() {
+            updatePlayPauseButton(true);
+        });
+        
+        wavesurfer.on('pause', function() {
+            updatePlayPauseButton(false);
+        });
+        
+        wavesurfer.on('finish', function() {
+            updatePlayPauseButton(false);
+        });
+        
+        // Función para actualizar icono del botón
+        function updatePlayPauseButton(isPlaying) {
+            if (!playPauseBtn) return;
+            var playIcon = playPauseBtn.querySelector('.play-icon');
+            var pauseIcon = playPauseBtn.querySelector('.pause-icon');
+            
+            if (isPlaying) {
+                if (playIcon) playIcon.classList.add('hidden');
+                if (pauseIcon) pauseIcon.classList.remove('hidden');
+            } else {
+                if (playIcon) playIcon.classList.remove('hidden');
+                if (pauseIcon) pauseIcon.classList.add('hidden');
+            }
+        }
+        
+        // Botón play/pause
+        if (playPauseBtn) {
+            playPauseBtn.addEventListener('click', function() {
+                wavesurfer.playPause();
+            });
+        }
+        
+        // Formatear tiempo en mm:ss
+        function formatTime(seconds) {
+            if (!seconds || isNaN(seconds)) return '0:00';
+            var mins = Math.floor(seconds / 60);
+            var secs = Math.floor(seconds % 60);
+            return mins + ':' + (secs < 10 ? '0' : '') + secs;
+        }
+        
+        // Cargar audio
+        wavesurfer.load(audioUrl);
+    })();
+    {% endfor %}
+})();
+</script>
+
+<style>
+    /* Estilos adicionales para el waveform */
+    [id^="waveform-"] {
+        border: 1px solid rgba(0, 0, 0, 0.1);
+    }
+    
+    /* Ajustes responsivos */
+    @media (max-width: 640px) {
+        [id^="waveform-"] {
+            min-height: 100px !important;
+        }
+    }
+</style>
