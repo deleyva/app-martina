@@ -311,7 +311,7 @@
                 </svg>
             </button>
             <p class="text-xs text-base-content/50 mt-2">
-                Mostrando <span id="visibleCount">10</span> de <span id="totalCount">{{ music_content_count }}</span>
+                Mostrando <span id="visibleCount">5</span> de <span id="totalCount">{{ music_content_count }}</span>
             </p>
         </div>
         
@@ -463,7 +463,7 @@
 <script>
 // MUSIC PILLS - Filtros de biblioteca musical
 let currentTagFilter = '';
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 5;
 let currentlyVisible = ITEMS_PER_PAGE;
 
 function filterScores() {
@@ -582,7 +582,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
-}
+});
 
 function loadMoreMusic() {
     currentlyVisible += ITEMS_PER_PAGE;
@@ -592,31 +592,27 @@ function loadMoreMusic() {
 function updatePagination() {
     const musicItems = document.querySelectorAll('.music-item');
     const totalItems = musicItems.length;
-    let visibleWithinLimit = 0;
     
+    // Show items within the currentlyVisible limit
     musicItems.forEach((item, index) => {
-        const itemIndex = parseInt(item.dataset.index);
-        const isHiddenByFilter = item.style.display === 'none';
-        
-        // Only apply pagination to items not hidden by filters
-        if (!isHiddenByFilter) {
-            if (visibleWithinLimit < currentlyVisible) {
-                // Don't hide if within pagination limit
-                visibleWithinLimit++;
-            } else {
-                // Hide if beyond pagination limit
-                item.style.display = 'none';
-            }
+        if (index < currentlyVisible) {
+            // Show item (use flex to match the class)
+            item.style.display = 'flex';
+        } else {
+            // Hide item beyond pagination limit
+            item.style.display = 'none';
         }
     });
     
     // Update counter
-    document.getElementById('visibleCount').textContent = Math.min(currentlyVisible, visibleWithinLimit);
+    const actuallyVisible = Math.min(currentlyVisible, totalItems);
+    document.getElementById('visibleCount').textContent = actuallyVisible;
     
     // Show/hide load more button
     const loadMoreContainer = document.getElementById('loadMoreContainer');
     if (loadMoreContainer) {
-        if (visibleWithinLimit > currentlyVisible) {
+        // Show button if there are more items than currently visible
+        if (totalItems > currentlyVisible) {
             loadMoreContainer.classList.remove('hidden');
         } else {
             loadMoreContainer.classList.add('hidden');
@@ -630,5 +626,6 @@ document.addEventListener('DOMContentLoaded', function() {
     updatePagination();
     
     const tagOptions = document.querySelectorAll('.tag-filter-option');
+});
 </script>
 {% endblock %}
