@@ -369,6 +369,7 @@ class GroupLibraryItem(models.Model):
             "scorepage": "Partitura",
             "image": "Imagen",
             "blogpage": "Artículo de Blog",
+            "dictadopage": "Dictado",
         }
         return mapping.get(model_name, model_name.title())
 

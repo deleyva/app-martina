@@ -144,6 +144,7 @@
             
             {% for score in scores %}
             <li class="score-item" 
+                data-index="{{ forloop.counter0 }}"
                 data-title="{{ score.title|lower }}" 
                 data-composer="{% if score.composer %}{{ score.composer.name|lower }}{% endif %}"
                 data-tags="{% for tag in score.tags.all %}{{ tag.name|lower }} {% endfor %}"
@@ -282,6 +283,19 @@
             {% endfor %}
         </ul>
         
+        <!-- Load More Button -->
+        <div id="loadMoreContainer" class="text-center mt-6 hidden">
+            <button onclick="loadMoreScores()" class="btn btn-outline btn-primary">
+                Cargar más partituras
+                <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </button>
+            <p class="text-xs text-base-content/50 mt-2">
+                Mostrando <span id="visibleCount">10</span> de <span id="totalCount">{{ scores_count }}</span>
+            </p>
+        </div>
+        
         <!-- No Results Message -->
         <div id="noResults" class="text-center py-8 hidden">
             <div class="text-4xl mb-2">🔍</div>
@@ -395,6 +409,80 @@
     </div>
     {% endif %}
 
+    <!-- Dictados Section -->
+    {% if dictado_pages %}
+    <div class="mt-12">
+        <div class="flex items-center justify-between mb-6">
+            <h2 class="text-2xl font-bold">🎹 Dictados</h2>
+            <span class="badge badge-outline badge-sm">{{ dictado_pages_count }} ejercicios</span>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for dictado in dictado_pages %}
+            <div class="card bg-base-100 shadow-lg hover:shadow-xl transition-shadow">
+                <div class="card-body">
+                    <h3 class="card-title text-lg">{{ dictado.title }}</h3>
+                    {% if dictado.intro %}
+                    <p class="text-sm text-base-content/70 mb-2">{{ dictado.intro|striptags|truncatewords:20 }}</p>
+                    {% endif %}
+                    
+                    <!-- Categories and Tags -->
+                    {% if dictado.categories.all or dictado.tags.all %}
+                    <div class="flex flex-wrap gap-1 mb-3">
+                        {% for category in dictado.categories.all|slice:":3" %}
+                        <div class="badge badge-info badge-sm">
+                            {% if category.icon %}{{ category.icon }} {% endif %}{{ category.name }}
+                        </div>
+                        {% endfor %}
+                        {% for tag in dictado.tags.all|slice:":3" %}
+                        <div class="badge badge-outline badge-sm" style="{% if tag.color %}border-color: {{ tag.color }}; color: {{ tag.color }};{% endif %}">
+                            🏷️ {{ tag.name }}
+                        </div>
+                        {% endfor %}
+                        {% if dictado.categories.all|length > 3 or dictado.tags.all|length > 3 %}
+                        <div class="badge badge-ghost badge-sm">+más</div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Date and Actions -->
+                    <div class="flex justify-between items-center mt-4">
+                        <div class="text-xs text-base-content/50">
+                            📅 {{ dictado.date|date:"d M Y" }}
+                        </div>
+                        
+                        <div class="flex gap-2">
+                            {% if user.is_authenticated %}
+                            <div id="library-btn-dictado-{{ dictado.pk }}" onclick="event.stopPropagation()">
+                                {% library_button dictado %}
+                            </div>
+                            {% endif %}
+                            <a href="{{ dictado.url }}" class="btn btn-sm btn-primary">
+                                Ver dictado
+                            </a>
+                            {% if user.is_staff %}
+                            <div class="dropdown dropdown-end">
+                                <div tabindex="0" role="button" class="btn btn-sm btn-ghost">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path>
+                                    </svg>
+                                </div>
+                                <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+                                    <li><a href="{{ dictado.get_url }}">Ver</a></li>
+                                    <li><a href="/cms/pages/{{ dictado.id }}/edit/">Editar</a></li>
+                                    <li><a href="/cms/pages/{{ dictado.id }}/copy/">Duplicar</a></li>
+                                </ul>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
     {% comment %} <!-- Quick Actions -->
     <div class="mt-12">
         <h2 class="text-2xl font-bold mb-4">⚡ Quick Actions</h2>
@@ -429,6 +517,8 @@
 <script>
 // MUSIC PILLS - Filtros de biblioteca musical
 let currentTagFilter = '';
+const ITEMS_PER_PAGE = 10;
+let currentlyVisible = ITEMS_PER_PAGE;
 
 function filterScores() {
     const searchTerm = document.getElementById('searchInput').value.toLowerCase();
@@ -546,6 +636,53 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
-});
+}
+
+function loadMoreScores() {
+    currentlyVisible += ITEMS_PER_PAGE;
+    updatePagination();
+}
+
+function updatePagination() {
+    const scoreItems = document.querySelectorAll('.score-item');
+    const totalItems = scoreItems.length;
+    let visibleWithinLimit = 0;
+    
+    scoreItems.forEach((item, index) => {
+        const itemIndex = parseInt(item.dataset.index);
+        const isHiddenByFilter = item.style.display === 'none';
+        
+        // Only apply pagination to items not hidden by filters
+        if (!isHiddenByFilter) {
+            if (visibleWithinLimit < currentlyVisible) {
+                // Don't hide if within pagination limit
+                visibleWithinLimit++;
+            } else {
+                // Hide if beyond pagination limit
+                item.style.display = 'none';
+            }
+        }
+    });
+    
+    // Update counter
+    document.getElementById('visibleCount').textContent = Math.min(currentlyVisible, visibleWithinLimit);
+    
+    // Show/hide load more button
+    const loadMoreContainer = document.getElementById('loadMoreContainer');
+    if (loadMoreContainer) {
+        if (visibleWithinLimit > currentlyVisible) {
+            loadMoreContainer.classList.remove('hidden');
+        } else {
+            loadMoreContainer.classList.add('hidden');
+        }
+    }
+}
+
+// Remove duplicate tags from filter dropdown
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize pagination
+    updatePagination();
+    
+    const tagOptions = document.querySelectorAll('.tag-filter-option');
 </script>
 {% endblock %}

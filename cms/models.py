@@ -719,6 +719,18 @@ class MusicLibraryIndexPage(Page):
             context["test_pages"] = []
             context["test_pages_count"] = 0
 
+        # Obtener todas las páginas de dictado que son hijas de esta página
+        try:
+            dictado_pages = (
+                DictadoPage.objects.child_of(self).live().order_by("-first_published_at")
+            )
+            context["dictado_pages"] = dictado_pages
+            context["dictado_pages_count"] = dictado_pages.count()
+        except (ProgrammingError, OperationalError):
+            # Si la tabla DictadoPage no existe aún, devolver lista vacía
+            context["dictado_pages"] = []
+            context["dictado_pages_count"] = 0
+
         # Combinar entradas tipo blog/test para la sección de artículos
         combined_entries = []
         for post in context["blog_posts"]:

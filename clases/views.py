@@ -840,8 +840,8 @@ def group_library_item_viewer(request, group_id, pk):
     content_type = item.content_type.model
     content = item.content_object
 
-    # BlogPages: redirigir a su visualización normal de Wagtail
-    if content_type == "blogpage":
+    # BlogPages y DictadoPages: redirigir a su visualización normal de Wagtail
+    if content_type in ["blogpage", "dictadopage"]:
         if hasattr(content, "get_url"):
             return redirect(content.get_url())
 
@@ -959,8 +959,8 @@ def class_session_item_viewer(request, session_id, item_id):
     content_type = item.content_type.model
     content = item.content_object
 
-    # BlogPages: redirigir a su visualización normal de Wagtail
-    if content_type == "blogpage":
+    # BlogPages y DictadoPages: redirigir a su visualización normal de Wagtail
+    if content_type in ["blogpage", "dictadopage"]:
         if hasattr(content, "get_url"):
             return redirect(content.get_url())
 
