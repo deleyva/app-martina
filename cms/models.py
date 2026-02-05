@@ -731,6 +731,24 @@ class MusicLibraryIndexPage(Page):
             context["dictado_pages"] = []
             context["dictado_pages_count"] = 0
 
+        # Combinar scores y dictados en una sola lista de contenido musical
+        music_content = []
+        for score in context["scores"]:
+            music_content.append({"type": "score", "page": score})
+        for dictado in context["dictado_pages"]:
+            music_content.append({"type": "dictado", "page": dictado})
+        
+        # Ordenar por fecha de publicación
+        music_content.sort(
+            key=lambda item: (
+                item["page"].first_published_at
+                or item["page"].latest_revision_created_at
+            ),
+            reverse=True,
+        )
+        context["music_content"] = music_content
+        context["music_content_count"] = len(music_content)
+
         # Combinar entradas tipo blog/test para la sección de artículos
         combined_entries = []
         for post in context["blog_posts"]:
