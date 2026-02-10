@@ -104,6 +104,7 @@ LOCAL_APPS = [
     "explorer",
     "cms",  # Incluye Music Pills integrado
     "my_library",  # Biblioteca personal de usuario
+    "incidencias",  # Sistema de incidencias informáticas
     # Your stuff: custom apps go here
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps

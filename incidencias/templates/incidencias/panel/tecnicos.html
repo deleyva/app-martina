@@ -1,0 +1,97 @@
+{% extends "incidencias/base_incidencias.html" %}
+{% load static i18n %}
+
+{% block incidencias_content %}
+<div class="max-w-3xl mx-auto">
+  <!-- Breadcrumb -->
+  <div class="text-sm breadcrumbs mb-4">
+    <ul>
+      <li><a href="{% url 'incidencias:panel' %}">🛠️ Panel</a></li>
+      <li>Técnicos</li>
+    </ul>
+  </div>
+
+  <div class="card bg-base-100 shadow-xl mb-6">
+    <div class="card-body">
+      <h2 class="card-title text-2xl mb-4">👷 Gestión de Técnicos</h2>
+
+      <!-- Add technician form -->
+      <form method="post" class="flex flex-wrap gap-3 items-end mb-6 bg-base-200 p-4 rounded-xl">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="add">
+        <div class="form-control flex-1 min-w-[200px]">
+          <label class="label">
+            <span class="label-text text-sm">Email del usuario</span>
+          </label>
+          <input type="email" name="email" required
+                 placeholder="usuario@dominio.com"
+                 class="input input-bordered input-sm w-full">
+        </div>
+        <div class="form-control flex-1 min-w-[200px]">
+          <label class="label">
+            <span class="label-text text-sm">Nombre a mostrar</span>
+          </label>
+          <input type="text" name="nombre"
+                 placeholder="Nombre del técnico"
+                 class="input input-bordered input-sm w-full">
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm">➕ Añadir técnico</button>
+      </form>
+
+      <!-- Technicians list -->
+      {% if tecnicos %}
+        <div class="overflow-x-auto">
+          <table class="table table-zebra">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Email</th>
+                <th>Estado</th>
+                <th>Incidencias</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for tecnico in tecnicos %}
+                <tr>
+                  <td class="font-medium">{{ tecnico }}</td>
+                  <td class="text-sm opacity-70">{{ tecnico.user.email }}</td>
+                  <td>
+                    {% if tecnico.activo %}
+                      <span class="badge badge-success badge-sm">Activo</span>
+                    {% else %}
+                      <span class="badge badge-ghost badge-sm">Inactivo</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <span class="badge badge-outline badge-sm">{{ tecnico.incidencias_asignadas.count }}</span>
+                  </td>
+                  <td>
+                    <form method="post" class="inline">
+                      {% csrf_token %}
+                      <input type="hidden" name="action" value="toggle">
+                      <input type="hidden" name="tecnico_id" value="{{ tecnico.id }}">
+                      <button type="submit" class="btn btn-ghost btn-xs">
+                        {% if tecnico.activo %}Desactivar{% else %}Activar{% endif %}
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="text-center py-8 opacity-60">
+          <p>No hay técnicos registrados.</p>
+          <p class="text-sm mt-1">Añade un técnico usando el email de su cuenta.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="text-center">
+    <a href="{% url 'incidencias:panel' %}" class="btn btn-ghost">← Volver al panel</a>
+  </div>
+</div>
+{% endblock incidencias_content %}

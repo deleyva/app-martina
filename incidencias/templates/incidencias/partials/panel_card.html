@@ -1,0 +1,110 @@
+{% load i18n %}
+
+<div class="card bg-base-100 shadow-sm incidencia-card urgencia-{{ incidencia.urgencia }}">
+  <div class="card-body p-4">
+    <!-- Title & Link -->
+    <a href="{% url 'incidencias:detalle' incidencia.pk %}" class="font-semibold hover:text-primary transition truncate block">
+      {% if incidencia.es_privada %}🔒{% endif %}
+      {{ incidencia.titulo }}
+    </a>
+
+    <!-- Meta -->
+    <div class="text-xs opacity-60 mt-1">
+      <span>{{ incidencia.reportero_nombre }}</span>
+      · <span>{{ incidencia.created_at|date:"d/m H:i" }}</span>
+      {% if incidencia.comentarios.count > 0 %}
+        · 💬 {{ incidencia.comentarios.count }}
+      {% endif %}
+    </div>
+
+    <!-- Badges -->
+    <div class="flex flex-wrap gap-1 mt-2">
+      <span class="badge {% if incidencia.urgencia == 'critica' %}badge-error{% elif incidencia.urgencia == 'alta' %}badge-error badge-outline{% elif incidencia.urgencia == 'media' %}badge-warning badge-outline{% else %}badge-ghost{% endif %} badge-xs">
+        {{ incidencia.get_urgencia_display }}
+      </span>
+      {% if incidencia.ubicacion %}
+        <span class="badge badge-outline badge-xs">📍 {{ incidencia.ubicacion.nombre }}</span>
+      {% endif %}
+      {% for et in incidencia.etiquetas.all %}
+        <span class="badge badge-ghost badge-xs">{{ et.nombre }}</span>
+      {% endfor %}
+    </div>
+
+    <!-- Actions -->
+    <div class="flex items-center gap-2 mt-3 flex-wrap">
+      <!-- Assign -->
+      {% if incidencia.asignado_a %}
+        <span class="text-xs badge badge-primary badge-outline badge-sm">👷 {{ incidencia.asignado_a }}</span>
+      {% endif %}
+
+      <div class="dropdown dropdown-end">
+        <label tabindex="0" class="btn btn-ghost btn-xs">⚙️ Acciones</label>
+        <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow-lg bg-base-100 rounded-box w-52">
+          <!-- Change status -->
+          {% if incidencia.estado != "pendiente" %}
+            <li>
+              <form method="post" action="{% url 'incidencias:panel_estado' incidencia.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="estado" value="pendiente">
+                <button type="submit" class="w-full text-left">⏳ Mover a Pendiente</button>
+              </form>
+            </li>
+          {% endif %}
+          {% if incidencia.estado != "en_progreso" %}
+            <li>
+              <form method="post" action="{% url 'incidencias:panel_estado' incidencia.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="estado" value="en_progreso">
+                <button type="submit" class="w-full text-left">⚡ Mover a En Progreso</button>
+              </form>
+            </li>
+          {% endif %}
+          {% if incidencia.estado != "resuelta" %}
+            <li>
+              <form method="post" action="{% url 'incidencias:panel_estado' incidencia.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="estado" value="resuelta">
+                <button type="submit" class="w-full text-left">✅ Marcar Resuelta</button>
+              </form>
+            </li>
+          {% endif %}
+
+          <li class="menu-title"><span>Asignar</span></li>
+
+          <!-- Self-assign -->
+          <li>
+            <form method="post" action="{% url 'incidencias:panel_asignar' incidencia.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="tecnico_id" value="self">
+              <button type="submit" class="w-full text-left">🙋 Coger para mí</button>
+            </form>
+          </li>
+
+          <!-- Assign to other technician -->
+          {% for t in tecnicos %}
+            {% if t.id != incidencia.asignado_a_id %}
+            <li>
+              <form method="post" action="{% url 'incidencias:panel_asignar' incidencia.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="tecnico_id" value="{{ t.id }}">
+                <button type="submit" class="w-full text-left">👷 {{ t }}</button>
+              </form>
+            </li>
+            {% endif %}
+          {% endfor %}
+
+          <!-- Unassign -->
+          {% if incidencia.asignado_a %}
+          <li>
+            <form method="post" action="{% url 'incidencias:panel_asignar' incidencia.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="tecnico_id" value="none">
+              <button type="submit" class="w-full text-left">❌ Desasignar</button>
+            </form>
+          </li>
+          {% endif %}
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>

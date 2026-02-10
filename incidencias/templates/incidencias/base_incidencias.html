@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}Incidencias Informáticas{% endblock %}
+
+{% block extra_css %}
+<style>
+  .incidencia-card {
+    transition: all 0.2s ease;
+  }
+  .incidencia-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+  }
+  .urgencia-baja { border-left: 4px solid oklch(var(--s)); }
+  .urgencia-media { border-left: 4px solid oklch(var(--w)); }
+  .urgencia-alta { border-left: 4px solid oklch(var(--er)); }
+  .urgencia-critica { border-left: 4px solid oklch(var(--er)); background: oklch(var(--er) / 0.05); }
+
+  .estado-badge-pendiente { --badge-color: oklch(var(--w)); }
+  .estado-badge-en_progreso { --badge-color: oklch(var(--in)); }
+  .estado-badge-resuelta { --badge-color: oklch(var(--su)); }
+
+  .autocomplete-dropdown {
+    position: absolute;
+    z-index: 100;
+    width: 100%;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  .autocomplete-item:hover {
+    background: oklch(var(--b2));
+  }
+
+  .search-hero {
+    background: linear-gradient(135deg, oklch(var(--p)) 0%, oklch(var(--s)) 100%);
+  }
+
+  .tag-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.8rem;
+    background: oklch(var(--b2));
+    border: 1px solid oklch(var(--b3));
+  }
+  .tag-chip .remove-tag {
+    cursor: pointer;
+    font-weight: bold;
+    opacity: 0.6;
+  }
+  .tag-chip .remove-tag:hover {
+    opacity: 1;
+  }
+
+  .fade-in {
+    animation: fadeIn 0.3s ease-in;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
+{% endblock extra_css %}
+
+{% block main %}
+{% block incidencias_content %}{% endblock incidencias_content %}
+{% endblock main %}

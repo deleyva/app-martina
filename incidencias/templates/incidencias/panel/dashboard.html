@@ -1,0 +1,129 @@
+{% extends "incidencias/base_incidencias.html" %}
+{% load static i18n %}
+
+{% block incidencias_content %}
+<div class="max-w-7xl mx-auto">
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-6 flex-wrap gap-4">
+    <div>
+      <h1 class="text-3xl font-bold">🛠️ Panel de Incidencias</h1>
+      <p class="opacity-60">Gestión y seguimiento de incidencias informáticas</p>
+    </div>
+    <div class="flex gap-2">
+      <a href="{% url 'incidencias:panel_tecnicos' %}" class="btn btn-outline btn-sm gap-1">
+        👷 Gestionar técnicos
+      </a>
+      <a href="{% url 'incidencias:landing' %}" class="btn btn-ghost btn-sm gap-1">
+        🔧 Vista pública
+      </a>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="bg-base-200 rounded-xl p-4 mb-6">
+    <form method="get" class="flex flex-wrap gap-3 items-end">
+      <div class="form-control">
+        <label class="label label-text text-xs">Planta</label>
+        <select name="planta" class="select select-bordered select-sm">
+          <option value="">Todas</option>
+          {% for value, label in plantas %}
+            <option value="{{ value }}" {% if filtro_planta == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-control">
+        <label class="label label-text text-xs">Urgencia</label>
+        <select name="urgencia" class="select select-bordered select-sm">
+          <option value="">Todas</option>
+          {% for value, label in urgencias %}
+            <option value="{{ value }}" {% if filtro_urgencia == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-control">
+        <label class="label label-text text-xs">Etiqueta</label>
+        <select name="etiqueta" class="select select-bordered select-sm">
+          <option value="">Todas</option>
+          {% for et in etiquetas %}
+            <option value="{{ et.slug }}" {% if filtro_etiqueta == et.slug %}selected{% endif %}>{{ et.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-control">
+        <label class="label label-text text-xs">Técnico</label>
+        <select name="tecnico" class="select select-bordered select-sm">
+          <option value="">Todos</option>
+          {% for t in tecnicos %}
+            <option value="{{ t.id }}" {% if filtro_tecnico == t.id|stringformat:"d" %}selected{% endif %}>{{ t }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm">Filtrar</button>
+      <a href="{% url 'incidencias:panel' %}" class="btn btn-ghost btn-sm">Limpiar</a>
+    </form>
+  </div>
+
+  <!-- Mis incidencias -->
+  {% if mis_incidencias %}
+  <div class="bg-primary/10 border border-primary/30 rounded-xl p-4 mb-6">
+    <div class="flex items-center gap-2 mb-3">
+      <h2 class="text-lg font-bold">🙋 Mis incidencias asignadas</h2>
+      <span class="badge badge-primary">{{ mis_incidencias|length }}</span>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+      {% for inc in mis_incidencias %}
+        {% include "incidencias/partials/panel_card.html" with incidencia=inc %}
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Kanban Board -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Pendientes -->
+    <div>
+      <div class="flex items-center gap-2 mb-3">
+        <h2 class="text-lg font-bold">⏳ Pendientes</h2>
+        <span class="badge badge-warning">{{ pendientes|length }}</span>
+      </div>
+      <div class="space-y-3">
+        {% for inc in pendientes %}
+          {% include "incidencias/partials/panel_card.html" with incidencia=inc %}
+        {% empty %}
+          <div class="text-center py-8 opacity-40 text-sm">Sin incidencias pendientes</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- En Progreso -->
+    <div>
+      <div class="flex items-center gap-2 mb-3">
+        <h2 class="text-lg font-bold">⚡ En Progreso</h2>
+        <span class="badge badge-info">{{ en_progreso|length }}</span>
+      </div>
+      <div class="space-y-3">
+        {% for inc in en_progreso %}
+          {% include "incidencias/partials/panel_card.html" with incidencia=inc %}
+        {% empty %}
+          <div class="text-center py-8 opacity-40 text-sm">Sin incidencias en progreso</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Resueltas -->
+    <div>
+      <div class="flex items-center gap-2 mb-3">
+        <h2 class="text-lg font-bold">✅ Resueltas</h2>
+        <span class="badge badge-success">{{ resueltas|length }}</span>
+      </div>
+      <div class="space-y-3">
+        {% for inc in resueltas %}
+          {% include "incidencias/partials/panel_card.html" with incidencia=inc %}
+        {% empty %}
+          <div class="text-center py-8 opacity-40 text-sm">Sin incidencias resueltas</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock incidencias_content %}

@@ -1,0 +1,62 @@
+{% load i18n %}
+
+{% if incidencias %}
+<div class="space-y-3 fade-in">
+  {% regroup incidencias by get_estado_display as estado_groups %}
+  {% for group in estado_groups %}
+    <div class="mb-6">
+      <h3 class="text-lg font-semibold mb-3 flex items-center gap-2">
+        {% if group.grouper == "Pendiente" %}
+          <span class="badge badge-warning badge-lg">⏳ {{ group.grouper }}</span>
+        {% elif group.grouper == "En progreso" %}
+          <span class="badge badge-info badge-lg">⚡ {{ group.grouper }}</span>
+        {% else %}
+          <span class="badge badge-success badge-lg">✅ {{ group.grouper }}</span>
+        {% endif %}
+        <span class="text-sm opacity-60">({{ group.list|length }})</span>
+      </h3>
+
+      {% for inc in group.list %}
+      <a href="{% url 'incidencias:detalle' inc.pk %}"
+         class="card bg-base-100 shadow-sm incidencia-card urgencia-{{ inc.urgencia }} mb-2 block">
+        <div class="card-body p-4">
+          <div class="flex items-start justify-between gap-4">
+            <div class="flex-1 min-w-0">
+              <h4 class="card-title text-base truncate">{{ inc.titulo }}</h4>
+              {% if inc.descripcion %}
+                <p class="text-sm opacity-70 line-clamp-2 mt-1">{{ inc.descripcion|truncatewords:20 }}</p>
+              {% endif %}
+              <div class="flex flex-wrap gap-2 mt-2">
+                {% if inc.ubicacion %}
+                  <span class="badge badge-outline badge-sm">📍 {{ inc.ubicacion }}</span>
+                {% endif %}
+                {% for etiqueta in inc.etiquetas.all %}
+                  <span class="badge badge-ghost badge-sm">{{ etiqueta.nombre }}</span>
+                {% endfor %}
+              </div>
+            </div>
+            <div class="flex flex-col items-end gap-1 shrink-0">
+              <span class="badge {% if inc.urgencia == 'critica' %}badge-error{% elif inc.urgencia == 'alta' %}badge-error badge-outline{% elif inc.urgencia == 'media' %}badge-warning badge-outline{% else %}badge-ghost{% endif %} badge-sm">
+                {{ inc.get_urgencia_display }}
+              </span>
+              <span class="text-xs opacity-50">{{ inc.created_at|timesince }} ago</span>
+              {% if inc.comentarios.count > 0 %}
+                <span class="text-xs opacity-60">💬 {{ inc.comentarios.count }}</span>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-12 opacity-60">
+  <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+  </svg>
+  <p class="text-lg">No se encontraron incidencias</p>
+  <p class="text-sm mt-1">Prueba con otros términos de búsqueda o crea una nueva</p>
+</div>
+{% endif %}

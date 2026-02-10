@@ -1,0 +1,256 @@
+{% extends "incidencias/base_incidencias.html" %}
+{% load static i18n %}
+
+{% block incidencias_content %}
+<div class="max-w-2xl mx-auto">
+  <!-- Breadcrumb -->
+  <div class="text-sm breadcrumbs mb-4">
+    <ul>
+      <li><a href="{% url 'incidencias:landing' %}">🔧 Incidencias</a></li>
+      <li>Nueva incidencia</li>
+    </ul>
+  </div>
+
+  <div class="card bg-base-100 shadow-xl">
+    <div class="card-body">
+      <h2 class="card-title text-2xl mb-4">📝 Nueva Incidencia</h2>
+
+      <form method="post" enctype="multipart/form-data" id="incident-form">
+        {% csrf_token %}
+
+        <!-- Quién eres -->
+        <div class="form-control mb-4">
+          <label class="label">
+            <span class="label-text font-semibold">👤 ¿Quién eres?</span>
+          </label>
+          {{ form.reportero_nombre }}
+          <label class="label">
+            <span class="label-text-alt opacity-60">Nombre y apellidos o usuario Google (sin @dominio)</span>
+          </label>
+          {% if form.reportero_nombre.errors %}
+            <label class="label"><span class="label-text-alt text-error">{{ form.reportero_nombre.errors.0 }}</span></label>
+          {% endif %}
+        </div>
+
+        <!-- Título -->
+        <div class="form-control mb-4">
+          <label class="label">
+            <span class="label-text font-semibold">📌 Título de la incidencia</span>
+          </label>
+          {{ form.titulo }}
+          {% if form.titulo.errors %}
+            <label class="label"><span class="label-text-alt text-error">{{ form.titulo.errors.0 }}</span></label>
+          {% endif %}
+        </div>
+
+        <!-- Descripción -->
+        <div class="form-control mb-4">
+          <label class="label">
+            <span class="label-text font-semibold">📝 Descripción</span>
+          </label>
+          {{ form.descripcion }}
+        </div>
+
+        <!-- Ubicación (autocomplete) -->
+        <div class="form-control mb-4" x-data="ubicacionAutocomplete()">
+          <label class="label">
+            <span class="label-text font-semibold">📍 ¿Dónde ha ocurrido?</span>
+          </label>
+          <div class="relative">
+            <input type="text"
+                   x-model="query"
+                   @input="search()"
+                   @focus="showDropdown = true"
+                   @click.outside="showDropdown = false"
+                   placeholder="Buscar aula, grupo o planta..."
+                   class="input input-bordered w-full"
+                   autocomplete="off">
+            <input type="hidden" name="ubicacion" x-model="selectedId">
+
+            <!-- Dropdown -->
+            <div x-show="showDropdown && results.length > 0"
+                 x-transition
+                 class="autocomplete-dropdown bg-base-100 border border-base-300 rounded-lg mt-1 shadow-lg">
+              <template x-for="item in results" :key="item.id">
+                <div @click="select(item)"
+                     class="autocomplete-item px-4 py-2 cursor-pointer flex justify-between items-center">
+                  <div>
+                    <span class="font-medium" x-text="item.nombre"></span>
+                    <span x-show="item.grupo" class="text-sm opacity-60" x-text="'— ' + item.grupo"></span>
+                  </div>
+                  <span class="badge badge-ghost badge-sm" x-text="item.planta"></span>
+                </div>
+              </template>
+            </div>
+          </div>
+          <!-- Selected display -->
+          <div x-show="selectedText" class="mt-2">
+            <span class="tag-chip">
+              📍 <span x-text="selectedText"></span>
+              <span class="remove-tag" @click="clear()">✕</span>
+            </span>
+          </div>
+        </div>
+
+        <!-- Etiquetas (autocomplete multi) -->
+        <div class="form-control mb-4" x-data="etiquetaAutocomplete()">
+          <label class="label">
+            <span class="label-text font-semibold">🏷️ Etiquetas</span>
+          </label>
+          <div class="relative">
+            <input type="text"
+                   x-model="query"
+                   @input="search()"
+                   @focus="showDropdown = true"
+                   @click.outside="showDropdown = false"
+                   placeholder="Buscar etiquetas (ej: internet, proyectar...)"
+                   class="input input-bordered w-full"
+                   autocomplete="off">
+            <input type="hidden" name="etiquetas_ids" x-model="selectedIdsStr">
+
+            <!-- Dropdown -->
+            <div x-show="showDropdown && results.length > 0"
+                 x-transition
+                 class="autocomplete-dropdown bg-base-100 border border-base-300 rounded-lg mt-1 shadow-lg">
+              <template x-for="item in results" :key="item.id">
+                <div @click="toggle(item)"
+                     class="autocomplete-item px-4 py-2 cursor-pointer flex justify-between items-center"
+                     :class="{'bg-primary/10': isSelected(item.id)}">
+                  <span x-text="item.text"></span>
+                  <span x-show="isSelected(item.id)" class="text-success">✓</span>
+                </div>
+              </template>
+            </div>
+          </div>
+          <!-- Selected tags -->
+          <div class="flex flex-wrap gap-2 mt-2">
+            <template x-for="tag in selectedTags" :key="tag.id">
+              <span class="tag-chip">
+                🏷️ <span x-text="tag.text"></span>
+                <span class="remove-tag" @click="removeTag(tag.id)">✕</span>
+              </span>
+            </template>
+          </div>
+        </div>
+
+        <!-- Urgencia -->
+        <div class="form-control mb-4">
+          <label class="label">
+            <span class="label-text font-semibold">🚨 Urgencia</span>
+          </label>
+          {{ form.urgencia }}
+        </div>
+
+        <!-- Adjuntos -->
+        <div class="form-control mb-4">
+          <label class="label">
+            <span class="label-text font-semibold">📎 Adjuntos (opcional)</span>
+          </label>
+          <input type="file"
+                 name="archivos"
+                 multiple
+                 accept="image/*,video/*"
+                 class="file-input file-input-bordered w-full">
+          <label class="label">
+            <span class="label-text-alt opacity-60">Fotos o vídeos, máximo 10 MB cada uno</span>
+          </label>
+        </div>
+
+        <!-- Privada -->
+        <div class="form-control mb-6">
+          <label class="label cursor-pointer justify-start gap-3">
+            {{ form.es_privada }}
+            <span class="label-text">🔒 Marcar como privada (solo visible para técnicos logueados)</span>
+          </label>
+        </div>
+
+        <!-- Submit -->
+        <div class="card-actions justify-end">
+          <a href="{% url 'incidencias:landing' %}" class="btn btn-ghost">Cancelar</a>
+          <button type="submit" class="btn btn-primary btn-lg gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+            </svg>
+            Crear incidencia
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock incidencias_content %}
+
+{% block inline_javascript %}
+{{ block.super }}
+<script>
+  function ubicacionAutocomplete() {
+    return {
+      query: '',
+      results: [],
+      showDropdown: false,
+      selectedId: '',
+      selectedText: '',
+      async search() {
+        if (this.query.length < 1) { this.results = []; return; }
+        try {
+          const resp = await fetch(`{% url 'incidencias:api_ubicaciones' %}?q=${encodeURIComponent(this.query)}`);
+          this.results = await resp.json();
+          this.showDropdown = true;
+        } catch(e) { console.error(e); }
+      },
+      select(item) {
+        this.selectedId = item.id;
+        this.selectedText = item.text;
+        this.query = '';
+        this.showDropdown = false;
+        this.results = [];
+      },
+      clear() {
+        this.selectedId = '';
+        this.selectedText = '';
+      }
+    };
+  }
+
+  function etiquetaAutocomplete() {
+    return {
+      query: '',
+      results: [],
+      showDropdown: false,
+      selectedTags: [],
+      get selectedIdsStr() {
+        return this.selectedTags.map(t => t.id).join(',');
+      },
+      async search() {
+        if (this.query.length < 1) {
+          // Show all tags when focused
+          try {
+            const resp = await fetch(`{% url 'incidencias:api_etiquetas' %}`);
+            this.results = await resp.json();
+            this.showDropdown = true;
+          } catch(e) { console.error(e); }
+          return;
+        }
+        try {
+          const resp = await fetch(`{% url 'incidencias:api_etiquetas' %}?q=${encodeURIComponent(this.query)}`);
+          this.results = await resp.json();
+          this.showDropdown = true;
+        } catch(e) { console.error(e); }
+      },
+      isSelected(id) {
+        return this.selectedTags.some(t => t.id === id);
+      },
+      toggle(item) {
+        if (this.isSelected(item.id)) {
+          this.removeTag(item.id);
+        } else {
+          this.selectedTags.push(item);
+        }
+      },
+      removeTag(id) {
+        this.selectedTags = this.selectedTags.filter(t => t.id !== id);
+      }
+    };
+  }
+</script>
+{% endblock inline_javascript %}
