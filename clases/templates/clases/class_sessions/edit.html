@@ -128,18 +128,6 @@
                         </tbody>
                     </table>
                     
-                    <!-- Botón "Mostrar más" -->
-                    {% if has_more %}
-                    <div class="text-center mt-4">
-                        <button class="btn btn-sm btn-ghost"
-                                hx-get="{% url 'clases:class_session_edit' session.pk %}?offset={{ next_offset }}&page_size={{ page_size }}&search={{ search }}"
-                                hx-target="#library-table-body"
-                                hx-swap="beforeend">
-                            Mostrar más ({{ page_size }})
-                        </button>
-                    </div>
-                    {% endif %}
-                    
                     {% else %}
                     <div class="text-center py-6 text-base-content/70 text-sm">
                         <div class="text-3xl mb-2">📚</div>

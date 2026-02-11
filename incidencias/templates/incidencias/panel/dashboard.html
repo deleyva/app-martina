@@ -84,13 +84,13 @@
     <div>
       <div class="flex items-center gap-2 mb-3">
         <h2 class="text-lg font-bold">⏳ Pendientes</h2>
-        <span class="badge badge-warning">{{ pendientes|length }}</span>
+        <span class="badge badge-warning" id="badge-pendiente">{{ pendientes|length }}</span>
       </div>
-      <div class="space-y-3">
+      <div class="space-y-3 kanban-column min-h-[100px] rounded-xl p-2 transition-colors duration-200" data-status="pendiente">
         {% for inc in pendientes %}
           {% include "incidencias/partials/panel_card.html" with incidencia=inc %}
         {% empty %}
-          <div class="text-center py-8 opacity-40 text-sm">Sin incidencias pendientes</div>
+          <div class="text-center py-8 opacity-40 text-sm kanban-empty">Sin incidencias pendientes</div>
         {% endfor %}
       </div>
     </div>
@@ -99,13 +99,13 @@
     <div>
       <div class="flex items-center gap-2 mb-3">
         <h2 class="text-lg font-bold">⚡ En Progreso</h2>
-        <span class="badge badge-info">{{ en_progreso|length }}</span>
+        <span class="badge badge-info" id="badge-en_progreso">{{ en_progreso|length }}</span>
       </div>
-      <div class="space-y-3">
+      <div class="space-y-3 kanban-column min-h-[100px] rounded-xl p-2 transition-colors duration-200" data-status="en_progreso">
         {% for inc in en_progreso %}
           {% include "incidencias/partials/panel_card.html" with incidencia=inc %}
         {% empty %}
-          <div class="text-center py-8 opacity-40 text-sm">Sin incidencias en progreso</div>
+          <div class="text-center py-8 opacity-40 text-sm kanban-empty">Sin incidencias en progreso</div>
         {% endfor %}
       </div>
     </div>
@@ -114,16 +114,181 @@
     <div>
       <div class="flex items-center gap-2 mb-3">
         <h2 class="text-lg font-bold">✅ Resueltas</h2>
-        <span class="badge badge-success">{{ resueltas|length }}</span>
+        <span class="badge badge-success" id="badge-resuelta">{{ resueltas|length }}</span>
       </div>
-      <div class="space-y-3">
+      <div class="space-y-3 kanban-column min-h-[100px] rounded-xl p-2 transition-colors duration-200" data-status="resuelta">
         {% for inc in resueltas %}
           {% include "incidencias/partials/panel_card.html" with incidencia=inc %}
         {% empty %}
-          <div class="text-center py-8 opacity-40 text-sm">Sin incidencias resueltas</div>
+          <div class="text-center py-8 opacity-40 text-sm kanban-empty">Sin incidencias resueltas</div>
         {% endfor %}
       </div>
     </div>
   </div>
 </div>
+
+<!-- Drag-and-Drop JavaScript -->
+<style>
+  .kanban-column.drag-over {
+    background-color: oklch(var(--p) / 0.1);
+    border: 2px dashed oklch(var(--p) / 0.4);
+  }
+  .incidencia-card[draggable="true"] {
+    cursor: grab;
+  }
+  .incidencia-card[draggable="true"]:active {
+    cursor: grabbing;
+  }
+  .incidencia-card.dragging {
+    opacity: 0.5;
+    transform: rotate(2deg);
+  }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const columns = document.querySelectorAll('.kanban-column');
+  const cards = document.querySelectorAll('.incidencia-card[draggable="true"]');
+
+  // Assign descending z-index so upper cards stack above lower ones
+  function assignCardZIndex() {
+    columns.forEach(column => {
+      const columnCards = column.querySelectorAll('.incidencia-card');
+      columnCards.forEach((card, index) => {
+        card.style.position = 'relative';
+        card.style.zIndex = 100 - index;
+      });
+    });
+  }
+
+  // Apply on initial load
+  assignCardZIndex();
+
+  // Get CSRF token from cookie
+  function getCsrfToken() {
+    const name = 'csrftoken';
+    const cookies = document.cookie.split(';');
+    for (let cookie of cookies) {
+      cookie = cookie.trim();
+      if (cookie.startsWith(name + '=')) {
+        return cookie.substring(name.length + 1);
+      }
+    }
+    // Fallback: try to get from the meta tag or hidden input
+    const csrfInput = document.querySelector('[name=csrfmiddlewaretoken]');
+    return csrfInput ? csrfInput.value : '';
+  }
+
+  // Card drag events
+  cards.forEach(card => {
+    card.addEventListener('dragstart', function(e) {
+      e.dataTransfer.setData('text/plain', this.dataset.incidenciaId);
+      e.dataTransfer.effectAllowed = 'move';
+      this.classList.add('dragging');
+    });
+
+    card.addEventListener('dragend', function(e) {
+      this.classList.remove('dragging');
+      // Remove all drag-over highlights
+      columns.forEach(col => col.classList.remove('drag-over'));
+    });
+  });
+
+  // Column drop zone events
+  columns.forEach(column => {
+    column.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      this.classList.add('drag-over');
+    });
+
+    column.addEventListener('dragleave', function(e) {
+      // Only remove if leaving the column entirely
+      if (!this.contains(e.relatedTarget)) {
+        this.classList.remove('drag-over');
+      }
+    });
+
+    column.addEventListener('drop', function(e) {
+      e.preventDefault();
+      this.classList.remove('drag-over');
+
+      const incidenciaId = e.dataTransfer.getData('text/plain');
+      const newStatus = this.dataset.status;
+      const card = document.querySelector(`.incidencia-card[data-incidencia-id="${incidenciaId}"]`);
+
+      if (!card || !incidenciaId || !newStatus) return;
+
+      // Find the source column
+      const sourceColumn = card.closest('.kanban-column');
+      if (sourceColumn === this) return; // Dropped in same column
+
+      // Optimistic UI: move the card immediately
+      const emptyMsg = this.querySelector('.kanban-empty');
+      if (emptyMsg) emptyMsg.remove();
+      this.appendChild(card);
+
+      // Show empty message in source if needed
+      if (sourceColumn && sourceColumn.querySelectorAll('.incidencia-card').length === 0) {
+        const statusLabels = {
+          'pendiente': 'Sin incidencias pendientes',
+          'en_progreso': 'Sin incidencias en progreso',
+          'resuelta': 'Sin incidencias resueltas'
+        };
+        const emptyDiv = document.createElement('div');
+        emptyDiv.className = 'text-center py-8 opacity-40 text-sm kanban-empty';
+        emptyDiv.textContent = statusLabels[sourceColumn.dataset.status] || 'Sin incidencias';
+        sourceColumn.appendChild(emptyDiv);
+      }
+
+      // Update badge counters and z-indices
+      updateBadges();
+      assignCardZIndex();
+
+      // Send API request
+      fetch(`/incidencias/panel/api/estado/${incidenciaId}/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCsrfToken(),
+        },
+        body: JSON.stringify({ estado: newStatus }),
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Error al cambiar estado');
+        }
+        return response.json();
+      })
+      .then(data => {
+        if (!data.ok) {
+          // Revert: move card back
+          if (sourceColumn) sourceColumn.appendChild(card);
+          updateBadges();
+          assignCardZIndex();
+          alert('Error: ' + (data.error || 'No se pudo cambiar el estado'));
+        }
+      })
+      .catch(err => {
+        // Revert on network error
+        if (sourceColumn) sourceColumn.appendChild(card);
+        updateBadges();
+        assignCardZIndex();
+        console.error('Error:', err);
+      });
+    });
+  });
+
+  function updateBadges() {
+    columns.forEach(column => {
+      const status = column.dataset.status;
+      const badge = document.getElementById(`badge-${status}`);
+      if (badge) {
+        const count = column.querySelectorAll('.incidencia-card').length;
+        badge.textContent = count;
+      }
+    });
+  }
+});
+</script>
 {% endblock incidencias_content %}

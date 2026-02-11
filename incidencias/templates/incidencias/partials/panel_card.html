@@ -1,6 +1,6 @@
 {% load i18n %}
 
-<div class="card bg-base-100 shadow-sm incidencia-card urgencia-{{ incidencia.urgencia }}">
+<div class="card bg-base-100 shadow-sm incidencia-card urgencia-{{ incidencia.urgencia }} overflow-visible" draggable="true" data-incidencia-id="{{ incidencia.pk }}">
   <div class="card-body p-4">
     <!-- Title & Link -->
     <a href="{% url 'incidencias:detalle' incidencia.pk %}" class="font-semibold hover:text-primary transition truncate block">
@@ -39,7 +39,7 @@
 
       <div class="dropdown dropdown-end">
         <label tabindex="0" class="btn btn-ghost btn-xs">⚙️ Acciones</label>
-        <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow-lg bg-base-100 rounded-box w-52">
+        <ul tabindex="0" class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-52">
           <!-- Change status -->
           {% if incidencia.estado != "pendiente" %}
             <li>

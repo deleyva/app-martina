@@ -341,6 +341,30 @@ class CambiarEstadoView(TecnicoRequiredMixin, View):
         return redirect("incidencias:panel")
 
 
+class CambiarEstadoApiView(TecnicoRequiredMixin, View):
+    """API para cambiar estado via AJAX (drag-and-drop)."""
+
+    def post(self, request, pk):
+        incidencia = get_object_or_404(Incidencia, pk=pk)
+        try:
+            body = json.loads(request.body)
+        except (json.JSONDecodeError, ValueError):
+            return JsonResponse({"ok": False, "error": "JSON inválido"}, status=400)
+
+        nuevo_estado = body.get("estado", "")
+        if nuevo_estado not in dict(Incidencia.Estado.choices):
+            return JsonResponse({"ok": False, "error": "Estado inválido"}, status=400)
+
+        incidencia.estado = nuevo_estado
+        incidencia.save()
+        return JsonResponse({
+            "ok": True,
+            "id": incidencia.pk,
+            "estado": incidencia.estado,
+            "estado_display": incidencia.get_estado_display(),
+        })
+
+
 class GestionTecnicosView(TecnicoRequiredMixin, TemplateView):
     """Gestión de técnicos: alta y baja."""
 

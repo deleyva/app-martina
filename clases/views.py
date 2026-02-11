@@ -511,6 +511,8 @@ def class_session_edit(request, pk):
         for tag in tags:
             available_tags.add(tag)
 
+    remaining_count = max(0, total_library_items - (offset + page_size))
+
     context = {
         "session": session,
         "items": items,
@@ -518,6 +520,7 @@ def class_session_edit(request, pk):
         "total_library_items": total_library_items,
         "has_more": has_more,
         "next_offset": next_offset,
+        "remaining_count": remaining_count,
         "page_size": page_size,
         "search": search,
         "tag_filter": tag_filter,

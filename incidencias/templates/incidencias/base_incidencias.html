@@ -1,70 +1,235 @@
-{% extends "base.html" %}
-{% load static i18n %}
+{% load static i18n %}<!DOCTYPE html>
+{% get_current_language as LANGUAGE_CODE %}
+<html lang="{{ LANGUAGE_CODE }}" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="x-ua-compatible" content="ie=edge" />
+    <title>{% block title %}Incidencias Tecnológicas IES Martina Bescós{% endblock title %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Sistema de gestión de incidencias tecnológicas — IES Martina Bescós" />
+    <meta name="referrer" content="origin" />
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <link rel="icon" href="{% static 'images/favicons/favicon.ico' %}" sizes="32x32" />
+    <link rel="icon" href="{% static 'images/favicons/favicon.svg' %}" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="{% static 'images/favicons/favicon.svg' %}" />
+    {% block css %}
+      <link href="{% static 'css/output.css' %}" rel="stylesheet" />
+      <link href="{% static 'css/project.css' %}" rel="stylesheet" />
+    {% endblock css %}
 
-{% block title %}Incidencias Informáticas{% endblock %}
+    <style>
+      .incidencia-card {
+        transition: all 0.2s ease;
+      }
+      .incidencia-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+      }
+      .urgencia-baja { border-left: 4px solid oklch(var(--s)); }
+      .urgencia-media { border-left: 4px solid oklch(var(--w)); }
+      .urgencia-alta { border-left: 4px solid oklch(var(--er)); }
+      .urgencia-critica { border-left: 4px solid oklch(var(--er)); background: oklch(var(--er) / 0.05); }
 
-{% block extra_css %}
-<style>
-  .incidencia-card {
-    transition: all 0.2s ease;
-  }
-  .incidencia-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-  }
-  .urgencia-baja { border-left: 4px solid oklch(var(--s)); }
-  .urgencia-media { border-left: 4px solid oklch(var(--w)); }
-  .urgencia-alta { border-left: 4px solid oklch(var(--er)); }
-  .urgencia-critica { border-left: 4px solid oklch(var(--er)); background: oklch(var(--er) / 0.05); }
+      .estado-badge-pendiente { --badge-color: oklch(var(--w)); }
+      .estado-badge-en_progreso { --badge-color: oklch(var(--in)); }
+      .estado-badge-resuelta { --badge-color: oklch(var(--su)); }
 
-  .estado-badge-pendiente { --badge-color: oklch(var(--w)); }
-  .estado-badge-en_progreso { --badge-color: oklch(var(--in)); }
-  .estado-badge-resuelta { --badge-color: oklch(var(--su)); }
+      .autocomplete-dropdown {
+        position: absolute;
+        z-index: 100;
+        width: 100%;
+        max-height: 200px;
+        overflow-y: auto;
+      }
+      .autocomplete-item:hover {
+        background: oklch(var(--b2));
+      }
 
-  .autocomplete-dropdown {
-    position: absolute;
-    z-index: 100;
-    width: 100%;
-    max-height: 200px;
-    overflow-y: auto;
-  }
-  .autocomplete-item:hover {
-    background: oklch(var(--b2));
-  }
+      .search-hero {
+        background: linear-gradient(135deg, oklch(var(--p)) 0%, oklch(var(--s)) 100%);
+      }
 
-  .search-hero {
-    background: linear-gradient(135deg, oklch(var(--p)) 0%, oklch(var(--s)) 100%);
-  }
+      .tag-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.8rem;
+        background: oklch(var(--b2));
+        border: 1px solid oklch(var(--b3));
+      }
+      .tag-chip .remove-tag {
+        cursor: pointer;
+        font-weight: bold;
+        opacity: 0.6;
+      }
+      .tag-chip .remove-tag:hover {
+        opacity: 1;
+      }
 
-  .tag-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    padding: 0.25rem 0.75rem;
-    border-radius: 9999px;
-    font-size: 0.8rem;
-    background: oklch(var(--b2));
-    border: 1px solid oklch(var(--b3));
-  }
-  .tag-chip .remove-tag {
-    cursor: pointer;
-    font-weight: bold;
-    opacity: 0.6;
-  }
-  .tag-chip .remove-tag:hover {
-    opacity: 1;
-  }
+      .fade-in {
+        animation: fadeIn 0.3s ease-in;
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+    </style>
+    {% block extra_css %}{% endblock extra_css %}
 
-  .fade-in {
-    animation: fadeIn 0.3s ease-in;
-  }
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-</style>
-{% endblock extra_css %}
+    {% block javascript %}
+      <script src="https://unpkg.com/htmx.org@1.9.6" integrity="sha384-FhXw7b6AlE/jyjlZH5iHa/tTe9EpJ1Y55RjcgPbjeWMskSxZt1v9qkxLJWNJaGni" crossorigin="anonymous"></script>
+      <script defer src="https://unpkg.com/alpinejs@3.12.1/dist/cdn.min.js"></script>
+      <script>
+        document.addEventListener('DOMContentLoaded', function() {
+          // CSRF for HTMX
+          document.documentElement.addEventListener('htmx:configRequest', function(event) {
+            event.detail.headers['X-CSRFToken'] = '{{ csrf_token }}';
+          });
 
-{% block main %}
-{% block incidencias_content %}{% endblock incidencias_content %}
-{% endblock main %}
+          // Theme persistence
+          const savedTheme = localStorage.getItem('incidencias-theme');
+          if (savedTheme) {
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            const checkbox = document.querySelector('#incidencias-theme-toggle input[type="checkbox"]');
+            if (checkbox) checkbox.checked = (savedTheme === 'dark');
+          }
+        });
+      </script>
+      <script defer src="{% static 'js/project.js' %}"></script>
+    {% endblock javascript %}
+  </head>
+  <body class="min-h-screen bg-base-100">
+    <!-- Navbar -->
+    <div class="navbar bg-base-100 shadow-lg sticky top-0 z-40">
+      <div class="flex-none lg:hidden">
+        <label for="incidencias-drawer" class="btn btn-square btn-ghost">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-6 h-6 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+        </label>
+      </div>
+      <div class="flex-1">
+        <a class="btn btn-ghost text-lg lg:text-xl font-bold gap-2" href="{% url 'incidencias:landing' %}">
+          🛠️ <span class="hidden sm:inline">Incidencias Tecnológicas</span><span class="sm:hidden">Incidencias</span> <span class="text-primary">IES Martina Bescós</span>
+        </a>
+      </div>
+      <div class="flex-none hidden lg:flex items-center">
+        <ul class="menu menu-horizontal gap-1">
+          <li><a href="{% url 'incidencias:landing' %}">📋 Vista pública</a></li>
+          <li><a href="{% url 'incidencias:crear' %}">➕ Nueva incidencia</a></li>
+          {% if request.user.is_authenticated %}
+            {% if request.user.is_staff or request.user.tecnico_set.exists %}
+              <li><a href="{% url 'incidencias:panel' %}">🖥️ Panel</a></li>
+            {% endif %}
+            <li>
+              <details>
+                <summary>👤 {{ request.user.get_short_name|default:request.user.email }}</summary>
+                <ul class="bg-base-100 rounded-t-none p-2 w-52 shadow-lg z-50">
+                  <li><a href="{% url 'users:detail' request.user.pk %}">Mi perfil</a></li>
+                  <li><a href="{% url 'account_logout' %}">Cerrar sesión</a></li>
+                </ul>
+              </details>
+            </li>
+          {% else %}
+            <li><a href="{% url 'account_login' %}">Iniciar sesión</a></li>
+          {% endif %}
+        </ul>
+        <!-- Theme toggle -->
+        <button id="incidencias-theme-toggle" class="btn btn-ghost btn-circle ml-1" onclick="toggleIncidenciasTheme()">
+          <label class="swap swap-rotate">
+            <input type="checkbox" />
+            <svg class="swap-on h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+            <svg class="swap-off h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+            </svg>
+          </label>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile drawer -->
+    <div class="drawer lg:hidden">
+      <input id="incidencias-drawer" type="checkbox" class="drawer-toggle" />
+      <div class="drawer-side z-50">
+        <label for="incidencias-drawer" class="drawer-overlay"></label>
+        <ul class="menu p-4 w-80 h-full bg-base-100">
+          <li class="menu-title">Navegación</li>
+          <li><a href="{% url 'incidencias:landing' %}">📋 Vista pública</a></li>
+          <li><a href="{% url 'incidencias:crear' %}">➕ Nueva incidencia</a></li>
+          {% if request.user.is_authenticated %}
+            {% if request.user.is_staff or request.user.tecnico_set.exists %}
+              <li><a href="{% url 'incidencias:panel' %}">🖥️ Panel</a></li>
+            {% endif %}
+            <li class="menu-title mt-4">Cuenta</li>
+            <li><a href="{% url 'users:detail' request.user.pk %}">Mi perfil</a></li>
+            <li><a href="{% url 'account_logout' %}">Cerrar sesión</a></li>
+          {% else %}
+            <li><a href="{% url 'account_login' %}">Iniciar sesión</a></li>
+          {% endif %}
+          <li class="mt-4">
+            <button onclick="toggleIncidenciasTheme()" class="btn btn-ghost btn-sm justify-start">
+              🌙 Cambiar tema
+            </button>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Page content -->
+    <div class="container mx-auto px-4 py-8">
+      {% if messages %}
+        {% for message in messages %}
+          <div class="alert {% if message.tags %}alert-{{ message.tags }}{% else %}alert-info{% endif %} mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <span>{{ message }}</span>
+            <button class="btn btn-sm btn-circle btn-ghost" onclick="this.parentElement.remove()">✕</button>
+          </div>
+        {% endfor %}
+      {% endif %}
+      {% block incidencias_content %}{% endblock incidencias_content %}
+    </div>
+
+    <footer class="mt-8 border-t border-base-300">
+      <div class="container mx-auto px-4 py-6 text-center text-sm text-base-content/70">
+        <a href="https://github.com/deleyva/app-martina" class="link link-hover" target="_blank" rel="noopener noreferrer">
+          Made with ❤️ in the open
+        </a>
+      </div>
+    </footer>
+
+    <!-- Toast container -->
+    <div class="toast toast-end toast-top z-50" id="toastContainer"></div>
+
+    <script>
+      // Theme toggle
+      function toggleIncidenciasTheme() {
+        const html = document.documentElement;
+        const current = html.getAttribute('data-theme');
+        const next = current === 'dark' ? 'light' : 'dark';
+        html.setAttribute('data-theme', next);
+        localStorage.setItem('incidencias-theme', next);
+        const checkbox = document.querySelector('#incidencias-theme-toggle input[type="checkbox"]');
+        if (checkbox) checkbox.checked = (next === 'dark');
+      }
+
+      // Toast notifications
+      function showToast(message, type = 'info') {
+        const toastContainer = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = `alert alert-${type} shadow-lg`;
+        toast.innerHTML = `<div><span>${message}</span></div>`;
+        toastContainer.appendChild(toast);
+        setTimeout(() => {
+          toast.style.opacity = '0';
+          toast.style.transition = 'opacity 0.3s';
+          setTimeout(() => toast.remove(), 300);
+        }, 3000);
+      }
+    </script>
+
+    {% block inline_javascript %}{% endblock inline_javascript %}
+    {% block extra_js %}{% endblock extra_js %}
+  </body>
+</html>
