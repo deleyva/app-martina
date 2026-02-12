@@ -11,7 +11,7 @@ class Migration(migrations.Migration):
         ('evaluations', '0019_add_class_sessions'),
     ]
 
-    operations = [
+    state_operations = [
         migrations.RemoveField(
             model_name='classsessionitem',
             name='session',
@@ -73,4 +73,11 @@ class Migration(migrations.Migration):
         migrations.DeleteModel(
             name='Student',
         ),
+    ]
+
+    operations = [
+        migrations.SeparateDatabaseAndState(
+            state_operations=state_operations,
+            database_operations=[]
+        )
     ]

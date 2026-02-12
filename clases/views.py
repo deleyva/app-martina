@@ -790,26 +790,39 @@ def add_to_multiple_libraries(request):
             already_exists_count += 1
 
     # Añadir a bibliotecas personales de estudiantes
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    
     for student_id in student_ids:
-        student = get_object_or_404(Student, pk=student_id)
+        # Asumimos que student_id es el ID del usuario (User)
+        # ya que el modelo Student está obsoleto
+        student_user = get_object_or_404(User, pk=student_id)
 
-        # Verificar que el profesor pertenece al grupo del estudiante
-        if not student.group.teachers.filter(pk=request.user.pk).exists():
+        # Verificar que el profesor tiene algún grupo en común con el estudiante
+        # a través de una matrícula activa
+        has_common_group = Group.objects.filter(
+            teachers=request.user,
+            enrollments__user=student_user,
+            enrollments__is_active=True
+        ).exists()
+
+        if not has_common_group:
             continue
-
-        # Verificar que el estudiante tiene usuario asociado
-        if not student.user:
+            
+        # Añadir a la biblioteca del usuario usando el método del modelo (FAT MODEL)
+        try:
+            item, created = LibraryItem.add_to_library(
+                user=student_user,
+                content_object=content_object
+            )
+            if created:
+                added_count += 1
+            else:
+                already_exists_count += 1
+        except ValueError:
+            # Si no se puede añadir (ej: es una ScorePage completa), ignoramos silenciosamente
+            # o podríamos agregar un contador de errores
             continue
-
-        # Usar el método del modelo (FAT MODEL)
-        item, created = LibraryItem.add_to_library(
-            user=student.user, content_object=content_object
-        )
-
-        if created:
-            added_count += 1
-        else:
-            already_exists_count += 1
 
     # Respuesta HTMX con detalles
     if added_count > 0:

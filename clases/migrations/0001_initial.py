@@ -13,9 +13,21 @@ class Migration(migrations.Migration):
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
         ('contenttypes', '0002_remove_content_type_name'),
+        ('evaluations', '0019_add_class_sessions'),
     ]
 
     operations = [
+        migrations.RunSQL(
+            sql="""
+            DROP TABLE IF EXISTS evaluations_student CASCADE;
+            DROP TABLE IF EXISTS evaluations_group CASCADE;
+            DROP TABLE IF EXISTS evaluations_group_teachers CASCADE;
+            DROP TABLE IF EXISTS evaluations_grouplibraryitem CASCADE;
+            DROP TABLE IF EXISTS evaluations_classsession CASCADE;
+            DROP TABLE IF EXISTS evaluations_classsessionitem CASCADE;
+            """,
+            reverse_sql=""
+        ),
         # Subject es una tabla NUEVA
         migrations.CreateModel(
             name='Subject',
