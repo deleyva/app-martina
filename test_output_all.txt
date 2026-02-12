@@ -1,0 +1,117 @@
+ Container martina_bescos_app_local_mailpit  Running
+ Container martina_bescos_app_local_redis  Running
+ Container martina_bescos_app_local_postgres  Running
+wait-for-it: waiting 30 seconds for postgres:5432
+wait-for-it: postgres:5432 is available after 0 seconds
+PostgreSQL is available
+Source CSS file 1 not found, skipping removal: /app/martina_bescos_app/static/css/index.css
+Running collectstatic...
+Source CSS file 2 not found, skipping removal: /app/martina_bescos_app/static/css/input.css
+
+0 static files copied to '/app/staticfiles', 236 unmodified.
+Found 15 test(s).
+Creating test database for alias 'default'...
+✅ Asignatura 'Música' creada y asignada a 0 grupos
+System check identified no issues (0 silenced).
+INFO 2026-02-12 20:43:58,409 pages 1 281473310294048 Page created: "Music Library" id=3 content_type=cms.MusicLibraryIndexPage path=/home/music-library/
+INFO 2026-02-12 20:43:58,414 pages 1 281473310294048 Page edited: "Music Library" id=3 revision_id=1
+INFO 2026-02-12 20:43:58,422 publish_revision 1 281473310294048 Published: "Music Library" pk=3 revision_id=1
+INFO 2026-02-12 20:43:58,426 pages 1 281473310294048 Page created: "Jazz Tune" id=4 content_type=cms.ScorePage path=/home/music-library/jazz-tune/
+INFO 2026-02-12 20:43:58,431 pages 1 281473310294048 Page edited: "Jazz Tune" id=4 revision_id=2
+INFO 2026-02-12 20:43:58,440 publish_revision 1 281473310294048 Published: "Jazz Tune" pk=4 revision_id=2
+INFO 2026-02-12 20:43:58,444 pages 1 281473310294048 Page created: "Rhythmic Dictation" id=5 content_type=cms.DictadoPage path=/home/music-library/rhythmic-dictation/
+INFO 2026-02-12 20:43:58,448 pages 1 281473310294048 Page edited: "Rhythmic Dictation" id=5 revision_id=3
+INFO 2026-02-12 20:43:58,457 publish_revision 1 281473310294048 Published: "Rhythmic Dictation" pk=5 revision_id=3
+.INFO 2026-02-12 20:43:58,582 pages 1 281473310294048 Page created: "Music Library" id=6 content_type=cms.MusicLibraryIndexPage path=/home/music-library/
+INFO 2026-02-12 20:43:58,586 pages 1 281473310294048 Page edited: "Music Library" id=6 revision_id=4
+INFO 2026-02-12 20:43:58,593 publish_revision 1 281473310294048 Published: "Music Library" pk=6 revision_id=4
+INFO 2026-02-12 20:43:58,595 pages 1 281473310294048 Page created: "Jazz Tune" id=7 content_type=cms.ScorePage path=/home/music-library/jazz-tune/
+INFO 2026-02-12 20:43:58,600 pages 1 281473310294048 Page edited: "Jazz Tune" id=7 revision_id=5
+INFO 2026-02-12 20:43:58,609 publish_revision 1 281473310294048 Published: "Jazz Tune" pk=7 revision_id=5
+INFO 2026-02-12 20:43:58,612 pages 1 281473310294048 Page created: "Rhythmic Dictation" id=8 content_type=cms.DictadoPage path=/home/music-library/rhythmic-dictation/
+INFO 2026-02-12 20:43:58,616 pages 1 281473310294048 Page edited: "Rhythmic Dictation" id=8 revision_id=6
+INFO 2026-02-12 20:43:58,624 publish_revision 1 281473310294048 Published: "Rhythmic Dictation" pk=8 revision_id=6
+.INFO 2026-02-12 20:43:58,658 pages 1 281473310294048 Page created: "Music Library" id=9 content_type=cms.MusicLibraryIndexPage path=/home/music-library/
+INFO 2026-02-12 20:43:58,662 pages 1 281473310294048 Page edited: "Music Library" id=9 revision_id=7
+INFO 2026-02-12 20:43:58,669 publish_revision 1 281473310294048 Published: "Music Library" pk=9 revision_id=7
+INFO 2026-02-12 20:43:58,672 pages 1 281473310294048 Page created: "Jazz Tune" id=10 content_type=cms.ScorePage path=/home/music-library/jazz-tune/
+INFO 2026-02-12 20:43:58,677 pages 1 281473310294048 Page edited: "Jazz Tune" id=10 revision_id=8
+INFO 2026-02-12 20:43:58,686 publish_revision 1 281473310294048 Published: "Jazz Tune" pk=10 revision_id=8
+INFO 2026-02-12 20:43:58,689 pages 1 281473310294048 Page created: "Rhythmic Dictation" id=11 content_type=cms.DictadoPage path=/home/music-library/rhythmic-dictation/
+INFO 2026-02-12 20:43:58,693 pages 1 281473310294048 Page edited: "Rhythmic Dictation" id=11 revision_id=9
+INFO 2026-02-12 20:43:58,702 publish_revision 1 281473310294048 Published: "Rhythmic Dictation" pk=11 revision_id=9
+.INFO 2026-02-12 20:43:58,734 pages 1 281473310294048 Page created: "Music Library" id=12 content_type=cms.MusicLibraryIndexPage path=/home/music-library/
+INFO 2026-02-12 20:43:58,737 pages 1 281473310294048 Page edited: "Music Library" id=12 revision_id=10
+INFO 2026-02-12 20:43:58,745 publish_revision 1 281473310294048 Published: "Music Library" pk=12 revision_id=10
+INFO 2026-02-12 20:43:58,748 pages 1 281473310294048 Page created: "Jazz Tune" id=13 content_type=cms.ScorePage path=/home/music-library/jazz-tune/
+INFO 2026-02-12 20:43:58,752 pages 1 281473310294048 Page edited: "Jazz Tune" id=13 revision_id=11
+INFO 2026-02-12 20:43:58,761 publish_revision 1 281473310294048 Published: "Jazz Tune" pk=13 revision_id=11
+INFO 2026-02-12 20:43:58,764 pages 1 281473310294048 Page created: "Rhythmic Dictation" id=14 content_type=cms.DictadoPage path=/home/music-library/rhythmic-dictation/
+INFO 2026-02-12 20:43:58,768 pages 1 281473310294048 Page edited: "Rhythmic Dictation" id=14 revision_id=12
+INFO 2026-02-12 20:43:58,777 publish_revision 1 281473310294048 Published: "Rhythmic Dictation" pk=14 revision_id=12
+.INFO 2026-02-12 20:43:58,813 pages 1 281473310294048 Page created: "Biblioteca Musical" id=15 content_type=cms.MusicLibraryIndexPage path=/home/biblioteca-musical/
+INFO 2026-02-12 20:43:58,817 pages 1 281473310294048 Page edited: "Biblioteca Musical" id=15 revision_id=13
+INFO 2026-02-12 20:43:58,825 publish_revision 1 281473310294048 Published: "Biblioteca Musical" pk=15 revision_id=13
+INFO 2026-02-12 20:43:58,829 pages 1 281473310294048 Page created: "Jazz Etude 1" id=16 content_type=cms.ScorePage path=/home/biblioteca-musical/jazz-etude-1/
+INFO 2026-02-12 20:43:58,834 pages 1 281473310294048 Page edited: "Jazz Etude 1" id=16 revision_id=14
+INFO 2026-02-12 20:43:58,842 publish_revision 1 281473310294048 Published: "Jazz Etude 1" pk=16 revision_id=14
+INFO 2026-02-12 20:43:58,850 pages 1 281473310294048 Page created: "Piano Sonata" id=17 content_type=cms.ScorePage path=/home/biblioteca-musical/piano-sonata/
+INFO 2026-02-12 20:43:58,854 pages 1 281473310294048 Page edited: "Piano Sonata" id=17 revision_id=15
+INFO 2026-02-12 20:43:58,862 publish_revision 1 281473310294048 Published: "Piano Sonata" pk=17 revision_id=15
+INFO 2026-02-12 20:43:58,870 pages 1 281473310294048 Page created: "Jazz Ballad" id=18 content_type=cms.ScorePage path=/home/biblioteca-musical/jazz-ballad/
+INFO 2026-02-12 20:43:58,874 pages 1 281473310294048 Page edited: "Jazz Ballad" id=18 revision_id=16
+INFO 2026-02-12 20:43:58,882 publish_revision 1 281473310294048 Published: "Jazz Ballad" pk=18 revision_id=16
+.INFO 2026-02-12 20:43:58,898 pages 1 281473310294048 Page created: "Biblioteca Musical" id=19 content_type=cms.MusicLibraryIndexPage path=/home/biblioteca-musical/
+INFO 2026-02-12 20:43:58,901 pages 1 281473310294048 Page edited: "Biblioteca Musical" id=19 revision_id=17
+INFO 2026-02-12 20:43:58,909 publish_revision 1 281473310294048 Published: "Biblioteca Musical" pk=19 revision_id=17
+INFO 2026-02-12 20:43:58,912 pages 1 281473310294048 Page created: "Jazz Etude 1" id=20 content_type=cms.ScorePage path=/home/biblioteca-musical/jazz-etude-1/
+INFO 2026-02-12 20:43:58,917 pages 1 281473310294048 Page edited: "Jazz Etude 1" id=20 revision_id=18
+INFO 2026-02-12 20:43:58,925 publish_revision 1 281473310294048 Published: "Jazz Etude 1" pk=20 revision_id=18
+INFO 2026-02-12 20:43:58,933 pages 1 281473310294048 Page created: "Piano Sonata" id=21 content_type=cms.ScorePage path=/home/biblioteca-musical/piano-sonata/
+INFO 2026-02-12 20:43:58,937 pages 1 281473310294048 Page edited: "Piano Sonata" id=21 revision_id=19
+INFO 2026-02-12 20:43:58,945 publish_revision 1 281473310294048 Published: "Piano Sonata" pk=21 revision_id=19
+INFO 2026-02-12 20:43:58,952 pages 1 281473310294048 Page created: "Jazz Ballad" id=22 content_type=cms.ScorePage path=/home/biblioteca-musical/jazz-ballad/
+INFO 2026-02-12 20:43:58,956 pages 1 281473310294048 Page edited: "Jazz Ballad" id=22 revision_id=20
+INFO 2026-02-12 20:43:58,964 publish_revision 1 281473310294048 Published: "Jazz Ballad" pk=22 revision_id=20
+.INFO 2026-02-12 20:43:58,978 pages 1 281473310294048 Page created: "Biblioteca Musical" id=23 content_type=cms.MusicLibraryIndexPage path=/home/biblioteca-musical/
+INFO 2026-02-12 20:43:58,982 pages 1 281473310294048 Page edited: "Biblioteca Musical" id=23 revision_id=21
+INFO 2026-02-12 20:43:58,989 publish_revision 1 281473310294048 Published: "Biblioteca Musical" pk=23 revision_id=21
+INFO 2026-02-12 20:43:58,992 pages 1 281473310294048 Page created: "Jazz Etude 1" id=24 content_type=cms.ScorePage path=/home/biblioteca-musical/jazz-etude-1/
+INFO 2026-02-12 20:43:58,996 pages 1 281473310294048 Page edited: "Jazz Etude 1" id=24 revision_id=22
+INFO 2026-02-12 20:43:59,005 publish_revision 1 281473310294048 Published: "Jazz Etude 1" pk=24 revision_id=22
+INFO 2026-02-12 20:43:59,012 pages 1 281473310294048 Page created: "Piano Sonata" id=25 content_type=cms.ScorePage path=/home/biblioteca-musical/piano-sonata/
+INFO 2026-02-12 20:43:59,016 pages 1 281473310294048 Page edited: "Piano Sonata" id=25 revision_id=23
+INFO 2026-02-12 20:43:59,025 publish_revision 1 281473310294048 Published: "Piano Sonata" pk=25 revision_id=23
+INFO 2026-02-12 20:43:59,033 pages 1 281473310294048 Page created: "Jazz Ballad" id=26 content_type=cms.ScorePage path=/home/biblioteca-musical/jazz-ballad/
+INFO 2026-02-12 20:43:59,037 pages 1 281473310294048 Page edited: "Jazz Ballad" id=26 revision_id=24
+INFO 2026-02-12 20:43:59,045 publish_revision 1 281473310294048 Published: "Jazz Ballad" pk=26 revision_id=24
+.INFO 2026-02-12 20:43:59,086 pages 1 281473310294048 Page created: "Biblioteca Musical" id=27 content_type=cms.MusicLibraryIndexPage path=/home/biblioteca-musical/
+INFO 2026-02-12 20:43:59,090 pages 1 281473310294048 Page edited: "Biblioteca Musical" id=27 revision_id=25
+INFO 2026-02-12 20:43:59,097 publish_revision 1 281473310294048 Published: "Biblioteca Musical" pk=27 revision_id=25
+INFO 2026-02-12 20:43:59,101 pages 1 281473310294048 Page created: "Jazz Etude 1" id=28 content_type=cms.ScorePage path=/home/biblioteca-musical/jazz-etude-1/
+INFO 2026-02-12 20:43:59,105 pages 1 281473310294048 Page edited: "Jazz Etude 1" id=28 revision_id=26
+INFO 2026-02-12 20:43:59,113 publish_revision 1 281473310294048 Published: "Jazz Etude 1" pk=28 revision_id=26
+INFO 2026-02-12 20:43:59,121 pages 1 281473310294048 Page created: "Piano Sonata" id=29 content_type=cms.ScorePage path=/home/biblioteca-musical/piano-sonata/
+INFO 2026-02-12 20:43:59,126 pages 1 281473310294048 Page edited: "Piano Sonata" id=29 revision_id=27
+INFO 2026-02-12 20:43:59,134 publish_revision 1 281473310294048 Published: "Piano Sonata" pk=29 revision_id=27
+INFO 2026-02-12 20:43:59,142 pages 1 281473310294048 Page created: "Jazz Ballad" id=30 content_type=cms.ScorePage path=/home/biblioteca-musical/jazz-ballad/
+INFO 2026-02-12 20:43:59,146 pages 1 281473310294048 Page edited: "Jazz Ballad" id=30 revision_id=28
+INFO 2026-02-12 20:43:59,154 publish_revision 1 281473310294048 Published: "Jazz Ballad" pk=30 revision_id=28
+.INFO 2026-02-12 20:43:59,168 pages 1 281473310294048 Page created: "Biblioteca Musical" id=31 content_type=cms.MusicLibraryIndexPage path=/home/biblioteca-musical/
+INFO 2026-02-12 20:43:59,171 pages 1 281473310294048 Page edited: "Biblioteca Musical" id=31 revision_id=29
+INFO 2026-02-12 20:43:59,178 publish_revision 1 281473310294048 Published: "Biblioteca Musical" pk=31 revision_id=29
+INFO 2026-02-12 20:43:59,185 pages 1 281473310294048 Page created: "Jazz Etude 1" id=32 content_type=cms.ScorePage path=/home/biblioteca-musical/jazz-etude-1/
+INFO 2026-02-12 20:43:59,194 pages 1 281473310294048 Page edited: "Jazz Etude 1" id=32 revision_id=30
+INFO 2026-02-12 20:43:59,205 publish_revision 1 281473310294048 Published: "Jazz Etude 1" pk=32 revision_id=30
+INFO 2026-02-12 20:43:59,214 pages 1 281473310294048 Page created: "Piano Sonata" id=33 content_type=cms.ScorePage path=/home/biblioteca-musical/piano-sonata/
+INFO 2026-02-12 20:43:59,219 pages 1 281473310294048 Page edited: "Piano Sonata" id=33 revision_id=31
+INFO 2026-02-12 20:43:59,228 publish_revision 1 281473310294048 Published: "Piano Sonata" pk=33 revision_id=31
+INFO 2026-02-12 20:43:59,238 pages 1 281473310294048 Page created: "Jazz Ballad" id=34 content_type=cms.ScorePage path=/home/biblioteca-musical/jazz-ballad/
+INFO 2026-02-12 20:43:59,242 pages 1 281473310294048 Page edited: "Jazz Ballad" id=34 revision_id=32
+INFO 2026-02-12 20:43:59,252 publish_revision 1 281473310294048 Published: "Jazz Ballad" pk=34 revision_id=32
+.......
+----------------------------------------------------------------------
+Ran 15 tests in 1.103s
+
+OK
+Destroying test database for alias 'default'...

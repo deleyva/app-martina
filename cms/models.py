@@ -684,10 +684,50 @@ class MusicLibraryIndexPage(Page):
     def get_context(self, request):
         context = super().get_context(request)
         # Obtener todas las páginas de partituras que son hijas de esta página
+        # Obtener parámetros de filtrado
+        tag_names = (
+            request.GET.get("tags", "").split(",") if request.GET.get("tags") else []
+        )
+        category_names = (
+            request.GET.get("categories", "").split(",")
+            if request.GET.get("categories")
+            else []
+        )
+        search_query = request.GET.get("q", "").strip()
+        
+        # Limpiar nombres
+        tag_names = [name.strip() for name in tag_names if name.strip()]
+        category_names = [name.strip() for name in category_names if name.strip()]
+
+        # Función auxiliar para filtrar por tags y categorías
+        def filter_queryset(qs):
+            # Filtrar por texto si existe
+            if search_query:
+                # Construir consulta base para búsqueda
+                search_filters = models.Q(title__icontains=search_query)
+                
+                # Añadir campos específicos según el modelo si existen
+                if hasattr(qs.model, 'intro'):
+                    search_filters |= models.Q(intro__icontains=search_query)
+                
+                # Para ScorePage, buscar también por compositor
+                if qs.model.__name__ == 'ScorePage':
+                    search_filters |= models.Q(composer__name__icontains=search_query)
+                
+                qs = qs.filter(search_filters)
+
+            for tag in tag_names:
+                qs = qs.filter(tags__name__iexact=tag)
+            for category in category_names:
+                qs = qs.filter(categories__name__iexact=category)
+            return qs.distinct()
+
+        # Obtener todas las páginas de partituras que son hijas de esta página
         try:
             scores = (
                 ScorePage.objects.child_of(self).live().order_by("-first_published_at")
             )
+            scores = filter_queryset(scores)
             context["scores"] = scores
             # Forzar evaluación del queryset para capturar errores de DB aquí
             context["scores_count"] = scores.count()
@@ -701,6 +741,7 @@ class MusicLibraryIndexPage(Page):
             blog_posts = (
                 BlogPage.objects.child_of(self).live().order_by("-first_published_at")
             )
+            blog_posts = filter_queryset(blog_posts)
             context["blog_posts"] = blog_posts
             context["blog_posts_count"] = blog_posts.count()
         except (ProgrammingError, OperationalError):
@@ -713,6 +754,7 @@ class MusicLibraryIndexPage(Page):
             test_pages = (
                 TestPage.objects.child_of(self).live().order_by("-first_published_at")
             )
+            test_pages = filter_queryset(test_pages)
             context["test_pages"] = test_pages
             context["test_pages_count"] = test_pages.count()
         except (ProgrammingError, OperationalError):
@@ -724,6 +766,7 @@ class MusicLibraryIndexPage(Page):
             dictado_pages = (
                 DictadoPage.objects.child_of(self).live().order_by("-first_published_at")
             )
+            dictado_pages = filter_queryset(dictado_pages)
             context["dictado_pages"] = dictado_pages
             context["dictado_pages_count"] = dictado_pages.count()
         except (ProgrammingError, OperationalError):
@@ -748,7 +791,12 @@ class MusicLibraryIndexPage(Page):
         )
         context["music_content"] = music_content
         context["music_content_count"] = len(music_content)
-
+        
+        # Añadir todos los tags y categorías para los filtros
+        context["all_tags"] = MusicTag.objects.all().order_by("name")
+        context["all_categories"] = MusicCategory.objects.all().order_by("name")
+        context["search_query"] = search_query
+        
         # Combinar entradas tipo blog/test para la sección de artículos
         combined_entries = []
         for post in context["blog_posts"]:

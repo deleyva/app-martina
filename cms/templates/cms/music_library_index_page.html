@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% load wagtailcore_tags wagtailimages_tags %}
-{% load library_tags %}
+{% load library_tags cms_tags %}
 
 {# MUSIC PILLS - Plantilla de biblioteca musical #}
 {# Esta plantilla puede ser extraída para usar en otra instalación de Wagtail #}
@@ -88,21 +88,38 @@
     </div> {% endcomment %}
 
     <!-- Filters and Search -->
-    {% if scores %}
     <div class="mb-6">
         <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
-            {% comment %} <h2 class="text-2xl font-bold">📚 Your Scores</h2> {% endcomment %}
             
             <!-- Search and Filters -->
             <div class="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
                 <!-- Search Input -->
-                <div class="form-control">
-                    <input type="text" 
-                           placeholder="Search scores..." 
-                           class="input input-bordered w-full sm:w-64" 
-                           id="searchInput"
-                           onkeyup="filterScores()">
-                </div>
+                <form method="GET" action="." class="form-control join w-full max-w-sm" id="searchForm" role="search">
+                    {% for tag in request.GET|get_list:'tags' %}
+                    <input type="hidden" name="tags" value="{{ tag }}">
+                    {% endfor %}
+                    {% for cat in request.GET|get_list:'categories' %}
+                    <input type="hidden" name="categories" value="{{ cat }}">
+                    {% endfor %}
+                    
+                    <div class="join w-full">
+                        <input type="text" 
+                               name="q" 
+                               value="{{ search_query }}"
+                               placeholder="Search scores..." 
+                               class="input input-bordered join-item w-full sm:w-64" 
+                               aria-label="Search"
+                               hx-get="."
+                               hx-trigger="keyup changed delay:500ms, search"
+                               hx-target="#musicResults"
+                               hx-select="#musicResults"
+                               hx-include="#searchForm"
+                               hx-on::after-swap="updatePagination()">
+                        <button type="submit" class="btn btn-square join-item">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                        </button>
+                    </div>
+                </form>
                 
                 <!-- Tag Filter -->
                 <div class="dropdown dropdown-end">
@@ -110,231 +127,201 @@
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
                         </svg>
-                        Filter by Tags
+                        {% if request.GET.tags %}
+                            {{ request.GET|get_list:'tags'|join:", "|truncatechars:20 }}
+                        {% else %}
+                            Filter by Tags
+                        {% endif %}
                     </div>
                     <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52 max-h-64 overflow-y-auto">
-                        <li><a onclick="clearTagFilter()" class="text-sm">Show All</a></li>
-                        <li class="menu-title"><span>ScorePage Tags</span></li>
-                        {% for score in scores %}
-                            {% for tag in score.tags.all %}
-                                <li><a onclick="filterByTag('{{ tag.name|escapejs }}')" class="text-sm tag-filter-option" data-tag="{{ tag.name }}">🏷️ {{ tag.name }}</a></li>
-                            {% endfor %}
-                        {% endfor %}
-                        <li class="menu-title"><span>Document Tags</span></li>
-                        {% for score in scores %}
-                            {% for pdf in score.get_pdf_blocks %}
-                                {% for doc_tag in pdf.pdf_file.tags.all %}
-                                    <li><a onclick="filterByTag('{{ doc_tag.name|escapejs }}')" class="text-sm tag-filter-option" data-tag="{{ doc_tag.name }}">📎 {{ doc_tag.name }}</a></li>
-                                {% endfor %}
-                            {% endfor %}
-                            {% for audio in score.get_audios %}
-                                {% for doc_tag in audio.audio_file.tags.all %}
-                                    <li><a onclick="filterByTag('{{ doc_tag.name|escapejs }}')" class="text-sm tag-filter-option" data-tag="{{ doc_tag.name }}">🎵 {{ doc_tag.name }}</a></li>
-                                {% endfor %}
-                            {% endfor %}
+                        <li>
+                            <a href="?{% if search_query %}q={{ search_query }}{% endif %}" class="text-sm">
+                                {% if request.GET.tags %}Clear Filter{% else %}Show All{% endif %}
+                            </a>
+                        </li>
+                        <li class="menu-title"><span>Available Tags</span></li>
+                        {% for tag in all_tags %}
+                            <li>
+                                <a href="?tags={{ tag.name }}{% if search_query %}&q={{ search_query }}{% endif %}" 
+                                   class="text-sm {% if tag.name in request.GET|get_list:'tags' %}active{% endif %}">
+                                    🏷️ {{ tag.name }}
+                                </a>
+                            </li>
                         {% endfor %}
                     </ul>
                 </div>
             </div>
         </div>
 
-        <!-- Music Content List (Scores + Dictados) -->
-        <ul class="list bg-base-100 rounded-box shadow-md" id="musicList">
-            <li class="p-4 pb-2 text-xs opacity-60 tracking-wide">Your Music Library</li>
-            
-            {% for item in music_content %}
-            {% with page=item.page item_type=item.type %}
-            <li class="music-item flex items-center gap-2" 
-                data-index="{{ forloop.counter0 }}"
-                data-type="{{ item_type }}"
-                data-title="{{ page.title|lower }}" 
-                {% if item_type == "score" %}
-                data-composer="{% if page.composer %}{{ page.composer.name|lower }}{% endif %}"
-                data-pdfs="{% for pdf in page.get_pdf_blocks %}{{ pdf.title|lower }} {% endfor %}"
-                data-audios="{% for audio in page.get_audios %}{{ audio.title|lower }} {% endfor %}"
-                data-document-tags="{% for pdf in page.get_pdf_blocks %}{% for doc_tag in pdf.pdf_file.tags.all %}{{ doc_tag.name|lower }} {% endfor %}{% endfor %}{% for audio in page.get_audios %}{% for doc_tag in audio.audio_file.tags.all %}{{ doc_tag.name|lower }} {% endfor %}{% endfor %}"
-                {% endif %}
-                data-tags="{% for tag in page.tags.all %}{{ tag.name|lower }} {% endfor %}"
-                data-categories="{% for category in page.categories.all %}{{ category.name|lower }} {% endfor %}"
-                data-difficulty="">
-                
-                <!-- Clickable row link -->
-                <a href="{{ page.get_url }}" class="list-row flex items-center gap-4 p-4 hover:bg-base-200 transition-colors flex-1 min-w-0">
-                    <!-- Icon/Thumbnail -->
-                    <div class="flex items-center justify-center size-10 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-box flex-shrink-0">
-                        <div class="text-lg">{% if item_type == "score" %}📄{% else %}🎹{% endif %}</div>
-                    </div>
-                    
-                    <!-- Content Info -->
-                    <div class="flex-1 min-w-0">
-                        <div class="font-medium truncate">{{ page.title }}</div>
-                        
-                        {% if item_type == "score" %}
-                        <!-- Score-specific info -->
-                        <div class="text-xs uppercase font-semibold opacity-60 truncate">
-                            {% if page.composer %}{{ page.composer.name }}{% else %}Unknown Composer{% endif %}
-                        </div>
-                        
-                        <!-- PDF and Audio Info -->
-                        {% with pdf_blocks=page.get_pdf_blocks audio_blocks=page.get_audios %}
-                        {% if pdf_blocks or audio_blocks %}
-                        <div class="text-xs opacity-50 mt-1 flex gap-3">
-                            {% if pdf_blocks %}
-                            <span>📄 {{ pdf_blocks|length }} PDF{% if pdf_blocks|length > 1 %}s{% endif %}</span>
-                            {% endif %}
-                            {% if audio_blocks %}
-                            <span>🎵 {{ audio_blocks|length }} Audio{% if audio_blocks|length > 1 %}s{% endif %}</span>
-                            {% endif %}
-                        </div>
-                        
-                        <!-- File Titles -->
-                        {% if pdf_blocks %}
-                        <div class="text-xs opacity-40 mt-1">
-                            📄 {% for pdf in pdf_blocks|slice:":2" %}{{ pdf.title }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if pdf_blocks|length > 2 %}...{% endif %}
-                        </div>
-                        {% endif %}
-                        {% if audio_blocks %}
-                        <div class="text-xs opacity-40 mt-1">
-                            🎵 {% for audio in audio_blocks|slice:":2" %}{{ audio.title }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if audio_blocks|length > 2 %}...{% endif %}
-                        </div>
-                        {% endif %}
-                        {% endif %}
-                        {% endwith %}
-                        
-                        <!-- PDF & Audio Document Tags -->
-                        {% with pdf_blocks=page.get_pdf_blocks audio_blocks=page.get_audios %}
-                        {% if pdf_blocks or audio_blocks %}
-                        <div class="flex flex-wrap gap-1 mt-1 doc-tags-container" data-score-id="{{ page.id }}">
-                            {# Tags de PDFs #}
-                            {% for pdf in pdf_blocks %}
-                                {% if pdf.pdf_file and pdf.pdf_file.tags.all %}
-                                    {% for tag in pdf.pdf_file.tags.all %}
-                                    <div class="badge badge-secondary badge-xs cursor-pointer doc-tag"
-                                         data-tag-name="{{ tag.name|lower }}"
-                                         onclick="event.preventDefault(); event.stopPropagation(); filterByTag('{{ tag.name|escapejs }}');">
-                                        📎 {{ tag.name }}
-                                    </div>
-                                    {% endfor %}
-                                {% endif %}
-                            {% endfor %}
-                            
-                            {# Tags de Audios #}
-                            {% for audio in audio_blocks %}
-                                {% if audio.audio_file and audio.audio_file.tags.all %}
-                                    {% for tag in audio.audio_file.tags.all %}
-                                    <div class="badge badge-accent badge-xs cursor-pointer doc-tag"
-                                         data-tag-name="{{ tag.name|lower }}"
-                                         onclick="event.preventDefault(); event.stopPropagation(); filterByTag('{{ tag.name|escapejs }}');">
-                                        🎵 {{ tag.name }}
-                                    </div>
-                                    {% endfor %}
-                                {% endif %}
-                            {% endfor %}
-                        </div>
-                        {% endif %}
-                        {% endwith %}
-                        
-                        {% else %}
-                        <!-- Dictado-specific info -->
-                        {% if page.intro %}
-                        <div class="text-xs opacity-60 mt-1 line-clamp-1">
-                            {{ page.intro|striptags|truncatewords:15 }}
-                        </div>
-                        {% endif %}
-                        {% endif %}
-                        
-                        <!-- Categories -->
-                        {% if page.categories.all %}
-                        <div class="flex flex-wrap gap-1 mt-1">
-                            {% for category in page.categories.all|slice:":2" %}
-                            <div class="badge badge-info badge-xs">
-                                {% if category.icon %}{{ category.icon }} {% endif %}{{ category.name }}
-                            </div>
-                            {% endfor %}
-                            {% if page.categories.all|length > 2 %}
-                            <div class="badge badge-ghost badge-xs">+{{ page.categories.all|length|add:"-2" }} categorías</div>
-                            {% endif %}
-                        </div>
-                        {% endif %}
-                        
-                        <!-- Tags (clickable filters) -->
-                        <div class="flex flex-wrap gap-1 mt-1">
-                            {% for tag in page.tags.all|slice:":4" %}
-                            <div class="badge badge-outline badge-xs cursor-pointer" style="{% if tag.color %}border-color: {{ tag.color }}; color: {{ tag.color }};{% endif %}"
-                                 onclick="event.preventDefault(); event.stopPropagation(); filterByTag('{{ tag.name|escapejs }}');">
-                                🏷️ {{ tag.name }}
-                            </div>
-                            {% endfor %}
-                            {% if page.tags.all|length > 4 %}
-                            <div class="badge badge-ghost badge-xs">+{{ page.tags.all|length|add:"-4" }} tags</div>
-                            {% endif %}
-                        </div>
-                    </div>
-                </a>
-                
-                <!-- Library Button (HTMX) - outside main link -->
-                {% if user.is_authenticated %}
-                <div id="library-btn-{{ page.pk }}" class="flex-shrink-0" onclick="event.stopPropagation()">
-                    {% library_button page %}
-                </div>
-                {% endif %}
-                
-                <!-- Admin menu - outside main link -->
-                {% if user.is_staff %}
-                <div class="dropdown dropdown-end flex-shrink-0" onclick="event.stopPropagation()">
-                    <div tabindex="0" role="button" class="btn btn-square btn-ghost btn-sm">
-                        <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path>
-                        </svg>
-                    </div>
-                    <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
-                        <li><a href="{{ page.get_url }}">View</a></li>
-                        <li><a href="/cms/pages/{{ page.id }}/edit/">Edit</a></li>
-                        <li><a href="/cms/pages/{{ page.id }}/copy/">Duplicate</a></li>
-                        {% if item_type == "score" %}
-                        <li><a>Add to Setlist</a></li>
-                        {% endif %}
-                    </ul>
-                </div>
-                {% endif %}
-            </li>
-            {% endwith %}
-            {% endfor %}
-        </ul>
-        
-        <!-- Load More Button -->
-        <div id="loadMoreContainer" class="text-center mt-6 hidden">
-            <button onclick="loadMoreMusic()" class="btn btn-outline btn-primary">
-                Cargar más contenido
-                <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                </svg>
-            </button>
-            <p class="text-xs text-base-content/50 mt-2">
-                Mostrando <span id="visibleCount">5</span> de <span id="totalCount">{{ music_content_count }}</span>
-            </p>
-        </div>
-        
-        <!-- No Results Message -->
-        <div id="noResults" class="text-center py-8 hidden">
+
+        {% if not music_content %}
+        <!-- No Results (Backend) -->
+        <div class="text-center py-8">
             <div class="text-4xl mb-2">🔍</div>
-            <p class="text-base-content/70">No scores match your current filters.</p>
-            <button onclick="clearAllFilters()" class="btn btn-sm btn-outline mt-2">Clear Filters</button>
+            <p class="text-base-content/70">No scores match your search/filters.</p>
+            <a href="." class="btn btn-sm btn-outline mt-2">Clear All</a>
         </div>
-    {% else %}
-    <!-- Empty State -->
-    <div class="text-center py-12">
-        <div class="text-6xl mb-4">📚</div>
-        <h2 class="text-2xl font-bold mb-2">No scores yet</h2>
-        <p class="text-base-content/70 mb-6">Create your first score to get started with your digital sheet music library.</p>
-        <a href="/cms/pages/{{ page.id }}/add_subpage/" class="btn btn-primary">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-            </svg>
-            Create Your First Score
-        </a>
+        {% endif %}
+
+        <!-- Music Content List (Scores + Dictados) -->
+        <div id="musicResults">
+            <ul class="list bg-base-100 rounded-box shadow-md" id="musicList">
+                {% if music_content %}
+                <li class="p-4 pb-2 text-xs opacity-60 tracking-wide">Your Music Library</li>
+                {% endif %}
+                
+                {% for item in music_content %}
+                {% with page=item.page item_type=item.type %}
+                <li class="music-item flex items-center gap-2" 
+                    data-index="{{ forloop.counter0 }}">
+                    
+                        <!-- Cursor pointer for row -->
+                        <div class="list-row flex items-center gap-4 p-4 hover:bg-base-200 transition-colors flex-1 min-w-0 cursor-pointer"
+                             onclick="window.location.href='{{ page.get_url }}'"
+                             role="link"
+                             tabindex="0">
+                        
+                        <!-- Icon Column -->
+                        <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0
+                            {% if item_type == 'score' %}bg-primary/10 text-primary
+                            {% elif item_type == 'dictado' or item_type == 'dictation' %}bg-secondary/10 text-secondary
+                            {% else %}bg-base-200{% endif %}">
+                            {% if item_type == 'score' %}
+                            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
+                            </svg>
+                            {% elif item_type == 'dictado' or item_type == 'dictation' %}
+                            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path>
+                            </svg>
+                            {% else %}
+                            <span class="text-xl">📄</span>
+                            {% endif %}
+                        </div>
+
+                        <!-- Content Info -->
+                        <div class="flex-1 min-w-0">
+                            <div class="font-medium truncate">{{ page.title }}</div>
+                            <div class="text-xs opacity-60 truncate">
+                                {% if item_type == 'score' %}
+                                    {% if page.composer %}{{ page.composer.name|default:"Unknown Composer"|upper }}{% else %}UNKNOWN{% endif %}
+                                {% else %}
+                                    {{ page.intro|striptags|truncatechars:60 }}
+                                {% endif %}
+                            </div>
+
+                            <!-- PDF and Audio Info -->
+                            {% with pdf_blocks=page.get_pdf_blocks audio_blocks=page.get_audios %}
+                            {% if pdf_blocks or audio_blocks %}
+                            <div class="text-xs opacity-50 mt-1 flex gap-3">
+                                {% if pdf_blocks %}
+                                <span class="flex items-center gap-1">
+                                    📄 {{ pdf_blocks|length }} PDF{% if pdf_blocks|length > 1 %}s{% endif %}
+                                </span>
+                                {% endif %}
+                                {% if audio_blocks %}
+                                <span class="flex items-center gap-1">
+                                    🔊 {{ audio_blocks|length }} Audio{% if audio_blocks|length > 1 %}s{% endif %}
+                                </span>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                            
+                            <!-- File Titles (Restored) -->
+                            {% if pdf_blocks %}
+                            <div class="text-xs opacity-40 truncate max-w-[200px]">
+                                {% for block in pdf_blocks %}
+                                    {{ block.value.title }}{% if not forloop.last %}, {% endif %}
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                            {% endwith %}
+
+                            <!-- Categories -->
+                            <div class="flex flex-wrap gap-1 mt-1">
+                                {% for cat in page.categories.all %}
+                                <a href="?categories={{ cat.name }}" 
+                                   class="badge badge-xs badge-ghost text-[10px] px-1 h-5 hover:bg-base-300"
+                                   onclick="event.stopPropagation()">
+                                    {{ cat.name }}
+                                </a>
+                                {% endfor %}
+                            </div>
+
+                            <!-- Tags -->
+                            <div class="flex flex-wrap gap-1 mt-1">
+                                {% for tag in page.tags.all %}
+                                <a href="?tags={{ tag.name }}" 
+                                   class="badge badge-xs badge-outline text-[10px] px-1 h-5 hover:opacity-80"
+                                   {% if tag.color %}style="color: {{ tag.color }}; border-color: {{ tag.color }};"{% endif %}
+                                   onclick="event.stopPropagation()">
+                                    {{ tag.name }}
+                                </a>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="flex items-center gap-1 pr-2">
+                        {% if user.is_authenticated %}
+                            <!-- Library Button -->
+                            <div id="library-btn-{{ page.pk }}" class="flex-shrink-0" onclick="event.stopPropagation()">
+                                {% library_button page %}
+                            </div>
+                        {% endif %}
+                        
+                        <div class="dropdown dropdown-end">
+                            <label tabindex="0" class="btn btn-ghost btn-square btn-sm">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                                </svg>
+                            </label>
+                            <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+                                <li><a href="{{ page.get_url }}">View Details</a></li>
+                                {% if request.user.is_staff %}
+                                <li><a href="/cms/pages/{{ page.id }}/edit/">Edit</a></li>
+                                <li><a href="/cms/pages/{{ page.id }}/copy/">Duplicate</a></li>
+                                {% if item_type == "score" %}
+                                <li><a>Add to Setlist</a></li>
+                                {% endif %}
+                                {% endif %}
+                            </ul>
+                        </div>
+                    </div>
+                </li>
+                {% endwith %}
+                {% endfor %}
+            </ul>
+            
+            <!-- Load More Button (Client-side pagination for results) -->
+            <div id="loadMoreContainer" class="text-center mt-6 hidden">
+                <button onclick="loadMoreMusic()" class="btn btn-outline btn-primary">
+                    Cargar más contenido
+                    <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+                <p class="text-xs text-base-content/50 mt-2">
+                    Mostrando <span id="visibleCount">5</span> de <span id="totalCount">{{ music_content|length }}</span>
+                </p>
+            </div>
+
+            {% if not music_content %}
+            <!-- Empty State (No content at all) -->
+            <div class="text-center py-12">
+                <div class="text-6xl mb-4">📚</div>
+                <h2 class="text-2xl font-bold mb-2">No results found</h2>
+                <p class="text-base-content/70 mb-6">Try adjusting your filters or search terms.</p>
+                <a href="." class="btn btn-primary">
+                    Clear Filters
+                </a>
+            </div>
+            {% endif %}
+        </div>
+        
     </div>
-    {% endif %}
+
 
     <!-- Editorial Section: Blog Posts + Tests -->
     {% if blog_entries %}
@@ -379,9 +366,11 @@
                         </div>
                         {% endfor %}
                         {% for tag in item.tags.all|slice:":3" %}
-                        <div class="badge badge-outline badge-sm" style="{% if tag.color %}border-color: {{ tag.color }}; color: {{ tag.color }};{% endif %}">
+                        <a href="?tags={{ tag.name }}{% if search_query %}&q={{ search_query }}{% endif %}" 
+                           class="badge badge-outline badge-sm hover:bg-base-200 cursor-pointer" 
+                           style="{% if tag.color %}border-color: {{ tag.color }}; color: {{ tag.color }};{% endif %}">
                             🏷️ {{ tag.name }}
-                        </div>
+                        </a>
                         {% endfor %}
                         {% if item.categories.all|length > 3 or item.tags.all|length > 3 %}
                         <div class="badge badge-ghost badge-sm">+más</div>
@@ -461,128 +450,11 @@
 </div> {% endcomment %}
 
 <script>
-// MUSIC PILLS - Filtros de biblioteca musical
-let currentTagFilter = '';
+// MUSIC PILLS - Paginación de biblioteca musical
+// La funcionalidad de filtrado ahora se maneja en backend
+
 const ITEMS_PER_PAGE = 5;
 let currentlyVisible = ITEMS_PER_PAGE;
-
-function filterScores() {
-    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-    const scoreItems = document.querySelectorAll('.score-item');
-    let visibleCount = 0;
-    
-    scoreItems.forEach(item => {
-        const title = item.dataset.title;
-        const composer = item.dataset.composer;
-        const tags = item.dataset.tags;
-        const categories = item.dataset.categories;
-        const pdfs = item.dataset.pdfs;
-        const audios = item.dataset.audios;
-        const documentTags = item.dataset.documentTags;
-        
-        // Check search term
-        const matchesSearch = searchTerm === '' || 
-            title.includes(searchTerm) || 
-            composer.includes(searchTerm) ||
-            tags.includes(searchTerm) ||
-            categories.includes(searchTerm) ||
-            pdfs.includes(searchTerm) ||
-            audios.includes(searchTerm) ||
-            documentTags.includes(searchTerm);
-        
-        // Check tag filter
-        const matchesTag = currentTagFilter === '' || 
-            tags.includes(currentTagFilter.toLowerCase()) ||
-            documentTags.includes(currentTagFilter.toLowerCase());
-        
-        if (matchesSearch && matchesTag) {
-            item.style.display = '';
-            visibleCount++;
-        } else {
-            item.style.display = 'none';
-        }
-    });
-    
-    // Show/hide no results message
-    const noResults = document.getElementById('noResults');
-    if (noResults) {
-        noResults.classList.toggle('hidden', visibleCount > 0);
-    }
-}
-
-function filterByTag(tagName) {
-    currentTagFilter = tagName;
-    
-    // Update button text
-    const tagButton = document.querySelector('.dropdown .btn');
-    if (tagButton) {
-        tagButton.innerHTML = `
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
-            </svg>
-            ${tagName}
-        `;
-    }
-    
-    filterScores();
-}
-
-function clearTagFilter() {
-    currentTagFilter = '';
-    
-    // Reset button text
-    const tagButton = document.querySelector('.dropdown .btn');
-    if (tagButton) {
-        tagButton.innerHTML = `
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
-            </svg>
-            Filter by Tags
-        `;
-    }
-    
-    filterScores();
-}
-
-function clearAllFilters() {
-    document.getElementById('searchInput').value = '';
-    clearTagFilter();
-    filterScores();
-}
-
-// Remove duplicate tags from filter dropdown
-document.addEventListener('DOMContentLoaded', function() {
-    const tagOptions = document.querySelectorAll('.tag-filter-option');
-    const seenTags = new Set();
-
-    tagOptions.forEach((option) => {
-        const rawName = option.dataset.tag || '';
-        const tagKey = rawName.trim().toLowerCase();
-        if (seenTags.has(tagKey)) {
-            option.parentElement.remove();
-        } else {
-            seenTags.add(tagKey);
-        }
-    });
-    
-    // Remove duplicate document tags within each score
-    const tagContainers = document.querySelectorAll('.doc-tags-container');
-    tagContainers.forEach((container) => {
-        const seenScoreTags = new Set();
-        const tags = container.querySelectorAll('.doc-tag');
-        
-        tags.forEach((tag) => {
-            const tagName = tag.dataset.tagName || '';
-            const tagKey = tagName.trim().toLowerCase();
-            
-            if (seenScoreTags.has(tagKey)) {
-                tag.remove();
-            } else {
-                seenScoreTags.add(tagKey);
-            }
-        });
-    });
-});
 
 function loadMoreMusic() {
     currentlyVisible += ITEMS_PER_PAGE;
@@ -606,7 +478,8 @@ function updatePagination() {
     
     // Update counter
     const actuallyVisible = Math.min(currentlyVisible, totalItems);
-    document.getElementById('visibleCount').textContent = actuallyVisible;
+    const visibleCountEl = document.getElementById('visibleCount');
+    if (visibleCountEl) visibleCountEl.textContent = actuallyVisible;
     
     // Show/hide load more button
     const loadMoreContainer = document.getElementById('loadMoreContainer');
@@ -620,12 +493,9 @@ function updatePagination() {
     }
 }
 
-// Remove duplicate tags from filter dropdown
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize pagination
     updatePagination();
-    
-    const tagOptions = document.querySelectorAll('.tag-filter-option');
 });
 </script>
 {% endblock %}

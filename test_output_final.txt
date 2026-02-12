@@ -1,0 +1,30 @@
+ Container martina_bescos_app_local_postgres  Running
+ Container martina_bescos_app_local_mailpit  Running
+ Container martina_bescos_app_local_redis  Running
+wait-for-it: waiting 30 seconds for postgres:5432
+wait-for-it: postgres:5432 is available after 0 seconds
+PostgreSQL is available
+Source CSS file 1 not found, skipping removal: /app/martina_bescos_app/static/css/index.css
+Source CSS file 2 not found, skipping removal: /app/martina_bescos_app/static/css/input.css
+Running collectstatic...
+
+0 static files copied to '/app/staticfiles', 236 unmodified.
+Creating test database for alias 'default'...
+Found 1 test(s).
+✅ Asignatura 'Música' creada y asignada a 0 grupos
+System check identified no issues (0 silenced).
+INFO 2026-02-12 20:17:48,269 pages 1 281473204838432 Page created: "Music Library" id=3 content_type=cms.MusicLibraryIndexPage path=/home/music-library/
+INFO 2026-02-12 20:17:48,274 pages 1 281473204838432 Page edited: "Music Library" id=3 revision_id=1
+INFO 2026-02-12 20:17:48,282 publish_revision 1 281473204838432 Published: "Music Library" pk=3 revision_id=1
+INFO 2026-02-12 20:17:48,286 pages 1 281473204838432 Page created: "Jazz Tune" id=4 content_type=cms.ScorePage path=/home/music-library/jazz-tune/
+INFO 2026-02-12 20:17:48,291 pages 1 281473204838432 Page edited: "Jazz Tune" id=4 revision_id=2
+INFO 2026-02-12 20:17:48,300 publish_revision 1 281473204838432 Published: "Jazz Tune" pk=4 revision_id=2
+INFO 2026-02-12 20:17:48,304 pages 1 281473204838432 Page created: "Rhythmic Dictation" id=5 content_type=cms.DictadoPage path=/home/music-library/rhythmic-dictation/
+INFO 2026-02-12 20:17:48,308 pages 1 281473204838432 Page edited: "Rhythmic Dictation" id=5 revision_id=3
+INFO 2026-02-12 20:17:48,317 publish_revision 1 281473204838432 Published: "Rhythmic Dictation" pk=5 revision_id=3
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.157s
+
+OK
+Destroying test database for alias 'default'...
