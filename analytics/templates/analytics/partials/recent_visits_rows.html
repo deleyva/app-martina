@@ -1,0 +1,35 @@
+{% load i18n humanize %}
+{% for visit in recent_visits %}
+<tr>
+    <td class="text-xs">{{ visit.timestamp|naturaltime }}</td>
+    <td class="text-xs">
+        {% if visit.session.user %}
+            {{ visit.session.user.email }}
+        {% else %}
+            <span class="text-gray-400">Anonymous</span>
+        {% endif %}
+    </td>
+    <td class="text-xs whitespace-nowrap" title="{{ visit.url }}">
+        <div class="font-bold">{{ visit.title|default:"No Title" }}</div>
+        <div class="text-gray-400 opacity-75">{{ visit.url }}</div>
+    </td>
+</tr>
+{% if forloop.last and has_more_visits %}
+<tr id="load-more-visits">
+    <td colspan="3" class="text-center p-2">
+        <button class="btn btn-sm btn-ghost w-full"
+                hx-get="{% url 'analytics:dashboard' %}?user={{ user_query }}&visits_offset={{ next_visits_offset }}"
+                hx-target="#load-more-visits"
+                hx-swap="outerHTML">
+            {% translate "Show more" %}
+        </button>
+    </td>
+</tr>
+{% endif %}
+{% empty %}
+{% if not is_htmx %}
+<tr>
+    <td colspan="3" class="text-center">{% translate "No recent visits" %}</td>
+</tr>
+{% endif %}
+{% endfor %}

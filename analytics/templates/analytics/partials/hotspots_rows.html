@@ -1,0 +1,32 @@
+{% load i18n humanize %}
+{% for hotspot in hotspots %}
+<tr>
+    <td class="font-mono text-sm truncate max-w-xs" title="{{ hotspot.target_element }}">{{ hotspot.target_element }}</td>
+    <td class="whitespace-nowrap" title="{{ hotspot.visit__url }}">
+        <div class="font-bold">{{ hotspot.visit__title|default:"No Title" }}</div>
+        <div class="text-xs opacity-50">{{ hotspot.visit__url }}</div>
+    </td>
+    <td>
+        <progress class="progress progress-primary w-56" value="{{ hotspot.count }}" max="{{ total_interactions }}"></progress>
+        <span class="ml-2">{{ hotspot.count }}</span>
+    </td>
+</tr>
+{% if forloop.last and has_more_hotspots %}
+<tr id="load-more-hotspots">
+    <td colspan="3" class="text-center p-2">
+        <button class="btn btn-sm btn-ghost w-full"
+                hx-get="{% url 'analytics:dashboard' %}?user={{ user_query }}&hotspots_offset={{ next_hotspots_offset }}"
+                hx-target="#load-more-hotspots"
+                hx-swap="outerHTML">
+            {% translate "Show more" %}
+        </button>
+    </td>
+</tr>
+{% endif %}
+{% empty %}
+{% if not is_htmx %}
+<tr>
+    <td colspan="3" class="text-center">{% translate "No interactions yet" %}</td>
+</tr>
+{% endif %}
+{% endfor %}

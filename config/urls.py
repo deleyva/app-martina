@@ -57,6 +57,8 @@ urlpatterns = [
     path("cms/", include(wagtailadmin_urls)),
     path("documents/", include(wagtaildocs_urls)),
     path("pages/", include(wagtail_urls)),
+    # Analytics
+    path("analytics/", include("analytics.urls")),
     # My Library - Biblioteca personal de usuario
     path("my-library/", include("my_library.urls", namespace="my_library")),
     # Incidencias informáticas

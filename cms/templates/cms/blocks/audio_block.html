@@ -117,10 +117,25 @@
     
     wavesurfer.on('play', function() {
         updatePlayButton(true);
+        if (typeof sendTrackingData === 'function') {
+            sendTrackingData('audio_play', {
+                target_element: 'audio-player-' + blockId,
+                target_text: '{{ self.title|escapejs }}',
+                audio_url: audioUrl
+            });
+        }
     });
     
     wavesurfer.on('pause', function() {
         updatePlayButton(false);
+        if (typeof sendTrackingData === 'function') {
+            sendTrackingData('audio_pause', {
+                target_element: 'audio-player-' + blockId,
+                target_text: '{{ self.title|escapejs }}',
+                audio_url: audioUrl,
+                time: wavesurfer.getCurrentTime()
+            });
+        }
     });
     
     // Button handlers

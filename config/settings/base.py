@@ -67,7 +67,7 @@ DJANGO_APPS = [
     "django.contrib.sites",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    # "django.contrib.humanize", # Handy template tags
+    "django.contrib.humanize", # Handy template tags
     "django.contrib.admin",
     "django.forms",
 ]
@@ -105,6 +105,7 @@ LOCAL_APPS = [
     "cms",  # Incluye Music Pills integrado
     "my_library",  # Biblioteca personal de usuario
     "incidencias",  # Sistema de incidencias informáticas
+    "analytics",
     # Your stuff: custom apps go here
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps

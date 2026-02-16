@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% load i18n humanize %}
+
+{% block title %}Analytics Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <h1 class="text-3xl font-bold mb-8">{% translate "User Activity Analytics" %}</h1>
+
+    <!-- Summary Stats -->
+    <form method="get" class="mb-8 flex gap-4">
+        <input type="text" name="user" value="{{ user_query }}" placeholder="{% translate 'Search by user email or name...' %}" class="input input-bordered w-full max-w-xs" />
+        <button type="submit" class="btn btn-primary">{% translate "Filter" %}</button>
+        {% if user_query %}
+            <a href="." class="btn btn-ghost">{% translate "Clear" %}</a>
+        {% endif %}
+    </form>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div class="stats shadow">
+            <div class="stat">
+                <div class="stat-title">{% translate "Total Sessions" %}</div>
+                <div class="stat-value">{{ total_sessions|intcomma }}</div>
+            </div>
+        </div>
+        <div class="stats shadow">
+            <div class="stat">
+                <div class="stat-title">{% translate "Total Pageviews" %}</div>
+                <div class="stat-value text-primary">{{ total_pageviews|intcomma }}</div>
+            </div>
+        </div>
+        <div class="stats shadow">
+            <div class="stat">
+                <div class="stat-title">{% translate "Total Interactions" %}</div>
+                <div class="stat-value text-secondary">{{ total_interactions|intcomma }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- Recent Activity -->
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title">{% translate "Recent Visits" %}</h2>
+                <div class="overflow-x-auto">
+                    <table class="table table-compact w-full">
+                        <thead>
+                            <tr>
+                                <th>{% translate "Time" %}</th>
+                                <th>{% translate "User" %}</th>
+                                <th>{% translate "Page" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% include "analytics/partials/recent_visits_rows.html" %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Pages -->
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title">{% translate "Top Pages" %}</h2>
+                <div class="overflow-x-auto">
+                    <table class="table w-full">
+                        <thead>
+                            <tr>
+                                <th>{% translate "Page" %}</th>
+                                <th>{% translate "Views" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for page in top_pages %}
+                            <tr>
+                                <td class="whitespace-nowrap" title="{{ page.url }}">
+                                    <div class="font-bold">{{ page.title|default:page.url }}</div>
+                                    <div class="text-xs opacity-50">{{ page.url }}</div>
+                                </td>
+                                <td class="font-bold">{{ page.views }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Interaction Hotspots -->
+        <div class="card bg-base-100 shadow-xl lg:col-span-2">
+            <div class="card-body">
+                <h2 class="card-title">{% translate "Interaction Hotspots (Top Clicks)" %}</h2>
+                <div class="overflow-x-auto">
+                    <table class="table w-full">
+                        <thead>
+                            <tr>
+                                <th>{% translate "Element Selector" %}</th>
+                                <th>{% translate "Page" %}</th>
+                                <th>{% translate "Clicks" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% include "analytics/partials/hotspots_rows.html" %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
