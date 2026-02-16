@@ -63,6 +63,8 @@ urlpatterns = [
     path("my-library/", include("my_library.urls", namespace="my_library")),
     # Incidencias informáticas
     path("incidencias/", include("incidencias.urls", namespace="incidencias")),
+    # Content Hub - Sistema de gestión de contenido musical con grafo de conocimiento
+    path("content/", include("content_hub.urls", namespace="content_hub")),
     # CMS custom views (filtros de partituras)
     path("", include("cms.urls")),
     # music-pills integrado en Wagtail CMS - accesible via /cms/ y páginas públicas

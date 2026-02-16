@@ -106,6 +106,7 @@ LOCAL_APPS = [
     "my_library",  # Biblioteca personal de usuario
     "incidencias",  # Sistema de incidencias informáticas
     "analytics",
+    "content_hub",  # Sistema flexible de gestión de contenido musical (grafo de conocimiento)
     # Your stuff: custom apps go here
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
@@ -117,6 +118,11 @@ SPOTIFY_CLIENT_ID = env("SPOTIFY_CLIENT_ID", default="your-spotify-client-id")
 SPOTIFY_CLIENT_SECRET = env(
     "SPOTIFY_CLIENT_SECRET", default="your-spotify-client-secret"
 )
+
+# Meilisearch Configuration (for content_hub full-text search)
+# ------------------------------------------------------------------------------
+MEILISEARCH_URL = env("MEILISEARCH_URL", default="http://localhost:7700")
+MEILISEARCH_API_KEY = env("MEILISEARCH_API_KEY", default="")
 
 # MIGRATIONS
 # ------------------------------------------------------------------------------

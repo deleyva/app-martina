@@ -1,0 +1,87 @@
+{% extends "content_hub/base.html" %}
+
+{% block title %}Añadir Contenido - Content Hub{% endblock %}
+
+{% block content_hub_content %}
+<h1>➕ Añadir Contenido</h1>
+<p class="text-muted">
+    Añade contenido rápidamente. El tipo se detecta automáticamente según la URL o archivo.
+</p>
+
+<form method="post" enctype="multipart/form-data" class="mt-4">
+    {% csrf_token %}
+
+    <div class="mb-3">
+        <label for="id_title" class="form-label">Título *</label>
+        {{ form.title }}
+        {% if form.title.errors %}
+        <div class="text-danger">{{ form.title.errors }}</div>
+        {% endif %}
+    </div>
+
+    <div class="mb-3">
+        <label for="id_url" class="form-label">URL (opcional)</label>
+        {{ form.url }}
+        <small class="form-text text-muted">
+            URLs de YouTube, Hooktheory, Spotify, etc. se detectan como embeds.
+        </small>
+        {% if form.url.errors %}
+        <div class="text-danger">{{ form.url.errors }}</div>
+        {% endif %}
+    </div>
+
+    <div class="mb-3">
+        <label for="id_file" class="form-label">Archivo (opcional)</label>
+        {{ form.file }}
+        <small class="form-text text-muted">
+            PDFs, audio (mp3, wav), imágenes, video. El tipo se detecta automáticamente.
+        </small>
+        {% if form.file.errors %}
+        <div class="text-danger">{{ form.file.errors }}</div>
+        {% endif %}
+    </div>
+
+    <div class="mb-3">
+        <label for="id_text_content" class="form-label">Texto/Notas (opcional)</label>
+        {{ form.text_content }}
+        {% if form.text_content.errors %}
+        <div class="text-danger">{{ form.text_content.errors }}</div>
+        {% endif %}
+    </div>
+
+    <div class="mb-3">
+        <label for="id_tags" class="form-label">Tags</label>
+        {{ form.tags }}
+        <small class="form-text text-muted">
+            Separados por comas: piano, jazz, ejercicio
+        </small>
+        {% if form.tags.errors %}
+        <div class="text-danger">{{ form.tags.errors }}</div>
+        {% endif %}
+    </div>
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Guardar</button>
+        <a href="{% url 'content_hub:index' %}" class="btn btn-secondary">Cancelar</a>
+    </div>
+</form>
+
+<hr class="my-4">
+
+<div class="row">
+    <div class="col-md-6">
+        <h3>¿Añadir un Autor?</h3>
+        <p>Usa el formulario especializado para autores/compositores.</p>
+        <a href="{% url 'content_hub:quick_add_author' %}" class="btn btn-outline-primary">
+            + Añadir Autor
+        </a>
+    </div>
+    <div class="col-md-6">
+        <h3>¿Añadir una Canción?</h3>
+        <p>Usa el formulario especializado para canciones con metadatos musicales.</p>
+        <a href="{% url 'content_hub:quick_add_song' %}" class="btn btn-outline-primary">
+            + Añadir Canción
+        </a>
+    </div>
+</div>
+{% endblock %}

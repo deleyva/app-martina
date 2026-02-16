@@ -1,0 +1,105 @@
+{% extends "content_hub/base.html" %}
+
+{% block title %}Editar: {{ item.title }} - Content Hub{% endblock %}
+
+{% block content_hub_content %}
+<h1>✏️ Editar Contenido</h1>
+<p class="text-muted">
+    Editando: <strong>{{ item.title }}</strong>
+    <span class="content-type-badge content-type-{{ item.content_type }}">
+        {{ item.get_content_type_display }}
+    </span>
+</p>
+
+<form method="post" enctype="multipart/form-data" class="mt-4">
+    {% csrf_token %}
+
+    <div class="mb-3">
+        <label for="id_title" class="form-label">Título *</label>
+        {{ form.title }}
+        {% if form.title.errors %}
+        <div class="text-danger">{{ form.title.errors }}</div>
+        {% endif %}
+    </div>
+
+    <div class="mb-3">
+        <label for="id_content_type" class="form-label">Tipo de Contenido</label>
+        {{ form.content_type }}
+        {% if form.content_type.errors %}
+        <div class="text-danger">{{ form.content_type.errors }}</div>
+        {% endif %}
+    </div>
+
+    <div class="mb-3">
+        <label for="id_url" class="form-label">URL</label>
+        {{ form.url }}
+        {% if form.url.errors %}
+        <div class="text-danger">{{ form.url.errors }}</div>
+        {% endif %}
+    </div>
+
+    <div class="mb-3">
+        <label for="id_file" class="form-label">Archivo</label>
+        {% if item.file %}
+        <div class="mb-2">
+            <small class="text-muted">Archivo actual: {{ item.file.name }}</small>
+            <a href="{{ item.file.url }}" target="_blank" class="btn btn-sm btn-outline-secondary">Ver</a>
+        </div>
+        {% endif %}
+        {{ form.file }}
+        {% if form.file.errors %}
+        <div class="text-danger">{{ form.file.errors }}</div>
+        {% endif %}
+    </div>
+
+    <div class="mb-3">
+        <label for="id_text_content" class="form-label">Texto/Notas</label>
+        {{ form.text_content }}
+        {% if form.text_content.errors %}
+        <div class="text-danger">{{ form.text_content.errors }}</div>
+        {% endif %}
+    </div>
+
+    <div class="mb-3">
+        <label for="id_metadata" class="form-label">Metadatos (JSON)</label>
+        {{ form.metadata }}
+        <small class="form-text text-muted">
+            Formato JSON. Ejemplo: {"key": "C", "tempo": 120}
+        </small>
+        {% if form.metadata.errors %}
+        <div class="text-danger">{{ form.metadata.errors }}</div>
+        {% endif %}
+    </div>
+
+    <div class="mb-3">
+        <label for="id_tags" class="form-label">Tags</label>
+        {{ form.tags }}
+        <small class="form-text text-muted">
+            Separados por comas: piano, jazz, ejercicio
+        </small>
+        {% if form.tags.errors %}
+        <div class="text-danger">{{ form.tags.errors }}</div>
+        {% endif %}
+    </div>
+
+    <div class="mb-3">
+        <label for="id_categories" class="form-label">Categorías</label>
+        {{ form.categories }}
+        {% if form.categories.errors %}
+        <div class="text-danger">{{ form.categories.errors }}</div>
+        {% endif %}
+    </div>
+
+    <div class="form-check mb-3">
+        {{ form.is_archived }}
+        <label class="form-check-label" for="id_is_archived">
+            Archivar (ocultar de vistas principales)
+        </label>
+    </div>
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+        <a href="{% url 'content_hub:detail' item.pk %}" class="btn btn-secondary">Cancelar</a>
+    </div>
+</form>
+{% endblock %}

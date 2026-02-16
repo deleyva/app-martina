@@ -1,0 +1,259 @@
+{% extends "content_hub/base.html" %}
+
+{% block title %}Grafo de Conocimiento - Content Hub{% endblock %}
+
+{% block extra_css %}
+<style>
+    #graph-container {
+        width: 100%;
+        height: 600px;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        background: #1a1a2e;
+    }
+
+    .graph-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.875rem;
+    }
+
+    .legend-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+    }
+
+    .legend-dot.song { background: #22c55e; }
+    .legend-dot.author { background: #8b5cf6; }
+    .legend-dot.pdf { background: #ef4444; }
+    .legend-dot.audio { background: #f59e0b; }
+    .legend-dot.embed { background: #06b6d4; }
+    .legend-dot.image { background: #ec4899; }
+    .legend-dot.video { background: #6366f1; }
+    .legend-dot.note { background: #64748b; }
+    .legend-dot.exercise { background: #14b8a6; }
+    .legend-dot.url { background: #3b82f6; }
+    .legend-dot.album { background: #d946ef; }
+
+    .graph-controls {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .node-tooltip {
+        position: absolute;
+        background: white;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        pointer-events: none;
+        z-index: 1000;
+        display: none;
+    }
+</style>
+{% endblock %}
+
+{% block content_hub_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>🔗 Grafo de Conocimiento</h1>
+    <a href="{% url 'content_hub:index' %}" class="btn btn-secondary">← Volver</a>
+</div>
+
+<div class="graph-legend">
+    <div class="legend-item"><span class="legend-dot song"></span> Canción</div>
+    <div class="legend-item"><span class="legend-dot author"></span> Autor</div>
+    <div class="legend-item"><span class="legend-dot pdf"></span> PDF</div>
+    <div class="legend-item"><span class="legend-dot audio"></span> Audio</div>
+    <div class="legend-item"><span class="legend-dot embed"></span> Embed</div>
+    <div class="legend-item"><span class="legend-dot image"></span> Imagen</div>
+    <div class="legend-item"><span class="legend-dot video"></span> Vídeo</div>
+    <div class="legend-item"><span class="legend-dot note"></span> Nota</div>
+</div>
+
+<div class="graph-controls">
+    <select id="filter-type" class="form-select" style="width: auto;">
+        <option value="">Todos los tipos</option>
+        <option value="song">Canciones</option>
+        <option value="author">Autores</option>
+        <option value="pdf">PDFs</option>
+        <option value="audio">Audio</option>
+        <option value="embed">Embeds</option>
+    </select>
+    <button id="btn-reset" class="btn btn-outline-secondary">Resetear vista</button>
+</div>
+
+<div id="graph-container"></div>
+<div class="node-tooltip" id="tooltip"></div>
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+    // Graph data from Django
+    const graphData = {{ graph_data|safe }};
+
+    // Color mapping
+    const colorMap = {
+        'song': '#22c55e',
+        'author': '#8b5cf6',
+        'pdf': '#ef4444',
+        'audio': '#f59e0b',
+        'embed': '#06b6d4',
+        'image': '#ec4899',
+        'video': '#6366f1',
+        'note': '#64748b',
+        'exercise': '#14b8a6',
+        'url': '#3b82f6',
+        'album': '#d946ef'
+    };
+
+    // Setup SVG
+    const container = document.getElementById('graph-container');
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+
+    const svg = d3.select('#graph-container')
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+    // Arrow marker for directed edges
+    svg.append('defs').append('marker')
+        .attr('id', 'arrowhead')
+        .attr('viewBox', '-0 -5 10 10')
+        .attr('refX', 20)
+        .attr('refY', 0)
+        .attr('orient', 'auto')
+        .attr('markerWidth', 6)
+        .attr('markerHeight', 6)
+        .append('path')
+        .attr('d', 'M 0,-5 L 10,0 L 0,5')
+        .attr('fill', '#999');
+
+    // Tooltip
+    const tooltip = d3.select('#tooltip');
+
+    // Create simulation
+    const simulation = d3.forceSimulation(graphData.nodes)
+        .force('link', d3.forceLink(graphData.links).id(d => d.id).distance(100))
+        .force('charge', d3.forceManyBody().strength(-300))
+        .force('center', d3.forceCenter(width / 2, height / 2))
+        .force('collision', d3.forceCollide().radius(30));
+
+    // Create links
+    const link = svg.append('g')
+        .attr('class', 'links')
+        .selectAll('line')
+        .data(graphData.links)
+        .enter().append('line')
+        .attr('stroke', '#999')
+        .attr('stroke-opacity', 0.6)
+        .attr('stroke-width', 1.5)
+        .attr('marker-end', 'url(#arrowhead)');
+
+    // Create nodes
+    const node = svg.append('g')
+        .attr('class', 'nodes')
+        .selectAll('circle')
+        .data(graphData.nodes)
+        .enter().append('circle')
+        .attr('r', d => d.type === 'author' ? 12 : 8)
+        .attr('fill', d => colorMap[d.type] || '#999')
+        .attr('stroke', '#fff')
+        .attr('stroke-width', 2)
+        .style('cursor', 'pointer')
+        .call(d3.drag()
+            .on('start', dragstarted)
+            .on('drag', dragged)
+            .on('end', dragended));
+
+    // Node labels
+    const labels = svg.append('g')
+        .attr('class', 'labels')
+        .selectAll('text')
+        .data(graphData.nodes)
+        .enter().append('text')
+        .text(d => d.title.length > 20 ? d.title.substring(0, 20) + '...' : d.title)
+        .attr('font-size', 10)
+        .attr('fill', '#fff')
+        .attr('dx', 15)
+        .attr('dy', 4);
+
+    // Tooltip events
+    node.on('mouseover', function(event, d) {
+        tooltip.style('display', 'block')
+            .html(`<strong>${d.title}</strong><br><small>${d.type}</small>`)
+            .style('left', (event.pageX + 10) + 'px')
+            .style('top', (event.pageY - 10) + 'px');
+    })
+    .on('mouseout', function() {
+        tooltip.style('display', 'none');
+    })
+    .on('click', function(event, d) {
+        window.location.href = d.url;
+    });
+
+    // Update positions on tick
+    simulation.on('tick', () => {
+        link
+            .attr('x1', d => d.source.x)
+            .attr('y1', d => d.source.y)
+            .attr('x2', d => d.target.x)
+            .attr('y2', d => d.target.y);
+
+        node
+            .attr('cx', d => d.x = Math.max(15, Math.min(width - 15, d.x)))
+            .attr('cy', d => d.y = Math.max(15, Math.min(height - 15, d.y)));
+
+        labels
+            .attr('x', d => d.x)
+            .attr('y', d => d.y);
+    });
+
+    // Drag functions
+    function dragstarted(event, d) {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        d.fx = d.x;
+        d.fy = d.y;
+    }
+
+    function dragged(event, d) {
+        d.fx = event.x;
+        d.fy = event.y;
+    }
+
+    function dragended(event, d) {
+        if (!event.active) simulation.alphaTarget(0);
+        d.fx = null;
+        d.fy = null;
+    }
+
+    // Filter by type
+    document.getElementById('filter-type').addEventListener('change', function() {
+        const filterType = this.value;
+        node.style('opacity', d => !filterType || d.type === filterType ? 1 : 0.2);
+        labels.style('opacity', d => !filterType || d.type === filterType ? 1 : 0.2);
+        link.style('opacity', l => {
+            if (!filterType) return 0.6;
+            return (l.source.type === filterType || l.target.type === filterType) ? 0.6 : 0.1;
+        });
+    });
+
+    // Reset view
+    document.getElementById('btn-reset').addEventListener('click', function() {
+        document.getElementById('filter-type').value = '';
+        node.style('opacity', 1);
+        labels.style('opacity', 1);
+        link.style('opacity', 0.6);
+        simulation.alpha(1).restart();
+    });
+</script>
+{% endblock %}

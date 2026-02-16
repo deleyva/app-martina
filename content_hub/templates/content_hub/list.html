@@ -1,0 +1,129 @@
+{% extends "content_hub/base.html" %}
+
+{% block title %}Contenido - Content Hub{% endblock %}
+
+{% block content_hub_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>📚 Todo el Contenido</h1>
+    <a href="{% url 'content_hub:quick_add' %}" class="btn btn-primary">+ Añadir</a>
+</div>
+
+<form method="get" class="mb-4">
+    <div class="row g-2">
+        <div class="col-md-4">
+            <input type="text" name="q" class="form-control"
+                   placeholder="Buscar..." value="{{ request.GET.q }}">
+        </div>
+        <div class="col-md-3">
+            <select name="content_type" class="form-select">
+                <option value="">Todos los tipos</option>
+                {% for value, label in content_types %}
+                <option value="{{ value }}" {% if request.GET.content_type == value %}selected{% endif %}>
+                    {{ label }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <input type="text" name="tags" class="form-control"
+                   placeholder="Tags (coma sep.)" value="{{ request.GET.tags }}">
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-outline-primary w-100">Filtrar</button>
+        </div>
+    </div>
+</form>
+
+{% if items %}
+<div class="table-responsive">
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>Tipo</th>
+                <th>Título</th>
+                <th>Tags</th>
+                <th>Actualizado</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td>
+                    <span class="content-type-badge content-type-{{ item.content_type }}">
+                        {{ item.get_content_type_display }}
+                    </span>
+                </td>
+                <td>
+                    <a href="{% url 'content_hub:detail' item.pk %}">
+                        <strong>{{ item.title }}</strong>
+                    </a>
+                </td>
+                <td>
+                    <div class="tag-list">
+                        {% for tag in item.tags.all|slice:":3" %}
+                        <span class="tag">{{ tag.name }}</span>
+                        {% endfor %}
+                        {% if item.tags.count > 3 %}
+                        <span class="tag">+{{ item.tags.count|add:"-3" }}</span>
+                        {% endif %}
+                    </div>
+                </td>
+                <td>
+                    <small class="text-muted">{{ item.updated_at|timesince }} ago</small>
+                </td>
+                <td>
+                    <a href="{% url 'content_hub:edit' item.pk %}" class="btn btn-sm btn-outline-secondary">
+                        ✏️
+                    </a>
+                    <a href="{% url 'content_hub:delete' item.pk %}" class="btn btn-sm btn-outline-danger">
+                        🗑️
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if is_paginated %}
+<nav aria-label="Paginación">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                Anterior
+            </a>
+        </li>
+        {% endif %}
+
+        <li class="page-item disabled">
+            <span class="page-link">
+                Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+            </span>
+        </li>
+
+        {% if page_obj.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                Siguiente
+            </a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+{% else %}
+<div class="text-center py-5">
+    <h3>No se encontró contenido</h3>
+    <p class="text-muted">
+        {% if request.GET.q or request.GET.content_type or request.GET.tags %}
+        Prueba con otros filtros o <a href="{% url 'content_hub:list' %}">ver todo</a>.
+        {% else %}
+        ¡Empieza <a href="{% url 'content_hub:quick_add' %}">añadiendo contenido</a>!
+        {% endif %}
+    </p>
+</div>
+{% endif %}
+{% endblock %}

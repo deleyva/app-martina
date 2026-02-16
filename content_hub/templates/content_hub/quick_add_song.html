@@ -1,0 +1,72 @@
+{% extends "content_hub/base.html" %}
+
+{% block title %}Añadir Canción - Content Hub{% endblock %}
+
+{% block content_hub_content %}
+<h1>🎵 Añadir Canción</h1>
+
+<form method="post" class="mt-4">
+    {% csrf_token %}
+
+    <div class="mb-3">
+        <label for="id_title" class="form-label">Título de la Canción *</label>
+        {{ form.title }}
+        {% if form.title.errors %}
+        <div class="text-danger">{{ form.title.errors }}</div>
+        {% endif %}
+    </div>
+
+    <div class="mb-3">
+        <label for="id_author" class="form-label">Autor/Compositor</label>
+        {{ form.author }}
+        <small class="form-text text-muted">
+            Selecciona un autor existente. Se creará un enlace "Creado por".
+        </small>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4 mb-3">
+            <label for="id_key" class="form-label">Tonalidad</label>
+            {{ form.key }}
+            <small class="form-text text-muted">Ej: C, Am, F#m</small>
+        </div>
+        <div class="col-md-4 mb-3">
+            <label for="id_tempo" class="form-label">Tempo (BPM)</label>
+            {{ form.tempo }}
+        </div>
+        <div class="col-md-4 mb-3">
+            <label for="id_time_signature" class="form-label">Compás</label>
+            {{ form.time_signature }}
+            <small class="form-text text-muted">Ej: 4/4, 3/4, 6/8</small>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <label for="id_difficulty" class="form-label">Dificultad (1-5)</label>
+        {{ form.difficulty }}
+    </div>
+
+    <div class="mb-3">
+        <label for="id_url" class="form-label">URL (YouTube, Spotify, etc.)</label>
+        {{ form.url }}
+    </div>
+
+    <div class="mb-3">
+        <label for="id_text_content" class="form-label">Notas / Letra</label>
+        {{ form.text_content }}
+    </div>
+
+    <div class="mb-3">
+        <label for="id_tags" class="form-label">Tags</label>
+        {{ form.tags }}
+        <small class="form-text text-muted">
+            Separados por comas: jazz, ballad, piano
+        </small>
+    </div>
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Guardar Canción</button>
+        <a href="{% url 'content_hub:index' %}" class="btn btn-secondary">Cancelar</a>
+    </div>
+</form>
+{% endblock %}

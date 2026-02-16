@@ -1,0 +1,230 @@
+{% extends "content_hub/base.html" %}
+
+{% block title %}{{ item.title }} - Content Hub{% endblock %}
+
+{% block content_hub_content %}
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+        <span class="content-type-badge content-type-{{ item.content_type }}">
+            {{ item.get_content_type_display }}
+        </span>
+        <h1 class="mt-2">{{ item.title }}</h1>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'content_hub:edit' item.pk %}" class="btn btn-outline-primary">✏️ Editar</a>
+        <a href="{% url 'content_hub:delete' item.pk %}" class="btn btn-outline-danger">🗑️ Eliminar</a>
+    </div>
+</div>
+
+{% if item.tags.all %}
+<div class="tag-list mb-4">
+    {% for tag in item.tags.all %}
+    <span class="tag">{{ tag.name }}</span>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="row">
+    <div class="col-md-8">
+        {# Main Content #}
+        {% if item.url %}
+        <div class="card mb-3">
+            <div class="card-header">🔗 URL</div>
+            <div class="card-body">
+                <a href="{{ item.url }}" target="_blank" rel="noopener">{{ item.url }}</a>
+
+                {# Embed preview for supported URLs #}
+                {% if item.content_type == 'embed' %}
+                <div class="mt-3 embed-preview">
+                    {% if 'youtube.com' in item.url or 'youtu.be' in item.url %}
+                    <div class="ratio ratio-16x9">
+                        <iframe src="https://www.youtube.com/embed/{{ item.url|cut:'https://www.youtube.com/watch?v='|cut:'https://youtu.be/' }}"
+                                allowfullscreen></iframe>
+                    </div>
+                    {% elif 'spotify.com' in item.url %}
+                    <iframe src="https://open.spotify.com/embed/{{ item.url|cut:'https://open.spotify.com/' }}"
+                            width="100%" height="152" frameborder="0"
+                            allow="encrypted-media"></iframe>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if item.file %}
+        <div class="card mb-3">
+            <div class="card-header">📎 Archivo</div>
+            <div class="card-body">
+                {% if item.content_type == 'pdf' %}
+                <embed src="{{ item.file.url }}" type="application/pdf" width="100%" height="600px">
+                {% elif item.content_type == 'audio' %}
+                <audio controls class="w-100">
+                    <source src="{{ item.file.url }}">
+                    Tu navegador no soporta audio.
+                </audio>
+                {% elif item.content_type == 'image' %}
+                <img src="{{ item.file.url }}" class="img-fluid" alt="{{ item.title }}">
+                {% elif item.content_type == 'video' %}
+                <video controls class="w-100">
+                    <source src="{{ item.file.url }}">
+                    Tu navegador no soporta video.
+                </video>
+                {% else %}
+                <a href="{{ item.file.url }}" class="btn btn-primary" download>
+                    ⬇️ Descargar {{ item.file.name }}
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if item.text_content %}
+        <div class="card mb-3">
+            <div class="card-header">📝 Contenido</div>
+            <div class="card-body">
+                <div class="text-content">{{ item.text_content|linebreaks }}</div>
+            </div>
+        </div>
+        {% endif %}
+
+        {# Metadata display for specific types #}
+        {% if item.metadata %}
+        <div class="card mb-3">
+            <div class="card-header">📋 Metadatos</div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    {% if item.content_type == 'song' %}
+                        {% if item.metadata.key %}
+                        <dt class="col-sm-4">Tonalidad</dt>
+                        <dd class="col-sm-8">{{ item.metadata.key }}</dd>
+                        {% endif %}
+                        {% if item.metadata.tempo %}
+                        <dt class="col-sm-4">Tempo</dt>
+                        <dd class="col-sm-8">{{ item.metadata.tempo }} BPM</dd>
+                        {% endif %}
+                        {% if item.metadata.time_signature %}
+                        <dt class="col-sm-4">Compás</dt>
+                        <dd class="col-sm-8">{{ item.metadata.time_signature }}</dd>
+                        {% endif %}
+                        {% if item.metadata.difficulty %}
+                        <dt class="col-sm-4">Dificultad</dt>
+                        <dd class="col-sm-8">{{ item.metadata.difficulty }}/5</dd>
+                        {% endif %}
+                    {% elif item.content_type == 'author' %}
+                        {% if item.metadata.birth_year %}
+                        <dt class="col-sm-4">Nacimiento</dt>
+                        <dd class="col-sm-8">{{ item.metadata.birth_year }}</dd>
+                        {% endif %}
+                        {% if item.metadata.death_year %}
+                        <dt class="col-sm-4">Fallecimiento</dt>
+                        <dd class="col-sm-8">{{ item.metadata.death_year }}</dd>
+                        {% endif %}
+                        {% if item.metadata.nationality %}
+                        <dt class="col-sm-4">Nacionalidad</dt>
+                        <dd class="col-sm-8">{{ item.metadata.nationality }}</dd>
+                        {% endif %}
+                    {% else %}
+                        {% for key, value in item.metadata.items %}
+                        <dt class="col-sm-4">{{ key }}</dt>
+                        <dd class="col-sm-8">{{ value }}</dd>
+                        {% endfor %}
+                    {% endif %}
+                </dl>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="col-md-4">
+        {# Categories #}
+        {% if item.categories.all %}
+        <div class="card mb-3">
+            <div class="card-header">📁 Categorías</div>
+            <ul class="list-group list-group-flush">
+                {% for category in item.categories.all %}
+                <li class="list-group-item">
+                    <a href="{% url 'content_hub:category_detail' category.pk %}">
+                        {% if category.icon %}{{ category.icon }}{% endif %}
+                        {{ category.name }}
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        {# Outgoing Links (this item → others) #}
+        {% if outgoing_links %}
+        <div class="card mb-3">
+            <div class="card-header">↗️ Enlaces Salientes</div>
+            <ul class="list-group list-group-flush">
+                {% for link in outgoing_links %}
+                <li class="list-group-item">
+                    <small class="text-muted">{{ link.get_link_type_display }}</small><br>
+                    <a href="{% url 'content_hub:detail' link.target.pk %}">
+                        <span class="content-type-badge content-type-{{ link.target.content_type }}">
+                            {{ link.target.get_content_type_display }}
+                        </span>
+                        {{ link.target.title }}
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        {# Backlinks (others → this item) #}
+        {% if backlinks %}
+        <div class="card mb-3">
+            <div class="card-header">↙️ Backlinks</div>
+            <ul class="list-group list-group-flush">
+                {% for link in backlinks %}
+                <li class="list-group-item">
+                    <small class="text-muted">{{ link.get_link_type_display }}</small><br>
+                    <a href="{% url 'content_hub:detail' link.source.pk %}">
+                        <span class="content-type-badge content-type-{{ link.source.content_type }}">
+                            {{ link.source.get_content_type_display }}
+                        </span>
+                        {{ link.source.title }}
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        {# If author, show their songs #}
+        {% if item.content_type == 'author' and songs_by_author %}
+        <div class="card mb-3">
+            <div class="card-header">🎵 Canciones</div>
+            <ul class="list-group list-group-flush">
+                {% for song in songs_by_author %}
+                <li class="list-group-item">
+                    <a href="{% url 'content_hub:detail' song.pk %}">{{ song.title }}</a>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        {# Audit Info #}
+        <div class="card">
+            <div class="card-header">ℹ️ Información</div>
+            <div class="card-body">
+                <small class="text-muted">
+                    Creado: {{ item.created_at|date:"d/m/Y H:i" }}<br>
+                    Actualizado: {{ item.updated_at|date:"d/m/Y H:i" }}
+                    {% if item.created_by %}
+                    <br>Por: {{ item.created_by.username }}
+                    {% endif %}
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mt-4">
+    <a href="{% url 'content_hub:list' %}" class="btn btn-secondary">← Volver a la lista</a>
+</div>
+{% endblock %}

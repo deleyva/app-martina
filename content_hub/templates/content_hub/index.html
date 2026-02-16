@@ -1,0 +1,111 @@
+{% extends "content_hub/base.html" %}
+
+{% block title %}Content Hub - Dashboard{% endblock %}
+
+{% block content_hub_content %}
+<h1>📚 Content Hub</h1>
+
+<div class="quick-add-buttons">
+    <a href="{% url 'content_hub:quick_add' %}" class="quick-add-btn btn-primary">+ Añadir Contenido</a>
+    <a href="{% url 'content_hub:quick_add_author' %}" class="quick-add-btn btn-secondary">+ Añadir Autor</a>
+    <a href="{% url 'content_hub:quick_add_song' %}" class="quick-add-btn btn-secondary">+ Añadir Canción</a>
+    <a href="{% url 'content_hub:list' %}" class="quick-add-btn btn-secondary">Ver Todo</a>
+    <a href="{% url 'content_hub:graph' %}" class="quick-add-btn btn-secondary">🔗 Grafo</a>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value">{{ stats.total_items }}</div>
+        <div class="stat-label">Total Items</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ stats.total_songs }}</div>
+        <div class="stat-label">Canciones</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ stats.total_authors }}</div>
+        <div class="stat-label">Autores</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ stats.total_links }}</div>
+        <div class="stat-label">Enlaces</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ stats.total_categories }}</div>
+        <div class="stat-label">Categorías</div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <h2>📝 Contenido Reciente</h2>
+        {% if recent_items %}
+        <ul class="list-group">
+            {% for item in recent_items %}
+            <li class="list-group-item d-flex justify-content-between align-items-start">
+                <div>
+                    <span class="content-type-badge content-type-{{ item.content_type }}">
+                        {{ item.get_content_type_display }}
+                    </span>
+                    <a href="{% url 'content_hub:detail' item.pk %}">
+                        <strong>{{ item.title }}</strong>
+                    </a>
+                    {% if item.tags.all %}
+                    <div class="tag-list mt-1">
+                        {% for tag in item.tags.all|slice:":5" %}
+                        <span class="tag">{{ tag.name }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                <small class="text-muted">{{ item.updated_at|timesince }} ago</small>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-muted">No hay contenido todavía. ¡Empieza añadiendo algo!</p>
+        {% endif %}
+    </div>
+
+    <div class="col-md-4">
+        <h2>📁 Por Tipo</h2>
+        {% if content_by_type %}
+        <ul class="list-group">
+            {% for item in content_by_type %}
+            <li class="list-group-item d-flex justify-content-between">
+                <span class="content-type-badge content-type-{{ item.content_type }}">
+                    {{ item.content_type }}
+                </span>
+                <span class="badge bg-secondary">{{ item.count }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+
+        <h2 class="mt-4">📂 Categorías</h2>
+        {% if categories %}
+        <ul class="list-group">
+            {% for category in categories %}
+            <li class="list-group-item">
+                <a href="{% url 'content_hub:category_detail' category.pk %}">
+                    {% if category.icon %}{{ category.icon }}{% endif %}
+                    {{ category.name }}
+                </a>
+                {% if category.children.all %}
+                <ul class="mt-1">
+                    {% for child in category.children.all|slice:":3" %}
+                    <li>
+                        <a href="{% url 'content_hub:category_detail' child.pk %}">{{ child.name }}</a>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-muted">No hay categorías definidas.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
