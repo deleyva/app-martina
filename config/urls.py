@@ -19,11 +19,13 @@ api = NinjaAPI(title="Martina Bescós App API", version="1.0.0")
 from evaluations.api import router as evaluations_router
 from api_keys.api import router as api_keys_router
 from cms.api import router as cms_router
+from content_hub.api import router as content_hub_router
 
 # Registrar los routers en la API principal
 api.add_router("/evaluations/", evaluations_router)
 api.add_router("/keys/", api_keys_router)
 api.add_router("/cms/", cms_router)
+api.add_router("/content/", content_hub_router)
 
 
 @api.get("/add")

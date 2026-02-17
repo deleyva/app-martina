@@ -14,6 +14,7 @@ urlpatterns = [
 
     # Quick Add
     path("add/", views.QuickAddView.as_view(), name="quick_add"),
+    path("quick-add/", views.QuickAddView.as_view(), name="quick_add_alias"),  # Alias
     path("add/author/", views.QuickAddAuthorView.as_view(), name="quick_add_author"),
     path("add/song/", views.QuickAddSongView.as_view(), name="quick_add_song"),
 

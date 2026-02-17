@@ -31,6 +31,10 @@ def get_meilisearch_client():
         meilisearch_url = getattr(settings, "MEILISEARCH_URL", "http://localhost:7700")
         meilisearch_key = getattr(settings, "MEILISEARCH_API_KEY", None)
 
+        # Empty string means no API key (development mode)
+        if meilisearch_key == "":
+            meilisearch_key = None
+
         _client = meilisearch.Client(meilisearch_url, meilisearch_key)
         logger.info(f"Connected to Meilisearch at {meilisearch_url}")
         return _client
