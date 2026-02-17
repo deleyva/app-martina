@@ -4,9 +4,9 @@
   <head>
     <meta charset="utf-8" />
     <meta http-equiv="x-ua-compatible" content="ie=edge" />
-    <title>{% block title %}Incidencias Tecnológicas IES Martina Bescós{% endblock title %}</title>
+    <title>{% block title %}Incidencias IES Martina Bescós{% endblock title %}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Sistema de gestión de incidencias tecnológicas — IES Martina Bescós" />
+    <meta name="description" content="Sistema de gestión de incidencias — IES Martina Bescós" />
     <meta name="referrer" content="origin" />
     <meta name="csrf-token" content="{{ csrf_token }}">
     <link rel="icon" href="{% static 'images/favicons/favicon.ico' %}" sizes="32x32" />
@@ -45,9 +45,7 @@
         background: oklch(var(--b2));
       }
 
-      .search-hero {
-        background: linear-gradient(135deg, oklch(var(--p)) 0%, oklch(var(--s)) 100%);
-      }
+
 
       .tag-chip {
         display: inline-flex;
@@ -89,11 +87,12 @@
           });
 
           // Theme persistence
-          const savedTheme = localStorage.getItem('incidencias-theme');
-          if (savedTheme) {
-            document.documentElement.setAttribute('data-theme', savedTheme);
-            const checkbox = document.querySelector('#incidencias-theme-toggle input[type="checkbox"]');
-            if (checkbox) checkbox.checked = (savedTheme === 'dark');
+          const savedTheme = localStorage.getItem('incidencias-theme') || 'light';
+          document.documentElement.setAttribute('data-theme', savedTheme);
+          
+          const checkbox = document.getElementById('theme-toggle-checkbox');
+          if (checkbox) {
+              checkbox.checked = (savedTheme === 'dark');
           }
         });
       </script>
@@ -110,7 +109,7 @@
       </div>
       <div class="flex-1">
         <a class="btn btn-ghost text-lg lg:text-xl font-bold gap-2" href="{% url 'incidencias:landing' %}">
-          🛠️ <span class="hidden sm:inline">Incidencias Tecnológicas</span><span class="sm:hidden">Incidencias</span> <span class="text-primary">IES Martina Bescós</span>
+          🛠️ <span class="hidden sm:inline">Incidencias</span><span class="sm:hidden">Incidencias</span> <span class="text-primary">IES Martina Bescós</span>
         </a>
       </div>
       <div class="flex-none hidden lg:flex items-center">
@@ -135,17 +134,20 @@
           {% endif %}
         </ul>
         <!-- Theme toggle -->
-        <button id="incidencias-theme-toggle" class="btn btn-ghost btn-circle ml-1" onclick="toggleIncidenciasTheme()">
-          <label class="swap swap-rotate">
-            <input type="checkbox" />
-            <svg class="swap-on h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-            </svg>
-            <svg class="swap-off h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-            </svg>
-          </label>
-        </button>
+        <!-- Theme toggle -->
+        <label class="swap swap-rotate btn btn-ghost btn-circle ml-1">
+          <input type="checkbox" id="theme-toggle-checkbox" onchange="toggleIncidenciasTheme(this)" />
+          
+          <!-- sun icon -->
+          <svg class="swap-on h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+          </svg>
+          
+          <!-- moon icon -->
+          <svg class="swap-off h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+          </svg>
+        </label>
       </div>
     </div>
 
@@ -204,14 +206,17 @@
 
     <script>
       // Theme toggle
-      function toggleIncidenciasTheme() {
-        const html = document.documentElement;
-        const current = html.getAttribute('data-theme');
-        const next = current === 'dark' ? 'light' : 'dark';
-        html.setAttribute('data-theme', next);
+      // Theme toggle
+      function toggleIncidenciasTheme(checkbox) {
+        // If called without element (from mobile button), toggle manually
+        if (!checkbox) {
+            checkbox = document.getElementById('theme-toggle-checkbox');
+            checkbox.checked = !checkbox.checked;
+        }
+        
+        const next = checkbox.checked ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', next);
         localStorage.setItem('incidencias-theme', next);
-        const checkbox = document.querySelector('#incidencias-theme-toggle input[type="checkbox"]');
-        if (checkbox) checkbox.checked = (next === 'dark');
       }
 
       // Toast notifications
