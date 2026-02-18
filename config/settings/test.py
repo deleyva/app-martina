@@ -37,6 +37,3 @@ MEDIA_URL = "http://media.testserver"
 # Your stuff...
 # ------------------------------------------------------------------------------
 
-MIGRATION_MODULES = {
-    "evaluations": None,
-}

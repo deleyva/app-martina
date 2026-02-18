@@ -109,7 +109,7 @@ class TestProcessSingleEmail:
     """Test the _process_single_email function."""
 
     @patch("incidencias.services.email_parser.genai")
-    def test_creates_incidencia_with_etiquetas(self):
+    def test_creates_incidencia_with_etiquetas(self, mock_genai):
         """Processing should create an Incidencia and assign existing etiquetas."""
         from incidencias.tasks import _process_single_email
 
@@ -157,7 +157,7 @@ class TestProcessSingleEmail:
         ).exists()
 
     @patch("incidencias.services.email_parser.genai")
-    def test_creates_new_etiquetas_if_suggested(self):
+    def test_creates_new_etiquetas_if_suggested(self, mock_genai):
         """Processing should create new etiquetas when Gemini suggests them."""
         from incidencias.tasks import _process_single_email
 
@@ -190,7 +190,7 @@ class TestProcessSingleEmail:
         assert inc.etiquetas.filter(nombre="impresora-3d").exists()
 
     @patch("incidencias.services.email_parser.genai")
-    def test_skips_duplicate_message(self):
+    def test_skips_duplicate_message(self, mock_genai):
         """Should skip an email if its message_id is already processed."""
         from incidencias.tasks import _process_single_email
 
