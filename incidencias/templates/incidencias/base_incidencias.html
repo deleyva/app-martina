@@ -117,7 +117,7 @@
           <li><a href="{% url 'incidencias:landing' %}">📋 Vista pública</a></li>
           <li><a href="{% url 'incidencias:crear' %}">➕ Nueva incidencia</a></li>
           {% if request.user.is_authenticated %}
-            {% if request.user.is_staff or request.user.tecnico_set.exists %}
+            {% if request.user.is_staff or request.user.es_tecnico %}
               <li><a href="{% url 'incidencias:panel' %}">🖥️ Panel</a></li>
             {% endif %}
             <li>
@@ -190,7 +190,9 @@
           </div>
         {% endfor %}
       {% endif %}
-      {% block incidencias_content %}{% endblock incidencias_content %}
+      {% block incidencias_content %}
+        {% block content %}{% endblock content %}
+      {% endblock incidencias_content %}
     </div>
 
     <footer class="mt-8 border-t border-base-300">

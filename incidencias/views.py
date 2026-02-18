@@ -247,21 +247,28 @@ class PanelDashboardView(TecnicoRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
 
         # Filtros
-        planta = self.request.GET.get("planta", "")
+        ubicacion = self.request.GET.get("ubicacion", "").strip()
         urgencia = self.request.GET.get("urgencia", "")
-        etiqueta = self.request.GET.get("etiqueta", "")
+        etiqueta = self.request.GET.get("etiqueta", "").strip()
         tecnico_id = self.request.GET.get("tecnico", "")
 
         qs = Incidencia.objects.select_related("ubicacion", "asignado_a").prefetch_related("etiquetas")
 
-        if planta:
-            qs = qs.filter(ubicacion__planta=planta)
+        if ubicacion:
+            qs = qs.filter(
+                Q(ubicacion__nombre__icontains=ubicacion)
+                | Q(ubicacion__grupo__icontains=ubicacion)
+                | Q(ubicacion__planta__icontains=ubicacion)
+            )
         if urgencia:
             qs = qs.filter(urgencia=urgencia)
         if etiqueta:
-            qs = qs.filter(etiquetas__slug=etiqueta)
+            qs = qs.filter(etiquetas__nombre__icontains=etiqueta)
         if tecnico_id:
-            qs = qs.filter(asignado_a_id=tecnico_id)
+            if tecnico_id == "sin_asignar":
+                qs = qs.filter(asignado_a__isnull=True)
+            else:
+                qs = qs.filter(asignado_a_id=tecnico_id)
 
         context["pendientes"] = qs.filter(estado=Incidencia.Estado.PENDIENTE).order_by("-created_at")
         context["en_progreso"] = qs.filter(estado=Incidencia.Estado.EN_PROGRESO).order_by("-created_at")
@@ -277,14 +284,15 @@ class PanelDashboardView(TecnicoRequiredMixin, TemplateView):
             context["mis_incidencias"] = Incidencia.objects.none()
 
         context["tecnicos"] = Tecnico.objects.filter(activo=True)
-        context["etiquetas"] = Etiqueta.objects.all()
-        context["plantas"] = Ubicacion.Planta.choices
+        # context["etiquetas"] = Etiqueta.objects.all() # No longer needed for dropdown
+        # context["plantas"] = Ubicacion.Planta.choices # No longer needed for dropdown
         context["urgencias"] = Incidencia.Urgencia.choices
 
         # Active filters for template
-        context["filtro_planta"] = planta
+        context["filtro_ubicacion"] = ubicacion
         context["filtro_urgencia"] = urgencia
         context["filtro_etiqueta"] = etiqueta
+        context["filtro_tecnico"] = tecnico_id
         context["filtro_tecnico"] = tecnico_id
 
         return context

@@ -99,13 +99,22 @@ class AccountAdapter(DefaultAccountAdapter):
             "Por favor, usa tu cuenta de Google para iniciar sesión."
         )
         
-    # Desactivar completamente el formulario de registro manual
     def get_signup_form_class(self, request=None):
         if request and request.session.get('sociallogin_provider'):
             # Si es un registro social, permitir el formulario normal
             return super().get_signup_form_class(request)
         # En caso contrario, retornar None para deshabilitar el registro manual
         return None
+
+    def get_logout_redirect_url(self, request):
+        """
+        Retorna la URL de redirección después del logout.
+        Si el usuario está en el modo 'incidencias', redirige a la landing de incidencias.
+        """
+        if request.session.get('app_mode') == 'incidencias':
+            from django.urls import reverse
+            return reverse('incidencias:landing')
+        return super().get_logout_redirect_url(request)
 
 
 class SocialAccountAdapter(DefaultSocialAccountAdapter):

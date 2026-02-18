@@ -36,3 +36,8 @@ class User(AbstractUser):
 
         """
         return reverse("users:detail", kwargs={"pk": self.id})
+
+    @property
+    def es_tecnico(self) -> bool:
+        """Check if user has an active technician profile."""
+        return hasattr(self, "perfil_tecnico") and self.perfil_tecnico.activo

@@ -21,15 +21,19 @@
 
   <!-- Filters -->
   <div class="bg-base-200 rounded-xl p-4 mb-6">
-    <form method="get" class="flex flex-wrap gap-3 items-end">
+    <form method="get" class="flex flex-wrap gap-3 items-end"
+          hx-get="." 
+          hx-trigger="input delay:500ms, change, submit" 
+          hx-target="#dashboard-container" 
+          hx-select="#dashboard-container" 
+          hx-swap="outerHTML"
+          hx-push-url="true">
       <div class="form-control">
-        <label class="label label-text text-xs">Planta</label>
-        <select name="planta" class="select select-bordered select-sm">
-          <option value="">Todas</option>
-          {% for value, label in plantas %}
-            <option value="{{ value }}" {% if filtro_planta == value %}selected{% endif %}>{{ label }}</option>
-          {% endfor %}
-        </select>
+        <label class="label label-text text-xs">Ubicación</label>
+        <input type="text" name="ubicacion" 
+               class="input input-bordered input-sm w-40" 
+               placeholder="Aula, grupo, PB (planta baja), P1 o P2..." 
+               value="{{ filtro_ubicacion }}">
       </div>
       <div class="form-control">
         <label class="label label-text text-xs">Urgencia</label>
@@ -42,86 +46,86 @@
       </div>
       <div class="form-control">
         <label class="label label-text text-xs">Etiqueta</label>
-        <select name="etiqueta" class="select select-bordered select-sm">
-          <option value="">Todas</option>
-          {% for et in etiquetas %}
-            <option value="{{ et.slug }}" {% if filtro_etiqueta == et.slug %}selected{% endif %}>{{ et.nombre }}</option>
-          {% endfor %}
-        </select>
+        <input type="text" name="etiqueta" 
+               class="input input-bordered input-sm w-32" 
+               placeholder="Etiqueta..." 
+               value="{{ filtro_etiqueta }}">
       </div>
       <div class="form-control">
         <label class="label label-text text-xs">Técnico</label>
         <select name="tecnico" class="select select-bordered select-sm">
           <option value="">Todos</option>
+          <option value="sin_asignar" {% if filtro_tecnico == "sin_asignar" %}selected{% endif %}>Sin asignar</option>
           {% for t in tecnicos %}
             <option value="{{ t.id }}" {% if filtro_tecnico == t.id|stringformat:"d" %}selected{% endif %}>{{ t }}</option>
           {% endfor %}
         </select>
       </div>
-      <button type="submit" class="btn btn-primary btn-sm">Filtrar</button>
       <a href="{% url 'incidencias:panel' %}" class="btn btn-ghost btn-sm">Limpiar</a>
     </form>
   </div>
 
-  <!-- Mis incidencias -->
-  {% if mis_incidencias %}
-  <div class="bg-primary/10 border border-primary/30 rounded-xl p-4 mb-6">
-    <div class="flex items-center gap-2 mb-3">
-      <h2 class="text-lg font-bold">🙋 Mis incidencias asignadas</h2>
-      <span class="badge badge-primary">{{ mis_incidencias|length }}</span>
-    </div>
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-      {% for inc in mis_incidencias %}
-        {% include "incidencias/partials/panel_card.html" with incidencia=inc %}
-      {% endfor %}
-    </div>
-  </div>
-  {% endif %}
-
-  <!-- Kanban Board -->
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <!-- Pendientes -->
-    <div>
+  <div id="dashboard-container">
+    <!-- Mis incidencias -->
+    {% if mis_incidencias %}
+    <div class="bg-primary/10 border border-primary/30 rounded-xl p-4 mb-6">
       <div class="flex items-center gap-2 mb-3">
-        <h2 class="text-lg font-bold">⏳ Pendientes</h2>
-        <span class="badge badge-warning" id="badge-pendiente">{{ pendientes|length }}</span>
+        <h2 class="text-lg font-bold">🙋 Mis incidencias asignadas</h2>
+        <span class="badge badge-primary">{{ mis_incidencias|length }}</span>
       </div>
-      <div class="space-y-3 kanban-column min-h-[100px] rounded-xl p-2 transition-colors duration-200" data-status="pendiente">
-        {% for inc in pendientes %}
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        {% for inc in mis_incidencias %}
           {% include "incidencias/partials/panel_card.html" with incidencia=inc %}
-        {% empty %}
-          <div class="text-center py-8 opacity-40 text-sm kanban-empty">Sin incidencias pendientes</div>
         {% endfor %}
       </div>
     </div>
+    {% endif %}
 
-    <!-- En Progreso -->
-    <div>
-      <div class="flex items-center gap-2 mb-3">
-        <h2 class="text-lg font-bold">⚡ En Progreso</h2>
-        <span class="badge badge-info" id="badge-en_progreso">{{ en_progreso|length }}</span>
+    <!-- Kanban Board -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Pendientes -->
+      <div>
+        <div class="flex items-center gap-2 mb-3">
+          <h2 class="text-lg font-bold">⏳ Pendientes</h2>
+          <span class="badge badge-warning" id="badge-pendiente">{{ pendientes|length }}</span>
+        </div>
+        <div class="space-y-3 kanban-column min-h-[100px] rounded-xl p-2 transition-colors duration-200" data-status="pendiente">
+          {% for inc in pendientes %}
+            {% include "incidencias/partials/panel_card.html" with incidencia=inc %}
+          {% empty %}
+            <div class="text-center py-8 opacity-40 text-sm kanban-empty">Sin incidencias pendientes</div>
+          {% endfor %}
+        </div>
       </div>
-      <div class="space-y-3 kanban-column min-h-[100px] rounded-xl p-2 transition-colors duration-200" data-status="en_progreso">
-        {% for inc in en_progreso %}
-          {% include "incidencias/partials/panel_card.html" with incidencia=inc %}
-        {% empty %}
-          <div class="text-center py-8 opacity-40 text-sm kanban-empty">Sin incidencias en progreso</div>
-        {% endfor %}
-      </div>
-    </div>
 
-    <!-- Resueltas -->
-    <div>
-      <div class="flex items-center gap-2 mb-3">
-        <h2 class="text-lg font-bold">✅ Resueltas</h2>
-        <span class="badge badge-success" id="badge-resuelta">{{ resueltas|length }}</span>
+      <!-- En Progreso -->
+      <div>
+        <div class="flex items-center gap-2 mb-3">
+          <h2 class="text-lg font-bold">⚡ En Progreso</h2>
+          <span class="badge badge-info" id="badge-en_progreso">{{ en_progreso|length }}</span>
+        </div>
+        <div class="space-y-3 kanban-column min-h-[100px] rounded-xl p-2 transition-colors duration-200" data-status="en_progreso">
+          {% for inc in en_progreso %}
+            {% include "incidencias/partials/panel_card.html" with incidencia=inc %}
+          {% empty %}
+            <div class="text-center py-8 opacity-40 text-sm kanban-empty">Sin incidencias en progreso</div>
+          {% endfor %}
+        </div>
       </div>
-      <div class="space-y-3 kanban-column min-h-[100px] rounded-xl p-2 transition-colors duration-200" data-status="resuelta">
-        {% for inc in resueltas %}
-          {% include "incidencias/partials/panel_card.html" with incidencia=inc %}
-        {% empty %}
-          <div class="text-center py-8 opacity-40 text-sm kanban-empty">Sin incidencias resueltas</div>
-        {% endfor %}
+
+      <!-- Resueltas -->
+      <div>
+        <div class="flex items-center gap-2 mb-3">
+          <h2 class="text-lg font-bold">✅ Resueltas</h2>
+          <span class="badge badge-success" id="badge-resuelta">{{ resueltas|length }}</span>
+        </div>
+        <div class="space-y-3 kanban-column min-h-[100px] rounded-xl p-2 transition-colors duration-200" data-status="resuelta">
+          {% for inc in resueltas %}
+            {% include "incidencias/partials/panel_card.html" with incidencia=inc %}
+          {% empty %}
+            <div class="text-center py-8 opacity-40 text-sm kanban-empty">Sin incidencias resueltas</div>
+          {% endfor %}
+        </div>
       </div>
     </div>
   </div>
@@ -146,7 +150,7 @@
 </style>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+function initKanban() {
   const columns = document.querySelectorAll('.kanban-column');
   const cards = document.querySelectorAll('.incidencia-card[draggable="true"]');
 
@@ -196,6 +200,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Column drop zone events
   columns.forEach(column => {
+    // Remove existing event listeners to prevent duplicates if re-initialized
+    // (Note: cloning node is a common trick, but here we are in a scoped init function
+    //  that runs on fresh DOM elements after HTMX swap, or on load. 
+    //  Since HTMX swap replaces elements, we don't need to worry about removing listeners 
+    //  from the *old* elements, but we should be careful not to attach double listeners 
+    //  if we call initKanban() on the whole document repeatedly without replacement.
+    //  However, with hx-target="#dashboard-container", the script tag generally remains outside.
+    //  So we are safe.)
+
     column.addEventListener('dragover', function(e) {
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
@@ -289,6 +302,13 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
   }
+}
+
+document.addEventListener('DOMContentLoaded', initKanban);
+document.body.addEventListener('htmx:afterSwap', function(event) {
+    if (event.detail.target.id === 'dashboard-container') {
+        initKanban();
+    }
 });
 </script>
 {% endblock incidencias_content %}

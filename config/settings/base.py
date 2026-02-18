@@ -179,6 +179,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
     "wagtail.contrib.redirects.middleware.RedirectMiddleware",
+    "martina_bescos_app.middleware.AppModeMiddleware",
 ]
 
 # STATIC
@@ -228,6 +229,7 @@ TEMPLATES = [
                 "martina_bescos_app.users.context_processors.impersonation_info",
                 "martina_bescos_app.users.context_processors.user_profile_picture",
                 "martina_bescos_app.users.context_processors.user_groups",
+                "martina_bescos_app.utils.context_processors.base_template_context",
             ],
         },
     },
@@ -327,6 +329,10 @@ SOCIALACCOUNT_FORMS = {"signup": "martina_bescos_app.users.forms.UserSocialSignu
 # Bypass the intermediate "Sign In" page when clicking on a social login button
 # https://django-allauth.readthedocs.io/en/latest/configuration.html
 SOCIALACCOUNT_LOGIN_ON_GET = True
+
+# Your stuff...
+# ------------------------------------------------------------------------------
+
 
 # Your stuff...
 # ------------------------------------------------------------------------------
