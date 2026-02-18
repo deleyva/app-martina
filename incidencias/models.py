@@ -151,6 +151,7 @@ class Adjunto(models.Model):
     ALLOWED_EXTENSIONS = [
         "jpg", "jpeg", "png", "gif", "webp",  # Imágenes
         "mp4", "mov", "avi", "webm",  # Vídeos
+        "pdf",  # Documentos
     ]
     MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
@@ -167,6 +168,7 @@ class Adjunto(models.Model):
             FileExtensionValidator(allowed_extensions=[
                 "jpg", "jpeg", "png", "gif", "webp",
                 "mp4", "mov", "avi", "webm",
+                "pdf",
             ]),
         ],
     )
@@ -188,6 +190,11 @@ class Adjunto(models.Model):
     def is_video(self):
         ext = self.archivo.name.rsplit(".", 1)[-1].lower()
         return ext in {"mp4", "mov", "avi", "webm"}
+
+    @property
+    def is_pdf(self):
+        ext = self.archivo.name.rsplit(".", 1)[-1].lower()
+        return ext == "pdf"
 
 
 class Tecnico(models.Model):
@@ -254,3 +261,63 @@ class HistorialAsignacion(models.Model):
         asignante = self.asignado_por or "Sistema"
         asignado = self.asignado_a or "Nadie"
         return f"{asignante} → {asignado} ({self.incidencia.titulo})"
+
+
+class GeminiAPIUsage(models.Model):
+    """Registro de uso de Gemini API para rate limiting a nivel de proyecto."""
+
+    timestamp = models.DateTimeField(_("Timestamp"), auto_now_add=True)
+    caller = models.CharField(
+        _("Caller"),
+        max_length=100,
+        help_text=_("Módulo que realizó la llamada (ej: email_parser, ai_metadata)"),
+    )
+    tokens_used = models.IntegerField(_("Tokens usados"), default=0)
+    success = models.BooleanField(_("Éxito"), default=True)
+    error_message = models.TextField(_("Mensaje de error"), blank=True, default="")
+
+    class Meta:
+        verbose_name = _("Uso de Gemini API")
+        verbose_name_plural = _("Usos de Gemini API")
+        ordering = ["-timestamp"]
+
+    def __str__(self):
+        status = "✓" if self.success else "✗"
+        return f"{status} {self.caller} @ {self.timestamp:%Y-%m-%d %H:%M}"
+
+
+class ProcessedEmail(models.Model):
+    """Registro de emails procesados para deduplicación."""
+
+    message_id = models.CharField(
+        _("Message-ID"),
+        max_length=512,
+        unique=True,
+        db_index=True,
+        help_text=_("Cabecera Message-ID del email original"),
+    )
+    incidencia = models.ForeignKey(
+        Incidencia,
+        verbose_name=_("Incidencia"),
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="emails_origen",
+    )
+    processed_at = models.DateTimeField(_("Fecha de procesado"), auto_now_add=True)
+    raw_subject = models.CharField(_("Asunto original"), max_length=512, blank=True, default="")
+    raw_sender = models.EmailField(_("Remitente original"), blank=True, default="")
+    skipped = models.BooleanField(
+        _("Omitido"),
+        default=False,
+        help_text=_("True si fue omitido (duplicado, rate limit, etc.)"),
+    )
+    skip_reason = models.CharField(_("Razón de omisión"), max_length=200, blank=True, default="")
+
+    class Meta:
+        verbose_name = _("Email procesado")
+        verbose_name_plural = _("Emails procesados")
+        ordering = ["-processed_at"]
+
+    def __str__(self):
+        return f"{self.raw_subject[:60]} ({self.raw_sender})"

@@ -88,3 +88,26 @@ class HistorialAsignacionFactory(DjangoModelFactory):
 
     class Meta:
         model = HistorialAsignacion
+
+
+class GeminiAPIUsageFactory(DjangoModelFactory):
+    caller = "email_parser"
+    tokens_used = factory.Faker("random_int", min=50, max=500)
+    success = True
+    error_message = ""
+
+    class Meta:
+        model = "incidencias.GeminiAPIUsage"
+
+
+class ProcessedEmailFactory(DjangoModelFactory):
+    message_id = factory.Sequence(lambda n: f"<msg-{n}@gmail.com>")
+    incidencia = factory.SubFactory(IncidenciaFactory)
+    raw_subject = factory.Faker("sentence", locale="es_ES")
+    raw_sender = factory.Faker("email")
+    skipped = False
+    skip_reason = ""
+
+    class Meta:
+        model = "incidencias.ProcessedEmail"
+

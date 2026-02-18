@@ -80,6 +80,7 @@ THIRD_PARTY_APPS = [
     "allauth.socialaccount",
     "allauth.socialaccount.providers.google",
     "huey.contrib.djhuey",
+    "django_mailbox",
     "wagtail.contrib.forms",
     "wagtail.contrib.redirects",
     "wagtail.embeds",
@@ -411,3 +412,15 @@ WAGTAILDOCS_EXTENSIONS = [
 # Google Gemini API
 # ------------------------------------------------------------------------------
 GEMINI_API_KEY = env("GEMINI_API_KEY", default="")
+
+# Gemini Rate Limiting (project-wide)
+# ------------------------------------------------------------------------------
+GEMINI_RATE_LIMIT_HOURLY = env.int("GEMINI_RATE_LIMIT_HOURLY", default=2)
+GEMINI_ALERT_EMAIL = env("GEMINI_ALERT_EMAIL", default="")
+
+# django-mailbox (Email → Incidencia)
+# ------------------------------------------------------------------------------
+MAILBOX_IMAP_HOST = env("MAILBOX_IMAP_HOST", default="imap.gmail.com")
+MAILBOX_IMAP_PORT = env.int("MAILBOX_IMAP_PORT", default=993)
+MAILBOX_IMAP_USER = env("MAILBOX_IMAP_USER", default="")
+MAILBOX_IMAP_PASSWORD = env("MAILBOX_IMAP_PASSWORD", default="")
