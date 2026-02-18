@@ -254,12 +254,17 @@ def fetch_and_process_emails():
     try:
         from django_mailbox.models import Mailbox
 
+        import urllib.parse
+
+        encoded_user = urllib.parse.quote(settings.MAILBOX_IMAP_USER, safe="")
+        encoded_password = urllib.parse.quote(settings.MAILBOX_IMAP_PASSWORD, safe="")
+
         # Get or create the mailbox
-        mailbox, created = Mailbox.objects.get_or_create(
+        mailbox, created = Mailbox.objects.update_or_create(
             name="cofotap-incidencias",
             defaults={
                 "uri": (
-                    f"imaps://{settings.MAILBOX_IMAP_USER}:{settings.MAILBOX_IMAP_PASSWORD}"
+                    f"imaps://{encoded_user}:{encoded_password}"
                     f"@{settings.MAILBOX_IMAP_HOST}:{settings.MAILBOX_IMAP_PORT}"
                 ),
             },
