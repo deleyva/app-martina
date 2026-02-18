@@ -44,7 +44,7 @@ class IncidenciaForm(forms.ModelForm):
             }),
             "reportero_nombre": forms.TextInput(attrs={
                 "class": "input input-bordered w-full",
-                "placeholder": "Tu nombre o usuario (sin @dominio)",
+                "placeholder": "Tu usuario del IES sin @iesmartinabescos. Por ejemplo eromero o 0125eromero",
             }),
             "ubicacion": forms.Select(attrs={
                 "class": "hidden",  # Hidden, replaced by autocomplete
@@ -87,7 +87,7 @@ class ComentarioForm(forms.ModelForm):
         widgets = {
             "autor_nombre": forms.TextInput(attrs={
                 "class": "input input-bordered w-full",
-                "placeholder": "Tu nombre o usuario (sin @dominio)",
+                "placeholder": "Tu usuario del IES sin @iesmartinabescos. Por ejemplo eromero o 0125eromero",
             }),
             "texto": forms.Textarea(attrs={
                 "class": "textarea textarea-bordered w-full",

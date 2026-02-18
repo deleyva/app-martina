@@ -78,7 +78,7 @@ class Incidencia(models.Model):
     reportero_nombre = models.CharField(
         _("Reportado por"),
         max_length=150,
-        help_text=_("Nombre y apellidos o usuario de Google Workspace (sin @dominio)"),
+        help_text=_("Usuario de Google Workspace (sin @iesmartinabescos)"),
     )
     ubicacion = models.ForeignKey(
         Ubicacion,
@@ -127,7 +127,7 @@ class Comentario(models.Model):
     autor_nombre = models.CharField(
         _("Autor"),
         max_length=150,
-        help_text=_("Nombre y apellidos o usuario de Google Workspace (sin @dominio)"),
+        help_text=_("Usuario de Google Workspace (sin @iesmartinabescos)"),
     )
     texto = models.TextField(_("Comentario"))
     created_at = models.DateTimeField(_("Fecha"), auto_now_add=True)

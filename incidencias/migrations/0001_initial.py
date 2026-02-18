@@ -67,7 +67,7 @@ class Migration(migrations.Migration):
                 ("urgencia", models.CharField(choices=[("baja", "Baja"), ("media", "Media"), ("alta", "Alta"), ("critica", "Crítica")], default="media", max_length=10, verbose_name="Urgencia")),
                 ("estado", models.CharField(choices=[("pendiente", "Pendiente"), ("en_progreso", "En progreso"), ("resuelta", "Resuelta")], default="pendiente", max_length=12, verbose_name="Estado")),
                 ("es_privada", models.BooleanField(default=False, verbose_name="Es privada")),
-                ("reportero_nombre", models.CharField(help_text="Nombre y apellidos o usuario de Google Workspace (sin @dominio)", max_length=150, verbose_name="Reportado por")),
+                ("reportero_nombre", models.CharField(help_text="Usuario de Google Workspace (sin @iesmartinabescos)", max_length=150, verbose_name="Reportado por")),
                 ("created_at", models.DateTimeField(auto_now_add=True, verbose_name="Fecha de creación")),
                 ("updated_at", models.DateTimeField(auto_now=True, verbose_name="Última actualización")),
                 ("asignado_a", models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name="incidencias_asignadas", to="incidencias.tecnico", verbose_name="Asignado a")),
@@ -84,7 +84,7 @@ class Migration(migrations.Migration):
             name="Comentario",
             fields=[
                 ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
-                ("autor_nombre", models.CharField(help_text="Nombre y apellidos o usuario de Google Workspace (sin @dominio)", max_length=150, verbose_name="Autor")),
+                ("autor_nombre", models.CharField(help_text="Usuario de Google Workspace (sin @iesmartinabescos)", max_length=150, verbose_name="Autor")),
                 ("texto", models.TextField(verbose_name="Comentario")),
                 ("created_at", models.DateTimeField(auto_now_add=True, verbose_name="Fecha")),
                 ("incidencia", models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name="comentarios", to="incidencias.incidencia", verbose_name="Incidencia")),
