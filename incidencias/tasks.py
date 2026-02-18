@@ -272,15 +272,55 @@ def fetch_and_process_emails():
         if created:
             logger.info("Created mailbox: %s", mailbox.name)
 
-        # Fetch new messages
-        new_messages = mailbox.get_new_mail()
+        # Custom manual fetch to handle passwords with spaces (django-mailbox URI parsing issue)
+        import email
+        new_messages = []
+        
+        try:
+            # Connect directly with imaplib
+            mail = imaplib.IMAP4_SSL(settings.MAILBOX_IMAP_HOST, settings.MAILBOX_IMAP_PORT)
+            mail.login(settings.MAILBOX_IMAP_USER, settings.MAILBOX_IMAP_PASSWORD)
+            mail.select("INBOX")
+            
+            # Search for unread emails
+            status, search_data = mail.search(None, "UNSEEN")
+            if status == "OK" and search_data[0]:
+                email_ids = search_data[0].split()
+                logger.info("Found %d unread email(s)", len(email_ids))
+                
+                for e_id in email_ids:
+                    try:
+                        # Fetch the raw email
+                        status, msg_data = mail.fetch(e_id, "(RFC822)")
+                        if status != "OK" or not msg_data:
+                            logger.error("Failed to fetch email ID %s", e_id)
+                            continue
+                            
+                        # Parse raw bytes into email.message.Message
+                        raw_email_bytes = msg_data[0][1]
+                        msg_object = email.message_from_bytes(raw_email_bytes)
+                        
+                        # Process using django-mailbox utility to create DB object
+                        # This parses headers/attachments correctly
+                        db_msg = mailbox.process_incoming_message(msg_object)
+                        new_messages.append(db_msg)
+                        
+                    except Exception:
+                        logger.exception("Error fetching/parsing email ID %s", e_id)
+            
+            mail.logout()
+            
+        except Exception as e:
+            logger.exception("IMAP connection error: %s", str(e))
+            return
+
         _last_fetch_timestamp = timezone.now()
 
         if not new_messages:
             logger.debug("No new emails found")
             return
 
-        logger.info("Fetched %d new email(s)", len(new_messages))
+        logger.info("Fetched and saved %d new email(s)", len(new_messages))
 
         # Initialize parser once
         try:
