@@ -1,16 +1,17 @@
-from django.contrib.sites.models import Site
-from allauth.socialaccount.models import SocialApp
+import os
+import django
+from django.conf import settings
 
-print("=== Sites configurados ===")
-for site in Site.objects.all():
-    print(f"ID: {site.id}, Domain: {site.domain}, Name: {site.name}")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.local")
+django.setup()
 
-print("\n=== Aplicaciones sociales configuradas ===")
-for app in SocialApp.objects.all():
-    print(f"ID: {app.id}, Provider: {app.provider}, Name: {app.name}")
-    print(f"Client ID: {app.client_id}")
-    print(f"Secret: {app.secret}")
-    print("Sites asociados:")
-    for site in app.sites.all():
-        print(f"  - {site.domain} (ID: {site.id})")
-    print("---")
+from django.contrib.sites.models import Site as DjangoSite
+from wagtail.models import Site as WagtailSite
+
+print("\n--- Django Sites (django.contrib.sites) ---")
+for s in DjangoSite.objects.all():
+    print(f"ID: {s.id} | Domain: {s.domain} | Name: {s.name}")
+
+print("\n--- Wagtail Sites (wagtail.models.Site) ---")
+for s in WagtailSite.objects.all():
+    print(f"ID: {s.id} | Hostname: {s.hostname} | Port: {s.port} | Root Page: {s.root_page}")
