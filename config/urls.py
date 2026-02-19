@@ -33,8 +33,10 @@ def add(request, a: int, b: int):
     return {"result": a + b}
 
 
+from .views import smart_home_view
+
 urlpatterns = [
-    path("", TemplateView.as_view(template_name="pages/home.html"), name="home"),
+    path("", smart_home_view, name="home"),
     path(
         "about/",
         TemplateView.as_view(template_name="pages/about.html"),
@@ -58,7 +60,6 @@ urlpatterns = [
     path("explorer/", include("explorer.urls")),
     path("cms/", include(wagtailadmin_urls)),
     path("documents/", include(wagtaildocs_urls)),
-    path("pages/", include(wagtail_urls)),
     # Analytics
     path("analytics/", include("analytics.urls")),
     # My Library - Biblioteca personal de usuario
@@ -70,8 +71,8 @@ urlpatterns = [
     # CMS custom views (filtros de partituras)
     path("", include("cms.urls")),
     # music-pills integrado en Wagtail CMS - accesible via /cms/ y páginas públicas
-    # ...
-    # Media files
+    # Wagtail Catch-All (must be last)
+    path("", include(wagtail_urls)),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 
