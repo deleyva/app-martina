@@ -34,7 +34,10 @@ CACHES = {
 # SECURITY
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#secure-proxy-ssl-header
-SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_SCHEME", "https")
+# Le dice a Django que confíe en la cabecera X-Forwarded-Proto que envía Nginx
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+# Permite que Django lea el host real reenviado por Nginx
+USE_X_FORWARDED_HOST = True
 # https://docs.djangoproject.com/en/dev/ref/settings/#secure-ssl-redirect
 SECURE_SSL_REDIRECT = env.bool("DJANGO_SECURE_SSL_REDIRECT", default=True)
 # https://docs.djangoproject.com/en/dev/ref/settings/#session-cookie-secure
@@ -48,6 +51,7 @@ CSRF_COOKIE_NAME = "__Secure-csrftoken"
 CSRF_TRUSTED_ORIGINS = [
     "https://*.apps.iesmartinabescos.es",
     "https://*.test-apps.iesmartinabescos.es",
+    "https://*.blogs.iesmartinabescos.es",
 ]
 # https://docs.djangoproject.com/en/dev/topics/security/#ssl-https
 # https://docs.djangoproject.com/en/dev/ref/settings/#secure-hsts-seconds
