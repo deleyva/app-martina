@@ -591,3 +591,39 @@ class TestCambiarEstadoApiView:
         assert response.status_code == 200
         inc.refresh_from_db()
         assert inc.estado == Incidencia.Estado.PENDIENTE
+
+
+# =============================================================================
+# EditarIncidenciaView
+# =============================================================================
+
+
+@pytest.mark.django_db
+class TestEditarIncidenciaView:
+    def test_renders_with_context(self, tecnico_client, tecnico):
+        inc = IncidenciaFactory(asignado_a=tecnico)
+        response = tecnico_client.get(reverse("incidencias:panel_editar", args=[inc.pk]))
+        assert response.status_code == 200
+
+    def test_post_updates_incidencia(self, tecnico_client, tecnico):
+        inc = IncidenciaFactory(titulo="Original", asignado_a=tecnico)
+        ubi = UbicacionFactory()
+        data = {
+            "titulo": "Actualizado",
+            "descripcion": "Nueva descripcion",
+            "urgencia": "alta",
+            "reportero_nombre": inc.reportero_nombre,
+            "ubicacion": ubi.pk,
+            "es_privada": True,
+            "etiquetas_ids": "",
+        }
+        response = tecnico_client.post(reverse("incidencias:panel_editar", args=[inc.pk]), data)
+        assert response.status_code == 302
+        inc.refresh_from_db()
+        assert inc.titulo == "Actualizado"
+        assert inc.es_privada is True
+
+    def test_requires_tecnico(self, client):
+        inc = IncidenciaFactory()
+        response = client.get(reverse("incidencias:panel_editar", args=[inc.pk]))
+        assert response.status_code == 302

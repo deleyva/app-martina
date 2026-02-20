@@ -60,6 +60,11 @@ class IncidenciaForm(forms.ModelForm):
         self.fields["ubicacion"].empty_label = "Selecciona ubicación..."
         self.fields["reportero_nombre"].label = "¿Quién eres?"
 
+        if self.instance and self.instance.pk:
+            etiquetas = self.instance.etiquetas.all()
+            if etiquetas:
+                self.fields["etiquetas_ids"].initial = ",".join(str(e.id) for e in etiquetas)
+
     def save(self, commit=True):
         instance = super().save(commit=commit)
         if commit:

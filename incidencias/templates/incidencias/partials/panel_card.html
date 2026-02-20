@@ -40,6 +40,11 @@
       <div class="dropdown dropdown-end">
         <label tabindex="0" class="btn btn-ghost btn-xs">⚙️ Acciones</label>
         <ul tabindex="0" class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-52">
+          <li>
+            <a href="{% url 'incidencias:panel_editar' incidencia.pk %}" class="w-full text-left">📝 Editar incidencia</a>
+          </li>
+          <li class="menu-title"><span>Estado</span></li>
+
           <!-- Change status -->
           {% if incidencia.estado != "pendiente" %}
             <li>

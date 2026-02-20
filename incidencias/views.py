@@ -16,6 +16,7 @@ from django.views.generic import CreateView
 from django.views.generic import DetailView
 from django.views.generic import ListView
 from django.views.generic import TemplateView
+from django.views.generic import UpdateView
 
 from .forms import AdjuntoForm
 from .forms import ComentarioForm
@@ -296,6 +297,41 @@ class PanelDashboardView(TecnicoRequiredMixin, TemplateView):
         context["filtro_tecnico"] = tecnico_id
 
         return context
+
+
+class EditarIncidenciaView(TecnicoRequiredMixin, UpdateView):
+    """Editar una incidencia desde el panel de técnicos."""
+
+    model = Incidencia
+    form_class = IncidenciaForm
+    template_name = "incidencias/editar.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        incidencia = self.object
+        
+        # Pre-fill ubicacion autocomplete
+        if incidencia.ubicacion:
+            context["ubicacion_actual_json"] = json.dumps({
+                "id": incidencia.ubicacion.id,
+                "text": str(incidencia.ubicacion),
+                "nombre": incidencia.ubicacion.nombre,
+                "grupo": incidencia.ubicacion.grupo,
+                "planta": incidencia.ubicacion.get_planta_display(),
+            })
+            
+        # Pre-fill etiquetas autocomplete
+        etiquetas = incidencia.etiquetas.all()
+        if etiquetas.exists():
+            context["etiquetas_actuales_json"] = json.dumps([
+                {"id": e.id, "text": e.nombre, "slug": e.slug}
+                for e in etiquetas
+            ])
+            
+        return context
+
+    def get_success_url(self):
+        return reverse("incidencias:panel")
 
 
 class AsignarIncidenciaView(TecnicoRequiredMixin, View):

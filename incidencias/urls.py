@@ -16,6 +16,7 @@ urlpatterns = [
     path("api/etiquetas/", views.ApiEtiquetasView.as_view(), name="api_etiquetas"),
     # --- Panel administración ---
     path("panel/", views.PanelDashboardView.as_view(), name="panel"),
+    path("panel/editar/<int:pk>/", views.EditarIncidenciaView.as_view(), name="panel_editar"),
     path("panel/asignar/<int:pk>/", views.AsignarIncidenciaView.as_view(), name="panel_asignar"),
     path("panel/estado/<int:pk>/", views.CambiarEstadoView.as_view(), name="panel_estado"),
     path("panel/api/estado/<int:pk>/", views.CambiarEstadoApiView.as_view(), name="panel_estado_api"),

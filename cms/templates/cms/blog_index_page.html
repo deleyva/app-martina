@@ -1,45 +1,58 @@
-{% extends "base.html" %}
+{% extends "cms/base_blog.html" %}
 {% load wagtailcore_tags wagtailimages_tags %}
 {% load library_tags %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8">
-    <h1 class="text-3xl font-bold text-gray-900 mb-6">{{ page.title }}</h1>
+<div class="container mx-auto px-4 py-8 max-w-6xl">
+    <h1 class="text-5xl font-bold font-serif-title mb-10 text-center">{{ page.title }}</h1>
     
     {% if page.intro %}
-    <div class="intro prose mb-8">
+    <div class="max-w-3xl mx-auto text-xl italic text-gray-700 text-center mb-16 leading-relaxed">
         {{ page.intro|richtext }}
     </div>
     {% endif %}
 
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div class="editorial-divider"></div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
         {% for blog in blogpages %}
         {% with item=blog.specific %}
-        <article class="bg-white rounded-lg shadow-md overflow-hidden">
+        <article class="group pb-8 border-b md:border-b-0 md:border-r border-gray-200 pr-0 md:pr-8 last:border-0 last:pr-0">
             {% if blog.specific.featured_image %}
-            <a href="{% pageurl blog %}">
-                {% image blog.specific.featured_image width-400 class="w-full h-48 object-cover" %}
+            <a href="{% pageurl blog %}" class="block overflow-hidden mb-6">
+                <!-- Efecto B/W a Color on Hover -->
+                {% image blog.specific.featured_image width-600 class="w-full h-64 object-cover bw-image-hover" %}
             </a>
             {% endif %}
             
-            <div class="p-6">
-                <h2 class="text-xl font-semibold mb-2">
-                    <a href="{% pageurl blog %}" class="text-gray-900 hover:text-blue-600">
+            <div>
+                <!-- Titular Grande y Elegante -->
+                <h2 class="text-3xl font-bold font-serif-title mb-4 leading-tight">
+                    <a href="{% pageurl blog %}" class="text-black hover:underline decoration-2 underline-offset-4">
                         {{ blog.title }}
                     </a>
                 </h2>
                 
-                {% if blog.specific.date %}
-                <p class="text-sm text-gray-500 mb-3">{{ blog.specific.date }}</p>
-                {% endif %}
+                <!-- Metadatos minimalistas -->
+                <div class="flex items-center text-xs font-sans tracking-widest text-gray-500 uppercase mb-4">
+                    {% if blog.specific.date %}
+                        <span>{{ blog.specific.date|date:"j M, Y" }}</span>
+                    {% endif %}
+                    {% if blog.specific.categories.all %}
+                        <span class="mx-2">•</span>
+                        <span>{{ blog.specific.categories.first.name }}</span>
+                    {% endif %}
+                </div>
                 
+                <!-- Extracto -->
                 {% if blog.specific.intro %}
-                <p class="text-gray-600">{{ blog.specific.intro }}</p>
+                <p class="text-gray-800 text-lg mb-6 leading-relaxed">{{ blog.specific.intro|truncatechars:150 }}</p>
                 {% endif %}
                 
-                <div class="flex items-center justify-between mt-4">
-                    <a href="{% pageurl blog %}" class="text-blue-600 hover:text-blue-800 font-medium">
-                        Leer más →
+                <!-- Botonera -->
+                <div class="flex items-center justify-between mt-auto">
+                    <a href="{% pageurl blog %}" class="text-xs font-sans uppercase tracking-widest font-bold hover:text-gray-500 transition-colors">
+                        Leer Artículo
                     </a>
                     {% if user.is_authenticated %}
                     <div id="library-btn-blog-{{ item.pk }}" onclick="event.stopPropagation()">
@@ -51,8 +64,10 @@
         </article>
         {% endwith %}
         {% empty %}
-        <p class="col-span-full text-gray-500 text-center py-8">No hay artículos publicados aún.</p>
+        <p class="col-span-full text-gray-500 text-center py-16 italic text-xl">Aún no hay artículos publicados en esta sección.</p>
         {% endfor %}
     </div>
+
+    <div class="editorial-divider-thick"></div>
 </div>
 {% endblock %}

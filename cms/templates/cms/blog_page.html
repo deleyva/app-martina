@@ -1,201 +1,153 @@
-{% extends "base.html" %}
+{% extends "cms/base_blog.html" %}
 {% load wagtailcore_tags wagtailimages_tags %}
 {% load library_tags %}
 
-{# MUSIC PILLS - Plantilla de artículo de blog #}
-
-{% block title %}{{ page.title }} - Music Pills{% endblock %}
+{% block title %}{{ page.title }} - IES Martina Bescós{% endblock %}
 
 {% block extra_css %}
 <style>
-    /* Custom typography styles for blog content */
-    .blog-content h1 {
-        font-size: 1.875rem; /* text-3xl */
-        font-weight: 700; /* font-bold */
-        margin-bottom: 1rem;
-        margin-top: 2rem;
-        color: var(--fallback-bc,oklch(var(--bc)/1));
+    /* Tipografía y espaciado editorial para el contenido del artículo (Jot Down style) */
+    .article-content {
+        font-size: 1.125rem;
+        line-height: 1.8;
+        color: #111;
+        text-align: justify;
+        hyphens: auto;
     }
     
-    .blog-content h2 {
-        font-size: 1.5rem; /* text-2xl */
-        font-weight: 700; /* font-bold */
-        margin-bottom: 0.75rem;
-        margin-top: 1.5rem;
-        color: var(--fallback-bc,oklch(var(--bc)/1));
+    .article-content p {
+        margin-bottom: 1.5rem;
+    }
+
+    .article-content p:first-of-type::first-letter {
+        font-family: 'Playfair Display', serif;
+        float: left;
+        font-size: 5rem;
+        line-height: 4rem;
+        padding-top: 4px;
+        padding-right: 8px;
+        padding-left: 3px;
     }
     
-    .blog-content h3 {
-        font-size: 1.25rem; /* text-xl */
-        font-weight: 600; /* font-semibold */
-        margin-bottom: 0.5rem;
-        margin-top: 1rem;
-        color: var(--fallback-bc,oklch(var(--bc)/1));
-    }
-    
-    .blog-content h4 {
-        font-size: 1.125rem; /* text-lg */
-        font-weight: 600;
-        margin-bottom: 0.5rem;
-        margin-top: 1rem;
-        color: var(--fallback-bc,oklch(var(--bc)/1));
-    }
-    
-    .blog-content p {
-        font-size: 1rem;
-        line-height: 1.625;
-        margin-bottom: 1rem;
-        color: var(--fallback-bc,oklch(var(--bc)/0.8));
-    }
-    
-    .blog-content ul, .blog-content ol {
-        margin-bottom: 1rem;
-        padding-left: 1.5rem;
-    }
-    
-    .blog-content li {
-        margin-bottom: 0.25rem;
-        color: var(--fallback-bc,oklch(var(--bc)/0.8));
-    }
-    
-    .blog-content strong {
+    .article-content h2, .article-content h3 {
+        font-family: 'Playfair Display', serif;
         font-weight: 700;
-        color: var(--fallback-bc,oklch(var(--bc)/1));
+        margin-top: 2.5rem;
+        margin-bottom: 1.25rem;
+        color: #000;
+        text-align: left;
     }
+
+    .article-content h2 { font-size: 2.25rem; }
+    .article-content h3 { font-size: 1.75rem; }
     
-    .blog-content em {
+    .article-content blockquote {
+        margin: 2.5rem 0;
+        padding: 1.5rem 2rem;
+        border-left: 4px solid #000;
         font-style: italic;
+        font-size: 1.5rem;
+        line-height: 1.6;
+        color: #333;
+        background-color: #f9fafb;
     }
     
-    .blog-content a {
-        color: var(--fallback-p,oklch(var(--p)/1));
-        text-decoration: underline;
+    .article-content a {
+        border-bottom: 1px solid #111;
+        transition: all 0.2s ease;
     }
-    
-    .blog-content a:hover {
-        color: var(--fallback-pf,oklch(var(--pf)/1));
+
+    .article-content a:hover {
+        background-color: #111;
+        color: #fff;
     }
-    
-    .blog-content blockquote {
-        border-left: 4px solid var(--fallback-p,oklch(var(--p)/1));
-        padding-left: 1rem;
-        margin: 1.5rem 0;
-        font-style: italic;
-        color: var(--fallback-bc,oklch(var(--bc)/0.7));
-    }
-    
-    .blog-content code {
-        background-color: var(--fallback-b2,oklch(var(--b2)/1));
-        padding: 0.125rem 0.25rem;
-        border-radius: 0.25rem;
-        font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
-        font-size: 0.875rem;
-    }
-    
-    .blog-content pre {
-        background-color: var(--fallback-b2,oklch(var(--b2)/1));
-        padding: 1rem;
-        border-radius: 0.5rem;
-        overflow-x: auto;
-        margin: 1rem 0;
-    }
-    
-    .blog-content pre code {
-        background-color: transparent;
-        padding: 0;
+
+    .article-content img {
+        margin: 2rem auto;
+        max-width: 100%;
+        height: auto;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8">
-    <article class="max-w-4xl mx-auto">
-        <!-- Header -->
-        <header class="mb-8">
-            <div class="flex flex-col lg:flex-row justify-between items-start gap-6 mb-6">
-                <div class="flex-1">
-                    <h1 class="text-4xl font-bold mb-4">{{ page.title }}</h1>
-                    
-                    <div class="flex flex-wrap items-center gap-4 mb-4">
-                        {% if page.date %}
-                        <div class="flex items-center gap-2 text-base-content/70">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                            </svg>
-                            {{ page.date|date:"d M Y" }}
-                        </div>
-                        {% endif %}
-                    </div>
-                    
-                    {% if page.intro %}
-                    <p class="text-xl text-base-content/80 leading-relaxed mb-6">{{ page.intro }}</p>
-                    {% endif %}
-                </div>
-                
-                <!-- Actions -->
-                {% if user.is_authenticated %}
-                <div class="flex gap-2">
-                    <div id="library-btn-blogpage-{{ page.pk }}">
-                        {% library_button page %}
-                    </div>
-                    {% if user.is_staff %}
-                    <a href="/cms/pages/{{ page.id }}/edit/" class="btn btn-primary">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                        </svg>
-                        Editar
-                    </a>
-                    {% endif %}
-                </div>
-                {% endif %}
-            </div>
-            
-            <!-- Categories and Tags -->
-            {% if page.categories.all or page.tags.all %}
-            <div class="flex flex-wrap gap-2 mb-6">
-                {% for category in page.categories.all %}
-                <div class="badge badge-info">
-                    {% if category.icon %}{{ category.icon }} {% endif %}{{ category.name }}
-                </div>
-                {% endfor %}
-                {% for tag in page.tags.all %}
-                <div class="badge badge-outline" style="{% if tag.color %}border-color: {{ tag.color }}; color: {{ tag.color }};{% endif %}">
-                    🏷️ {{ tag.name }}
-                </div>
-                {% endfor %}
-            </div>
+<article class="max-w-4xl mx-auto px-4 py-8">
+    <!-- Header del Artículo -->
+    <header class="mb-12 text-center">
+        <!-- Metadatos Superiores -->
+        <div class="flex items-center justify-center gap-4 text-xs font-sans tracking-widest text-gray-500 uppercase mb-8">
+            {% if page.date %}
+            <span>{{ page.date|date:"j de F, Y" }}</span>
             {% endif %}
-        </header>
-
-        <!-- Featured Image -->
-        {% if page.featured_image %}
-        <div class="mb-8">
-            <figure class="rounded-lg overflow-hidden shadow-lg">
-                {% image page.featured_image width-800 class="w-full h-64 lg:h-96 object-cover" %}
-            </figure>
-        </div>
-        {% endif %}
-
-        <!-- Content -->
-        {% if page.body %}
-        <div class="blog-content">
-            {{ page.body|richtext }}
-        </div>
-        {% endif %}
-
-        <!-- Navigation -->
-        <div class="flex justify-between items-center mt-12 pt-8 border-t border-base-300">
-            <a href="{{ page.get_parent.get_url }}" class="btn btn-ghost">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
-                </svg>
-                Volver
-            </a>
             
-            <div class="text-sm text-base-content/50">
-                Última actualización: {{ page.last_published_at|date:"M d, Y" }}
+            {% if page.categories.all %}
+            <span>•</span>
+            <span>{{ page.categories.first.name }}</span>
+            {% endif %}
+            
+            <!-- Botonera Admin/Librería integrada en los metadatos -->
+            {% if user.is_authenticated %}
+            <span>•</span>
+            <div id="library-btn-blogpage-{{ page.pk }}" class="inline-block">
+                {% library_button page %}
             </div>
+            {% if user.is_staff %}
+            <a href="/cms/pages/{{ page.id }}/edit/" class="hover:text-black hover:underline" aria-label="Editar">
+                (Editar)
+            </a>
+            {% endif %}
+            {% endif %}
         </div>
-    </article>
-</div>
+
+        <!-- Título principal -->
+        <h1 class="text-5xl md:text-7xl font-bold font-serif-title mb-8 leading-tight text-black">{{ page.title }}</h1>
+        
+        <!-- Intro / Entradilla -->
+        {% if page.intro %}
+        <div class="text-2xl italic text-gray-600 font-serif-title max-w-3xl mx-auto leading-relaxed">
+            {{ page.intro }}
+        </div>
+        {% endif %}
+    </header>
+
+    <!-- Imagen Destacada -->
+    {% if page.featured_image %}
+    <figure class="mb-16">
+        <!-- Manteniendo el estilo editorial, la imagen principal suele ir apaisada y a todo ancho -->
+        {% image page.featured_image width-1200 class="w-full h-auto object-cover border-b-4 border-black pb-2" %}
+    </figure>
+    {% endif %}
+
+    <!-- Cuerpo del Artículo -->
+    {% if page.body %}
+    <div class="article-content font-serif mx-auto max-w-3xl">
+        {{ page.body|richtext }}
+    </div>
+    {% endif %}
+
+    <div class="editorial-divider-thick mt-20"></div>
+
+    <!-- Categorías y Tags al final -->
+    {% if page.categories.all or page.tags.all %}
+    <div class="mt-8 font-sans text-sm tracking-wide text-gray-500">
+        <div class="flex flex-wrap items-center gap-4">
+            <span class="uppercase font-bold text-black tracking-widest">Archivado en:</span>
+            {% for category in page.categories.all %}
+            <span class="hover:text-black cursor-pointer">{% if category.icon %}{{ category.icon }} {% endif %}{{ category.name }}</span>
+            {% endfor %}
+            {% for tag in page.tags.all %}
+            <span class="hover:text-black cursor-pointer">#{{ tag.name }}</span>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Navegación: Volver al Índice -->
+    <div class="mt-12 text-center font-sans tracking-widest uppercase text-sm">
+        <a href="{{ page.get_parent.get_url }}" class="inline-block py-2 px-6 border border-black text-black hover:bg-black hover:text-white transition-colors">
+            Volver a Portada
+        </a>
+    </div>
+    
+</article>
 {% endblock %}
