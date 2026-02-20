@@ -2,11 +2,18 @@
 
 <div class="card bg-base-100 shadow-sm incidencia-card urgencia-{{ incidencia.urgencia }} overflow-visible" draggable="true" data-incidencia-id="{{ incidencia.pk }}">
   <div class="card-body p-4">
-    <!-- Title & Link -->
-    <a href="{% url 'incidencias:detalle' incidencia.pk %}" class="font-semibold hover:text-primary transition truncate block">
-      {% if incidencia.es_privada %}🔒{% endif %}
-      {{ incidencia.titulo }}
-    </a>
+    <!-- Header: Title & Edit Action -->
+    <div class="flex justify-between items-start gap-2">
+      <a href="{% url 'incidencias:detalle' incidencia.pk %}" class="font-semibold hover:text-primary transition line-clamp-2 leading-tight flex-1">
+        {% if incidencia.es_privada %}🔒{% endif %}
+        {{ incidencia.titulo }}
+      </a>
+      <a href="{% url 'incidencias:panel_editar' incidencia.pk %}" class="btn btn-ghost btn-xs btn-circle text-base-content/50 hover:text-base-content hover:bg-base-200 shrink-0" title="Editar incidencia">
+         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.89 1.148l-2.68.89 1.148-1.89a4.5 4.5 0 011.148-1.89l12.33-12.33zm1.687-1.688L19.5 4.5M14.25 7.5L16.5 9.75" />
+        </svg>
+      </a>
+    </div>
 
     <!-- Meta -->
     <div class="text-xs opacity-60 mt-1">
@@ -30,86 +37,139 @@
       {% endfor %}
     </div>
 
-    <!-- Actions -->
-    <div class="flex items-center gap-2 mt-3 flex-wrap">
-      <!-- Assign -->
-      {% if incidencia.asignado_a %}
-        <span class="text-xs badge badge-primary badge-outline badge-sm">👷 {{ incidencia.asignado_a }}</span>
-      {% endif %}
-
-      <div class="dropdown dropdown-end">
-        <label tabindex="0" class="btn btn-ghost btn-xs">⚙️ Acciones</label>
-        <ul tabindex="0" class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-52">
-          <li>
-            <a href="{% url 'incidencias:panel_editar' incidencia.pk %}" class="w-full text-left">📝 Editar incidencia</a>
-          </li>
-          <li class="menu-title"><span>Estado</span></li>
-
-          <!-- Change status -->
-          {% if incidencia.estado != "pendiente" %}
-            <li>
-              <form method="post" action="{% url 'incidencias:panel_estado' incidencia.pk %}">
-                {% csrf_token %}
-                <input type="hidden" name="estado" value="pendiente">
-                <button type="submit" class="w-full text-left">⏳ Mover a Pendiente</button>
-              </form>
-            </li>
-          {% endif %}
-          {% if incidencia.estado != "en_progreso" %}
-            <li>
-              <form method="post" action="{% url 'incidencias:panel_estado' incidencia.pk %}">
-                {% csrf_token %}
-                <input type="hidden" name="estado" value="en_progreso">
-                <button type="submit" class="w-full text-left">⚡ Mover a En Progreso</button>
-              </form>
-            </li>
-          {% endif %}
-          {% if incidencia.estado != "resuelta" %}
-            <li>
-              <form method="post" action="{% url 'incidencias:panel_estado' incidencia.pk %}">
-                {% csrf_token %}
-                <input type="hidden" name="estado" value="resuelta">
-                <button type="submit" class="w-full text-left">✅ Marcar Resuelta</button>
-              </form>
-            </li>
-          {% endif %}
-
-          <li class="menu-title"><span>Asignar</span></li>
-
-          <!-- Self-assign -->
-          <li>
-            <form method="post" action="{% url 'incidencias:panel_asignar' incidencia.pk %}">
-              {% csrf_token %}
-              <input type="hidden" name="tecnico_id" value="self">
-              <button type="submit" class="w-full text-left">🙋 Coger para mí</button>
-            </form>
-          </li>
-
-          <!-- Assign to other technician -->
-          {% for t in tecnicos %}
-            {% if t.id != incidencia.asignado_a_id %}
-            <li>
-              <form method="post" action="{% url 'incidencias:panel_asignar' incidencia.pk %}">
-                {% csrf_token %}
-                <input type="hidden" name="tecnico_id" value="{{ t.id }}">
-                <button type="submit" class="w-full text-left">👷 {{ t }}</button>
-              </form>
-            </li>
-            {% endif %}
-          {% endfor %}
-
-          <!-- Unassign -->
+    <!-- Actions (Bottom Right aligned) -->
+    <div class="flex items-center justify-between mt-4">
+      <div></div> <!-- Spacer to push buttons right -->
+      
+      <div class="flex items-center gap-1">
+        <!-- Assign Button -->
+        <button class="btn btn-ghost btn-sm gap-2 tooltip tooltip-left" data-tip="Asignar incidencia" onclick="document.getElementById('modal_asignar_{{ incidencia.pk }}').showModal()">
           {% if incidencia.asignado_a %}
-          <li>
-            <form method="post" action="{% url 'incidencias:panel_asignar' incidencia.pk %}">
-              {% csrf_token %}
-              <input type="hidden" name="tecnico_id" value="none">
-              <button type="submit" class="w-full text-left">❌ Desasignar</button>
-            </form>
-          </li>
+            <div class="avatar placeholder">
+              <div class="bg-primary text-primary-content rounded-full w-6">
+                <span class="text-xs">{{ incidencia.asignado_a|stringformat:"s"|make_list|first|upper }}</span>
+              </div>
+            </div>
+            <span class="text-xs">{{ incidencia.asignado_a }}</span>
+          {% else %}
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 opacity-70">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+            </svg>
+            <span class="text-xs opacity-70">Sin asignar</span>
           {% endif %}
-        </ul>
+        </button>
+
+        <!-- Change Status Button -->
+        <button class="btn btn-ghost btn-sm btn-circle tooltip tooltip-left" data-tip="Cambiar estado" onclick="document.getElementById('modal_estado_{{ incidencia.pk }}').showModal()">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 opacity-70">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+          </svg>
+        </button>
       </div>
     </div>
   </div>
+
+  <!-- Modal Asignar -->
+  <dialog id="modal_asignar_{{ incidencia.pk }}" class="modal">
+    <div class="modal-box p-6">
+      <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+        </svg>
+        Asignar a...
+      </h3>
+      <ul class="menu bg-base-200/50 rounded-box p-2 gap-1 gap-y-1">
+        <li>
+          <form method="post" action="{% url 'incidencias:panel_asignar' incidencia.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="tecnico_id" value="self">
+            <button type="submit" class="w-full text-left py-3 font-medium text-primary hover:bg-primary/20 rounded-lg">
+              🙋 Coger para mí
+            </button>
+          </form>
+        </li>
+        
+        <div class="divider my-1 text-xs opacity-50">Otros técnicos</div>
+        
+        {% for t in tecnicos %}
+          {% if t.id != incidencia.asignado_a_id %}
+          <li>
+            <form method="post" action="{% url 'incidencias:panel_asignar' incidencia.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="tecnico_id" value="{{ t.id }}">
+              <button type="submit" class="w-full text-left">
+                <div class="avatar placeholder mr-2">
+                  <div class="bg-neutral text-neutral-content rounded-full w-5">
+                    <span class="text-[10px]">{{ t.nombre_display|default:t.user.username|stringformat:"s"|make_list|first|upper }}</span>
+                  </div>
+                </div>
+                {{ t }}
+              </button>
+            </form>
+          </li>
+          {% endif %}
+        {% endfor %}
+
+        {% if incidencia.asignado_a %}
+        <div class="divider my-1"></div>
+        <li>
+          <form method="post" action="{% url 'incidencias:panel_asignar' incidencia.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="tecnico_id" value="none">
+            <button type="submit" class="w-full text-left text-error hover:bg-error/10">❌ Desasignar</button>
+          </form>
+        </li>
+        {% endif %}
+      </ul>
+      <div class="modal-action">
+        <form method="dialog"><button class="btn btn-sm">Cancelar</button></form>
+      </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  </dialog>
+
+  <!-- Modal Estado -->
+  <dialog id="modal_estado_{{ incidencia.pk }}" class="modal">
+    <div class="modal-box p-6">
+      <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+        </svg>
+        Mover incidencia a...
+      </h3>
+      <ul class="menu bg-base-200/50 rounded-box p-2 gap-1">
+        {% if incidencia.estado != "pendiente" %}
+          <li>
+            <form method="post" action="{% url 'incidencias:panel_estado' incidencia.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="estado" value="pendiente">
+              <button type="submit" class="w-full text-left py-3">⏳ Pendiente</button>
+            </form>
+          </li>
+        {% endif %}
+        {% if incidencia.estado != "en_progreso" %}
+          <li>
+            <form method="post" action="{% url 'incidencias:panel_estado' incidencia.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="estado" value="en_progreso">
+              <button type="submit" class="w-full text-left py-3">⚡ En Progreso</button>
+            </form>
+          </li>
+        {% endif %}
+        {% if incidencia.estado != "resuelta" %}
+          <li>
+            <form method="post" action="{% url 'incidencias:panel_estado' incidencia.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="estado" value="resuelta">
+              <button type="submit" class="w-full text-left py-3 text-success">✅ Resuelta</button>
+            </form>
+          </li>
+        {% endif %}
+      </ul>
+      <div class="modal-action">
+        <form method="dialog"><button class="btn btn-sm">Cancelar</button></form>
+      </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  </dialog>
 </div>
