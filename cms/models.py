@@ -228,7 +228,7 @@ class BlogPage(Page):
     def get_template(self, request, *args, **kwargs):
         if _is_blog_request(request):
             return "cms/blog_page_blog.html"
-        return "cms/blog_page.html"
+        return "cms/blog_page_app.html"
 
     class Meta:
         verbose_name = "Artículo de Blog"

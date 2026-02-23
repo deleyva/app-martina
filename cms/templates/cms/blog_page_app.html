@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags wagtailimages_tags %}
+{% load library_tags %}
+
+{% block title %}{{ page.title }} - IES Martina Bescós{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-4xl">
+
+    {# Breadcrumb #}
+    <div class="breadcrumbs text-sm mb-6">
+        <ul>
+            <li><a href="/">Inicio</a></li>
+            {% if page.get_parent %}
+            <li><a href="{{ page.get_parent.url }}">{{ page.get_parent.title }}</a></li>
+            {% endif %}
+            <li>{{ page.title|truncatechars:40 }}</li>
+        </ul>
+    </div>
+
+    {# Article header #}
+    <div class="mb-8">
+        <div class="flex flex-wrap gap-2 mb-4">
+            {% for category in page.categories.all %}
+            <span class="badge badge-primary badge-outline">
+                {% if category.icon %}{{ category.icon }} {% endif %}{{ category.name }}
+            </span>
+            {% endfor %}
+        </div>
+
+        <h1 class="text-4xl font-bold mb-4">{{ page.title }}</h1>
+
+        {% if page.intro %}
+        <p class="text-xl text-base-content/70 mb-4">{{ page.intro }}</p>
+        {% endif %}
+
+        <div class="flex items-center justify-between flex-wrap gap-3 text-sm text-base-content/60 border-b border-base-200 pb-4">
+            <div class="flex items-center gap-4">
+                {% if page.date %}
+                <span>📅 {{ page.date|date:"j \d\e F, Y" }}</span>
+                {% endif %}
+                {% for tag in page.tags.all %}
+                <span class="badge badge-ghost badge-sm">#{{ tag.name }}</span>
+                {% endfor %}
+            </div>
+            {% if user.is_authenticated %}
+            <div class="flex items-center gap-2">
+                <div id="library-btn-{{ page.pk }}">
+                    {% library_button page %}
+                </div>
+                {% if user.is_staff %}
+                <a href="/cms/pages/{{ page.id }}/edit/" class="btn btn-xs btn-ghost">Editar</a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {# Featured image #}
+    {% if page.featured_image %}
+    <figure class="mb-8 rounded-xl overflow-hidden">
+        {% image page.featured_image width-1200 class="w-full h-auto object-cover" %}
+    </figure>
+    {% endif %}
+
+    {# Article body #}
+    {% if page.body %}
+    <div class="prose prose-lg max-w-none mb-12">
+        {{ page.body|richtext }}
+    </div>
+    {% endif %}
+
+    <div class="divider"></div>
+
+    {# Footer actions #}
+    <div class="flex justify-between items-center mt-6 flex-wrap gap-4">
+        <a href="{{ page.get_parent.url }}" class="btn btn-outline btn-sm">
+            ← Volver al índice
+        </a>
+        {% if page.categories.all or page.tags.all %}
+        <div class="flex flex-wrap gap-2">
+            {% for category in page.categories.all %}
+            <span class="badge badge-primary">{{ category.name }}</span>
+            {% endfor %}
+            {% for tag in page.tags.all %}
+            <a href="{{ page.get_parent.url }}?tags={{ tag.name }}"
+               class="badge badge-outline hover:badge-primary"
+               {% if tag.color %}style="border-color: {{ tag.color }}; color: {{ tag.color }};"{% endif %}>
+                #{{ tag.name }}
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}
