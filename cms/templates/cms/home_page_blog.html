@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags wagtailimages_tags %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    {% if page.hero_image %}
+    <div class="hero-section mb-12">
+        {% image page.hero_image width-1200 class="w-full h-64 object-cover rounded-lg shadow-lg" %}
+        {% if page.hero_title or page.hero_subtitle %}
+        <div class="text-center mt-6">
+            {% if page.hero_title %}
+            <h1 class="text-4xl font-bold text-gray-900 mb-4">{{ page.hero_title }}</h1>
+            {% endif %}
+            {% if page.hero_subtitle %}
+            <p class="text-xl text-gray-600">{{ page.hero_subtitle }}</p>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+    {% else %}
+    {% if page.hero_title or page.hero_subtitle %}
+    <div class="hero-section text-center mb-12">
+        {% if page.hero_title %}
+        <h1 class="text-4xl font-bold text-gray-900 mb-4">{{ page.hero_title }}</h1>
+        {% endif %}
+        {% if page.hero_subtitle %}
+        <p class="text-xl text-gray-600">{{ page.hero_subtitle }}</p>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% endif %}
+
+    {% if page.body %}
+    <div class="prose max-w-none">
+        {{ page.body|richtext }}
+    </div>
+    {% endif %}
+    {% comment %} If I can access de cms, add de wagtail button {% endcomment %}
+    {% if request.user.is_superuser %}
+    <div class="mt-8">
+        <a href="{% url 'wagtailadmin_pages:edit' page.id %}" class="btn btn-primary">Editar página</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,793 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags wagtailimages_tags %}
+{% load library_tags %}
+
+{# MUSIC PILLS - Plantilla de página de partitura #}
+{# Esta plantilla puede ser extraída para usar en otra instalación de Wagtail #}
+
+{% block title %}{{ page.title }} - Music Pills{% endblock %}
+
+{% block extra_css %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+    .streamfield-content {
+        max-width: none;
+    }
+
+    /* Grid responsivo para cards */
+    .content-grid {
+        display: grid;
+        grid-template-columns: repeat(1, 1fr);
+        gap: 1.5rem;
+    }
+
+    @media (min-width: 768px) {
+        .content-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    @media (min-width: 1024px) {
+        .content-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+
+    @media (min-width: 1536px) {
+        .content-grid {
+            grid-template-columns: repeat(4, 1fr);
+        }
+    }
+
+    /* Card styles */
+    .content-card {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .content-card:hover {
+        transform: translateY(-4px);
+        transition: transform 0.2s ease-in-out;
+    }
+
+    /* PDF preview - media página */
+    .pdf-preview-compact {
+        width: 100%;
+        background-color: #f5f5f5;
+        overflow: hidden;
+        position: relative;
+        height: 300px;
+    }
+
+    .pdf-preview-canvas-wrapper {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        background: #f5f5f5;
+    }
+
+    .pdf-preview-canvas {
+        max-width: 100%;
+        height: auto;
+        display: block;
+    }
+
+    .pdf-loading {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        z-index: 10;
+    }
+
+    /* Imágenes responsive en cards */
+    .card-image-wrapper {
+        width: 100%;
+        height: 250px;
+        overflow: hidden;
+    }
+
+    .card-image-wrapper img {
+        width: 100%;
+        height: 100%;
+        object-fit: none;
+        object-position: left 20%;
+    }
+
+    /* Truncar texto a 2 líneas */
+    .line-clamp-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    /* Asegurar que las cards tengan tamaño uniforme */
+    .content-card .card-body {
+        min-height: 200px;
+    }
+
+    /* Responsive embeds - hacer iframes 100% */
+    .aspect-video iframe,
+    .aspect-video embed,
+    .aspect-video object,
+    .aspect-video video {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="flex flex-col lg:flex-row justify-between items-start gap-6 mb-8">
+        <div class="flex-1">
+            <h1 class="text-4xl font-bold mb-2">{{ page.title }}</h1>
+            {% if page.composer %}
+            <p class="text-xl text-base-content/70 mb-4">by {{ page.composer.name }}</p>
+            {% endif %}
+            
+            <!-- Metadata badges -->
+            <div class="flex flex-wrap gap-2 mb-4">
+                <!-- Difficulty levels are now shown per individual PDF/Audio block -->
+                {% for category in page.categories.all %}
+                <div class="badge badge-outline">{{ category.name }}</div>
+                {% endfor %}
+                {% for tag in page.tags.all %}
+                <div class="badge badge-accent badge-outline">{{ tag.name }}</div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Actions -->
+        <div class="flex gap-2">
+            {# Botón biblioteca (abre modal para profesores) #}
+            <div id="library-btn-{{ page.pk }}">
+                {% library_button page %}
+            </div>
+            <a href="/cms/pages/{{ page.id }}/edit/" class="btn btn-primary">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                </svg>
+                Edit
+            </a>
+            <div class="dropdown dropdown-end">
+                <div tabindex="0" role="button" class="btn btn-ghost">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path>
+                    </svg>
+                </div>
+                <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+                    <li><a href="/cms/pages/{{ page.id }}/copy/">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                        </svg>
+                        Duplicate
+                    </a></li>
+                    <li><a onclick="addToSetlist('{{ page.id }}')">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                        </svg>
+                        Add to Setlist
+                    </a></li>
+                    <li><a onclick="downloadAllPDFs()">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        Download All PDFs
+                    </a></li>
+                    <li><a onclick="shareScore('{{ page.get_url }}', '{{ page.title }}')">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"></path>
+                        </svg>
+                        Share Score
+                    </a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- StreamField Content -->
+    <div class="streamfield-content content-grid">
+        {% for block in page.content %}
+            {% if block.block_type == 'pdf_score' %}
+            <!-- PDF Score Card -->
+            <div class="card bg-base-100 shadow-xl content-card">
+                <!-- PDF Preview -->
+                {% if block.value.pdf_file %}
+                <div class="pdf-preview-compact" id="pdf-preview-{{ forloop.counter }}">
+                    <div class="pdf-loading">
+                        <span class="loading loading-spinner loading-md"></span>
+                        <p class="text-xs mt-1">Cargando...</p>
+                    </div>
+                    <div class="pdf-preview-canvas-wrapper">
+                        <canvas 
+                            class="pdf-preview-canvas" 
+                            data-pdf-url="{{ block.value.pdf_file.url }}"
+                            data-half-page="true"
+                            id="pdf-canvas-{{ forloop.counter }}"
+                        ></canvas>
+                    </div>
+                </div>
+                
+                <!-- Card Body -->
+                <div class="card-body p-4">
+                    <h3 class="card-title text-base">{{ block.value.title }}</h3>
+                    
+                    <!-- Badges -->
+                    <div class="flex flex-wrap gap-1 mb-2">
+                        {% if block.value.page_count %}
+                        <div class="badge badge-ghost badge-sm">{{ block.value.page_count }} pág.</div>
+                        {% endif %}
+                        {% if block.value.difficulty_level %}
+                        <div class="badge badge-primary badge-sm">{{ block.value.get_difficulty_level_display }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    {% if block.value.description %}
+                    <p class="text-xs text-base-content/70 line-clamp-2">{{ block.value.description }}</p>
+                    {% endif %}
+                    
+                    <!-- Actions -->
+                    <div class="card-actions justify-end mt-auto">
+                        <a href="{% url 'my_library:view_content_object' block.value.pdf_file|content_type_id block.value.pdf_file.pk %}?back={{ request.path|urlencode }}" class="btn btn-ghost btn-sm" title="Abrir visor">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                            </svg>
+                        </a>
+                        <a href="{{ block.value.pdf_file.url }}" target="_blank" class="btn btn-primary btn-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                            </svg>
+                        </a>
+                        <a href="{{ block.value.pdf_file.url }}" download class="btn btn-ghost btn-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                        </a>
+                        {% if user.is_authenticated %}
+                        <div id="library-btn-doc-{{ block.value.pdf_file.id }}">
+                            {% library_button block.value.pdf_file %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            
+            {% elif block.block_type == 'metadata' %}
+            <!-- Metadata Block (Full Width) -->
+            <div class="card bg-base-200 shadow-lg col-span-full">
+                <div class="card-body">
+                    <h2 class="card-title">🏷️ Musical Information</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {% if block.value.composer %}
+                        <div>
+                            <span class="font-medium">Composer:</span>
+                            <span>{{ block.value.composer }}</span>
+                        </div>
+                        {% endif %}
+                        {% if block.value.key_signature %}
+                        <div>
+                            <span class="font-medium">Key:</span>
+                            <span>{{ block.value.key_signature }}</span>
+                        </div>
+                        {% endif %}
+                        {% if block.value.tempo %}
+                        <div>
+                            <span class="font-medium">Tempo:</span>
+                            <span>{{ block.value.tempo }}</span>
+                        </div>
+                        {% endif %}
+                        {% if block.value.difficulty %}
+                        <div>
+                            <span class="font-medium">Difficulty:</span>
+                            <span>{{ block.value.difficulty }}</span>
+                        </div>
+                        {% endif %}
+                        {% if block.value.duration_minutes %}
+                        <div>
+                            <span class="font-medium">Duration:</span>
+                            <span>{{ block.value.duration_minutes }} min</span>
+                        </div>
+                        {% endif %}
+                        {% if block.value.reference %}
+                        <div class="md:col-span-2 lg:col-span-3">
+                            <span class="font-medium">Reference:</span>
+                            <span>{{ block.value.reference }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            {% elif block.block_type == 'bookmarks' %}
+            <!-- Bookmarks Block (Full Width) -->
+            <div class="card bg-base-100 shadow-lg col-span-full">
+                <div class="card-body">
+                    <h2 class="card-title">🔖 Bookmarks</h2>
+                    <div class="overflow-x-auto">
+                        <table class="table table-zebra">
+                            <thead>
+                                <tr>
+                                    <th>Title</th>
+                                    <th>Page(s)</th>
+                                    <th>Type</th>
+                                    <th>Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for bookmark in block.value %}
+                                <tr>
+                                    <td class="font-medium">{{ bookmark.title }}</td>
+                                    <td>{{ bookmark.page_number }}</td>
+                                    <td>
+                                        <div class="badge badge-sm">{{ bookmark.bookmark_type }}</div>
+                                    </td>
+                                    <td class="text-sm text-base-content/70">{{ bookmark.notes|default:"—" }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            {% elif block.block_type == 'notes' %}
+            <!-- Notes Block (Full Width) -->
+            <div class="card bg-base-100 shadow-lg col-span-full">
+                <div class="card-body">
+                    <h2 class="card-title">📝 Notes</h2>
+                    <div class="prose max-w-none">
+                        {{ block.value|richtext }}
+                    </div>
+                </div>
+            </div>
+            
+            {% elif block.block_type == 'audio' %}
+            <!-- Audio Card -->
+            <div class="card bg-base-100 shadow-xl content-card">
+                <div class="card-body p-4">
+                    <h3 class="card-title text-base">🎵 {{ block.value.title }}</h3>
+                    
+                    <!-- Badges -->
+                    <div class="flex flex-wrap gap-1 mb-2">
+                        {% if block.value.duration %}
+                        <div class="badge badge-ghost badge-sm">{{ block.value.duration }}</div>
+                        {% endif %}
+                        {% if block.value.difficulty_level %}
+                        <div class="badge badge-primary badge-sm">{{ block.value.get_difficulty_level_display }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    {% if block.value.description %}
+                    <p class="text-xs text-base-content/70 line-clamp-2 mb-3">{{ block.value.description }}</p>
+                    {% endif %}
+                    
+                    {% if block.value.audio_file %}
+                    <!-- Audio Player -->
+                    <audio controls class="w-full mb-3" preload="metadata">
+                        <source src="{{ block.value.audio_file.url }}" type="audio/mpeg">
+                        <source src="{{ block.value.audio_file.url }}" type="audio/wav">
+                        <source src="{{ block.value.audio_file.url }}" type="audio/ogg">
+                    </audio>
+                    
+                    <!-- Actions -->
+                    <div class="card-actions justify-end mt-auto">
+                        <a href="{% url 'my_library:view_content_object' block.value.audio_file|content_type_id block.value.audio_file.pk %}?back={{ request.path|urlencode }}" class="btn btn-ghost btn-sm" title="Abrir visor">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                            </svg>
+                        </a>
+                        <a href="{{ block.value.audio_file.url }}" download class="btn btn-primary btn-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                        </a>
+                        {% if user.is_authenticated %}
+                        <div id="library-btn-audio-{{ block.value.audio_file.id }}">
+                            {% library_button block.value.audio_file %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if block.block_type == 'image' %}
+            <!-- Image Card -->
+            <div class="card bg-base-100 shadow-xl content-card">
+                {% if block.value.image %}
+                <div class="card-image-wrapper">
+                    {% image block.value.image width-1000 class="w-full h-full" alt=block.value.alt_text %}
+                </div>
+                {% endif %}
+                
+                <div class="card-body p-4">
+                    <h3 class="card-title text-base">{{ block.value.title }}</h3>
+                    
+                    <!-- Badges -->
+                    <div class="flex flex-wrap gap-1 mb-2">
+                        {% if block.value.difficulty_level %}
+                        <div class="badge badge-primary badge-sm">{{ block.value.get_difficulty_level_display }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    {% if block.value.caption %}
+                    <p class="text-xs text-base-content/70 line-clamp-2">{{ block.value.caption }}</p>
+                    {% endif %}
+                    
+                    <!-- Actions -->
+                    <div class="card-actions justify-end mt-auto">
+                        <a href="{% url 'my_library:view_content_object' block.value.image|content_type_id block.value.image.pk %}?back={{ request.path|urlencode }}" class="btn btn-ghost btn-sm" title="Abrir visor">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                            </svg>
+                        </a>
+                        <a href="{{ block.value.image.url }}" download class="btn btn-primary btn-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                        </a>
+                        {% if user.is_authenticated %}
+                        <div id="library-btn-img-{{ block.value.image.id }}">
+                            {% library_button block.value.image %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if block.block_type == 'embed' %}
+            <!-- Embed Card -->
+            <div class="card bg-base-100 shadow-xl content-card overflow-hidden">
+                <!-- Embed container -->
+                <div class="w-full aspect-video relative bg-base-200">
+                    <div class="absolute inset-0">
+                        {{ block.value }}
+                    </div>
+                </div>
+                
+                <!-- Card Body -->
+                <div class="card-body p-4">
+                    <h3 class="card-title text-base">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                        </svg>
+                        Embed
+                    </h3>
+                    
+                    {% if block.value.url %}
+                    <div class="card-actions justify-end mt-auto">
+                        <a href="{{ block.value.url }}" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm">
+                            Ver original
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                            </svg>
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if block.block_type == 'url' %}
+            <div class="card bg-base-100 shadow-xl content-card">
+                <div class="card-body p-4">
+                    <h3 class="card-title text-base">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 010 5.656l-1.414 1.414a4 4 0 01-5.656 0l-1.414-1.414a4 4 0 010-5.656m6.828 0a4 4 0 00-5.656 0l-1.414 1.414m8.484-8.484a4 4 0 010 5.656l-1.414 1.414"></path>
+                        </svg>
+                        {{ block.value.title }}
+                    </h3>
+
+                    <div class="text-sm text-base-content/70 break-all">
+                        <a href="{{ block.value.url }}" target="_blank" rel="noopener noreferrer" class="link link-primary">
+                            {{ block.value.url }}
+                        </a>
+                    </div>
+
+                    <div class="card-actions justify-end mt-auto">
+                        <a href="{{ block.value.url }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm">
+                            Abrir
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                            </svg>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+
+    <!-- Navigation -->
+    <div class="flex justify-between items-center mt-8">
+        <a href="{{ page.get_parent.get_url }}" class="btn btn-ghost">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+            </svg>
+            Back to Library
+        </a>
+        
+        <div class="text-sm text-base-content/50">
+            Last updated: {{ page.last_published_at|date:"M d, Y" }}
+        </div>
+    </div>
+</div>
+
+<script>
+// Configurar PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// Renderizar previsualizaciones de PDF al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+    const pdfCanvases = document.querySelectorAll('.pdf-preview-canvas');
+    
+    pdfCanvases.forEach(function(canvas, index) {
+        const pdfUrl = canvas.getAttribute('data-pdf-url');
+        const isHalfPage = canvas.getAttribute('data-half-page') === 'true';
+        const previewContainer = canvas.closest('.pdf-preview-compact') || canvas.closest('.pdf-preview-fullwidth');
+        const loadingDiv = previewContainer?.querySelector('.pdf-loading');
+        
+        if (pdfUrl) {
+            // Cargar PDF
+            pdfjsLib.getDocument(pdfUrl).promise.then(function(pdf) {
+                // Renderizar primera página
+                pdf.getPage(1).then(function(page) {
+                    // Calcular escala para ajustar al ancho del contenedor
+                    const containerWidth = previewContainer.clientWidth;
+                    const originalViewport = page.getViewport({ scale: 1 });
+                    const scale = containerWidth / originalViewport.width;
+                    const viewport = page.getViewport({ scale: scale });
+                    
+                    // Configurar canvas
+                    const context = canvas.getContext('2d');
+                    canvas.width = viewport.width;
+                    canvas.height = viewport.height;
+                    
+                    // Renderizar PDF en canvas
+                    const renderContext = {
+                        canvasContext: context,
+                        viewport: viewport
+                    };
+                    
+                    page.render(renderContext).promise.then(function() {
+                        // Ocultar loading
+                        if (loadingDiv) {
+                            loadingDiv.style.display = 'none';
+                        }
+                        
+                        // Si es media página, ajustar la altura visible del canvas
+                        if (isHalfPage) {
+                            // El overflow:hidden del wrapper cortará la mitad inferior automáticamente
+                            console.log('PDF half-page preview rendered successfully');
+                        } else {
+                            console.log('PDF preview rendered successfully');
+                        }
+                    });
+                });
+            }).catch(function(error) {
+                console.error('Error loading PDF preview:', error);
+                // Mostrar mensaje de error
+                if (loadingDiv) {
+                    loadingDiv.innerHTML = `
+                        <div class="text-center text-error">
+                            <svg class="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <p class="text-sm">No se pudo cargar la vista previa</p>
+                            <p class="text-xs mt-1">Usa los botones de abajo para ver el PDF</p>
+                        </div>
+                    `;
+                }
+            });
+        }
+    });
+});
+
+// PDF handling functions
+function openPDFInNewTab(url) {
+    window.open(url, '_blank');
+}
+
+function shareAudio(audioUrl, title) {
+    // Check if Web Share API is supported
+    if (navigator.share) {
+        navigator.share({
+            title: title,
+            text: `Listen to this audio: ${title}`,
+            url: audioUrl
+        }).then(() => {
+            console.log('Audio shared successfully');
+        }).catch((error) => {
+            console.log('Error sharing audio:', error);
+            fallbackShare(audioUrl, title);
+        });
+    } else {
+        // Fallback for browsers that don't support Web Share API
+        fallbackShare(audioUrl, title);
+    }
+}
+
+function fallbackShare(audioUrl, title) {
+    // Copy URL to clipboard
+    navigator.clipboard.writeText(audioUrl).then(() => {
+        // Show success message
+        const toast = document.createElement('div');
+        toast.className = 'toast toast-top toast-end';
+        toast.innerHTML = `
+            <div class="alert alert-success">
+                <span>Audio URL copied to clipboard!</span>
+            </div>
+        `;
+        document.body.appendChild(toast);
+        
+        // Remove toast after 3 seconds
+        setTimeout(() => {
+            document.body.removeChild(toast);
+        }, 3000);
+    }).catch((error) => {
+        console.log('Error copying to clipboard:', error);
+        // Show error message
+        alert(`Share this audio: ${audioUrl}`);
+    });
+}
+
+// Enhanced audio player functionality
+document.addEventListener('DOMContentLoaded', function() {
+    // Add keyboard shortcuts for audio players
+    const audioElements = document.querySelectorAll('audio');
+    
+    audioElements.forEach((audio, index) => {
+        // Add play/pause on spacebar when audio is focused
+        audio.addEventListener('keydown', function(e) {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                if (audio.paused) {
+                    audio.play();
+                } else {
+                    audio.pause();
+                }
+            }
+        });
+        
+        // Add loading and error handling
+        audio.addEventListener('loadstart', function() {
+            console.log(`Loading audio ${index + 1}...`);
+        });
+        
+        audio.addEventListener('canplay', function() {
+            console.log(`Audio ${index + 1} ready to play`);
+        });
+        
+        audio.addEventListener('error', function(e) {
+            console.error(`Error loading audio ${index + 1}:`, e);
+            const errorMsg = audio.parentElement.querySelector('.audio-error');
+            if (!errorMsg) {
+                const error = document.createElement('div');
+                error.className = 'audio-error alert alert-error mt-2';
+                error.innerHTML = '<span>Error loading audio file. Please try downloading instead.</span>';
+                audio.parentElement.appendChild(error);
+            }
+        });
+    });
+});
+
+// Menu functions
+function downloadAllPDFs() {
+    const pdfLinks = document.querySelectorAll('a[download][href*=".pdf"], a[download][href*="/documents/"]');
+    if (pdfLinks.length === 0) {
+        const toast = document.createElement('div');
+        toast.className = 'toast toast-top toast-end';
+        toast.innerHTML = `
+            <div class="alert alert-warning">
+                <span>No PDF files found in this score.</span>
+            </div>
+        `;
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            document.body.removeChild(toast);
+        }, 3000);
+        return;
+    }
+    
+    pdfLinks.forEach((link, index) => {
+        setTimeout(() => {
+            const a = document.createElement('a');
+            a.href = link.href;
+            a.download = '';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }, index * 500); // Delay each download by 500ms
+    });
+    
+    // Show success message
+    const toast = document.createElement('div');
+    toast.className = 'toast toast-top toast-end';
+    toast.innerHTML = `
+        <div class="alert alert-success">
+            <span>Downloading ${pdfLinks.length} PDF file(s)...</span>
+        </div>
+    `;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        document.body.removeChild(toast);
+    }, 3000);
+}
+
+function shareScore(scoreUrl, title) {
+    const fullUrl = window.location.origin + scoreUrl;
+    
+    if (navigator.share) {
+        navigator.share({
+            title: title,
+            text: `Check out this music score: ${title}`,
+            url: fullUrl
+        }).then(() => {
+            console.log('Score shared successfully');
+        }).catch((error) => {
+            console.log('Error sharing score:', error);
+            fallbackShareScore(fullUrl, title);
+        });
+    } else {
+        fallbackShareScore(fullUrl, title);
+    }
+}
+
+function fallbackShareScore(url, title) {
+    navigator.clipboard.writeText(url).then(() => {
+        const toast = document.createElement('div');
+        toast.className = 'toast toast-top toast-end';
+        toast.innerHTML = `
+            <div class="alert alert-success">
+                <span>Score URL copied to clipboard!</span>
+            </div>
+        `;
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            document.body.removeChild(toast);
+        }, 3000);
+    }).catch((error) => {
+        console.log('Error copying to clipboard:', error);
+        alert(`Share this score: ${url}`);
+    });
+}
+
+function addToSetlist(pageId) {
+    // This would typically open a modal or redirect to setlist management
+    // For now, show a placeholder message
+    const toast = document.createElement('div');
+    toast.className = 'toast toast-top toast-end';
+    toast.innerHTML = `
+        <div class="alert alert-info">
+            <span>Setlist functionality coming soon!</span>
+        </div>
+    `;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        document.body.removeChild(toast);
+    }, 3000);
+}
+</script>
+{% endblock %}
