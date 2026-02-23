@@ -4,6 +4,109 @@
 
 {% block title %}{{ page.title }} - IES Martina Bescós{% endblock %}
 
+{% block extra_css %}
+<style>
+    /* Estilos para el contenido RichText de Wagtail */
+    .richtext-body h1 {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-top: 2rem;
+        margin-bottom: 1rem;
+        line-height: 1.3;
+    }
+    .richtext-body h2 {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-top: 2rem;
+        margin-bottom: 0.75rem;
+        line-height: 1.3;
+    }
+    .richtext-body h3 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-top: 1.5rem;
+        margin-bottom: 0.6rem;
+        line-height: 1.4;
+    }
+    .richtext-body h4 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-top: 1.25rem;
+        margin-bottom: 0.5rem;
+    }
+    .richtext-body p {
+        margin-bottom: 1rem;
+        line-height: 1.75;
+    }
+    .richtext-body ul {
+        list-style-type: disc;
+        padding-left: 1.75rem;
+        margin-bottom: 1rem;
+    }
+    .richtext-body ol {
+        list-style-type: decimal;
+        padding-left: 1.75rem;
+        margin-bottom: 1rem;
+    }
+    .richtext-body li {
+        margin-bottom: 0.4rem;
+        line-height: 1.65;
+    }
+    .richtext-body li > ul,
+    .richtext-body li > ol {
+        margin-top: 0.4rem;
+        margin-bottom: 0.4rem;
+    }
+    .richtext-body blockquote {
+        border-left: 4px solid oklch(var(--p));
+        padding: 0.75rem 1.25rem;
+        margin: 1.5rem 0;
+        background-color: oklch(var(--b2));
+        border-radius: 0 0.5rem 0.5rem 0;
+        font-style: italic;
+    }
+    .richtext-body a {
+        color: oklch(var(--p));
+        text-decoration: underline;
+    }
+    .richtext-body a:hover {
+        opacity: 0.8;
+    }
+    .richtext-body strong, .richtext-body b {
+        font-weight: 700;
+    }
+    .richtext-body em, .richtext-body i {
+        font-style: italic;
+    }
+    .richtext-body hr {
+        border: none;
+        border-top: 1px solid oklch(var(--b3));
+        margin: 2rem 0;
+    }
+    .richtext-body img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 0.5rem;
+        margin: 1.5rem auto;
+        display: block;
+    }
+    .richtext-body table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 1.5rem 0;
+    }
+    .richtext-body th, .richtext-body td {
+        border: 1px solid oklch(var(--b3));
+        padding: 0.5rem 0.75rem;
+        text-align: left;
+    }
+    .richtext-body th {
+        background-color: oklch(var(--b2));
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container mx-auto px-4 py-8 max-w-4xl">
 
@@ -14,12 +117,13 @@
             {% if page.get_parent %}
             <li><a href="{{ page.get_parent.url }}">{{ page.get_parent.title }}</a></li>
             {% endif %}
-            <li>{{ page.title|truncatechars:40 }}</li>
+            <li>{{ page.title|truncatechars:50 }}</li>
         </ul>
     </div>
 
     {# Article header #}
     <div class="mb-8">
+        {% if page.categories.all %}
         <div class="flex flex-wrap gap-2 mb-4">
             {% for category in page.categories.all %}
             <span class="badge badge-primary badge-outline">
@@ -27,15 +131,16 @@
             </span>
             {% endfor %}
         </div>
+        {% endif %}
 
         <h1 class="text-4xl font-bold mb-4">{{ page.title }}</h1>
 
         {% if page.intro %}
-        <p class="text-xl text-base-content/70 mb-4">{{ page.intro }}</p>
+        <p class="text-lg text-base-content/70 mb-4">{{ page.intro }}</p>
         {% endif %}
 
-        <div class="flex items-center justify-between flex-wrap gap-3 text-sm text-base-content/60 border-b border-base-200 pb-4">
-            <div class="flex items-center gap-4">
+        <div class="flex items-center justify-between flex-wrap gap-3 text-sm text-base-content/60 border-b border-base-200 pb-4 mb-6">
+            <div class="flex items-center gap-4 flex-wrap">
                 {% if page.date %}
                 <span>📅 {{ page.date|date:"j \d\e F, Y" }}</span>
                 {% endif %}
@@ -49,7 +154,10 @@
                     {% library_button page %}
                 </div>
                 {% if user.is_staff %}
-                <a href="/cms/pages/{{ page.id }}/edit/" class="btn btn-xs btn-ghost">Editar</a>
+                <a href="/cms/pages/{{ page.id }}/edit/"
+                   class="btn btn-xs btn-ghost gap-1">
+                    ✏️ Editar
+                </a>
                 {% endif %}
             </div>
             {% endif %}
@@ -58,14 +166,14 @@
 
     {# Featured image #}
     {% if page.featured_image %}
-    <figure class="mb-8 rounded-xl overflow-hidden">
+    <figure class="mb-8 rounded-xl overflow-hidden shadow-md">
         {% image page.featured_image width-1200 class="w-full h-auto object-cover" %}
     </figure>
     {% endif %}
 
-    {# Article body #}
+    {# Article body - richtext with custom styles #}
     {% if page.body %}
-    <div class="prose prose-lg max-w-none mb-12">
+    <div class="richtext-body text-base leading-relaxed mb-12">
         {{ page.body|richtext }}
     </div>
     {% endif %}
@@ -74,17 +182,14 @@
 
     {# Footer actions #}
     <div class="flex justify-between items-center mt-6 flex-wrap gap-4">
-        <a href="{{ page.get_parent.url }}" class="btn btn-outline btn-sm">
+        <a href="{{ page.get_parent.url }}" class="btn btn-primary btn-outline gap-2">
             ← Volver al índice
         </a>
         {% if page.categories.all or page.tags.all %}
         <div class="flex flex-wrap gap-2">
-            {% for category in page.categories.all %}
-            <span class="badge badge-primary">{{ category.name }}</span>
-            {% endfor %}
             {% for tag in page.tags.all %}
             <a href="{{ page.get_parent.url }}?tags={{ tag.name }}"
-               class="badge badge-outline hover:badge-primary"
+               class="badge badge-outline hover:badge-primary cursor-pointer transition-colors"
                {% if tag.color %}style="border-color: {{ tag.color }}; color: {{ tag.color }};"{% endif %}>
                 #{{ tag.name }}
             </a>
