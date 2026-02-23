@@ -26,6 +26,12 @@ from wagtail.snippets.models import register_snippet
 from modelcluster.fields import ParentalKey, ParentalManyToManyField
 
 
+def _is_blog_request(request):
+    """Helper para detectar si el request viene del sitio de blogs."""
+    host = request.get_host() if request else ""
+    return "blogs.iesmartinabescos" in host
+
+
 class HomePage(Page):
     """Página de inicio del sitio web"""
 
@@ -57,6 +63,11 @@ class HomePage(Page):
         FieldPanel("body"),
     ]
 
+    def get_template(self, request, *args, **kwargs):
+        if _is_blog_request(request):
+            return "cms/home_page_blog.html"
+        return "cms/home_page_app.html"
+
     class Meta:
         verbose_name = "Página de Inicio"
 
@@ -71,6 +82,11 @@ class StandardPage(Page):
         FieldPanel("intro"),
         FieldPanel("body"),
     ]
+
+    def get_template(self, request, *args, **kwargs):
+        if _is_blog_request(request):
+            return "cms/standard_page_blog.html"
+        return "cms/standard_page_app.html"
 
     class Meta:
         verbose_name = "Página Estándar"
@@ -209,6 +225,11 @@ class BlogPage(Page):
     # Permitir BlogPage como hijo de BlogIndexPage y MusicLibraryIndexPage
     parent_page_types = ["cms.BlogIndexPage", "cms.MusicLibraryIndexPage"]
 
+    def get_template(self, request, *args, **kwargs):
+        if _is_blog_request(request):
+            return "cms/blog_page_blog.html"
+        return "cms/blog_page.html"
+
     class Meta:
         verbose_name = "Artículo de Blog"
 
@@ -320,6 +341,11 @@ class DictadoPage(Page):
     parent_page_types = ["cms.MusicLibraryIndexPage"]
     subpage_types = []
 
+    def get_template(self, request, *args, **kwargs):
+        if _is_blog_request(request):
+            return "cms/dictado_page_blog.html"
+        return "cms/dictado_page_app.html"
+
     class Meta:
         verbose_name = "Dictado"
         verbose_name_plural = "Dictados"
@@ -401,6 +427,11 @@ class TestPage(Page):
 
     parent_page_types = ["cms.MusicLibraryIndexPage"]
     subpage_types = []
+
+    def get_template(self, request, *args, **kwargs):
+        if _is_blog_request(request):
+            return "cms/test_page_blog.html"
+        return "cms/test_page_app.html"
 
     class Meta:
         verbose_name = "Test Musical"
@@ -677,6 +708,11 @@ class MusicLibraryIndexPage(Page):
         "cms.DictadoPage",
     ]
 
+    def get_template(self, request, *args, **kwargs):
+        if _is_blog_request(request):
+            return "cms/music_library_index_page_blog.html"
+        return "cms/music_library_index_page_app.html"
+
     class Meta:
         verbose_name = "Biblioteca Musical"
         verbose_name_plural = "Bibliotecas Musicales"
@@ -905,6 +941,11 @@ class ScorePage(Page):
     parent_page_types = ["cms.MusicLibraryIndexPage", "cms.SetlistPage"]
     subpage_types = []  # No permitir hijos
 
+    def get_template(self, request, *args, **kwargs):
+        if _is_blog_request(request):
+            return "cms/score_page_blog.html"
+        return "cms/score_page_app.html"
+
     class Meta:
         verbose_name = "Partitura"
         verbose_name_plural = "Partituras"
@@ -1063,6 +1104,11 @@ class SetlistPage(Page):
     # Puede ser hijo de MusicLibraryIndexPage y puede contener ScorePages
     parent_page_types = ["cms.MusicLibraryIndexPage"]
     subpage_types = ["cms.ScorePage"]
+
+    def get_template(self, request, *args, **kwargs):
+        if _is_blog_request(request):
+            return "cms/setlist_page_blog.html"
+        return "cms/setlist_page_app.html"
 
     class Meta:
         verbose_name = "Lista de Reproducción"
