@@ -133,6 +133,11 @@ deploy-production:
 	echo 'Aplicando migraciones...' && \
 	docker compose -f docker-compose.production.yml run --rm django python manage.py migrate"
 
+# pull changes from remote repositorie without building the whole thing
+pull-changes-production:
+    @ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-production && \
+    git pull"
+
 # production-manage: Executes `manage.py` command in production environment.
 production-manage +args:
     @ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-production && \
