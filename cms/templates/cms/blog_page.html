@@ -77,7 +77,7 @@
         <!-- Metadatos Superiores -->
         <div class="flex items-center justify-center gap-4 text-xs font-sans tracking-widest text-gray-500 uppercase mb-8">
             {% if page.date %}
-            <span>{{ page.date|date:"j de F, Y" }}</span>
+            <span>{{ page.date|date:"j \\d\\e F, Y" }}</span>
             {% endif %}
             
             {% if page.categories.all %}
