@@ -5,7 +5,7 @@ from django.contrib import admin
 from django.urls import include
 from django.urls import path
 from django.views import defaults as default_views
-from django.views.generic import TemplateView
+from django.views.generic import RedirectView, TemplateView
 from ninja import NinjaAPI, Router
 
 from wagtail.admin import urls as wagtailadmin_urls
@@ -58,6 +58,7 @@ urlpatterns = [
     path("songs/", include("songs_ranking.urls", namespace="songs_ranking")),
     # django-sql-explorer
     path("explorer/", include("explorer.urls")),
+    path("cms/login/", RedirectView.as_view(url="/accounts/login/?next=/cms/"), name="wagtail_login_redirect"),
     path("cms/", include(wagtailadmin_urls)),
     path("documents/", include(wagtaildocs_urls)),
     # Analytics

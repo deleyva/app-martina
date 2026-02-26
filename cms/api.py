@@ -11,6 +11,8 @@ from wagtail.images import get_image_model
 
 from api_keys.auth import DatabaseApiKey
 from .models import (
+    BlogIndexPage,
+    BlogPage,
     MusicCategory,
     MusicLibraryIndexPage,
     MusicTag,
@@ -346,4 +348,138 @@ def ai_publish_content(
         preview_url=preview_url,
         message=message,
         created_items=created_items,
+    )
+
+
+# Blog Pages Endpoint
+# ------------------------------------------------------------------------------
+
+
+class BlogPageIn(Schema):
+    """Schema de entrada para crear una BlogPage."""
+
+    title: str
+    date: date
+    intro: str
+    body: Optional[str] = ""
+    featured_image_id: Optional[int] = None
+    category_ids: List[int] = []
+    tag_ids: List[int] = []
+    parent_page_id: Optional[int] = None
+    publish_immediately: bool = False
+
+
+class BlogPageOut(Schema):
+    """Schema de respuesta para una BlogPage creada."""
+
+    id: int
+    title: str
+    live: bool
+    edit_url: str
+    preview_url: str
+
+
+def _get_blog_parent_page(parent_page_id: Optional[int]):
+    """Devuelve la página padre para una BlogPage.
+
+    Orden de búsqueda cuando no se especifica parent_page_id:
+    1. Primera BlogIndexPage disponible.
+    2. Primera MusicLibraryIndexPage disponible.
+    3. HttpError 400 si no existe ninguna.
+    """
+    if parent_page_id is not None:
+        # Buscar en los dos tipos de padre permitidos por BlogPage
+        parent = (
+            BlogIndexPage.objects.filter(id=parent_page_id).first()
+            or MusicLibraryIndexPage.objects.filter(id=parent_page_id).first()
+        )
+        if not parent:
+            raise HttpError(
+                400,
+                f"La página padre con ID {parent_page_id} no existe o no es válida "
+                "(debe ser BlogIndexPage o MusicLibraryIndexPage).",
+            )
+        return parent
+
+    # Búsqueda automática del padre
+    parent = BlogIndexPage.objects.first() or MusicLibraryIndexPage.objects.first()
+    if not parent:
+        raise HttpError(
+            400,
+            "No existe ninguna BlogIndexPage ni MusicLibraryIndexPage para alojar el artículo.",
+        )
+    return parent
+
+
+@router.post("/blog-pages", response=BlogPageOut, tags=["Blog"])
+def create_blog_page(request, payload: BlogPageIn):
+    """Crear una BlogPage en Wagtail.
+
+    Permite crear artículos de blog con todos sus campos: título, fecha,
+    resumen, cuerpo en RichText, imagen destacada, categorías, etiquetas
+    y página padre. Se puede publicar inmediatamente o guardar como borrador.
+
+    Args:
+        request: Request object.
+        payload: Datos del artículo de blog.
+
+    Returns:
+        BlogPageOut con id, título, estado live y URLs de edición/preview.
+
+    Raises:
+        HttpError 400: Si la página padre no existe o los IDs de categorías/tags son inválidos.
+    """
+    parent_page = _get_blog_parent_page(payload.parent_page_id)
+    featured_image = _get_image(payload.featured_image_id)
+
+    with transaction.atomic():
+        page = BlogPage(
+            title=payload.title,
+            date=payload.date,
+            intro=payload.intro,
+            body=payload.body or "",
+            # Wagtail hereda live=True del padre si está publicado;
+            # lo sobreescribimos explícitamente para gestionar el estado desde la API.
+            live=payload.publish_immediately,
+        )
+        if featured_image:
+            page.featured_image = featured_image
+
+        parent_page.add_child(instance=page)
+
+        if payload.category_ids:
+            categories = list(
+                MusicCategory.objects.filter(id__in=payload.category_ids).distinct()
+            )
+            if len(categories) != len(set(payload.category_ids)):
+                raise HttpError(400, "Alguna categoría proporcionada no existe.")
+            page.categories.set(categories)
+
+        if payload.tag_ids:
+            tags = list(MusicTag.objects.filter(id__in=payload.tag_ids).distinct())
+            if len(tags) != len(set(payload.tag_ids)):
+                raise HttpError(400, "Alguna etiqueta proporcionada no existe.")
+            page.tags.set(tags)
+
+        revision = page.save_revision()
+        if payload.publish_immediately:
+            revision.publish()
+            # Refrescar desde DB para que page.live esté actualizado
+            page.refresh_from_db()
+
+    edit_url = f"/cms/pages/{page.id}/edit/"
+    if page.live:
+        try:
+            preview_url = page.get_url(request) or f"/cms/pages/{page.id}/"
+        except Exception:
+            preview_url = f"/cms/pages/{page.id}/"
+    else:
+        preview_url = f"/cms/pages/{page.id}/view_draft/"
+
+    return BlogPageOut(
+        id=page.id,
+        title=page.title,
+        live=page.live,
+        edit_url=edit_url,
+        preview_url=preview_url,
     )
