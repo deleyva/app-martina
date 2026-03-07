@@ -346,7 +346,12 @@ class AsignarIncidenciaView(TecnicoRequiredMixin, View):
         nuevo_tecnico = None
 
         if tecnico_id == "self":
-            nuevo_tecnico = asignante
+            if asignante is None:
+                # Fallback for superusers without a perfil_tecnico reverse relation
+                nuevo_tecnico = Tecnico.objects.filter(user=request.user, activo=True).first()
+                asignante = nuevo_tecnico  # keep asignante consistent for history log
+            else:
+                nuevo_tecnico = asignante
         elif tecnico_id == "none":
             nuevo_tecnico = None
         elif tecnico_id.isdigit():
