@@ -6,6 +6,7 @@ Creates ScorePages in Wagtail from AI-extracted metadata and uploaded files.
 
 import logging
 from typing import Any
+from bs4 import BeautifulSoup
 
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import UploadedFile
@@ -864,7 +865,8 @@ class ContentPublisher:
 
         # Block 3: Notas (si existen)
         if metadata.get("notes"):
-            content.append(("notes", metadata["notes"]))
+            normalized_notes = str(BeautifulSoup(metadata["notes"], "html.parser"))
+            content.append(("notes", normalized_notes))
 
         # Block 4: Audios
         for audio_doc in documents.get("audios", []):
@@ -1054,7 +1056,7 @@ class ContentPublisher:
                 title=title,
                 slug=slug,
                 date=timezone.now().date(),
-                intro=metadata.get('description', ''),
+                intro=str(BeautifulSoup(metadata.get('description', ''), "html.parser")) if metadata.get('description') else "",
                 content=content,
                 owner=self.user,
             )
