@@ -268,6 +268,7 @@ EMAIL_BACKEND = env(
 EMAIL_TIMEOUT = 5
 
 DEFAULT_USER_EMAIL_DOMAIN = env("DJANGO_DEFAULT_USER_EMAIL_DOMAIN", default="iesmartinabescos.es")
+INCIDENCIAS_SITE_URL = env("DJANGO_INCIDENCIAS_SITE_URL", default="https://apps.iesmartinabescos.es/incidencias")
 
 # ADMIN
 # ------------------------------------------------------------------------------
