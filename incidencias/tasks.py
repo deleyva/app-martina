@@ -13,9 +13,11 @@ from zoneinfo import ZoneInfo
 
 from django.conf import settings
 from django.core.files.base import ContentFile
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
 from django.utils import timezone
 from huey import crontab
-from huey.contrib.djhuey import db_periodic_task, lock_task
+from huey.contrib.djhuey import db_periodic_task, lock_task, db_task
 
 from incidencias.services.email_parser import EmailIncidenciaParser
 
@@ -341,3 +343,87 @@ def fetch_and_process_emails():
 
     except Exception:
         logger.exception("Error in fetch_and_process_emails task")
+
+
+@db_task()
+def send_estado_changed_notification(incidencia_id: int, old_estado: str, new_estado: str):
+    """Envía un email a los participantes notificando el cambio de estado."""
+    from incidencias.models import Incidencia
+    from incidencias.services.notification_service import IncidenciaNotificationService
+
+    try:
+        incidencia = Incidencia.objects.get(pk=incidencia_id)
+    except Incidencia.DoesNotExist:
+        logger.warning(f"Incidencia {incidencia_id} no encontrada para notificación de estado.")
+        return
+
+    emails = IncidenciaNotificationService.get_participant_emails(incidencia)
+    if not emails:
+        return
+
+    old_estado_display = dict(Incidencia.Estado.choices).get(old_estado, old_estado)
+    new_estado_display = dict(Incidencia.Estado.choices).get(new_estado, new_estado)
+    url = f"{settings.INCIDENCIAS_SITE_URL}/detalle/{incidencia.pk}/"
+
+    subject = f"[Incidencias] Cambio de estado en: {incidencia.titulo}"
+    body = render_to_string(
+        "incidencias/emails/incidencia_estado_changed.txt",
+        {
+            "incidencia": incidencia,
+            "old_estado_display": old_estado_display,
+            "new_estado_display": new_estado_display,
+            "url": url,
+        },
+    )
+
+    send_mail(
+        subject,
+        body,
+        settings.DEFAULT_FROM_EMAIL,
+        emails,
+        fail_silently=True,
+    )
+    logger.info(f"Notificación de cambio de estado enviada a {len(emails)} participantes para incidencia #{incidencia.pk}")
+
+
+@db_task()
+def send_new_comment_notification(incidencia_id: int, comentario_id: int):
+    """Envía un email a los participantes notificando un nuevo comentario."""
+    from incidencias.models import Incidencia, Comentario
+    from incidencias.services.notification_service import IncidenciaNotificationService
+
+    try:
+        incidencia = Incidencia.objects.get(pk=incidencia_id)
+        comentario = Comentario.objects.get(pk=comentario_id)
+    except (Incidencia.DoesNotExist, Comentario.DoesNotExist):
+        logger.warning(f"Incidencia {incidencia_id} o comentario {comentario_id} no encontrados.")
+        return
+
+    emails = IncidenciaNotificationService.get_participant_emails(incidencia)
+    # Exclude the commenter
+    comentarista_email = IncidenciaNotificationService._username_to_email(comentario.autor_nombre)
+    if comentarista_email and comentarista_email in emails:
+        emails.remove(comentarista_email)
+
+    if not emails:
+        return
+
+    url = f"{settings.INCIDENCIAS_SITE_URL}/detalle/{incidencia.pk}/"
+    subject = f"[Incidencias] Nuevo comentario en: {incidencia.titulo}"
+    body = render_to_string(
+        "incidencias/emails/incidencia_new_comment.txt",
+        {
+            "incidencia": incidencia,
+            "comentario": comentario,
+            "url": url,
+        },
+    )
+
+    send_mail(
+        subject,
+        body,
+        settings.DEFAULT_FROM_EMAIL,
+        emails,
+        fail_silently=True,
+    )
+    logger.info(f"Notificación de nuevo comentario enviada a {len(emails)} participantes para incidencia #{incidencia.pk}")

@@ -1,0 +1,13 @@
+Asunto: [Incidencias] Nuevo comentario en: {{ incidencia.titulo }}
+
+Hola,
+
+{{ comentario.autor_nombre }} ha añadido un nuevo comentario en la incidencia "{{ incidencia.titulo }}":
+
+"{{ comentario.texto }}"
+
+Para ver la incidencia completa, accede a:
+{{ url }}
+
+--
+Sistema de Gestión de Incidencias IES Martina Bescós

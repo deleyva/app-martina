@@ -267,6 +267,8 @@ EMAIL_BACKEND = env(
 # https://docs.djangoproject.com/en/dev/ref/settings/#email-timeout
 EMAIL_TIMEOUT = 5
 
+DEFAULT_USER_EMAIL_DOMAIN = env("DJANGO_DEFAULT_USER_EMAIL_DOMAIN", default="iesmartinabescos.es")
+
 # ADMIN
 # ------------------------------------------------------------------------------
 # Django Admin URL.

@@ -25,6 +25,7 @@ from .models import Etiqueta
 from .models import Incidencia
 from .models import Tecnico
 from .models import Ubicacion
+from .services.notification_service import IncidenciaNotificationService
 
 
 class TecnicoRequiredMixin(LoginRequiredMixin):
@@ -193,6 +194,8 @@ class AgregarComentarioView(View):
                         comentario=comentario,
                         archivo=f,
                     )
+
+            IncidenciaNotificationService.notify_new_comment(incidencia.pk, comentario.pk)
 
         return redirect("incidencias:detalle", pk=pk)
 
@@ -397,8 +400,13 @@ class CambiarEstadoView(TecnicoRequiredMixin, View):
         incidencia = get_object_or_404(Incidencia, pk=pk)
         nuevo_estado = request.POST.get("estado", "")
         if nuevo_estado in dict(Incidencia.Estado.choices):
+            old_estado = incidencia.estado
             incidencia.estado = nuevo_estado
             incidencia.save()
+            if old_estado != nuevo_estado:
+                IncidenciaNotificationService.notify_estado_changed(
+                    incidencia.pk, old_estado, nuevo_estado
+                )
         return redirect("incidencias:panel")
 
 
@@ -416,8 +424,15 @@ class CambiarEstadoApiView(TecnicoRequiredMixin, View):
         if nuevo_estado not in dict(Incidencia.Estado.choices):
             return JsonResponse({"ok": False, "error": "Estado inválido"}, status=400)
 
+        old_estado = incidencia.estado
         incidencia.estado = nuevo_estado
         incidencia.save()
+        
+        if old_estado != nuevo_estado:
+            IncidenciaNotificationService.notify_estado_changed(
+                incidencia.pk, old_estado, nuevo_estado
+            )
+            
         return JsonResponse({
             "ok": True,
             "id": incidencia.pk,
