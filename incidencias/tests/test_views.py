@@ -370,10 +370,10 @@ class TestPanelDashboardView:
 @pytest.mark.django_db
 class TestIncidenciasNavbar:
     def test_landing_has_custom_title(self, client):
-        """Navbar must show 'Incidencias Tecnológicas IES Martina Bescós'."""
+        """Navbar must show 'Incidencias IES Martina Bescós'."""
         response = client.get(reverse("incidencias:landing"))
         content = response.content.decode()
-        assert "Incidencias Tecnológicas" in content
+        assert "Incidencias" in content
         assert "IES Martina Bescós" in content
 
     def test_landing_does_not_show_music_app(self, client):

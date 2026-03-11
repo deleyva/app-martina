@@ -182,6 +182,18 @@ class AgregarComentarioView(View):
             comentario = form.save(commit=False)
             comentario.incidencia = incidencia
             comentario.save()
+
+            # Handle file attachments for the comment
+            files = request.FILES.getlist("archivos")
+            for f in files:
+                if f.size <= 10 * 1024 * 1024:  # 10 MB
+                    from .models import Adjunto
+                    Adjunto.objects.create(
+                        incidencia=incidencia,
+                        comentario=comentario,
+                        archivo=f,
+                    )
+
         return redirect("incidencias:detalle", pk=pk)
 
 

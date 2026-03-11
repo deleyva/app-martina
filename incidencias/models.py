@@ -161,6 +161,14 @@ class Adjunto(models.Model):
         on_delete=models.CASCADE,
         related_name="adjuntos",
     )
+    comentario = models.ForeignKey(
+        "Comentario",
+        verbose_name=_("Comentario"),
+        on_delete=models.CASCADE,
+        related_name="adjuntos",
+        null=True,
+        blank=True,
+    )
     archivo = models.FileField(
         _("Archivo"),
         upload_to=adjunto_upload_path,

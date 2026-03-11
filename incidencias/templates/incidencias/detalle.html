@@ -65,23 +65,44 @@
 
   <!-- Attachments -->
   {% if adjuntos %}
-  <div class="mb-6">
-    <h3 class="text-lg font-semibold mb-3">📎 Adjuntos</h3>
-    <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+  <div class="mb-8">
+    <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+      </svg>
+      Archivos adjuntos
+    </h3>
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
       {% for adj in adjuntos %}
-        {% if adj.is_image %}
-          <a href="{{ adj.archivo.url }}" target="_blank" class="block">
-            <img src="{{ adj.archivo.url }}" alt="Adjunto" class="rounded-lg shadow-md w-full h-40 object-cover hover:opacity-90 transition">
-          </a>
-        {% elif adj.is_video %}
-          <video controls class="rounded-lg shadow-md w-full h-40 object-cover">
-            <source src="{{ adj.archivo.url }}">
-          </video>
-        {% else %}
-          <a href="{{ adj.archivo.url }}" target="_blank" class="btn btn-outline btn-sm">
-            📄 {{ adj.archivo.name|truncatewords:3 }}
-          </a>
-        {% endif %}
+        <div class="group relative aspect-square rounded-2xl overflow-hidden border border-base-300 bg-base-200 transition-all hover:shadow-lg hover:-translate-y-1">
+          {% if adj.is_image %}
+            <a href="{{ adj.archivo.url }}" target="_blank" class="block w-full h-full">
+              <img src="{{ adj.archivo.url }}" alt="Imagen adjunta" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110">
+            </a>
+          {% elif adj.is_video %}
+            <a href="{{ adj.archivo.url }}" target="_blank" class="block w-full h-full relative">
+              <video class="w-full h-full object-cover">
+                <source src="{{ adj.archivo.url }}">
+              </video>
+              <div class="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/40 transition-colors duration-300">
+                <div class="bg-base-100/90 rounded-full p-3 shadow-sm transform transition-transform group-hover:scale-110">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-base-content" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                </div>
+              </div>
+            </a>
+          {% else %}
+            <a href="{{ adj.archivo.url }}" target="_blank" class="flex flex-col items-center justify-center w-full h-full p-4 hover:bg-base-300 transition-colors text-center group-hover:text-primary">
+              <div class="bg-base-100 rounded-full p-3 mb-3 shadow-sm transform transition-transform group-hover:scale-110">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <span class="text-xs font-semibold truncate w-full px-2" title="{{ adj.archivo.name }}">
+                {{ adj.archivo.name|slice:"-20:" }}
+              </span>
+            </a>
+          {% endif %}
+        </div>
       {% endfor %}
     </div>
   </div>
@@ -105,7 +126,37 @@
                 {{ comentario.autor_nombre }}
                 <time class="text-xs opacity-50 ml-1">{{ comentario.created_at|date:"d M Y, H:i" }}</time>
               </div>
-              <div class="chat-bubble chat-bubble-ghost">{{ comentario.texto|linebreaksbr }}</div>
+              <div class="chat-bubble chat-bubble-ghost">
+                {{ comentario.texto|linebreaksbr }}
+                
+                {% if comentario.adjuntos.exists %}
+                  <div class="flex flex-wrap gap-2 mt-3 p-2 bg-base-100/50 rounded-xl border border-base-200/50">
+                    {% for adj in comentario.adjuntos.all %}
+                      <a href="{{ adj.archivo.url }}" target="_blank" class="group relative flex items-center gap-3 pr-4 bg-base-100 rounded-lg hover:bg-base-200 hover:shadow-sm transition-all border border-base-300 overflow-hidden h-14 min-w-[12rem] max-w-[16rem]">
+                        {% if adj.is_image %}
+                          <img src="{{ adj.archivo.url }}" alt="Adjunto" class="h-full w-14 object-cover">
+                        {% elif adj.is_video %}
+                          <div class="h-full w-14 bg-base-300 flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /></svg>
+                          </div>
+                        {% else %}
+                          <div class="h-full w-14 bg-base-200 flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                          </div>
+                        {% endif %}
+                        <div class="flex-1 min-w-0 py-1">
+                          <p class="text-xs font-semibold truncate opacity-80 group-hover:opacity-100 transition-colors group-hover:text-primary" title="{{ adj.archivo.name }}">
+                            {{ adj.archivo.name|slice:"-25:" }}
+                          </p>
+                          <p class="text-[10px] opacity-50 uppercase tracking-widest mt-0.5">
+                            {% if adj.is_image %}IMAGEN{% elif adj.is_video %}VÍDEO{% else %}DOCUMENTO{% endif %}
+                          </p>
+                        </div>
+                      </a>
+                    {% endfor %}
+                  </div>
+                {% endif %}
+              </div>
             </div>
           {% endfor %}
         </div>
@@ -115,10 +166,18 @@
 
       <!-- Add Comment Form -->
       <div class="divider">Añadir comentario</div>
-      <form method="post" action="{% url 'incidencias:comentar' incidencia.pk %}">
+      <form method="post" action="{% url 'incidencias:comentar' incidencia.pk %}" enctype="multipart/form-data">
         {% csrf_token %}
-        <div class="form-control mb-3">
-          {{ comentario_form.autor_nombre }}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+          <div class="form-control">
+            <label class="label pt-0"><span class="label-text-alt opacity-60">¿Quién eres?</span></label>
+            {{ comentario_form.autor_nombre }}
+          </div>
+          <div class="form-control">
+            <label class="label pt-0"><span class="label-text-alt opacity-60">Adjuntar archivos (opcional)</span></label>
+            <input type="file" name="archivos" multiple class="file-input file-input-bordered file-input-sm w-full" accept="image/*,video/*,.pdf">
+            <label class="label pb-0"><span class="label-text-alt opacity-50">Máx 10 MB/archivo. (JPG, PDF, MP4...)</span></label>
+          </div>
         </div>
         <div class="form-control mb-3">
           {{ comentario_form.texto }}
