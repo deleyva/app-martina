@@ -389,8 +389,11 @@ def send_estado_changed_notification(incidencia_id: int, old_estado: str, new_es
 @db_task()
 def send_new_comment_notification(incidencia_id: int, comentario_id: int):
     """Envía un email a los participantes notificando un nuevo comentario."""
-    from incidencias.models import Incidencia, Comentario
-    from incidencias.services.notification_service import IncidenciaNotificationService
+    from incidencias.models import Comentario, Incidencia
+    from incidencias.services.notification_service import (
+        IncidenciaNotificationService,
+        _username_to_email,
+    )
 
     try:
         incidencia = Incidencia.objects.get(pk=incidencia_id)
@@ -401,7 +404,7 @@ def send_new_comment_notification(incidencia_id: int, comentario_id: int):
 
     emails = IncidenciaNotificationService.get_participant_emails(incidencia)
     # Exclude the commenter
-    comentarista_email = IncidenciaNotificationService._username_to_email(comentario.autor_nombre)
+    comentarista_email = _username_to_email(comentario.autor_nombre)
     if comentarista_email and comentarista_email in emails:
         emails.remove(comentarista_email)
 
