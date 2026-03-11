@@ -52,13 +52,19 @@ class IncidenciaNotificationService:
     @staticmethod
     def notify_estado_changed(incidencia_id: int, old_estado: str, new_estado: str) -> None:
         """Dispara tarea asíncrona para notificar cambio de estado."""
+        from django.db import transaction
         from ..tasks import send_estado_changed_notification
 
-        send_estado_changed_notification(incidencia_id, old_estado, new_estado)
+        transaction.on_commit(
+            lambda: send_estado_changed_notification(incidencia_id, old_estado, new_estado)
+        )
 
     @staticmethod
     def notify_new_comment(incidencia_id: int, comentario_id: int) -> None:
         """Dispara tarea asíncrona para notificar nuevo comentario."""
+        from django.db import transaction
         from ..tasks import send_new_comment_notification
 
-        send_new_comment_notification(incidencia_id, comentario_id)
+        transaction.on_commit(
+            lambda: send_new_comment_notification(incidencia_id, comentario_id)
+        )
