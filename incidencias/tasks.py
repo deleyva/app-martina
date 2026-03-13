@@ -363,7 +363,7 @@ def send_estado_changed_notification(incidencia_id: int, old_estado: str, new_es
 
     old_estado_display = dict(Incidencia.Estado.choices).get(old_estado, old_estado)
     new_estado_display = dict(Incidencia.Estado.choices).get(new_estado, new_estado)
-    url = f"{settings.INCIDENCIAS_SITE_URL}/detalle/{incidencia.pk}/"
+    url = f"{settings.INCIDENCIAS_SITE_URL}/{incidencia.pk}/"
 
     subject = f"[Incidencias] Cambio de estado en: {incidencia.titulo}"
     body = render_to_string(
@@ -411,7 +411,7 @@ def send_new_comment_notification(incidencia_id: int, comentario_id: int):
     if not emails:
         return
 
-    url = f"{settings.INCIDENCIAS_SITE_URL}/detalle/{incidencia.pk}/"
+    url = f"{settings.INCIDENCIAS_SITE_URL}/{incidencia.pk}/"
     subject = f"[Incidencias] Nuevo comentario en: {incidencia.titulo}"
     body = render_to_string(
         "incidencias/emails/incidencia_new_comment.txt",
