@@ -230,6 +230,33 @@ class BlogPage(Page):
             return "cms/blog_page_blog.html"
         return "cms/blog_page_app.html"
 
+    def get_pdf_blocks(self):
+        return []
+
+    def get_audios(self):
+        return []
+
+    def get_images(self):
+        return []
+
+    def get_embeds(self):
+        """
+        Extrae URLs de embeds incrustados en el body (RichTextField)
+        para mantener compatibilidad con otras páginas (ScorePage).
+        """
+        from bs4 import BeautifulSoup
+        if not self.body:
+            return []
+            
+        soup = BeautifulSoup(self.body, 'html.parser')
+        embed_tags = soup.find_all('embed', embedtype='media')
+        
+        class DummyEmbedValue:
+            def __init__(self, url):
+                self.url = url
+                
+        return [DummyEmbedValue(tag.get('url')) for tag in embed_tags if tag.get('url')]
+
     class Meta:
         verbose_name = "Artículo de Blog"
 

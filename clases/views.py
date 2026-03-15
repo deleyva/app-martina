@@ -856,8 +856,14 @@ def group_library_item_viewer(request, group_id, pk):
     content_type = item.content_type.model
     content = item.content_object
 
+    # Verificar si se solicita un elemento específico
+    element_type = request.GET.get("element_type")
+    element_id = request.GET.get("element_id")
+    embed_url = request.GET.get("embed_url")
+
     # BlogPages y DictadoPages: redirigir a su visualización normal de Wagtail
-    if content_type in ["blogpage", "dictadopage"]:
+    # EXCEPTO si estamos intentando ver un embed específico de la misma
+    if content_type in ["blogpage", "dictadopage"] and element_type != "embed":
         if hasattr(content, "get_url"):
             return redirect(content.get_url())
 
@@ -868,11 +874,8 @@ def group_library_item_viewer(request, group_id, pk):
         "pdfs": [],
         "images": [],
         "audios": [],
+        "embeds": [],
     }
-
-    # Verificar si se solicita un elemento específico dentro de una ScorePage
-    element_type = request.GET.get("element_type")
-    element_id = request.GET.get("element_id")
 
     # Clasificar según tipo
     if content_type == "document":
@@ -927,6 +930,23 @@ def group_library_item_viewer(request, group_id, pk):
                             break
                         elif not element_type:
                             documents["images"].append(image)
+                elif block.block_type == "embed":
+                    embed_val = block.value
+                    if embed_val and hasattr(embed_val, "url"):
+                        if element_type == "embed" and embed_url == embed_val.url:
+                            documents["embeds"] = [embed_val]
+                            break
+                        elif not element_type:
+                            documents["embeds"].append(embed_val)
+
+    # Si el elemento no es ScorePage pero tiene get_embeds (como BlogPage), añadirlos
+    if not documents["embeds"] and hasattr(content, "get_embeds"):
+        for embed_val in content.get_embeds():
+            if element_type == "embed" and embed_url == embed_val.url:
+                documents["embeds"] = [embed_val]
+                break
+            elif not element_type:
+                documents["embeds"].append(embed_val)
 
     return render(
         request,
@@ -975,8 +995,14 @@ def class_session_item_viewer(request, session_id, item_id):
     content_type = item.content_type.model
     content = item.content_object
 
+    # Verificar si se solicita un elemento específico
+    element_type = request.GET.get("element_type")
+    element_id = request.GET.get("element_id")
+    embed_url = request.GET.get("embed_url")
+
     # BlogPages y DictadoPages: redirigir a su visualización normal de Wagtail
-    if content_type in ["blogpage", "dictadopage"]:
+    # EXCEPTO si estamos intentando ver un embed específico de la misma
+    if content_type in ["blogpage", "dictadopage"] and element_type != "embed":
         if hasattr(content, "get_url"):
             return redirect(content.get_url())
 
@@ -987,6 +1013,7 @@ def class_session_item_viewer(request, session_id, item_id):
         "pdfs": [],
         "images": [],
         "audios": [],
+        "embeds": [],
     }
 
     # Clasificar según tipo (similar a my_library)
@@ -1001,6 +1028,20 @@ def class_session_item_viewer(request, session_id, item_id):
     elif content_type == "image":
         # Wagtail Image
         documents["images"].append(content)
+    elif content_type == "embed":
+        # Wagtail Embed model
+        documents["embeds"].append(content)
+        
+    # Extraer embeds de ScorePage (que fueron importados como items en la sesion?)
+    # Wait, en ClassSession, a content_object can also be a PDF/image inside a ScorePage...
+    # Bueno, vamos a obtener los embeds directamente de score_media
+    if score_media and score_media.get("embeds"):
+        for embed_val in score_media["embeds"]:
+            if element_type == "embed" and embed_url == embed_val.url:
+                documents["embeds"] = [embed_val]
+                break
+            elif not element_type:
+                documents["embeds"].append(embed_val)
 
     # Determinar URL de retorno según parámetro 'from' y rol
     from_view = request.GET.get("from", "edit")

@@ -191,17 +191,32 @@ def help_video(request, slug):
     return page.specific.serve(request)
 
 
+from wagtail.embeds.embeds import get_embed
+from wagtail.embeds.exceptions import EmbedException
+
 @login_required
 def score_embed_html(request):
     score_id = request.GET.get("score_id")
     embed_url = request.GET.get("url")
 
-    score = get_object_or_404(ScorePage, pk=score_id)
-    embed_html = score.get_embed_html_for_url(embed_url)
-    if not embed_html:
+    if not embed_url:
         raise Http404
 
-    return HttpResponse(embed_html)
+    if score_id:
+        score = get_object_or_404(ScorePage, pk=score_id)
+        embed_html = score.get_embed_html_for_url(embed_url)
+        if not embed_html:
+            raise Http404
+        return HttpResponse(embed_html)
+    else:
+        try:
+            embed = get_embed(embed_url)
+            embed_html = getattr(embed, "html", "") or ""
+            if not embed_html:
+                raise Http404
+            return HttpResponse(embed_html)
+        except (EmbedException, ValueError):
+            raise Http404
 
 
 @login_required

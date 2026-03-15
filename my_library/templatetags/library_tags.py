@@ -1,8 +1,23 @@
 from django import template
 from django.contrib.contenttypes.models import ContentType
 from my_library.models import LibraryItem
+from wagtail.embeds.embeds import get_embed
+from wagtail.embeds.exceptions import EmbedException
 
 register = template.Library()
+
+@register.simple_tag
+def get_wagtail_embed(url):
+    """
+    Obtiene o crea una instancia del modelo Embed de Wagtail a partir de una URL.
+    Útil para poder usar el {% library_button %} con embeds (que requieren un Model).
+    """
+    if not url:
+        return None
+    try:
+        return get_embed(url)
+    except EmbedException:
+        return None
 
 
 @register.filter

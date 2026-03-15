@@ -370,6 +370,7 @@ class GroupLibraryItem(models.Model):
             "image": "Imagen",
             "blogpage": "Artículo de Blog",
             "dictadopage": "Dictado",
+            "embed": "Contenido Incrustado",
         }
         return mapping.get(model_name, model_name.title())
 
@@ -390,6 +391,7 @@ class GroupLibraryItem(models.Model):
             "document": "📄",
             "image": "🖼️",
             "blogpage": "📝",
+            "embed": "▶️",
         }
         return icons.get(model_name, "📁")
 
@@ -409,8 +411,8 @@ class GroupLibraryItem(models.Model):
         if self.content_type.model == "scorepage":
             return self.content_object
 
-        # Para documentos, imágenes, buscar en ScorePages
-        if self.content_type.model in ["document", "image"]:
+        # Para documentos, imágenes, embeds, buscar en ScorePages
+        if self.content_type.model in ["document", "image", "embed"]:
             from cms.models import ScorePage
 
             if not self.content_object or not hasattr(self.content_object, "pk"):
@@ -459,13 +461,29 @@ class GroupLibraryItem(models.Model):
                                 and image.pk == self.content_object.pk
                             ):
                                 return score
+                        elif block.block_type == "embed":
+                            embed_val = _get_block_value(block.value, "url")
+                            if (
+                                embed_val
+                                and hasattr(self.content_object, "url")
+                                and embed_val == self.content_object.url
+                            ):
+                                return score
                     except (AttributeError, KeyError, TypeError):
                         continue
 
         return None
 
     def get_related_scorepage_media(self):
-        """Obtener audios y embeds del ScorePage relacionado (si existe)."""
+        """Obtener audios y embeds del contenido relacionado (ScorePage, BlogPage, etc.)."""
+        # Primero ver si el propio contenido tiene estos métodos
+        if hasattr(self.content_object, "get_audios") or hasattr(self.content_object, "get_embeds"):
+            return {
+                "score": self.content_object,
+                "audios": self.content_object.get_audios() if hasattr(self.content_object, "get_audios") else [],
+                "embeds": self.content_object.get_embeds() if hasattr(self.content_object, "get_embeds") else [],
+            }
+
         score = self.get_related_scorepage()
         if not score:
             return {
@@ -714,9 +732,27 @@ class GroupLibraryItem(models.Model):
                     }
 
             elif block.block_type == "embed":
-                # Los embeds no son objetos de BD, no se pueden añadir individualmente
-                # Se omiten por ahora (solo la ScorePage completa se puede añadir)
-                continue
+                embed_val = block.value
+                if embed_val and hasattr(embed_val, "url"):
+                    from wagtail.embeds.embeds import get_embed
+                    from wagtail.embeds.exceptions import EmbedException
+                    from wagtail.embeds.models import Embed
+                    try:
+                        embed_obj = get_embed(embed_val.url)
+                        embed_ct = ContentType.objects.get_for_model(Embed)
+                        element = {
+                            "type": "embed",
+                            "title": getattr(embed_obj, "title", "Video/Audio") or "Embed",
+                            "object": embed_obj,
+                            "content_type_id": embed_ct.id,
+                            "tags": [],
+                            "block": block,
+                            "session_count": self.get_session_count_for_object(
+                                self.group, embed_obj
+                            ),
+                        }
+                    except EmbedException:
+                        continue
 
             if element:
                 elements.append(element)
@@ -861,6 +897,7 @@ class ClassSessionItem(models.Model):
             "image": "Imagen",
             "blogpage": "Artículo de Blog",
             "grouplibraryitem": "Item de Biblioteca",
+            "embed": "Contenido Incrustado",
         }
         return mapping.get(model_name, model_name.title())
 
@@ -880,6 +917,7 @@ class ClassSessionItem(models.Model):
             "document": "📄",
             "image": "🖼️",
             "blogpage": "📝",
+            "embed": "▶️",
         }
         return icons.get(model_name, "📁")
 
@@ -907,7 +945,7 @@ class ClassSessionItem(models.Model):
             return self.content_object
 
         # Para documentos, imágenes, buscar en ScorePages
-        if self.content_type.model in ["document", "image"]:
+        if self.content_type.model in ["document", "image", "embed"]:
             from cms.models import ScorePage
 
             if not self.content_object or not hasattr(self.content_object, "pk"):
@@ -956,13 +994,29 @@ class ClassSessionItem(models.Model):
                                 and image.pk == self.content_object.pk
                             ):
                                 return score
+                        elif block.block_type == "embed":
+                            embed_val = _get_block_value(block.value, "url")
+                            if (
+                                embed_val
+                                and hasattr(self.content_object, "url")
+                                and embed_val == self.content_object.url
+                            ):
+                                return score
                     except (AttributeError, KeyError, TypeError):
                         continue
 
         return None
 
     def get_related_scorepage_media(self):
-        """Obtener audios y embeds del ScorePage relacionado (si existe)."""
+        """Obtener audios y embeds del contenido relacionado (ScorePage, BlogPage, etc.)."""
+        # Primero ver si el propio contenido tiene estos métodos
+        if hasattr(self.content_object, "get_audios") or hasattr(self.content_object, "get_embeds"):
+            return {
+                "score": self.content_object,
+                "audios": self.content_object.get_audios() if hasattr(self.content_object, "get_audios") else [],
+                "embeds": self.content_object.get_embeds() if hasattr(self.content_object, "get_embeds") else [],
+            }
+
         score = self.get_related_scorepage()
         if not score:
             return {

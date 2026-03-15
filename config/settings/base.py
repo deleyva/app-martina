@@ -419,6 +419,16 @@ WAGTAILDOCS_EXTENSIONS = [
     "midi",
 ]
 
+# Wagtail Embeds Custom Finders
+WAGTAILEMBEDS_FINDERS = [
+    {
+        'class': 'cms.embed_finders.HooktheoryEmbedFinder',
+    },
+    {
+        'class': 'wagtail.embeds.finders.oembed',
+    }
+]
+
 # Google Gemini API
 # ------------------------------------------------------------------------------
 GEMINI_API_KEY = env("GEMINI_API_KEY", default="")
