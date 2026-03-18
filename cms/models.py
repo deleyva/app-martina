@@ -1,4 +1,5 @@
 from django.db import models
+from django.conf import settings
 from django import forms
 from django.core.exceptions import ValidationError
 from django.db.utils import OperationalError, ProgrammingError
@@ -1155,3 +1156,18 @@ class SetlistPage(Page):
 # =============================================================================
 # FIN DE MUSIC PILLS MODELS
 # =============================================================================
+
+class SavedResourceFilter(models.Model):
+    """Filtros guardados por el usuario para la biblioteca unificada"""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='saved_resource_filters')
+    name = models.CharField(max_length=100)
+    query_params = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = "Filtro de Recurso Guardado"
+        verbose_name_plural = "Filtros de Recursos Guardados"
+
+    def __str__(self):
+        return f"{self.user.username} - {self.name}"

@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags static %}
+
+{% block title %}{{ page_title }} - Music Pills{% endblock %}
+
+{% block content %}
+<div class="drawer lg:drawer-open h-[calc(100vh-64px)] overflow-hidden">
+    <input id="resource-drawer" type="checkbox" class="drawer-toggle" />
+    
+    <div class="drawer-content flex flex-col bg-base-200">
+        <!-- Contenido principal -->
+        
+        <!-- Header -->
+        <div class="navbar bg-base-100 shadow-sm z-10 sticky top-0">
+            <div class="flex-none lg:hidden">
+                <label for="resource-drawer" class="btn btn-square btn-ghost">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-6 h-6 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                </label>
+            </div>
+            <div class="flex-1 px-2 mx-2">
+                <h1 class="text-xl font-bold">{{ page_title }}</h1>
+            </div>
+            <div class="flex-none gap-2">
+                <!-- Guardar Filtro Modal Trigger -->
+                <button class="btn btn-sm btn-outline btn-primary" onclick="document.getElementById('save_filter_modal').showModal()">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+                    Guardar Filtro
+                </button>
+            </div>
+        </div>
+
+        <div class="overflow-y-auto p-4 flex-1" id="results-container">
+            {% include "cms/resource_library/results.html" %}
+        </div>
+    </div> 
+    
+    <div class="drawer-side z-20">
+        <label for="resource-drawer" class="drawer-overlay"></label> 
+        <div class="menu p-4 w-80 min-h-full bg-base-100 text-base-content border-r border-base-200 overflow-y-auto">
+            <h2 class="font-bold text-lg mb-4">🔍 Búsqueda</h2>
+            
+            <form id="filter-form" hx-get="{% url 'resource_library' %}" hx-target="#results-container" hx-push-url="true" hx-trigger="change, search, keyup delay:500ms from:input[name='q']">
+                <!-- Búsqueda por texto -->
+                <div class="form-control mb-4">
+                    <label class="label"><span class="label-text font-medium">Texto</span></label>
+                    <input type="search" name="q" value="{{ search_query }}" placeholder="Buscar por título..." class="input input-bordered input-sm w-full" />
+                </div>
+
+                <!-- Filtro por Tipo -->
+                <div class="form-control mb-4">
+                    <label class="label"><span class="label-text font-medium">Tipo de Recurso</span></label>
+                    <select name="type" class="select select-bordered select-sm w-full">
+                        <option value="">Todos los tipos</option>
+                        <option value="document" {% if current_type == "document" %}selected{% endif %}>📄 Documentos (PDF, Áudios...)</option>
+                        <option value="image" {% if current_type == "image" %}selected{% endif %}>🖼️ Imágenes</option>
+                        <option value="embed" {% if current_type == "embed" %}selected{% endif %}>▶️ Embeds (YouTube, Spotify...)</option>
+                    </select>
+                </div>
+
+                <!-- Filtro por Etiquetas -->
+                <div class="form-control mb-6">
+                    <label class="label"><span class="label-text font-medium">Etiquetas</span></label>
+                    <div class="flex flex-wrap gap-2 max-h-48 overflow-y-auto p-1 bg-base-200/50 rounded-box">
+                        {% for tag in all_tags %}
+                        <label class="cursor-pointer label justify-start gap-2 p-1 hover:bg-base-300 rounded-lg w-full">
+                            <input type="checkbox" name="tags" value="{{ tag.name }}" class="checkbox checkbox-xs" {% if tag.name in current_tags %}checked{% endif %} />
+                            <span class="label-text text-xs">
+                                {{ tag.name }}
+                            </span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </form>
+
+            <div class="divider"></div> 
+
+            <h2 class="font-bold text-lg mb-4 flex items-center justify-between">
+                <span>⭐ Mis Filtros</span>
+                <span class="badge badge-sm badge-ghost" id="saved-filters-count">{{ saved_filters|length }}</span>
+            </h2>
+            
+            <div id="saved-filters-container">
+                {% include "cms/resource_library/partials/saved_filters_list.html" %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Guardar Filtro -->
+<dialog id="save_filter_modal" class="modal modal-bottom sm:modal-middle">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg">Guardar filtro actual</h3>
+        <p class="py-4 text-sm opacity-80">Guarda la combinación de búsqueda y etiquetas para usarla más tarde con un solo clic.</p>
+        
+        <form id="save-filter-form" hx-post="{% url 'save_resource_filter' %}" hx-target="#saved-filters-container" hx-include="#filter-form" hx-on::after-request="document.getElementById('save_filter_modal').close(); this.reset();">
+            {% csrf_token %}
+            <div class="form-control mb-4">
+                <label class="label"><span class="label-text">Nombre del Filtro</span></label>
+                <input type="text" name="name" placeholder="Ej: Mis pdfs de lectura" required class="input input-bordered w-full" autofocus />
+            </div>
+            
+            <div class="modal-action">
+                <button type="button" class="btn" onclick="document.getElementById('save_filter_modal').close()">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Guardar</button>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+{% endblock %}

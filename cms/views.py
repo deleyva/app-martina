@@ -350,3 +350,94 @@ def update_scores_order(request):
     except Exception as e:
         logger.exception(f"Error actualizando orden: {e}")
         return JsonResponse({"error": str(e)}, status=500)
+
+
+from .services.resource_search import ResourceSearchService
+from .models import SavedResourceFilter
+from taggit.models import Tag as TaggitTag
+from django.db.models import Q
+
+
+def _parse_tag_list(tags: list) -> list:
+    """Normaliza lista de tags: soporta múltiples checkboxes y comas en un solo string."""
+    if len(tags) == 1 and ',' in tags[0]:
+        tags = tags[0].split(',')
+    return [t.strip() for t in tags if t.strip()]
+
+@login_required
+def resource_library_view(request):
+    """Vista principal de la biblioteca unificada de recursos"""
+    query = request.GET.get('q', '')
+    type_filter = request.GET.get('type', '')
+    tags = _parse_tag_list(request.GET.getlist('tags'))
+
+    is_htmx = request.headers.get('HX-Request', False)
+
+    results = ResourceSearchService.search(query=query, type_filter=type_filter, tags=tags, user=request.user)
+
+    paginator = Paginator(results, 24)
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+
+    saved_filters = SavedResourceFilter.objects.filter(user=request.user)
+
+    context = {
+        'results': page_obj,
+        'search_query': query,
+        'current_type': type_filter,
+        'current_tags': tags,
+        'saved_filters': saved_filters,
+        'total_results': len(results),
+        'page_title': 'Biblioteca de Recursos'
+    }
+
+    if is_htmx:
+        return render(request, "cms/resource_library/results.html", context)
+
+    # Solo calcular all_tags para la página completa (no HTMX partials)
+    context['all_tags'] = TaggitTag.objects.filter(
+        Q(taggit_taggeditem_items__content_type__model='document') |
+        Q(taggit_taggeditem_items__content_type__model='image')
+    ).distinct().order_by('name')
+
+    return render(request, "cms/resource_library/index.html", context)
+
+
+@login_required
+@require_POST
+def save_resource_filter(request):
+    """Guarda un filtro de búsqueda actual para el usuario"""
+    name = request.POST.get('name')
+    query = request.POST.get('q', '')
+    type_filter = request.POST.get('type', '')
+    tags = _parse_tag_list(request.POST.getlist('tags'))
+
+    if not name:
+        return JsonResponse({'error': 'El nombre es requerido'}, status=400)
+
+    query_params = {
+        'q': query,
+        'type': type_filter,
+        'tags': tags
+    }
+
+    SavedResourceFilter.objects.create(
+        user=request.user,
+        name=name,
+        query_params=query_params
+    )
+
+    # Recargar la lista de filtros
+    saved_filters = SavedResourceFilter.objects.filter(user=request.user)
+    return render(request, "cms/resource_library/partials/saved_filters_list.html", {'saved_filters': saved_filters})
+
+
+@login_required
+@require_POST
+def delete_resource_filter(request, filter_id):
+    """Elimina un filtro guardado"""
+    filter_obj = get_object_or_404(SavedResourceFilter, id=filter_id, user=request.user)
+    filter_obj.delete()
+    
+    saved_filters = SavedResourceFilter.objects.filter(user=request.user)
+    return render(request, "cms/resource_library/partials/saved_filters_list.html", {'saved_filters': saved_filters})

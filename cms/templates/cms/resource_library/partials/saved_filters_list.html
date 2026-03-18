@@ -1,0 +1,47 @@
+{% if saved_filters %}
+<ul class="menu menu-sm bg-base-200 rounded-box w-full p-2">
+    {% for obj in saved_filters %}
+    <li class="relative group">
+        <!-- Hacemos un GET manual enviando los parámetros como query strings -->
+        <a 
+           class="flex justify-between items-center pr-8"
+           hx-get="{% url 'resource_library' %}?q={{ obj.query_params.q|urlencode }}&type={{ obj.query_params.type|urlencode }}{% for tag in obj.query_params.tags %}&tags={{ tag|urlencode }}{% endfor %}"
+           hx-target="#results-container"
+           hx-push-url="true"
+           hx-on::after-request="
+                // Sincronizar el formulario de búsqueda principal con estos valores
+                const form = document.getElementById('filter-form');
+                if(form) {
+                    form.querySelector('input[name=q]').value = '{{ obj.query_params.q|escapejs }}';
+                    form.querySelector('select[name=type]').value = '{{ obj.query_params.type|escapejs }}';
+                    
+                    // Resetear checkboxes y marcar los correctos
+                    form.querySelectorAll('input[type=checkbox][name=tags]').forEach(el => el.checked = false);
+                    {% for tag in obj.query_params.tags %}
+                    const cb = form.querySelector('input[type=checkbox][name=tags][value=\'{{ tag|escapejs }}\']');
+                    if(cb) cb.checked = true;
+                    {% endfor %}
+                }
+           ">
+            <span class="truncate" title="{{ obj.name }}">{{ obj.name }}</span>
+            <span class="text-[10px] opacity-50">{{ obj.created_at|date:"d M" }}</span>
+        </a>
+        
+        <!-- Botón borrar -->
+        <button 
+            type="button"
+            class="hidden group-hover:flex absolute right-1 top-1 bottom-1 w-6 items-center justify-center btn btn-xs btn-ghost btn-square text-error" 
+            title="Borrar filtro"
+            hx-post="{% url 'delete_resource_filter' obj.id %}"
+            hx-target="#saved-filters-container"
+            onClick="event.stopPropagation();">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+    </li>
+    {% endfor %}
+</ul>
+{% else %}
+<div class="text-sm opacity-60 text-center p-4 border border-dashed border-base-300 rounded-box">
+    Aún no has guardado ningún filtro.
+</div>
+{% endif %}
