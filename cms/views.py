@@ -373,6 +373,17 @@ def resource_library_view(request):
 
     is_htmx = request.headers.get('HX-Request', False)
 
+    # Handle sidebar tags partial refresh
+    if request.GET.get('_partial') == 'sidebar_tags':
+        all_tags = TaggitTag.objects.filter(
+            Q(taggit_taggeditem_items__content_type__model='document') |
+            Q(taggit_taggeditem_items__content_type__model='image')
+        ).distinct().order_by('name')
+        return render(request, "cms/resource_library/partials/sidebar_tags.html", {
+            'all_tags': all_tags,
+            'current_tags': tags,
+        })
+
     results = ResourceSearchService.search(query=query, type_filter=type_filter, tags=tags, user=request.user)
 
     paginator = Paginator(results, 24)
@@ -438,6 +449,96 @@ def delete_resource_filter(request, filter_id):
     """Elimina un filtro guardado"""
     filter_obj = get_object_or_404(SavedResourceFilter, id=filter_id, user=request.user)
     filter_obj.delete()
-    
+
     saved_filters = SavedResourceFilter.objects.filter(user=request.user)
     return render(request, "cms/resource_library/partials/saved_filters_list.html", {'saved_filters': saved_filters})
+
+
+from wagtail.documents.models import Document
+from wagtail.images.models import Image
+
+
+def _get_resource_object(item_type, item_pk):
+    """Helper to retrieve a Document or Image by type and pk."""
+    if item_type == 'document':
+        return get_object_or_404(Document, pk=item_pk)
+    elif item_type == 'image':
+        return get_object_or_404(Image, pk=item_pk)
+    raise Http404
+
+
+@login_required
+def tag_suggestions(request):
+    """Return tag suggestions for autocomplete."""
+    q = request.GET.get('q', '').strip()
+    item_type = request.GET.get('item_type', '')
+    item_pk = request.GET.get('item_pk', '')
+
+    suggestions = []
+    if q:
+        suggestions = TaggitTag.objects.filter(name__icontains=q)[:10]
+
+    return render(request, "cms/resource_library/partials/tag_suggestions.html", {
+        'suggestions': suggestions,
+        'item_type': item_type,
+        'item_pk': item_pk,
+    })
+
+
+@login_required
+@require_POST
+def add_resource_tag(request):
+    """Add a tag to a document or image. Staff only."""
+    if not request.user.is_staff:
+        return HttpResponse("Forbidden", status=403)
+
+    item_type = request.POST.get('item_type', '')
+    item_pk = request.POST.get('item_pk', '')
+    tag_name = request.POST.get('tag_name', '').strip()
+
+    if not tag_name:
+        return HttpResponse("Tag name required", status=400)
+
+    obj = _get_resource_object(item_type, item_pk)
+
+    # Check if this is a new tag
+    is_new_tag = not TaggitTag.objects.filter(name__iexact=tag_name).exists()
+
+    obj.tags.add(tag_name)
+
+    response = render(request, "cms/resource_library/partials/tag_editor.html", {
+        'item_type': item_type,
+        'item_pk': item_pk,
+        'tags': obj.tags.all(),
+        'is_staff': request.user.is_staff,
+    })
+
+    if is_new_tag:
+        response['HX-Trigger'] = 'tagsUpdated'
+
+    return response
+
+
+@login_required
+@require_POST
+def remove_resource_tag(request):
+    """Remove a tag from a document or image. Staff only."""
+    if not request.user.is_staff:
+        return HttpResponse("Forbidden", status=403)
+
+    item_type = request.POST.get('item_type', '')
+    item_pk = request.POST.get('item_pk', '')
+    tag_name = request.POST.get('tag_name', '').strip()
+
+    obj = _get_resource_object(item_type, item_pk)
+    obj.tags.remove(tag_name)
+
+    response = render(request, "cms/resource_library/partials/tag_editor.html", {
+        'item_type': item_type,
+        'item_pk': item_pk,
+        'tags': obj.tags.all(),
+        'is_staff': request.user.is_staff,
+    })
+
+    response['HX-Trigger'] = 'tagsUpdated'
+    return response

@@ -1,14 +1,42 @@
+<script>
+if (!window.__afterLibraryAdd) {
+    window.__afterLibraryAdd = function(form, objectPk, contentTypeId) {
+        var modal = document.getElementById('library_modal_' + objectPk + '_' + contentTypeId);
+        if (modal) modal.close();
+        showToast('✓ Añadido a las bibliotecas seleccionadas', 'success');
+
+        var personalCb = form.querySelector('[name=personal_library]');
+        if (personalCb && personalCb.checked) {
+            var btn = document.getElementById('library-trigger-' + objectPk + '-' + contentTypeId);
+            if (btn) {
+                btn.classList.remove('btn-primary');
+                btn.classList.add('btn-success');
+                btn.innerHTML = '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>';
+                var tooltip = btn.closest('.tooltip');
+                if (tooltip) tooltip.setAttribute('data-tip', 'En tu biblioteca · Gestionar');
+            }
+        }
+    };
+}
+</script>
 {# Para profesores: mostrar siempre (incluyendo ScorePages) para acceder al modal con bibliotecas de grupo #}
 {# Para estudiantes: no mostrar ScorePages (solo elementos individuales) #}
 {% if content_object and user.is_authenticated and not is_scorepage or content_object and user.is_authenticated and is_scorepage and is_teacher %}
     {% if is_teacher %}
         {# PROFESORES: Botón que abre modal para seleccionar destinos #}
-        <div class="tooltip tooltip-left" data-tip="Añadir a bibliotecas">
+        <div class="tooltip tooltip-left" data-tip="{% if in_library %}En tu biblioteca · Gestionar{% else %}Añadir a bibliotecas{% endif %}">
             <button onclick="library_modal_{{ content_object.pk }}_{{ content_type.id }}.showModal()"
-                    class="btn btn-sm btn-primary btn-square">
+                    id="library-trigger-{{ content_object.pk }}-{{ content_type.id }}"
+                    class="btn btn-sm {% if in_library %}btn-success{% else %}btn-primary{% endif %} btn-square">
+                {% if in_library %}
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                </svg>
+                {% else %}
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                 </svg>
+                {% endif %}
             </button>
         </div>
         

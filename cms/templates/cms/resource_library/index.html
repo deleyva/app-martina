@@ -60,15 +60,13 @@
                 <!-- Filtro por Etiquetas -->
                 <div class="form-control mb-6">
                     <label class="label"><span class="label-text font-medium">Etiquetas</span></label>
-                    <div class="flex flex-wrap gap-2 max-h-48 overflow-y-auto p-1 bg-base-200/50 rounded-box">
-                        {% for tag in all_tags %}
-                        <label class="cursor-pointer label justify-start gap-2 p-1 hover:bg-base-300 rounded-lg w-full">
-                            <input type="checkbox" name="tags" value="{{ tag.name }}" class="checkbox checkbox-xs" {% if tag.name in current_tags %}checked{% endif %} />
-                            <span class="label-text text-xs">
-                                {{ tag.name }}
-                            </span>
-                        </label>
-                        {% endfor %}
+                    <div class="flex flex-wrap gap-2 max-h-48 overflow-y-auto p-1 bg-base-200/50 rounded-box"
+                         id="sidebar-tags-container"
+                         hx-get="{% url 'resource_library' %}?_partial=sidebar_tags"
+                         hx-trigger="tagsUpdated from:body"
+                         hx-target="#sidebar-tags-container"
+                         hx-swap="innerHTML">
+                        {% include "cms/resource_library/partials/sidebar_tags.html" %}
                     </div>
                 </div>
             </form>
@@ -110,4 +108,68 @@
         <button>close</button>
     </form>
 </dialog>
+
+<script>
+(function() {
+    function closeAllDropdowns() {
+        document.querySelectorAll('.tag-dropdown-panel').forEach(function(el) { el.remove(); });
+    }
+
+    // Close dropdowns on outside click
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.tag-dropdown-panel') && !e.target.closest('.tag-edit-btn')) {
+            closeAllDropdowns();
+        }
+    });
+
+    // Called directly from button onclick
+    window.__tagEditClick = function(btn) {
+        var editor = btn.closest('[id^="tag-editor-"]');
+        var editorId = editor.id;
+
+        var existing = document.querySelector('.tag-dropdown-panel[data-editor-id="' + editorId + '"]');
+        if (existing) { existing.remove(); return; }
+
+        closeAllDropdowns();
+
+        var tpl = editor.querySelector('.tag-dropdown-tpl');
+        if (!tpl) return;
+
+        var clone = tpl.content.cloneNode(true);
+        document.body.appendChild(clone);
+
+        var dropdown = document.querySelector('.tag-dropdown-panel[data-editor-id="' + editorId + '"]');
+        if (!dropdown) return;
+
+        htmx.process(dropdown);
+
+        var rect = btn.getBoundingClientRect();
+        dropdown.style.top = (rect.bottom + 4) + 'px';
+        dropdown.style.left = Math.min(rect.left, window.innerWidth - 272) + 'px';
+
+        var input = dropdown.querySelector('.tag-add-input');
+        if (input) {
+            input.addEventListener('keydown', function(ev) {
+                if (ev.key === 'Enter' || ev.key === ',') {
+                    ev.preventDefault();
+                    var val = input.value.trim();
+                    if (!val) return;
+                    var form = dropdown.querySelector('.tag-add-form');
+                    form.querySelector('[name=tag_name]').value = val;
+                    htmx.trigger(form, 'submit');
+                    input.value = '';
+                }
+            });
+            input.focus();
+        }
+    };
+
+    document.body.addEventListener('htmx:beforeSwap', function(e) {
+        if (e.detail.target && e.detail.target.id && e.detail.target.id.startsWith('tag-editor-')) {
+            var dd = document.querySelector('.tag-dropdown-panel[data-editor-id="' + e.detail.target.id + '"]');
+            if (dd) dd.remove();
+        }
+    });
+})();
+</script>
 {% endblock %}

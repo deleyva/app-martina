@@ -1,0 +1,78 @@
+<div id="tag-editor-{{ item_type }}-{{ item_pk }}" class="flex flex-wrap gap-1 items-center" onclick="event.stopPropagation()">
+    {% for tag in tags|slice:":3" %}
+        <span class="badge badge-xs badge-outline">{{ tag.name }}</span>
+    {% endfor %}
+    {% with tags|length as tag_count %}
+        {% if tag_count > 3 %}
+            <span class="badge badge-xs badge-ghost">+{{ tag_count|add:"-3" }}</span>
+        {% endif %}
+    {% endwith %}
+
+    {% if is_staff %}
+    <button class="btn btn-ghost btn-xs btn-circle opacity-40 hover:opacity-100 tag-edit-btn"
+            data-item-type="{{ item_type }}" data-item-pk="{{ item_pk }}"
+            onclick="event.stopPropagation(); window.__tagEditClick(this);">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3.5 h-3.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
+        </svg>
+    </button>
+
+    <template class="tag-dropdown-tpl">
+        <div class="fixed z-[9999] p-3 shadow-lg bg-base-100 rounded-box w-64 border border-base-200 tag-dropdown-panel"
+             data-editor-id="tag-editor-{{ item_type }}-{{ item_pk }}"
+             onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center mb-2">
+                <div class="text-xs font-semibold opacity-60 uppercase tracking-wide">Etiquetas</div>
+                <button onclick="this.closest('.tag-dropdown-panel').remove()" class="btn btn-ghost btn-xs btn-circle">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-3 h-3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+
+            <div class="flex flex-wrap gap-1 mb-2 min-h-[1.5rem]">
+                {% for tag in tags %}
+                <span class="badge badge-sm badge-primary gap-1">
+                    {{ tag.name }}
+                    <button hx-post="{% url 'resource_tag_remove' %}"
+                            hx-vals='{"item_type": "{{ item_type }}", "item_pk": "{{ item_pk }}", "tag_name": "{{ tag.name }}"}'
+                            hx-target="#tag-editor-{{ item_type }}-{{ item_pk }}"
+                            hx-swap="outerHTML"
+                            class="btn btn-ghost btn-xs btn-circle p-0 h-4 w-4 min-h-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-3 h-3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+                    </button>
+                </span>
+                {% empty %}
+                <span class="text-xs opacity-40 italic">Sin etiquetas</span>
+                {% endfor %}
+            </div>
+
+            <div class="divider my-1"></div>
+
+            <div class="relative">
+                <input type="text"
+                       placeholder="Añadir etiqueta..."
+                       class="input input-bordered input-xs w-full tag-add-input"
+                       hx-get="{% url 'resource_tag_suggestions' %}"
+                       hx-trigger="keyup changed delay:300ms"
+                       hx-target="#suggestions-{{ item_type }}-{{ item_pk }}"
+                       hx-include="this"
+                       name="q"
+                       autocomplete="off" />
+                <input type="hidden" name="item_type" value="{{ item_type }}" />
+                <input type="hidden" name="item_pk" value="{{ item_pk }}" />
+
+                <form class="tag-add-form"
+                      hx-post="{% url 'resource_tag_add' %}"
+                      hx-target="#tag-editor-{{ item_type }}-{{ item_pk }}"
+                      hx-swap="outerHTML">
+                    {% csrf_token %}
+                    <input type="hidden" name="item_type" value="{{ item_type }}" />
+                    <input type="hidden" name="item_pk" value="{{ item_pk }}" />
+                    <input type="hidden" name="tag_name" value="" />
+                </form>
+
+                <div id="suggestions-{{ item_type }}-{{ item_pk }}" class="mt-1"></div>
+            </div>
+        </div>
+    </template>
+    {% endif %}
+</div>

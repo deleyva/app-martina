@@ -1,0 +1,8 @@
+{% for tag in all_tags %}
+<label class="cursor-pointer label justify-start gap-2 p-1 hover:bg-base-300 rounded-lg w-full">
+    <input type="checkbox" name="tags" value="{{ tag.name }}" class="checkbox checkbox-xs" {% if tag.name in current_tags %}checked{% endif %} />
+    <span class="label-text text-xs">
+        {{ tag.name }}
+    </span>
+</label>
+{% endfor %}

@@ -29,15 +29,11 @@
                     <div class="font-medium truncate">{{ item.title }}</div>
                     
                     <!-- Metadata / Tags -->
-                    <div class="flex flex-wrap gap-1 mt-1 text-xs opacity-60">
+                    <div class="flex flex-wrap gap-1 mt-1 text-xs opacity-60 items-center">
                         <span>{{ item.created_at|date:"d M Y" }}</span>
-                        {% if item.content_object.tags.exists %}
+                        {% if item.type != 'embed' %}
                             <span class="px-2 hidden sm:inline">•</span>
-                            <div class="flex gap-1 overflow-x-hidden" onclick="event.stopPropagation()">
-                                {% for tag in item.content_object.tags.all|slice:":3" %}
-                                    <span class="badge badge-xs badge-outline">{{ tag.name }}</span>
-                                {% endfor %}
-                            </div>
+                            {% include "cms/resource_library/partials/tag_editor.html" with item_type=item.type item_pk=item.content_object.pk tags=item.content_object.tags.all is_staff=user.is_staff %}
                         {% endif %}
                     </div>
                 </div>

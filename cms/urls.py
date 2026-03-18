@@ -12,4 +12,7 @@ urlpatterns = [
     path("resources/", views.resource_library_view, name="resource_library"),
     path("resources/save-filter/", views.save_resource_filter, name="save_resource_filter"),
     path("resources/delete-filter/<int:filter_id>/", views.delete_resource_filter, name="delete_resource_filter"),
+    path("resources/tag-suggestions/", views.tag_suggestions, name="resource_tag_suggestions"),
+    path("resources/tag/add/", views.add_resource_tag, name="resource_tag_add"),
+    path("resources/tag/remove/", views.remove_resource_tag, name="resource_tag_remove"),
 ]

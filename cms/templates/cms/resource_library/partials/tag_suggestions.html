@@ -1,0 +1,17 @@
+{% if suggestions %}
+<ul class="menu menu-xs bg-base-200 rounded-box max-h-32 overflow-y-auto p-1">
+    {% for tag in suggestions %}
+    <li>
+        <button type="button"
+                class="text-xs"
+                hx-post="{% url 'resource_tag_add' %}"
+                hx-vals='{"item_type": "{{ item_type }}", "item_pk": "{{ item_pk }}", "tag_name": "{{ tag.name }}"}'
+                hx-target="#tag-editor-{{ item_type }}-{{ item_pk }}"
+                hx-swap="outerHTML"
+                @click.stop>
+            {{ tag.name }}
+        </button>
+    </li>
+    {% endfor %}
+</ul>
+{% endif %}
