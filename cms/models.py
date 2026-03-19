@@ -258,6 +258,10 @@ class BlogPage(Page):
                 
         return [DummyEmbedValue(tag.get('url')) for tag in embed_tags if tag.get('url')]
 
+    def is_music_library_child(self):
+        parent = self.get_parent()
+        return parent and parent.specific_class.__name__ == 'MusicLibraryIndexPage'
+
     class Meta:
         verbose_name = "Artículo de Blog"
 

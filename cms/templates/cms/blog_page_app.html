@@ -104,6 +104,35 @@
         background-color: oklch(var(--b2));
         font-weight: 600;
     }
+
+    /* Embeds fill the full container width with 16:9 aspect ratio */
+    .richtext-body .blog-embed-wrapper {
+        position: relative;
+        width: 100%;
+        margin: 2rem 0;
+    }
+
+    .richtext-body .blog-embed-wrapper > div:first-child {
+        position: relative;
+        width: 100%;
+        padding-bottom: 56.25%; /* 16:9 */
+        height: 0;
+        overflow: hidden;
+    }
+
+    .richtext-body .blog-embed-wrapper > div:first-child iframe {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100% !important;
+        height: 100% !important;
+    }
+
+    .blog-embed-wrapper .embed-library-btn-prerender {
+        display: flex !important;
+        justify-content: flex-end;
+        padding: 0.5rem 0;
+    }
 </style>
 {% endblock %}
 
@@ -173,10 +202,50 @@
 
     {# Article body - richtext with custom styles #}
     {% if page.body %}
-    <div class="richtext-body text-base leading-relaxed mb-12">
+    <div id="richtext-body" class="richtext-body text-base leading-relaxed mb-12">
         {{ page.body|richtext }}
     </div>
+
+    {# Pre-rendered library buttons for each embed (hidden, moved by JS) #}
+    {% if user.is_authenticated and page.is_music_library_child %}
+    {% for embed_item in page.get_embeds %}
+        {% get_wagtail_embed embed_item.url as embed_obj %}
+        {% if embed_obj %}
+        <div class="embed-library-btn-prerender hidden" data-embed-index="{{ forloop.counter0 }}">
+            <div id="library-btn-embed-{{ embed_obj.id }}">
+                {% library_button embed_obj %}
+            </div>
+        </div>
+        {% endif %}
+    {% endfor %}
     {% endif %}
+    {% endif %}
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var body = document.getElementById('richtext-body');
+        if (!body) return;
+
+        // Wagtail renders embeds as <div><iframe></div> — find iframe parent divs
+        var iframes = body.querySelectorAll('iframe');
+
+        iframes.forEach(function(iframe, i) {
+            var el = iframe.parentNode;
+            var wrapper = document.createElement('div');
+            wrapper.className = 'blog-embed-wrapper';
+            el.parentNode.insertBefore(wrapper, el);
+            wrapper.appendChild(el);
+
+            var btn = document.querySelector(
+                '.embed-library-btn-prerender[data-embed-index="' + i + '"]'
+            );
+            if (btn) {
+                btn.classList.remove('hidden');
+                wrapper.appendChild(btn);
+            }
+        });
+    });
+    </script>
 
     <div class="divider"></div>
 
