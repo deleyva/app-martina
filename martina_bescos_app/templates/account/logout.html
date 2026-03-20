@@ -1,20 +1,49 @@
-{% extends "account/base.html" %}
+{% extends base_template|default:"base.html" %}
 {% load i18n %}
 
 {% block title %}{% translate "Sign Out" %}{% endblock %}
 
 {% block content %}
+{% if base_template == "cms/base_blog.html" %}
+{# ── Editorial blog aesthetic ── #}
+<div class="container mx-auto px-4 py-16 max-w-md">
+    <h1 class="text-4xl font-bold font-serif-title mb-8 text-center">Cerrar sesión</h1>
+
+    <div class="border border-gray-200 p-8 text-center">
+        <p class="text-lg text-gray-700 mb-8">{% translate 'Are you sure you want to sign out?' %}</p>
+
+        <form method="post" action="{% url 'account_logout' %}">
+            {% csrf_token %}
+            {% if redirect_field_value %}
+            <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}"/>
+            {% endif %}
+            <div class="flex justify-center gap-4">
+                <button type="submit"
+                        class="border-2 border-black px-8 py-3 text-xs font-sans uppercase tracking-widest font-bold hover:bg-black hover:text-white transition-colors duration-300">
+                    Cerrar sesión
+                </button>
+                <a href="javascript:history.back()"
+                   class="border border-gray-300 px-8 py-3 text-xs font-sans uppercase tracking-widest text-gray-500 hover:border-black hover:text-black transition-colors duration-300">
+                    Cancelar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% else %}
+{# ── Standard app aesthetic (DaisyUI) ── #}
 <div class="max-w-md mx-auto card bg-base-100 shadow-xl mt-8">
   <div class="card-body">
     <h1 class="card-title text-2xl font-bold mb-4">{% translate "Sign Out" %}</h1>
     <p class="mb-6">{% translate 'Are you sure you want to sign out?' %}</p>
-    
+
     <form method="post" action="{% url 'account_logout' %}">
       {% csrf_token %}
       {% if redirect_field_value %}
       <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}"/>
       {% endif %}
-      
+
       <div class="card-actions justify-end">
         <button type="submit" class="btn btn-error text-white">{% translate 'Sign Out' %}</button>
         <a href="javascript:history.back()" class="btn btn-ghost">{% translate 'Cancel' %}</a>
@@ -22,4 +51,5 @@
     </form>
   </div>
 </div>
+{% endif %}
 {% endblock %}
