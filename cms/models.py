@@ -176,16 +176,65 @@ class BlogIndexPage(Page):
     """Página índice del blog"""
 
     intro = RichTextField(blank=True)
+    moderator = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="moderated_blogs",
+        verbose_name="Encargado/a",
+        help_text="Moderador del departamento que aprueba artículos",
+    )
+    subject = models.ForeignKey(
+        "clases.Subject",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="blog_indexes",
+        verbose_name="Asignatura",
+        help_text="Vincula este blog con una asignatura (hereda icono y color)",
+    )
 
     content_panels = Page.content_panels + [
         FieldPanel("intro"),
+        MultiFieldPanel(
+            [
+                FieldPanel("moderator"),
+                FieldPanel("subject"),
+            ],
+            heading="Departamento",
+        ),
     ]
+
+    subpage_types = ["cms.BlogIndexPage", "cms.BlogPage"]
 
     def get_context(self, request):
         context = super().get_context(request)
-        # Obtener todas las páginas de blog que son hijas de esta página
-        blogpages = self.get_children().live().order_by("-first_published_at")
+        children = self.get_children().live()
+
+        # Query by type at DB level instead of loading all children with .specific()
+        department_pages = list(children.type(BlogIndexPage).specific())
+        blogpages = list(
+            children.type(BlogPage)
+            .specific()
+            .prefetch_related("categories")
+            .order_by("-first_published_at")
+        )
+
+        is_hub = len(department_pages) > 0
+        context["is_hub"] = is_hub
+        context["department_pages"] = department_pages
         context["blogpages"] = blogpages
+
+        # Featured articles (only on hub page)
+        if is_hub:
+            context["featured_posts"] = (
+                BlogPage.objects.descendant_of(self)
+                .live()
+                .filter(is_featured=True)
+                .order_by("-first_published_at")[:6]
+            )
+
         return context
 
     class Meta:
@@ -206,6 +255,11 @@ class BlogPage(Page):
         related_name="+",
         help_text="Imagen destacada del artículo",
     )
+    is_featured = models.BooleanField(
+        default=False,
+        verbose_name="Destacado",
+        help_text="Marcar para mostrar en la portada del blog",
+    )
 
     # Categorías y tags
     categories = ParentalManyToManyField("MusicCategory", blank=True)
@@ -215,6 +269,7 @@ class BlogPage(Page):
         FieldPanel("date"),
         FieldPanel("intro"),
         FieldPanel("featured_image"),
+        FieldPanel("is_featured"),
         FieldPanel("body"),
     ]
 

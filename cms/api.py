@@ -363,6 +363,7 @@ class BlogPageIn(Schema):
     intro: str
     body: Optional[str] = ""
     featured_image_id: Optional[int] = None
+    is_featured: bool = False
     category_ids: List[int] = []
     tag_ids: List[int] = []
     parent_page_id: Optional[int] = None
@@ -438,6 +439,7 @@ def create_blog_page(request, payload: BlogPageIn):
             date=payload.date,
             intro=payload.intro,
             body=payload.body or "",
+            is_featured=payload.is_featured,
             # Wagtail hereda live=True del padre si está publicado;
             # lo sobreescribimos explícitamente para gestionar el estado desde la API.
             live=payload.publish_immediately,

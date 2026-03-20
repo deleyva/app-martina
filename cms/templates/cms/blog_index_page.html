@@ -5,7 +5,7 @@
 {% block content %}
 <div class="container mx-auto px-4 py-8 max-w-6xl">
     <h1 class="text-5xl font-bold font-serif-title mb-10 text-center">{{ page.title }}</h1>
-    
+
     {% if page.intro %}
     <div class="max-w-3xl mx-auto text-xl italic text-gray-700 text-center mb-16 leading-relaxed">
         {{ page.intro|richtext }}
@@ -14,59 +14,164 @@
 
     <div class="editorial-divider"></div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
-        {% for blog in blogpages %}
-        {% with item=blog.specific %}
-        <article class="group pb-8 border-b md:border-b-0 md:border-r border-gray-200 pr-0 md:pr-8 last:border-0 last:pr-0">
-            {% if blog.specific.featured_image %}
-            <a href="{% pageurl blog %}" class="block overflow-hidden mb-6">
-                <!-- Efecto B/W a Color on Hover -->
-                {% image blog.specific.featured_image width-600 class="w-full h-64 object-cover bw-image-hover" %}
-            </a>
-            {% endif %}
-            
-            <div>
-                <!-- Titular Grande y Elegante -->
-                <h2 class="text-3xl font-bold font-serif-title mb-4 leading-tight">
-                    <a href="{% pageurl blog %}" class="text-black hover:underline decoration-2 underline-offset-4">
-                        {{ blog.title }}
-                    </a>
-                </h2>
-                
-                <!-- Metadatos minimalistas -->
-                <div class="flex items-center text-xs font-sans tracking-widest text-gray-500 uppercase mb-4">
-                    {% if blog.specific.date %}
-                        <span>{{ blog.specific.date|date:"j M, Y" }}</span>
-                    {% endif %}
-                    {% if blog.specific.categories.all %}
-                        <span class="mx-2">•</span>
-                        <span>{{ blog.specific.categories.first.name }}</span>
-                    {% endif %}
-                </div>
-                
-                <!-- Extracto -->
-                {% if blog.specific.intro %}
-                <p class="text-gray-800 text-lg mb-6 leading-relaxed">{{ blog.specific.intro|truncatechars:150 }}</p>
-                {% endif %}
-                
-                <!-- Botonera -->
-                <div class="flex items-center justify-between mt-auto">
-                    <a href="{% pageurl blog %}" class="text-xs font-sans uppercase tracking-widest font-bold hover:text-gray-500 transition-colors">
-                        Leer Artículo
-                    </a>
-                    {% if user.is_authenticated %}
-                    <div id="library-btn-blog-{{ item.pk }}" onclick="event.stopPropagation()">
-                        {% library_button item %}
+    {% if is_hub %}
+        {# ── Featured Articles Section ── #}
+        {% if featured_posts %}
+        <section class="mb-16">
+            <h2 class="text-2xl font-serif-title font-bold mb-8 tracking-wide uppercase text-center" style="letter-spacing: 0.15em; font-size: 0.875rem;">Destacados</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                {% for post in featured_posts %}
+                <article class="group {% if forloop.first %}md:col-span-3{% endif %}">
+                    {% if forloop.first %}
+                    {# Hero card for first featured article #}
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 pb-8 border-b border-gray-200 mb-8">
+                        {% if post.featured_image %}
+                        <a href="{% pageurl post %}" class="block overflow-hidden">
+                            {% image post.featured_image width-800 class="w-full h-80 object-cover bw-image-hover" %}
+                        </a>
+                        {% endif %}
+                        <div class="flex flex-col justify-center">
+                            <div class="flex items-center text-xs font-sans tracking-widest text-gray-500 uppercase mb-3">
+                                {% if post.date %}
+                                    <span>{{ post.date|date:"j M, Y" }}</span>
+                                {% endif %}
+                                {% with post.get_parent.specific as dept %}
+                                {% if dept.title %}
+                                    <span class="mx-2">•</span>
+                                    <span>{{ dept.title }}</span>
+                                {% endif %}
+                                {% endwith %}
+                            </div>
+                            <h3 class="text-3xl font-bold font-serif-title mb-4 leading-tight">
+                                <a href="{% pageurl post %}" class="text-black hover:underline decoration-2 underline-offset-4">
+                                    {{ post.title }}
+                                </a>
+                            </h3>
+                            {% if post.intro %}
+                            <p class="text-gray-800 text-lg leading-relaxed mb-4">{{ post.intro|truncatechars:200 }}</p>
+                            {% endif %}
+                            <a href="{% pageurl post %}" class="text-xs font-sans uppercase tracking-widest font-bold hover:text-gray-500 transition-colors">
+                                Leer Artículo
+                            </a>
+                        </div>
+                    </div>
+                    {% else %}
+                    {# Smaller cards for remaining featured articles #}
+                    <div class="pb-6">
+                        {% if post.featured_image %}
+                        <a href="{% pageurl post %}" class="block overflow-hidden mb-4">
+                            {% image post.featured_image width-400 class="w-full h-48 object-cover bw-image-hover" %}
+                        </a>
+                        {% endif %}
+                        <div class="flex items-center text-xs font-sans tracking-widest text-gray-500 uppercase mb-2">
+                            {% if post.date %}
+                                <span>{{ post.date|date:"j M, Y" }}</span>
+                            {% endif %}
+                            {% with post.get_parent.specific as dept %}
+                            {% if dept.title %}
+                                <span class="mx-2">•</span>
+                                <span>{{ dept.title }}</span>
+                            {% endif %}
+                            {% endwith %}
+                        </div>
+                        <h3 class="text-xl font-bold font-serif-title mb-2 leading-tight">
+                            <a href="{% pageurl post %}" class="text-black hover:underline decoration-2 underline-offset-4">
+                                {{ post.title }}
+                            </a>
+                        </h3>
+                        {% if post.intro %}
+                        <p class="text-gray-700 leading-relaxed">{{ post.intro|truncatechars:120 }}</p>
+                        {% endif %}
                     </div>
                     {% endif %}
-                </div>
+                </article>
+                {% endfor %}
             </div>
-        </article>
-        {% endwith %}
-        {% empty %}
-        <p class="col-span-full text-gray-500 text-center py-16 italic text-xl">Aún no hay artículos publicados en esta sección.</p>
-        {% endfor %}
-    </div>
+        </section>
+
+        <div class="editorial-divider-thick"></div>
+        {% endif %}
+
+        {# ── Department Cards Grid ── #}
+        <section>
+            <h2 class="text-2xl font-serif-title font-bold mb-10 tracking-wide uppercase text-center" style="letter-spacing: 0.15em; font-size: 0.875rem;">Departamentos</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {% for dept in department_pages %}
+                <a href="{% pageurl dept %}" class="group block border border-gray-200 p-8 hover:border-black transition-colors duration-300">
+                    <div class="flex items-start justify-between mb-4">
+                        <h3 class="text-2xl font-bold font-serif-title leading-tight group-hover:underline decoration-2 underline-offset-4">
+                            {% if dept.subject and dept.subject.icon %}
+                                <span class="mr-2">{{ dept.subject.icon }}</span>
+                            {% endif %}
+                            {{ dept.title }}
+                        </h3>
+                    </div>
+                    {% if dept.intro %}
+                    <div class="text-gray-600 text-base leading-relaxed mb-6 line-clamp-3">
+                        {{ dept.intro|richtext|striptags|truncatechars:120 }}
+                    </div>
+                    {% endif %}
+                    <span class="text-xs font-sans uppercase tracking-widest font-bold text-gray-500 group-hover:text-black transition-colors">
+                        Ver publicaciones →
+                    </span>
+                </a>
+                {% endfor %}
+            </div>
+        </section>
+
+    {% else %}
+        {# ── Article Cards Grid (department-level view) ── #}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
+            {% for blog in blogpages %}
+            {% with item=blog %}
+            <article class="group pb-8 border-b md:border-b-0 md:border-r border-gray-200 pr-0 md:pr-8 last:border-0 last:pr-0">
+                {% if blog.featured_image %}
+                <a href="{% pageurl blog %}" class="block overflow-hidden mb-6">
+                    {% image blog.featured_image width-600 class="w-full h-64 object-cover bw-image-hover" %}
+                </a>
+                {% endif %}
+
+                <div>
+                    <h2 class="text-3xl font-bold font-serif-title mb-4 leading-tight">
+                        <a href="{% pageurl blog %}" class="text-black hover:underline decoration-2 underline-offset-4">
+                            {{ blog.title }}
+                        </a>
+                    </h2>
+
+                    <div class="flex items-center text-xs font-sans tracking-widest text-gray-500 uppercase mb-4">
+                        {% if blog.date %}
+                            <span>{{ blog.date|date:"j M, Y" }}</span>
+                        {% endif %}
+                        {% if blog.categories.all %}
+                            <span class="mx-2">•</span>
+                            <span>{{ blog.categories.first.name }}</span>
+                        {% endif %}
+                    </div>
+
+                    {% if blog.intro %}
+                    <p class="text-gray-800 text-lg mb-6 leading-relaxed">{{ blog.intro|truncatechars:150 }}</p>
+                    {% endif %}
+
+                    <div class="flex items-center justify-between mt-auto">
+                        <a href="{% pageurl blog %}" class="text-xs font-sans uppercase tracking-widest font-bold hover:text-gray-500 transition-colors">
+                            Leer Artículo
+                        </a>
+                        {% if user.is_authenticated %}
+                        <div id="library-btn-blog-{{ item.pk }}" onclick="event.stopPropagation()">
+                            {% library_button item %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </article>
+            {% endwith %}
+            {% empty %}
+            <p class="col-span-full text-gray-500 text-center py-16 italic text-xl">Aún no hay artículos publicados en esta sección.</p>
+            {% endfor %}
+        </div>
+    {% endif %}
 
     <div class="editorial-divider-thick"></div>
 </div>
