@@ -558,6 +558,7 @@ def class_session_add_item(request, session_id):
         content_type_id = request.POST.get("content_type_id")
         object_id = request.POST.get("object_id")
         notes = request.POST.get("notes", "")
+        source_scorepage_id = request.POST.get("source_scorepage_id")
 
         content_type = get_object_or_404(ContentType, id=content_type_id)
         content_object = content_type.get_object_for_this_type(pk=object_id)
@@ -565,7 +566,10 @@ def class_session_add_item(request, session_id):
         try:
             # Lógica en el modelo (FAT MODEL)
             item = ClassSessionItem.add_to_session(
-                session=session, content_object=content_object, notes=notes
+                session=session,
+                content_object=content_object,
+                notes=notes,
+                source_scorepage_id=source_scorepage_id,
             )
 
             # Renderizar item añadido (HTMX swap)

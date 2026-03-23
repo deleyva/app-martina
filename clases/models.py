@@ -848,6 +848,17 @@ class ClassSessionItem(models.Model):
     object_id = models.PositiveIntegerField()
     content_object = GenericForeignKey("content_type", "object_id")
 
+    # ScorePage de origen (cuando el item se añade desde una ScorePage)
+    source_scorepage = models.ForeignKey(
+        "cms.ScorePage",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="session_items_from",
+        verbose_name="ScorePage de origen",
+        help_text="ScorePage desde la que se añadió este elemento",
+    )
+
     # Orden y metadatos
     order = models.PositiveIntegerField(default=0, verbose_name="Orden")
     notes = models.TextField(
@@ -944,7 +955,11 @@ class ClassSessionItem(models.Model):
         if self.content_type.model == "scorepage":
             return self.content_object
 
-        # Para documentos, imágenes, buscar en ScorePages
+        # Si tenemos source_scorepage guardada, usarla directamente
+        if self.source_scorepage_id:
+            return self.source_scorepage
+
+        # Fallback: para documentos, imágenes, buscar en ScorePages
         if self.content_type.model in ["document", "image", "embed"]:
             from cms.models import ScorePage
 
@@ -1032,7 +1047,7 @@ class ClassSessionItem(models.Model):
         }
 
     @classmethod
-    def add_to_session(cls, session, content_object, notes=""):
+    def add_to_session(cls, session, content_object, notes="", source_scorepage_id=None):
         """Añadir elemento a la sesión.
 
         RESTRICCIÓN: No se permiten ScorePages completas en sesiones de clase.
@@ -1055,5 +1070,6 @@ class ClassSessionItem(models.Model):
             object_id=content_object.pk,
             order=order,
             notes=notes,
+            source_scorepage_id=source_scorepage_id,
         )
         return item
