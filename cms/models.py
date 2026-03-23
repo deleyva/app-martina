@@ -293,7 +293,28 @@ class BlogPage(Page):
         return []
 
     def get_images(self):
-        return []
+        """
+        Extrae imágenes de Wagtail incrustadas en el body (RichTextField).
+        En el DB, las imágenes se almacenan como <embed embedtype="image" id="123" .../>.
+        """
+        from bs4 import BeautifulSoup
+        from wagtail.images import get_image_model
+        if not self.body:
+            return []
+
+        Image = get_image_model()
+        soup = BeautifulSoup(self.body, 'html.parser')
+        image_tags = soup.find_all('embed', embedtype='image')
+
+        images = []
+        for tag in image_tags:
+            image_id = tag.get('id')
+            if image_id:
+                try:
+                    images.append(Image.objects.get(pk=image_id))
+                except Image.DoesNotExist:
+                    pass
+        return images
 
     def get_embeds(self):
         """

@@ -133,6 +133,23 @@
         justify-content: flex-end;
         padding: 0.5rem 0;
     }
+
+    /* Image wrapper with library button */
+    .richtext-body .blog-image-wrapper {
+        position: relative;
+        width: 100%;
+        margin: 1.5rem 0;
+    }
+
+    .blog-image-wrapper img {
+        margin: 0;
+    }
+
+    .blog-image-wrapper .image-library-btn-prerender {
+        display: flex !important;
+        justify-content: flex-end;
+        padding: 0.5rem 0;
+    }
 </style>
 {% endblock %}
 
@@ -218,6 +235,16 @@
         </div>
         {% endif %}
     {% endfor %}
+
+    {# Pre-rendered library buttons for each image (hidden, moved by JS) #}
+    {% for image in page.get_images %}
+        <div class="image-library-btn-prerender hidden" data-image-id="{{ image.id }}">
+            <div id="library-btn-image-{{ image.id }}">
+                {% library_button image %}
+            </div>
+        </div>
+    {% endfor %}
+    <script type="application/json" id="blog-image-ids">[{% for image in page.get_images %}{{ image.id }}{% if not forloop.last %},{% endif %}{% endfor %}]</script>
     {% endif %}
     {% endif %}
 
@@ -238,6 +265,28 @@
 
             var btn = document.querySelector(
                 '.embed-library-btn-prerender[data-embed-index="' + i + '"]'
+            );
+            if (btn) {
+                btn.classList.remove('hidden');
+                wrapper.appendChild(btn);
+            }
+        });
+
+        // Wagtail renders images as <img class="richtext-image"> — wrap and add library buttons
+        var images = body.querySelectorAll('img.richtext-image');
+        var imageIds = JSON.parse(document.getElementById('blog-image-ids')?.textContent || '[]');
+
+        images.forEach(function(img, i) {
+            if (i >= imageIds.length) return;
+            var imageId = imageIds[i];
+
+            var wrapper = document.createElement('div');
+            wrapper.className = 'blog-image-wrapper';
+            img.parentNode.insertBefore(wrapper, img);
+            wrapper.appendChild(img);
+
+            var btn = document.querySelector(
+                '.image-library-btn-prerender[data-image-id="' + imageId + '"]'
             );
             if (btn) {
                 btn.classList.remove('hidden');
