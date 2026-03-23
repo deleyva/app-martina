@@ -158,7 +158,7 @@
                 
                 <!-- Botón Añadir elemento individual a sesión -->
                 <button hx-post="{% url 'clases:class_session_add_item' session.pk %}"
-                        hx-vals='{"content_type_id": "{{ element.content_type_id }}", "object_id": "{{ element.object.pk }}", "source_scorepage_id": "{{ lib_item.object_id }}"}'
+                        hx-vals='{"content_type_id": "{{ element.content_type_id }}", "object_id": "{{ element.object.pk }}", "source_page_id": "{{ lib_item.object_id }}"}'
                         hx-target="#session-items"
                         hx-swap="beforeend"
                         hx-on::after-request="const emptyState = document.getElementById('empty-state'); if(emptyState) emptyState.remove(); updateCounters({{ element.content_type_id }}, {{ element.object.pk }}, {{ lib_item.pk }});"

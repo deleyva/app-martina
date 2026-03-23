@@ -1,5 +1,5 @@
 """
-Backfill source_scorepage for existing ClassSessionItems.
+Backfill source_page for existing ClassSessionItems.
 
 Usage:
   # Dry run (default) - shows what would be set
@@ -8,14 +8,15 @@ Usage:
   # Auto-assign items with exactly 1 ScorePage match
   python manage.py backfill_source_scorepage --auto
 
-  # Assign all items in a session to a specific ScorePage
-  python manage.py backfill_source_scorepage --session 71 --scorepage 42
+  # Assign all items in a session to a specific Page
+  python manage.py backfill_source_scorepage --session 71 --page 42
 
   # Only show items for a specific session
   python manage.py backfill_source_scorepage --session 71
 """
 
 from django.core.management.base import BaseCommand
+from wagtail.models import Page
 
 from clases.models import ClassSessionItem
 from cms.models import ScorePage
@@ -63,7 +64,7 @@ def find_all_scorepages(item):
 
 
 class Command(BaseCommand):
-    help = "Backfill source_scorepage for existing ClassSessionItems"
+    help = "Backfill source_page for existing ClassSessionItems"
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -77,17 +78,23 @@ class Command(BaseCommand):
             help="Only process items in this session ID",
         )
         parser.add_argument(
+            "--page",
+            type=int,
+            help="Force-assign this Page ID (requires --session)",
+        )
+        # Keep --scorepage as alias for backwards compat
+        parser.add_argument(
             "--scorepage",
             type=int,
-            help="Force-assign this ScorePage ID (requires --session)",
+            help="Alias for --page",
         )
 
     def handle(self, *args, **options):
         auto = options["auto"]
         session_id = options["session"]
-        scorepage_id = options["scorepage"]
+        page_id = options["page"] or options["scorepage"]
 
-        qs = ClassSessionItem.objects.filter(source_scorepage__isnull=True)
+        qs = ClassSessionItem.objects.filter(source_page__isnull=True)
         if session_id:
             qs = qs.filter(session_id=session_id)
 
@@ -98,20 +105,20 @@ class Command(BaseCommand):
             return
 
         # Bulk assign mode
-        if scorepage_id:
+        if page_id:
             if not session_id:
-                self.stderr.write("--scorepage requires --session")
+                self.stderr.write("--page requires --session")
                 return
             try:
-                score = ScorePage.objects.get(pk=scorepage_id)
-            except ScorePage.DoesNotExist:
-                self.stderr.write(f"ScorePage pk={scorepage_id} not found")
+                page = Page.objects.get(pk=page_id)
+            except Page.DoesNotExist:
+                self.stderr.write(f"Page pk={page_id} not found")
                 return
 
-            count = qs.update(source_scorepage=score)
+            count = qs.update(source_page=page)
             self.stdout.write(
                 self.style.SUCCESS(
-                    f"Assigned {count} items in session {session_id} → {score.title}"
+                    f"Assigned {count} items in session {session_id} → {page.title}"
                 )
             )
             return
@@ -134,8 +141,8 @@ class Command(BaseCommand):
                 )
             elif len(matches) == 1:
                 if auto:
-                    item.source_scorepage = matches[0]
-                    item.save(update_fields=["source_scorepage"])
+                    item.source_page = matches[0]
+                    item.save(update_fields=["source_page"])
                     auto_count += 1
                     self.stdout.write(
                         self.style.SUCCESS(
@@ -170,5 +177,5 @@ class Command(BaseCommand):
         if multi_count > 0:
             self.stdout.write(
                 "\nFor items with multiple matches, use:\n"
-                "  python manage.py backfill_source_scorepage --session <ID> --scorepage <ID>"
+                "  python manage.py backfill_source_scorepage --session <ID> --page <ID>"
             )
