@@ -6,6 +6,10 @@
 
 {% block extra_css %}
 <style>
+    html {
+        scroll-behavior: smooth;
+        scroll-padding-top: 5rem;
+    }
     /* Estilos para el contenido RichText de Wagtail */
     .richtext-body h1 {
         font-size: 2rem;
@@ -154,7 +158,17 @@
 {% endblock %}
 
 {% block content %}
+{% if page.is_music_library_child %}
+<div class="max-w-6xl mx-auto px-4 py-8 lg:flex lg:gap-8">
+    {# TOC Sidebar #}
+    {% with toc_content_id="richtext-body" %}
+    {% include "cms/_toc_sidebar.html" %}
+    {% endwith %}
+
+    <div class="min-w-0 flex-1 max-w-4xl">
+{% else %}
 <div class="container mx-auto px-4 py-8 max-w-4xl">
+{% endif %}
 
     {# Breadcrumb #}
     <div class="breadcrumbs text-sm mb-6">
@@ -316,5 +330,10 @@
         {% endif %}
     </div>
 
+{% if page.is_music_library_child %}
+    </div>{# close flex-1 wrapper #}
+</div>{# close flex container #}
+{% else %}
 </div>
+{% endif %}
 {% endblock %}

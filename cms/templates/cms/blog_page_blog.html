@@ -6,6 +6,11 @@
 
 {% block extra_css %}
 <style>
+    html {
+        scroll-behavior: smooth;
+        scroll-padding-top: 2rem;
+    }
+
     /* Tipografía y espaciado editorial para el contenido del artículo (Jot Down style) */
     .article-content {
         font-size: 1.125rem;
@@ -96,11 +101,55 @@
         justify-content: flex-end;
         padding: 0.5rem 0;
     }
+
+    /* TOC editorial overrides */
+    .toc-sidebar {
+        top: 2rem;
+        max-height: calc(100vh - 4rem);
+    }
+    .toc-sidebar .toc-link {
+        font-family: 'Lora', serif;
+        color: #666;
+    }
+    .toc-sidebar .toc-link:hover {
+        color: #111;
+        border-left-color: #999;
+    }
+    .toc-sidebar .toc-link.active {
+        color: #000;
+        border-left-color: #000;
+    }
+    .toc-mobile-drawer .toc-link {
+        font-family: 'Lora', serif;
+        color: #666;
+    }
+    .toc-mobile-drawer .toc-link.active {
+        color: #000;
+    }
+    .toc-mobile-btn {
+        background: #fff;
+        border: 1px solid #ccc;
+        color: #111;
+    }
+    .toc-mobile-drawer {
+        background: #fff;
+        border-right: 1px solid #ddd;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
+{% if page.is_music_library_child %}
+<div class="max-w-6xl mx-auto px-4 py-8 lg:flex lg:gap-8">
+    {# TOC Sidebar #}
+    {% with toc_content_id="article-content" %}
+    {% include "cms/_toc_sidebar.html" %}
+    {% endwith %}
+
+<article class="min-w-0 flex-1 max-w-4xl">
+{% else %}
 <article class="max-w-4xl mx-auto px-4 py-8">
+{% endif %}
     <!-- Header del Artículo -->
     <header class="mb-12 text-center">
         <!-- Metadatos Superiores -->
@@ -217,6 +266,9 @@
             Volver a Portada
         </a>
     </div>
-    
+
 </article>
+{% if page.is_music_library_child %}
+</div>{# close flex container #}
+{% endif %}
 {% endblock %}
