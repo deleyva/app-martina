@@ -261,6 +261,32 @@ class BlogPage(Page):
         help_text="Marcar para mostrar en la portada del blog",
     )
 
+    # StreamField para archivos adjuntos (PDFs, audios, imágenes) con cards
+    attachments = StreamField(
+        [
+            ("pdf_score", StructBlock([
+                ("title", CharBlock(max_length=200, help_text="Título del PDF")),
+                ("pdf_file", DocumentChooserBlock(help_text="Seleccionar archivo PDF")),
+                ("description", TextBlock(required=False, help_text="Descripción opcional")),
+                ("page_count", CharBlock(max_length=10, required=False, help_text="Número de páginas")),
+            ], icon="doc-full-inverse", label="PDF")),
+            ("audio", StructBlock([
+                ("title", CharBlock(max_length=200, help_text="Título del audio")),
+                ("audio_file", DocumentChooserBlock(help_text="Seleccionar archivo audio")),
+                ("description", TextBlock(required=False, help_text="Descripción opcional")),
+            ], icon="media", label="Audio")),
+            ("image", StructBlock([
+                ("title", CharBlock(max_length=200, help_text="Título de la imagen")),
+                ("image", ImageChooserBlock(help_text="Seleccionar imagen")),
+                ("caption", TextBlock(required=False, help_text="Descripción opcional")),
+            ], icon="image", label="Image")),
+        ],
+        blank=True,
+        use_json_field=True,
+        verbose_name="Archivos adjuntos",
+        help_text="Archivos que se muestran como cards con descarga, visor y botón de librería",
+    )
+
     # Categorías y tags
     categories = ParentalManyToManyField("MusicCategory", blank=True)
     tags = ParentalManyToManyField("MusicTag", blank=True)
@@ -271,6 +297,7 @@ class BlogPage(Page):
         FieldPanel("featured_image"),
         FieldPanel("is_featured"),
         FieldPanel("body"),
+        FieldPanel("attachments"),
     ]
 
     promote_panels = Page.promote_panels + [
@@ -287,33 +314,36 @@ class BlogPage(Page):
         return "cms/blog_page_app.html"
 
     def get_pdf_blocks(self):
-        return []
+        """Obtener bloques PDF del StreamField attachments"""
+        return [block.value for block in self.attachments if block.block_type == "pdf_score"]
 
     def get_audios(self):
-        return []
+        """Obtener bloques de audio del StreamField attachments"""
+        return [block.value for block in self.attachments if block.block_type == "audio"]
 
     def get_images(self):
         """
-        Extrae imágenes de Wagtail incrustadas en el body (RichTextField).
-        En el DB, las imágenes se almacenan como <embed embedtype="image" id="123" .../>.
+        Extrae imágenes de Wagtail: primero del StreamField attachments,
+        luego las incrustadas en el body (RichTextField).
         """
         from bs4 import BeautifulSoup
         from wagtail.images import get_image_model
-        if not self.body:
-            return []
 
-        Image = get_image_model()
-        soup = BeautifulSoup(self.body, 'html.parser')
-        image_tags = soup.find_all('embed', embedtype='image')
+        # Images from StreamField attachments
+        images = [block.value for block in self.attachments if block.block_type == "image"]
 
-        images = []
-        for tag in image_tags:
-            image_id = tag.get('id')
-            if image_id:
-                try:
-                    images.append(Image.objects.get(pk=image_id))
-                except Image.DoesNotExist:
-                    pass
+        # Images from RichText body
+        if self.body:
+            Image = get_image_model()
+            soup = BeautifulSoup(self.body, 'html.parser')
+            image_tags = soup.find_all('embed', embedtype='image')
+            for tag in image_tags:
+                image_id = tag.get('id')
+                if image_id:
+                    try:
+                        images.append(Image.objects.get(pk=image_id))
+                    except Image.DoesNotExist:
+                        pass
         return images
 
     def get_embeds(self):
