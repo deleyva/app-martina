@@ -13,12 +13,19 @@ def my_library_index(request):
     TINY VIEW: solo orquesta y renderiza.
     """
     items = LibraryItem.objects.filter(user=request.user)
+    total_items = items.count()
+    show_all = request.GET.get("show_all")
+    has_more = False
+    if not show_all and total_items > 6:
+        items = items[:6]
+        has_more = True
     return render(
         request,
         "my_library/index.html",
         {
             "items": items,
-            "total_items": items.count(),
+            "total_items": total_items,
+            "has_more": has_more,
         },
     )
 

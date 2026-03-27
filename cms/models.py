@@ -983,14 +983,21 @@ class MusicLibraryIndexPage(Page):
             ),
             reverse=True,
         )
+        # Server-side pagination: limit to 6 unless filtered or show_all
+        is_filtered = tag_names or category_names or search_query
+        show_all_music = is_filtered or request.GET.get("show_all_music")
+        if not show_all_music and len(music_content) > 6:
+            context["has_more_music"] = True
+            context["music_content_total"] = len(music_content)
+            music_content = music_content[:6]
         context["music_content"] = music_content
         context["music_content_count"] = len(music_content)
-        
+
         # Añadir todos los tags y categorías para los filtros
         context["all_tags"] = MusicTag.objects.all().order_by("name")
         context["all_categories"] = MusicCategory.objects.all().order_by("name")
         context["search_query"] = search_query
-        
+
         # Combinar entradas tipo blog/test para la sección de artículos
         combined_entries = []
         for post in context["blog_posts"]:
@@ -1004,6 +1011,12 @@ class MusicLibraryIndexPage(Page):
             ),
             reverse=True,
         )
+        # Server-side pagination for blog entries
+        show_all_blog = is_filtered or request.GET.get("show_all_blog")
+        if not show_all_blog and len(combined_entries) > 6:
+            context["has_more_blog"] = True
+            context["blog_entries_total"] = len(combined_entries)
+            combined_entries = combined_entries[:6]
         context["blog_entries"] = combined_entries
         context["blog_entries_count"] = len(combined_entries)
 

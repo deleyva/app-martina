@@ -58,12 +58,9 @@ function filterLibraryItems() {
         noResults.classList.toggle('hidden', visibleCount > 0);
     }
 
-    // Suspend pagination when filter is active, restore when cleared
+    // Track filter state
     if (typeof libraryFilterActive !== 'undefined') {
         libraryFilterActive = (searchTerm !== '' || currentTagFilter !== '');
-        if (!libraryFilterActive && typeof updateLibraryPagination === 'function') {
-            updateLibraryPagination();
-        }
     }
 }
 

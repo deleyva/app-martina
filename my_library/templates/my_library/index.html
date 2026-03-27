@@ -179,17 +179,16 @@
         {% endfor %}
     </ul>
 
-    <!-- Load More Button -->
-    {% if total_items > 6 %}
-    <div id="loadMoreLibraryContainer" class="text-center mt-6">
-        <button onclick="loadMoreLibrary()" class="btn btn-outline btn-primary" id="loadMoreLibraryBtn">
-            Mostrar más
+    {% if has_more %}
+    <div class="text-center mt-6">
+        <a href="?show_all=1" class="btn btn-outline btn-primary">
+            Mostrar todo ({{ total_items }})
             <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
             </svg>
-        </button>
+        </a>
         <p class="text-xs text-base-content/50 mt-2">
-            Mostrando <span id="libraryVisibleCount">6</span> de <span id="libraryTotalCount">{{ total_items }}</span>
+            Mostrando {{ items|length }} de {{ total_items }}
         </p>
     </div>
     {% endif %}
@@ -197,37 +196,8 @@
     {% include "partials/library_filter_script.html" %}
     
     <script>
-        // Client-side pagination for library items
-        var LIBRARY_PER_PAGE = 6;
-        var libraryVisible = LIBRARY_PER_PAGE;
+        // libraryFilterActive used by filter script
         var libraryFilterActive = false;
-
-        function loadMoreLibrary() {
-            libraryVisible += LIBRARY_PER_PAGE;
-            updateLibraryPagination();
-        }
-
-        function updateLibraryPagination() {
-            // Skip pagination when search/filter is active
-            if (libraryFilterActive) {
-                var container = document.getElementById('loadMoreLibraryContainer');
-                if (container) container.style.display = 'none';
-                return;
-            }
-            var items = document.querySelectorAll('.library-item');
-            var total = items.length;
-            items.forEach(function(item, i) {
-                item.style.display = i < libraryVisible ? '' : 'none';
-            });
-            var countEl = document.getElementById('libraryVisibleCount');
-            if (countEl) countEl.textContent = Math.min(libraryVisible, total);
-            var container = document.getElementById('loadMoreLibraryContainer');
-            if (container) container.style.display = total > libraryVisible ? '' : 'none';
-        }
-
-        document.addEventListener('DOMContentLoaded', function() {
-            updateLibraryPagination();
-        });
 
         /**
          * Reordenar la lista dinámicamente según los criterios de la biblioteca

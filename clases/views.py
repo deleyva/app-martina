@@ -90,6 +90,12 @@ def group_library_index(request, group_id):
         return redirect("evaluations:evaluation_item_list")
 
     items = GroupLibraryItem.objects.filter(group=group)
+    total_items = items.count()
+    show_all = request.GET.get("show_all")
+    has_more = False
+    if not show_all and total_items > 6:
+        items = items[:6]
+        has_more = True
 
     return render(
         request,
@@ -97,7 +103,8 @@ def group_library_index(request, group_id):
         {
             "group": group,
             "items": items,
-            "total_items": items.count(),
+            "total_items": total_items,
+            "has_more": has_more,
         },
     )
 
