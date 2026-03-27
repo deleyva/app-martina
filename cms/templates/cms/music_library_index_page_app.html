@@ -331,7 +331,7 @@
             <span class="badge badge-outline badge-sm">{{ blog_entries_count }} publicaciones</span>
         </div>
         
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="blogEntriesGrid">
             {% for entry in blog_entries %}
             {% with item=entry.page.specific %}
             <div class="card bg-base-100 shadow-lg hover:shadow-xl transition-shadow">
@@ -414,6 +414,21 @@
             {% endwith %}
             {% endfor %}
         </div>
+
+        <!-- Load More Blog Entries -->
+        {% if blog_entries_count > 6 %}
+        <div id="loadMoreBlogContainer" class="text-center mt-6">
+            <button onclick="loadMoreBlog()" class="btn btn-outline btn-primary" id="loadMoreBlogBtn">
+                Mostrar más
+                <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </button>
+            <p class="text-xs text-base-content/50 mt-2">
+                Mostrando <span id="blogVisibleCount">6</span> de {{ blog_entries_count }}
+            </p>
+        </div>
+        {% endif %}
     </div>
     {% endif %}
 
@@ -453,7 +468,7 @@
 // MUSIC PILLS - Paginación de biblioteca musical
 // La funcionalidad de filtrado ahora se maneja en backend
 
-const ITEMS_PER_PAGE = 5;
+const ITEMS_PER_PAGE = 6;
 let currentlyVisible = ITEMS_PER_PAGE;
 
 function loadMoreMusic() {
@@ -493,9 +508,33 @@ function updatePagination() {
     }
 }
 
+// Blog entries pagination
+const BLOG_PER_PAGE = 6;
+let blogVisible = BLOG_PER_PAGE;
+
+function loadMoreBlog() {
+    blogVisible += BLOG_PER_PAGE;
+    updateBlogPagination();
+}
+
+function updateBlogPagination() {
+    var grid = document.getElementById('blogEntriesGrid');
+    if (!grid) return;
+    var cards = grid.children;
+    var total = cards.length;
+    for (var i = 0; i < total; i++) {
+        cards[i].style.display = i < blogVisible ? '' : 'none';
+    }
+    var countEl = document.getElementById('blogVisibleCount');
+    if (countEl) countEl.textContent = Math.min(blogVisible, total);
+    var btn = document.getElementById('loadMoreBlogContainer');
+    if (btn) btn.style.display = blogVisible >= total ? 'none' : '';
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize pagination
     updatePagination();
+    updateBlogPagination();
 });
 </script>
 {% endblock %}

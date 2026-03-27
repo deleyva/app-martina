@@ -57,6 +57,14 @@ function filterLibraryItems() {
     if (noResults) {
         noResults.classList.toggle('hidden', visibleCount > 0);
     }
+
+    // Suspend pagination when filter is active, restore when cleared
+    if (typeof libraryFilterActive !== 'undefined') {
+        libraryFilterActive = (searchTerm !== '' || currentTagFilter !== '');
+        if (!libraryFilterActive && typeof updateLibraryPagination === 'function') {
+            updateLibraryPagination();
+        }
+    }
 }
 
 function filterByTag(tagName) {
