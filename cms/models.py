@@ -910,7 +910,10 @@ class MusicLibraryIndexPage(Page):
         # Obtener todas las páginas de partituras que son hijas de esta página
         try:
             scores = (
-                ScorePage.objects.child_of(self).live().order_by("-first_published_at")
+                ScorePage.objects.child_of(self).live()
+                .select_related("composer")
+                .prefetch_related("tags", "categories")
+                .order_by("-first_published_at")
             )
             scores = filter_queryset(scores)
             context["scores"] = scores
@@ -924,7 +927,9 @@ class MusicLibraryIndexPage(Page):
         # Obtener todas las páginas de blog que son hijas de esta página
         try:
             blog_posts = (
-                BlogPage.objects.child_of(self).live().order_by("-first_published_at")
+                BlogPage.objects.child_of(self).live()
+                .prefetch_related("tags", "categories")
+                .order_by("-first_published_at")
             )
             blog_posts = filter_queryset(blog_posts)
             context["blog_posts"] = blog_posts
@@ -937,7 +942,9 @@ class MusicLibraryIndexPage(Page):
         # Obtener todas las páginas de test que son hijas de esta página
         try:
             test_pages = (
-                TestPage.objects.child_of(self).live().order_by("-first_published_at")
+                TestPage.objects.child_of(self).live()
+                .prefetch_related("tags", "categories")
+                .order_by("-first_published_at")
             )
             test_pages = filter_queryset(test_pages)
             context["test_pages"] = test_pages
@@ -949,7 +956,9 @@ class MusicLibraryIndexPage(Page):
         # Obtener todas las páginas de dictado que son hijas de esta página
         try:
             dictado_pages = (
-                DictadoPage.objects.child_of(self).live().order_by("-first_published_at")
+                DictadoPage.objects.child_of(self).live()
+                .prefetch_related("tags", "categories")
+                .order_by("-first_published_at")
             )
             dictado_pages = filter_queryset(dictado_pages)
             context["dictado_pages"] = dictado_pages
