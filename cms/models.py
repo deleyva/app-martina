@@ -313,37 +313,48 @@ class BlogPage(Page):
             return "cms/blog_page_blog.html"
         return "cms/blog_page_app.html"
 
+    def _parse_attachments(self):
+        """Parse attachments StreamField once and cache by block type."""
+        if not hasattr(self, '_attachments_cache'):
+            pdfs, audios, images = [], [], []
+            for block in self.attachments:
+                if block.block_type == "pdf_score":
+                    pdfs.append(block.value)
+                elif block.block_type == "audio":
+                    audios.append(block.value)
+                elif block.block_type == "image":
+                    images.append(block.value)
+            self._attachments_cache = {
+                'pdfs': pdfs, 'audios': audios, 'images': images,
+            }
+        return self._attachments_cache
+
     def get_pdf_blocks(self):
-        """Obtener bloques PDF del StreamField attachments"""
-        return [block.value for block in self.attachments if block.block_type == "pdf_score"]
+        return self._parse_attachments()['pdfs']
 
     def get_audios(self):
-        """Obtener bloques de audio del StreamField attachments"""
-        return [block.value for block in self.attachments if block.block_type == "audio"]
+        return self._parse_attachments()['audios']
 
     def get_images(self):
         """
-        Extrae imágenes de Wagtail: primero del StreamField attachments,
-        luego las incrustadas en el body (RichTextField).
+        Images from StreamField attachments + RichText body embeds.
+        Uses instance cache to avoid repeated StreamField deserialization.
         """
-        from bs4 import BeautifulSoup
-        from wagtail.images import get_image_model
+        images = list(self._parse_attachments()['images'])
 
-        # Images from StreamField attachments
-        images = [block.value for block in self.attachments if block.block_type == "image"]
-
-        # Images from RichText body
-        if self.body:
+        # Images from RichText body — only on detail page, skip for listings
+        if self.body and '<embed embedtype="image"' in self.body:
+            from bs4 import BeautifulSoup
+            from wagtail.images import get_image_model
             Image = get_image_model()
             soup = BeautifulSoup(self.body, 'html.parser')
-            image_tags = soup.find_all('embed', embedtype='image')
-            for tag in image_tags:
-                image_id = tag.get('id')
-                if image_id:
-                    try:
-                        images.append(Image.objects.get(pk=image_id))
-                    except Image.DoesNotExist:
-                        pass
+            image_ids = [
+                tag.get('id') for tag in soup.find_all('embed', embedtype='image')
+                if tag.get('id')
+            ]
+            if image_ids:
+                db_images = {str(img.pk): img for img in Image.objects.filter(pk__in=image_ids)}
+                images.extend(db_images.get(id) for id in image_ids if db_images.get(id))
         return images
 
     def get_embeds(self):
@@ -1088,52 +1099,44 @@ class ScorePage(Page):
         verbose_name = "Partitura"
         verbose_name_plural = "Partituras"
 
+    def _parse_content(self):
+        """Parse content StreamField once and cache by block type."""
+        if not hasattr(self, '_content_cache'):
+            cache = {'pdfs': [], 'bookmarks': [], 'metadata': None,
+                     'audios': [], 'images': [], 'embeds': []}
+            for block in self.content:
+                if block.block_type == "pdf_score":
+                    cache['pdfs'].append(block.value)
+                elif block.block_type == "bookmarks":
+                    cache['bookmarks'].extend(block.value)
+                elif block.block_type == "metadata":
+                    cache['metadata'] = block.value
+                elif block.block_type == "audio":
+                    cache['audios'].append(block.value)
+                elif block.block_type == "image":
+                    cache['images'].append(block.value)
+                elif block.block_type == "embed":
+                    cache['embeds'].append(block.value)
+            self._content_cache = cache
+        return self._content_cache
+
     def get_pdf_blocks(self):
-        """Obtener todos los bloques PDF del StreamField de contenido"""
-        pdf_blocks = []
-        for block in self.content:
-            if block.block_type == "pdf_score":
-                pdf_blocks.append(block.value)
-        return pdf_blocks
+        return self._parse_content()['pdfs']
 
     def get_bookmarks(self):
-        """Obtener todos los bloques de bookmarks del StreamField de contenido"""
-        bookmarks = []
-        for block in self.content:
-            if block.block_type == "bookmarks":
-                bookmarks.extend(block.value)
-        return bookmarks
+        return self._parse_content()['bookmarks']
 
     def get_metadata(self):
-        """Obtener bloque de metadatos del StreamField de contenido"""
-        for block in self.content:
-            if block.block_type == "metadata":
-                return block.value
-        return None
+        return self._parse_content()['metadata']
 
     def get_audios(self):
-        """Obtener todos los bloques de audio del StreamField de contenido"""
-        audios = []
-        for block in self.content:
-            if block.block_type == "audio":
-                audios.append(block.value)
-        return audios
+        return self._parse_content()['audios']
 
     def get_images(self):
-        """Obtener todos los bloques de imagen del StreamField de contenido"""
-        images = []
-        for block in self.content:
-            if block.block_type == "image":
-                images.append(block.value)
-        return images
+        return self._parse_content()['images']
 
     def get_embeds(self):
-        """Obtener todos los embeds del StreamField de contenido"""
-        embeds = []
-        for block in self.content:
-            if block.block_type == "embed":
-                embeds.append(block.value)
-        return embeds
+        return self._parse_content()['embeds']
 
     def get_embed_html_for_url(self, embed_url):
         if not embed_url:
