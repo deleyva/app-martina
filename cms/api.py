@@ -485,3 +485,39 @@ def create_blog_page(request, payload: BlogPageIn):
         edit_url=edit_url,
         preview_url=preview_url,
     )
+
+
+# Image Upload Endpoint
+# ------------------------------------------------------------------------------
+
+
+class ImageUploadOut(Schema):
+    """Response schema for image upload"""
+
+    id: int
+    title: str
+
+
+@router.post("/upload-image", response=ImageUploadOut)
+def upload_image(
+    request,
+    title: str = Form(..., description="Título de la imagen"),
+    file: UploadedFile = File(..., description="Archivo de imagen"),
+    tags: str = Form("", description="Tags separados por coma (opcional)"),
+):
+    """
+    Upload an image to Wagtail image library.
+    """
+    tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
+
+    image = ImageModel(
+        title=title,
+        file=file,
+        uploaded_by_user=request.user,
+    )
+    image.save()
+
+    if tag_list:
+        image.tags.add(*tag_list)
+
+    return ImageUploadOut(id=image.id, title=image.title)
