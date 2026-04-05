@@ -8,6 +8,7 @@ from ninja.errors import HttpError
 from ninja.files import UploadedFile
 from ninja.security import django_auth
 from wagtail.images import get_image_model
+from wagtail.models import Collection
 
 from api_keys.auth import DatabaseApiKey
 from .models import (
@@ -504,10 +505,19 @@ def upload_image(
     title: str = Form(..., description="Título de la imagen"),
     file: UploadedFile = File(..., description="Archivo de imagen"),
     tags: str = Form("", description="Tags separados por coma (opcional)"),
+    collection: str = Form("", description="Nombre de la colección (opcional)"),
 ):
     """
     Upload an image to Wagtail image library.
     """
+    allowed_types = {"image/jpeg", "image/png", "image/gif", "image/webp", "image/avif"}
+    if file.content_type not in allowed_types:
+        raise HttpError(
+            400,
+            f"Tipo de archivo no válido: {file.content_type}. "
+            f"Se esperaba una imagen ({', '.join(allowed_types)}).",
+        )
+
     tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
 
     image = ImageModel(
@@ -515,6 +525,14 @@ def upload_image(
         file=file,
         uploaded_by_user=request.user,
     )
+
+    if collection:
+        try:
+            col = Collection.objects.get(name=collection)
+            image.collection = col
+        except Collection.DoesNotExist:
+            raise HttpError(400, f"La colección '{collection}' no existe.")
+
     image.save()
 
     if tag_list:
