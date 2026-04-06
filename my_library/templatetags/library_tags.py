@@ -35,7 +35,7 @@ def is_in_library(context, content_object):
 
 
 @register.inclusion_tag("my_library/partials/add_button.html", takes_context=True)
-def library_button(context, content_object):
+def library_button(context, content_object, source_page=None):
     """Renderiza botón de añadir/quitar de biblioteca con HTMX
 
     Para profesores: muestra un botón que abre modal con opciones múltiples
@@ -43,6 +43,8 @@ def library_button(context, content_object):
 
     RESTRICCIÓN: No se muestran botones para ScorePages completas en bibliotecas personales.
     Solo se pueden añadir elementos individuales (PDFs, audios, imágenes).
+
+    source_page: Página de origen (ScorePage/BlogPage) para registrar la asociación correcta.
     """
     from clases.models import Student, GroupLibraryItem
 
@@ -57,6 +59,7 @@ def library_button(context, content_object):
             "all_students": [],
             "is_scorepage": False,
             "groups_with_content": set(),
+            "source_page_id": None,
         }
 
     user = context.request.user
@@ -95,6 +98,14 @@ def library_button(context, content_object):
                 ).values_list("group_id", flat=True)
                 groups_with_content = set(existing_items)
 
+    # Determinar source_page_id: usar parámetro explícito o inferir del contexto
+    source_page_id = None
+    if source_page and hasattr(source_page, "pk"):
+        source_page_id = source_page.pk
+    elif "page" in context and hasattr(context["page"], "pk"):
+        # Inferir de la variable 'page' del contexto del template (ScorePage/BlogPage actual)
+        source_page_id = context["page"].pk
+
     return {
         "content_object": content_object,
         "content_type": content_type,
@@ -105,4 +116,5 @@ def library_button(context, content_object):
         "all_students": all_students,
         "is_scorepage": is_scorepage,
         "groups_with_content": groups_with_content,
+        "source_page_id": source_page_id,
     }

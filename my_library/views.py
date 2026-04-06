@@ -1,8 +1,12 @@
+import json
+
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse
+from django.contrib.admin.views.decorators import staff_member_required
+from django.http import HttpResponse, JsonResponse
 from django.contrib.contenttypes.models import ContentType
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.http import require_POST
 from .models import LibraryItem
 
 
@@ -12,7 +16,9 @@ def my_library_index(request):
     Vista principal de la biblioteca del usuario.
     TINY VIEW: solo orquesta y renderiza.
     """
-    items = LibraryItem.objects.filter(user=request.user)
+    items = LibraryItem.objects.filter(user=request.user).select_related(
+        "content_type", "source_page"
+    )
     total_items = items.count()
     show_all = request.GET.get("show_all")
     has_more = False
@@ -45,7 +51,10 @@ def add_to_library(request):
 
         try:
             # Lógica en el modelo (FAT MODEL)
-            LibraryItem.add_to_library(request.user, content_object)
+            source_page_id = request.POST.get("source_page_id")
+            LibraryItem.add_to_library(
+                request.user, content_object, source_page_id=source_page_id
+            )
 
             # Renderizar botón actualizado (HTMX swap)
             return render(
@@ -211,8 +220,6 @@ def update_proficiency(request, pk):
     )
 
     # Enviar evento HX-Trigger para que el cliente pueda reordenar la lista
-    import json
-
     response["HX-Trigger"] = json.dumps(
         {
             "proficiencyUpdated": {
@@ -223,3 +230,92 @@ def update_proficiency(request, pk):
     )
 
     return response
+
+
+@staff_member_required
+@require_POST
+def update_item_title(request, pk):
+    """
+    Actualizar título del contenido subyacente (Document, Image, Embed).
+    Solo para admin. HTMX endpoint.
+    """
+    item = get_object_or_404(LibraryItem, pk=pk)
+    new_title = request.POST.get("title", "").strip()
+
+    if not new_title:
+        return HttpResponse(status=400)
+
+    obj = item.content_object
+    if obj and hasattr(obj, "title"):
+        obj.title = new_title
+        obj.save()
+    elif obj and hasattr(obj, "name"):
+        obj.name = new_title
+        obj.save()
+
+    return render(
+        request,
+        "my_library/partials/item_title.html",
+        {"item": item, "is_admin": True},
+    )
+
+
+@staff_member_required
+def suggest_tags(request):
+    """
+    Endpoint JSON para autocompletado de tags.
+    Devuelve tags de taggit + MusicTag que coincidan con el query.
+    """
+    from taggit.models import Tag as TaggitTag
+    from cms.models import MusicTag
+
+    q = request.GET.get("q", "").strip().lower()
+    if len(q) < 1:
+        return JsonResponse([], safe=False)
+
+    # Combinar tags de ambos sistemas
+    taggit_tags = list(
+        TaggitTag.objects.filter(name__icontains=q)
+        .values_list("name", flat=True)
+        .order_by("name")[:15]
+    )
+    music_tags = list(
+        MusicTag.objects.filter(name__icontains=q)
+        .values_list("name", flat=True)
+        .order_by("name")[:15]
+    )
+
+    # Unir y deduplicar, mantener orden
+    seen = set()
+    combined = []
+    for tag in taggit_tags + music_tags:
+        if tag.lower() not in seen:
+            seen.add(tag.lower())
+            combined.append(tag)
+
+    return JsonResponse(combined[:20], safe=False)
+
+
+@staff_member_required
+@require_POST
+def update_item_tags(request, pk):
+    """
+    Actualizar tags del contenido subyacente (Document, Image).
+    Solo para admin. HTMX endpoint.
+    """
+    item = get_object_or_404(LibraryItem, pk=pk)
+    tags_str = request.POST.get("tags", "").strip()
+
+    obj = item.content_object
+    if obj and hasattr(obj, "tags"):
+        # Limpiar tags existentes y poner las nuevas
+        tag_names = [t.strip() for t in tags_str.split(",") if t.strip()]
+        obj.tags.clear()
+        for tag_name in tag_names:
+            obj.tags.add(tag_name)
+
+    return render(
+        request,
+        "my_library/partials/item_tags.html",
+        {"item": item, "is_admin": True},
+    )

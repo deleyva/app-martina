@@ -28,6 +28,7 @@
             {# Hidden fields para identificar el contenido #}
             <input type="hidden" name="content_type_id" value="{{ content_type.id }}">
             <input type="hidden" name="object_id" value="{{ content_object.pk }}">
+            {% if source_page_id %}<input type="hidden" name="source_page_id" value="{{ source_page_id }}">{% endif %}
             
             {# Checkbox para biblioteca personal #}
             <div class="form-control">

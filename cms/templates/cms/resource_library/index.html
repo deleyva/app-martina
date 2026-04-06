@@ -110,66 +110,76 @@
 </dialog>
 
 <script>
-(function() {
-    function closeAllDropdowns() {
-        document.querySelectorAll('.tag-dropdown-panel').forEach(function(el) { el.remove(); });
+/* === Tag Autocomplete (Resources) === */
+let _resTagDebounce = null;
+let _resTagSelectedIdx = -1;
+
+function resTagAutocomplete(input) {
+    clearTimeout(_resTagDebounce);
+    const sugList = input.parentElement.querySelector('.res-tag-suggestions');
+    const val = input.value;
+    const parts = val.split(',');
+    const currentTag = parts[parts.length - 1].trim();
+
+    if (currentTag.length < 1) {
+        sugList.style.display = 'none';
+        return;
     }
 
-    // Close dropdowns on outside click
-    document.addEventListener('click', function(e) {
-        if (!e.target.closest('.tag-dropdown-panel') && !e.target.closest('.tag-edit-btn')) {
-            closeAllDropdowns();
+    _resTagDebounce = setTimeout(() => {
+        fetch('{% url "my_library:suggest_tags" %}?q=' + encodeURIComponent(currentTag))
+            .then(r => r.json())
+            .then(tags => {
+                _resTagSelectedIdx = -1;
+                if (!tags.length) { sugList.style.display = 'none'; return; }
+                sugList.innerHTML = tags.map(t =>
+                    `<li><a class="res-tag-suggestion text-xs" data-tag="${t}" onclick="resSelectTagSuggestion(this)">${t}</a></li>`
+                ).join('');
+                sugList.style.display = '';
+            })
+            .catch(() => { sugList.style.display = 'none'; });
+    }, 200);
+}
+
+function resSelectTagSuggestion(el) {
+    const tag = el.dataset.tag;
+    const form = el.closest('form');
+    const input = form.querySelector('input[name=tags]');
+    const sugList = el.closest('.res-tag-suggestions');
+    const parts = input.value.split(',').map(s => s.trim()).filter(Boolean);
+    parts[parts.length - 1] = tag;
+    input.value = parts.join(', ') + ', ';
+    sugList.style.display = 'none';
+    input.focus();
+}
+
+function resTagAutocompleteKeydown(e, input) {
+    const sugList = input.parentElement.querySelector('.res-tag-suggestions');
+    const items = sugList.querySelectorAll('.res-tag-suggestion');
+    if (sugList.style.display === 'none' || !items.length) return;
+
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        _resTagSelectedIdx = Math.min(_resTagSelectedIdx + 1, items.length - 1);
+        items.forEach((el, i) => el.classList.toggle('active', i === _resTagSelectedIdx));
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        _resTagSelectedIdx = Math.max(_resTagSelectedIdx - 1, 0);
+        items.forEach((el, i) => el.classList.toggle('active', i === _resTagSelectedIdx));
+    } else if (e.key === 'Tab' || e.key === 'Enter') {
+        if (_resTagSelectedIdx >= 0 && _resTagSelectedIdx < items.length) {
+            e.preventDefault();
+            resSelectTagSuggestion(items[_resTagSelectedIdx]);
         }
-    });
+    } else if (e.key === 'Escape') {
+        sugList.style.display = 'none';
+    }
+}
 
-    // Called directly from button onclick
-    window.__tagEditClick = function(btn) {
-        var editor = btn.closest('[id^="tag-editor-"]');
-        var editorId = editor.id;
-
-        var existing = document.querySelector('.tag-dropdown-panel[data-editor-id="' + editorId + '"]');
-        if (existing) { existing.remove(); return; }
-
-        closeAllDropdowns();
-
-        var tpl = editor.querySelector('.tag-dropdown-tpl');
-        if (!tpl) return;
-
-        var clone = tpl.content.cloneNode(true);
-        document.body.appendChild(clone);
-
-        var dropdown = document.querySelector('.tag-dropdown-panel[data-editor-id="' + editorId + '"]');
-        if (!dropdown) return;
-
-        htmx.process(dropdown);
-
-        var rect = btn.getBoundingClientRect();
-        dropdown.style.top = (rect.bottom + 4) + 'px';
-        dropdown.style.left = Math.min(rect.left, window.innerWidth - 272) + 'px';
-
-        var input = dropdown.querySelector('.tag-add-input');
-        if (input) {
-            input.addEventListener('keydown', function(ev) {
-                if (ev.key === 'Enter' || ev.key === ',') {
-                    ev.preventDefault();
-                    var val = input.value.trim();
-                    if (!val) return;
-                    var form = dropdown.querySelector('.tag-add-form');
-                    form.querySelector('[name=tag_name]').value = val;
-                    htmx.trigger(form, 'submit');
-                    input.value = '';
-                }
-            });
-            input.focus();
-        }
-    };
-
-    document.body.addEventListener('htmx:beforeSwap', function(e) {
-        if (e.detail.target && e.detail.target.id && e.detail.target.id.startsWith('tag-editor-')) {
-            var dd = document.querySelector('.tag-dropdown-panel[data-editor-id="' + e.detail.target.id + '"]');
-            if (dd) dd.remove();
-        }
-    });
-})();
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.res-tag-autocomplete-input') && !e.target.closest('.res-tag-suggestions')) {
+        document.querySelectorAll('.res-tag-suggestions').forEach(s => s.style.display = 'none');
+    }
+});
 </script>
 {% endblock %}

@@ -521,6 +521,66 @@ def add_resource_tag(request):
 
 @login_required
 @require_POST
+def rename_resource(request):
+    """Rename a document, image, or embed. Staff only. HTMX endpoint."""
+    if not request.user.is_staff:
+        return HttpResponse("Forbidden", status=403)
+
+    item_type = request.POST.get('item_type', '')
+    item_pk = request.POST.get('item_pk', '')
+    new_title = request.POST.get('title', '').strip()
+
+    if not new_title:
+        return HttpResponse("Title required", status=400)
+
+    if item_type == 'embed':
+        from wagtail.embeds.models import Embed
+        obj = get_object_or_404(Embed, pk=item_pk)
+    else:
+        obj = _get_resource_object(item_type, item_pk)
+
+    obj.title = new_title
+    obj.save()
+
+    return render(request, "cms/resource_library/partials/resource_title.html", {
+        'item_type': item_type,
+        'item_pk': item_pk,
+        'title': new_title,
+        'is_staff': request.user.is_staff,
+    })
+
+
+@login_required
+@require_POST
+def update_resource_tags(request):
+    """Replace all tags on a document or image at once. Staff only. HTMX endpoint."""
+    if not request.user.is_staff:
+        return HttpResponse("Forbidden", status=403)
+
+    item_type = request.POST.get('item_type', '')
+    item_pk = request.POST.get('item_pk', '')
+    tags_str = request.POST.get('tags', '').strip()
+
+    obj = _get_resource_object(item_type, item_pk)
+
+    # Reemplazar todas las tags
+    tag_names = [t.strip() for t in tags_str.split(",") if t.strip()]
+    obj.tags.clear()
+    for tag_name in tag_names:
+        obj.tags.add(tag_name)
+
+    response = render(request, "cms/resource_library/partials/tag_editor.html", {
+        'item_type': item_type,
+        'item_pk': item_pk,
+        'tags': obj.tags.all(),
+        'is_staff': request.user.is_staff,
+    })
+    response['HX-Trigger'] = 'tagsUpdated'
+    return response
+
+
+@login_required
+@require_POST
 def remove_resource_tag(request):
     """Remove a tag from a document or image. Staff only."""
     if not request.user.is_staff:

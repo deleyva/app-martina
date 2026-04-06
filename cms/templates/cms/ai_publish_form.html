@@ -115,8 +115,8 @@
           <label class="label">
             <span class="label-text text-lg font-semibold">📑 Tipo de Página</span>
           </label>
-          <div class="flex gap-4">
-            <label class="label cursor-pointer gap-3 flex-1 border border-base-300 rounded-lg p-4 hover:border-primary transition-colors">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <label class="label cursor-pointer gap-3 border border-base-300 rounded-lg p-4 hover:border-primary transition-colors">
               <input
                 type="radio"
                 name="page_type"
@@ -125,11 +125,11 @@
                 checked
               >
               <div class="flex-1">
-                <span class="label-text font-medium block">ScorePage</span>
-                <span class="label-text-alt block opacity-70">Partitura tradicional con PDFs, audios e imágenes</span>
+                <span class="label-text font-medium block">🎼 ScorePage</span>
+                <span class="label-text-alt block opacity-70">Partitura con PDFs, audios e imágenes</span>
               </div>
             </label>
-            <label class="label cursor-pointer gap-3 flex-1 border border-base-300 rounded-lg p-4 hover:border-primary transition-colors">
+            <label class="label cursor-pointer gap-3 border border-base-300 rounded-lg p-4 hover:border-primary transition-colors">
               <input
                 type="radio"
                 name="page_type"
@@ -137,8 +137,20 @@
                 class="radio radio-primary"
               >
               <div class="flex-1">
-                <span class="label-text font-medium block">DictadoPage</span>
-                <span class="label-text-alt block opacity-70">Dictado musical con audios y respuestas ocultas</span>
+                <span class="label-text font-medium block">🎧 DictadoPage</span>
+                <span class="label-text-alt block opacity-70">Dictado musical con respuestas ocultas</span>
+              </div>
+            </label>
+            <label class="label cursor-pointer gap-3 border border-base-300 rounded-lg p-4 hover:border-primary transition-colors">
+              <input
+                type="radio"
+                name="page_type"
+                value="blogpage"
+                class="radio radio-primary"
+              >
+              <div class="flex-1">
+                <span class="label-text font-medium block">📝 BlogPage</span>
+                <span class="label-text-alt block opacity-70">Artículo de blog con archivos adjuntos</span>
               </div>
             </label>
           </div>

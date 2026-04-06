@@ -110,15 +110,16 @@
             data-pdfs="{% if related_score %}{% for pdf in related_score.get_pdf_blocks %}{{ pdf.title|lower }} {% endfor %}{% endif %}"
             data-audios="{% if related_score %}{% for audio in related_score.get_audios %}{{ audio.title|lower }} {% endfor %}{% endif %}"
             data-document-tags="{% if related_score %}{% for pdf in related_score.get_pdf_blocks %}{% for doc_tag in pdf.pdf_file.tags.all %}{{ doc_tag.name|lower }} {% endfor %}{% endfor %}{% for audio in related_score.get_audios %}{% for doc_tag in audio.audio_file.tags.all %}{{ doc_tag.name|lower }} {% endfor %}{% endfor %}{% endif %}">
-            <!-- Icon -->
-            <div class="flex items-center justify-center size-12 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-lg flex-shrink-0">
-                <div class="text-2xl">{{ item.get_icon }}</div>
+            <!-- Preview -->
+            <div class="flex-shrink-0">
+                {{ item.get_preview_html }}
             </div>
-            
+
             <!-- Info -->
             <div class="flex-1 min-w-0">
-                <div class="font-semibold text-base">{{ item.get_content_title }}</div>
+                {% include "my_library/partials/item_title.html" with item=item is_admin=request.user.is_staff %}
                 <div class="text-xs opacity-60">{{ item.get_content_type_name }}</div>
+                {% include "my_library/partials/item_tags.html" with item=item is_admin=request.user.is_staff %}
                 
                 <!-- Enlace a ScorePage relacionada (SIEMPRE visible) -->
                 {% if related_score %}
@@ -272,7 +273,7 @@
         function updateRangeColor(input) {
             const val = parseInt(input.value);
             input.classList.remove('range-error', 'range-warning', 'range-success');
-            
+
             if (val === 0) {
                 input.classList.add('range-error');
             } else if (val <= 2) {
@@ -281,6 +282,83 @@
                 input.classList.add('range-success');
             }
         }
+
+        /* === Tag Autocomplete === */
+        let _tagDebounce = null;
+        let _tagSelectedIdx = -1;
+
+        function tagAutocomplete(input) {
+            clearTimeout(_tagDebounce);
+            const sugList = input.parentElement.querySelector('.tag-suggestions');
+
+            // Obtener el último tag que se está escribiendo (después de la última coma)
+            const val = input.value;
+            const parts = val.split(',');
+            const currentTag = parts[parts.length - 1].trim();
+
+            if (currentTag.length < 1) {
+                sugList.style.display = 'none';
+                return;
+            }
+
+            _tagDebounce = setTimeout(() => {
+                fetch('{% url "my_library:suggest_tags" %}?q=' + encodeURIComponent(currentTag))
+                    .then(r => r.json())
+                    .then(tags => {
+                        _tagSelectedIdx = -1;
+                        if (!tags.length) { sugList.style.display = 'none'; return; }
+                        sugList.innerHTML = tags.map((t, i) =>
+                            `<li><a class="tag-suggestion text-xs" data-tag="${t}" onclick="selectTagSuggestion(this)">${t}</a></li>`
+                        ).join('');
+                        sugList.style.display = '';
+                    })
+                    .catch(() => { sugList.style.display = 'none'; });
+            }, 200);
+        }
+
+        function selectTagSuggestion(el) {
+            const tag = el.dataset.tag;
+            const form = el.closest('form');
+            const input = form.querySelector('input[name=tags]');
+            const sugList = el.closest('.tag-suggestions');
+
+            // Reemplazar el último tag parcial con el seleccionado
+            const parts = input.value.split(',').map(s => s.trim()).filter(Boolean);
+            parts[parts.length - 1] = tag;
+            input.value = parts.join(', ') + ', ';
+            sugList.style.display = 'none';
+            input.focus();
+        }
+
+        function tagAutocompleteKeydown(e, input) {
+            const sugList = input.parentElement.querySelector('.tag-suggestions');
+            const items = sugList.querySelectorAll('.tag-suggestion');
+            if (sugList.style.display === 'none' || !items.length) return;
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                _tagSelectedIdx = Math.min(_tagSelectedIdx + 1, items.length - 1);
+                items.forEach((el, i) => el.classList.toggle('active', i === _tagSelectedIdx));
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                _tagSelectedIdx = Math.max(_tagSelectedIdx - 1, 0);
+                items.forEach((el, i) => el.classList.toggle('active', i === _tagSelectedIdx));
+            } else if (e.key === 'Tab' || e.key === 'Enter') {
+                if (_tagSelectedIdx >= 0 && _tagSelectedIdx < items.length) {
+                    e.preventDefault();
+                    selectTagSuggestion(items[_tagSelectedIdx]);
+                }
+            } else if (e.key === 'Escape') {
+                sugList.style.display = 'none';
+            }
+        }
+
+        // Cerrar sugerencias al hacer clic fuera
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.tag-autocomplete-input') && !e.target.closest('.tag-suggestions')) {
+                document.querySelectorAll('.tag-suggestions').forEach(s => s.style.display = 'none');
+            }
+        });
     </script>
     {% else %}
     <!-- Empty State -->

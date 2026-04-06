@@ -15,4 +15,6 @@ urlpatterns = [
     path("resources/tag-suggestions/", views.tag_suggestions, name="resource_tag_suggestions"),
     path("resources/tag/add/", views.add_resource_tag, name="resource_tag_add"),
     path("resources/tag/remove/", views.remove_resource_tag, name="resource_tag_remove"),
+    path("resources/rename/", views.rename_resource, name="resource_rename"),
+    path("resources/tags/update/", views.update_resource_tags, name="resource_tags_update"),
 ]

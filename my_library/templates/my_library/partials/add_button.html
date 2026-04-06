@@ -48,7 +48,7 @@ if (!window.__afterLibraryAdd) {
         {% if in_library %}
         <div class="tooltip tooltip-left" data-tip="Ya está en tu biblioteca">
             <button hx-post="{% url 'my_library:remove_by_content' %}"
-                    hx-vals='{"content_type_id": "{{ content_type.id }}", "object_id": "{{ content_object.pk }}"}'
+                    hx-vals='{"content_type_id": "{{ content_type.id }}", "object_id": "{{ content_object.pk }}"{% if source_page_id %}, "source_page_id": "{{ source_page_id }}"{% endif %}}'
                     hx-target="closest div"
                     hx-swap="outerHTML"
                     hx-on::after-request="showToast('Eliminado de tu biblioteca', 'info')"
@@ -61,7 +61,7 @@ if (!window.__afterLibraryAdd) {
         {% else %}
         <div class="tooltip tooltip-left" data-tip="Añadir a mi biblioteca">
             <button hx-post="{% url 'my_library:add' %}"
-                    hx-vals='{"content_type_id": "{{ content_type.id }}", "object_id": "{{ content_object.pk }}"}'
+                    hx-vals='{"content_type_id": "{{ content_type.id }}", "object_id": "{{ content_object.pk }}"{% if source_page_id %}, "source_page_id": "{{ source_page_id }}"{% endif %}}'
                     hx-target="closest div"
                     hx-swap="outerHTML"
                     hx-on::after-request="showToast('✓ Se ha añadido a tu biblioteca', 'success')"

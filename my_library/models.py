@@ -3,6 +3,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.utils import timezone
 from django.urls import reverse
+from django.utils.html import format_html
 from martina_bescos_app.users.models import User
 
 
@@ -21,6 +22,17 @@ class LibraryItem(models.Model):
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
     object_id = models.PositiveIntegerField()
     content_object = GenericForeignKey("content_type", "object_id")
+
+    # Página de origen (ScorePage o BlogPage desde la que se añadió el elemento)
+    source_page = models.ForeignKey(
+        "wagtailcore.Page",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="library_items_from",
+        verbose_name="Página de origen",
+        help_text="Página desde la que se añadió este elemento",
+    )
 
     # Metadatos
     added_at = models.DateTimeField(auto_now_add=True)
@@ -112,6 +124,84 @@ class LibraryItem(models.Model):
         }
         return icons.get(model_name, "📁")
 
+    def get_preview_html(self):
+        """Generar HTML de previsualización según tipo de contenido."""
+        model_name = self.content_type.model
+        obj = self.content_object
+
+        if not obj:
+            return format_html(
+                '<div class="flex items-center justify-center size-16 bg-base-200 rounded-lg">'
+                '<span class="text-2xl">❓</span></div>'
+            )
+
+        # Imagen de Wagtail: rendición real
+        if model_name == "image" and hasattr(obj, "get_rendition"):
+            try:
+                rendition = obj.get_rendition("fill-64x64")
+                return format_html(
+                    '<img src="{}" alt="{}" class="size-16 rounded-lg object-cover" loading="lazy">',
+                    rendition.url,
+                    obj.title,
+                )
+            except Exception:
+                pass
+
+        # Document de Wagtail (PDF o Audio)
+        if model_name == "document" and hasattr(obj, "file"):
+            filename = obj.file.name.lower()
+            if filename.endswith((".mp3", ".wav", ".ogg", ".m4a", ".aac", ".flac")):
+                return format_html(
+                    '<div class="flex items-center justify-center size-16 bg-gradient-to-br from-purple-100 to-purple-200 dark:from-purple-900/30 dark:to-purple-800/30 rounded-lg">'
+                    '<svg class="w-8 h-8 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
+                    '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>'
+                    '</svg></div>'
+                )
+            elif filename.endswith(".pdf"):
+                return format_html(
+                    '<div class="flex items-center justify-center size-16 bg-gradient-to-br from-red-100 to-red-200 dark:from-red-900/30 dark:to-red-800/30 rounded-lg">'
+                    '<svg class="w-8 h-8 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
+                    '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>'
+                    '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 13h6m-6 3h4"></path>'
+                    '</svg></div>'
+                )
+
+        # Embed: intentar thumbnail del oembed
+        if model_name == "embed" and hasattr(obj, "thumbnail_url"):
+            thumb = obj.thumbnail_url
+            if thumb:
+                return format_html(
+                    '<div class="relative size-16 rounded-lg overflow-hidden">'
+                    '<img src="{}" alt="{}" class="size-16 object-cover" loading="lazy">'
+                    '<div class="absolute inset-0 flex items-center justify-center bg-black/30">'
+                    '<svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">'
+                    '<path d="M8 5v14l11-7z"></path>'
+                    '</svg></div></div>',
+                    thumb,
+                    getattr(obj, "title", "embed"),
+                )
+            # Embed sin thumbnail (ej: Hooktheory)
+            return format_html(
+                '<div class="flex items-center justify-center size-16 bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/30 dark:to-blue-800/30 rounded-lg">'
+                '<svg class="w-8 h-8 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 24 24">'
+                '<path d="M8 5v14l11-7z"></path>'
+                '</svg></div>'
+            )
+
+        # Fallback genérico
+        return format_html(
+            '<div class="flex items-center justify-center size-16 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-lg">'
+            '<span class="text-2xl">{}</span></div>',
+            self.get_icon(),
+        )
+
+    def get_content_tags(self):
+        """Obtener tags del contenido referenciado."""
+        obj = self.content_object
+        if obj and hasattr(obj, "tags"):
+            return obj.tags.all()
+        return []
+
     def get_viewer_url(self):
         """URL para ver el elemento en fullscreen"""
         return reverse("my_library:view_item", args=[self.pk])
@@ -125,73 +215,80 @@ class LibraryItem(models.Model):
     def get_related_scorepage(self):
         """
         Obtener ScorePage relacionado si este item es un Document, Image o Embed individual.
-        Busca en todas las ScorePages para ver cuál contiene este elemento.
+        Usa source_page FK si está disponible, si no busca en ScorePages.
         """
         # Si ya es una ScorePage completa, retornar ella misma
         if self.content_type.model == "scorepage":
             return self.content_object
 
-        # Para documentos, imágenes, embeds y otros tipos, buscar en ScorePages
-        if self.content_type.model in ["document", "image", "embed"]:
-            from cms.models import ScorePage
+        # Usar source_page guardada si existe (fuente fiable)
+        if self.source_page_id:
+            return self.source_page.specific
 
-            if not self.content_object or not hasattr(self.content_object, "pk"):
+        # Fallback: buscar en ScorePages (para items legacy sin source_page)
+        if self.content_type.model in ["document", "image", "embed"]:
+            return self._search_scorepage_in_streamfields()
+
+        return None
+
+    def _search_scorepage_in_streamfields(self):
+        """Buscar en StreamFields de ScorePages (fallback lento para items legacy)."""
+        from cms.models import ScorePage
+
+        if not self.content_object or not hasattr(self.content_object, "pk"):
+            return None
+
+        def _get_block_value(block_value, key):
+            value = getattr(block_value, key, None)
+            if value:
+                return value
+            try:
+                return block_value.get(key)
+            except (AttributeError, TypeError):
                 return None
 
-            def _get_block_value(block_value, key):
-                value = getattr(block_value, key, None)
-                if value:
-                    return value
+        scores = ScorePage.objects.live().order_by(
+            "-last_published_at",
+            "-first_published_at",
+            "-pk",
+        )
+        for score in scores:
+            for block in score.content:
                 try:
-                    return block_value.get(key)
-                except (AttributeError, TypeError):
-                    return None
-
-            # Importante: si el mismo Document/Image se reutiliza en varias ScorePages,
-            # elegimos la ScorePage más reciente para evitar resultados no deterministas.
-            scores = ScorePage.objects.live().order_by(
-                "-last_published_at",
-                "-first_published_at",
-                "-pk",
-            )
-            for score in scores:
-                for block in score.content:
-                    try:
-                        if block.block_type == "pdf_score":
-                            pdf_file = _get_block_value(block.value, "pdf_file")
-                            if (
-                                pdf_file
-                                and hasattr(pdf_file, "pk")
-                                and pdf_file.pk == self.content_object.pk
-                            ):
-                                return score
-                        elif block.block_type == "audio":
-                            audio_file = _get_block_value(block.value, "audio_file")
-                            if (
-                                audio_file
-                                and hasattr(audio_file, "pk")
-                                and audio_file.pk == self.content_object.pk
-                            ):
-                                return score
-                        elif block.block_type == "image":
-                            image = _get_block_value(block.value, "image")
-                            if (
-                                image
-                                and hasattr(image, "pk")
-                                and image.pk == self.content_object.pk
-                            ):
-                                return score
-                        elif block.block_type == "embed":
-                            embed_val = _get_block_value(block.value, "url")
-                            # La URL guardada en el StreamField block ("url") vs la URL en el modelo Embed
-                            if (
-                                embed_val
-                                and hasattr(self.content_object, "url")
-                                and embed_val == self.content_object.url
-                            ):
-                                return score
-                    except (AttributeError, KeyError, TypeError):
-                        continue
+                    if block.block_type == "pdf_score":
+                        pdf_file = _get_block_value(block.value, "pdf_file")
+                        if (
+                            pdf_file
+                            and hasattr(pdf_file, "pk")
+                            and pdf_file.pk == self.content_object.pk
+                        ):
+                            return score
+                    elif block.block_type == "audio":
+                        audio_file = _get_block_value(block.value, "audio_file")
+                        if (
+                            audio_file
+                            and hasattr(audio_file, "pk")
+                            and audio_file.pk == self.content_object.pk
+                        ):
+                            return score
+                    elif block.block_type == "image":
+                        image = _get_block_value(block.value, "image")
+                        if (
+                            image
+                            and hasattr(image, "pk")
+                            and image.pk == self.content_object.pk
+                        ):
+                            return score
+                    elif block.block_type == "embed":
+                        embed_val = _get_block_value(block.value, "url")
+                        if (
+                            embed_val
+                            and hasattr(self.content_object, "url")
+                            and embed_val == self.content_object.url
+                        ):
+                            return score
+                except (AttributeError, KeyError, TypeError):
+                    continue
 
         return None
 
@@ -249,7 +346,7 @@ class LibraryItem(models.Model):
         return {}
 
     @classmethod
-    def add_to_library(cls, user, content_object):
+    def add_to_library(cls, user, content_object, source_page_id=None):
         """Añadir elemento a la biblioteca (evita duplicados).
 
         RESTRICCIÓN: No se permiten ScorePages completas en bibliotecas personales.
@@ -267,6 +364,10 @@ class LibraryItem(models.Model):
         item, created = cls.objects.get_or_create(
             user=user, content_type=content_type, object_id=content_object.pk
         )
+        # Actualizar source_page si se proporciona y no tenía
+        if source_page_id and not item.source_page_id:
+            item.source_page_id = source_page_id
+            item.save(update_fields=["source_page_id"])
         return item, created
 
     @classmethod

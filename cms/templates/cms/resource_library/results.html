@@ -26,7 +26,7 @@
                 
                 <!-- Info principal -->
                 <div class="flex-1 min-w-0">
-                    <div class="font-medium truncate">{{ item.title }}</div>
+                    {% include "cms/resource_library/partials/resource_title.html" with item_type=item.type item_pk=item.content_object.pk title=item.title is_staff=user.is_staff %}
                     
                     <!-- Metadata / Tags -->
                     <div class="flex flex-wrap gap-1 mt-1 text-xs opacity-60 items-center">

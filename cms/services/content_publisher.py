@@ -18,6 +18,7 @@ from wagtail.images import get_image_model
 from wagtail.models import Page
 
 from cms.models import (
+    BlogPage,
     DictadoPage,
     MusicCategory,
     MusicComposer,
@@ -1090,3 +1091,119 @@ class ContentPublisher:
         except Exception as e:
             logger.error(f"Failed to create DictadoPage: {e}")
             raise RuntimeError(f"Failed to create DictadoPage: {e}") from e
+
+    @transaction.atomic
+    def create_blogpage_from_ai(
+        self,
+        metadata: dict[str, Any],
+        pdf_files: list[UploadedFile],
+        audio_files: list[UploadedFile],
+        image_files: list[UploadedFile],
+        midi_files: list[UploadedFile],
+        publish: bool = False,
+        parent_page: Page = None,
+    ) -> BlogPage:
+        """
+        Create BlogPage from AI-extracted metadata and uploaded files.
+
+        Uses description as intro, files as StreamField attachments.
+        """
+        logger.info(f"Creating BlogPage from AI metadata: {metadata.get('title', 'N/A')}")
+
+        try:
+            # Get parent page (BlogIndexPage or MusicLibraryIndexPage)
+            if parent_page is None:
+                from cms.models import BlogIndexPage
+                parent_page = BlogIndexPage.objects.live().first()
+                if not parent_page:
+                    parent_page = MusicLibraryIndexPage.objects.live().first()
+                if not parent_page:
+                    raise ValueError("No BlogIndexPage or MusicLibraryIndexPage found.")
+
+            # Create Wagtail documents and images
+            base_title = metadata.get('title', 'Sin título')
+
+            documents = {"pdfs": [], "audios": []}
+            for i, pdf in enumerate(pdf_files):
+                filename_tags = self._extract_tags_from_filename(pdf.name)
+                all_tags = list(set(filename_tags + metadata.get("tags", [])))
+                doc = self._upload_document(pdf, f"{base_title} - PDF {i+1}" if len(pdf_files) > 1 else base_title, all_tags)
+                documents["pdfs"].append(doc)
+
+            for i, audio in enumerate(audio_files):
+                filename_tags = self._extract_tags_from_filename(audio.name)
+                all_tags = list(set(filename_tags + metadata.get("tags", [])))
+                doc = self._upload_document(audio, f"{base_title} - Audio {i+1}" if len(audio_files) > 1 else f"{base_title} audio", all_tags)
+                documents["audios"].append(doc)
+
+            images = []
+            for i, img_file in enumerate(image_files):
+                img = self._upload_image(img_file, f"{base_title} - Imagen {i+1}" if len(image_files) > 1 else base_title)
+                images.append(img)
+
+            # Build attachments StreamField
+            attachments = []
+            for pdf_doc in documents["pdfs"]:
+                attachments.append(("pdf_score", {
+                    "title": pdf_doc.title,
+                    "pdf_file": pdf_doc,
+                    "description": "",
+                    "page_count": "",
+                }))
+            for audio_doc in documents["audios"]:
+                attachments.append(("audio", {
+                    "title": audio_doc.title,
+                    "audio_file": audio_doc,
+                    "description": "",
+                }))
+            for img in images:
+                attachments.append(("image", {
+                    "title": img.title,
+                    "image": img,
+                    "caption": "",
+                }))
+
+            # Create BlogPage
+            title = metadata.get("title", "Sin título")
+            slug = self._generate_unique_slug(title, parent_page)
+            intro = metadata.get("notes", "") or metadata.get("description", "") or title
+            # Truncate intro to 250 chars (model limit)
+            if len(intro) > 250:
+                intro = intro[:247] + "..."
+
+            blog_page = BlogPage(
+                title=title,
+                slug=slug,
+                date=timezone.now().date(),
+                intro=intro,
+                body="",
+                featured_image=images[0] if images else None,
+                attachments=attachments,
+                owner=self.user,
+            )
+
+            parent_page.add_child(instance=blog_page)
+
+            # Set categories and tags
+            if metadata.get("categories"):
+                categories = [self._get_or_create_category(cat) for cat in metadata["categories"]]
+                blog_page.categories.set(categories)
+
+            if metadata.get("tags"):
+                tags = [self._get_or_create_tag(tag) for tag in metadata["tags"]]
+                blog_page.tags.set(tags)
+
+            blog_page.save()
+
+            if publish:
+                blog_page.save_revision().publish()
+                logger.info(f"Published BlogPage: {blog_page.title} (ID: {blog_page.id})")
+            else:
+                blog_page.save_revision()
+                logger.info(f"Created draft BlogPage: {blog_page.title} (ID: {blog_page.id})")
+
+            return blog_page
+
+        except Exception as e:
+            logger.error(f"Failed to create BlogPage: {e}")
+            raise RuntimeError(f"Failed to create BlogPage: {e}") from e

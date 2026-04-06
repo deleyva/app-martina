@@ -1,33 +1,32 @@
-<div id="tag-editor-{{ item_type }}-{{ item_pk }}" class="flex flex-wrap items-center gap-1" onclick="event.stopPropagation()">
+<div id="item-tags-{{ item.pk }}" class="flex flex-wrap items-center gap-1 mt-1">
+    {% with tags=item.get_content_tags %}
     {% for tag in tags %}
     <span class="badge badge-xs badge-outline">{{ tag.name }}</span>
     {% endfor %}
-    {% if is_staff %}
+    {% if is_admin %}
     <button class="tags-edit-btn badge badge-xs badge-ghost cursor-pointer hover:badge-primary"
-            onclick="event.stopPropagation(); this.style.display='none'; document.getElementById('res-tags-edit-{{ item_type }}-{{ item_pk }}').style.display='inline-flex';"
+            onclick="this.style.display='none'; document.getElementById('tags-edit-{{ item.pk }}').style.display='inline-flex';"
             title="Editar tags">
         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
         </svg>
         tags
     </button>
-    <form id="res-tags-edit-{{ item_type }}-{{ item_pk }}" class="items-center gap-1 w-full mt-1 relative" style="display:none"
-          hx-post="{% url 'resource_tags_update' %}"
-          hx-target="#tag-editor-{{ item_type }}-{{ item_pk }}"
-          hx-swap="outerHTML"
-          onclick="event.stopPropagation()">
+    <form id="tags-edit-{{ item.pk }}" class="items-center gap-1 w-full mt-1 relative" style="display:none"
+          hx-post="{% url 'my_library:update_tags' item.pk %}"
+          hx-target="#item-tags-{{ item.pk }}"
+          hx-swap="outerHTML">
         {% csrf_token %}
-        <input type="hidden" name="item_type" value="{{ item_type }}">
-        <input type="hidden" name="item_pk" value="{{ item_pk }}">
         <div class="relative flex-1">
             <input type="text" name="tags"
                    value="{% for tag in tags %}{{ tag.name }}{% if not forloop.last %}, {% endif %}{% endfor %}"
-                   class="input input-xs input-bordered w-full res-tag-autocomplete-input"
+                   class="input input-xs input-bordered w-full tag-autocomplete-input"
                    placeholder="tag1, tag2, tag3..."
                    autocomplete="off"
-                   oninput="resTagAutocomplete(this)"
-                   onkeydown="resTagAutocompleteKeydown(event, this)">
-            <ul class="res-tag-suggestions absolute left-0 top-full z-50 menu menu-xs bg-base-100 shadow-lg rounded-box w-full max-h-32 overflow-y-auto" style="display:none"></ul>
+                   data-item-id="{{ item.pk }}"
+                   oninput="tagAutocomplete(this)"
+                   onkeydown="tagAutocompleteKeydown(event, this)">
+            <ul class="tag-suggestions absolute left-0 top-full z-50 menu menu-xs bg-base-100 shadow-lg rounded-box w-full max-h-32 overflow-y-auto" style="display:none"></ul>
         </div>
         <button type="submit" class="btn btn-xs btn-success btn-square" title="Guardar">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -35,11 +34,12 @@
             </svg>
         </button>
         <button type="button" class="btn btn-xs btn-ghost btn-square" title="Cancelar"
-                onclick="event.stopPropagation(); this.closest('form').style.display='none'; this.closest('[id^=tag-editor]').querySelector('.tags-edit-btn').style.display='';">
+                onclick="this.closest('form').style.display='none'; this.closest('[id^=item-tags]').querySelector('.tags-edit-btn').style.display='';">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
             </svg>
         </button>
     </form>
     {% endif %}
+    {% endwith %}
 </div>

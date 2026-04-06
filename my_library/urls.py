@@ -15,4 +15,7 @@ urlpatterns = [
         name="view_content_object",
     ),
     path("proficiency/<int:pk>/", views.update_proficiency, name="update_proficiency"),
+    path("update-title/<int:pk>/", views.update_item_title, name="update_title"),
+    path("update-tags/<int:pk>/", views.update_item_tags, name="update_tags"),
+    path("suggest-tags/", views.suggest_tags, name="suggest_tags"),
 ]

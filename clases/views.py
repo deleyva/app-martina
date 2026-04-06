@@ -768,6 +768,8 @@ def add_to_multiple_libraries(request):
     added_count = 0
     already_exists_count = 0
 
+    source_page_id = request.POST.get("source_page_id")
+
     # Añadir a biblioteca personal del profesor
     if personal_library:
         item, created = LibraryItem.objects.get_or_create(
@@ -777,7 +779,10 @@ def add_to_multiple_libraries(request):
         )
         if created:
             added_count += 1
-        else:
+        if source_page_id and not item.source_page_id:
+            item.source_page_id = source_page_id
+            item.save(update_fields=["source_page_id"])
+        if not created:
             already_exists_count += 1
 
     # Añadir a bibliotecas de grupo

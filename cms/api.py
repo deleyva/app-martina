@@ -180,7 +180,7 @@ class AIPublishOut(Schema):
 def ai_publish_content(
     request,
     description: str = Form(..., description="Descripción en lenguaje natural del contenido"),
-    page_type: str = Form("scorepage", description="Tipo de página: 'scorepage' o 'dictadopage'"),
+    page_type: str = Form("scorepage", description="Tipo de página: 'scorepage', 'dictadopage' o 'blogpage'"),
     publish_immediately: bool = Form(False, description="Si True, publicar inmediatamente; si False, guardar como borrador"),
     parent_page_id: Optional[int] = Form(None, description="ID de la página padre (opcional)"),
     pdf_files: List[UploadedFile] = File(None, description="Archivos PDF de partituras"),
@@ -302,6 +302,17 @@ def ai_publish_content(
                     publish=publish_immediately,
                     parent_page=parent_page,
                 )
+            elif page_type == 'blogpage':
+                # Create BlogPage
+                page = publisher.create_blogpage_from_ai(
+                    metadata=metadata,
+                    pdf_files=pdf_files,
+                    audio_files=audio_files,
+                    image_files=image_files,
+                    midi_files=midi_files,
+                    publish=publish_immediately,
+                    parent_page=parent_page,
+                )
             else:
                 # Create ScorePage (default)
                 page = publisher.create_scorepage_from_ai(
@@ -334,7 +345,8 @@ def ai_publish_content(
     else:
         preview_url = f"/cms/pages/{page.id}/view_draft/"
     
-    page_type_name = "DictadoPage" if page_type == 'dictadopage' else "ScorePage"
+    page_type_names = {'dictadopage': 'DictadoPage', 'blogpage': 'BlogPage', 'scorepage': 'ScorePage'}
+    page_type_name = page_type_names.get(page_type, 'ScorePage')
     message = (
         f"{page_type_name} creada como borrador. Revísala y publica cuando estés listo."
         if not publish_immediately

@@ -1,0 +1,35 @@
+<div id="resource-title-{{ item_type }}-{{ item_pk }}" class="inline-flex items-center gap-1 group" onclick="event.stopPropagation()">
+    <span class="display-text font-medium truncate">{{ title }}</span>
+    {% if is_staff %}
+    <button class="edit-trigger opacity-0 group-hover:opacity-100 transition-opacity btn btn-ghost btn-xs btn-square"
+            onclick="event.stopPropagation(); var c=this.closest('[id^=resource-title]'); c.querySelector('.edit-form').style.display='inline-flex'; c.querySelector('.display-text').style.display='none'; this.style.display='none'; c.querySelector('input[name=title]').focus();"
+            title="Renombrar">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+        </svg>
+    </button>
+    <form class="edit-form items-center gap-1" style="display:none"
+          hx-post="{% url 'resource_rename' %}"
+          hx-target="#resource-title-{{ item_type }}-{{ item_pk }}"
+          hx-swap="outerHTML"
+          onclick="event.stopPropagation()">
+        {% csrf_token %}
+        <input type="hidden" name="item_type" value="{{ item_type }}">
+        <input type="hidden" name="item_pk" value="{{ item_pk }}">
+        <input type="text" name="title" value="{{ title }}"
+               class="input input-xs input-bordered w-48"
+               onfocus="this.select()">
+        <button type="submit" class="btn btn-xs btn-success btn-square" title="Guardar">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+        </button>
+        <button type="button" class="btn btn-xs btn-ghost btn-square" title="Cancelar"
+                onclick="event.stopPropagation(); var c=this.closest('[id^=resource-title]'); c.querySelector('.edit-form').style.display='none'; c.querySelector('.display-text').style.display=''; c.querySelector('.edit-trigger').style.display='';">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+        </button>
+    </form>
+    {% endif %}
+</div>
