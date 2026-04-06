@@ -1111,14 +1111,11 @@ class ContentPublisher:
         logger.info(f"Creating BlogPage from AI metadata: {metadata.get('title', 'N/A')}")
 
         try:
-            # Get parent page (BlogIndexPage or MusicLibraryIndexPage)
+            # Get parent page (always MusicLibraryIndexPage)
             if parent_page is None:
-                from cms.models import BlogIndexPage
-                parent_page = BlogIndexPage.objects.live().first()
+                parent_page = MusicLibraryIndexPage.objects.live().first()
                 if not parent_page:
-                    parent_page = MusicLibraryIndexPage.objects.live().first()
-                if not parent_page:
-                    raise ValueError("No BlogIndexPage or MusicLibraryIndexPage found.")
+                    raise ValueError("No MusicLibraryIndexPage found. Please create one first.")
 
             # Create Wagtail documents and images
             base_title = metadata.get('title', 'Sin título')
