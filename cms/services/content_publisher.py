@@ -1126,19 +1126,27 @@ class ContentPublisher:
             documents = {"pdfs": [], "audios": []}
             for i, pdf in enumerate(pdf_files):
                 filename_tags = self._extract_tags_from_filename(pdf.name)
-                all_tags = list(set(filename_tags + metadata.get("tags", [])))
-                doc = self._upload_document(pdf, f"{base_title} - PDF {i+1}" if len(pdf_files) > 1 else base_title, all_tags)
+                ai_tags = self._get_ai_suggested_tags(metadata, pdf.name)
+                all_tags = list(set(filename_tags + ai_tags))
+                title = self._generate_descriptive_title(base_title, pdf.name, all_tags)
+                doc = self._create_wagtail_document(pdf, title=title, tags=all_tags)
                 documents["pdfs"].append(doc)
 
             for i, audio in enumerate(audio_files):
                 filename_tags = self._extract_tags_from_filename(audio.name)
-                all_tags = list(set(filename_tags + metadata.get("tags", [])))
-                doc = self._upload_document(audio, f"{base_title} - Audio {i+1}" if len(audio_files) > 1 else f"{base_title} audio", all_tags)
+                ai_tags = self._get_ai_suggested_tags(metadata, audio.name)
+                all_tags = list(set(filename_tags + ai_tags))
+                title = self._generate_descriptive_title(base_title, audio.name, all_tags)
+                doc = self._create_wagtail_document(audio, title=title, tags=all_tags)
                 documents["audios"].append(doc)
 
             images = []
             for i, img_file in enumerate(image_files):
-                img = self._upload_image(img_file, f"{base_title} - Imagen {i+1}" if len(image_files) > 1 else base_title)
+                filename_tags = self._extract_tags_from_filename(img_file.name)
+                ai_tags = self._get_ai_suggested_tags(metadata, img_file.name)
+                all_tags = list(set(filename_tags + ai_tags))
+                title = self._generate_descriptive_title(base_title, img_file.name, all_tags)
+                img = self._create_wagtail_image(img_file, title=title, tags=all_tags)
                 images.append(img)
 
             # Build attachments StreamField
