@@ -11,6 +11,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 from django.views.generic import CreateView
 from django.views.generic import DetailView
@@ -28,15 +29,29 @@ from .models import Ubicacion
 from .services.notification_service import IncidenciaNotificationService
 
 
+def _is_tecnico(user):
+    """Check if user is an active technician or superuser."""
+    if not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    return hasattr(user, "perfil_tecnico") and user.perfil_tecnico.activo
+
+
+def _safe_redirect(request, default_url="incidencias:panel"):
+    """Redirect to POST 'next' param if it's a safe internal URL, else default."""
+    next_url = request.POST.get("next", "")
+    if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+        return redirect(next_url)
+    return redirect(default_url)
+
+
 class TecnicoRequiredMixin(LoginRequiredMixin):
     """Mixin que requiere que el usuario sea un técnico activo."""
 
     def dispatch(self, request, *args, **kwargs):
-        if not request.user.is_authenticated:
+        if not _is_tecnico(request.user):
             return self.handle_no_permission()
-        if not hasattr(request.user, "perfil_tecnico") or not request.user.perfil_tecnico.activo:
-            if not request.user.is_superuser:
-                return self.handle_no_permission()
         return super().dispatch(request, *args, **kwargs)
 
 
@@ -158,11 +173,19 @@ class DetalleIncidenciaView(DetailView):
     template_name = "incidencias/detalle.html"
     context_object_name = "incidencia"
 
+    def get_queryset(self):
+        return super().get_queryset().select_related("ubicacion", "asignado_a")
+
     def dispatch(self, request, *args, **kwargs):
-        incidencia = self.get_object()
-        if incidencia.es_privada and not request.user.is_authenticated:
+        self.object = self.get_object()
+        if self.object.es_privada and not request.user.is_authenticated:
             return redirect(f"{reverse('account_login')}?next={request.path}")
         return super().dispatch(request, *args, **kwargs)
+
+    def get_object(self, queryset=None):
+        if getattr(self, "object", None) is not None:
+            return self.object
+        return super().get_object(queryset)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -170,6 +193,11 @@ class DetalleIncidenciaView(DetailView):
         context["adjuntos"] = self.object.adjuntos.all()
         context["comentario_form"] = ComentarioForm()
         context["historial_asignaciones"] = self.object.historial_asignaciones.all()
+        # Technician context for action buttons
+        is_tecnico = _is_tecnico(self.request.user)
+        context["is_tecnico"] = is_tecnico
+        if is_tecnico:
+            context["tecnicos"] = Tecnico.objects.filter(activo=True).select_related("user")
         return context
 
 
@@ -309,7 +337,6 @@ class PanelDashboardView(TecnicoRequiredMixin, TemplateView):
         context["filtro_urgencia"] = urgencia
         context["filtro_etiqueta"] = etiqueta
         context["filtro_tecnico"] = tecnico_id
-        context["filtro_tecnico"] = tecnico_id
 
         return context
 
@@ -390,7 +417,7 @@ class AsignarIncidenciaView(TecnicoRequiredMixin, View):
 
         incidencia.asignado_a = nuevo_tecnico
         incidencia.save()
-        return redirect("incidencias:panel")
+        return _safe_redirect(request)
 
 
 class CambiarEstadoView(TecnicoRequiredMixin, View):
@@ -407,7 +434,7 @@ class CambiarEstadoView(TecnicoRequiredMixin, View):
                 IncidenciaNotificationService.notify_estado_changed(
                     incidencia.pk, old_estado, nuevo_estado
                 )
-        return redirect("incidencias:panel")
+        return _safe_redirect(request)
 
 
 class CambiarEstadoApiView(TecnicoRequiredMixin, View):
@@ -439,6 +466,15 @@ class CambiarEstadoApiView(TecnicoRequiredMixin, View):
             "estado": incidencia.estado,
             "estado_display": incidencia.get_estado_display(),
         })
+
+
+class EliminarIncidenciaView(TecnicoRequiredMixin, View):
+    """Eliminar una incidencia (POST, requiere técnico)."""
+
+    def post(self, request, pk):
+        incidencia = get_object_or_404(Incidencia, pk=pk)
+        incidencia.delete()
+        return _safe_redirect(request)
 
 
 class GestionTecnicosView(TecnicoRequiredMixin, TemplateView):

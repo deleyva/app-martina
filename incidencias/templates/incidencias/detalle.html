@@ -63,6 +63,155 @@
     </div>
   </div>
 
+  <!-- Technician Actions -->
+  {% if is_tecnico %}
+  <div class="flex flex-wrap gap-2 mb-6 justify-end">
+    <!-- Change Status -->
+    <button class="btn btn-sm btn-outline gap-1" onclick="document.getElementById('modal_estado_detalle').showModal()">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+      </svg>
+      Cambiar estado
+    </button>
+
+    <!-- Assign -->
+    <button class="btn btn-sm btn-outline gap-1" onclick="document.getElementById('modal_asignar_detalle').showModal()">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+      </svg>
+      Asignar
+    </button>
+
+    <!-- Edit -->
+    <a href="{% url 'incidencias:panel_editar' incidencia.pk %}" class="btn btn-sm btn-outline gap-1">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.89 1.148l-2.68.89 1.148-1.89a4.5 4.5 0 011.148-1.89l12.33-12.33zm1.687-1.688L19.5 4.5M14.25 7.5L16.5 9.75" />
+      </svg>
+      Editar
+    </a>
+
+    <!-- Delete -->
+    <button class="btn btn-sm btn-outline btn-error gap-1" onclick="document.getElementById('modal_eliminar_detalle').showModal()">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+      </svg>
+      Eliminar
+    </button>
+  </div>
+
+  <!-- Modal: Change Status -->
+  <dialog id="modal_estado_detalle" class="modal">
+    <div class="modal-box p-6">
+      <h3 class="font-bold text-lg mb-4">Cambiar estado</h3>
+      <ul class="menu bg-base-200/50 rounded-box p-2 gap-1">
+        {% if incidencia.estado != "pendiente" %}
+          <li>
+            <form method="post" action="{% url 'incidencias:panel_estado' incidencia.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="estado" value="pendiente">
+              <input type="hidden" name="next" value="{% url 'incidencias:detalle' incidencia.pk %}">
+              <button type="submit" class="w-full text-left py-3">⏳ Pendiente</button>
+            </form>
+          </li>
+        {% endif %}
+        {% if incidencia.estado != "en_progreso" %}
+          <li>
+            <form method="post" action="{% url 'incidencias:panel_estado' incidencia.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="estado" value="en_progreso">
+              <input type="hidden" name="next" value="{% url 'incidencias:detalle' incidencia.pk %}">
+              <button type="submit" class="w-full text-left py-3">⚡ En Progreso</button>
+            </form>
+          </li>
+        {% endif %}
+        {% if incidencia.estado != "resuelta" %}
+          <li>
+            <form method="post" action="{% url 'incidencias:panel_estado' incidencia.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="estado" value="resuelta">
+              <input type="hidden" name="next" value="{% url 'incidencias:detalle' incidencia.pk %}">
+              <button type="submit" class="w-full text-left py-3 text-success">✅ Resuelta</button>
+            </form>
+          </li>
+        {% endif %}
+      </ul>
+      <div class="modal-action">
+        <form method="dialog"><button class="btn btn-sm">Cancelar</button></form>
+      </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  </dialog>
+
+  <!-- Modal: Assign -->
+  <dialog id="modal_asignar_detalle" class="modal">
+    <div class="modal-box p-6">
+      <h3 class="font-bold text-lg mb-4">Asignar a...</h3>
+      <ul class="menu bg-base-200/50 rounded-box p-2 gap-1">
+        <li>
+          <form method="post" action="{% url 'incidencias:panel_asignar' incidencia.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="tecnico_id" value="self">
+            <input type="hidden" name="next" value="{% url 'incidencias:detalle' incidencia.pk %}">
+            <button type="submit" class="w-full text-left py-3 font-medium text-primary">🙋 Coger para mí</button>
+          </form>
+        </li>
+        <div class="divider my-1 text-xs opacity-50">Otros técnicos</div>
+        {% for t in tecnicos %}
+          {% if t.id != incidencia.asignado_a_id %}
+          <li>
+            <form method="post" action="{% url 'incidencias:panel_asignar' incidencia.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="tecnico_id" value="{{ t.id }}">
+              <input type="hidden" name="next" value="{% url 'incidencias:detalle' incidencia.pk %}">
+              <button type="submit" class="w-full text-left">
+                <div class="avatar placeholder mr-2">
+                  <div class="bg-neutral text-neutral-content rounded-full w-5">
+                    <span class="text-[10px]">{{ t.nombre_display|default:t.user.username|stringformat:"s"|make_list|first|upper }}</span>
+                  </div>
+                </div>
+                {{ t }}
+              </button>
+            </form>
+          </li>
+          {% endif %}
+        {% endfor %}
+        {% if incidencia.asignado_a %}
+        <div class="divider my-1"></div>
+        <li>
+          <form method="post" action="{% url 'incidencias:panel_asignar' incidencia.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="tecnico_id" value="none">
+            <input type="hidden" name="next" value="{% url 'incidencias:detalle' incidencia.pk %}">
+            <button type="submit" class="w-full text-left text-error">❌ Desasignar</button>
+          </form>
+        </li>
+        {% endif %}
+      </ul>
+      <div class="modal-action">
+        <form method="dialog"><button class="btn btn-sm">Cancelar</button></form>
+      </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  </dialog>
+
+  <!-- Modal: Delete Confirmation -->
+  <dialog id="modal_eliminar_detalle" class="modal">
+    <div class="modal-box p-6">
+      <h3 class="font-bold text-lg text-error mb-2">Eliminar incidencia</h3>
+      <p class="opacity-70 mb-4">¿Estás seguro de que quieres eliminar <strong>{{ incidencia.titulo }}</strong>? Esta acción no se puede deshacer.</p>
+      <div class="modal-action">
+        <form method="dialog"><button class="btn btn-sm">Cancelar</button></form>
+        <form method="post" action="{% url 'incidencias:panel_eliminar' incidencia.pk %}">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{% url 'incidencias:landing' %}">
+          <button type="submit" class="btn btn-error btn-sm">Eliminar</button>
+        </form>
+      </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  </dialog>
+  {% endif %}
+
   <!-- Attachments -->
   {% if adjuntos %}
   <div class="mb-8">

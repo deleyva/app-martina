@@ -20,5 +20,6 @@ urlpatterns = [
     path("panel/asignar/<int:pk>/", views.AsignarIncidenciaView.as_view(), name="panel_asignar"),
     path("panel/estado/<int:pk>/", views.CambiarEstadoView.as_view(), name="panel_estado"),
     path("panel/api/estado/<int:pk>/", views.CambiarEstadoApiView.as_view(), name="panel_estado_api"),
+    path("panel/eliminar/<int:pk>/", views.EliminarIncidenciaView.as_view(), name="panel_eliminar"),
     path("panel/tecnicos/", views.GestionTecnicosView.as_view(), name="panel_tecnicos"),
 ]
