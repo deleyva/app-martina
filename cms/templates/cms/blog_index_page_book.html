@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% comment %}
+Book-container view for BlogIndexPage when nested under MusicLibraryIndexPage.
+
+Line-based layout (DaisyUI list) to stay consistent with the rest of the
+music library (scores, dictados). Chapters are listed in tree order —
+`blogpages` is already sorted by `path` in BlogIndexPage.get_context
+when the book is a music library descendant.
+{% endcomment %}
+{% load wagtailcore_tags wagtailimages_tags %}
+{% load library_tags %}
+
+{% block title %}{{ page.title }} - Music Pills{% endblock %}
+
+{% block extra_css %}
+<style>
+    .chapter-item .list-row {
+        text-decoration: none;
+        color: inherit;
+        display: flex;
+        width: 100%;
+    }
+    .chapter-item .list-row:hover {
+        background-color: rgba(0, 0, 0, 0.05);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-5xl">
+
+    {# Breadcrumb: back to parent (the Music Library) #}
+    {% with parent=page.get_parent.specific %}
+    {% if parent %}
+    <div class="mb-4">
+        <a href="{{ parent.url }}" class="text-sm text-base-content/60 hover:text-primary inline-flex items-center gap-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+            Volver a {{ parent.title }}
+        </a>
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    {# Header: book title + intro #}
+    <header class="mb-8">
+        <div class="flex items-start justify-between flex-wrap gap-4">
+            <div class="flex-1 min-w-0">
+                <div class="text-xs font-sans tracking-widest text-base-content/60 uppercase mb-2">Libro</div>
+                <h1 class="text-4xl md:text-5xl font-bold mb-4 flex items-center gap-3">
+                    <span class="text-3xl">📖</span>
+                    <span>{{ page.title }}</span>
+                </h1>
+                {% if page.intro %}
+                <div class="text-lg text-base-content/70 max-w-3xl leading-relaxed">
+                    {{ page.intro|richtext }}
+                </div>
+                {% endif %}
+            </div>
+
+            {% if user.is_authenticated %}
+            <div class="flex items-center gap-2 shrink-0">
+                <div id="library-btn-book-{{ page.pk }}">
+                    {% library_button page %}
+                </div>
+                {% if user.is_staff %}
+                <a href="/cms/pages/{{ page.id }}/edit/" class="btn btn-sm btn-ghost">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                    </svg>
+                    Editar
+                </a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </header>
+
+    <div class="divider"></div>
+
+    {# Chapter list #}
+    {% if blogpages %}
+    <div class="flex items-center justify-between mb-4">
+        <h2 class="text-xl font-bold">Capítulos</h2>
+        <span class="badge badge-outline badge-sm">
+            {{ blogpages|length }} capítulo{{ blogpages|length|pluralize:"s" }}
+        </span>
+    </div>
+
+    <ul class="list bg-base-100 rounded-box shadow-md" id="chaptersList">
+        {% for chapter in blogpages %}
+        <li class="chapter-item flex items-center gap-2 border-b border-base-200 last:border-0">
+            <div class="list-row flex items-center gap-4 p-4 flex-1 min-w-0 cursor-pointer transition-colors"
+                 onclick="window.location.href='{{ chapter.url }}'"
+                 role="link"
+                 tabindex="0">
+
+                {# Chapter number badge (acts as the row icon) #}
+                <div class="w-12 h-12 rounded-lg flex items-center justify-center shrink-0 bg-primary/10 text-primary font-bold text-lg">
+                    {{ forloop.counter }}
+                </div>
+
+                {# Content: title + intro snippet + tags #}
+                <div class="flex-1 min-w-0">
+                    <div class="text-xs font-sans tracking-widest text-base-content/50 uppercase mb-1">
+                        Capítulo {{ forloop.counter }}
+                    </div>
+                    <div class="font-bold text-lg truncate">{{ chapter.title }}</div>
+                    {% if chapter.intro %}
+                    <div class="text-sm text-base-content/70 line-clamp-2 mt-1">
+                        {{ chapter.intro|truncatechars:200 }}
+                    </div>
+                    {% endif %}
+                    {% if chapter.tags.all %}
+                    <div class="flex flex-wrap gap-1 mt-2">
+                        {% for tag in chapter.tags.all|slice:":5" %}
+                        <div class="badge badge-outline badge-sm"
+                             {% if tag.color %}style="border-color: {{ tag.color }}; color: {{ tag.color }};"{% endif %}>
+                            {{ tag.name }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+
+                {# Date (right-aligned) #}
+                {% if chapter.date %}
+                <div class="text-xs text-base-content/50 shrink-0 hidden md:block">
+                    {{ chapter.date|date:"d M Y" }}
+                </div>
+                {% endif %}
+            </div>
+
+            {# Actions — outside the list-row click zone #}
+            <div class="flex items-center gap-1 pr-3 shrink-0">
+                {% if user.is_authenticated %}
+                <div id="library-btn-chapter-{{ chapter.pk }}" onclick="event.stopPropagation()">
+                    {% library_button chapter %}
+                </div>
+                {% endif %}
+                <a href="{{ chapter.url }}" class="btn btn-ghost btn-sm" onclick="event.stopPropagation()">
+                    Leer
+                    <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </a>
+            </div>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <div class="text-center py-16">
+        <div class="text-6xl mb-4">📖</div>
+        <h2 class="text-2xl font-bold mb-2">No hay capítulos todavía</h2>
+        <p class="text-base-content/70">Este libro aún no tiene contenido publicado.</p>
+        {% if user.is_staff %}
+        <a href="/cms/pages/{{ page.id }}/add_subpage/" class="btn btn-primary btn-sm mt-4">
+            Añadir capítulo
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

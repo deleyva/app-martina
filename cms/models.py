@@ -176,6 +176,15 @@ class BlogIndexPage(Page):
     """Página índice del blog"""
 
     intro = RichTextField(blank=True)
+    cover_image = models.ForeignKey(
+        "wagtailimages.Image",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+        verbose_name="Portada",
+        help_text="Imagen de portada (usada cuando este índice actúa como libro en la biblioteca musical).",
+    )
     moderator = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
@@ -197,6 +206,7 @@ class BlogIndexPage(Page):
 
     content_panels = Page.content_panels + [
         FieldPanel("intro"),
+        FieldPanel("cover_image"),
         MultiFieldPanel(
             [
                 FieldPanel("moderator"),
@@ -208,9 +218,27 @@ class BlogIndexPage(Page):
 
     subpage_types = ["cms.BlogIndexPage", "cms.BlogPage"]
 
+    def get_template(self, request, *args, **kwargs):
+        """Return book-container template when nested under a MusicLibraryIndexPage.
+
+        Department blogs keep the default editorial template; books reuse the
+        music library's "app" aesthetic so they feel consistent with the rest
+        of the library hierarchy (scores, dictados, etc.).
+        """
+        if self.get_ancestors().type(MusicLibraryIndexPage).exists():
+            return "cms/blog_index_page_book.html"
+        return "cms/blog_index_page.html"
+
     def get_context(self, request):
         context = super().get_context(request)
         children = self.get_children().live()
+
+        # When this BlogIndex acts as a book-container under the Music Library,
+        # chapters should appear in tree order (i.e. the order they were created
+        # or the order Jesús sets in the Wagtail admin). Department blogs keep
+        # the editorial "newest first" order.
+        is_book = self.get_ancestors().type(MusicLibraryIndexPage).exists()
+        chapter_order = "path" if is_book else "-first_published_at"
 
         # Query by type at DB level instead of loading all children with .specific()
         department_pages = list(children.type(BlogIndexPage).specific())
@@ -218,7 +246,7 @@ class BlogIndexPage(Page):
             children.type(BlogPage)
             .specific()
             .prefetch_related("categories")
-            .order_by("-first_published_at")
+            .order_by(chapter_order)
         )
 
         is_hub = len(department_pages) > 0
@@ -376,8 +404,13 @@ class BlogPage(Page):
         return [DummyEmbedValue(tag.get('url')) for tag in embed_tags if tag.get('url')]
 
     def is_music_library_child(self):
-        parent = self.get_parent()
-        return parent and parent.specific_class.__name__ == 'MusicLibraryIndexPage'
+        """True if this page is a descendant of a MusicLibraryIndexPage at any depth.
+
+        Supports both direct children (BlogPage under MusicLibraryIndexPage) and
+        nested cases such as book-as-blog (BlogPage under BlogIndexPage under
+        MusicLibraryIndexPage).
+        """
+        return self.get_ancestors().type(MusicLibraryIndexPage).exists()
 
     class Meta:
         verbose_name = "Artículo de Blog"
@@ -848,8 +881,9 @@ class MusicLibraryIndexPage(Page):
         FieldPanel("intro"),
     ]
 
-    # Permitir ScorePage, SetlistPage, BlogPage, TestPage y DictadoPage como hijos
+    # Permitir ScorePage, SetlistPage, BlogPage, BlogIndexPage, TestPage y DictadoPage como hijos
     subpage_types = [
+        "cms.BlogIndexPage",
         "cms.ScorePage",
         "cms.SetlistPage",
         "cms.BlogPage",
@@ -886,19 +920,22 @@ class MusicLibraryIndexPage(Page):
 
         # Función auxiliar para filtrar por tags y categorías
         def filter_queryset(qs):
-            # Filtrar por texto si existe
+            # Filtrar por texto si existe — busca en título, intro, compositor
+            # (solo ScorePage) y también en nombres de tags, de modo que
+            # escribir "jazz" encuentre elementos etiquetados como "jazz".
             if search_query:
-                # Construir consulta base para búsqueda
                 search_filters = models.Q(title__icontains=search_query)
-                
-                # Añadir campos específicos según el modelo si existen
+
                 if hasattr(qs.model, 'intro'):
                     search_filters |= models.Q(intro__icontains=search_query)
-                
-                # Para ScorePage, buscar también por compositor
+
                 if qs.model.__name__ == 'ScorePage':
                     search_filters |= models.Q(composer__name__icontains=search_query)
-                
+
+                # Match by tag name (only if the model has a tags M2M)
+                if hasattr(qs.model, 'tags') and hasattr(qs.model.tags, 'rel'):
+                    search_filters |= models.Q(tags__name__icontains=search_query)
+
                 qs = qs.filter(search_filters)
 
             for tag in tag_names:
@@ -938,6 +975,24 @@ class MusicLibraryIndexPage(Page):
             # Si la tabla BlogPage no existe aún, devolver lista vacía
             context["blog_posts"] = []
             context["blog_posts_count"] = 0
+
+        # Obtener los libros (BlogIndexPage hijos) — actúan como contenedores
+        # de capítulos dentro de la biblioteca musical. No tienen tags propios
+        # así que solo se filtran por título / intro.
+        try:
+            book_indexes = (
+                BlogIndexPage.objects.child_of(self).live()
+                .order_by("-first_published_at")
+            )
+            if search_query:
+                book_indexes = book_indexes.filter(
+                    models.Q(title__icontains=search_query)
+                    | models.Q(intro__icontains=search_query)
+                )
+            book_indexes = book_indexes.distinct()
+            context["book_indexes"] = book_indexes
+        except (ProgrammingError, OperationalError):
+            context["book_indexes"] = []
 
         # Obtener todas las páginas de test que son hijas de esta página
         try:
@@ -998,18 +1053,24 @@ class MusicLibraryIndexPage(Page):
         context["all_categories"] = MusicCategory.objects.all().order_by("name")
         context["search_query"] = search_query
 
-        # Combinar entradas tipo blog/test para la sección de artículos
+        # Combinar entradas tipo libro/blog/test para la sección editorial.
+        # Los libros (BlogIndexPage) van primero dentro de la sección.
         combined_entries = []
+        for book in context["book_indexes"]:
+            combined_entries.append({"type": "book", "page": book})
         for post in context["blog_posts"]:
             combined_entries.append({"type": "blog", "page": post})
         for test in context["test_pages"]:
             combined_entries.append({"type": "test", "page": test})
+        # Books first (keeps their tree order), then blogs/tests by date
         combined_entries.sort(
             key=lambda item: (
-                item["page"].first_published_at
-                or item["page"].latest_revision_created_at
+                0 if item["type"] == "book" else 1,
+                -(item["page"].first_published_at.timestamp()
+                  if item["page"].first_published_at
+                  else (item["page"].latest_revision_created_at.timestamp()
+                        if item["page"].latest_revision_created_at else 0)),
             ),
-            reverse=True,
         )
         # Server-side pagination for blog entries
         show_all_blog = is_filtered or request.GET.get("show_all_blog")

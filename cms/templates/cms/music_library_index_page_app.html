@@ -91,80 +91,174 @@
     <div class="mb-6">
         <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
             
-            <!-- Search and Filters -->
+            {# Single text-only filter: matches title, intro and tag name #}
             <div class="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
-                <!-- Search Input -->
-                <form method="GET" action="." class="form-control join w-full max-w-sm" id="searchForm" role="search">
-                    {% for tag in request.GET|get_list:'tags' %}
-                    <input type="hidden" name="tags" value="{{ tag }}">
-                    {% endfor %}
-                    {% for cat in request.GET|get_list:'categories' %}
-                    <input type="hidden" name="categories" value="{{ cat }}">
-                    {% endfor %}
-                    
+                <form method="GET" action="." class="form-control w-full max-w-sm" id="searchForm" role="search">
                     <div class="join w-full">
-                        <input type="text" 
-                               name="q" 
+                        <input type="text"
+                               name="q"
                                value="{{ search_query }}"
-                               placeholder="Search scores..." 
-                               class="input input-bordered join-item w-full sm:w-64" 
-                               aria-label="Search"
+                               placeholder="Buscar por título o etiqueta..."
+                               class="input input-bordered join-item w-full sm:w-80"
+                               aria-label="Buscar"
                                hx-get="."
-                               hx-trigger="keyup changed delay:500ms, search"
-                               hx-target="#musicResults"
-                               hx-select="#musicResults"
+                               hx-trigger="keyup changed delay:200ms, search"
+                               hx-target="#searchResults"
+                               hx-select="#searchResults"
                                hx-include="#searchForm"
-                               >
+                               hx-swap="outerHTML"
+                               autocomplete="off">
                         <button type="submit" class="btn btn-square join-item">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                         </button>
                     </div>
                 </form>
-                
-                <!-- Tag Filter -->
-                <div class="dropdown dropdown-end">
-                    <div tabindex="0" role="button" class="btn btn-outline">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
-                        </svg>
-                        {% if request.GET.tags %}
-                            {{ request.GET|get_list:'tags'|join:", "|truncatechars:20 }}
-                        {% else %}
-                            Filter by Tags
-                        {% endif %}
-                    </div>
-                    <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52 max-h-64 overflow-y-auto">
-                        <li>
-                            <a href="?{% if search_query %}q={{ search_query }}{% endif %}" class="text-sm">
-                                {% if request.GET.tags %}Clear Filter{% else %}Show All{% endif %}
-                            </a>
-                        </li>
-                        <li class="menu-title"><span>Available Tags</span></li>
-                        {% for tag in all_tags %}
-                            <li>
-                                <a href="?tags={{ tag.name }}{% if search_query %}&q={{ search_query }}{% endif %}" 
-                                   class="text-sm {% if tag.name in request.GET|get_list:'tags' %}active{% endif %}">
-                                    🏷️ {{ tag.name }}
-                                </a>
-                            </li>
-                        {% endfor %}
-                    </ul>
-                </div>
             </div>
         </div>
 
 
-        {% if not music_content %}
-        <!-- No Results (Backend) -->
-        <div class="text-center py-8">
-            <div class="text-4xl mb-2">🔍</div>
-            <p class="text-base-content/70">No scores match your search/filters.</p>
-            <a href="." class="btn btn-sm btn-outline mt-2">Clear All</a>
+        {# Wrapper for HTMX partial swap — filter refreshes BOTH sections #}
+        <div id="searchResults">
+
+        {# ===== Editorial section FIRST: books, blogs, tests ===== #}
+        {% if blog_entries %}
+        <div class="mb-12">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold">📝 Contenido Editorial</h2>
+                <span class="badge badge-outline badge-sm">{{ blog_entries_count }} publicaciones</span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="blogEntriesGrid">
+                {% for entry in blog_entries %}
+                {% with item=entry.page %}
+                <div class="card bg-base-100 shadow-lg hover:shadow-xl transition-shadow overflow-hidden">
+                    {% if entry.type == 'book' and item.cover_image %}
+                    {# Book cover: portrait ratio (~3:4) to match real book covers #}
+                    <figure class="aspect-[3/4] bg-base-200">
+                        <a href="{{ item.url }}" class="block w-full h-full">
+                            {% image item.cover_image width-600 class="w-full h-full object-cover" %}
+                        </a>
+                    </figure>
+                    {% elif entry.type != 'book' and item.featured_image %}
+                    <figure class="aspect-video">
+                        {% image item.featured_image width-400 class="w-full h-full object-cover" %}
+                    </figure>
+                    {% endif %}
+
+                    <div class="card-body">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="badge badge-sm
+                                {% if entry.type == 'book' %}badge-primary
+                                {% elif entry.type == 'test' %}badge-secondary
+                                {% else %}badge-info{% endif %}">
+                                {% if entry.type == 'book' %}📖 Libro
+                                {% elif entry.type == 'test' %}Test interactivo
+                                {% else %}Artículo{% endif %}
+                            </div>
+                            {% if entry.type == 'test' %}
+                            <div class="text-xs text-base-content/60 flex items-center gap-1">
+                                🧠 {{ item.questions|length }} preguntas
+                            </div>
+                            {% elif entry.type == 'book' %}
+                            <div class="text-xs text-base-content/60 flex items-center gap-1">
+                                {{ item.get_children.live.count }} capítulos
+                            </div>
+                            {% endif %}
+                        </div>
+                        <h3 class="card-title text-lg">{{ item.title }}</h3>
+                        {% if item.intro %}
+                        <p class="text-sm text-base-content/70 mb-2">
+                            {% if entry.type == 'book' %}
+                                {{ item.intro|richtext|striptags|truncatechars:160 }}
+                            {% else %}
+                                {{ item.intro|truncatechars:160 }}
+                            {% endif %}
+                        </p>
+                        {% endif %}
+
+                        {# Categories and Tags (books don't have them) #}
+                        {% if entry.type != 'book' and item.categories.all or item.tags.all %}
+                        <div class="flex flex-wrap gap-1 mb-3">
+                            {% for category in item.categories.all|slice:":3" %}
+                            <div class="badge badge-info badge-sm">
+                                {% if category.icon %}{{ category.icon }} {% endif %}{{ category.name }}
+                            </div>
+                            {% endfor %}
+                            {% for tag in item.tags.all|slice:":3" %}
+                            <div class="badge badge-outline badge-sm"
+                                 {% if tag.color %}style="border-color: {{ tag.color }}; color: {{ tag.color }};"{% endif %}>
+                                🏷️ {{ tag.name }}
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        <div class="flex justify-between items-center mt-4">
+                            <div class="text-xs text-base-content/50">
+                                {% if entry.type != 'book' and item.date %}📅 {{ item.date|date:"d M Y" }}{% endif %}
+                            </div>
+
+                            <div class="flex gap-2">
+                                {% if user.is_authenticated and entry.type != 'book' %}
+                                <div id="library-btn-blog-{{ item.pk }}" onclick="event.stopPropagation()">
+                                    {% library_button item %}
+                                </div>
+                                {% endif %}
+                                <a href="{{ item.url }}" class="btn btn-sm btn-primary">
+                                    {% if entry.type == 'book' %}Abrir libro
+                                    {% elif entry.type == 'test' %}Resolver test
+                                    {% else %}Leer más{% endif %}
+                                </a>
+                                {% if user.is_staff %}
+                                <a href="/cms/pages/{{ item.id }}/edit/" class="btn btn-sm btn-ghost" title="Editar">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                                    </svg>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endwith %}
+                {% endfor %}
+            </div>
+
+            {% if has_more_blog %}
+            <div class="text-center mt-6">
+                <a href="?show_all_blog=1{% if search_query %}&q={{ search_query }}{% endif %}"
+                   class="btn btn-outline btn-primary">
+                    Mostrar todo ({{ blog_entries_total }})
+                </a>
+                <p class="text-xs text-base-content/50 mt-2">
+                    Mostrando {{ blog_entries_count }} de {{ blog_entries_total }}
+                </p>
+            </div>
+            {% endif %}
         </div>
         {% endif %}
 
-        <!-- Music Content List (Scores + Dictados) -->
-        <div id="musicResults">
+        {# ===== Music Library section SECOND: scores + dictados ===== #}
+        {% if music_content %}
+        <div class="flex items-center justify-between mb-4 mt-8">
+            <h2 class="text-2xl font-bold">🎼 Biblioteca Musical</h2>
+            <span class="badge badge-outline badge-sm">
+                {{ music_content_count }} {% if music_content_total %}de {{ music_content_total }}{% endif %}
+            </span>
+        </div>
+        {% endif %}
+
+        {% if not music_content and not blog_entries %}
+        <!-- Empty state when search returns nothing -->
+        <div class="text-center py-12">
+            <div class="text-6xl mb-4">🔍</div>
+            <h2 class="text-2xl font-bold mb-2">Sin resultados</h2>
+            <p class="text-base-content/70 mb-6">Prueba a cambiar el texto de búsqueda.</p>
+            <a href="." class="btn btn-primary">Limpiar búsqueda</a>
+        </div>
+        {% endif %}
+
+        <div>
             <ul class="list bg-base-100 rounded-box shadow-md" id="musicList">
                 {% if music_content %}
                 <li class="p-4 pb-2 text-xs opacity-60 tracking-wide">Your Music Library</li>
@@ -309,130 +403,13 @@
             </div>
             {% endif %}
 
-            {% if not music_content %}
-            <!-- Empty State (No content at all) -->
-            <div class="text-center py-12">
-                <div class="text-6xl mb-4">📚</div>
-                <h2 class="text-2xl font-bold mb-2">No results found</h2>
-                <p class="text-base-content/70 mb-6">Try adjusting your filters or search terms.</p>
-                <a href="." class="btn btn-primary">
-                    Clear Filters
-                </a>
-            </div>
-            {% endif %}
         </div>
-        
+        {# ===== end Music Library section ===== #}
+
+        </div>
+        {# ===== end #searchResults wrapper ===== #}
+
     </div>
-
-
-    <!-- Editorial Section: Blog Posts + Tests -->
-    {% if blog_entries %}
-    <div class="mt-12">
-        <div class="flex items-center justify-between mb-6">
-            <h2 class="text-2xl font-bold">📝 Contenido Editorial</h2>
-            <span class="badge badge-outline badge-sm">{{ blog_entries_count }} publicaciones</span>
-        </div>
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="blogEntriesGrid">
-            {% for entry in blog_entries %}
-            {% with item=entry.page %}
-            <div class="card bg-base-100 shadow-lg hover:shadow-xl transition-shadow">
-                {% if item.featured_image %}
-                <figure class="aspect-video">
-                    {% image item.featured_image width-400 class="w-full h-full object-cover" %}
-                </figure>
-                {% endif %}
-                
-                <div class="card-body">
-                    <div class="flex items-center justify-between mb-2">
-                        <div class="badge badge-sm {% if entry.type == 'test' %}badge-secondary{% else %}badge-info{% endif %}">
-                            {% if entry.type == 'test' %}Test interactivo{% else %}Artículo{% endif %}
-                        </div>
-                        {% if entry.type == 'test' %}
-                        <div class="text-xs text-base-content/60 flex items-center gap-1">
-                            🧠 {{ item.questions|length }} preguntas
-                        </div>
-                        {% endif %}
-                    </div>
-                    <h3 class="card-title text-lg">{{ item.title }}</h3>
-                    {% if item.intro %}
-                    <p class="text-sm text-base-content/70 mb-2">{{ item.intro }}</p>
-                    {% endif %}
-                    
-                    <!-- Categories and Tags -->
-                    {% if item.categories.all or item.tags.all %}
-                    <div class="flex flex-wrap gap-1 mb-3">
-                        {% for category in item.categories.all|slice:":3" %}
-                        <div class="badge badge-info badge-sm">
-                            {% if category.icon %}{{ category.icon }} {% endif %}{{ category.name }}
-                        </div>
-                        {% endfor %}
-                        {% for tag in item.tags.all|slice:":3" %}
-                        <a href="?tags={{ tag.name }}{% if search_query %}&q={{ search_query }}{% endif %}" 
-                           class="badge badge-outline badge-sm hover:bg-base-200 cursor-pointer" 
-                           style="{% if tag.color %}border-color: {{ tag.color }}; color: {{ tag.color }};{% endif %}">
-                            🏷️ {{ tag.name }}
-                        </a>
-                        {% endfor %}
-                        {% if item.categories.all|length > 3 or item.tags.all|length > 3 %}
-                        <div class="badge badge-ghost badge-sm">+más</div>
-                        {% endif %}
-                    </div>
-                    {% endif %}
-                    
-                    <!-- Date and Actions -->
-                    <div class="flex justify-between items-center mt-4">
-                        <div class="text-xs text-base-content/50">
-                            📅 {{ item.date|date:"d M Y" }}
-                        </div>
-                        
-                        <div class="flex gap-2">
-                            {% if user.is_authenticated %}
-                            <div id="library-btn-blog-{{ item.pk }}" onclick="event.stopPropagation()">
-                                {% library_button item %}
-                            </div>
-                            {% endif %}
-                            <a href="{{ item.url }}" class="btn btn-sm btn-primary">
-                                {% if entry.type == 'test' %}Resolver test{% else %}Leer más{% endif %}
-                            </a>
-                            {% if user.is_staff %}
-                            <div class="dropdown dropdown-end">
-                                <div tabindex="0" role="button" class="btn btn-sm btn-ghost">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path>
-                                    </svg>
-                                </div>
-                                <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
-                                    <li><a href="{{ item.get_url }}">Ver</a></li>
-                                    <li><a href="/cms/pages/{{ item.id }}/edit/">Editar</a></li>
-                                    <li><a href="/cms/pages/{{ item.id }}/copy/">Duplicar</a></li>
-                                </ul>
-                            </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-            </div>
-            {% endwith %}
-            {% endfor %}
-        </div>
-
-        {% if has_more_blog %}
-        <div class="text-center mt-6">
-            <a href="?show_all_blog=1{% if search_query %}&q={{ search_query }}{% endif %}{% for tag in request.GET|get_list:'tags' %}&tags={{ tag }}{% endfor %}{% for cat in request.GET|get_list:'categories' %}&categories={{ cat }}{% endfor %}"
-               class="btn btn-outline btn-primary">
-                Mostrar todo ({{ blog_entries_total }})
-                <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                </svg>
-            </a>
-            <p class="text-xs text-base-content/50 mt-2">
-                Mostrando {{ blog_entries_count }} de {{ blog_entries_total }}
-            </p>
-        </div>
-        {% endif %}
-    </div>
-    {% endif %}
 
 
     {% comment %} <!-- Quick Actions -->
