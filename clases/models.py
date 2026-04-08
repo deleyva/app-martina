@@ -759,6 +759,184 @@ class GroupLibraryItem(models.Model):
 
         return elements
 
+    def get_blogpage_elements(self):
+        """
+        Obtener todos los elementos importables de una BlogPage.
+
+        Incluye:
+        1. PDFs, audios e imágenes del StreamField `attachments`
+        2. Imágenes embebidas en el body (RichTextField, tags
+           `<embed embedtype="image">`)
+        3. Embeds de media (vídeos/audios) embebidos en el body
+           (tags `<embed embedtype="media">`), resueltos a instancias
+           reales del modelo `wagtail.embeds.Embed` vía `get_embed(url)`.
+
+        Devuelve lista de dicts con la misma estructura que
+        get_scorepage_elements(). Solo funciona si este GroupLibraryItem
+        apunta a una BlogPage.
+
+        Usa caché por instancia (`_blogpage_elements_cache`) para que
+        múltiples llamadas dentro del mismo render de plantilla no repitan
+        el trabajo. Para los attachments usa además la caché de
+        `BlogPage._parse_attachments()`.
+        """
+        if hasattr(self, "_blogpage_elements_cache"):
+            return self._blogpage_elements_cache
+
+        elements = []
+
+        # Solo procesar si es BlogPage
+        if self.content_type.model != "blogpage":
+            self._blogpage_elements_cache = elements
+            return elements
+
+        blogpage = self.content_object
+        if not blogpage or not hasattr(blogpage, "_parse_attachments"):
+            self._blogpage_elements_cache = elements
+            return elements
+
+        # Obtener ContentTypes una sola vez
+        from wagtail.documents.models import Document
+        from wagtail.images.models import Image
+
+        document_ct = ContentType.objects.get_for_model(Document)
+        image_ct = ContentType.objects.get_for_model(Image)
+
+        # --- 1) Attachments StreamField ---
+        # Reutilizar la caché de BlogPage._parse_attachments() que ya
+        # deserializa el StreamField una sola vez por instancia.
+        parsed = blogpage._parse_attachments()
+
+        for pdf_val in parsed.get("pdfs", []):
+            pdf_file = pdf_val.get("pdf_file")
+            if pdf_file:
+                elements.append({
+                    "type": "pdf",
+                    "title": pdf_val.get("title", pdf_file.title),
+                    "object": pdf_file,
+                    "content_type_id": document_ct.id,
+                    "tags": [],
+                    "session_count": self.get_session_count_for_object(
+                        self.group, pdf_file
+                    ),
+                })
+
+        for audio_val in parsed.get("audios", []):
+            audio_file = audio_val.get("audio_file")
+            if audio_file:
+                elements.append({
+                    "type": "audio",
+                    "title": audio_val.get("title", audio_file.title),
+                    "object": audio_file,
+                    "content_type_id": document_ct.id,
+                    "tags": [],
+                    "session_count": self.get_session_count_for_object(
+                        self.group, audio_file
+                    ),
+                })
+
+        for img_val in parsed.get("images", []):
+            image = img_val.get("image")
+            if image:
+                elements.append({
+                    "type": "image",
+                    "title": img_val.get("title", image.title),
+                    "object": image,
+                    "content_type_id": image_ct.id,
+                    "tags": [],
+                    "session_count": self.get_session_count_for_object(
+                        self.group, image
+                    ),
+                })
+
+        # --- 2) + 3) Body RichTextField (imágenes y embeds de media) ---
+        body_html = getattr(blogpage, "body", None)
+        if body_html:
+            from bs4 import BeautifulSoup
+
+            soup = BeautifulSoup(body_html, "html.parser")
+
+            # 2) Imágenes embebidas en el body — son Image reales con PK.
+            # Dedupe contra las imágenes ya añadidas desde attachments.
+            existing_image_pks = {
+                e["object"].pk for e in elements if e["type"] == "image"
+            }
+            image_id_attrs = [
+                tag.get("id")
+                for tag in soup.find_all("embed", embedtype="image")
+                if tag.get("id")
+            ]
+            if image_id_attrs:
+                # Una sola query para todas las imágenes del body
+                try:
+                    int_ids = [int(i) for i in image_id_attrs]
+                except (TypeError, ValueError):
+                    int_ids = []
+                if int_ids:
+                    db_images = Image.objects.filter(pk__in=int_ids)
+                    for image in db_images:
+                        if image.pk in existing_image_pks:
+                            continue
+                        elements.append({
+                            "type": "image",
+                            "title": image.title,
+                            "object": image,
+                            "content_type_id": image_ct.id,
+                            "tags": [],
+                            "session_count": self.get_session_count_for_object(
+                                self.group, image
+                            ),
+                        })
+                        existing_image_pks.add(image.pk)
+
+            # 3) Embeds de media (vídeos/audios) embebidos en el body.
+            # `get_embed(url)` resuelve y cachea en el modelo Embed.
+            media_embed_tags = soup.find_all("embed", embedtype="media")
+            if media_embed_tags:
+                from wagtail.embeds.embeds import get_embed
+                from wagtail.embeds.exceptions import EmbedException
+                from wagtail.embeds.models import Embed
+
+                embed_ct = ContentType.objects.get_for_model(Embed)
+                seen_embed_pks = set()
+                for tag in media_embed_tags:
+                    url = tag.get("url")
+                    if not url:
+                        continue
+                    try:
+                        embed_obj = get_embed(url)
+                    except EmbedException:
+                        continue
+                    if not embed_obj or embed_obj.pk in seen_embed_pks:
+                        continue
+                    seen_embed_pks.add(embed_obj.pk)
+                    elements.append({
+                        "type": "embed",
+                        "title": getattr(embed_obj, "title", None) or "Embed",
+                        "object": embed_obj,
+                        "content_type_id": embed_ct.id,
+                        "tags": [],
+                        "session_count": self.get_session_count_for_object(
+                            self.group, embed_obj
+                        ),
+                    })
+
+        self._blogpage_elements_cache = elements
+        return elements
+
+    def get_blogpage_total_session_count(self):
+        """
+        Para BlogPages: obtener el contador SUMATORIO de todos sus elementos
+        (PDFs, audios, imágenes en attachments). Mismo patrón que
+        get_scorepage_total_session_count().
+
+        Suma los `session_count` ya calculados en `get_blogpage_elements()`
+        en vez de re-consultar la base de datos por cada elemento.
+        """
+        if self.content_type.model != "blogpage":
+            return 0
+        return sum(e["session_count"] for e in self.get_blogpage_elements())
+
 
 # =============================================================================
 # SESIONES DE CLASE

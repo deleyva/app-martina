@@ -19,21 +19,19 @@
             <div class="font-semibold">{{ item.get_content_title }}</div>
             <div class="text-xs text-base-content/60">{{ item.get_content_type_name }}</div>
             
-            <!-- ScorePage relacionada -->
-            {% with related_score=item.get_related_scorepage %}
-            {% if related_score and item.content_type.model != 'scorepage' %}
+            <!-- Página de origen (FK explícita `source_page`; nunca se infiere) -->
+            {% if item.source_page_id and item.content_type.model != 'scorepage' %}
             <div class="mt-1">
-                <a href="{{ related_score.get_url }}" 
+                <a href="{{ item.source_page.get_url }}"
                    target="_blank"
                    class="inline-flex items-center gap-1 text-xs link link-primary link-hover">
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                     </svg>
-                    De: {{ related_score.title }}
+                    De: {{ item.source_page.title }}
                 </a>
             </div>
             {% endif %}
-            {% endwith %}
             
             {% if item.notes %}
             <div class="text-sm text-base-content/70 mt-1 p-2 bg-base-300 rounded">

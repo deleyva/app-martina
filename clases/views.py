@@ -878,8 +878,13 @@ def group_library_item_viewer(request, group_id, pk):
     embed_url = request.GET.get("embed_url")
 
     # BlogPages y DictadoPages: redirigir a su visualización normal de Wagtail
-    # EXCEPTO si estamos intentando ver un embed específico de la misma
-    if content_type in ["blogpage", "dictadopage"] and element_type != "embed":
+    # EXCEPTO si estamos intentando ver un elemento específico (pdf/audio/image/embed)
+    # de un attachment, en cuyo caso abrimos el visor fullscreen del elemento.
+    _element_view_types = {"pdf", "audio", "image", "embed"}
+    if (
+        content_type in ["blogpage", "dictadopage"]
+        and element_type not in _element_view_types
+    ):
         if hasattr(content, "get_url"):
             return redirect(content.get_url())
 
@@ -954,6 +959,66 @@ def group_library_item_viewer(request, group_id, pk):
                             break
                         elif not element_type:
                             documents["embeds"].append(embed_val)
+    elif content_type == "blogpage":
+        # BlogPage: extraer PDFs, audios, imágenes del StreamField `attachments`.
+        # Solo se ejecuta cuando se ha pedido un element_type concreto,
+        # porque si no hay element_type el flujo ya ha hecho redirect al
+        # Wagtail URL del artículo.
+        if hasattr(content, "attachments"):
+            for block in content.attachments:
+                if block.block_type == "pdf_score":
+                    pdf_file = block.value.get("pdf_file")
+                    if pdf_file:
+                        if (
+                            element_type == "pdf"
+                            and element_id
+                            and str(pdf_file.pk) == element_id
+                        ):
+                            documents["pdfs"] = [pdf_file]
+                            break
+                elif block.block_type == "audio":
+                    audio_file = block.value.get("audio_file")
+                    if audio_file:
+                        if (
+                            element_type == "audio"
+                            and element_id
+                            and str(audio_file.pk) == element_id
+                        ):
+                            documents["audios"] = [audio_file]
+                            break
+                elif block.block_type == "image":
+                    image = block.value.get("image")
+                    if image:
+                        if (
+                            element_type == "image"
+                            and element_id
+                            and str(image.pk) == element_id
+                        ):
+                            documents["images"] = [image]
+                            break
+
+        # Si el elemento pedido no está en attachments, puede ser una
+        # imagen embebida en el body (RichTextField).
+        if (
+            element_type == "image"
+            and element_id
+            and not documents["images"]
+        ):
+            from wagtail.images.models import Image
+            try:
+                documents["images"] = [Image.objects.get(pk=element_id)]
+            except Image.DoesNotExist:
+                pass
+
+        # Para embeds del body (vídeos, audios incrustados), buscar por PK
+        # en el modelo Embed.
+        if element_type == "embed" and element_id:
+            from wagtail.embeds.models import Embed
+            try:
+                embed_obj = Embed.objects.get(pk=element_id)
+                documents["embeds"] = [embed_obj]
+            except Embed.DoesNotExist:
+                pass
 
     # Si el elemento no es ScorePage pero tiene get_embeds (como BlogPage), añadirlos
     if not documents["embeds"] and hasattr(content, "get_embeds"):

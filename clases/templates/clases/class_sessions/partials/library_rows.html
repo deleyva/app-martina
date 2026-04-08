@@ -17,10 +17,12 @@
 
 <script>
 function toggleElements(itemId) {
-    // Obtener checkbox y elementos
+    // Obtener checkbox y elementos (tanto ScorePage como BlogPage)
     const checkbox = document.getElementById('toggle-' + itemId);
-    const elements = document.querySelectorAll('.scorepage-element-' + itemId);
-    
+    const elements = document.querySelectorAll(
+        '.scorepage-element-' + itemId + ', .blogpage-element-' + itemId
+    );
+
     // Toggle display
     elements.forEach(function(element) {
         if (checkbox.checked) {

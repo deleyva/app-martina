@@ -176,7 +176,178 @@
         </td>
     </tr>
     {% endfor %}
-    
+
+{% elif lib_item.content_type.model == 'blogpage' %}
+    {# BlogPage: Mostrar fila principal + elementos colapsables (mismo patrón que ScorePage) #}
+    {# Resolvemos `elements` una sola vez para evitar re-parseo del StreamField #}
+    {% with elements=lib_item.get_blogpage_elements %}
+
+    {# Fila principal de BlogPage #}
+    <tr class="hover bg-base-200" data-item-id="{{ lib_item.pk }}">
+        <!-- Icono + Toggle -->
+        <td class="w-12">
+            <div class="flex items-center gap-1">
+                <!-- Botón collapse/expand (solo si tiene attachments) -->
+                {% if elements %}
+                <label for="toggle-{{ lib_item.pk }}"
+                       class="cursor-pointer swap swap-rotate"
+                       onclick="toggleElements({{ lib_item.pk }})">
+                    <input type="checkbox" id="toggle-{{ lib_item.pk }}" class="hidden" />
+                    <!-- Chevron derecha (contraído) -->
+                    <svg class="swap-off w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                    <!-- Chevron abajo (expandido) -->
+                    <svg class="swap-on w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </label>
+                {% endif %}
+
+                <!-- Icono BlogPage -->
+                <div class="text-2xl">{{ lib_item.get_icon }}</div>
+            </div>
+        </td>
+
+        <!-- Título y metadata -->
+        <td>
+            <div class="flex flex-col gap-1">
+                <!-- Título con indicador de elementos -->
+                <div class="flex items-center gap-2">
+                    <span class="font-bold text-base">{{ lib_item.get_content_title }}</span>
+                    {% if elements %}
+                    <span class="badge badge-xs badge-ghost">{{ elements|length }} elemento{{ elements|length|pluralize }}</span>
+                    {% endif %}
+                </div>
+
+                <!-- Tags y categorías del BlogPage -->
+                <div class="flex flex-wrap gap-1">
+                    <!-- Tags musicales -->
+                    {% for tag in lib_item.get_related_tags %}
+                    <div class="badge badge-sm badge-secondary">
+                        🏷️ {{ tag.name }}
+                    </div>
+                    {% endfor %}
+
+                    <!-- Categorías musicales -->
+                    {% for category in lib_item.get_related_categories %}
+                    <div class="badge badge-sm badge-accent">
+                        {% if category.icon %}{{ category.icon }} {% endif %}{{ category.name }}
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Meta info -->
+                <div class="text-xs opacity-60">
+                    Añadido: {{ lib_item.added_at|date:"d/m/Y" }}
+                </div>
+            </div>
+        </td>
+
+        <!-- Acciones -->
+        <td class="text-right">
+            <div class="flex gap-2 justify-end">
+                <!-- Botón Ver BlogPage completo -->
+                <a href="{{ lib_item.content_object.get_url }}"
+                   target="_blank"
+                   class="btn btn-xs btn-success btn-square"
+                   title="Ver artículo completo">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                    </svg>
+                </a>
+
+                <!-- Botón Añadir BlogPage completa a sesión -->
+                <button hx-post="{% url 'clases:class_session_add_item' session.pk %}"
+                        hx-vals='{"content_type_id": "{{ lib_item.content_type.id }}", "object_id": "{{ lib_item.object_id }}"}'
+                        hx-target="#session-items"
+                        hx-swap="beforeend"
+                        hx-on::after-request="const emptyState = document.getElementById('empty-state'); if(emptyState) emptyState.remove(); updateCounters({{ lib_item.content_type.id }}, {{ lib_item.object_id }});"
+                        class="btn btn-xs btn-primary btn-square"
+                        title="Añadir artículo completo a sesión">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                </button>
+
+                <!-- Contador de sesiones del BlogPage -->
+                <div id="counter-{{ lib_item.content_type.id }}-{{ lib_item.object_id }}"
+                     class="badge badge-sm badge-ghost">{{ lib_item.get_session_count }}</div>
+            </div>
+        </td>
+    </tr>
+
+    {# Sub-filas de elementos de BlogPage (PDFs, audios, imágenes, embeds) - ocultas por defecto #}
+    {% for element in elements %}
+    <tr class="hover blogpage-element-{{ lib_item.pk }}"
+        data-parent-id="{{ lib_item.pk }}"
+        data-item-id="element-{{ element.object.pk }}"
+        style="display: none;">
+        <!-- Icono indentado -->
+        <td class="w-12">
+            <div class="text-xl ml-4">
+                {% if element.type == 'pdf' %}📄
+                {% elif element.type == 'audio' %}🎵
+                {% elif element.type == 'image' %}🖼️
+                {% elif element.type == 'embed' %}▶️
+                {% endif %}
+            </div>
+        </td>
+
+        <!-- Título del elemento -->
+        <td>
+            <div class="flex flex-col gap-1 ml-4">
+                <div class="font-medium text-sm">{{ element.title }}</div>
+
+                <!-- Tags del elemento si existen -->
+                {% if element.tags %}
+                <div class="flex flex-wrap gap-1">
+                    {% for tag in element.tags %}
+                    <div class="badge badge-xs badge-outline">{{ tag.name }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <div class="text-xs opacity-50">De: {{ lib_item.get_content_title }}</div>
+            </div>
+        </td>
+
+        <!-- Acciones para elemento individual -->
+        <td class="text-right">
+            <div class="flex gap-2 justify-end">
+                <!-- Botón Ver elemento individual en visor fullscreen -->
+                <a href="{% url 'clases:group_library_item_viewer' session.group.pk lib_item.pk %}?element_type={{ element.type }}&element_id={{ element.object.pk }}"
+                   class="btn btn-xs btn-ghost btn-square"
+                   title="Ver {{ element.type }} en pantalla completa">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                    </svg>
+                </a>
+
+                <!-- Botón Añadir elemento individual a sesión -->
+                <button hx-post="{% url 'clases:class_session_add_item' session.pk %}"
+                        hx-vals='{"content_type_id": "{{ element.content_type_id }}", "object_id": "{{ element.object.pk }}", "source_page_id": "{{ lib_item.object_id }}"}'
+                        hx-target="#session-items"
+                        hx-swap="beforeend"
+                        hx-on::after-request="const emptyState = document.getElementById('empty-state'); if(emptyState) emptyState.remove(); updateCounters({{ element.content_type_id }}, {{ element.object.pk }}, {{ lib_item.pk }});"
+                        class="btn btn-xs btn-primary btn-square"
+                        title="Añadir este {{ element.type }} a sesión">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                </button>
+
+                <!-- Contador de sesiones para elemento individual -->
+                <div id="counter-{{ element.content_type_id }}-{{ element.object.pk }}"
+                     class="badge badge-sm badge-ghost">{{ element.session_count }}</div>
+            </div>
+        </td>
+    </tr>
+    {% endfor %}
+    {% endwith %}
+
 {% else %}
     {# Elemento individual (Document/Image que NO es ScorePage) #}
     <tr class="hover" data-item-id="{{ lib_item.pk }}">
