@@ -1,45 +1,101 @@
-{% extends "base.html" %}
+{% extends "cms/base_blog.html" %}
 {% load wagtailcore_tags wagtailimages_tags %}
 
-{% block content %}
-<div class="container mx-auto px-4 py-8">
-    {% if page.hero_image %}
-    <div class="hero-section mb-12">
-        {% image page.hero_image width-1200 class="w-full h-64 object-cover rounded-lg shadow-lg" %}
-        {% if page.hero_title or page.hero_subtitle %}
-        <div class="text-center mt-6">
-            {% if page.hero_title %}
-            <h1 class="text-4xl font-bold text-gray-900 mb-4">{{ page.hero_title }}</h1>
-            {% endif %}
-            {% if page.hero_subtitle %}
-            <p class="text-xl text-gray-600">{{ page.hero_subtitle }}</p>
-            {% endif %}
-        </div>
-        {% endif %}
-    </div>
-    {% else %}
-    {% if page.hero_title or page.hero_subtitle %}
-    <div class="hero-section text-center mb-12">
-        {% if page.hero_title %}
-        <h1 class="text-4xl font-bold text-gray-900 mb-4">{{ page.hero_title }}</h1>
-        {% endif %}
-        {% if page.hero_subtitle %}
-        <p class="text-xl text-gray-600">{{ page.hero_subtitle }}</p>
-        {% endif %}
-    </div>
-    {% endif %}
-    {% endif %}
+{% block title %}Publicaciones - IES Martina Bescós{% endblock title %}
 
-    {% if page.body %}
-    <div class="prose max-w-none">
-        {{ page.body|richtext }}
-    </div>
+{% block extra_css %}
+  <!-- Swiper v11 (sólo en la home del blog) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">
+  <style>
+    .blog-hero-swiper {
+      --swiper-theme-color: #ffffff;
+      --swiper-navigation-size: 28px;
+    }
+    .blog-hero-swiper .swiper-pagination-bullet {
+      background: #ffffff;
+      opacity: 0.5;
+    }
+    .blog-hero-swiper .swiper-pagination-bullet-active {
+      opacity: 1;
+    }
+    .blog-editorials-swiper .swiper-slide {
+      height: auto;
+    }
+  </style>
+{% endblock extra_css %}
+
+{% block content %}
+
+  {# ── 1. Hero Slider de destacados ── #}
+  {% include "cms/_blog_hero_slider.html" with posts=hero_posts %}
+
+  {# ── 2. Strip de Editoriales ── #}
+  {% include "cms/_blog_editorials_strip.html" with posts=editorial_posts %}
+
+  {# ── 3. Secciones por departamento (hasta 4) ── #}
+  {% for section in department_sections %}
+    {% if forloop.first %}
+      {% include "cms/_blog_department_section.html" with section=section show_sidebar=True sidebar_posts=sidebar_recent %}
+    {% else %}
+      {% include "cms/_blog_department_section.html" with section=section show_sidebar=False %}
     {% endif %}
-    {% comment %} If I can access de cms, add de wagtail button {% endcomment %}
-    {% if request.user.is_superuser %}
-    <div class="mt-8">
-        <a href="{% url 'wagtailadmin_pages:edit' page.id %}" class="btn btn-primary">Editar página</a>
+  {% endfor %}
+
+  {# ── Contenido editorial opcional del admin (richtext body) ── #}
+  {% if page.body %}
+    <div class="container mx-auto px-4 max-w-3xl prose prose-lg mb-16">
+      {{ page.body|richtext }}
     </div>
-    {% endif %}
-</div>
-{% endblock %}
+  {% endif %}
+
+  {% if request.user.is_superuser %}
+    <div class="container mx-auto px-4 mb-8 text-center">
+      <a href="{% url 'wagtailadmin_pages:edit' page.id %}"
+         class="inline-block px-6 py-2 border border-black font-sans uppercase tracking-widest text-xs hover:bg-black hover:text-white transition-colors">
+        Editar página
+      </a>
+    </div>
+  {% endif %}
+
+{% endblock content %}
+
+{% block extra_js %}
+  <!-- Swiper v11 JS (sólo home) -->
+  <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      if (typeof Swiper === 'undefined') { return; }
+
+      // Hero slider: fade, autoplay, flechas + paginación
+      if (document.querySelector('.blog-hero-swiper')) {
+        new Swiper('.blog-hero-swiper', {
+          loop: true,
+          autoplay: { delay: 6000, disableOnInteraction: false },
+          pagination: { el: '.blog-hero-swiper .swiper-pagination', clickable: true },
+          navigation: {
+            nextEl: '.blog-hero-swiper .swiper-button-next',
+            prevEl: '.blog-hero-swiper .swiper-button-prev'
+          },
+          effect: 'fade',
+          fadeEffect: { crossFade: true }
+        });
+      }
+
+      // Editorials strip: responsive slidesPerView + flechas externas
+      if (document.querySelector('.blog-editorials-swiper')) {
+        new Swiper('.blog-editorials-swiper', {
+          slidesPerView: 1.1,
+          spaceBetween: 24,
+          breakpoints: {
+            640:  { slidesPerView: 2.2, spaceBetween: 24 },
+            1024: { slidesPerView: 4,   spaceBetween: 32 }
+          },
+          navigation: {
+            nextEl: '.blog-editorials-next',
+            prevEl: '.blog-editorials-prev'
+          }
+        });
+      }
+    });
+  </script>
+{% endblock extra_js %}

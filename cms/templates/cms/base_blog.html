@@ -91,13 +91,15 @@
   <body class="min-h-screen flex flex-col antialiased">
     
     <!-- Minimalist Header -->
-    <header class="container mx-auto px-4 py-8">
+    <header class="container mx-auto px-4 pt-8 pb-4">
       <div class="blog-header flex justify-between items-end">
         <a href="/" class="blog-header-logo text-3xl md:text-5xl hover:text-gray-600 transition-colors">
           IES Martina Bescós
         </a>
       </div>
     </header>
+
+    {% include "cms/_blog_nav.html" %}
 
     <!-- Main Content -->
     <main class="flex-grow">

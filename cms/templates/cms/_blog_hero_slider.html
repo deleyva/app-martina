@@ -1,0 +1,48 @@
+{% load wagtailcore_tags wagtailimages_tags %}
+{% comment %}
+  Hero slider editorial (estilo Jot Down) con Swiper.js.
+  Recibe:
+    posts — lista de BlogPage destacados con featured_image.
+  NO incluye menú dentro del slider (requisito explícito).
+  El script de inicialización vive en {% block extra_js %} de home_page_blog.html
+  para que Swiper sólo se cargue en la home.
+{% endcomment %}
+{% if posts %}
+<section class="blog-hero mb-16">
+  <div class="swiper blog-hero-swiper">
+    <div class="swiper-wrapper">
+      {% for post in posts %}
+        <div class="swiper-slide">
+          <a href="{% pageurl post %}" class="block relative">
+            {% if post.featured_image %}
+              {% image post.featured_image fill-1600x700 class="w-full h-[55vh] md:h-[70vh] object-cover" %}
+            {% else %}
+              <div class="w-full h-[55vh] md:h-[70vh] bg-gray-900"></div>
+            {% endif %}
+            <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent pt-20 pb-10 px-6 md:px-16">
+              <div class="max-w-4xl mx-auto text-white">
+                <p class="text-xs font-sans uppercase tracking-widest mb-3 text-white/80">
+                  {% if post.date %}{{ post.date|date:"j M, Y" }}{% endif %}
+                  {% if post.dept_title %} · {{ post.dept_title }}{% endif %}
+                </p>
+                <h2 class="font-serif-title text-3xl md:text-5xl font-bold leading-tight mb-4">
+                  {{ post.title }}
+                </h2>
+                {% if post.intro %}
+                  <p class="hidden md:block text-lg text-white/90 italic leading-relaxed">
+                    {{ post.intro|truncatechars:180 }}
+                  </p>
+                {% endif %}
+              </div>
+            </div>
+          </a>
+        </div>
+      {% endfor %}
+    </div>
+
+    <div class="swiper-button-prev !text-white"></div>
+    <div class="swiper-button-next !text-white"></div>
+    <div class="swiper-pagination !text-white"></div>
+  </div>
+</section>
+{% endif %}

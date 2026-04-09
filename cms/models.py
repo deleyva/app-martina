@@ -69,6 +69,111 @@ class HomePage(Page):
             return "cms/home_page_blog.html"
         return "cms/home_page_app.html"
 
+    def get_context(self, request, *args, **kwargs):
+        context = super().get_context(request, *args, **kwargs)
+
+        # Sólo inyectamos datos editoriales cuando servimos el subsite de blogs.
+        # La rama app (home_page_app.html) no necesita nada de esto.
+        if not _is_blog_request(request):
+            return context
+
+        # Usamos `self` como raíz del subárbol del blog: cuando esta HomePage
+        # se sirve bajo el host del blog, `self` ES la raíz del site de blogs.
+        # Más robusto que depender de `Site.find_for_request(request)`, que en
+        # local dev puede fallar a sitio por defecto si no hay registro Wagtail
+        # para el hostname de producción.
+        root = self
+
+        # Departamentos = BlogIndexPage hijos directos del root del sitio.
+        # Naturalmente excluye BlogIndexPage anidados bajo MusicLibraryIndexPage.
+        departments = list(
+            BlogIndexPage.objects.child_of(root)
+            .live()
+            .specific()
+            .order_by("title")
+        )
+
+        # Hero: destacados más recientes del subsite entero.
+        hero_posts = list(
+            BlogPage.objects.descendant_of(root)
+            .live()
+            .filter(is_featured=True)
+            .select_related("featured_image")
+            .order_by("-first_published_at")[:6]
+        )
+
+        # Editoriales: últimos 8 posts (excluyendo los del hero para no duplicar).
+        hero_ids = [p.pk for p in hero_posts]
+        editorial_posts = list(
+            BlogPage.objects.descendant_of(root)
+            .live()
+            .exclude(pk__in=hero_ids)
+            .select_related("featured_image")
+            .order_by("-first_published_at")[:8]
+        )
+
+        # Secciones por departamento: hasta 4, ordenadas por fecha del post
+        # más reciente descendente. Se excluyen departamentos sin posts.
+        dated_sections = []
+        undated_sections = []
+        for dept in departments:
+            dept_posts = list(
+                BlogPage.objects.descendant_of(dept)
+                .live()
+                .select_related("featured_image")
+                .order_by("-first_published_at")[:4]
+            )
+            if not dept_posts:
+                continue
+            section = {
+                "department": dept,
+                "main": dept_posts[0],
+                "secondary": dept_posts[1:4],
+            }
+            latest = dept_posts[0].first_published_at
+            if latest is not None:
+                dated_sections.append((latest, section))
+            else:
+                undated_sections.append(section)
+
+        dated_sections.sort(key=lambda pair: pair[0], reverse=True)
+        ordered_sections = [s for _, s in dated_sections] + undated_sections
+        department_sections = ordered_sections[:4]
+
+        # Sidebar "NUEVO" global — 5 posts más recientes de todo el subsite.
+        sidebar_recent = list(
+            BlogPage.objects.descendant_of(root)
+            .live()
+            .select_related("featured_image")
+            .order_by("-first_published_at")[:5]
+        )
+
+        # Batch-resolve parent department titles para los posts cuyos templates
+        # mostrarán "fecha · departamento". Evita el N+1 que provocaría
+        # `post.get_parent.specific.title` dentro de un loop de template
+        # (sería 2 queries por post: get_parent + .specific).
+        posts_needing_dept = list(hero_posts) + list(sidebar_recent)
+        if posts_needing_dept:
+            steplen = Page.steplen
+            parent_paths = {
+                p.path[:-steplen]
+                for p in posts_needing_dept
+                if len(p.path) > steplen
+            }
+            parent_titles = dict(
+                Page.objects.filter(path__in=parent_paths).values_list(
+                    "path", "title"
+                )
+            )
+            for p in posts_needing_dept:
+                p.dept_title = parent_titles.get(p.path[:-steplen], "")
+
+        context["hero_posts"] = hero_posts
+        context["editorial_posts"] = editorial_posts
+        context["department_sections"] = department_sections
+        context["sidebar_recent"] = sidebar_recent
+        return context
+
     class Meta:
         verbose_name = "Página de Inicio"
 

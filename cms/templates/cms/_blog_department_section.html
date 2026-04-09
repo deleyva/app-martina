@@ -1,0 +1,96 @@
+{% load wagtailcore_tags wagtailimages_tags %}
+{% comment %}
+  Sección de departamento tipo "Filosofía" (imagen 3 Jot Down).
+  Recibe:
+    section      — dict con keys: department, main, secondary.
+    show_sidebar — bool, si True renderiza el sidebar "NUEVO" global.
+    sidebar_posts — lista de BlogPage, sólo se usa cuando show_sidebar=True.
+{% endcomment %}
+{% with dept=section.department main=section.main secondary=section.secondary %}
+<section class="blog-dept-section container mx-auto px-4 mb-20">
+  {# Cabecera con título del departamento y divider #}
+  <div class="flex items-center gap-6 mb-10">
+    <h2 class="font-serif-title text-2xl md:text-3xl font-bold uppercase tracking-wider flex-shrink-0">
+      <a href="{% pageurl dept %}" class="text-black hover:text-gray-500 transition-colors">
+        {{ dept.title }}
+      </a>
+    </h2>
+    <div class="flex-grow border-t-2 border-black"></div>
+  </div>
+
+  <div class="grid grid-cols-1 {% if show_sidebar %}lg:grid-cols-12{% else %}lg:grid-cols-9{% endif %} gap-10">
+    {# Columna izquierda: artículo principal grande #}
+    <article class="{% if show_sidebar %}lg:col-span-5{% else %}lg:col-span-6{% endif %}">
+      <a href="{% pageurl main %}" class="block group">
+        {% if main.featured_image %}
+          <div class="overflow-hidden mb-5">
+            {% image main.featured_image fill-800x560 class="w-full h-auto object-cover bw-image-hover" %}
+          </div>
+        {% endif %}
+        <p class="text-xs font-sans uppercase tracking-widest text-gray-500 mb-3">
+          {% if main.date %}{{ main.date|date:"j M, Y" }}{% endif %}
+        </p>
+        <h3 class="font-serif-title text-2xl md:text-3xl font-bold leading-tight mb-3 text-black group-hover:underline decoration-2 underline-offset-4">
+          {{ main.title }}
+        </h3>
+        {% if main.intro %}
+          <p class="text-gray-800 text-base md:text-lg leading-relaxed italic">
+            {{ main.intro|truncatechars:200 }}
+          </p>
+        {% endif %}
+      </a>
+    </article>
+
+    {# Columna central: 3 artículos secundarios #}
+    {% if secondary %}
+    <div class="{% if show_sidebar %}lg:col-span-4{% else %}lg:col-span-3{% endif %} flex flex-col divide-y divide-gray-300">
+      {% for post in secondary %}
+        <article class="py-5 first:pt-0 last:pb-0">
+          <a href="{% pageurl post %}" class="flex gap-4 group">
+            {% if post.featured_image %}
+              <div class="flex-shrink-0 w-24 h-24 overflow-hidden">
+                {% image post.featured_image fill-200x200 class="w-full h-full object-cover bw-image-hover" %}
+              </div>
+            {% endif %}
+            <div class="flex-grow">
+              <p class="text-[10px] font-sans uppercase tracking-widest text-gray-500 mb-1">
+                {% if post.date %}{{ post.date|date:"j M, Y" }}{% endif %}
+              </p>
+              <h4 class="font-serif-title text-base md:text-lg font-bold leading-snug text-black group-hover:underline decoration-2 underline-offset-4">
+                {{ post.title }}
+              </h4>
+            </div>
+          </a>
+        </article>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {# Columna derecha: sidebar "NUEVO" (sólo en la primera sección) #}
+    {% if show_sidebar and sidebar_posts %}
+    <aside class="lg:col-span-3">
+      <div class="border-t-2 border-black pt-4">
+        <h3 class="font-serif-title text-xl font-bold uppercase tracking-widest mb-5">
+          Nuevo
+        </h3>
+        <ul class="flex flex-col divide-y divide-gray-300">
+          {% for post in sidebar_posts %}
+            <li class="py-4 first:pt-0 last:pb-0">
+              <a href="{% pageurl post %}" class="block group">
+                <p class="text-[10px] font-sans uppercase tracking-widest text-gray-500 mb-1">
+                  {% if post.date %}{{ post.date|date:"j M, Y" }}{% endif %}
+                  {% if post.dept_title %} · {{ post.dept_title }}{% endif %}
+                </p>
+                <h4 class="font-serif-title text-sm md:text-base font-bold leading-snug text-black group-hover:underline decoration-2 underline-offset-4">
+                  {{ post.title }}
+                </h4>
+              </a>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </aside>
+    {% endif %}
+  </div>
+</section>
+{% endwith %}
