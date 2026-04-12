@@ -417,3 +417,74 @@ production-check-env-gemini:
     @echo "Checking GEMINI_API_KEY configuration in production..."
     @ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-production && \
     docker compose -f docker-compose.production.yml exec django printenv | grep GEMINI || echo '❌ GEMINI_API_KEY not found'"
+
+# ---------------------------------------------------------------------------
+# Book import pipeline
+# ---------------------------------------------------------------------------
+# End-to-end flow to import a book (PDF or EPUB) into MusicLibraryIndexPage as
+# a BlogIndexPage with one BlogPage per chapter. Intended to be repeated many
+# times as new books are added to the library.
+#
+# Typical usage:
+#
+#     just book-extract "/path/to/book.epub" mybook_slug
+#     just book-upload-prod mybook_slug
+#     just book-import-prod mybook_slug "ukulele, tecnica" "My Book — Author" --dry-run
+#     # inspect dry-run output, then for real:
+#     just book-import-prod mybook_slug "ukulele, tecnica" "My Book — Author"
+#
+# book-extract: Extract a PDF or EPUB into backups/book_extraction/<slug>/
+# Extra args are forwarded to the extractor script. For PDF you may want:
+#   --start-page 8 --chapter-pattern "(?i)apter\s+(One|Two|...)"
+#   --chapters-json path/to/chapters.json
+#   --min-image-area 80000
+book-extract file slug *extra:
+    @mkdir -p backups/book_extraction/{{slug}}
+    @ext=$(echo "{{file}}" | tr '[:upper:]' '[:lower:]' | awk -F. '{print $NF}'); \
+    case "$ext" in \
+      epub) \
+        echo "Extracting EPUB → backups/book_extraction/{{slug}}/"; \
+        uv run --no-project --with beautifulsoup4 python scripts/extract_epub_book.py \
+          --epub-path "{{file}}" \
+          --output-dir "backups/book_extraction/{{slug}}" \
+          {{extra}} \
+        ;; \
+      pdf) \
+        echo "Extracting PDF → backups/book_extraction/{{slug}}/"; \
+        uv run --no-project --with pymupdf python scripts/extract_pdf_book.py \
+          --pdf-path "{{file}}" \
+          --output-dir "backups/book_extraction/{{slug}}" \
+          {{extra}} \
+        ;; \
+      *) echo "Unsupported book extension: .$ext"; exit 1 ;; \
+    esac
+
+# book-upload-prod: Rsync a local book extraction folder up to production
+book-upload-prod slug:
+    @if [ ! -d "backups/book_extraction/{{slug}}" ]; then \
+      echo "❌ backups/book_extraction/{{slug}} does not exist — run 'just book-extract ...' first"; \
+      exit 1; \
+    fi
+    @echo "Uploading backups/book_extraction/{{slug}}/ → production..."
+    rsync -avz --progress \
+        "backups/book_extraction/{{slug}}/" \
+        "$SSH_MARTINA_USER_AND_IP:app-martina-production/backups/book_extraction/{{slug}}/"
+
+# book-import-prod: Run import_book_chapter in prod. tags and book_title are
+# passed as separate positional args so they can contain spaces/commas. Any
+# extra args (e.g. --dry-run, --parent-slug, --chapter-only) are forwarded.
+# NEITHER tags NOR book_title may contain single quotes (they are wrapped in
+# single quotes when forwarded to the remote shell).
+book-import-prod slug tags book_title *extra:
+    @echo "Running import_book_chapter on production for slug={{slug}}..."
+    @ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-production && \
+    docker compose -f docker-compose.production.yml run --rm django python ./manage.py import_book_chapter \
+        --book-manifest /backups/book_extraction/{{slug}}/book_manifest.json \
+        --images-dir /backups/book_extraction/{{slug}} \
+        --tags '{{tags}}' \
+        --book-title '{{book_title}}' \
+        {{extra}}"
+
+# book-import-prod-dry: Convenience wrapper — always dry-run
+book-import-prod-dry slug tags book_title *extra:
+    @just book-import-prod {{slug}} "{{tags}}" "{{book_title}}" --dry-run {{extra}}
