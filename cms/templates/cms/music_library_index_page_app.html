@@ -133,8 +133,6 @@
                 {% with item=entry.page %}
                 <div class="card bg-base-100 shadow-lg hover:shadow-xl transition-shadow overflow-hidden">
                     {% if entry.type == 'book' and item.cover_image %}
-                    {# Book cover: portrait ratio (~3:4) to match real book covers.
-                       fill-450x600 uses Wagtail focal area for smart crop. #}
                     <figure class="aspect-[3/4] bg-base-200">
                         <a href="{{ item.url }}" class="block w-full h-full">
                             {% image item.cover_image fill-450x600 class="w-full h-full object-cover" %}
