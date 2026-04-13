@@ -59,6 +59,7 @@ import argparse
 import json
 import re
 import shutil
+import struct
 import sys
 import tempfile
 import zipfile
@@ -81,6 +82,38 @@ OPF_NS = {
     "opf": "http://www.idpf.org/2007/opf",
     "dc": "http://purl.org/dc/elements/1.1/",
 }
+
+
+# ----------------------------------------------------------------------------
+# Image dimension helpers (no PIL dependency)
+# ----------------------------------------------------------------------------
+
+
+def _get_image_dimensions(path: Path) -> tuple[int, int] | None:
+    """Return (width, height) for JPEG/PNG without external deps. None on failure."""
+    try:
+        data = path.read_bytes()
+    except OSError:
+        return None
+
+    # PNG: bytes 16-23 contain width (4 bytes) and height (4 bytes) in IHDR
+    if data[:8] == b"\x89PNG\r\n\x1a\n" and len(data) > 24:
+        w, h = struct.unpack(">II", data[16:24])
+        return (w, h)
+
+    # JPEG: scan for SOF0/SOF2 markers
+    if data[:2] == b"\xff\xd8":
+        i = 2
+        while i < len(data) - 9:
+            if data[i] != 0xFF:
+                break
+            marker = data[i + 1]
+            if marker in (0xC0, 0xC2):  # SOF0 or SOF2
+                h, w = struct.unpack(">HH", data[i + 5 : i + 9])
+                return (w, h)
+            length = struct.unpack(">H", data[i + 2 : i + 4])[0]
+            i += 2 + length
+    return None
 
 
 # ----------------------------------------------------------------------------
@@ -177,57 +210,72 @@ def read_toc(root: Path) -> list[tuple[str, str]]:
 # ----------------------------------------------------------------------------
 
 
+def _is_skip_paragraph(text: str) -> bool:
+    """Return True if a paragraph should be skipped (boilerplate, empty, etc.)."""
+    if not text or text.lower().startswith("tap music"):
+        return True
+    is_isbn_line = text.startswith("ISBN ") and len(text) < 80
+    is_copyright_line = (
+        "Hal Leonard" in text
+        and len(text) < 80
+        and ("Copyright" in text or "All Rights Reserved" in text)
+    )
+    return is_isbn_line or is_copyright_line
+
+
+def _is_skip_image(img) -> bool:
+    """Return True if an img element should be skipped (decorative icons)."""
+    src = img.get("src", "")
+    if not src:
+        return True
+    alt = (img.get("alt") or "").lower()
+    if "logo" in alt or "weektxt" in alt or "hllogo" in alt:
+        return True
+    return False
+
+
 def parse_day_file(html_path: Path) -> dict | None:
     """Extract structured content from a single day HTML file.
 
-    Returns a dict with keys: heading (str or None), paragraphs (list[str]),
-    image_srcs (list[str]). Returns None if the file has no usable
-    content (no heading AND no image).
+    Returns a dict with keys:
+      - heading (str or None)
+      - items: list of {"type": "text", "text": ...} or {"type": "image_src", "src": ...}
+        in document order, preserving the interleaving of text and images.
+    Returns None if the file has no usable content.
     """
     soup = BeautifulSoup(html_path.read_text(encoding="utf-8"), "html.parser")
 
     h1 = soup.find("h1")
     heading = h1.get_text(" ", strip=True) if h1 else None
 
-    paragraphs: list[str] = []
-    for p in soup.find_all("p"):
-        text = p.get_text(" ", strip=True)
-        # Skip placeholder "Tap Music To enlarge" captions and empty paragraphs
-        if not text or text.lower().startswith("tap music"):
-            continue
-        # Skip legal boilerplate. The parens matter here: previously the `and`
-        # bound tighter than `or`, so any short paragraph mentioning
-        # "Hal Leonard" (even legitimate instructional prose) was silently
-        # dropped. Now both conditions require the short-paragraph guard AND
-        # we only drop Hal Leonard mentions when they co-occur with an
-        # unambiguous copyright keyword.
-        is_isbn_line = text.startswith("ISBN ") and len(text) < 80
-        is_copyright_line = (
-            "Hal Leonard" in text
-            and len(text) < 80
-            and ("Copyright" in text or "All Rights Reserved" in text)
-        )
-        if is_isbn_line or is_copyright_line:
-            continue
-        paragraphs.append(text)
+    # Walk the body in document order to preserve text/image interleaving.
+    body = soup.find("body") or soup
+    items: list[dict] = []
+    has_image = False
 
-    image_srcs: list[str] = []
-    for img in soup.find_all("img"):
-        src = img.get("src", "")
-        if not src:
-            continue
-        # Skip tiny decorative images (logos, week dividers named "WeekTxt*")
-        alt = (img.get("alt") or "").lower()
-        if "logo" in alt or "weektxt" in alt or "hllogo" in alt:
-            continue
-        image_srcs.append(src)
+    for el in body.descendants:
+        if el.name == "h1":
+            continue  # already captured as heading
+        if el.name == "h2" or el.name == "h3" or el.name == "h4":
+            text = el.get_text(" ", strip=True)
+            if text:
+                items.append({"type": "heading", "level": int(el.name[1]), "text": text})
+        elif el.name == "p":
+            text = el.get_text(" ", strip=True)
+            if _is_skip_paragraph(text):
+                continue
+            items.append({"type": "text", "text": text})
+        elif el.name == "img":
+            if _is_skip_image(el):
+                continue
+            items.append({"type": "image_src", "src": el.get("src", "")})
+            has_image = True
 
-    if not heading and not image_srcs:
+    if not heading and not has_image and not items:
         return None
     return {
         "heading": heading,
-        "paragraphs": paragraphs,
-        "image_srcs": image_srcs,
+        "items": items,
     }
 
 
@@ -313,6 +361,7 @@ def render_chapter(
     html_dir: Path,
     images_src_dir: Path,
     out_root: Path,
+    min_image_area: int = 20000,
 ) -> dict:
     """Parse every HTML file in the chapter and emit manifest items.
 
@@ -337,51 +386,48 @@ def render_chapter(
             continue
 
         # Heading → normalized "Monday — Chord Vocabulary" if a topic is found.
-        # When we successfully hoist a topic prefix into the heading, strip it
-        # from the first paragraph so it doesn't appear twice in the rendered
-        # BlogPage.
         day_label = clean_heading(parsed["heading"]) if parsed["heading"] else ""
-        paragraphs = list(parsed["paragraphs"])
-        topic = ""
-        if paragraphs:
-            topic, remainder = extract_topic(paragraphs[0])
-            if topic:
-                paragraphs[0] = remainder
 
         if day_label:
-            subtitle = f"{day_label} — {topic}" if topic else day_label
-            items.append({"type": "heading", "level": 2, "text": subtitle})
+            items.append({"type": "heading", "level": 2, "text": day_label})
 
-        # Text paragraphs (first one becomes the chapter intro if we have none yet)
-        for p in paragraphs:
-            if not p:
-                continue
-            if not intro_text:
-                intro_text = p[:240]
-            items.append({"type": "text", "text": p})
-
-        # Images
-        for src in parsed["image_srcs"]:
-            image_counter += 1
-            src_path = (html_path.parent / src).resolve()
-            # Fallback: resolve relative to images_src_dir if the relative path
-            # doesn't exist (some EPUBs put HTML in OEBPS/ but images alongside)
-            if not src_path.exists():
-                src_path = images_src_dir / Path(src).name
-            if not src_path.exists():
-                print(f"  WARN: image not found: {src} (chapter {num}, file {filename})", file=sys.stderr)
-                continue
-            ext = src_path.suffix.lower() or ".jpeg"
-            dst_name = f"img-{image_counter:03d}{ext}"
-            dst_path = ch_dir / dst_name
-            shutil.copy2(src_path, dst_path)
-            items.append(
-                {
-                    "type": "image",
-                    "file": f"{ch_dir_name}/{dst_name}",
-                    "caption": day_label,
-                }
-            )
+        # Walk parsed items in document order (text, headings, and images interleaved)
+        for raw_item in parsed["items"]:
+            if raw_item["type"] == "text":
+                text = raw_item["text"]
+                if not text:
+                    continue
+                if not intro_text:
+                    intro_text = text[:240]
+                items.append({"type": "text", "text": text})
+            elif raw_item["type"] == "heading":
+                items.append(raw_item)
+            elif raw_item["type"] == "image_src":
+                src = raw_item["src"]
+                image_counter += 1
+                src_path = (html_path.parent / src).resolve()
+                if not src_path.exists():
+                    src_path = images_src_dir / Path(src).name
+                if not src_path.exists():
+                    print(f"  WARN: image not found: {src} (chapter {num}, file {filename})", file=sys.stderr)
+                    image_counter -= 1
+                    continue
+                # Skip tiny decorative images (icons, bullets, checkmarks)
+                dims = _get_image_dimensions(src_path)
+                if dims is not None and dims[0] * dims[1] < min_image_area:
+                    image_counter -= 1
+                    continue
+                ext = src_path.suffix.lower() or ".jpeg"
+                dst_name = f"img-{image_counter:03d}{ext}"
+                dst_path = ch_dir / dst_name
+                shutil.copy2(src_path, dst_path)
+                items.append(
+                    {
+                        "type": "image",
+                        "file": f"{ch_dir_name}/{dst_name}",
+                        "caption": day_label,
+                    }
+                )
 
     return {
         "number": num,
@@ -405,6 +451,15 @@ def main() -> int:
         "--book-title",
         default=None,
         help="Override the book title (defaults to EPUB dc:title + ' — ' + creator).",
+    )
+    ap.add_argument(
+        "--min-image-area",
+        type=int,
+        default=20000,
+        help=(
+            "Minimum image area (width * height in pixels) for images to be included. "
+            "Smaller images are skipped as decorative icons. Default: %(default)s."
+        ),
     )
     ap.add_argument(
         "--chapter-pattern",
@@ -462,7 +517,7 @@ def main() -> int:
 
         rendered: list[dict] = []
         for ch in raw_chapters:
-            rendered_ch = render_chapter(ch, html_dir, images_src_dir, out_dir)
+            rendered_ch = render_chapter(ch, html_dir, images_src_dir, out_dir, args.min_image_area)
             img_count = sum(1 for it in rendered_ch["items"] if it["type"] == "image")
             print(f"  Chapter {ch['number']}: {len(rendered_ch['items'])} items, {img_count} images")
             rendered.append(rendered_ch)

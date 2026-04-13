@@ -1,6 +1,8 @@
 from django.db import models
 from django.conf import settings
 from django import forms
+from django.shortcuts import redirect
+from django.urls import reverse
 from django.core.exceptions import ValidationError
 from django.db.utils import OperationalError, ProgrammingError
 from django.utils import timezone
@@ -1000,6 +1002,12 @@ class MusicLibraryIndexPage(Page):
         if _is_blog_request(request):
             return "cms/music_library_index_page_blog.html"
         return "cms/music_library_index_page_app.html"
+
+    def serve(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            login_url = reverse(settings.LOGIN_URL)
+            return redirect(f"{login_url}?next={request.path}")
+        return super().serve(request, *args, **kwargs)
 
     class Meta:
         verbose_name = "Biblioteca Musical"
