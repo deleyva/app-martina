@@ -1175,15 +1175,14 @@ class MusicLibraryIndexPage(Page):
             combined_entries.append({"type": "blog", "page": post})
         for test in context["test_pages"]:
             combined_entries.append({"type": "test", "page": test})
-        # Books first (keeps their tree order), then blogs/tests by date
+        # All entries sorted by date (most recent first)
         combined_entries.sort(
             key=lambda item: (
-                0 if item["type"] == "book" else 1,
-                -(item["page"].first_published_at.timestamp()
-                  if item["page"].first_published_at
-                  else (item["page"].latest_revision_created_at.timestamp()
-                        if item["page"].latest_revision_created_at else 0)),
+                item["page"].first_published_at
+                or item["page"].latest_revision_created_at
+                or item["page"].last_published_at
             ),
+            reverse=True,
         )
         # Server-side pagination for blog entries
         show_all_blog = is_filtered or request.GET.get("show_all_blog")
