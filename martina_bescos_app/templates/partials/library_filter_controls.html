@@ -37,62 +37,14 @@
 </div>
 
 <style>
-    .tag-autocomplete-wrapper {
-        position: relative;
-    }
-    .tag-autocomplete-box {
+    .tag-ac-box {
         display: flex;
         flex-wrap: wrap;
         align-items: center;
         gap: 6px;
-        min-height: 44px;
-        padding: 6px 10px;
-        border: 1px solid oklch(var(--bc) / 0.2);
-        border-radius: var(--rounded-btn, 0.5rem);
-        background: oklch(var(--b1));
         cursor: text;
-        transition: border-color 0.15s;
     }
-    .tag-autocomplete-box:focus-within {
-        border-color: oklch(var(--p));
-        outline: 2px solid oklch(var(--p) / 0.2);
-        outline-offset: 1px;
-    }
-    .tag-autocomplete-box .tag-chip {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        padding: 2px 8px 2px 10px;
-        border-radius: 999px;
-        background: oklch(var(--p));
-        color: oklch(var(--pc));
-        font-size: 13px;
-        line-height: 1.4;
-        white-space: nowrap;
-        max-width: 200px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    .tag-autocomplete-box .tag-chip-remove {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 16px;
-        height: 16px;
-        border-radius: 50%;
-        border: none;
-        background: oklch(var(--pc) / 0.25);
-        color: oklch(var(--pc));
-        font-size: 12px;
-        line-height: 1;
-        cursor: pointer;
-        padding: 0;
-        flex-shrink: 0;
-    }
-    .tag-autocomplete-box .tag-chip-remove:hover {
-        background: oklch(var(--pc) / 0.5);
-    }
-    .tag-autocomplete-box .tag-input {
+    .tag-ac-box .tag-input {
         flex: 1;
         min-width: 80px;
         border: none;
@@ -100,12 +52,8 @@
         background: transparent;
         font-size: 14px;
         padding: 2px 0;
-        color: oklch(var(--bc));
     }
-    .tag-autocomplete-box .tag-input::placeholder {
-        color: oklch(var(--bc) / 0.4);
-    }
-    .tag-dropdown {
+    .tag-ac-dropdown {
         position: absolute;
         top: 100%;
         left: 0;
@@ -114,30 +62,10 @@
         margin-top: 4px;
         max-height: 240px;
         overflow-y: auto;
-        background: oklch(var(--b1));
-        border: 1px solid oklch(var(--bc) / 0.15);
-        border-radius: var(--rounded-btn, 0.5rem);
-        box-shadow: 0 8px 24px oklch(var(--bc) / 0.12);
         display: none;
     }
-    .tag-dropdown.open {
+    .tag-ac-dropdown.open {
         display: block;
-    }
-    .tag-dropdown-item {
-        padding: 8px 12px;
-        font-size: 14px;
-        cursor: pointer;
-        color: oklch(var(--bc));
-        transition: background 0.1s;
-    }
-    .tag-dropdown-item:hover, .tag-dropdown-item.highlighted {
-        background: oklch(var(--p) / 0.1);
-    }
-    .tag-dropdown-empty {
-        padding: 12px;
-        font-size: 13px;
-        color: oklch(var(--bc) / 0.5);
-        text-align: center;
     }
 </style>
 
@@ -154,8 +82,8 @@
             </div>
 
             <!-- Tag Autocomplete -->
-            <div class="tag-autocomplete-wrapper flex-1 min-w-0 max-w-md" id="tagAutocompleteWrapper">
-                <div class="tag-autocomplete-box" id="tagAutocompleteBox" onclick="document.getElementById('tagAutocompleteInput').focus()">
+            <div class="relative flex-1 min-w-0 max-w-md" id="tagAutocompleteWrapper">
+                <div class="tag-ac-box input input-bordered w-full h-auto min-h-[2.75rem] py-1.5 px-2.5" id="tagAutocompleteBox" onclick="document.getElementById('tagAutocompleteInput').focus()">
                     <span id="tagChipsContainer"></span>
                     <input type="text"
                            class="tag-input"
@@ -164,7 +92,7 @@
                            autocomplete="off"
                            spellcheck="false">
                 </div>
-                <div class="tag-dropdown" id="tagDropdown"></div>
+                <div class="tag-ac-dropdown bg-base-100 border border-base-300 rounded-box shadow-lg" id="tagDropdown"></div>
             </div>
         </div>
 

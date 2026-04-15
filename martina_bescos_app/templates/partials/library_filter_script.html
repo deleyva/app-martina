@@ -48,9 +48,9 @@ function renderDropdown() {
 
     if (options.length === 0) {
         if (query) {
-            dropdown.innerHTML = '<div class="tag-dropdown-empty">No se encontraron tags</div>';
+            dropdown.innerHTML = '<div class="p-3 text-sm text-base-content/50 text-center">No se encontraron tags</div>';
         } else {
-            dropdown.innerHTML = '<div class="tag-dropdown-empty">No hay mas tags disponibles</div>';
+            dropdown.innerHTML = '<div class="p-3 text-sm text-base-content/50 text-center">No hay mas tags disponibles</div>';
         }
         dropdown.classList.add('open');
         highlightedIndex = -1;
@@ -59,12 +59,12 @@ function renderDropdown() {
 
     highlightedIndex = -1;
     dropdown.innerHTML = options.map(function(tag, i) {
-        return '<div class="tag-dropdown-item" data-tag="' + tag.replace(/"/g, '&quot;') + '" data-index="' + i + '">' + escapeHtml(tag) + '</div>';
+        return '<div class="px-3 py-2 text-sm cursor-pointer hover:bg-primary/10 transition-colors" data-tag="' + tag.replace(/"/g, '&quot;') + '" data-index="' + i + '">' + escapeHtml(tag) + '</div>';
     }).join('');
     dropdown.classList.add('open');
 
     // Click handlers
-    dropdown.querySelectorAll('.tag-dropdown-item').forEach(function(el) {
+    dropdown.querySelectorAll('[data-tag]').forEach(function(el) {
         el.addEventListener('mousedown', function(e) {
             e.preventDefault(); // Prevent input blur
             addTag(el.dataset.tag);
@@ -84,9 +84,9 @@ function renderChips() {
     if (!container) return;
 
     container.innerHTML = activeTagFilters.map(function(tag) {
-        return '<span class="tag-chip">' +
+        return '<span class="badge badge-primary gap-1 text-xs">' +
             escapeHtml(tag) +
-            '<button class="tag-chip-remove" data-tag="' + tag.replace(/"/g, '&quot;') + '" type="button">&times;</button>' +
+            '<button class="btn btn-ghost btn-xs btn-circle p-0 min-h-0 h-4 w-4 text-primary-content" data-tag="' + tag.replace(/"/g, '&quot;') + '" type="button">&times;</button>' +
             '</span>';
     }).join('');
 
@@ -134,7 +134,7 @@ function escapeHtml(str) {
 function handleAutocompleteKeydown(e) {
     var dropdown = document.getElementById('tagDropdown');
     var input = document.getElementById('tagAutocompleteInput');
-    var items = dropdown.querySelectorAll('.tag-dropdown-item');
+    var items = dropdown.querySelectorAll('[data-tag]');
 
     if (!dropdown.classList.contains('open') || items.length === 0) {
         // Backspace on empty input removes last chip
@@ -166,7 +166,7 @@ function handleAutocompleteKeydown(e) {
 
 function updateHighlight(items) {
     items.forEach(function(el, i) {
-        el.classList.toggle('highlighted', i === highlightedIndex);
+        el.classList.toggle('bg-primary/10', i === highlightedIndex);
     });
     // Scroll into view
     if (highlightedIndex >= 0 && items[highlightedIndex]) {
