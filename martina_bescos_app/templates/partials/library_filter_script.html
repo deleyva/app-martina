@@ -5,8 +5,176 @@
 </div>
 
 <script>
+// === State ===
 var activeTagFilters = [];
+var allAvailableTags = [];
+var highlightedIndex = -1;
 
+// === Collect unique tags from hidden source ===
+function collectTags() {
+    var source = document.getElementById('allTagsSource');
+    if (!source) return;
+    var seen = new Set();
+    var spans = source.querySelectorAll('[data-tag]');
+    spans.forEach(function(s) {
+        var name = s.dataset.tag.trim();
+        var key = name.toLowerCase();
+        if (name && !seen.has(key)) {
+            seen.add(key);
+            allAvailableTags.push(name);
+        }
+    });
+    allAvailableTags.sort(function(a, b) {
+        return a.toLowerCase().localeCompare(b.toLowerCase());
+    });
+}
+
+// === Autocomplete UI ===
+function getFilteredOptions(query) {
+    var q = query.toLowerCase();
+    return allAvailableTags.filter(function(tag) {
+        // Exclude already selected
+        if (activeTagFilters.indexOf(tag) >= 0) return false;
+        // Match query
+        return q === '' || tag.toLowerCase().includes(q);
+    });
+}
+
+function renderDropdown() {
+    var input = document.getElementById('tagAutocompleteInput');
+    var dropdown = document.getElementById('tagDropdown');
+    var query = input.value.trim();
+    var options = getFilteredOptions(query);
+
+    if (options.length === 0) {
+        if (query) {
+            dropdown.innerHTML = '<div class="tag-dropdown-empty">No se encontraron tags</div>';
+        } else {
+            dropdown.innerHTML = '<div class="tag-dropdown-empty">No hay mas tags disponibles</div>';
+        }
+        dropdown.classList.add('open');
+        highlightedIndex = -1;
+        return;
+    }
+
+    highlightedIndex = -1;
+    dropdown.innerHTML = options.map(function(tag, i) {
+        return '<div class="tag-dropdown-item" data-tag="' + tag.replace(/"/g, '&quot;') + '" data-index="' + i + '">' + escapeHtml(tag) + '</div>';
+    }).join('');
+    dropdown.classList.add('open');
+
+    // Click handlers
+    dropdown.querySelectorAll('.tag-dropdown-item').forEach(function(el) {
+        el.addEventListener('mousedown', function(e) {
+            e.preventDefault(); // Prevent input blur
+            addTag(el.dataset.tag);
+        });
+    });
+}
+
+function closeDropdown() {
+    var dropdown = document.getElementById('tagDropdown');
+    dropdown.classList.remove('open');
+    dropdown.innerHTML = '';
+    highlightedIndex = -1;
+}
+
+function renderChips() {
+    var container = document.getElementById('tagChipsContainer');
+    if (!container) return;
+
+    container.innerHTML = activeTagFilters.map(function(tag) {
+        return '<span class="tag-chip">' +
+            escapeHtml(tag) +
+            '<button class="tag-chip-remove" data-tag="' + tag.replace(/"/g, '&quot;') + '" type="button">&times;</button>' +
+            '</span>';
+    }).join('');
+
+    // Chip remove handlers
+    container.querySelectorAll('.tag-chip-remove').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            removeTag(btn.dataset.tag);
+        });
+    });
+
+    // Update placeholder
+    var input = document.getElementById('tagAutocompleteInput');
+    if (input) {
+        input.placeholder = activeTagFilters.length > 0 ? '' : 'Filtrar por tags...';
+    }
+}
+
+function addTag(tagName) {
+    if (activeTagFilters.indexOf(tagName) >= 0) return;
+    activeTagFilters.push(tagName);
+    renderChips();
+    filterLibraryItems();
+    // Clear input and close dropdown
+    var input = document.getElementById('tagAutocompleteInput');
+    input.value = '';
+    closeDropdown();
+    input.focus();
+}
+
+function removeTag(tagName) {
+    var idx = activeTagFilters.indexOf(tagName);
+    if (idx >= 0) activeTagFilters.splice(idx, 1);
+    renderChips();
+    filterLibraryItems();
+}
+
+function escapeHtml(str) {
+    var div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+// === Keyboard navigation ===
+function handleAutocompleteKeydown(e) {
+    var dropdown = document.getElementById('tagDropdown');
+    var input = document.getElementById('tagAutocompleteInput');
+    var items = dropdown.querySelectorAll('.tag-dropdown-item');
+
+    if (!dropdown.classList.contains('open') || items.length === 0) {
+        // Backspace on empty input removes last chip
+        if (e.key === 'Backspace' && input.value === '' && activeTagFilters.length > 0) {
+            removeTag(activeTagFilters[activeTagFilters.length - 1]);
+        }
+        return;
+    }
+
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        highlightedIndex = Math.min(highlightedIndex + 1, items.length - 1);
+        updateHighlight(items);
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        highlightedIndex = Math.max(highlightedIndex - 1, 0);
+        updateHighlight(items);
+    } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (highlightedIndex >= 0 && highlightedIndex < items.length) {
+            addTag(items[highlightedIndex].dataset.tag);
+        }
+    } else if (e.key === 'Escape') {
+        closeDropdown();
+    } else if (e.key === 'Backspace' && input.value === '' && activeTagFilters.length > 0) {
+        removeTag(activeTagFilters[activeTagFilters.length - 1]);
+    }
+}
+
+function updateHighlight(items) {
+    items.forEach(function(el, i) {
+        el.classList.toggle('highlighted', i === highlightedIndex);
+    });
+    // Scroll into view
+    if (highlightedIndex >= 0 && items[highlightedIndex]) {
+        items[highlightedIndex].scrollIntoView({ block: 'nearest' });
+    }
+}
+
+// === Filter logic ===
 function filterLibraryItems() {
     var input = document.getElementById('searchInput');
     var searchTerm = input ? input.value.toLowerCase() : '';
@@ -59,74 +227,24 @@ function filterLibraryItems() {
         noResults.classList.toggle('hidden', visibleCount > 0);
     }
 
-    // Update study button
     updateStudyButton(visibleCount);
 
-    // Track filter state
     if (typeof libraryFilterActive !== 'undefined') {
         libraryFilterActive = (searchTerm !== '' || activeTagFilters.length > 0);
     }
 }
 
-function toggleTagFilter(tagName) {
-    var idx = activeTagFilters.indexOf(tagName);
-    if (idx >= 0) {
-        activeTagFilters.splice(idx, 1);
-    } else {
-        activeTagFilters.push(tagName);
-    }
-    renderTagChips();
-    filterLibraryItems();
-    // Close dropdown
-    document.activeElement.blur();
-}
-
-function removeTagFilter(tagName) {
-    var idx = activeTagFilters.indexOf(tagName);
-    if (idx >= 0) {
-        activeTagFilters.splice(idx, 1);
-    }
-    renderTagChips();
-    filterLibraryItems();
-}
-
-function renderTagChips() {
-    var container = document.getElementById('activeTagChips');
-    var tagButton = document.getElementById('tagFilterButton');
-    if (!container) return;
-
-    if (activeTagFilters.length === 0) {
-        container.style.display = 'none';
-        if (tagButton) {
-            tagButton.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg> Filtrar por tags';
-        }
-        return;
-    }
-
-    container.style.display = 'flex';
-    container.innerHTML = activeTagFilters.map(function(tag) {
-        return '<span class="badge badge-primary gap-1">' +
-            tag +
-            '<button onclick="removeTagFilter(\'' + tag.replace(/'/g, "\\'") + '\')" class="btn btn-ghost btn-xs btn-circle p-0 min-h-0 h-4 w-4">&times;</button>' +
-            '</span>';
-    }).join('');
-
-    if (tagButton) {
-        tagButton.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg> Tags (' + activeTagFilters.length + ')';
-    }
-}
-
 function clearTagFilter() {
     activeTagFilters = [];
-    renderTagChips();
+    renderChips();
     filterLibraryItems();
 }
 
 function clearAllFilters() {
     var input = document.getElementById('searchInput');
-    if (input) {
-        input.value = '';
-    }
+    if (input) input.value = '';
+    var tagInput = document.getElementById('tagAutocompleteInput');
+    if (tagInput) tagInput.value = '';
     clearTagFilter();
 }
 
@@ -155,10 +273,8 @@ function startStudySession() {
 
     if (pks.length === 0) return;
 
-    // If we're paginated (has_more), redirect to show_all first with study params
     var showAllLink = document.querySelector('a[href="?show_all=1"]');
     if (showAllLink) {
-        // There are more items not loaded — redirect to show_all and auto-start study
         var tagParams = activeTagFilters.length > 0 ? '&study_tags=' + encodeURIComponent(activeTagFilters.join(',')) : '';
         var searchParam = document.getElementById('searchInput').value ? '&study_search=' + encodeURIComponent(document.getElementById('searchInput').value) : '';
         window.location.href = '?show_all=1&auto_study=1' + tagParams + searchParam;
@@ -168,18 +284,31 @@ function startStudySession() {
     window.location.href = '{% url "my_library:study_session" %}?items=' + pks.join(',');
 }
 
-// Deduplicate tag options on load
+// === Init ===
 document.addEventListener('DOMContentLoaded', function() {
-    var tagOptions = document.querySelectorAll('.tag-filter-option');
-    var seenTags = new Set();
+    collectTags();
 
-    tagOptions.forEach(function(option) {
-        var rawName = option.dataset.tag || '';
-        var tagKey = rawName.trim().toLowerCase();
-        if (seenTags.has(tagKey)) {
-            option.parentElement.remove();
-        } else {
-            seenTags.add(tagKey);
+    var input = document.getElementById('tagAutocompleteInput');
+
+    input.addEventListener('input', function() {
+        renderDropdown();
+    });
+
+    input.addEventListener('focus', function() {
+        renderDropdown();
+    });
+
+    input.addEventListener('blur', function() {
+        // Small delay to allow click on dropdown items
+        setTimeout(closeDropdown, 150);
+    });
+
+    input.addEventListener('keydown', handleAutocompleteKeydown);
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('#tagAutocompleteWrapper')) {
+            closeDropdown();
         }
     });
 
@@ -189,19 +318,18 @@ document.addEventListener('DOMContentLoaded', function() {
         var studyTags = params.get('study_tags');
         if (studyTags) {
             activeTagFilters = studyTags.split(',');
-            renderTagChips();
+            renderChips();
         }
         var studySearch = params.get('study_search');
         if (studySearch) {
-            var input = document.getElementById('searchInput');
-            if (input) input.value = studySearch;
+            var searchInput = document.getElementById('searchInput');
+            if (searchInput) searchInput.value = studySearch;
         }
         filterLibraryItems();
-        // Small delay to let filter run, then start study
         setTimeout(function() { startStudySession(); }, 100);
     }
 
-    // Initial filter to show study button with correct count
+    // Initial filter
     filterLibraryItems();
 });
 </script>
