@@ -62,28 +62,15 @@
 {% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8">
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
-        <h1 class="text-2xl sm:text-3xl font-bold">📚 Mi Biblioteca Personal</h1>
-        <a href="/indice-de-recursos-musicales/" class="btn btn-ghost btn-sm sm:btn-md">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<div class="container mx-auto px-4 py-4">
+    <div class="flex justify-between items-center mb-3">
+        <h1 class="text-xl font-bold flex items-center gap-2">📚 Mi Biblioteca <span class="badge badge-primary badge-sm">{{ total_items }}</span></h1>
+        <a href="/indice-de-recursos-musicales/" class="btn btn-ghost btn-xs">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
             </svg>
-            Volver a Índice de Recursos Musicales
+            Recursos Musicales
         </a>
-    </div>
-    
-    <div class="stats shadow mb-6">
-        <div class="stat">
-            <div class="stat-figure text-primary">
-                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"></path>
-                </svg>
-            </div>
-            <div class="stat-title">Elementos guardados</div>
-            <div class="stat-value text-primary">{{ total_items }}</div>
-            <div class="stat-desc">En tu biblioteca personal</div>
-        </div>
     </div>
     
     {% if items %}
