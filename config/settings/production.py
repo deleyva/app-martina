@@ -49,8 +49,11 @@ CSRF_COOKIE_SECURE = True
 # https://docs.djangoproject.com/en/dev/ref/settings/#csrf-cookie-name
 CSRF_COOKIE_NAME = "__Secure-csrftoken"
 CSRF_TRUSTED_ORIGINS = [
+    "https://apps.iesmartinabescos.es",
     "https://*.apps.iesmartinabescos.es",
+    "https://test-apps.iesmartinabescos.es",
     "https://*.test-apps.iesmartinabescos.es",
+    "https://blogs.iesmartinabescos.es",
     "https://*.blogs.iesmartinabescos.es",
 ]
 # https://docs.djangoproject.com/en/dev/topics/security/#ssl-https

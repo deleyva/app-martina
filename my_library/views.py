@@ -1,6 +1,6 @@
 import json
 
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
 from django.http import HttpResponse, JsonResponse
@@ -8,6 +8,8 @@ from django.contrib.contenttypes.models import ContentType
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_protect
+from django.contrib import messages
+from django.db.models import Count
 from .models import LibraryItem
 
 
@@ -380,3 +382,56 @@ def mark_viewed(request, pk):
     item = get_object_or_404(LibraryItem, pk=pk, user=request.user)
     item.mark_as_viewed()
     return HttpResponse(status=204)
+
+
+@staff_member_required
+def manage_tags(request):
+    """Página de gestión de taggit tags con conteo de uso."""
+    from taggit.models import Tag
+
+    tags = Tag.objects.annotate(
+        usage_count=Count("taggit_taggeditem_items")
+    ).order_by("name")
+    return render(request, "my_library/manage_tags.html", {"tags": tags})
+
+
+@staff_member_required
+@require_POST
+def merge_tags(request):
+    """Fusiona tags seleccionados en un tag objetivo."""
+    from taggit.models import Tag, TaggedItem
+
+    source_pks = [int(pk) for pk in request.POST.getlist("source_pks") if pk.isdigit()]
+    target_pk_str = request.POST.get("target_pk", "")
+    if not target_pk_str.isdigit():
+        messages.error(request, "Tag objetivo no válido.")
+        return redirect("my_library:manage_tags")
+
+    target_pk = int(target_pk_str)
+    target = get_object_or_404(Tag, pk=target_pk)
+    sources = Tag.objects.filter(pk__in=source_pks).exclude(pk=target_pk)
+
+    merged_count = 0
+    for source in sources:
+        tagged_items = TaggedItem.objects.filter(tag=source)
+        for item in tagged_items:
+            exists = TaggedItem.objects.filter(
+                tag=target, content_type=item.content_type, object_id=item.object_id
+            ).exists()
+            if not exists:
+                item.tag = target
+                item.save()
+            else:
+                item.delete()
+        merged_count += 1
+        source.delete()
+
+    if merged_count:
+        messages.success(
+            request,
+            f"{merged_count} tag(s) fusionado(s) en \"{target.name}\".",
+        )
+    else:
+        messages.warning(request, "No se fusionó ningún tag.")
+
+    return redirect("my_library:manage_tags")

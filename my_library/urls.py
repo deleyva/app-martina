@@ -21,4 +21,6 @@ urlpatterns = [
     path("study/", views.study_session_view, name="study_session"),
     path("study-item/<int:pk>/", views.study_item_content, name="study_item_content"),
     path("mark-viewed/<int:pk>/", views.mark_viewed, name="mark_viewed"),
+    path("manage-tags/", views.manage_tags, name="manage_tags"),
+    path("merge-tags/", views.merge_tags, name="merge_tags"),
 ]
