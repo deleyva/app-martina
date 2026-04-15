@@ -398,8 +398,11 @@ def manage_tags(request):
 @staff_member_required
 @require_POST
 def merge_tags(request):
-    """Fusiona tags seleccionados en un tag objetivo."""
+    """Fusiona tags seleccionados en un tag objetivo.
+    Uses atomic transaction + bulk update to prevent data loss.
+    """
     from taggit.models import Tag, TaggedItem
+    from django.db import transaction
 
     source_pks = [int(pk) for pk in request.POST.getlist("source_pks") if pk.isdigit()]
     target_pk_str = request.POST.get("target_pk", "")
@@ -412,19 +415,30 @@ def merge_tags(request):
     sources = Tag.objects.filter(pk__in=source_pks).exclude(pk=target_pk)
 
     merged_count = 0
-    for source in sources:
-        tagged_items = TaggedItem.objects.filter(tag=source)
-        for item in tagged_items:
-            exists = TaggedItem.objects.filter(
-                tag=target, content_type=item.content_type, object_id=item.object_id
-            ).exists()
-            if not exists:
-                item.tag = target
-                item.save()
-            else:
-                item.delete()
-        merged_count += 1
-        source.delete()
+    with transaction.atomic():
+        for source in sources:
+            # Snapshot all tagged items for this source into a list
+            # to avoid queryset re-evaluation during mutation
+            tagged_items = list(TaggedItem.objects.filter(tag=source))
+            for item in tagged_items:
+                exists = TaggedItem.objects.filter(
+                    tag=target, content_type=item.content_type, object_id=item.object_id
+                ).exists()
+                if not exists:
+                    item.tag = target
+                    item.save()
+                else:
+                    item.delete()
+
+            # Verify all items moved before deleting source tag
+            remaining = TaggedItem.objects.filter(tag=source).count()
+            if remaining > 0:
+                raise RuntimeError(
+                    f"Merge safety check failed: {remaining} items still on "
+                    f'"{source.name}" after reassignment. Aborting.'
+                )
+            source.delete()
+            merged_count += 1
 
     if merged_count:
         messages.success(
