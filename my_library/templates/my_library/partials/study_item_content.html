@@ -1,0 +1,96 @@
+{% load wagtailcore_tags wagtailimages_tags wagtailembeds_tags %}
+
+<div style="width: 100%; height: 100%;">
+    {% if documents.pdfs %}
+        <!-- PDF Viewer -->
+        <div style="height: 100%; overflow: hidden;">
+            {% include "my_library/viewers/pdf_viewer.html" with pdfs=documents.pdfs %}
+        </div>
+    {% elif documents.images %}
+        <!-- Image Viewer -->
+        {% include "my_library/viewers/image_viewer.html" with images=documents.images %}
+    {% elif documents.audios %}
+        <!-- Audio Viewer -->
+        <div style="display: flex; align-items: center; justify-content: center; height: 100%; background: #111; padding: 20px;">
+            {% include "my_library/viewers/audio_viewer.html" with audios=documents.audios %}
+        </div>
+    {% elif documents.embeds %}
+        <!-- Embed Viewer -->
+        <div class="embed-fullscreen-container" style="height: 100%; display: flex; align-items: center; justify-content: center; background: #000;">
+            <div style="width: 100%; height: 100%; max-width: 100%; display: flex; justify-content: center; align-items: center;">
+                {% embed documents.embeds.0.url %}
+            </div>
+        </div>
+        <style>
+            .embed-fullscreen-container > div,
+            .embed-fullscreen-container .responsive-object {
+                width: 100% !important;
+                height: 100% !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                position: static !important;
+                background: transparent !important;
+            }
+            .embed-fullscreen-container iframe {
+                width: 100% !important;
+                height: 100% !important;
+                position: relative !important;
+                z-index: 10 !important;
+                display: block !important;
+            }
+        </style>
+    {% else %}
+        <div style="display: flex; align-items: center; justify-content: center; height: 100%; flex-direction: column; gap: 8px;">
+            <div style="font-size: 48px;">⚠️</div>
+            <p style="font-size: 14px; opacity: 0.7;">No se encontro contenido para visualizar</p>
+        </div>
+    {% endif %}
+</div>
+
+{% if score_media and score_media.audios or score_media and score_media.embeds %}
+<!-- Related media from ScorePage (audio playback controls) -->
+<div id="study-media-panel" style="position:fixed;bottom:0;left:0;right:0;z-index:15000;background:rgba(0,0,0,0.9);padding:8px 12px;display:flex;align-items:center;gap:8px;">
+    {% if score_media.audios %}
+    <select id="study-audio-select" style="flex:1;height:32px;border-radius:8px;border:1px solid rgba(255,255,255,0.25);background:rgba(255,255,255,0.08);color:#fff;font-size:12px;padding:0 8px;">
+        {% for audio in score_media.audios %}
+        <option value="{% if audio.audio_file %}{{ audio.audio_file.file.url }}{% elif audio.file %}{{ audio.file.url }}{% endif %}">{{ audio.title }}</option>
+        {% endfor %}
+    </select>
+    <button type="button" id="study-audio-play" style="height:32px;padding:0 10px;border-radius:999px;border:1px solid rgba(255,255,255,0.35);background:rgba(255,255,255,0.1);color:#fff;font-size:12px;cursor:pointer;">Play</button>
+    {% endif %}
+</div>
+<script>
+(function() {
+    var audioSelect = document.getElementById('study-audio-select');
+    var playBtn = document.getElementById('study-audio-play');
+    var currentAudio = null;
+
+    function loadAudio(url) {
+        if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+        if (!url) return;
+        currentAudio = new Audio(url);
+    }
+
+    if (audioSelect) {
+        loadAudio(audioSelect.value);
+        audioSelect.addEventListener('change', function() { loadAudio(this.value); });
+    }
+
+    if (playBtn) {
+        playBtn.addEventListener('click', function() {
+            if (!currentAudio) return;
+            if (currentAudio.paused) {
+                currentAudio.play();
+                playBtn.textContent = 'Pause';
+            } else {
+                currentAudio.pause();
+                playBtn.textContent = 'Play';
+            }
+        });
+    }
+})();
+</script>
+{% endif %}

@@ -7,6 +7,7 @@ from django.http import HttpResponse, JsonResponse
 from django.contrib.contenttypes.models import ContentType
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import csrf_protect
 from .models import LibraryItem
 
 
@@ -305,17 +306,77 @@ def update_item_tags(request, pk):
     """
     item = get_object_or_404(LibraryItem, pk=pk)
     tags_str = request.POST.get("tags", "").strip()
+    tag_names = [t.strip() for t in tags_str.split(",") if t.strip()]
 
     obj = item.content_object
     if obj and hasattr(obj, "tags"):
-        # Limpiar tags existentes y poner las nuevas
-        tag_names = [t.strip() for t in tags_str.split(",") if t.strip()]
+        # Document/Image: tags en el content_object
         obj.tags.clear()
         for tag_name in tag_names:
             obj.tags.add(tag_name)
+    else:
+        # Embed u otro sin tags: tags en el LibraryItem
+        item.tags.clear()
+        for tag_name in tag_names:
+            item.tags.add(tag_name)
 
     return render(
         request,
         "my_library/partials/item_tags.html",
         {"item": item, "is_admin": True},
     )
+
+
+@login_required
+def study_session_view(request):
+    """Renderiza study_viewer.html con la playlist de items."""
+    item_pks = [
+        int(pk)
+        for pk in request.GET.get("items", "").split(",")
+        if pk.strip().isdigit()
+    ]
+    if not item_pks:
+        return render(request, "my_library/study_viewer.html", {
+            "playlist_json": "[]",
+            "total_items": 0,
+            "first_item_pk": None,
+        })
+
+    items = LibraryItem.objects.filter(pk__in=item_pks, user=request.user)
+    items_by_pk = {item.pk: item for item in items}
+    ordered_items = [items_by_pk[pk] for pk in item_pks if pk in items_by_pk]
+    playlist = [
+        {
+            "pk": item.pk,
+            "title": item.get_content_title(),
+            "type": item.get_content_type_name(),
+        }
+        for item in ordered_items
+    ]
+    return render(request, "my_library/study_viewer.html", {
+        "playlist_json": json.dumps(playlist),
+        "total_items": len(playlist),
+        "first_item_pk": playlist[0]["pk"] if playlist else None,
+    })
+
+
+@login_required
+def study_item_content(request, pk):
+    """Devuelve el HTML del viewer para un item (sin wrapper)."""
+    item = get_object_or_404(LibraryItem, pk=pk, user=request.user)
+    documents = item.get_documents()
+    score_media = item.get_related_scorepage_media()
+    return render(request, "my_library/partials/study_item_content.html", {
+        "item": item,
+        "documents": documents,
+        "score_media": score_media,
+    })
+
+
+@login_required
+@require_POST
+def mark_viewed(request, pk):
+    """Marca un item como visto (incrementa times_viewed)."""
+    item = get_object_or_404(LibraryItem, pk=pk, user=request.user)
+    item.mark_as_viewed()
+    return HttpResponse(status=204)

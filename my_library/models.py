@@ -4,6 +4,7 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.utils import timezone
 from django.urls import reverse
 from django.utils.html import format_html
+from taggit.managers import TaggableManager
 from martina_bescos_app.users.models import User
 
 
@@ -53,6 +54,9 @@ class LibraryItem(models.Model):
     notes = models.TextField(
         blank=True, help_text="Notas personales sobre este elemento"
     )
+
+    # Tags para items sin tags propios (embeds)
+    tags = TaggableManager(blank=True, help_text="Tags para items sin tags propios (embeds)")
 
     # Organización (futuro)
     favorite = models.BooleanField(default=False)
@@ -196,11 +200,14 @@ class LibraryItem(models.Model):
         )
 
     def get_content_tags(self):
-        """Obtener tags del contenido referenciado."""
+        """Obtener tags del contenido referenciado. Fallback a self.tags para embeds."""
         obj = self.content_object
         if obj and hasattr(obj, "tags"):
-            return obj.tags.all()
-        return []
+            content_tags = obj.tags.all()
+            if content_tags.exists():
+                return content_tags
+        # Fallback: tags en el LibraryItem (para embeds u otros sin tags propios)
+        return self.tags.all()
 
     def get_viewer_url(self):
         """URL para ver el elemento en fullscreen"""

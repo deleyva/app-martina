@@ -18,4 +18,7 @@ urlpatterns = [
     path("update-title/<int:pk>/", views.update_item_title, name="update_title"),
     path("update-tags/<int:pk>/", views.update_item_tags, name="update_tags"),
     path("suggest-tags/", views.suggest_tags, name="suggest_tags"),
+    path("study/", views.study_session_view, name="study_session"),
+    path("study-item/<int:pk>/", views.study_item_content, name="study_item_content"),
+    path("mark-viewed/<int:pk>/", views.mark_viewed, name="mark_viewed"),
 ]

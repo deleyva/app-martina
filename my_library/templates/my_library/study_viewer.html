@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Modo Estudio</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://unpkg.com/wavesurfer.js@7"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #000;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            height: 100vh;
+            color: #fff;
+        }
+
+        /* Topbar */
+        #study-topbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 10000;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0 10px;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(10px);
+        }
+
+        #study-topbar .close-btn {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        #study-title {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 14px;
+        }
+
+        #study-counter {
+            font-size: 12px;
+            opacity: 0.7;
+            flex-shrink: 0;
+            margin-right: 4px;
+        }
+
+        #study-rate-btn {
+            height: 32px;
+            padding: 0 12px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            background: rgba(168, 85, 247, 0.3);
+            color: #fff;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* Content area */
+        #study-content {
+            position: fixed;
+            top: 48px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            overflow: hidden;
+        }
+
+        /* Proficiency overlay */
+        #proficiency-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 20000;
+            background: rgba(0, 0, 0, 0.92);
+            backdrop-filter: blur(10px);
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        #proficiency-overlay.active {
+            display: flex;
+        }
+
+        .proficiency-card {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 16px;
+            padding: 32px 24px;
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .proficiency-card h2 {
+            font-size: 18px;
+            margin-bottom: 8px;
+        }
+
+        .proficiency-card .item-title {
+            font-size: 14px;
+            opacity: 0.7;
+            margin-bottom: 24px;
+        }
+
+        .proficiency-levels {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+
+        .proficiency-level-btn {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.05);
+            color: #fff;
+            cursor: pointer;
+            font-size: 14px;
+            text-align: left;
+            transition: all 0.2s;
+        }
+
+        .proficiency-level-btn:hover, .proficiency-level-btn.selected {
+            border-color: rgba(168, 85, 247, 0.6);
+            background: rgba(168, 85, 247, 0.2);
+        }
+
+        .proficiency-level-btn .level-stars {
+            flex-shrink: 0;
+        }
+
+        .proficiency-level-btn:active {
+            transform: scale(0.97);
+        }
+
+        /* Session complete overlay */
+        #session-complete {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 20000;
+            background: rgba(0, 0, 0, 0.95);
+            backdrop-filter: blur(10px);
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        #session-complete.active {
+            display: flex;
+        }
+
+        .session-summary {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 16px;
+            padding: 32px 24px;
+            max-width: 420px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .session-summary h2 {
+            font-size: 22px;
+            margin-bottom: 16px;
+        }
+
+        .session-stats {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin-bottom: 20px;
+        }
+
+        .session-stat {
+            text-align: center;
+        }
+
+        .session-stat .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .session-stat .stat-label {
+            font-size: 12px;
+            opacity: 0.6;
+        }
+
+        .session-items-list {
+            text-align: left;
+            margin-bottom: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .session-item-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            font-size: 13px;
+        }
+
+        .session-item-row .item-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 1;
+            margin-right: 8px;
+        }
+
+        .back-to-library-btn {
+            display: inline-block;
+            padding: 14px 32px;
+            border-radius: 12px;
+            border: none;
+            background: #8b5cf6;
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <!-- Topbar -->
+    <div id="study-topbar">
+        <a href="{% url 'my_library:index' %}?show_all=1" class="close-btn" title="Salir (ESC)">
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+        </a>
+        <span id="study-title">Cargando...</span>
+        <span id="study-counter">-/-</span>
+        <button id="study-rate-btn" onclick="showProficiencyOverlay()">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+            Valorar
+        </button>
+    </div>
+
+    <!-- Content area (lazy-loaded via fetch) -->
+    <div id="study-content"></div>
+
+    <!-- Proficiency overlay -->
+    <div id="proficiency-overlay">
+        <div class="proficiency-card">
+            <h2>¿Como te sale?</h2>
+            <div class="item-title" id="proficiency-item-title"></div>
+            <div class="proficiency-levels">
+                <button class="proficiency-level-btn" data-level="0" onclick="selectProficiency(0)">
+                    <span class="level-stars">☆☆☆☆</span>
+                    <span>No me sale</span>
+                </button>
+                <button class="proficiency-level-btn" data-level="1" onclick="selectProficiency(1)">
+                    <span class="level-stars">⭐☆☆☆</span>
+                    <span>Apenas lo conozco</span>
+                </button>
+                <button class="proficiency-level-btn" data-level="2" onclick="selectProficiency(2)">
+                    <span class="level-stars">⭐⭐☆☆</span>
+                    <span>Lo estoy aprendiendo</span>
+                </button>
+                <button class="proficiency-level-btn" data-level="3" onclick="selectProficiency(3)">
+                    <span class="level-stars">⭐⭐⭐☆</span>
+                    <span>Lo conozco bien</span>
+                </button>
+                <button class="proficiency-level-btn" data-level="4" onclick="selectProficiency(4)">
+                    <span class="level-stars">⭐⭐⭐⭐</span>
+                    <span>Me lo se muy bien</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Session complete overlay -->
+    <div id="session-complete">
+        <div class="session-summary">
+            <div style="font-size: 48px; margin-bottom: 12px;">🎉</div>
+            <h2>Sesion completada</h2>
+            <div class="session-stats">
+                <div class="session-stat">
+                    <div class="stat-value" id="summary-total">0</div>
+                    <div class="stat-label">Items estudiados</div>
+                </div>
+                <div class="session-stat">
+                    <div class="stat-value" id="summary-avg">0</div>
+                    <div class="stat-label">Media proficiency</div>
+                </div>
+            </div>
+            <div class="session-items-list" id="summary-items"></div>
+            <a href="{% url 'my_library:index' %}?show_all=1" class="back-to-library-btn">Volver a biblioteca</a>
+        </div>
+    </div>
+
+    <script>
+    var playlist = {{ playlist_json|safe }};
+    var currentIndex = 0;
+    var ratings = [];
+    var selectedLevel = null;
+    var csrfToken = '{{ csrf_token }}';
+
+    function updateTopbar() {
+        var item = playlist[currentIndex];
+        if (!item) return;
+        document.getElementById('study-title').textContent = item.title;
+        document.getElementById('study-counter').textContent = (currentIndex + 1) + '/' + playlist.length;
+    }
+
+    function loadItem(index) {
+        if (index >= playlist.length) {
+            showSessionComplete();
+            return;
+        }
+        currentIndex = index;
+        updateTopbar();
+        var pk = playlist[index].pk;
+        var container = document.getElementById('study-content');
+        container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;"><div style="font-size:14px;opacity:0.5;">Cargando...</div></div>';
+
+        fetch('{% url "my_library:study_item_content" pk=99999 %}'.replace('99999', pk), {
+            credentials: 'same-origin'
+        })
+        .then(function(r) { return r.text(); })
+        .then(function(html) {
+            container.innerHTML = html;
+            // Re-execute scripts in the loaded content
+            var scripts = container.querySelectorAll('script');
+            scripts.forEach(function(oldScript) {
+                var newScript = document.createElement('script');
+                if (oldScript.src) {
+                    newScript.src = oldScript.src;
+                } else {
+                    newScript.textContent = oldScript.textContent;
+                }
+                oldScript.parentNode.replaceChild(newScript, oldScript);
+            });
+        })
+        .catch(function(err) {
+            container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#ff6b6b;">Error al cargar el item</div>';
+        });
+    }
+
+    function showProficiencyOverlay() {
+        selectedLevel = null;
+        var overlay = document.getElementById('proficiency-overlay');
+        var titleEl = document.getElementById('proficiency-item-title');
+        titleEl.textContent = playlist[currentIndex].title;
+
+        // Reset selection
+        document.querySelectorAll('.proficiency-level-btn').forEach(function(btn) {
+            btn.classList.remove('selected');
+        });
+        overlay.classList.add('active');
+    }
+
+    // Hook for viewers: auto-show proficiency at end of content
+    window.onStudyContentEnd = function() {
+        showProficiencyOverlay();
+    };
+
+    function selectProficiency(level) {
+        selectedLevel = level;
+        document.querySelectorAll('.proficiency-level-btn').forEach(function(btn) {
+            btn.classList.toggle('selected', parseInt(btn.dataset.level) === level);
+        });
+        // Advance immediately after selection
+        setTimeout(function() { advanceToNext(); }, 250);
+    }
+
+    function advanceToNext() {
+        if (selectedLevel === null) return;
+
+        var pk = playlist[currentIndex].pk;
+        var title = playlist[currentIndex].title;
+
+        ratings.push({ title: title, level: selectedLevel });
+
+        // POST proficiency update
+        var profBody = new URLSearchParams();
+        profBody.append('level', selectedLevel);
+        fetch('{% url "my_library:update_proficiency" pk=99999 %}'.replace('99999', pk), {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken },
+            body: profBody,
+            credentials: 'same-origin'
+        });
+
+        // POST mark as viewed
+        fetch('{% url "my_library:mark_viewed" pk=99999 %}'.replace('99999', pk), {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken },
+            credentials: 'same-origin'
+        });
+
+        // Hide overlay
+        document.getElementById('proficiency-overlay').classList.remove('active');
+
+        // Next item or finish
+        loadItem(currentIndex + 1);
+    }
+
+    function showSessionComplete() {
+        var total = ratings.length;
+        var sum = ratings.reduce(function(acc, r) { return acc + r.level; }, 0);
+        var avg = total > 0 ? (sum / total).toFixed(1) : 0;
+
+        document.getElementById('summary-total').textContent = total;
+        document.getElementById('summary-avg').textContent = avg;
+
+        var starsMap = ['☆☆☆☆', '⭐☆☆☆', '⭐⭐☆☆', '⭐⭐⭐☆', '⭐⭐⭐⭐'];
+        var listHtml = ratings.map(function(r) {
+            return '<div class="session-item-row">' +
+                '<span class="item-name">' + r.title + '</span>' +
+                '<span>' + starsMap[r.level] + '</span>' +
+                '</div>';
+        }).join('');
+        document.getElementById('summary-items').innerHTML = listHtml;
+
+        document.getElementById('session-complete').classList.add('active');
+    }
+
+    // Keyboard: Escape to exit
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            var profOverlay = document.getElementById('proficiency-overlay');
+            if (profOverlay.classList.contains('active')) {
+                profOverlay.classList.remove('active');
+            } else {
+                window.location.href = '{% url "my_library:index" %}?show_all=1';
+            }
+        }
+    }, true);
+
+    // Start
+    if (playlist.length > 0) {
+        loadItem(0);
+    } else {
+        document.getElementById('study-content').innerHTML =
+            '<div style="display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:12px;">' +
+            '<div style="font-size:48px;">📚</div>' +
+            '<div>No hay items para estudiar</div>' +
+            '<a href="{% url "my_library:index" %}" style="color:#8b5cf6;">Volver a biblioteca</a>' +
+            '</div>';
+    }
+    </script>
+</body>
+</html>

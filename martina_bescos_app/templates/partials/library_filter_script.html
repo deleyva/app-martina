@@ -5,30 +5,26 @@
 </div>
 
 <script>
-let currentTagFilter = '';
+var activeTagFilters = [];
 
 function filterLibraryItems() {
-    const input = document.getElementById('searchInput');
-    if (!input) {
-        return;
-    }
+    var input = document.getElementById('searchInput');
+    var searchTerm = input ? input.value.toLowerCase() : '';
+    var items = document.querySelectorAll('.js-library-filter-item');
+    var visibleCount = 0;
 
-    const searchTerm = input.value.toLowerCase();
-    const items = document.querySelectorAll('.js-library-filter-item');
-    let visibleCount = 0;
+    items.forEach(function(item) {
+        var title = item.dataset.title || '';
+        var type = item.dataset.type || '';
+        var relatedScore = item.dataset.relatedScore || '';
+        var composer = item.dataset.composer || '';
+        var categories = item.dataset.categories || '';
+        var tags = item.dataset.tags || '';
+        var pdfs = item.dataset.pdfs || '';
+        var audios = item.dataset.audios || '';
+        var documentTags = item.dataset.documentTags || '';
 
-    items.forEach((item) => {
-        const title = item.dataset.title || '';
-        const type = item.dataset.type || '';
-        const relatedScore = item.dataset.relatedScore || '';
-        const composer = item.dataset.composer || '';
-        const categories = item.dataset.categories || '';
-        const tags = item.dataset.tags || '';
-        const pdfs = item.dataset.pdfs || '';
-        const audios = item.dataset.audios || '';
-        const documentTags = item.dataset.documentTags || '';
-
-        const matchesSearch =
+        var matchesSearch =
             searchTerm === '' ||
             title.includes(searchTerm) ||
             type.includes(searchTerm) ||
@@ -40,12 +36,17 @@ function filterLibraryItems() {
             audios.includes(searchTerm) ||
             documentTags.includes(searchTerm);
 
-        const matchesTag =
-            currentTagFilter === '' ||
-            tags.includes(currentTagFilter.toLowerCase()) ||
-            documentTags.includes(currentTagFilter.toLowerCase());
+        // AND logic: item must have ALL active tags
+        var allTags = (tags + ' ' + documentTags).toLowerCase();
+        var matchesTags = true;
+        for (var i = 0; i < activeTagFilters.length; i++) {
+            if (!allTags.includes(activeTagFilters[i].toLowerCase())) {
+                matchesTags = false;
+                break;
+            }
+        }
 
-        if (matchesSearch && matchesTag) {
+        if (matchesSearch && matchesTags) {
             item.style.display = '';
             visibleCount++;
         } else {
@@ -53,71 +54,154 @@ function filterLibraryItems() {
         }
     });
 
-    const noResults = document.getElementById('noResults');
+    var noResults = document.getElementById('noResults');
     if (noResults) {
         noResults.classList.toggle('hidden', visibleCount > 0);
     }
 
+    // Update study button
+    updateStudyButton(visibleCount);
+
     // Track filter state
     if (typeof libraryFilterActive !== 'undefined') {
-        libraryFilterActive = (searchTerm !== '' || currentTagFilter !== '');
+        libraryFilterActive = (searchTerm !== '' || activeTagFilters.length > 0);
     }
 }
 
-function filterByTag(tagName) {
-    currentTagFilter = tagName;
-
-    const tagButton = document.getElementById('tagFilterButton');
-    if (tagButton) {
-        tagButton.innerHTML = `
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
-            </svg>
-            ${tagName}
-        `;
+function toggleTagFilter(tagName) {
+    var idx = activeTagFilters.indexOf(tagName);
+    if (idx >= 0) {
+        activeTagFilters.splice(idx, 1);
+    } else {
+        activeTagFilters.push(tagName);
     }
+    renderTagChips();
+    filterLibraryItems();
+    // Close dropdown
+    document.activeElement.blur();
+}
 
+function removeTagFilter(tagName) {
+    var idx = activeTagFilters.indexOf(tagName);
+    if (idx >= 0) {
+        activeTagFilters.splice(idx, 1);
+    }
+    renderTagChips();
     filterLibraryItems();
 }
 
-function clearTagFilter() {
-    currentTagFilter = '';
+function renderTagChips() {
+    var container = document.getElementById('activeTagChips');
+    var tagButton = document.getElementById('tagFilterButton');
+    if (!container) return;
 
-    const tagButton = document.getElementById('tagFilterButton');
-    if (tagButton) {
-        tagButton.innerHTML = `
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
-            </svg>
-            Filtrar por tags
-        `;
+    if (activeTagFilters.length === 0) {
+        container.style.display = 'none';
+        if (tagButton) {
+            tagButton.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg> Filtrar por tags';
+        }
+        return;
     }
 
+    container.style.display = 'flex';
+    container.innerHTML = activeTagFilters.map(function(tag) {
+        return '<span class="badge badge-primary gap-1">' +
+            tag +
+            '<button onclick="removeTagFilter(\'' + tag.replace(/'/g, "\\'") + '\')" class="btn btn-ghost btn-xs btn-circle p-0 min-h-0 h-4 w-4">&times;</button>' +
+            '</span>';
+    }).join('');
+
+    if (tagButton) {
+        tagButton.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg> Tags (' + activeTagFilters.length + ')';
+    }
+}
+
+function clearTagFilter() {
+    activeTagFilters = [];
+    renderTagChips();
     filterLibraryItems();
 }
 
 function clearAllFilters() {
-    const input = document.getElementById('searchInput');
+    var input = document.getElementById('searchInput');
     if (input) {
         input.value = '';
     }
-
     clearTagFilter();
-    filterLibraryItems();
 }
 
-document.addEventListener('DOMContentLoaded', function () {
-    const tagOptions = document.querySelectorAll('.tag-filter-option');
-    const seenTags = new Set();
+function updateStudyButton(visibleCount) {
+    var btn = document.getElementById('studyButton');
+    var countEl = document.getElementById('studyCount');
+    if (!btn) return;
 
-    tagOptions.forEach((option) => {
-        const rawName = option.dataset.tag || '';
-        const tagKey = rawName.trim().toLowerCase();
+    if (visibleCount > 0) {
+        btn.style.display = '';
+        if (countEl) countEl.textContent = visibleCount;
+    } else {
+        btn.style.display = 'none';
+    }
+}
+
+function startStudySession() {
+    var items = document.querySelectorAll('.js-library-filter-item');
+    var pks = [];
+    items.forEach(function(item) {
+        if (item.style.display !== 'none') {
+            var id = item.id.replace('library-item-', '');
+            if (id) pks.push(id);
+        }
+    });
+
+    if (pks.length === 0) return;
+
+    // If we're paginated (has_more), redirect to show_all first with study params
+    var showAllLink = document.querySelector('a[href="?show_all=1"]');
+    if (showAllLink) {
+        // There are more items not loaded — redirect to show_all and auto-start study
+        var tagParams = activeTagFilters.length > 0 ? '&study_tags=' + encodeURIComponent(activeTagFilters.join(',')) : '';
+        var searchParam = document.getElementById('searchInput').value ? '&study_search=' + encodeURIComponent(document.getElementById('searchInput').value) : '';
+        window.location.href = '?show_all=1&auto_study=1' + tagParams + searchParam;
+        return;
+    }
+
+    window.location.href = '{% url "my_library:study_session" %}?items=' + pks.join(',');
+}
+
+// Deduplicate tag options on load
+document.addEventListener('DOMContentLoaded', function() {
+    var tagOptions = document.querySelectorAll('.tag-filter-option');
+    var seenTags = new Set();
+
+    tagOptions.forEach(function(option) {
+        var rawName = option.dataset.tag || '';
+        var tagKey = rawName.trim().toLowerCase();
         if (seenTags.has(tagKey)) {
             option.parentElement.remove();
         } else {
             seenTags.add(tagKey);
         }
     });
+
+    // Auto-study after show_all redirect
+    var params = new URLSearchParams(window.location.search);
+    if (params.get('auto_study') === '1') {
+        var studyTags = params.get('study_tags');
+        if (studyTags) {
+            activeTagFilters = studyTags.split(',');
+            renderTagChips();
+        }
+        var studySearch = params.get('study_search');
+        if (studySearch) {
+            var input = document.getElementById('searchInput');
+            if (input) input.value = studySearch;
+        }
+        filterLibraryItems();
+        // Small delay to let filter run, then start study
+        setTimeout(function() { startStudySession(); }, 100);
+    }
+
+    // Initial filter to show study button with correct count
+    filterLibraryItems();
 });
 </script>

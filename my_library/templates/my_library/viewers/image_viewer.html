@@ -144,8 +144,9 @@
                 // Ya estamos al final, cambiar a siguiente imagen
                 if (currentImage < totalImages - 1) {
                     showImage(currentImage + 1);
+                } else if (window.onStudyContentEnd) {
+                    window.onStudyContentEnd();
                 }
-                // Si ya estamos en la última imagen, no hacer nada
             } else if (newScroll > maxScroll) {
                 // El scroll se pasaría del final, ir al final exacto
                 container.scrollTo({

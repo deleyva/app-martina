@@ -106,7 +106,7 @@
             data-related-score="{% if related_score %}{{ related_score.title|lower }}{% endif %}"
             data-composer="{% if related_score and related_score.composer %}{{ related_score.composer.name|lower }}{% endif %}"
             data-categories="{% if related_score and related_score.categories.all %}{% for category in related_score.categories.all %}{{ category.name|lower }} {% endfor %}{% endif %}"
-            data-tags="{% if item.content_object and item.content_object.tags.all %}{% for tag in item.content_object.tags.all %}{{ tag.name|lower }} {% endfor %}{% endif %}{% if related_score and related_score.tags.all %}{% for tag in related_score.tags.all %}{{ tag.name|lower }} {% endfor %}{% endif %}"
+            data-tags="{% if item.content_object and item.content_object.tags.all %}{% for tag in item.content_object.tags.all %}{{ tag.name|lower }} {% endfor %}{% endif %}{% for tag in item.tags.all %}{{ tag.name|lower }} {% endfor %}{% if related_score and related_score.tags.all %}{% for tag in related_score.tags.all %}{{ tag.name|lower }} {% endfor %}{% endif %}"
             data-pdfs="{% if related_score %}{% for pdf in related_score.get_pdf_blocks %}{{ pdf.title|lower }} {% endfor %}{% endif %}"
             data-audios="{% if related_score %}{% for audio in related_score.get_audios %}{{ audio.title|lower }} {% endfor %}{% endif %}"
             data-document-tags="{% if related_score %}{% for pdf in related_score.get_pdf_blocks %}{% for doc_tag in pdf.pdf_file.tags.all %}{{ doc_tag.name|lower }} {% endfor %}{% endfor %}{% for audio in related_score.get_audios %}{% for doc_tag in audio.audio_file.tags.all %}{{ doc_tag.name|lower }} {% endfor %}{% endfor %}{% endif %}">
