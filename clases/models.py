@@ -1251,3 +1251,129 @@ class ClassSessionItem(models.Model):
             source_page_id=source_page_id,
         )
         return item
+
+
+# =============================================================================
+# TARJETAS DE ESTUDIO
+# =============================================================================
+
+
+class StudyCardBatch(models.Model):
+    """Un lote de tarjetas generado para impresión."""
+
+    group = models.ForeignKey(
+        "clases.Group",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="study_card_batches",
+        verbose_name="Grupo",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="study_card_batches",
+        verbose_name="Creado por",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    title = models.CharField(max_length=200, verbose_name="Título")
+    notes = models.TextField(blank=True, verbose_name="Notas")
+    pdf_file = models.FileField(
+        upload_to="study_cards/batches/",
+        null=True,
+        blank=True,
+        verbose_name="Archivo PDF",
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Lote de Tarjetas"
+        verbose_name_plural = "Lotes de Tarjetas"
+
+    def __str__(self):
+        return f"{self.title} ({self.created_at:%Y-%m-%d})"
+
+    def get_items_count(self):
+        return self.items.count()
+
+
+class StudyCardItem(models.Model):
+    """Una tarjeta individual dentro de un batch."""
+
+    batch = models.ForeignKey(
+        StudyCardBatch,
+        on_delete=models.CASCADE,
+        related_name="items",
+        verbose_name="Lote",
+    )
+    image = models.ForeignKey(
+        "wagtailimages.Image",
+        on_delete=models.CASCADE,
+        verbose_name="Imagen",
+    )
+    source_page = models.ForeignKey(
+        "wagtailcore.Page",
+        on_delete=models.CASCADE,
+        verbose_name="Página de origen",
+    )
+    code = models.CharField(max_length=20, verbose_name="Código")
+    position = models.PositiveIntegerField(verbose_name="Posición")
+
+    class Meta:
+        ordering = ["position"]
+        unique_together = ["batch", "code"]
+        verbose_name = "Tarjeta"
+        verbose_name_plural = "Tarjetas"
+        indexes = [
+            models.Index(fields=["code"]),
+        ]
+
+    def __str__(self):
+        return f"{self.code} - {self.image.title}"
+
+
+class StudyCardPickup(models.Model):
+    """Registro de que un alumno cogió una tarjeta."""
+
+    SOURCE_CHOICES = [
+        ("manual", "Manual"),
+        ("photo_ocr", "Photo OCR"),
+    ]
+
+    card_item = models.ForeignKey(
+        StudyCardItem,
+        on_delete=models.CASCADE,
+        related_name="pickups",
+        verbose_name="Tarjeta",
+    )
+    student = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="study_card_pickups",
+        verbose_name="Alumno",
+    )
+    picked_up_at = models.DateField(verbose_name="Fecha de recogida")
+    source = models.CharField(
+        max_length=20,
+        choices=SOURCE_CHOICES,
+        default="manual",
+        verbose_name="Origen",
+    )
+    confidence = models.FloatField(
+        null=True,
+        blank=True,
+        verbose_name="Confianza OCR",
+        help_text="Confianza del reconocimiento OCR (0-1)",
+    )
+
+    class Meta:
+        ordering = ["-picked_up_at"]
+        unique_together = ["card_item", "student"]
+        verbose_name = "Recogida de Tarjeta"
+        verbose_name_plural = "Recogidas de Tarjetas"
+        indexes = [
+            models.Index(fields=["student", "-picked_up_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.student} - {self.card_item.code} ({self.picked_up_at})"

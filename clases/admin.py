@@ -9,6 +9,9 @@ from .models import (
     ClassSessionItem,
     GroupInvitation,
     Enrollment,
+    StudyCardBatch,
+    StudyCardItem,
+    StudyCardPickup,
 )
 
 
@@ -217,3 +220,52 @@ class ClassSessionItemAdmin(admin.ModelAdmin):
         return obj.get_content_type_name()
 
     get_content_type.short_description = "Tipo"
+
+
+class StudyCardItemInline(admin.TabularInline):
+    model = StudyCardItem
+    extra = 0
+    fields = ("position", "code", "image", "source_page")
+    readonly_fields = ("code",)
+
+
+@admin.register(StudyCardBatch)
+class StudyCardBatchAdmin(admin.ModelAdmin):
+    list_display = ("title", "group", "created_by", "get_items_count", "created_at")
+    list_filter = ("group", "created_at")
+    search_fields = ("title", "notes")
+    readonly_fields = ("created_at",)
+    inlines = [StudyCardItemInline]
+
+    fieldsets = (
+        (None, {"fields": ("title", "group", "created_by")}),
+        ("Contenido", {"fields": ("notes", "pdf_file")}),
+        ("Información", {"fields": ("created_at",)}),
+    )
+
+    def get_items_count(self, obj):
+        return obj.get_items_count()
+
+    get_items_count.short_description = "Tarjetas"
+
+
+@admin.register(StudyCardItem)
+class StudyCardItemAdmin(admin.ModelAdmin):
+    list_display = ("code", "batch", "image", "source_page", "position")
+    list_filter = ("batch",)
+    search_fields = ("code", "batch__title")
+    readonly_fields = ("code",)
+
+
+@admin.register(StudyCardPickup)
+class StudyCardPickupAdmin(admin.ModelAdmin):
+    list_display = ("card_item", "student", "picked_up_at", "source", "confidence")
+    list_filter = ("source", "picked_up_at")
+    search_fields = ("card_item__code", "student__name")
+    raw_id_fields = ("student", "card_item")
+    date_hierarchy = "picked_up_at"
+
+    fieldsets = (
+        (None, {"fields": ("card_item", "student", "picked_up_at")}),
+        ("OCR", {"fields": ("source", "confidence")}),
+    )
