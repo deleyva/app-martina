@@ -163,17 +163,12 @@
             <span>{{ page.categories.first.name }}</span>
             {% endif %}
             
-            <!-- Botonera Admin/Librería integrada en los metadatos -->
-            {% if user.is_authenticated %}
-            <span>•</span>
-            <div id="library-btn-blogpage-{{ page.pk }}" class="inline-block">
-                {% library_button page %}
-            </div>
+            <!-- Botonera Admin (sin botón librería en el blog) -->
             {% if user.is_staff %}
+            <span>•</span>
             <a href="/cms/pages/{{ page.id }}/edit/" class="hover:text-black hover:underline" aria-label="Editar">
                 (Editar)
             </a>
-            {% endif %}
             {% endif %}
         </div>
 
