@@ -86,7 +86,7 @@ function renderChips() {
     container.innerHTML = activeTagFilters.map(function(tag) {
         return '<span class="badge badge-primary gap-1 text-xs">' +
             escapeHtml(tag) +
-            '<button class="btn btn-ghost btn-xs btn-circle p-0 min-h-0 h-4 w-4 text-primary-content" data-tag="' + tag.replace(/"/g, '&quot;') + '" type="button">&times;</button>' +
+            '<button class="tag-chip-remove btn btn-ghost btn-xs btn-circle p-0 min-h-0 h-4 w-4 text-primary-content" data-tag="' + tag.replace(/"/g, '&quot;') + '" type="button">&times;</button>' +
             '</span>';
     }).join('');
 

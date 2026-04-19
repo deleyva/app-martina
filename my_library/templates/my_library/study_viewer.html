@@ -16,76 +16,179 @@
             color: #fff;
         }
 
-        /* Topbar */
-        #study-topbar {
+        /* Content area — full viewport */
+        #study-content {
             position: fixed;
             top: 0;
             left: 0;
             right: 0;
-            z-index: 10000;
-            height: 48px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 0 10px;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(10px);
+            bottom: 0;
+            overflow: hidden;
         }
 
-        #study-topbar .close-btn {
-            width: 32px;
-            height: 32px;
+        /* ── Floating Action Button ── */
+        #study-fab {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 10000;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(139, 92, 246, 0.85);
+            backdrop-filter: blur(10px);
+            color: #fff;
+            cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            border-radius: 50%;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            transition: transform 0.2s, background 0.2s;
+        }
+        #study-fab:hover {
+            transform: scale(1.1);
+            background: rgba(139, 92, 246, 1);
+        }
+        #study-fab.active {
             background: rgba(255, 255, 255, 0.15);
-            color: white;
-            text-decoration: none;
-            border: none;
-            cursor: pointer;
-            flex-shrink: 0;
         }
 
-        #study-title {
-            flex: 1;
+        /* ── Flyout Panel ── */
+        #study-flyout {
+            position: fixed;
+            bottom: 84px;
+            right: 24px;
+            z-index: 10001;
+            width: 300px;
+            max-height: calc(100vh - 120px);
+            background: rgba(20, 20, 20, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 16px;
+            padding: 0;
+            opacity: 0;
+            transform: translateY(12px) scale(0.95);
+            pointer-events: none;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            overflow: hidden;
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+        }
+        #study-flyout.open {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            pointer-events: auto;
+        }
+
+        .flyout-header {
+            padding: 16px 16px 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .flyout-title {
+            font-size: 14px;
+            font-weight: 600;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            font-size: 14px;
+            margin-bottom: 4px;
+        }
+        .flyout-counter {
+            font-size: 12px;
+            opacity: 0.5;
         }
 
-        #study-counter {
-            font-size: 12px;
-            opacity: 0.7;
-            flex-shrink: 0;
-            margin-right: 4px;
+        .flyout-actions {
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
         }
 
-        #study-rate-btn {
-            height: 32px;
-            padding: 0 12px;
-            border-radius: 999px;
-            border: 1px solid rgba(255, 255, 255, 0.35);
-            background: rgba(168, 85, 247, 0.3);
-            color: #fff;
-            font-size: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            flex-shrink: 0;
+        .flyout-btn {
             display: flex;
             align-items: center;
-            gap: 4px;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: none;
+            background: transparent;
+            color: #fff;
+            font-size: 13px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.15s;
+            width: 100%;
+            text-align: left;
+        }
+        .flyout-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+        .flyout-btn svg {
+            flex-shrink: 0;
+            opacity: 0.7;
+        }
+        .flyout-btn.accent {
+            color: #a78bfa;
+        }
+        .flyout-btn.danger {
+            color: #f87171;
         }
 
-        /* Content area */
-        #study-content {
+        .flyout-divider {
+            height: 1px;
+            background: rgba(255, 255, 255, 0.08);
+            margin: 4px 8px;
+        }
+
+        /* Audio section inside flyout */
+        .flyout-audio {
+            padding: 8px 12px 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .flyout-audio-label {
+            font-size: 11px;
+            opacity: 0.4;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+        .flyout-audio-controls {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .flyout-audio-select {
+            flex: 1;
+            height: 32px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.06);
+            color: #fff;
+            font-size: 12px;
+            padding: 0 8px;
+        }
+        .flyout-audio-play {
+            height: 32px;
+            width: 32px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Flyout backdrop for outside clicks */
+        #flyout-backdrop {
             position: fixed;
-            top: 48px;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            overflow: hidden;
+            inset: 0;
+            z-index: 9999;
+            display: none;
+        }
+        #flyout-backdrop.active {
+            display: block;
         }
 
         /* Proficiency overlay */
@@ -257,21 +360,51 @@
     </style>
 </head>
 <body>
-    <!-- Topbar -->
-    <div id="study-topbar">
-        <a href="{% url 'my_library:index' %}?show_all=1" class="close-btn" title="Salir (ESC)">
-            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-            </svg>
-        </a>
-        <span id="study-title">Cargando...</span>
-        <span id="study-counter">-/-</span>
-        <button id="study-rate-btn" onclick="showProficiencyOverlay()">
-            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-            </svg>
-            Valorar
-        </button>
+    <!-- Backdrop for closing flyout on outside click -->
+    <div id="flyout-backdrop" onclick="toggleFlyout(false)"></div>
+
+    <!-- Floating Action Button -->
+    <button id="study-fab" onclick="toggleFlyout()" title="Menu (M)">
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z"></path>
+        </svg>
+    </button>
+
+    <!-- Flyout Panel -->
+    <div id="study-flyout">
+        <div class="flyout-header">
+            <div class="flyout-title" id="flyout-title">Cargando...</div>
+            <div class="flyout-counter" id="flyout-counter">-/-</div>
+        </div>
+        <div class="flyout-actions">
+            <button class="flyout-btn accent" onclick="showProficiencyOverlay(); toggleFlyout(false);">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+                Valorar
+            </button>
+            <button class="flyout-btn" id="flyout-prev-btn" onclick="navigateItem(-1)">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                Anterior
+            </button>
+            <button class="flyout-btn" id="flyout-next-btn" onclick="navigateItem(1)">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+                Siguiente
+            </button>
+            <div class="flyout-divider"></div>
+            <a class="flyout-btn danger" href="{% url 'my_library:index' %}?show_all=1">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+                Salir
+            </a>
+        </div>
+        <!-- Audio controls placeholder — populated dynamically -->
+        <div id="flyout-audio-section"></div>
     </div>
 
     <!-- Content area (lazy-loaded via fetch) -->
@@ -333,21 +466,43 @@
     var ratings = [];
     var selectedLevel = null;
     var csrfToken = '{{ csrf_token }}';
+    var flyoutOpen = false;
 
-    function updateTopbar() {
-        var item = playlist[currentIndex];
-        if (!item) return;
-        document.getElementById('study-title').textContent = item.title;
-        document.getElementById('study-counter').textContent = (currentIndex + 1) + '/' + playlist.length;
+    // ── Flyout ──
+    function toggleFlyout(forceState) {
+        flyoutOpen = (forceState !== undefined) ? forceState : !flyoutOpen;
+        document.getElementById('study-flyout').classList.toggle('open', flyoutOpen);
+        document.getElementById('study-fab').classList.toggle('active', flyoutOpen);
+        document.getElementById('flyout-backdrop').classList.toggle('active', flyoutOpen);
     }
 
+    function updateFlyout() {
+        var item = playlist[currentIndex];
+        if (!item) return;
+        document.getElementById('flyout-title').textContent = item.title;
+        document.getElementById('flyout-counter').textContent = (currentIndex + 1) + '/' + playlist.length;
+        // Disable prev/next at boundaries
+        var prevBtn = document.getElementById('flyout-prev-btn');
+        var nextBtn = document.getElementById('flyout-next-btn');
+        if (prevBtn) prevBtn.style.opacity = currentIndex === 0 ? '0.3' : '1';
+        if (nextBtn) nextBtn.style.opacity = currentIndex >= playlist.length - 1 ? '0.3' : '1';
+    }
+
+    function navigateItem(delta) {
+        var newIndex = currentIndex + delta;
+        if (newIndex < 0 || newIndex >= playlist.length) return;
+        toggleFlyout(false);
+        loadItem(newIndex);
+    }
+
+    // ── Core study flow ──
     function loadItem(index) {
         if (index >= playlist.length) {
             showSessionComplete();
             return;
         }
         currentIndex = index;
-        updateTopbar();
+        updateFlyout();
         var pk = playlist[index].pk;
         var container = document.getElementById('study-content');
         container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;"><div style="font-size:14px;opacity:0.5;">Cargando...</div></div>';
@@ -369,10 +524,69 @@
                 }
                 oldScript.parentNode.replaceChild(newScript, oldScript);
             });
+            // Move media panel into flyout if present
+            moveMediaToFlyout();
         })
         .catch(function(err) {
             container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#ff6b6b;">Error al cargar el item</div>';
         });
+    }
+
+    function moveMediaToFlyout() {
+        var mediaPanel = document.getElementById('study-media-panel');
+        var flyoutAudio = document.getElementById('flyout-audio-section');
+        if (mediaPanel && flyoutAudio) {
+            // Extract audio controls from the bottom panel and put them in flyout
+            var audioSelect = mediaPanel.querySelector('#study-audio-select');
+            var playBtn = mediaPanel.querySelector('#study-audio-play');
+            if (audioSelect || playBtn) {
+                var html = '<div class="flyout-audio"><div class="flyout-audio-label">Audio</div><div class="flyout-audio-controls">';
+                if (audioSelect) {
+                    html += '<select class="flyout-audio-select" id="flyout-audio-select">' + audioSelect.innerHTML + '</select>';
+                }
+                html += '<button class="flyout-audio-play" id="flyout-audio-play" type="button">';
+                html += '<svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+                html += '</button></div></div>';
+                flyoutAudio.innerHTML = html;
+                // Wire up audio
+                initFlyoutAudio();
+            }
+            // Hide the original bottom panel
+            mediaPanel.style.display = 'none';
+        } else {
+            if (flyoutAudio) flyoutAudio.innerHTML = '';
+        }
+    }
+
+    var flyoutCurrentAudio = null;
+    function initFlyoutAudio() {
+        var sel = document.getElementById('flyout-audio-select');
+        var btn = document.getElementById('flyout-audio-play');
+        if (!sel && !btn) return;
+
+        function loadAudio(url) {
+            if (flyoutCurrentAudio) { flyoutCurrentAudio.pause(); flyoutCurrentAudio = null; }
+            if (!url) return;
+            flyoutCurrentAudio = new Audio(url);
+        }
+
+        if (sel) {
+            loadAudio(sel.value);
+            sel.addEventListener('change', function() { loadAudio(this.value); });
+        }
+
+        if (btn) {
+            btn.addEventListener('click', function() {
+                if (!flyoutCurrentAudio) return;
+                if (flyoutCurrentAudio.paused) {
+                    flyoutCurrentAudio.play();
+                    btn.innerHTML = '<svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>';
+                } else {
+                    flyoutCurrentAudio.pause();
+                    btn.innerHTML = '<svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+                }
+            });
+        }
     }
 
     function showProficiencyOverlay() {
@@ -427,6 +641,9 @@
             credentials: 'same-origin'
         });
 
+        // Stop any playing audio
+        if (flyoutCurrentAudio) { flyoutCurrentAudio.pause(); flyoutCurrentAudio = null; }
+
         // Hide overlay
         document.getElementById('proficiency-overlay').classList.remove('active');
 
@@ -452,17 +669,26 @@
         document.getElementById('summary-items').innerHTML = listHtml;
 
         document.getElementById('session-complete').classList.add('active');
+        // Hide FAB during session complete
+        document.getElementById('study-fab').style.display = 'none';
     }
 
-    // Keyboard: Escape to exit
+    // Keyboard: Escape to exit, M to toggle menu
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
             var profOverlay = document.getElementById('proficiency-overlay');
             if (profOverlay.classList.contains('active')) {
                 profOverlay.classList.remove('active');
+            } else if (flyoutOpen) {
+                toggleFlyout(false);
             } else {
                 window.location.href = '{% url "my_library:index" %}?show_all=1';
             }
+        }
+        if (e.key === 'm' || e.key === 'M') {
+            // Don't toggle if typing in an input
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            toggleFlyout();
         }
     }, true);
 
