@@ -493,6 +493,31 @@
                         </div>
                     </div>
                 </div>
+
+                {% elif block.block_type == 'external_link' and block.value.resource %}
+                <div class="card bg-base-100 shadow-xl attachment-card">
+                    <div class="card-body p-4 flex flex-col items-center text-center">
+                        <span class="text-5xl mb-2">{{ block.value.resource.icon }}</span>
+                        <h3 class="card-title text-base">{{ block.value.override_title|default:block.value.resource.title }}</h3>
+                        <p class="text-xs text-base-content/50">{{ block.value.resource.domain }}</p>
+                        {% if block.value.resource.description %}
+                        <p class="text-xs text-base-content/70 line-clamp-2">{{ block.value.resource.description }}</p>
+                        {% endif %}
+                        <div class="card-actions justify-end mt-auto w-full">
+                            <a href="{{ block.value.resource.url }}" target="_blank" rel="noopener" class="btn btn-primary btn-sm">
+                                Abrir
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                                </svg>
+                            </a>
+                            {% if user.is_authenticated %}
+                            <div id="library-btn-extlink-{{ block.value.resource.id }}">
+                                {% library_button block.value.resource %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
                 {% endif %}
             {% endfor %}
         </div>

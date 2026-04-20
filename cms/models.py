@@ -6,6 +6,7 @@ from django.urls import reverse
 from django.core.exceptions import ValidationError
 from django.db.utils import OperationalError, ProgrammingError
 from django.utils import timezone
+from django.utils.functional import cached_property
 from django.utils.safestring import mark_safe
 from wagtail.models import Page, Orderable, Site
 from wagtail.fields import RichTextField, StreamField
@@ -26,7 +27,40 @@ from wagtail.images.blocks import ImageChooserBlock
 from wagtail.documents.blocks import DocumentChooserBlock
 from wagtail.embeds.blocks import EmbedBlock
 from wagtail.snippets.models import register_snippet
+from wagtail.snippets.blocks import SnippetChooserBlock
 from modelcluster.fields import ParentalKey, ParentalManyToManyField
+
+
+@register_snippet
+class ExternalResource(models.Model):
+    """Enlace externo reutilizable (e.g. Ultimate Guitar tabs, Musescore, etc.)"""
+
+    url = models.URLField(max_length=500)
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    icon = models.CharField(max_length=50, default="🔗", help_text="Emoji o icono")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    panels = [
+        FieldPanel("title"),
+        FieldPanel("url"),
+        FieldPanel("description"),
+        FieldPanel("icon"),
+    ]
+
+    @cached_property
+    def domain(self):
+        from urllib.parse import urlparse
+        return urlparse(self.url).netloc
+
+    def __str__(self):
+        return self.title
+
+    class Meta:
+        verbose_name = "Enlace Externo"
+        verbose_name_plural = "Enlaces Externos"
+        ordering = ["-created_at"]
 
 
 def _is_blog_request(request):
@@ -415,6 +449,10 @@ class BlogPage(Page):
                 ("image", ImageChooserBlock(help_text="Seleccionar imagen")),
                 ("caption", TextBlock(required=False, help_text="Descripción opcional")),
             ], icon="image", label="Image")),
+            ("external_link", StructBlock([
+                ("resource", SnippetChooserBlock("cms.ExternalResource")),
+                ("override_title", CharBlock(required=False, help_text="Título alternativo (opcional)")),
+            ], icon="link", label="Enlace Externo")),
         ],
         blank=True,
         use_json_field=True,
@@ -451,7 +489,7 @@ class BlogPage(Page):
     def _parse_attachments(self):
         """Parse attachments StreamField once and cache by block type."""
         if not hasattr(self, '_attachments_cache'):
-            pdfs, audios, images = [], [], []
+            pdfs, audios, images, external_links = [], [], [], []
             for block in self.attachments:
                 if block.block_type == "pdf_score":
                     pdfs.append(block.value)
@@ -459,8 +497,11 @@ class BlogPage(Page):
                     audios.append(block.value)
                 elif block.block_type == "image":
                     images.append(block.value)
+                elif block.block_type == "external_link":
+                    external_links.append(block.value)
             self._attachments_cache = {
                 'pdfs': pdfs, 'audios': audios, 'images': images,
+                'external_links': external_links,
             }
         return self._attachments_cache
 
@@ -469,6 +510,9 @@ class BlogPage(Page):
 
     def get_audios(self):
         return self._parse_attachments()['audios']
+
+    def get_external_links(self):
+        return self._parse_attachments()['external_links']
 
     def get_images(self):
         """

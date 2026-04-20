@@ -206,6 +206,24 @@
                     display: block !important;
                 }
             </style>
+        {% elif documents.external_links %}
+            <!-- Visor Enlace Externo -->
+            <div style="height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding-top: 48px; gap: 1.5rem;">
+                {% with link=documents.external_links.0 %}
+                <span class="text-8xl">{{ link.icon }}</span>
+                <h2 class="text-2xl font-bold text-center px-4">{{ link.title }}</h2>
+                {% if link.description %}
+                <p class="text-base-content/70 text-center max-w-md px-4">{{ link.description }}</p>
+                {% endif %}
+                <p class="text-sm text-base-content/50">{{ link.domain }}</p>
+                <a href="{{ link.url }}" target="_blank" rel="noopener" class="btn btn-primary btn-lg gap-2">
+                    Abrir en nueva pestaña
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                    </svg>
+                </a>
+                {% endwith %}
+            </div>
         {% else %}
             <div class="text-center">
                 <div class="text-6xl mb-4">⚠️</div>

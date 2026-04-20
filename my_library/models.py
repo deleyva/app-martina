@@ -105,6 +105,7 @@ class LibraryItem(models.Model):
             "scorepage": "Partitura",
             "image": "Imagen",
             "embed": "Contenido Incrustado",
+            "externalresource": "Enlace Externo",
         }
         return mapping.get(model_name, model_name.title())
 
@@ -125,6 +126,7 @@ class LibraryItem(models.Model):
             "document": "📄",
             "image": "🖼️",
             "embed": "▶️",
+            "externalresource": "🔗",
         }
         return icons.get(model_name, "📁")
 
@@ -190,6 +192,15 @@ class LibraryItem(models.Model):
                 '<svg class="w-8 h-8 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 24 24">'
                 '<path d="M8 5v14l11-7z"></path>'
                 '</svg></div>'
+            )
+
+        # Enlace externo
+        if model_name == "externalresource":
+            icon = getattr(obj, "icon", "🔗")
+            return format_html(
+                '<div class="flex items-center justify-center size-16 bg-gradient-to-br from-emerald-100 to-emerald-200 dark:from-emerald-900/30 dark:to-emerald-800/30 rounded-lg">'
+                '<span class="text-2xl">{}</span></div>',
+                icon,
             )
 
         # Fallback genérico
@@ -350,6 +361,8 @@ class LibraryItem(models.Model):
             return {"images": [self.content_object]}
         elif self.content_type.model == "embed":
             return {"embeds": [self.content_object]}
+        elif self.content_type.model == "externalresource":
+            return {"external_links": [self.content_object]}
         return {}
 
     @classmethod
