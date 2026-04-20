@@ -157,6 +157,14 @@ class Command(BaseCommand):
             ),
         )
         parser.add_argument(
+            "--collection",
+            default=None,
+            help=(
+                "Name of the Wagtail Collection to assign to all created images. "
+                "If omitted, images go into the Root collection."
+            ),
+        )
+        parser.add_argument(
             "--dry-run",
             action="store_true",
             help="Show what would be done without writing to the database.",
@@ -312,6 +320,7 @@ class Command(BaseCommand):
         images_dir: Path,
         chapter_title: str,
         tags: list[str] | None = None,
+        collection=None,
     ) -> dict[str, "ImageModel"]:
         """Create one Wagtail Image per unique file in the manifest.
 
@@ -350,6 +359,9 @@ class Command(BaseCommand):
                 image = publisher._create_wagtail_image(
                     django_file, title=title, tags=tags or None
                 )
+            if collection is not None:
+                image.collection = collection
+                image.save(update_fields=["collection"])
             created[fn] = image
         return created
 
@@ -457,6 +469,7 @@ class Command(BaseCommand):
         images_dir: Path,
         tags: list[str],
         with_attachment_cards: bool,
+        collection=None,
     ) -> "BlogPage":
         """Create one BlogPage + its Images. Caller handles the book lookup.
 
@@ -473,7 +486,8 @@ class Command(BaseCommand):
 
         self.stdout.write(f"  Creating {len(items)} items...")
         images = self._create_images(
-            publisher, items, images_dir, chapter_title, tags=tags
+            publisher, items, images_dir, chapter_title, tags=tags,
+            collection=collection,
         )
         self.stdout.write(f"  Created {len(images)} Wagtail Images")
 
@@ -532,6 +546,7 @@ class Command(BaseCommand):
         owner_username: str | None = options["owner_username"]
         with_attachment_cards: bool = options["with_attachment_cards"]
         tags_arg: str | None = options["tags"]
+        collection_name: str | None = options["collection"]
 
         # --- mode dispatch -------------------------------------------------
         if manifest_path_arg and book_manifest_path_arg:
@@ -549,6 +564,16 @@ class Command(BaseCommand):
         self.stdout.write(f"Owner: {owner.username or owner.email} (pk={owner.pk})")
 
         publisher = ContentPublisher(user=owner)
+
+        # --- resolve collection -------------------------------------------
+        collection = None
+        if collection_name:
+            from wagtail.models import Collection
+            try:
+                collection = Collection.objects.get(name=collection_name)
+                self.stdout.write(f"Collection: {collection.name} (pk={collection.pk})")
+            except Collection.DoesNotExist:
+                self._abort(f"No Collection with name {collection_name!r} found.")
 
         parent = self._resolve_parent(parent_slug)
         self.stdout.write(
@@ -653,6 +678,7 @@ class Command(BaseCommand):
                 images_dir=images_dir,
                 tags=tags,
                 with_attachment_cards=with_attachment_cards,
+                collection=collection,
             )
             created_pages.append(page)
 
