@@ -418,6 +418,10 @@ WAGTAILDOCS_EXTENSIONS = [
     # MIDI formats for Music Pills
     "mid",
     "midi",
+    # Video formats for Blog
+    "mp4",
+    "webm",
+    "mov",
 ]
 
 # Wagtail Embeds Custom Finders

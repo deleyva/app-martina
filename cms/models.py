@@ -449,6 +449,11 @@ class BlogPage(Page):
                 ("image", ImageChooserBlock(help_text="Seleccionar imagen")),
                 ("caption", TextBlock(required=False, help_text="Descripción opcional")),
             ], icon="image", label="Image")),
+            ("video", StructBlock([
+                ("title", CharBlock(max_length=200, help_text="Título del vídeo")),
+                ("video_file", DocumentChooserBlock(help_text="Seleccionar archivo de vídeo (máx. 10 MB)")),
+                ("description", TextBlock(required=False, help_text="Descripción opcional")),
+            ], icon="media", label="Vídeo")),
             ("external_link", StructBlock([
                 ("resource", SnippetChooserBlock("cms.ExternalResource")),
                 ("override_title", CharBlock(required=False, help_text="Título alternativo (opcional)")),
@@ -489,7 +494,7 @@ class BlogPage(Page):
     def _parse_attachments(self):
         """Parse attachments StreamField once and cache by block type."""
         if not hasattr(self, '_attachments_cache'):
-            pdfs, audios, images, external_links = [], [], [], []
+            pdfs, audios, images, videos, external_links = [], [], [], [], []
             for block in self.attachments:
                 if block.block_type == "pdf_score":
                     pdfs.append(block.value)
@@ -497,11 +502,13 @@ class BlogPage(Page):
                     audios.append(block.value)
                 elif block.block_type == "image":
                     images.append(block.value)
+                elif block.block_type == "video":
+                    videos.append(block.value)
                 elif block.block_type == "external_link":
                     external_links.append(block.value)
             self._attachments_cache = {
                 'pdfs': pdfs, 'audios': audios, 'images': images,
-                'external_links': external_links,
+                'videos': videos, 'external_links': external_links,
             }
         return self._attachments_cache
 
@@ -510,6 +517,9 @@ class BlogPage(Page):
 
     def get_audios(self):
         return self._parse_attachments()['audios']
+
+    def get_videos(self):
+        return self._parse_attachments()['videos']
 
     def get_external_links(self):
         return self._parse_attachments()['external_links']
@@ -553,6 +563,17 @@ class BlogPage(Page):
                 self.url = url
                 
         return [DummyEmbedValue(tag.get('url')) for tag in embed_tags if tag.get('url')]
+
+    def clean(self):
+        super().clean()
+        max_video_size = 10 * 1024 * 1024  # 10 MB
+        for video in self.get_videos():
+            doc = video.get("video_file")
+            if doc and doc.file_size > max_video_size:
+                raise ValidationError(
+                    f'El vídeo "{doc.title}" pesa {doc.file_size / (1024*1024):.1f} MB. '
+                    f"El máximo permitido es 10 MB."
+                )
 
     def is_music_library_child(self):
         """True if this page is a descendant of a MusicLibraryIndexPage at any depth.

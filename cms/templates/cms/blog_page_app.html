@@ -463,6 +463,32 @@
                     </div>
                 </div>
 
+                {% elif block.block_type == 'video' and block.value.video_file %}
+                <div class="card bg-base-100 shadow-xl attachment-card">
+                    <div class="card-body p-4">
+                        <h3 class="card-title text-base">🎬 {{ block.value.title }}</h3>
+                        {% if block.value.description %}
+                        <p class="text-xs text-base-content/70 line-clamp-2 mb-3">{{ block.value.description }}</p>
+                        {% endif %}
+                        <video controls class="w-full rounded-lg mb-3" preload="metadata" playsinline>
+                            <source src="{{ block.value.video_file.url }}">
+                            Tu navegador no soporta la reproducción de vídeo.
+                        </video>
+                        <div class="card-actions justify-end mt-auto">
+                            <a href="{{ block.value.video_file.url }}" download class="btn btn-primary btn-sm">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                            </a>
+                            {% if user.is_authenticated %}
+                            <div id="library-btn-blogvideo-{{ block.value.video_file.id }}">
+                                {% library_button block.value.video_file %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
                 {% elif block.block_type == 'image' and block.value.image %}
                 <div class="card bg-base-100 shadow-xl attachment-card">
                     <div class="attachment-image-wrapper">

@@ -67,10 +67,67 @@
         color: #fff;
     }
 
+    .article-content ul {
+        list-style-type: disc;
+        padding-left: 1.75rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .article-content ol {
+        list-style-type: decimal;
+        padding-left: 1.75rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .article-content li {
+        margin-bottom: 0.5rem;
+        line-height: 1.7;
+    }
+
+    .article-content li > ul,
+    .article-content li > ol {
+        margin-top: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .article-content strong, .article-content b {
+        font-weight: 800;
+    }
+
     .article-content img {
         margin: 2rem auto;
         max-width: 100%;
         height: auto;
+    }
+
+    .article-content img.richtext-image.left {
+        float: left;
+        margin: 0.5rem 1.5rem 1rem 0;
+        max-width: 50%;
+    }
+
+    .article-content img.richtext-image.right {
+        float: right;
+        margin: 0.5rem 0 1rem 1.5rem;
+        max-width: 50%;
+    }
+
+    .article-content img.richtext-image.full-width {
+        width: 100%;
+        margin: 2rem auto;
+    }
+
+    /* Clear floats after aligned images */
+    .article-content::after {
+        content: "";
+        display: table;
+        clear: both;
+    }
+
+    .article-content p::after {
+        content: "";
+        display: table;
+        clear: both;
     }
 
     /* Embeds fill the full container width with 16:9 aspect ratio */
@@ -237,6 +294,24 @@
         });
     });
     </script>
+
+    {# Videos adjuntos #}
+    {% if page.get_videos %}
+    <div class="max-w-3xl mx-auto mt-12 mb-8">
+        {% for video in page.get_videos %}
+        <div class="mb-8">
+            <h3 class="font-serif-title text-xl font-bold mb-2">{{ video.title }}</h3>
+            {% if video.description %}
+            <p class="text-gray-600 text-sm mb-3">{{ video.description }}</p>
+            {% endif %}
+            <video controls class="w-full rounded" preload="metadata" playsinline>
+                <source src="{{ video.video_file.url }}">
+                Tu navegador no soporta la reproducción de vídeo.
+            </video>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
 
     <div class="editorial-divider-thick mt-20"></div>
 
