@@ -329,6 +329,9 @@
     var currentIndex = 0;
     var csrfToken = '{{ csrf_token }}';
     var flyoutOpen = false;
+    var itemLoadedAt = 0; // Timestamp when current item finished loading
+    var itemVersion = 0; // Incremented on each loadItem to invalidate stale viewer callbacks
+    var loadingItem = false; // Blocks viewer interactions during item transitions
 
     // Build syllabus HTML
     function buildSyllabus() {
@@ -391,8 +394,11 @@
             return;
         }
         currentIndex = index;
+        itemVersion++;
+        loadingItem = true; // Block viewer events during transition
         updateFlyout();
         var pk = playlist[index].pk;
+        var myVersion = itemVersion;
         var container = document.getElementById('study-content');
         container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;"><div style="font-size:14px;opacity:0.5;">Cargando...</div></div>';
 
@@ -416,6 +422,13 @@
             });
             // Move media panel into flyout if present
             moveMediaToFlyout();
+            // Mark when item finished loading
+            itemLoadedAt = Date.now();
+            // Unblock after a delay so viewer scripts initialize without triggering cascade
+            var loadedVersion = myVersion;
+            setTimeout(function() {
+                if (loadedVersion === itemVersion) loadingItem = false;
+            }, 600);
         })
         .catch(function(err) {
             container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#ff6b6b;">Error al cargar el elemento</div>';
@@ -476,9 +489,13 @@
         }
     }
 
-    // Hook for viewers: auto-advance to next item at end of content (no proficiency form)
+    // Hook for viewers: auto-advance to next item at end of content.
+    // Guards: loadingItem blocks during transitions, timing blocks immediate re-fires.
     window.onStudyContentEnd = function() {
+        if (loadingItem) return;
+        if (Date.now() - itemLoadedAt < 800) return;
         if (flyoutCurrentAudio) { flyoutCurrentAudio.pause(); flyoutCurrentAudio = null; }
+        loadingItem = true; // Prevent re-entry
         loadItem(currentIndex + 1);
     };
 
