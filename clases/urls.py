@@ -64,6 +64,16 @@ urlpatterns = [
         name="class_session_view",
     ),
     path(
+        "sessions/<int:pk>/present/",
+        views.class_session_present,
+        name="class_session_present",
+    ),
+    path(
+        "sessions/<int:session_id>/item-content/<int:item_id>/",
+        views.class_session_item_content,
+        name="class_session_item_content",
+    ),
+    path(
         "sessions/<int:pk>/edit/",
         views.class_session_edit,
         name="class_session_edit",

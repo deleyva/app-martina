@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>{{ session.title }} — Clase</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://unpkg.com/wavesurfer.js@7"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #000;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            height: 100vh;
+            color: #fff;
+        }
+
+        /* Content area — full viewport */
+        #study-content {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            overflow: hidden;
+        }
+
+        /* ── Floating Action Button ── */
+        #study-fab {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 10000;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(139, 92, 246, 0.85);
+            backdrop-filter: blur(10px);
+            color: #fff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            transition: transform 0.2s, background 0.2s;
+        }
+        #study-fab:hover {
+            transform: scale(1.1);
+            background: rgba(139, 92, 246, 1);
+        }
+        #study-fab.active {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        /* ── Flyout Panel ── */
+        #study-flyout {
+            position: fixed;
+            bottom: 84px;
+            right: 24px;
+            z-index: 10001;
+            width: 320px;
+            max-height: calc(100vh - 120px);
+            background: rgba(20, 20, 20, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 16px;
+            padding: 0;
+            opacity: 0;
+            transform: translateY(12px) scale(0.95);
+            pointer-events: none;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            overflow: hidden;
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+            display: flex;
+            flex-direction: column;
+        }
+        #study-flyout.open {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            pointer-events: auto;
+        }
+
+        .flyout-header {
+            padding: 16px 16px 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .flyout-title {
+            font-size: 14px;
+            font-weight: 600;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            margin-bottom: 4px;
+        }
+        .flyout-counter {
+            font-size: 12px;
+            opacity: 0.5;
+        }
+
+        .flyout-actions {
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .flyout-btn {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: none;
+            background: transparent;
+            color: #fff;
+            font-size: 13px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.15s;
+            width: 100%;
+            text-align: left;
+        }
+        .flyout-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+        .flyout-btn svg {
+            flex-shrink: 0;
+            opacity: 0.7;
+        }
+        .flyout-btn.danger {
+            color: #f87171;
+        }
+
+        .flyout-divider {
+            height: 1px;
+            background: rgba(255, 255, 255, 0.08);
+            margin: 4px 8px;
+        }
+
+        /* ── Syllabus list in flyout ── */
+        .flyout-syllabus {
+            max-height: 40vh;
+            overflow-y: auto;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .flyout-syllabus-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border: none;
+            background: transparent;
+            color: #fff;
+            font-size: 13px;
+            cursor: pointer;
+            width: 100%;
+            text-align: left;
+            transition: background 0.15s;
+        }
+        .flyout-syllabus-item:hover {
+            background: rgba(255, 255, 255, 0.06);
+        }
+        .flyout-syllabus-item.active {
+            background: rgba(139, 92, 246, 0.2);
+            border-left: 3px solid #8b5cf6;
+        }
+        .flyout-syllabus-item .item-icon {
+            flex-shrink: 0;
+        }
+        .flyout-syllabus-item .item-name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .flyout-syllabus-item .item-num {
+            flex-shrink: 0;
+            font-size: 11px;
+            opacity: 0.3;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Audio section inside flyout */
+        .flyout-audio {
+            padding: 8px 12px 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .flyout-audio-label {
+            font-size: 11px;
+            opacity: 0.4;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+        .flyout-audio-controls {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .flyout-audio-select {
+            flex: 1;
+            height: 32px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.06);
+            color: #fff;
+            font-size: 12px;
+            padding: 0 8px;
+        }
+        .flyout-audio-play {
+            height: 32px;
+            width: 32px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Flyout backdrop */
+        #flyout-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            display: none;
+        }
+        #flyout-backdrop.active {
+            display: block;
+        }
+
+        /* Session complete */
+        #session-complete {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 20000;
+            background: rgba(0, 0, 0, 0.95);
+            backdrop-filter: blur(10px);
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        #session-complete.active {
+            display: flex;
+        }
+
+        .session-summary {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 16px;
+            padding: 32px 24px;
+            max-width: 420px;
+            width: 100%;
+            text-align: center;
+        }
+        .session-summary h2 {
+            font-size: 22px;
+            margin-bottom: 16px;
+        }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <!-- Backdrop for closing flyout -->
+    <div id="flyout-backdrop" onclick="toggleFlyout(false)"></div>
+
+    <!-- Floating Action Button -->
+    <button id="study-fab" onclick="toggleFlyout()" title="Menu (M)">
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z"></path>
+        </svg>
+    </button>
+
+    <!-- Flyout Panel -->
+    <div id="study-flyout">
+        <div class="flyout-header">
+            <div class="flyout-title" id="flyout-title">Cargando...</div>
+            <div class="flyout-counter" id="flyout-counter">-/-</div>
+        </div>
+        <div class="flyout-actions">
+            <button class="flyout-btn" id="flyout-prev-btn" onclick="navigateItem(-1)">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                Anterior
+            </button>
+            <button class="flyout-btn" id="flyout-next-btn" onclick="navigateItem(1)">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+                Siguiente
+            </button>
+            <div class="flyout-divider"></div>
+            <a class="flyout-btn danger" href="{% url 'clases:class_session_view' session.pk %}">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+                Salir
+            </a>
+        </div>
+        <!-- Syllabus -->
+        <div class="flyout-syllabus" id="flyout-syllabus"></div>
+        <!-- Audio controls placeholder -->
+        <div id="flyout-audio-section"></div>
+    </div>
+
+    <!-- Content area (lazy-loaded via fetch) -->
+    <div id="study-content"></div>
+
+    <!-- Session complete overlay -->
+    <div id="session-complete">
+        <div class="session-summary">
+            <div style="font-size: 48px; margin-bottom: 12px;">✅</div>
+            <h2>Clase completada</h2>
+            <p style="font-size: 14px; opacity: 0.7; margin-bottom: 24px;">Has visto todos los elementos de la sesión.</p>
+            <a href="{% url 'clases:class_session_view' session.pk %}" style="display:inline-block;padding:14px 32px;border-radius:12px;border:none;background:#8b5cf6;color:white;font-size:16px;font-weight:600;cursor:pointer;text-decoration:none;">Volver a la sesión</a>
+        </div>
+    </div>
+
+    <script>
+    var playlist = {{ playlist_json|safe }};
+    var currentIndex = 0;
+    var csrfToken = '{{ csrf_token }}';
+    var flyoutOpen = false;
+
+    // Build syllabus HTML
+    function buildSyllabus() {
+        var html = '';
+        for (var i = 0; i < playlist.length; i++) {
+            var item = playlist[i];
+            html += '<button class="flyout-syllabus-item' + (i === currentIndex ? ' active' : '') + '" data-index="' + i + '" onclick="goToItem(' + i + ')">';
+            html += '<span class="item-icon">' + item.icon + '</span>';
+            html += '<span class="item-name">' + item.title + '</span>';
+            html += '<span class="item-num">' + (i + 1) + '</span>';
+            html += '</button>';
+        }
+        document.getElementById('flyout-syllabus').innerHTML = html;
+    }
+
+    function updateSyllabusActive() {
+        var items = document.querySelectorAll('.flyout-syllabus-item');
+        items.forEach(function(el) {
+            el.classList.toggle('active', parseInt(el.dataset.index) === currentIndex);
+        });
+    }
+
+    // ── Flyout ──
+    function toggleFlyout(forceState) {
+        flyoutOpen = (forceState !== undefined) ? forceState : !flyoutOpen;
+        document.getElementById('study-flyout').classList.toggle('open', flyoutOpen);
+        document.getElementById('study-fab').classList.toggle('active', flyoutOpen);
+        document.getElementById('flyout-backdrop').classList.toggle('active', flyoutOpen);
+    }
+
+    function updateFlyout() {
+        var item = playlist[currentIndex];
+        if (!item) return;
+        document.getElementById('flyout-title').textContent = item.title;
+        document.getElementById('flyout-counter').textContent = (currentIndex + 1) + '/' + playlist.length;
+        var prevBtn = document.getElementById('flyout-prev-btn');
+        var nextBtn = document.getElementById('flyout-next-btn');
+        if (prevBtn) prevBtn.style.opacity = currentIndex === 0 ? '0.3' : '1';
+        if (nextBtn) nextBtn.style.opacity = currentIndex >= playlist.length - 1 ? '0.3' : '1';
+        updateSyllabusActive();
+    }
+
+    function navigateItem(delta) {
+        var newIndex = currentIndex + delta;
+        if (newIndex < 0 || newIndex >= playlist.length) return;
+        toggleFlyout(false);
+        loadItem(newIndex);
+    }
+
+    function goToItem(index) {
+        if (index < 0 || index >= playlist.length) return;
+        toggleFlyout(false);
+        loadItem(index);
+    }
+
+    // ── Core presentation flow ──
+    function loadItem(index) {
+        if (index >= playlist.length) {
+            showSessionComplete();
+            return;
+        }
+        currentIndex = index;
+        updateFlyout();
+        var pk = playlist[index].pk;
+        var container = document.getElementById('study-content');
+        container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;"><div style="font-size:14px;opacity:0.5;">Cargando...</div></div>';
+
+        var itemUrl = '/clases/sessions/{{ session.pk }}/item-content/' + pk + '/';
+        fetch(itemUrl, {
+            credentials: 'same-origin'
+        })
+        .then(function(r) { return r.text(); })
+        .then(function(html) {
+            container.innerHTML = html;
+            // Re-execute scripts in the loaded content
+            var scripts = container.querySelectorAll('script');
+            scripts.forEach(function(oldScript) {
+                var newScript = document.createElement('script');
+                if (oldScript.src) {
+                    newScript.src = oldScript.src;
+                } else {
+                    newScript.textContent = oldScript.textContent;
+                }
+                oldScript.parentNode.replaceChild(newScript, oldScript);
+            });
+            // Move media panel into flyout if present
+            moveMediaToFlyout();
+        })
+        .catch(function(err) {
+            container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#ff6b6b;">Error al cargar el elemento</div>';
+        });
+    }
+
+    function moveMediaToFlyout() {
+        var mediaPanel = document.getElementById('study-media-panel');
+        var flyoutAudio = document.getElementById('flyout-audio-section');
+        if (mediaPanel && flyoutAudio) {
+            var audioSelect = mediaPanel.querySelector('#study-audio-select');
+            var playBtn = mediaPanel.querySelector('#study-audio-play');
+            if (audioSelect || playBtn) {
+                var html = '<div class="flyout-audio"><div class="flyout-audio-label">Audio</div><div class="flyout-audio-controls">';
+                if (audioSelect) {
+                    html += '<select class="flyout-audio-select" id="flyout-audio-select">' + audioSelect.innerHTML + '</select>';
+                }
+                html += '<button class="flyout-audio-play" id="flyout-audio-play" type="button">';
+                html += '<svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+                html += '</button></div></div>';
+                flyoutAudio.innerHTML = html;
+                initFlyoutAudio();
+            }
+            mediaPanel.style.display = 'none';
+        } else {
+            if (flyoutAudio) flyoutAudio.innerHTML = '';
+        }
+    }
+
+    var flyoutCurrentAudio = null;
+    function initFlyoutAudio() {
+        var sel = document.getElementById('flyout-audio-select');
+        var btn = document.getElementById('flyout-audio-play');
+        if (!sel && !btn) return;
+
+        function loadAudio(url) {
+            if (flyoutCurrentAudio) { flyoutCurrentAudio.pause(); flyoutCurrentAudio = null; }
+            if (!url) return;
+            flyoutCurrentAudio = new Audio(url);
+        }
+
+        if (sel) {
+            loadAudio(sel.value);
+            sel.addEventListener('change', function() { loadAudio(this.value); });
+        }
+
+        if (btn) {
+            btn.addEventListener('click', function() {
+                if (!flyoutCurrentAudio) return;
+                if (flyoutCurrentAudio.paused) {
+                    flyoutCurrentAudio.play();
+                    btn.innerHTML = '<svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>';
+                } else {
+                    flyoutCurrentAudio.pause();
+                    btn.innerHTML = '<svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+                }
+            });
+        }
+    }
+
+    // Hook for viewers: auto-advance to next item at end of content (no proficiency form)
+    window.onStudyContentEnd = function() {
+        if (flyoutCurrentAudio) { flyoutCurrentAudio.pause(); flyoutCurrentAudio = null; }
+        loadItem(currentIndex + 1);
+    };
+
+    function showSessionComplete() {
+        document.getElementById('session-complete').classList.add('active');
+        document.getElementById('study-fab').style.display = 'none';
+    }
+
+    // Keyboard: Escape to exit, M to toggle menu
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            if (flyoutOpen) {
+                toggleFlyout(false);
+            } else {
+                window.location.href = '{% url "clases:class_session_view" session.pk %}';
+            }
+        }
+        if (e.key === 'm' || e.key === 'M') {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            toggleFlyout();
+        }
+    }, true);
+
+    // Start
+    buildSyllabus();
+    if (playlist.length > 0) {
+        loadItem(0);
+    } else {
+        document.getElementById('study-content').innerHTML =
+            '<div style="display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:12px;">' +
+            '<div style="font-size:48px;">📋</div>' +
+            '<div>No hay elementos en esta sesion</div>' +
+            '<a href="{% url "clases:class_session_view" session.pk %}" style="color:#8b5cf6;">Volver a la sesion</a>' +
+            '</div>';
+    }
+    </script>
+</body>
+</html>

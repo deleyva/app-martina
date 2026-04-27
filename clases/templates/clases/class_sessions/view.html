@@ -19,6 +19,15 @@
             {% endif %}
         </div>
         <div class="flex gap-2">
+            {% if items %}
+            <!-- Botón Comenzar Clase -->
+            <a href="{% url 'clases:class_session_present' session.pk %}" class="btn btn-success btn-sm">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z"></path>
+                </svg>
+                Comenzar clase
+            </a>
+            {% endif %}
             {% if is_teacher %}
             <!-- Botón Editar -->
             <a href="{% url 'clases:class_session_edit' session.pk %}" class="btn btn-primary btn-sm">
@@ -37,7 +46,7 @@
             </a>
         </div>
     </div>
-    
+
     <div class="max-w-7xl mx-auto">
         <!-- Contenido de la sesión (solo lectura) -->
         <div class="card bg-base-100 shadow-md">
@@ -48,13 +57,15 @@
                     </svg>
                     Contenido de la Sesión
                 </h2>
-                
+
                 <div class="space-y-2 mt-4">
                     {% if items %}
                         {% for item in items %}
                         <!-- Session item en modo solo lectura (sin botón eliminar, sin drag) -->
                         {% if item.content_object %}
-                        <div class="flex gap-3 p-3 bg-base-200 rounded-lg hover:bg-base-300 transition-colors">
+                        <a href="{% url 'clases:class_session_item_viewer' session.pk item.pk %}?from=view"
+                           class="flex gap-3 p-3 bg-base-200 rounded-lg hover:bg-base-300 transition-colors cursor-pointer no-underline text-inherit"
+                           onclick="if(event.target.closest('[data-no-navigate]')){event.preventDefault();}">
                             <!-- Icon -->
                             <div class="flex-shrink-0">
                                 {% if item.content_type.model == 'document' %}
@@ -71,42 +82,32 @@
                                     📎
                                 {% endif %}
                             </div>
-                            
+
                             <!-- Content -->
                             <div class="flex-1 min-w-0">
                                 <div class="font-medium truncate">{{ item.get_content_title }}</div>
                                 <div class="text-sm text-base-content/60">
                                     {{ item.content_type.model|title }}
                                     {% if item.get_related_scorepage %}
-                                    · De: <a href="{{ item.get_related_scorepage.get_url }}" class="link link-primary">{{ item.get_related_scorepage.title }}</a>
+                                    · De: <span class="link link-primary" data-no-navigate onclick="event.stopPropagation();window.location.href='{{ item.get_related_scorepage.get_url }}'">{{ item.get_related_scorepage.title }}</span>
                                     {% endif %}
                                 </div>
-                                
+
                                 {% if item.notes %}
                                 <div class="text-sm text-base-content/70 mt-1 p-2 bg-base-300 rounded">
                                     📝 {{ item.notes }}
                                 </div>
                                 {% endif %}
                             </div>
-                            
+
                             <!-- Actions -->
-                            <div class="flex gap-2 flex-shrink-0">
-                                <!-- Botón Ver en fullscreen viewer (volver a view, no a edit) -->
-                                <a href="{% url 'clases:class_session_item_viewer' session.pk item.pk %}?from=view" 
-                                   class="btn btn-xs btn-ghost btn-square" 
-                                   title="Ver en pantalla completa">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                                    </svg>
-                                </a>
-                                
+                            <div class="flex gap-2 flex-shrink-0 items-center" data-no-navigate>
                                 <!-- Botón Añadir a Biblioteca (con modal para profesores) -->
                                 <div id="library-btn-{{ item.content_type.model }}-{{ item.object_id }}">
                                     {% library_button item.content_object %}
                                 </div>
                             </div>
-                        </div>
+                        </a>
                         {% else %}
                         <div class="flex gap-3 p-3 bg-base-200 rounded-lg opacity-50">
                             <div class="flex-shrink-0">⚠️</div>

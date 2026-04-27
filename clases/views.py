@@ -435,6 +435,118 @@ def class_session_view(request, pk):
 
 
 @login_required
+def class_session_present(request, pk):
+    """
+    Modo presentación fullscreen para sesión de clase.
+    Igual que study_session_view de my_library pero sin proficiency.
+    Usa fetch item-by-item con los mismos viewers (PDF, imagen, audio, embed).
+    """
+    user = request.user
+    is_teacher = user.is_staff and hasattr(user, "teaching_groups")
+
+    if is_teacher:
+        session = get_object_or_404(ClassSession, pk=pk, teacher=user)
+    else:
+        session = get_object_or_404(ClassSession, pk=pk)
+        is_enrolled = Enrollment.objects.filter(
+            user=user, group=session.group, is_active=True
+        ).exists()
+        if not is_enrolled:
+            from django.core.exceptions import PermissionDenied
+
+            raise PermissionDenied("No tienes permiso para ver esta sesión.")
+
+    items = session.get_items_ordered()
+    playlist = []
+    for item in items:
+        if not item.content_object:
+            continue
+        playlist.append(
+            {
+                "pk": item.pk,
+                "title": item.get_content_title(),
+                "icon": item.get_icon(),
+                "type": item.get_content_type_name(),
+            }
+        )
+
+    return render(
+        request,
+        "clases/class_sessions/present.html",
+        {
+            "session": session,
+            "playlist_json": json.dumps(playlist),
+        },
+    )
+
+
+@login_required
+def class_session_item_content(request, session_id, item_id):
+    """
+    Devuelve HTML del viewer para un item de sesión (sin wrapper).
+    Análogo a my_library:study_item_content pero para ClassSessionItem.
+    """
+    user = request.user
+    is_teacher = user.is_staff and hasattr(user, "teaching_groups")
+
+    session = get_object_or_404(ClassSession, pk=session_id)
+    if is_teacher:
+        if session.teacher != user:
+            return HttpResponse("No autorizado", status=403)
+    else:
+        is_enrolled = Enrollment.objects.filter(
+            user=user, group=session.group, is_active=True
+        ).exists()
+        if not is_enrolled:
+            return HttpResponse("No autorizado", status=403)
+
+    item = get_object_or_404(ClassSessionItem, pk=item_id, session=session)
+    content_type = item.content_type.model
+    content = item.content_object
+
+    # BlogPages/DictadoPages: show in iframe via a simple redirect partial
+    if content_type in ("blogpage", "dictadopage", "scorepage"):
+        if hasattr(content, "get_url"):
+            page_url = content.get_url()
+            html = (
+                f'<div style="width:100%;height:100%;">'
+                f'<iframe src="{page_url}" style="width:100%;height:100%;border:none;" '
+                f'allowfullscreen></iframe></div>'
+            )
+            return HttpResponse(html)
+
+    score_media = item.get_related_scorepage_media()
+
+    documents = {"pdfs": [], "images": [], "audios": [], "embeds": []}
+
+    if content_type == "document" and hasattr(content, "file"):
+        filename = content.file.name.lower()
+        if filename.endswith(".pdf"):
+            documents["pdfs"].append(content)
+        elif filename.endswith((".mp3", ".wav", ".ogg", ".m4a", ".aac", ".flac")):
+            documents["audios"].append(content)
+    elif content_type == "image":
+        documents["images"].append(content)
+    elif content_type == "embed":
+        documents["embeds"].append(content)
+
+    if score_media and score_media.get("embeds"):
+        for embed_val in score_media["embeds"]:
+            documents["embeds"].append(embed_val)
+
+    # Reutilizar el mismo partial que my_library study mode
+    return render(
+        request,
+        "my_library/partials/study_item_content.html",
+        {
+            "item": item,
+            "documents": documents,
+            "score_media": score_media,
+        },
+    )
+
+
+@login_required
 @user_passes_test(is_staff)
 def class_session_edit(request, pk):
     """
