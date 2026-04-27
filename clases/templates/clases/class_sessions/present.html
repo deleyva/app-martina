@@ -490,12 +490,12 @@
     }
 
     // Hook for viewers: auto-advance to next item at end of content.
-    // Guards: loadingItem blocks during transitions, timing blocks immediate re-fires.
+    // Guard: loadingItem blocks during the 600ms after item load (prevents cascade).
+    // After that window, onStudyContentEnd works normally for user-initiated advances.
     window.onStudyContentEnd = function() {
         if (loadingItem) return;
-        if (Date.now() - itemLoadedAt < 800) return;
         if (flyoutCurrentAudio) { flyoutCurrentAudio.pause(); flyoutCurrentAudio = null; }
-        loadingItem = true; // Prevent re-entry
+        loadingItem = true; // Prevent re-entry until next item loads
         loadItem(currentIndex + 1);
     };
 
