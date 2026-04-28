@@ -25,21 +25,43 @@
         {% endif %}
     {% endfor %}
 
-    {% for image in page.get_images %}
-    <div class="annotation-item border border-base-300 rounded-lg p-3 mb-2 cursor-pointer transition-colors hover:bg-base-200/50"
-         data-annotation-type="image"
-         data-annotation-image-id="{{ image.id }}"
-         onclick="scrollToImage({{ image.id }})">
-        <div class="flex items-center gap-2 mb-1">
-            {% image image fill-40x40 class="rounded shrink-0" %}
-            <div class="flex-1 min-w-0">
-                {% include "cms/resource_library/partials/resource_title.html" with item_type="image" item_pk=image.pk title=image.title is_staff=True %}
+    {% for image_item in page.get_images %}
+    {# get_images() returns a mix: Image objects (from RichText body) and StructValue (from StreamField attachments) #}
+    {% if image_item.image %}
+        {# StreamField StructValue — extract the actual Image object #}
+        {% with image=image_item.image %}
+        <div class="annotation-item border border-base-300 rounded-lg p-3 mb-2 cursor-pointer transition-colors hover:bg-base-200/50"
+             data-annotation-type="image"
+             data-annotation-image-id="{{ image.id }}"
+             onclick="scrollToImage({{ image.id }})">
+            <div class="flex items-center gap-2 mb-1">
+                {% image image fill-40x40 class="rounded shrink-0" %}
+                <div class="flex-1 min-w-0">
+                    {% include "cms/resource_library/partials/resource_title.html" with item_type="image" item_pk=image.pk title=image.title is_staff=True %}
+                </div>
+            </div>
+            <div class="mt-1">
+                {% include "cms/resource_library/partials/tag_editor.html" with item_type="image" item_pk=image.pk tags=image.tags.all is_staff=True %}
             </div>
         </div>
-        <div class="mt-1">
-            {% include "cms/resource_library/partials/tag_editor.html" with item_type="image" item_pk=image.pk tags=image.tags.all is_staff=True %}
+        {% endwith %}
+    {% elif image_item.pk %}
+        {# Direct Image object (from RichText body) #}
+        <div class="annotation-item border border-base-300 rounded-lg p-3 mb-2 cursor-pointer transition-colors hover:bg-base-200/50"
+             data-annotation-type="image"
+             data-annotation-image-id="{{ image_item.id }}"
+             onclick="scrollToImage({{ image_item.id }})">
+            <div class="flex items-center gap-2 mb-1">
+                {% image image_item fill-40x40 class="rounded shrink-0" %}
+                <div class="flex-1 min-w-0">
+                    {% include "cms/resource_library/partials/resource_title.html" with item_type="image" item_pk=image_item.pk title=image_item.title is_staff=True %}
+                </div>
+            </div>
+            <div class="mt-1">
+                {% include "cms/resource_library/partials/tag_editor.html" with item_type="image" item_pk=image_item.pk tags=image_item.tags.all is_staff=True %}
+            </div>
         </div>
-    </div>
+    {% endif %}
     {% endfor %}
 
     {% if not page.get_embeds and not page.get_images %}
