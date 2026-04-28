@@ -1,0 +1,48 @@
+{% load wagtailimages_tags library_tags %}
+{# Annotation Panel — staff-only right sidebar for editing embed/image names and tags #}
+
+<aside class="annotation-panel hidden xl:block w-72 shrink-0 self-start">
+    <div class="text-xs font-semibold uppercase tracking-wide opacity-60 mb-3">Anotaciones</div>
+
+    {% for embed_item in page.get_embeds %}
+        {% get_wagtail_embed embed_item.url as embed_obj %}
+        {% if embed_obj %}
+        {% get_embed_tags embed_obj as embed_tags %}
+        <div class="annotation-item border border-base-300 rounded-lg p-3 mb-2 cursor-pointer transition-colors hover:bg-base-200/50"
+             data-annotation-type="embed"
+             data-annotation-index="{{ forloop.counter0 }}"
+             onclick="scrollToEmbed({{ forloop.counter0 }})">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="text-lg">🎬</span>
+                <div class="flex-1 min-w-0">
+                    {% include "cms/resource_library/partials/resource_title.html" with item_type="embed" item_pk=embed_obj.pk title=embed_obj.title is_staff=True %}
+                </div>
+            </div>
+            <div class="mt-1">
+                {% include "cms/resource_library/partials/tag_editor.html" with item_type="embed" item_pk=embed_obj.pk tags=embed_tags is_staff=True %}
+            </div>
+        </div>
+        {% endif %}
+    {% endfor %}
+
+    {% for image in page.get_images %}
+    <div class="annotation-item border border-base-300 rounded-lg p-3 mb-2 cursor-pointer transition-colors hover:bg-base-200/50"
+         data-annotation-type="image"
+         data-annotation-image-id="{{ image.id }}"
+         onclick="scrollToImage({{ image.id }})">
+        <div class="flex items-center gap-2 mb-1">
+            {% image image fill-40x40 class="rounded shrink-0" %}
+            <div class="flex-1 min-w-0">
+                {% include "cms/resource_library/partials/resource_title.html" with item_type="image" item_pk=image.pk title=image.title is_staff=True %}
+            </div>
+        </div>
+        <div class="mt-1">
+            {% include "cms/resource_library/partials/tag_editor.html" with item_type="image" item_pk=image.pk tags=image.tags.all is_staff=True %}
+        </div>
+    </div>
+    {% endfor %}
+
+    {% if not page.get_embeds and not page.get_images %}
+    <div class="text-xs opacity-50 text-center py-4">Sin embeds ni imágenes</div>
+    {% endif %}
+</aside>

@@ -108,6 +108,15 @@ function renderChips() {
 function addTag(tagName) {
     if (activeTagFilters.indexOf(tagName) >= 0) return;
     activeTagFilters.push(tagName);
+
+    // If the page only shows a subset of items, reload with all items + tag filter
+    var showAllLink = document.querySelector('a[href="?show_all=1"]');
+    if (showAllLink) {
+        var tagParams = encodeURIComponent(activeTagFilters.join(','));
+        window.location.href = '?show_all=1&study_tags=' + tagParams;
+        return;
+    }
+
     renderChips();
     filterLibraryItems();
     // Clear input and close dropdown
@@ -312,19 +321,21 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Auto-study after show_all redirect
+    // Restore tag filters from URL params (e.g. after show_all redirect)
     var params = new URLSearchParams(window.location.search);
+    var studyTags = params.get('study_tags');
+    if (studyTags) {
+        activeTagFilters = studyTags.split(',');
+        renderChips();
+    }
+    var studySearch = params.get('study_search');
+    if (studySearch) {
+        var searchInput = document.getElementById('searchInput');
+        if (searchInput) searchInput.value = studySearch;
+    }
+
+    // Auto-study after show_all redirect
     if (params.get('auto_study') === '1') {
-        var studyTags = params.get('study_tags');
-        if (studyTags) {
-            activeTagFilters = studyTags.split(',');
-            renderChips();
-        }
-        var studySearch = params.get('study_search');
-        if (studySearch) {
-            var searchInput = document.getElementById('searchInput');
-            if (searchInput) searchInput.value = studySearch;
-        }
         filterLibraryItems();
         setTimeout(function() { startStudySession(); }, 100);
     }

@@ -29,6 +29,44 @@ from wagtail.embeds.blocks import EmbedBlock
 from wagtail.snippets.models import register_snippet
 from wagtail.snippets.blocks import SnippetChooserBlock
 from modelcluster.fields import ParentalKey, ParentalManyToManyField
+from taggit.models import TaggedItemBase
+from taggit.managers import TaggableManager
+from wagtail.embeds.models import Embed
+
+
+class TaggedEmbedItem(TaggedItemBase):
+    """Through model for tagging embeds via TaggableEmbed."""
+    content_object = models.ForeignKey(
+        'cms.TaggableEmbed',
+        on_delete=models.CASCADE,
+        related_name='tagged_items',
+    )
+
+
+class TaggableEmbed(models.Model):
+    """Concrete model wrapping Wagtail Embed to add tag support."""
+    embed = models.OneToOneField(
+        Embed,
+        on_delete=models.CASCADE,
+        related_name='taggable',
+    )
+    tags = TaggableManager(through=TaggedEmbedItem, blank=True)
+
+    @property
+    def title(self):
+        return self.embed.title
+
+    @title.setter
+    def title(self, value):
+        self.embed.title = value
+        self.embed.save(update_fields=['title'])
+
+    def __str__(self):
+        return self.embed.title or self.embed.url
+
+    class Meta:
+        verbose_name = "Embed etiquetable"
+        verbose_name_plural = "Embeds etiquetables"
 
 
 @register_snippet

@@ -459,11 +459,19 @@ from wagtail.images.models import Image
 
 
 def _get_resource_object(item_type, item_pk):
-    """Helper to retrieve a Document or Image by type and pk."""
+    """Helper to retrieve a Document, Image, or TaggableEmbed by type and pk."""
     if item_type == 'document':
         return get_object_or_404(Document, pk=item_pk)
     elif item_type == 'image':
         return get_object_or_404(Image, pk=item_pk)
+    elif item_type == 'embed':
+        from cms.models import TaggableEmbed
+        from wagtail.embeds.models import Embed
+        try:
+            return TaggableEmbed.objects.select_related('embed').get(embed_id=item_pk)
+        except TaggableEmbed.DoesNotExist:
+            embed = get_object_or_404(Embed, pk=item_pk)
+            return TaggableEmbed.objects.create(embed=embed)
     raise Http404
 
 
@@ -533,11 +541,7 @@ def rename_resource(request):
     if not new_title:
         return HttpResponse("Title required", status=400)
 
-    if item_type == 'embed':
-        from wagtail.embeds.models import Embed
-        obj = get_object_or_404(Embed, pk=item_pk)
-    else:
-        obj = _get_resource_object(item_type, item_pk)
+    obj = _get_resource_object(item_type, item_pk)
 
     obj.title = new_title
     obj.save()

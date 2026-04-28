@@ -20,6 +20,19 @@ def get_wagtail_embed(url):
         return None
 
 
+@register.simple_tag
+def get_embed_tags(embed_obj):
+    """Get tags for an Embed via the TaggableEmbed wrapper model."""
+    if not embed_obj:
+        return []
+    from cms.models import TaggableEmbed
+    try:
+        taggable = TaggableEmbed.objects.get(embed=embed_obj)
+        return taggable.tags.all()
+    except TaggableEmbed.DoesNotExist:
+        return []
+
+
 @register.filter
 def content_type_id(obj):
     return ContentType.objects.get_for_model(obj).pk

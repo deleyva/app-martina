@@ -155,6 +155,27 @@
         padding: 0.5rem 0;
     }
 
+    /* Annotation panel (right sidebar, staff only) */
+    .annotation-panel {
+        position: sticky;
+        top: 5rem;
+        max-height: calc(100vh - 6rem);
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: oklch(var(--bc) / 0.2) transparent;
+    }
+    .annotation-panel::-webkit-scrollbar {
+        width: 4px;
+    }
+    .annotation-panel::-webkit-scrollbar-thumb {
+        background: oklch(var(--bc) / 0.2);
+        border-radius: 2px;
+    }
+    .annotation-item.active {
+        border-color: oklch(var(--p));
+        background-color: oklch(var(--b2));
+    }
+
     /* Attachment cards grid (like ScorePage) */
     .attachment-grid {
         display: grid;
@@ -221,8 +242,8 @@
 
 {% block content %}
 {% if page.is_music_library_child %}
-<div class="max-w-6xl mx-auto px-4 py-8 lg:flex lg:gap-8">
-    {# TOC Sidebar #}
+<div class="{% if user.is_staff %}xl:max-w-[90rem]{% else %}max-w-6xl{% endif %} mx-auto px-4 py-8 lg:flex lg:gap-8">
+    {# TOC Sidebar (LEFT) #}
     {% with toc_content_id="richtext-body" %}
     {% include "cms/_toc_sidebar.html" %}
     {% endwith %}
@@ -336,6 +357,7 @@
             var el = iframe.parentNode;
             var wrapper = document.createElement('div');
             wrapper.className = 'blog-embed-wrapper';
+            wrapper.dataset.embedIndex = i;
             el.parentNode.insertBefore(wrapper, el);
             wrapper.appendChild(el);
 
@@ -358,6 +380,7 @@
 
             var wrapper = document.createElement('div');
             wrapper.className = 'blog-image-wrapper';
+            wrapper.dataset.imageId = imageId;
             img.parentNode.insertBefore(wrapper, img);
             wrapper.appendChild(img);
 
@@ -369,8 +392,61 @@
                 wrapper.appendChild(btn);
             }
         });
+
+        // Annotation panel: bidirectional scroll sync
+        initAnnotationSync();
     });
+
+    /* === Annotation Panel: scroll sync === */
+    function scrollToEmbed(index) {
+        var el = document.querySelector('.blog-embed-wrapper[data-embed-index="' + index + '"]');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    function scrollToImage(imageId) {
+        var el = document.querySelector('.blog-image-wrapper[data-image-id="' + imageId + '"]');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function initAnnotationSync() {
+        var panel = document.querySelector('.annotation-panel');
+        if (!panel) return;
+
+        var allWrappers = document.querySelectorAll('.blog-embed-wrapper, .blog-image-wrapper');
+        if (!allWrappers.length) return;
+
+        var observer = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+                if (!entry.isIntersecting) return;
+                var wrapper = entry.target;
+                var annotationItem = null;
+
+                if (wrapper.classList.contains('blog-embed-wrapper')) {
+                    annotationItem = panel.querySelector(
+                        '.annotation-item[data-annotation-type="embed"][data-annotation-index="' + wrapper.dataset.embedIndex + '"]'
+                    );
+                } else if (wrapper.classList.contains('blog-image-wrapper')) {
+                    annotationItem = panel.querySelector(
+                        '.annotation-item[data-annotation-type="image"][data-annotation-image-id="' + wrapper.dataset.imageId + '"]'
+                    );
+                }
+
+                if (annotationItem) {
+                    panel.querySelectorAll('.annotation-item.active').forEach(function(el) {
+                        el.classList.remove('active');
+                    });
+                    annotationItem.classList.add('active');
+                    annotationItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            });
+        }, { rootMargin: '-20% 0px -60% 0px' });
+
+        allWrappers.forEach(function(w) { observer.observe(w); });
+    }
+
     </script>
+
+    {# Tag autocomplete JS (shared with /resources) #}
+    {% include "cms/_tag_autocomplete.html" %}
 
     {# Attachment cards (PDFs, audios, images) - same style as ScorePage #}
     {% if page.attachments %}
@@ -614,6 +690,11 @@
 
 {% if page.is_music_library_child %}
     </div>{# close flex-1 wrapper #}
+
+    {# Annotation Panel (RIGHT, staff only, xl+ screens) #}
+    {% if user.is_staff %}
+    {% include "cms/blog_page/_annotation_panel.html" %}
+    {% endif %}
 </div>{# close flex container #}
 {% else %}
 </div>
