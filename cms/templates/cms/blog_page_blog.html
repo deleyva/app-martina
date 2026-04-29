@@ -300,10 +300,7 @@
     <div class="max-w-3xl mx-auto mt-12 mb-8">
         {% for video in page.get_videos %}
         <div class="mb-8">
-            <h3 class="font-serif-title text-xl font-bold mb-2">{{ video.title }}</h3>
-            {% if video.description %}
-            <p class="text-gray-600 text-sm mb-3">{{ video.description }}</p>
-            {% endif %}
+            <h3 class="font-serif-title text-xl font-bold mb-2">{{ video.title|default:video.video_file.title }}</h3>
             <video controls class="w-full rounded" preload="metadata" playsinline>
                 <source src="{{ video.video_file.url }}">
                 Tu navegador no soporta la reproducción de vídeo.

@@ -1,0 +1,73 @@
+<div class="card bg-base-100 shadow-md border-2 border-info/30">
+    <div class="card-body p-4">
+        <h3 class="card-title text-base gap-2 mb-3">
+            <svg class="w-5 h-5 text-info" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            Resultados OCR — Confirmar recogidas
+        </h3>
+
+        <form hx-post="{% url 'clases:study_cards_ocr_confirm' group.pk %}"
+              hx-target="#ocr-area"
+              hx-swap="innerHTML">
+            {% csrf_token %}
+            <input type="hidden" name="date" value="{{ today }}">
+
+            <div class="overflow-x-auto">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Alumno</th>
+                            <th>Códigos detectados</th>
+                            <th class="text-right">Confianza</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in results %}
+                        <tr>
+                            <td>
+                                <span class="font-medium">{{ entry.student_name }}</span>
+                                <input type="hidden" name="entry_{{ forloop.counter0 }}_student_id" value="{{ entry.student_id }}">
+                            </td>
+                            <td>
+                                <div class="flex flex-wrap gap-1.5">
+                                    {% for code in entry.codes %}
+                                    <label class="flex items-center gap-1 cursor-pointer">
+                                        <input type="checkbox" name="code_{{ forloop.parentloop.counter0 }}_{{ forloop.counter0 }}"
+                                               value="{{ code }}" checked
+                                               class="checkbox checkbox-xs checkbox-primary">
+                                        <code class="text-xs font-mono bg-base-200 px-1.5 py-0.5 rounded">{{ code }}</code>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                            </td>
+                            <td class="text-right">
+                                {% if entry.confidence >= 0.8 %}
+                                <div class="badge badge-success badge-xs">{{ entry.confidence|floatformat:0 }}%</div>
+                                {% elif entry.confidence >= 0.5 %}
+                                <div class="badge badge-warning badge-xs">{{ entry.confidence|floatformat:0 }}%</div>
+                                {% else %}
+                                <div class="badge badge-error badge-xs">{{ entry.confidence|floatformat:0 }}%</div>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="flex justify-end gap-2 mt-4">
+                <button type="button" class="btn btn-ghost btn-sm"
+                        onclick="document.getElementById('ocr-area').innerHTML='';">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn btn-primary btn-sm gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    Confirmar Recogidas
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

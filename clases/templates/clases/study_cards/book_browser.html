@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% load wagtailimages_tags %}
+
+{% block title %}{{ book.title }} — Tarjetas{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 pb-28">
+    {# Header #}
+    <div class="mb-6">
+        <a href="{% url 'clases:study_cards_dashboard' %}" class="btn btn-ghost btn-sm gap-1 mb-3">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+            Volver
+        </a>
+        <h1 class="text-2xl sm:text-3xl font-bold">{{ book.title }}</h1>
+        <p class="text-base-content/60 mt-1">Haz clic en una imagen para marcarla como imprimible</p>
+    </div>
+
+    {% if chapters %}
+    {# Chapter sections #}
+    {% for chapter in chapters %}
+    <div class="mb-10">
+        <div class="flex items-baseline gap-3 mb-4">
+            <h2 class="text-lg font-semibold">
+                <span class="text-base-content/40 font-mono text-sm mr-1">{{ chapter.index }}.</span>
+                {{ chapter.page.title }}
+            </h2>
+            <span class="text-xs text-base-content/40">{{ chapter.images|length }} img.</span>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+            {% for item in chapter.images %}
+                {% include "clases/study_cards/partials/image_card.html" with item=item book_id=book.pk oob_counter=False %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+
+    {% else %}
+    <div class="text-center py-16 bg-base-100 rounded-box shadow">
+        <svg class="w-16 h-16 mx-auto text-base-content/20 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+        </svg>
+        <h2 class="text-2xl font-bold mb-2">Sin imágenes</h2>
+        <p class="text-base-content/60">Este libro no tiene imágenes en sus capítulos.</p>
+    </div>
+    {% endif %}
+</div>
+
+{# Sticky bottom bar #}
+{% if chapters %}
+<div class="fixed bottom-0 left-0 right-0 z-30 bg-base-200/95 backdrop-blur border-t border-base-300 shadow-lg">
+    <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                </svg>
+                <span class="font-semibold text-lg" id="imprimible-counter">{{ total_imprimible }}</span>
+                <span class="text-base-content/60 text-sm hidden sm:inline">tarjeta{{ total_imprimible|pluralize }} para imprimir</span>
+            </div>
+        </div>
+        <form method="post" action="{% url 'clases:study_cards_generate_pdf' book.pk %}" class="inline"
+              onsubmit="var btn=this.querySelector('button'); setTimeout(function(){btn.classList.add('loading');btn.disabled=true;},10);">
+            {% csrf_token %}
+            <button type="submit"
+                    class="btn btn-primary gap-2 {% if total_imprimible == 0 %}btn-disabled{% endif %}"
+                    {% if total_imprimible == 0 %}disabled{% endif %}>
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                Generar PDF
+            </button>
+        </form>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

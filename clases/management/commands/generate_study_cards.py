@@ -31,6 +31,9 @@ class Command(BaseCommand):
         parser.add_argument(
             "--max-width", type=int, default=800, help="Max image width for renditions"
         )
+        parser.add_argument(
+            "--tag", type=str, help="Only include images with this tag (e.g. 'imprimible')"
+        )
 
     def handle(self, *args, **options):
         pages = []
@@ -93,7 +96,7 @@ class Command(BaseCommand):
         # Generate codes for all pages
         all_items = []
         for page in pages:
-            codes = generate_codes_for_page(page, all_books=all_books)
+            codes = generate_codes_for_page(page, all_books=all_books, tag=options.get("tag"))
             all_items.extend(codes)
             self.stdout.write(f"  {page.title}: {len(codes)} images")
 

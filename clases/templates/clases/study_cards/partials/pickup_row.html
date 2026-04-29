@@ -1,0 +1,24 @@
+<tr id="pickup-{{ pickup.pk }}" {% if is_new %}class="animate-pulse bg-success/10"{% endif %}>
+    <td>{{ pickup.student.name|default:pickup.student.email }}</td>
+    <td><code class="text-xs font-mono">{{ pickup.card_item.code }}</code></td>
+    <td>{{ pickup.picked_up_at|date:"d/m/Y" }}</td>
+    <td>
+        {% if pickup.source == "photo_ocr" %}
+        <div class="badge badge-info badge-xs">OCR</div>
+        {% else %}
+        <div class="badge badge-ghost badge-xs">Manual</div>
+        {% endif %}
+    </td>
+    <td>
+        <button class="btn btn-ghost btn-xs btn-square"
+                hx-post="{% url 'clases:study_cards_delete_pickup' pickup.pk %}"
+                hx-target="#pickup-{{ pickup.pk }}"
+                hx-swap="outerHTML"
+                hx-confirm="Eliminar recogida de {{ pickup.student.name|default:pickup.student.email }}?"
+                title="Eliminar">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+        </button>
+    </td>
+</tr>

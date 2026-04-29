@@ -22,6 +22,9 @@ class Command(BaseCommand):
             action="store_true",
             help="Show generated codes for each image",
         )
+        parser.add_argument(
+            "--tag", type=str, help="Only include images with this tag (e.g. 'imprimible')"
+        )
 
     def handle(self, *args, **options):
         books = BlogIndexPage.objects.live()
@@ -50,7 +53,7 @@ class Command(BaseCommand):
 
             for ch_idx, chapter in enumerate(chapters, start=1):
                 if options["codes"]:
-                    codes = generate_codes_for_page(chapter, all_books=all_books)
+                    codes = generate_codes_for_page(chapter, all_books=all_books, tag=options.get("tag"))
                     if not codes:
                         continue
                     total_images += len(codes)
@@ -61,6 +64,8 @@ class Command(BaseCommand):
                         self.stdout.write(f"    {code} - {img.title}")
                 else:
                     images = chapter.get_images()
+                    if options.get("tag"):
+                        images = [img for img in images if img.tags.filter(name=options["tag"]).exists()]
                     if not images:
                         continue
                     total_images += len(images)

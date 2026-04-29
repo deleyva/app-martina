@@ -468,34 +468,26 @@ class BlogPage(Page):
         help_text="Marcar para mostrar en la portada del blog",
     )
 
-    # StreamField para archivos adjuntos (PDFs, audios, imágenes) con cards
+    # StreamField para archivos adjuntos — simplificado: un gesto por elemento
     attachments = StreamField(
         [
             ("pdf_score", StructBlock([
-                ("title", CharBlock(max_length=200, help_text="Título del PDF")),
                 ("pdf_file", DocumentChooserBlock(help_text="Seleccionar archivo PDF")),
-                ("description", TextBlock(required=False, help_text="Descripción opcional")),
-                ("page_count", CharBlock(max_length=10, required=False, help_text="Número de páginas")),
             ], icon="doc-full-inverse", label="PDF")),
             ("audio", StructBlock([
-                ("title", CharBlock(max_length=200, help_text="Título del audio")),
                 ("audio_file", DocumentChooserBlock(help_text="Seleccionar archivo audio")),
-                ("description", TextBlock(required=False, help_text="Descripción opcional")),
             ], icon="media", label="Audio")),
             ("image", StructBlock([
-                ("title", CharBlock(max_length=200, help_text="Título de la imagen")),
                 ("image", ImageChooserBlock(help_text="Seleccionar imagen")),
                 ("caption", TextBlock(required=False, help_text="Descripción opcional")),
-            ], icon="image", label="Image")),
+            ], icon="image", label="Imagen")),
             ("video", StructBlock([
-                ("title", CharBlock(max_length=200, help_text="Título del vídeo")),
-                ("video_file", DocumentChooserBlock(help_text="Seleccionar archivo de vídeo (máx. 10 MB)")),
-                ("description", TextBlock(required=False, help_text="Descripción opcional")),
+                ("video_file", DocumentChooserBlock(help_text="Seleccionar vídeo (máx. 10 MB)")),
             ], icon="media", label="Vídeo")),
             ("external_link", StructBlock([
                 ("resource", SnippetChooserBlock("cms.ExternalResource")),
                 ("override_title", CharBlock(required=False, help_text="Título alternativo (opcional)")),
-            ], icon="link", label="Enlace Externo")),
+            ], icon="link", label="Enlace")),
         ],
         blank=True,
         use_json_field=True,
@@ -513,7 +505,7 @@ class BlogPage(Page):
         FieldPanel("featured_image"),
         FieldPanel("is_featured"),
         FieldPanel("body"),
-        FieldPanel("attachments"),
+        FieldPanel("attachments", heading="Adjuntos"),
     ]
 
     promote_panels = Page.promote_panels + [
@@ -567,7 +559,7 @@ class BlogPage(Page):
         Images from StreamField attachments + RichText body embeds.
         Uses instance cache to avoid repeated StreamField deserialization.
         """
-        images = list(self._parse_attachments()['images'])
+        images = [sv['image'] for sv in self._parse_attachments()['images'] if sv.get('image')]
 
         # Images from RichText body — only on detail page, skip for listings
         if self.body and '<embed embedtype="image"' in self.body:

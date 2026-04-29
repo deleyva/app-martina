@@ -471,15 +471,7 @@
                         </div>
                     </div>
                     <div class="card-body p-4">
-                        <h3 class="card-title text-base">{{ block.value.title }}</h3>
-                        {% if block.value.page_count %}
-                        <div class="flex flex-wrap gap-1 mb-2">
-                            <div class="badge badge-ghost badge-sm">{{ block.value.page_count }} pág.</div>
-                        </div>
-                        {% endif %}
-                        {% if block.value.description %}
-                        <p class="text-xs text-base-content/70 line-clamp-2">{{ block.value.description }}</p>
-                        {% endif %}
+                        <h3 class="card-title text-base">{{ block.value.title|default:block.value.pdf_file.title }}</h3>
                         <div class="card-actions justify-end mt-auto">
                             <a href="{% url 'my_library:view_content_object' block.value.pdf_file|content_type_id block.value.pdf_file.pk %}?back={{ request.path|urlencode }}" class="btn btn-ghost btn-sm" title="Open viewer">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -509,10 +501,7 @@
                 {% elif block.block_type == 'audio' and block.value.audio_file %}
                 <div class="card bg-base-100 shadow-xl attachment-card">
                     <div class="card-body p-4">
-                        <h3 class="card-title text-base">🎵 {{ block.value.title }}</h3>
-                        {% if block.value.description %}
-                        <p class="text-xs text-base-content/70 line-clamp-2 mb-3">{{ block.value.description }}</p>
-                        {% endif %}
+                        <h3 class="card-title text-base">🎵 {{ block.value.title|default:block.value.audio_file.title }}</h3>
                         <audio controls class="w-full mb-3" preload="metadata">
                             <source src="{{ block.value.audio_file.url }}" type="audio/mpeg">
                             <source src="{{ block.value.audio_file.url }}" type="audio/wav">
@@ -542,10 +531,7 @@
                 {% elif block.block_type == 'video' and block.value.video_file %}
                 <div class="card bg-base-100 shadow-xl attachment-card">
                     <div class="card-body p-4">
-                        <h3 class="card-title text-base">🎬 {{ block.value.title }}</h3>
-                        {% if block.value.description %}
-                        <p class="text-xs text-base-content/70 line-clamp-2 mb-3">{{ block.value.description }}</p>
-                        {% endif %}
+                        <h3 class="card-title text-base">🎬 {{ block.value.title|default:block.value.video_file.title }}</h3>
                         <video controls class="w-full rounded-lg mb-3" preload="metadata" playsinline>
                             <source src="{{ block.value.video_file.url }}">
                             Tu navegador no soporta la reproducción de vídeo.
@@ -571,7 +557,7 @@
                         {% image block.value.image width-1000 class="w-full h-full" %}
                     </div>
                     <div class="card-body p-4">
-                        <h3 class="card-title text-base">{{ block.value.title }}</h3>
+                        <h3 class="card-title text-base">{{ block.value.title|default:block.value.image.title }}</h3>
                         {% if block.value.caption %}
                         <p class="text-xs text-base-content/70 line-clamp-2">{{ block.value.caption }}</p>
                         {% endif %}

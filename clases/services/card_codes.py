@@ -90,16 +90,23 @@ def generate_code(blog_page, image_index, all_books=None):
     return f"{abbrev}-{chapter_num}-{image_index:02d}"
 
 
-def generate_codes_for_page(blog_page, all_books=None):
+def generate_codes_for_page(blog_page, all_books=None, tag=None):
     """
     Generate codes for all images in a BlogPage.
 
     Computes book abbreviation and chapter position once, then applies to all images.
 
+    Args:
+        blog_page: A BlogPage instance (the chapter)
+        all_books: Optional list of all BlogIndexPage titles for collision detection
+        tag: Optional tag name to filter images (e.g. "imprimible")
+
     Returns:
         list of (image, code) tuples
     """
     images = blog_page.get_images()
+    if tag:
+        images = [img for img in images if img.tags.filter(name=tag).exists()]
     if not images:
         return []
 

@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from . import views_study_cards
 
 app_name = "clases"
 
@@ -143,5 +144,58 @@ urlpatterns = [
         "groups/<int:group_id>/assign-to-students/",
         views.assign_to_students,
         name="assign_to_students",
+    ),
+    # =============================================================================
+    # TARJETAS DE ESTUDIO
+    # =============================================================================
+    path(
+        "study-cards/",
+        views_study_cards.dashboard,
+        name="study_cards_dashboard",
+    ),
+    path(
+        "study-cards/book/<int:book_id>/",
+        views_study_cards.book_browser,
+        name="study_cards_book",
+    ),
+    path(
+        "study-cards/toggle-tag/<int:image_id>/",
+        views_study_cards.toggle_tag,
+        name="study_cards_toggle_tag",
+    ),
+    path(
+        "study-cards/book/<int:book_id>/generate-pdf/",
+        views_study_cards.generate_pdf,
+        name="study_cards_generate_pdf",
+    ),
+    path(
+        "study-cards/group/<int:group_id>/",
+        views_study_cards.group_tracking,
+        name="study_cards_group_tracking",
+    ),
+    path(
+        "study-cards/group/<int:group_id>/registration-sheet/",
+        views_study_cards.registration_sheet_pdf,
+        name="study_cards_registration_sheet",
+    ),
+    path(
+        "study-cards/group/<int:group_id>/add-pickup/",
+        views_study_cards.add_pickup,
+        name="study_cards_add_pickup",
+    ),
+    path(
+        "study-cards/pickup/<int:pickup_id>/delete/",
+        views_study_cards.delete_pickup,
+        name="study_cards_delete_pickup",
+    ),
+    path(
+        "study-cards/group/<int:group_id>/ocr-upload/",
+        views_study_cards.ocr_upload,
+        name="study_cards_ocr_upload",
+    ),
+    path(
+        "study-cards/group/<int:group_id>/ocr-confirm/",
+        views_study_cards.ocr_confirm,
+        name="study_cards_ocr_confirm",
     ),
 ]
