@@ -64,7 +64,7 @@
         <form method="post" action="{% url 'clases:study_cards_generate_pdf' book.pk %}" class="inline"
               onsubmit="var btn=this.querySelector('button'); setTimeout(function(){btn.classList.add('loading');btn.disabled=true;},10);">
             {% csrf_token %}
-            <button type="submit"
+            <button type="submit" id="generate-pdf-btn"
                     class="btn btn-primary gap-2 {% if total_imprimible == 0 %}btn-disabled{% endif %}"
                     {% if total_imprimible == 0 %}disabled{% endif %}>
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -76,4 +76,28 @@
     </div>
 </div>
 {% endif %}
+
+<script>
+// Enable/disable PDF button when counter changes via HTMX OOB swap
+(function() {
+    var counter = document.getElementById('imprimible-counter');
+    var btn = document.getElementById('generate-pdf-btn');
+    if (!counter || !btn) return;
+
+    function syncBtn() {
+        var count = parseInt(counter.textContent) || 0;
+        btn.disabled = count === 0;
+        if (count === 0) {
+            btn.classList.add('btn-disabled');
+        } else {
+            btn.classList.remove('btn-disabled');
+        }
+    }
+
+    // Watch for HTMX OOB swaps that update the counter
+    document.body.addEventListener('htmx:oobAfterSwap', syncBtn);
+    // Fallback: also watch DOM changes on counter
+    new MutationObserver(syncBtn).observe(counter, {childList: true, characterData: true, subtree: true});
+})();
+</script>
 {% endblock %}
