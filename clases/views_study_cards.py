@@ -193,9 +193,14 @@ def generate_pdf(request, book_id):
     all_books = list(BlogIndexPage.objects.live())
 
     all_items = []
+    all_codes_by_chapter = []
     for chapter in chapters:
         codes = generate_codes_for_page(chapter, all_books=all_books, tag=TAG_IMPRIMIBLE)
         all_items.extend(codes)
+        # Also collect all images for fill candidates
+        all_codes_by_chapter.append(
+            generate_codes_for_page(chapter, all_books=all_books)
+        )
 
     if not all_items:
         return HttpResponse(
@@ -203,7 +208,15 @@ def generate_pdf(request, book_id):
             status=200,
         )
 
-    pdf_bytes = generate_cards_pdf(all_items)
+    # Build fill candidates: non-imprimible images from the same book
+    selected_ids = {img.pk for img, _ in all_items}
+    fill_items = []
+    for chapter_codes in all_codes_by_chapter:
+        for img, code in chapter_codes:
+            if img.pk not in selected_ids:
+                fill_items.append((img, code))
+
+    pdf_bytes = generate_cards_pdf(all_items, fill_items=fill_items)
 
     response = HttpResponse(pdf_bytes, content_type="application/pdf")
     safe_title = book.title.replace(" ", "_")[:40]

@@ -95,14 +95,26 @@ class Command(BaseCommand):
 
         # Generate codes for all pages
         all_items = []
+        fill_items = []
+        tag = options.get("tag")
         for page in pages:
-            codes = generate_codes_for_page(page, all_books=all_books, tag=options.get("tag"))
+            codes = generate_codes_for_page(page, all_books=all_books, tag=tag)
             all_items.extend(codes)
             self.stdout.write(f"  {page.title}: {len(codes)} images")
+            # Collect fill candidates when filtering by tag
+            if tag:
+                all_codes = generate_codes_for_page(page, all_books=all_books)
+                selected_ids = {img.pk for img, _ in codes}
+                fill_items.extend(
+                    (img, code) for img, code in all_codes if img.pk not in selected_ids
+                )
 
         if not all_items:
             raise CommandError("No images found in selected pages")
 
         self.stdout.write(f"\nGenerating PDF with {len(all_items)} cards...")
-        output = generate_cards_pdf(all_items, output_path=options["output"])
+        output = generate_cards_pdf(
+            all_items, output_path=options["output"],
+            fill_items=fill_items if fill_items else None,
+        )
         self.stdout.write(self.style.SUCCESS(f"PDF saved to {output}"))

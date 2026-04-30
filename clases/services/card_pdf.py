@@ -62,8 +62,10 @@ def _build_slots(items):
     """
     # Max height available in a single-image A5 slot
     single_slot_h = A5_HEIGHT - 2 * MARGIN - 10 * mm
-    # When stacking 2 images, each gets half the space minus gap for code between them
-    double_slot_h = (A5_HEIGHT - 2 * MARGIN - 20 * mm) / 2  # half-slot per image
+    # When stacking 2 images, allow generous pairing for landscape images.
+    # Images will be height-constrained in rendering (scaled down) but remain
+    # legible — e.g. a 2:1 image renders at ~100mm wide on a 180mm card.
+    double_slot_h = A5_HEIGHT * 0.7
 
     slots = []
     i = 0
@@ -83,7 +85,7 @@ def _build_slots(items):
     return slots
 
 
-def generate_cards_pdf(items, output_path=None):
+def generate_cards_pdf(items, output_path=None, fill_items=None):
     """
     Generate A4 PDF with 2 x A5 study cards per page, laid out for duplex printing.
 
@@ -102,11 +104,20 @@ def generate_cards_pdf(items, output_path=None):
     Args:
         items: List of (wagtail_image, code_str) tuples
         output_path: Optional path. If None, returns bytes.
+        fill_items: Optional list of extra (wagtail_image, code_str) tuples
+                    to fill blank A5 halves when slot count isn't a multiple of 4.
 
     Returns:
         str path if output_path given, else bytes
     """
     slots = _build_slots(items)
+
+    # Fill empty A5 halves so no page is left blank
+    remainder = len(slots) % 4
+    if remainder != 0 and fill_items:
+        needed = 4 - remainder
+        fill_slots = _build_slots(fill_items)
+        slots.extend(fill_slots[:needed])
 
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
@@ -168,7 +179,11 @@ def _draw_slot(c, slot_items, y_offset):
 
 
 def _draw_single_image(c, wagtail_image, code, y_offset, zone_height):
-    """Draw one image with its code within a vertical zone."""
+    """Draw one image with its code within a vertical zone.
+
+    Tall images (height > width * 1.2) are rotated 90° counter-clockwise
+    so they fill the A5 card when held vertically after cutting.
+    """
     img_path = _get_image_path(wagtail_image)
     if not img_path or not os.path.exists(img_path):
         c.setFont("Helvetica", 10)
@@ -185,14 +200,34 @@ def _draw_single_image(c, wagtail_image, code, y_offset, zone_height):
         code_space = 8 * mm
         available_h = zone_height - MARGIN - code_space
 
-        scale = min(available_w / img_w, available_h / img_h)
-        draw_w = img_w * scale
-        draw_h = img_h * scale
+        is_tall = img_h > img_w * 1.2
 
-        x = (A4_WIDTH - draw_w) / 2
-        y = y_offset + code_space + (available_h - draw_h) / 2
+        if is_tall:
+            # Rotate 90° CCW: image height becomes horizontal, width becomes vertical
+            scale = min(available_w / img_h, available_h / img_w)
+            draw_w = img_w * scale  # vertical extent after rotation
+            draw_h = img_h * scale  # horizontal extent after rotation
 
-        c.drawImage(img_path, x, y, draw_w, draw_h, preserveAspectRatio=True)
+            # Center of available zone
+            cx = A4_WIDTH / 2
+            cy = y_offset + code_space + available_h / 2
+
+            c.saveState()
+            c.translate(cx, cy)
+            c.rotate(90)
+            # In rotated coordinate system, draw centered at origin
+            c.drawImage(img_path, -draw_w / 2, -draw_h / 2, draw_w, draw_h,
+                        preserveAspectRatio=True)
+            c.restoreState()
+        else:
+            scale = min(available_w / img_w, available_h / img_h)
+            draw_w = img_w * scale
+            draw_h = img_h * scale
+
+            x = (A4_WIDTH - draw_w) / 2
+            y = y_offset + code_space + (available_h - draw_h) / 2
+
+            c.drawImage(img_path, x, y, draw_w, draw_h, preserveAspectRatio=True)
 
     # Code in bottom-right of this zone
     c.setFont(CODE_FONT, CODE_FONT_SIZE)
