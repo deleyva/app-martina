@@ -229,11 +229,11 @@ def _draw_single_image(c, wagtail_image, code, y_offset, zone_height):
 
             c.drawImage(img_path, x, y, draw_w, draw_h, preserveAspectRatio=True, mask='auto')
 
-    # Code in bottom-right of this zone
+    # Code in bottom-right of this zone (5mm from zone bottom to stay within printable area)
     c.setFont(CODE_FONT, CODE_FONT_SIZE)
     c.setFillColor(black)
     code_x = A4_WIDTH - MARGIN - c.stringWidth(code, CODE_FONT, CODE_FONT_SIZE)
-    code_y = y_offset + 2 * mm
+    code_y = y_offset + 5 * mm
     c.drawString(code_x, code_y, code)
 
 
