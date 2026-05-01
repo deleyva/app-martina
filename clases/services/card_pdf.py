@@ -217,7 +217,7 @@ def _draw_single_image(c, wagtail_image, code, y_offset, zone_height):
             c.rotate(90)
             # In rotated coordinate system, draw centered at origin
             c.drawImage(img_path, -draw_w / 2, -draw_h / 2, draw_w, draw_h,
-                        preserveAspectRatio=True)
+                        preserveAspectRatio=True, mask='auto')
             c.restoreState()
         else:
             scale = min(available_w / img_w, available_h / img_h)
@@ -227,7 +227,7 @@ def _draw_single_image(c, wagtail_image, code, y_offset, zone_height):
             x = (A4_WIDTH - draw_w) / 2
             y = y_offset + code_space + (available_h - draw_h) / 2
 
-            c.drawImage(img_path, x, y, draw_w, draw_h, preserveAspectRatio=True)
+            c.drawImage(img_path, x, y, draw_w, draw_h, preserveAspectRatio=True, mask='auto')
 
     # Code in bottom-right of this zone
     c.setFont(CODE_FONT, CODE_FONT_SIZE)
