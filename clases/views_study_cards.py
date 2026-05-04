@@ -81,15 +81,37 @@ def _find_item_by_code(code, group):
 # =============================================================================
 
 
+def _get_page_stats(page):
+    """Get image stats for a single BlogPage."""
+    images = page.get_images()
+    total = len(images)
+    imprimible = sum(1 for img in images if _has_tag(img, TAG_IMPRIMIBLE))
+    return {"total": total, "imprimible": imprimible}
+
+
 @login_required
 @user_passes_test(is_staff)
 def dashboard(request):
     books = BlogIndexPage.objects.live().order_by("title")
     book_data = []
+    book_child_ids = set()
     for book in books:
         stats = _get_book_stats(book)
         if stats["total"] > 0:
             book_data.append({"book": book, **stats})
+        # Track which pages are already shown as book chapters
+        for ch in book.get_children().type(BlogPage):
+            book_child_ids.add(ch.pk)
+
+    # Individual BlogPages with images (not already shown as book chapters)
+    all_pages = BlogPage.objects.live().filter(
+        body__contains='embedtype="image"'
+    ).exclude(pk__in=book_child_ids).order_by("title")
+    page_data = []
+    for page in all_pages:
+        stats = _get_page_stats(page)
+        if stats["total"] > 0:
+            page_data.append({"page": page, **stats})
 
     # Groups where current user is teacher
     groups = Group.objects.filter(teachers=request.user).order_by("name")
@@ -105,6 +127,7 @@ def dashboard(request):
 
     return render(request, "clases/study_cards/dashboard.html", {
         "books": book_data,
+        "pages": page_data,
         "groups": group_data,
     })
 
@@ -271,6 +294,81 @@ def generate_pdf(request, book_id):
 
     response = HttpResponse(pdf_bytes, content_type="application/pdf")
     safe_title = book.title.replace(" ", "_")[:40]
+    response["Content-Disposition"] = f'attachment; filename="tarjetas_{safe_title}.pdf"'
+    return response
+
+
+# =============================================================================
+# PAGE BROWSER (single BlogPage)
+# =============================================================================
+
+
+@login_required
+@user_passes_test(is_staff)
+def page_browser(request, page_id):
+    page = get_object_or_404(BlogPage, pk=page_id)
+    all_books = list(BlogIndexPage.objects.live())
+
+    labels = {
+        (l.image_id, l.source_page_id): l.description
+        for l in StudyCardLabel.objects.filter(source_page_id=page.pk)
+    }
+
+    codes = generate_codes_for_page(page, all_books=all_books)
+    total_imprimible = 0
+    images_data = []
+    for img, code in codes:
+        is_imprimible = _has_tag(img, TAG_IMPRIMIBLE)
+        if is_imprimible:
+            total_imprimible += 1
+        images_data.append({
+            "image": img,
+            "code": code,
+            "is_imprimible": is_imprimible,
+            "description": labels.get((img.pk, page.pk), ""),
+            "page_id": page.pk,
+        })
+
+    return render(request, "clases/study_cards/page_browser.html", {
+        "page": page,
+        "images": images_data,
+        "total_imprimible": total_imprimible,
+    })
+
+
+@login_required
+@user_passes_test(is_staff)
+@require_http_methods(["POST"])
+def generate_pdf_page(request, page_id):
+    page = get_object_or_404(BlogPage, pk=page_id)
+    all_books = list(BlogIndexPage.objects.live())
+
+    labels = {
+        (l.image_id, l.source_page_id): l.description
+        for l in StudyCardLabel.objects.filter(source_page_id=page.pk)
+    }
+
+    imprimible_codes = generate_codes_for_page(page, all_books=all_books, tag=TAG_IMPRIMIBLE)
+    all_codes = generate_codes_for_page(page, all_books=all_books)
+
+    all_items = []
+    for img, code in imprimible_codes:
+        desc = labels.get((img.pk, page.pk), "")
+        all_items.append((img, code, desc))
+
+    if not all_items:
+        return HttpResponse(
+            '<div class="alert alert-warning">No hay imágenes marcadas como imprimible.</div>',
+            status=200,
+        )
+
+    selected_ids = {img.pk for img, _, _ in all_items}
+    fill_items = [(img, code) for img, code in all_codes if img.pk not in selected_ids]
+
+    pdf_bytes = generate_cards_pdf(all_items, fill_items=fill_items)
+
+    response = HttpResponse(pdf_bytes, content_type="application/pdf")
+    safe_title = page.title.replace(" ", "_")[:40]
     response["Content-Disposition"] = f'attachment; filename="tarjetas_{safe_title}.pdf"'
     return response
 

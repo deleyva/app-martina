@@ -174,6 +174,16 @@ urlpatterns = [
         name="study_cards_generate_pdf",
     ),
     path(
+        "study-cards/page/<int:page_id>/",
+        views_study_cards.page_browser,
+        name="study_cards_page",
+    ),
+    path(
+        "study-cards/page/<int:page_id>/generate-pdf/",
+        views_study_cards.generate_pdf_page,
+        name="study_cards_generate_pdf_page",
+    ),
+    path(
         "study-cards/group/<int:group_id>/",
         views_study_cards.group_tracking,
         name="study_cards_group_tracking",

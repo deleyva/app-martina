@@ -10,6 +10,13 @@
         <p class="text-base-content/60 mt-1">Gestiona tarjetas imprimibles y seguimiento por grupo</p>
     </div>
 
+    {# ── SEARCH FILTER ── #}
+    <div class="mb-6">
+        <input type="text" id="search-filter" placeholder="Buscar por título..."
+               class="input input-bordered w-full max-w-md"
+               oninput="filterCards(this.value)">
+    </div>
+
     {# ── GROUPS SECTION ── #}
     {% if groups %}
     <div class="mb-10">
@@ -52,7 +59,8 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {% for item in books %}
             <a href="{% url 'clases:study_cards_book' item.book.pk %}"
-               class="card bg-base-100 shadow-md hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5 cursor-pointer group">
+               class="card bg-base-100 shadow-md hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5 cursor-pointer group filterable-card"
+               data-title="{{ item.book.title|lower }}">
                 {% with item.book.specific as book_page %}
                 {% if book_page.featured_image %}
                 <figure class="relative h-40 overflow-hidden">
@@ -86,7 +94,7 @@
             {% endfor %}
         </div>
         {% else %}
-        <div class="text-center py-12 bg-base-100 rounded-box shadow">
+        <div class="text-center py-12 bg-base-100 rounded-box shadow" id="no-books-msg">
             <svg class="w-16 h-16 mx-auto text-base-content/20 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
             </svg>
@@ -95,5 +103,62 @@
         </div>
         {% endif %}
     </div>
+
+    {# ── PAGES SECTION ── #}
+    {% if pages %}
+    <div class="mb-10" id="pages-section">
+        <h2 class="text-lg font-semibold mb-4 flex items-center gap-2">
+            <svg class="w-5 h-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+            Páginas — Imágenes Imprimibles
+        </h2>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5" id="pages-grid">
+            {% for item in pages %}
+            <a href="{% url 'clases:study_cards_page' item.page.pk %}"
+               class="card bg-base-100 shadow-md hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5 cursor-pointer group filterable-card"
+               data-title="{{ item.page.title|lower }}">
+                {% if item.page.specific.featured_image %}
+                <figure class="relative h-40 overflow-hidden">
+                    {% image item.page.specific.featured_image fill-400x160 class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" %}
+                    <div class="absolute inset-0 bg-gradient-to-t from-base-300/80 to-transparent"></div>
+                </figure>
+                {% else %}
+                <figure class="relative h-40 overflow-hidden bg-gradient-to-br from-accent/10 to-primary/10 flex items-center justify-center">
+                    <svg class="w-16 h-16 text-base-content/20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                </figure>
+                {% endif %}
+                <div class="card-body p-4">
+                    <h3 class="card-title text-base leading-tight">{{ item.page.title }}</h3>
+                    <div class="flex flex-wrap gap-2 mt-2">
+                        <div class="badge badge-ghost badge-sm">{{ item.total }} img.</div>
+                        {% if item.imprimible > 0 %}
+                        <div class="badge badge-success badge-sm gap-1">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                            </svg>
+                            {{ item.imprimible }}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
 </div>
+
+<script>
+function filterCards(query) {
+    var q = query.toLowerCase().trim();
+    document.querySelectorAll('.filterable-card').forEach(function(card) {
+        var title = card.getAttribute('data-title') || '';
+        card.style.display = (!q || title.includes(q)) ? '' : 'none';
+    });
+}
+</script>
 {% endblock %}
