@@ -1,50 +1,69 @@
 {% load wagtailimages_tags %}
 
-<div id="card-{{ item.image.pk }}"
-     class="relative group rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer
-            {% if not item.is_imprimible %}opacity-40 grayscale{% endif %}"
-     hx-post="{% url 'clases:study_cards_toggle_tag' item.image.pk %}"
-     hx-target="#card-{{ item.image.pk }}"
-     hx-swap="outerHTML"
-     hx-vals='js:{"code": "{{ item.code }}", "book_id": "{{ book_id }}", "current_count": document.getElementById("imprimible-counter")?.textContent || "0"}'
-     title="{% if item.is_imprimible %}Quitar de imprimibles{% else %}Marcar como imprimible{% endif %}">
+<div id="card-{{ item.image.pk }}" class="relative group rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-all duration-200
+            {% if not item.is_imprimible %}opacity-40 grayscale{% endif %}">
 
-    {# Thumbnail #}
-    <div class="aspect-[3/4] bg-base-200 overflow-hidden">
-        {% image item.image width-200 class="w-full h-full object-contain" %}
-    </div>
+    {# Clickable thumbnail area for toggling imprimible #}
+    <div class="cursor-pointer"
+         hx-post="{% url 'clases:study_cards_toggle_tag' item.image.pk %}"
+         hx-target="#card-{{ item.image.pk }}"
+         hx-swap="outerHTML"
+         hx-vals='js:{"code": "{{ item.code }}", "book_id": "{{ book_id }}", "current_count": document.getElementById("imprimible-counter")?.textContent || "0", "description": document.getElementById("desc-{{ item.image.pk }}")?.value || "", "page_id": "{{ item.page_id }}"}'
+         title="{% if item.is_imprimible %}Quitar de imprimibles{% else %}Marcar como imprimible{% endif %}">
 
-    {# Code label + status indicator #}
-    <div class="flex items-center justify-between px-2 py-1.5 bg-base-100">
-        <code class="text-xs font-mono text-base-content/70">{{ item.code }}</code>
-        {% if item.is_imprimible %}
-        <div class="badge badge-success badge-xs gap-0.5">
-            <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
-            </svg>
+        {# Thumbnail #}
+        <div class="aspect-[3/4] bg-base-200 overflow-hidden">
+            {% image item.image width-200 class="w-full h-full object-contain" %}
         </div>
-        {% else %}
-        <div class="badge badge-ghost badge-xs">
-            <svg class="w-2.5 h-2.5 text-base-content/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-            </svg>
-        </div>
-        {% endif %}
-    </div>
 
-    {# Hover overlay #}
-    <div class="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none flex items-center justify-center">
-        <div class="bg-base-100/90 rounded-full p-2 shadow">
+        {# Code label + status indicator #}
+        <div class="flex items-center justify-between px-2 py-1.5 bg-base-100">
+            <code class="text-xs font-mono text-base-content/70">{{ item.code }}</code>
             {% if item.is_imprimible %}
-            <svg class="w-5 h-5 text-error" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-            </svg>
+            <div class="badge badge-success badge-xs gap-0.5">
+                <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+                </svg>
+            </div>
             {% else %}
-            <svg class="w-5 h-5 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-            </svg>
+            <div class="badge badge-ghost badge-xs">
+                <svg class="w-2.5 h-2.5 text-base-content/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+            </div>
             {% endif %}
         </div>
+
+        {# Hover overlay #}
+        <div class="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none flex items-center justify-center">
+            <div class="bg-base-100/90 rounded-full p-2 shadow">
+                {% if item.is_imprimible %}
+                <svg class="w-5 h-5 text-error" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+                {% else %}
+                <svg class="w-5 h-5 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {# Description input (below the card, not inside the clickable area) #}
+    <div class="px-1.5 py-1 bg-base-100 flex items-center gap-1" onclick="event.stopPropagation()">
+        <input type="text" id="desc-{{ item.image.pk }}"
+               class="input input-xs input-bordered w-full text-xs"
+               maxlength="60"
+               placeholder="Descripción..."
+               value="{{ item.description }}"
+               hx-post="{% url 'clases:study_cards_save_description' item.image.pk %}"
+               hx-trigger="change, keyup changed delay:800ms"
+               hx-target="#desc-status-{{ item.image.pk }}"
+               hx-vals='{"page_id": "{{ item.page_id }}"}'
+               hx-include="this"
+               name="description">
+        <span id="desc-status-{{ item.image.pk }}" class="flex-shrink-0"></span>
     </div>
 </div>
 

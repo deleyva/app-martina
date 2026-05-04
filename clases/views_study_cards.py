@@ -12,6 +12,7 @@ from clases.models import (
     Group,
     StudyCardBatch,
     StudyCardItem,
+    StudyCardLabel,
     StudyCardPickup,
 )
 from clases.services.card_codes import generate_codes_for_page
@@ -120,6 +121,14 @@ def book_browser(request, book_id):
     chapters = list(book.get_children().type(BlogPage).specific().order_by("path"))
 
     all_books = list(BlogIndexPage.objects.live())
+
+    # Pre-load all labels for this book's chapters
+    chapter_ids = [ch.pk for ch in chapters]
+    labels = {
+        (l.image_id, l.source_page_id): l.description
+        for l in StudyCardLabel.objects.filter(source_page_id__in=chapter_ids)
+    }
+
     chapter_data = []
     total_imprimible = 0
 
@@ -136,6 +145,8 @@ def book_browser(request, book_id):
                 "image": img,
                 "code": code,
                 "is_imprimible": is_imprimible,
+                "description": labels.get((img.pk, chapter.pk), ""),
+                "page_id": chapter.pk,
             })
         chapter_data.append({
             "index": ch_idx,
@@ -169,6 +180,8 @@ def toggle_tag(request, image_id):
 
     code = request.POST.get("code", "???")
     book_id = request.POST.get("book_id")
+    description = request.POST.get("description", "")
+    page_id = request.POST.get("page_id", "")
 
     try:
         prev_count = int(request.POST.get("current_count", 0))
@@ -177,7 +190,8 @@ def toggle_tag(request, image_id):
     total_imprimible = max(0, prev_count + delta)
 
     return render(request, "clases/study_cards/partials/image_card.html", {
-        "item": {"image": image, "code": code, "is_imprimible": is_imprimible},
+        "item": {"image": image, "code": code, "is_imprimible": is_imprimible,
+                 "description": description, "page_id": page_id},
         "total_imprimible": total_imprimible,
         "book_id": book_id,
         "oob_counter": True,
@@ -187,16 +201,53 @@ def toggle_tag(request, image_id):
 @login_required
 @user_passes_test(is_staff)
 @require_http_methods(["POST"])
+def save_description(request, image_id):
+    """Save or update the description label for a study card image."""
+    Image = get_image_model()
+    image = get_object_or_404(Image, pk=image_id)
+    page_id = request.POST.get("page_id")
+    description = request.POST.get("description", "").strip()[:60]
+
+    if not page_id:
+        return HttpResponse("", status=400)
+
+    if description:
+        StudyCardLabel.objects.update_or_create(
+            image=image,
+            source_page_id=page_id,
+            defaults={"description": description},
+        )
+    else:
+        StudyCardLabel.objects.filter(image=image, source_page_id=page_id).delete()
+
+    return HttpResponse(
+        f'<span class="text-xs text-success" id="desc-saved-{image_id}">✓</span>'
+    )
+
+
+@login_required
+@user_passes_test(is_staff)
+@require_http_methods(["POST"])
 def generate_pdf(request, book_id):
     book = get_object_or_404(BlogIndexPage, pk=book_id)
-    chapters = book.get_children().type(BlogPage).specific().order_by("path")
+    chapters = list(book.get_children().type(BlogPage).specific().order_by("path"))
     all_books = list(BlogIndexPage.objects.live())
+
+    # Pre-load labels for all chapters
+    chapter_ids = [ch.pk for ch in chapters]
+    labels = {
+        (l.image_id, l.source_page_id): l.description
+        for l in StudyCardLabel.objects.filter(source_page_id__in=chapter_ids)
+    }
 
     all_items = []
     all_codes_by_chapter = []
     for chapter in chapters:
         codes = generate_codes_for_page(chapter, all_books=all_books, tag=TAG_IMPRIMIBLE)
-        all_items.extend(codes)
+        # Extend tuples with descriptions: (image, code, description)
+        for img, code in codes:
+            desc = labels.get((img.pk, chapter.pk), "")
+            all_items.append((img, code, desc))
         # Also collect all images for fill candidates
         all_codes_by_chapter.append(
             generate_codes_for_page(chapter, all_books=all_books)
@@ -208,8 +259,8 @@ def generate_pdf(request, book_id):
             status=200,
         )
 
-    # Build fill candidates: non-imprimible images from the same book
-    selected_ids = {img.pk for img, _ in all_items}
+    # Build fill candidates: non-imprimible images from the same book (no description)
+    selected_ids = {img.pk for img, _, _ in all_items}
     fill_items = []
     for chapter_codes in all_codes_by_chapter:
         for img, code in chapter_codes:

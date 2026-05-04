@@ -164,6 +164,11 @@ urlpatterns = [
         name="study_cards_toggle_tag",
     ),
     path(
+        "study-cards/save-description/<int:image_id>/",
+        views_study_cards.save_description,
+        name="study_cards_save_description",
+    ),
+    path(
         "study-cards/book/<int:book_id>/generate-pdf/",
         views_study_cards.generate_pdf,
         name="study_cards_generate_pdf",

@@ -21,8 +21,11 @@ A5_HEIGHT = A4_HEIGHT / 2
 
 # Margins
 MARGIN = 15 * mm
+CUT_MARGIN = 10 * mm  # min distance from content to cutting line
 CODE_FONT_SIZE = 8
 CODE_FONT = "Courier"
+LABEL_FONT_SIZE = 7
+LABEL_FONT = "Helvetica"
 
 
 def _get_image_path(wagtail_image, max_width=800):
@@ -166,20 +169,29 @@ def _draw_slot(c, slot_items, y_offset):
 
     Single image: centered in the A5 half with code in bottom-right.
     Two images: stacked vertically, each with its own code below it.
+
+    Each item is a tuple of (image, code) or (image, code, description).
     """
+    def _unpack(item):
+        """Unpack (image, code) or (image, code, description) tuples."""
+        if len(item) >= 3:
+            return item[0], item[1], item[2]
+        return item[0], item[1], ""
+
     if len(slot_items) == 1:
-        _draw_single_image(c, slot_items[0][0], slot_items[0][1], y_offset, A5_HEIGHT)
+        img, code, desc = _unpack(slot_items[0])
+        _draw_single_image(c, img, code, y_offset, A5_HEIGHT, desc)
     else:
         # Two images stacked — split A5 half into two sub-zones
         sub_h = A5_HEIGHT / 2
-        # Top sub-zone: first image
-        _draw_single_image(c, slot_items[0][0], slot_items[0][1], y_offset + sub_h, sub_h)
-        # Bottom sub-zone: second image
-        _draw_single_image(c, slot_items[1][0], slot_items[1][1], y_offset, sub_h)
+        img1, code1, desc1 = _unpack(slot_items[0])
+        img2, code2, desc2 = _unpack(slot_items[1])
+        _draw_single_image(c, img1, code1, y_offset + sub_h, sub_h, desc1)
+        _draw_single_image(c, img2, code2, y_offset, sub_h, desc2)
 
 
-def _draw_single_image(c, wagtail_image, code, y_offset, zone_height):
-    """Draw one image with its code within a vertical zone.
+def _draw_single_image(c, wagtail_image, code, y_offset, zone_height, description=""):
+    """Draw one image with its code (and optional description) within a vertical zone.
 
     Tall images (height > width * 1.2) are rotated 90° counter-clockwise
     so they fill the A5 card when held vertically after cutting.
@@ -197,7 +209,7 @@ def _draw_single_image(c, wagtail_image, code, y_offset, zone_height):
         img_w, img_h = img.getSize()
 
         available_w = A4_WIDTH - 2 * MARGIN
-        code_space = 8 * mm
+        code_space = 12 * mm  # space reserved for code + description at bottom
         available_h = zone_height - MARGIN - code_space
 
         is_tall = img_h > img_w * 1.2
@@ -229,12 +241,15 @@ def _draw_single_image(c, wagtail_image, code, y_offset, zone_height):
 
             c.drawImage(img_path, x, y, draw_w, draw_h, preserveAspectRatio=True, mask='auto')
 
-    # Code in bottom-right of this zone (5mm from zone bottom to stay within printable area)
-    c.setFont(CODE_FONT, CODE_FONT_SIZE)
+    # Code (+ optional description) in bottom-right of zone
+    # CUT_MARGIN ensures enough distance from cutting line for safe trimming
     c.setFillColor(black)
-    code_x = A4_WIDTH - MARGIN - c.stringWidth(code, CODE_FONT, CODE_FONT_SIZE)
-    code_y = y_offset + 5 * mm
-    c.drawString(code_x, code_y, code)
+    label = f"{code} · {description}" if description else code
+    c.setFont(CODE_FONT, CODE_FONT_SIZE)
+    label_w = c.stringWidth(label, CODE_FONT, CODE_FONT_SIZE)
+    code_x = A4_WIDTH - MARGIN - label_w
+    code_y = y_offset + CUT_MARGIN
+    c.drawString(code_x, code_y, label)
 
 
 def generate_registration_sheet(student_names, title="Hoja de Registro", num_date_columns=8, output_path=None):

@@ -1377,3 +1377,32 @@ class StudyCardPickup(models.Model):
 
     def __str__(self):
         return f"{self.student} - {self.card_item.code} ({self.picked_up_at})"
+
+
+class StudyCardLabel(models.Model):
+    """Etiqueta descriptiva corta para una imagen imprimible en un capítulo."""
+
+    image = models.ForeignKey(
+        "wagtailimages.Image",
+        on_delete=models.CASCADE,
+        verbose_name="Imagen",
+    )
+    source_page = models.ForeignKey(
+        "wagtailcore.Page",
+        on_delete=models.CASCADE,
+        verbose_name="Página de origen",
+    )
+    description = models.CharField(
+        max_length=60,
+        blank=True,
+        verbose_name="Descripción",
+        help_text="Texto corto que se imprime junto al código (máx. 60 car.)",
+    )
+
+    class Meta:
+        unique_together = ["image", "source_page"]
+        verbose_name = "Etiqueta de Tarjeta"
+        verbose_name_plural = "Etiquetas de Tarjetas"
+
+    def __str__(self):
+        return f"{self.description} ({self.image.title})"
