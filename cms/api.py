@@ -500,6 +500,126 @@ def create_blog_page(request, payload: BlogPageIn):
     )
 
 
+class BlogPageUpdateIn(Schema):
+    """Schema de entrada para actualizar una BlogPage (todos los campos opcionales)."""
+
+    title: Optional[str] = None
+    date: Optional[date] = None
+    intro: Optional[str] = None
+    body: Optional[str] = None
+    featured_image_id: Optional[int] = None
+    is_featured: Optional[bool] = None
+    category_ids: Optional[List[int]] = None
+    tag_ids: Optional[List[int]] = None
+    publish_immediately: Optional[bool] = None
+
+
+@router.put("/blog-pages/{page_id}", response=BlogPageOut, tags=["Blog"])
+def update_blog_page(request, page_id: int, payload: BlogPageUpdateIn):
+    """Actualizar una BlogPage existente en Wagtail.
+
+    Acepta campos parciales — sólo se actualizan los campos enviados.
+
+    Args:
+        request: Request object.
+        page_id: ID de la BlogPage a actualizar.
+        payload: Campos a actualizar.
+
+    Returns:
+        BlogPageOut con id, título, estado live y URLs de edición/preview.
+
+    Raises:
+        HttpError 404: Si la BlogPage no existe.
+        HttpError 400: Si los IDs de categorías/tags/imagen son inválidos.
+    """
+    try:
+        page = BlogPage.objects.get(id=page_id)
+    except BlogPage.DoesNotExist:
+        raise HttpError(404, f"La BlogPage con ID {page_id} no existe.")
+
+    with transaction.atomic():
+        if payload.title is not None:
+            page.title = payload.title
+        if payload.date is not None:
+            page.date = payload.date
+        if payload.intro is not None:
+            page.intro = payload.intro
+        if payload.body is not None:
+            page.body = payload.body
+        if payload.featured_image_id is not None:
+            page.featured_image = _get_image(payload.featured_image_id)
+        if payload.is_featured is not None:
+            page.is_featured = payload.is_featured
+
+        if payload.category_ids is not None:
+            categories = list(
+                MusicCategory.objects.filter(id__in=payload.category_ids).distinct()
+            )
+            if len(categories) != len(set(payload.category_ids)):
+                raise HttpError(400, "Alguna categoría proporcionada no existe.")
+            page.categories.set(categories)
+
+        if payload.tag_ids is not None:
+            tags = list(MusicTag.objects.filter(id__in=payload.tag_ids).distinct())
+            if len(tags) != len(set(payload.tag_ids)):
+                raise HttpError(400, "Alguna etiqueta proporcionada no existe.")
+            page.tags.set(tags)
+
+        revision = page.save_revision()
+        if payload.publish_immediately:
+            revision.publish()
+            page.refresh_from_db()
+
+    edit_url = f"/cms/pages/{page.id}/edit/"
+    if page.live:
+        try:
+            preview_url = page.get_url(request) or f"/cms/pages/{page.id}/"
+        except Exception:
+            preview_url = f"/cms/pages/{page.id}/"
+    else:
+        preview_url = f"/cms/pages/{page.id}/view_draft/"
+
+    return BlogPageOut(
+        id=page.id,
+        title=page.title,
+        live=page.live,
+        edit_url=edit_url,
+        preview_url=preview_url,
+    )
+
+
+class DeleteOut(Schema):
+    """Schema de respuesta para eliminación."""
+
+    success: bool
+    message: str
+
+
+@router.delete("/blog-pages/{page_id}", response=DeleteOut, tags=["Blog"])
+def delete_blog_page(request, page_id: int):
+    """Eliminar una BlogPage de Wagtail.
+
+    Args:
+        request: Request object.
+        page_id: ID de la BlogPage a eliminar.
+
+    Returns:
+        DeleteOut confirmando la eliminación.
+
+    Raises:
+        HttpError 404: Si la BlogPage no existe.
+    """
+    try:
+        page = BlogPage.objects.get(id=page_id)
+    except BlogPage.DoesNotExist:
+        raise HttpError(404, f"La BlogPage con ID {page_id} no existe.")
+
+    title = page.title
+    page.delete()
+
+    return DeleteOut(success=True, message=f"BlogPage '{title}' (ID {page_id}) eliminada.")
+
+
 # Image Upload Endpoint
 # ------------------------------------------------------------------------------
 
