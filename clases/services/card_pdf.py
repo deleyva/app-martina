@@ -88,7 +88,7 @@ def _build_slots(items):
     return slots
 
 
-def generate_cards_pdf(items, output_path=None, fill_items=None):
+def generate_cards_pdf(items, output_path=None, fill_items=None, duplicate=False):
     """
     Generate A4 PDF with 2 x A5 study cards per page, laid out for duplex printing.
 
@@ -104,47 +104,59 @@ def generate_cards_pdf(items, output_path=None, fill_items=None):
       Top half  → front=slot1, back=slot2
       Bottom half → front=slot3, back=slot4
 
+    Duplicate mode: same image on top and bottom of A4 (2 identical A5 copies).
+    No back page — just cut in half for 2 copies.
+
     Args:
         items: List of (wagtail_image, code_str) tuples
         output_path: Optional path. If None, returns bytes.
         fill_items: Optional list of extra (wagtail_image, code_str) tuples
                     to fill blank A5 halves when slot count isn't a multiple of 4.
+        duplicate: If True, each image printed twice on same A4 (2 identical A5 copies).
 
     Returns:
         str path if output_path given, else bytes
     """
     slots = _build_slots(items)
 
-    # Fill empty A5 halves so no page is left blank
-    remainder = len(slots) % 4
-    if remainder != 0 and fill_items:
-        needed = 4 - remainder
-        fill_slots = _build_slots(fill_items)
-        slots.extend(fill_slots[:needed])
-
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
 
-    # Process in groups of 4 slots (2 A5 halves per sheet, front+back = 4 slots)
-    for i in range(0, len(slots), 4):
-        group = slots[i:i + 4]
+    if duplicate:
+        # Duplicate mode: each slot drawn on top AND bottom of the same A4 page
+        for slot in slots:
+            _draw_slot(c, slot, y_offset=A5_HEIGHT)
+            _draw_slot(c, slot, y_offset=0)
+            _draw_cutting_line(c)
+            c.showPage()
+    else:
+        # Fill empty A5 halves so no page is left blank
+        remainder = len(slots) % 4
+        if remainder != 0 and fill_items:
+            needed = 4 - remainder
+            fill_slots = _build_slots(fill_items)
+            slots.extend(fill_slots[:needed])
 
-        # Front page: slots 1 and 3
-        _draw_slot(c, group[0], y_offset=A5_HEIGHT)
-        if len(group) > 2:
-            _draw_slot(c, group[2], y_offset=0)
+        # Process in groups of 4 slots (2 A5 halves per sheet, front+back = 4 slots)
+        for i in range(0, len(slots), 4):
+            group = slots[i:i + 4]
 
-        _draw_cutting_line(c)
-        c.showPage()
+            # Front page: slots 1 and 3
+            _draw_slot(c, group[0], y_offset=A5_HEIGHT)
+            if len(group) > 2:
+                _draw_slot(c, group[2], y_offset=0)
 
-        # Back page: slots 2 and 4
-        if len(group) > 1:
-            _draw_slot(c, group[1], y_offset=A5_HEIGHT)
-        if len(group) > 3:
-            _draw_slot(c, group[3], y_offset=0)
+            _draw_cutting_line(c)
+            c.showPage()
 
-        _draw_cutting_line(c)
-        c.showPage()
+            # Back page: slots 2 and 4
+            if len(group) > 1:
+                _draw_slot(c, group[1], y_offset=A5_HEIGHT)
+            if len(group) > 3:
+                _draw_slot(c, group[3], y_offset=0)
+
+            _draw_cutting_line(c)
+            c.showPage()
 
     c.save()
 

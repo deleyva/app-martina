@@ -51,6 +51,10 @@
         <form method="post" action="{% url 'clases:study_cards_generate_pdf_page' page.pk %}" class="inline"
               onsubmit="var btn=this.querySelector('button'); setTimeout(function(){btn.classList.add('loading');btn.disabled=true;},10);">
             {% csrf_token %}
+            <label class="label cursor-pointer gap-2 mr-2 inline-flex">
+                <span class="label-text text-sm">2 copias</span>
+                <input type="checkbox" name="duplicate" class="checkbox checkbox-sm checkbox-primary">
+            </label>
             <button type="submit" id="generate-pdf-btn"
                     class="btn btn-primary gap-2 {% if total_imprimible == 0 %}btn-disabled{% endif %}"
                     {% if total_imprimible == 0 %}disabled{% endif %}>
