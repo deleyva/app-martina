@@ -1,6 +1,7 @@
 from django.db import models
 from django.conf import settings
 from django import forms
+from django.http import HttpResponseForbidden
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.core.exceptions import ValidationError
@@ -105,6 +106,94 @@ def _is_blog_request(request):
     """Helper para detectar si el request viene del sitio de blogs."""
     host = request.get_host() if request else ""
     return "blogs.iesmartinabescos" in host
+
+
+def _login_redirect(request):
+    """Redirect to login page preserving the ?next= path."""
+    login_url = reverse(settings.LOGIN_URL)
+    return redirect(f"{login_url}?next={request.path}")
+
+
+def _check_page_visibility(page, request):
+    """Check visibility of a page based on is_protected/is_private fields.
+
+    Returns None if the page is accessible, or an HTTP response (redirect/403)
+    if access should be denied. Checks the page itself and its BlogIndexPage /
+    BlogPage ancestors for inherited restrictions.
+
+    Only BlogPage and BlogIndexPage carry visibility fields, so pages that are
+    not of those types and have no such ancestors are skipped cheaply.
+    """
+    is_blog_type = isinstance(page, (BlogPage, BlogIndexPage))
+    ancestors = page.get_ancestors()
+
+    # Fast path: page has no visibility fields and no blog-type ancestors
+    if not is_blog_type:
+        has_blog_ancestors = (
+            ancestors.type(BlogIndexPage).exists()
+            or ancestors.type(BlogPage).exists()
+        )
+        if not has_blog_ancestors:
+            return None
+
+    # Check the page itself
+    protected = False
+    private_owner = None
+
+    if is_blog_type:
+        if page.is_private:
+            private_owner = page.owner
+        if page.is_protected:
+            protected = True
+
+    # Check blog-type ancestors via DB queries (no .specific() needed)
+    private_ancestor = (
+        ancestors.type(BlogIndexPage).filter(blogindexpage__is_private=True).first()
+        or ancestors.type(BlogPage).filter(blogpage__is_private=True).first()
+    )
+    if private_ancestor:
+        private_owner = private_ancestor.owner
+
+    if not protected:
+        protected = (
+            ancestors.type(BlogIndexPage).filter(blogindexpage__is_protected=True).exists()
+            or ancestors.type(BlogPage).filter(blogpage__is_protected=True).exists()
+        )
+
+    # Private takes precedence over protected
+    if private_owner is not None:
+        if not request.user.is_authenticated:
+            return _login_redirect(request)
+        if not request.user.is_superuser and request.user != private_owner:
+            return HttpResponseForbidden("No tienes permiso para ver esta página.")
+        return None
+
+    if protected and not request.user.is_authenticated:
+        return _login_redirect(request)
+
+    return None
+
+
+def _filter_visible_pages(queryset, request):
+    """Filter a queryset of BlogPage or BlogIndexPage, removing protected/private
+    pages that the current user should not see in listings.
+
+    NOTE: This filters direct page fields only, not inherited ancestor protection.
+    Ancestor-level enforcement is handled by _check_page_visibility at serve time.
+    """
+    if request.user.is_superuser:
+        return queryset
+
+    if request.user.is_authenticated:
+        # Authenticated users: hide private pages unless they own them
+        return queryset.exclude(
+            models.Q(is_private=True) & ~models.Q(owner=request.user)
+        )
+
+    # Anonymous users: hide protected and private pages
+    return queryset.exclude(
+        models.Q(is_protected=True) | models.Q(is_private=True)
+    )
 
 
 class HomePage(Page):
@@ -382,6 +471,16 @@ class BlogIndexPage(Page):
         verbose_name="Asignatura",
         help_text="Vincula este blog con una asignatura (hereda icono y color)",
     )
+    is_protected = models.BooleanField(
+        default=False,
+        verbose_name="Protegida",
+        help_text="Requiere iniciar sesión para ver esta página y sus hijas.",
+    )
+    is_private = models.BooleanField(
+        default=False,
+        verbose_name="Privada",
+        help_text="Solo el creador de la página puede verla. Las hijas heredan esta restricción.",
+    )
 
     content_panels = Page.content_panels + [
         FieldPanel("intro"),
@@ -392,6 +491,16 @@ class BlogIndexPage(Page):
                 FieldPanel("subject"),
             ],
             heading="Departamento",
+        ),
+    ]
+
+    settings_panels = Page.settings_panels + [
+        MultiFieldPanel(
+            [
+                FieldPanel("is_protected"),
+                FieldPanel("is_private"),
+            ],
+            heading="Visibilidad",
         ),
     ]
 
@@ -420,9 +529,11 @@ class BlogIndexPage(Page):
         chapter_order = "path" if is_book else "-first_published_at"
 
         # Query by type at DB level instead of loading all children with .specific()
-        department_pages = list(children.type(BlogIndexPage).specific())
+        department_pages = list(
+            _filter_visible_pages(children.type(BlogIndexPage), request).specific()
+        )
         blogpages = list(
-            children.type(BlogPage)
+            _filter_visible_pages(children.type(BlogPage), request)
             .specific()
             .prefetch_related("categories")
             .order_by(chapter_order)
@@ -435,12 +546,15 @@ class BlogIndexPage(Page):
 
         # Featured articles (only on hub page)
         if is_hub:
-            context["featured_posts"] = (
+            featured_qs = (
                 BlogPage.objects.descendant_of(self)
                 .live()
                 .filter(is_featured=True)
-                .order_by("-first_published_at")[:6]
+                .order_by("-first_published_at")
             )
+            context["featured_posts"] = _filter_visible_pages(
+                featured_qs, request
+            )[:6]
 
         return context
 
@@ -466,6 +580,16 @@ class BlogPage(Page):
         default=False,
         verbose_name="Destacado",
         help_text="Marcar para mostrar en la portada del blog",
+    )
+    is_protected = models.BooleanField(
+        default=False,
+        verbose_name="Protegida",
+        help_text="Requiere iniciar sesión para ver esta página.",
+    )
+    is_private = models.BooleanField(
+        default=False,
+        verbose_name="Privada",
+        help_text="Solo el creador de la página puede verla.",
     )
 
     # StreamField para archivos adjuntos — simplificado: un gesto por elemento
@@ -511,6 +635,16 @@ class BlogPage(Page):
     promote_panels = Page.promote_panels + [
         FieldPanel("categories", widget=forms.CheckboxSelectMultiple),
         FieldPanel("tags", widget=forms.CheckboxSelectMultiple),
+    ]
+
+    settings_panels = Page.settings_panels + [
+        MultiFieldPanel(
+            [
+                FieldPanel("is_protected"),
+                FieldPanel("is_private"),
+            ],
+            heading="Visibilidad",
+        ),
     ]
 
     # Permitir BlogPage como hijo de BlogIndexPage y MusicLibraryIndexPage
@@ -1098,12 +1232,6 @@ class MusicLibraryIndexPage(Page):
             return "cms/music_library_index_page_blog.html"
         return "cms/music_library_index_page_app.html"
 
-    def serve(self, request, *args, **kwargs):
-        if not request.user.is_authenticated:
-            login_url = reverse(settings.LOGIN_URL)
-            return redirect(f"{login_url}?next={request.path}")
-        return super().serve(request, *args, **kwargs)
-
     class Meta:
         verbose_name = "Biblioteca Musical"
         verbose_name_plural = "Bibliotecas Musicales"
@@ -1176,6 +1304,7 @@ class MusicLibraryIndexPage(Page):
                 .prefetch_related("tags", "categories")
                 .order_by("-first_published_at")
             )
+            blog_posts = _filter_visible_pages(blog_posts, request)
             blog_posts = filter_queryset(blog_posts)
             context["blog_posts"] = blog_posts
             context["blog_posts_count"] = blog_posts.count()
@@ -1192,6 +1321,7 @@ class MusicLibraryIndexPage(Page):
                 BlogIndexPage.objects.child_of(self).live()
                 .order_by("-first_published_at")
             )
+            book_indexes = _filter_visible_pages(book_indexes, request)
             if search_query:
                 book_indexes = book_indexes.filter(
                     models.Q(title__icontains=search_query)

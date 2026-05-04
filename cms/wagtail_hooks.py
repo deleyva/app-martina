@@ -1,15 +1,12 @@
 import logging
 
-from django.conf import settings
-from django.shortcuts import redirect
-from django.urls import reverse
 from wagtail import hooks
 
 from martina_bescos_app.utils.email import send_email
 
 from .models import BlogIndexPage
 from .models import BlogPage
-from .models import MusicLibraryIndexPage
+from .models import _check_page_visibility
 
 logger = logging.getLogger(__name__)
 
@@ -44,14 +41,16 @@ def notify_moderator_on_blog_submission(request, page):
 
 
 @hooks.register("before_serve_page")
-def require_login_for_music_library_children(page, request, serve_args, serve_kwargs):
-    """Redirect unauthenticated users away from pages under MusicLibraryIndexPage."""
-    if request.user.is_authenticated:
-        return
-    # Skip if the page itself is MusicLibraryIndexPage (handled by its own serve())
-    if isinstance(page, MusicLibraryIndexPage):
-        return
-    # Check if any ancestor is a MusicLibraryIndexPage
-    if page.get_ancestors().type(MusicLibraryIndexPage).exists():
-        login_url = reverse(settings.LOGIN_URL)
-        return redirect(f"{login_url}?next={request.path}")
+def check_page_visibility(page, request, serve_args, serve_kwargs):
+    """Enforce is_protected / is_private visibility on BlogPage and BlogIndexPage."""
+    return _check_page_visibility(page, request)
+
+
+def _enforce_private_admin_only(request, page):
+    """Only superusers can mark a page as private. Reset if non-admin tries."""
+    if hasattr(page, "is_private") and page.is_private and not request.user.is_superuser:
+        type(page).objects.filter(pk=page.pk).update(is_private=False)
+
+
+hooks.register("after_create_page")(_enforce_private_admin_only)
+hooks.register("after_edit_page")(_enforce_private_admin_only)
