@@ -5,6 +5,7 @@
 {% block title %}{{ page.title }} - IES Martina Bescós{% endblock %}
 
 {% block extra_css %}
+<script src="https://unpkg.com/wavesurfer.js@7"></script>
 <style>
     html {
         scroll-behavior: smooth;
@@ -502,11 +503,81 @@
                 <div class="card bg-base-100 shadow-xl attachment-card">
                     <div class="card-body p-4">
                         <h3 class="card-title text-base">🎵 {{ block.value.title|default:block.value.audio_file.title }}</h3>
-                        <audio controls class="w-full mb-3" preload="metadata">
-                            <source src="{{ block.value.audio_file.url }}" type="audio/mpeg">
-                            <source src="{{ block.value.audio_file.url }}" type="audio/wav">
-                            <source src="{{ block.value.audio_file.url }}" type="audio/ogg">
-                        </audio>
+
+                        {# Loading indicator #}
+                        <div id="blog-audio-loading-{{ block.value.audio_file.id }}" class="flex items-center justify-center py-8">
+                            <div class="text-center">
+                                <div class="loading loading-spinner loading-md text-primary"></div>
+                                <p class="text-sm mt-2 opacity-60">Cargando audio...</p>
+                            </div>
+                        </div>
+
+                        {# WaveSurfer waveform #}
+                        <div id="blog-waveform-{{ block.value.audio_file.id }}" class="hidden rounded-lg overflow-hidden bg-base-300 mb-3" style="min-height: 100px;"></div>
+
+                        {# Player controls #}
+                        <div id="blog-controls-{{ block.value.audio_file.id }}" class="hidden flex items-center gap-3 mb-3">
+                            <button id="blog-rewind-{{ block.value.audio_file.id }}" class="btn btn-sm btn-circle btn-ghost" title="Retroceder 10s">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0019 16V8a1 1 0 00-1.6-.8l-5.333 4zM4.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0011 16V8a1 1 0 00-1.6-.8l-5.334 4z"/>
+                                </svg>
+                            </button>
+                            <button id="blog-play-{{ block.value.audio_file.id }}" class="btn btn-primary btn-circle">
+                                <svg class="play-icon w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                                <svg class="pause-icon w-5 h-5 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>
+                            </button>
+                            <button id="blog-forward-{{ block.value.audio_file.id }}" class="btn btn-sm btn-circle btn-ghost" title="Avanzar 10s">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.933 12.8a1 1 0 000-1.6L6.6 7.2A1 1 0 005 8v8a1 1 0 001.6.8l5.333-4zM19.933 12.8a1 1 0 000-1.6l-5.333-4A1 1 0 0013 8v8a1 1 0 001.6.8l5.333-4z"/>
+                                </svg>
+                            </button>
+                            <div class="flex-1 flex justify-between items-center text-sm font-mono">
+                                <span id="blog-time-{{ block.value.audio_file.id }}">0:00</span>
+                                <span class="opacity-50">/</span>
+                                <span id="blog-dur-{{ block.value.audio_file.id }}" class="opacity-70">0:00</span>
+                            </div>
+                        </div>
+
+                        <script>
+                        (function() {
+                            var id = '{{ block.value.audio_file.id }}';
+                            var url = '{{ block.value.audio_file.url }}';
+                            var loading = document.getElementById('blog-audio-loading-' + id);
+                            var waveform = document.getElementById('blog-waveform-' + id);
+                            var controls = document.getElementById('blog-controls-' + id);
+                            var playBtn = document.getElementById('blog-play-' + id);
+                            var rewindBtn = document.getElementById('blog-rewind-' + id);
+                            var forwardBtn = document.getElementById('blog-forward-' + id);
+                            var timeEl = document.getElementById('blog-time-' + id);
+                            var durEl = document.getElementById('blog-dur-' + id);
+                            if (!waveform || !url) return;
+                            var ws = WaveSurfer.create({
+                                container: waveform, waveColor: 'rgb(148, 163, 184)',
+                                progressColor: 'rgb(139, 92, 246)', cursorColor: 'rgb(168, 85, 247)',
+                                barWidth: 3, barRadius: 3, barGap: 1, height: 100,
+                                responsive: true, normalize: true, backend: 'WebAudio', mediaControls: false
+                            });
+                            ws.on('loading', function(p) { if (loading) loading.querySelector('p').textContent = 'Cargando: ' + p + '%'; });
+                            ws.on('ready', function() {
+                                if (loading) loading.classList.add('hidden');
+                                if (waveform) waveform.classList.remove('hidden');
+                                if (controls) controls.classList.remove('hidden');
+                                if (durEl) durEl.textContent = fmt(ws.getDuration());
+                            });
+                            ws.on('error', function(e) { console.error('WaveSurfer error:', e); if (loading) { loading.querySelector('p').textContent = 'Error al cargar'; loading.querySelector('.loading').classList.add('hidden'); }});
+                            ws.on('audioprocess', function() { if (timeEl) timeEl.textContent = fmt(ws.getCurrentTime()); });
+                            ws.on('seeking', function() { if (timeEl) timeEl.textContent = fmt(ws.getCurrentTime()); });
+                            ws.on('play', function() { tog(true); });
+                            ws.on('pause', function() { tog(false); });
+                            if (playBtn) playBtn.addEventListener('click', function() { ws.playPause(); });
+                            if (rewindBtn) rewindBtn.addEventListener('click', function() { ws.seekTo(Math.max(0, ws.getCurrentTime() - 10) / ws.getDuration()); });
+                            if (forwardBtn) forwardBtn.addEventListener('click', function() { var d = ws.getDuration(); ws.seekTo(Math.min(d, ws.getCurrentTime() + 10) / d); });
+                            function tog(playing) { if (!playBtn) return; var pi = playBtn.querySelector('.play-icon'), pa = playBtn.querySelector('.pause-icon'); if (playing) { pi.classList.add('hidden'); pa.classList.remove('hidden'); } else { pi.classList.remove('hidden'); pa.classList.add('hidden'); } }
+                            function fmt(s) { if (!s || isNaN(s)) return '0:00'; var m = Math.floor(s/60), ss = Math.floor(s%60); return m + ':' + (ss < 10 ? '0' : '') + ss; }
+                            ws.load(url);
+                        })();
+                        </script>
+
                         <div class="card-actions justify-end mt-auto">
                             <a href="{% url 'my_library:view_content_object' block.value.audio_file|content_type_id block.value.audio_file.pk %}?back={{ request.path|urlencode }}" class="btn btn-ghost btn-sm" title="Open viewer">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
