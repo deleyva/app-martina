@@ -756,4 +756,100 @@
 {% else %}
 </div>
 {% endif %}
+
+{# Transform audio document links in RichText body into WaveSurfer players #}
+<script>
+(function() {
+    var audioExt = ['.mp3', '.wav', '.ogg', '.m4a', '.aac', '.flac'];
+    var body = document.querySelector('.richtext-body');
+    if (!body || typeof WaveSurfer === 'undefined') return;
+
+    var links = body.querySelectorAll('a[href]');
+    var counter = 0;
+    links.forEach(function(link) {
+        var href = link.href.toLowerCase();
+        var isAudio = audioExt.some(function(ext) { return href.includes(ext); });
+        if (!isAudio) return;
+
+        counter++;
+        var id = 'rt-audio-' + counter;
+        var url = link.href;
+        var title = link.textContent.trim();
+
+        // Create player container to replace the link
+        var container = document.createElement('div');
+        container.className = 'card bg-base-100 shadow-xl my-4';
+        container.innerHTML =
+            '<div class="card-body p-4">' +
+                '<h3 class="card-title text-base">🎵 ' + title + '</h3>' +
+                '<div id="' + id + '-loading" class="flex items-center justify-center py-8">' +
+                    '<div class="text-center"><div class="loading loading-spinner loading-md text-primary"></div>' +
+                    '<p class="text-sm mt-2 opacity-60">Cargando audio...</p></div>' +
+                '</div>' +
+                '<div id="' + id + '-wave" class="hidden rounded-lg overflow-hidden bg-base-300 mb-3" style="min-height:100px;"></div>' +
+                '<div id="' + id + '-ctrl" class="hidden flex items-center gap-3 mb-3">' +
+                    '<button id="' + id + '-rw" class="btn btn-sm btn-circle btn-ghost" title="Retroceder 10s">' +
+                        '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0019 16V8a1 1 0 00-1.6-.8l-5.333 4zM4.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0011 16V8a1 1 0 00-1.6-.8l-5.334 4z"/></svg>' +
+                    '</button>' +
+                    '<button id="' + id + '-pp" class="btn btn-primary btn-circle">' +
+                        '<svg class="play-icon w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>' +
+                        '<svg class="pause-icon w-5 h-5 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>' +
+                    '</button>' +
+                    '<button id="' + id + '-fw" class="btn btn-sm btn-circle btn-ghost" title="Avanzar 10s">' +
+                        '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.933 12.8a1 1 0 000-1.6L6.6 7.2A1 1 0 005 8v8a1 1 0 001.6.8l5.333-4zM19.933 12.8a1 1 0 000-1.6l-5.333-4A1 1 0 0013 8v8a1 1 0 001.6.8l5.333-4z"/></svg>' +
+                    '</button>' +
+                    '<div class="flex-1 flex justify-between items-center text-sm font-mono">' +
+                        '<span id="' + id + '-t">0:00</span><span class="opacity-50">/</span><span id="' + id + '-d" class="opacity-70">0:00</span>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="card-actions justify-end">' +
+                    '<a href="' + url + '" download class="btn btn-primary btn-sm">' +
+                        '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>' +
+                    '</a>' +
+                '</div>' +
+            '</div>';
+
+        link.parentNode.replaceChild(container, link);
+
+        // Initialize WaveSurfer for this player
+        (function(pid, audioUrl) {
+            var waveEl = document.getElementById(pid + '-wave');
+            var loadEl = document.getElementById(pid + '-loading');
+            var ctrlEl = document.getElementById(pid + '-ctrl');
+            var ppBtn = document.getElementById(pid + '-pp');
+            var rwBtn = document.getElementById(pid + '-rw');
+            var fwBtn = document.getElementById(pid + '-fw');
+            var tEl = document.getElementById(pid + '-t');
+            var dEl = document.getElementById(pid + '-d');
+            var ws = WaveSurfer.create({
+                container: waveEl, waveColor: 'rgb(148, 163, 184)',
+                progressColor: 'rgb(139, 92, 246)', cursorColor: 'rgb(168, 85, 247)',
+                barWidth: 3, barRadius: 3, barGap: 1, height: 100,
+                responsive: true, normalize: true, backend: 'WebAudio'
+            });
+            ws.on('loading', function(p) { if (loadEl) loadEl.querySelector('p').textContent = 'Cargando: ' + p + '%'; });
+            ws.on('ready', function() {
+                loadEl.classList.add('hidden'); waveEl.classList.remove('hidden'); ctrlEl.classList.remove('hidden');
+                dEl.textContent = fmt(ws.getDuration());
+            });
+            ws.on('error', function() { if (loadEl) { loadEl.querySelector('p').textContent = 'Error al cargar'; loadEl.querySelector('.loading').classList.add('hidden'); }});
+            ws.on('audioprocess', function() { tEl.textContent = fmt(ws.getCurrentTime()); });
+            ws.on('seeking', function() { tEl.textContent = fmt(ws.getCurrentTime()); });
+            ws.on('play', function() { tog(ppBtn, true); });
+            ws.on('pause', function() { tog(ppBtn, false); });
+            ppBtn.addEventListener('click', function() { ws.playPause(); });
+            rwBtn.addEventListener('click', function() { ws.seekTo(Math.max(0, ws.getCurrentTime() - 10) / ws.getDuration()); });
+            fwBtn.addEventListener('click', function() { var d = ws.getDuration(); ws.seekTo(Math.min(d, ws.getCurrentTime() + 10) / d); });
+            ws.load(audioUrl);
+        })(id, url);
+    });
+
+    function tog(btn, playing) {
+        var pi = btn.querySelector('.play-icon'), pa = btn.querySelector('.pause-icon');
+        if (playing) { pi.classList.add('hidden'); pa.classList.remove('hidden'); }
+        else { pi.classList.remove('hidden'); pa.classList.add('hidden'); }
+    }
+    function fmt(s) { if (!s || isNaN(s)) return '0:00'; var m = Math.floor(s/60), ss = Math.floor(s%60); return m + ':' + (ss < 10 ? '0' : '') + ss; }
+})();
+</script>
 {% endblock %}
