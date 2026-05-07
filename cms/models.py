@@ -519,8 +519,6 @@ class BlogIndexPage(Page):
 
     def get_context(self, request):
         context = super().get_context(request)
-        children = self.get_children().live()
-
         # When this BlogIndex acts as a book-container under the Music Library,
         # chapters should appear in tree order (i.e. the order they were created
         # or the order Jesús sets in the Wagtail admin). Department blogs keep
@@ -528,12 +526,17 @@ class BlogIndexPage(Page):
         is_book = self.get_ancestors().type(MusicLibraryIndexPage).exists()
         chapter_order = "path" if is_book else "-first_published_at"
 
-        # Query by type at DB level instead of loading all children with .specific()
+        # Use model managers (not .type()) so the queryset model is correct
+        # and _filter_visible_pages can resolve is_protected/is_private fields.
         department_pages = list(
-            _filter_visible_pages(children.type(BlogIndexPage), request).specific()
+            _filter_visible_pages(
+                BlogIndexPage.objects.child_of(self).live(), request
+            ).specific()
         )
         blogpages = list(
-            _filter_visible_pages(children.type(BlogPage), request)
+            _filter_visible_pages(
+                BlogPage.objects.child_of(self).live(), request
+            )
             .specific()
             .prefetch_related("categories")
             .order_by(chapter_order)
