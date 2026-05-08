@@ -396,18 +396,28 @@ class BlogPageOut(Schema):
     preview_url: str
 
 
+def _parse_tags(tags: str) -> List[str]:
+    """Parse comma-separated tags string into a list of stripped tag names."""
+    return [t.strip() for t in tags.split(",") if t.strip()] if tags else []
+
+
+def _resolve_collection(name: str) -> Collection:
+    """Look up a Wagtail Collection by name, raising 400 if not found."""
+    try:
+        return Collection.objects.get(name=name)
+    except Collection.DoesNotExist:
+        raise HttpError(400, f"La colección '{name}' no existe.")
+
+
 def _build_attachments(doc_ids: List[int]):
     """Build StreamField attachments list from document IDs.
 
     Returns list of (block_type, value) tuples for BlogPage.attachments.
     """
-    docs = list(DocumentModel.objects.filter(id__in=doc_ids))
-    found_ids = {d.id for d in docs}
-    missing = [did for did in doc_ids if did not in found_ids]
+    docs_by_id = {d.id: d for d in DocumentModel.objects.filter(id__in=doc_ids)}
+    missing = [did for did in doc_ids if did not in docs_by_id]
     if missing:
         raise HttpError(400, f"Documentos no encontrados: {missing}")
-    # Preserve order from input
-    docs_by_id = {d.id: d for d in docs}
     return [("pdf_score", {"pdf_file": docs_by_id[did]}) for did in doc_ids]
 
 
@@ -673,7 +683,7 @@ def upload_image(
             f"Se esperaba una imagen ({', '.join(allowed_types)}).",
         )
 
-    tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
+    tag_list = _parse_tags(tags)
 
     image = ImageModel(
         title=title,
@@ -682,11 +692,7 @@ def upload_image(
     )
 
     if collection:
-        try:
-            col = Collection.objects.get(name=collection)
-            image.collection = col
-        except Collection.DoesNotExist:
-            raise HttpError(400, f"La colección '{collection}' no existe.")
+        image.collection = _resolve_collection(collection)
 
     image.save()
 
@@ -718,7 +724,7 @@ def upload_document(
     """
     Upload a document to Wagtail document library.
     """
-    tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
+    tag_list = _parse_tags(tags)
 
     document = DocumentModel(
         title=title,
@@ -727,11 +733,7 @@ def upload_document(
     )
 
     if collection:
-        try:
-            col = Collection.objects.get(name=collection)
-            document.collection = col
-        except Collection.DoesNotExist:
-            raise HttpError(400, f"La colección '{collection}' no existe.")
+        document.collection = _resolve_collection(collection)
 
     document.save()
 
