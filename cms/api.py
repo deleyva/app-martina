@@ -383,6 +383,7 @@ class BlogPageIn(Schema):
     tag_ids: List[int] = []
     parent_page_id: Optional[int] = None
     publish_immediately: bool = False
+    attachment_ids: List[int] = []
 
 
 class BlogPageOut(Schema):
@@ -393,6 +394,21 @@ class BlogPageOut(Schema):
     live: bool
     edit_url: str
     preview_url: str
+
+
+def _build_attachments(doc_ids: List[int]):
+    """Build StreamField attachments list from document IDs.
+
+    Returns list of (block_type, value) tuples for BlogPage.attachments.
+    """
+    docs = list(DocumentModel.objects.filter(id__in=doc_ids))
+    found_ids = {d.id for d in docs}
+    missing = [did for did in doc_ids if did not in found_ids]
+    if missing:
+        raise HttpError(400, f"Documentos no encontrados: {missing}")
+    # Preserve order from input
+    docs_by_id = {d.id: d for d in docs}
+    return [("pdf_score", {"pdf_file": docs_by_id[did]}) for did in doc_ids]
 
 
 def _get_blog_parent_page(parent_page_id: Optional[int]):
@@ -461,6 +477,8 @@ def create_blog_page(request, payload: BlogPageIn):
         )
         if featured_image:
             page.featured_image = featured_image
+        if payload.attachment_ids:
+            page.attachments = _build_attachments(payload.attachment_ids)
 
         parent_page.add_child(instance=page)
 
@@ -514,6 +532,7 @@ class BlogPageUpdateIn(Schema):
     category_ids: Optional[List[int]] = None
     tag_ids: Optional[List[int]] = None
     publish_immediately: Optional[bool] = None
+    attachment_ids: Optional[List[int]] = None
 
 
 @router.put("/blog-pages/{page_id}", response=BlogPageOut, tags=["Blog"])
@@ -552,6 +571,8 @@ def update_blog_page(request, page_id: int, payload: BlogPageUpdateIn):
             page.featured_image = _get_image(payload.featured_image_id)
         if payload.is_featured is not None:
             page.is_featured = payload.is_featured
+        if payload.attachment_ids is not None:
+            page.attachments = _build_attachments(payload.attachment_ids)
 
         if payload.category_ids is not None:
             categories = list(
