@@ -7,6 +7,7 @@ from ninja import Router, Schema, File, Form
 from ninja.errors import HttpError
 from ninja.files import UploadedFile
 from ninja.security import django_auth
+from wagtail.documents import get_document_model
 from wagtail.images import get_image_model
 from wagtail.models import Collection
 
@@ -23,6 +24,7 @@ from .services import AIMetadataExtractor, ContentPublisher
 
 
 router = Router(tags=["CMS Tests"], auth=[DatabaseApiKey(), django_auth])
+DocumentModel = get_document_model()
 ImageModel = get_image_model()
 
 
@@ -671,3 +673,48 @@ def upload_image(
         image.tags.add(*tag_list)
 
     return ImageUploadOut(id=image.id, title=image.title)
+
+
+# Document Upload Endpoint
+# ------------------------------------------------------------------------------
+
+
+class DocumentUploadOut(Schema):
+    """Response schema for document upload"""
+
+    id: int
+    title: str
+
+
+@router.post("/upload-document", response=DocumentUploadOut)
+def upload_document(
+    request,
+    title: str = Form(..., description="Título del documento"),
+    file: UploadedFile = File(..., description="Archivo del documento"),
+    tags: str = Form("", description="Tags separados por coma (opcional)"),
+    collection: str = Form("", description="Nombre de la colección (opcional)"),
+):
+    """
+    Upload a document to Wagtail document library.
+    """
+    tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
+
+    document = DocumentModel(
+        title=title,
+        file=file,
+        uploaded_by_user=request.user,
+    )
+
+    if collection:
+        try:
+            col = Collection.objects.get(name=collection)
+            document.collection = col
+        except Collection.DoesNotExist:
+            raise HttpError(400, f"La colección '{collection}' no existe.")
+
+    document.save()
+
+    if tag_list:
+        document.tags.add(*tag_list)
+
+    return DocumentUploadOut(id=document.id, title=document.title)
