@@ -28,7 +28,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-8 pb-8 border-b border-gray-200 mb-8">
                         {% if post.featured_image %}
                         <a href="{% pageurl post %}" class="block overflow-hidden">
-                            {% image post.featured_image width-800 class="w-full h-80 object-cover bw-image-hover" %}
+                            {% image post.featured_image width-800 class="w-full h-48 md:h-80 object-cover bw-image-hover" %}
                         </a>
                         {% endif %}
                         <div class="flex flex-col justify-center">

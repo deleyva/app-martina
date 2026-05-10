@@ -9,22 +9,7 @@
         background-color: rgba(0, 0, 0, 0.02);
     }
     
-    /* Responsive para móviles */
-    @media (max-width: 768px) {
-        .list-row {
-            flex-direction: column;
-            align-items: flex-start !important;
-            gap: 0.75rem;
-        }
-        
-        .list-row > div:last-child {
-            width: 100%;
-        }
-        
-        .list-row .btn {
-            width: 100%;
-        }
-    }
+    /* list-row mobile responsive rules are in project.css */
 </style>
 {% endblock %}
 
@@ -43,7 +28,7 @@
         </a>
     </div>
     
-    <div class="stats shadow mb-6">
+    <div class="stats shadow mb-6 overflow-x-auto w-full">
         <div class="stat">
             <div class="stat-figure text-primary">
                 <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">

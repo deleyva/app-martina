@@ -1,10 +1,14 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
     content: [
-      './martina_bescos_app/templates/**/*.html', // Escanea plantillas HTML
-      './martina_bescos_app/**/*.py',          // Escanea archivos Python (si usas clases en vistas, etc.)
-      './martina_bescos_app/static/js/**/*.js',   // Escanea archivos JS (si añades clases dinámicamente)
-      // Añade aquí cualquier otra ruta donde uses clases de Tailwind/DaisyUI
+      './martina_bescos_app/templates/**/*.html',
+      './cms/templates/**/*.html',
+      './clases/templates/**/*.html',
+      './my_library/templates/**/*.html',
+      './incidencias/templates/**/*.html',
+      './content_hub/templates/**/*.html',
+      './martina_bescos_app/**/*.py',
+      './martina_bescos_app/static/js/**/*.js',
     ],
     theme: {
       extend: {},

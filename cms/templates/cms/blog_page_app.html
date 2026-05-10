@@ -95,10 +95,14 @@
         margin: 1.5rem auto;
         display: block;
     }
+    .richtext-body .table-wrapper {
+        overflow-x: auto;
+        margin: 1.5rem 0;
+    }
     .richtext-body table {
         width: 100%;
         border-collapse: collapse;
-        margin: 1.5rem 0;
+        margin: 0;
     }
     .richtext-body th, .richtext-body td {
         border: 1px solid oklch(var(--b3));
@@ -204,7 +208,12 @@
         background-color: #f5f5f5;
         overflow: hidden;
         position: relative;
-        height: 300px;
+        height: 200px;
+    }
+    @media (min-width: 768px) {
+        .pdf-preview-compact {
+            height: 300px;
+        }
     }
     .pdf-preview-canvas-wrapper {
         width: 100%;
@@ -277,7 +286,7 @@
         </div>
         {% endif %}
 
-        <h1 class="text-4xl font-bold mb-4">{{ page.title }}</h1>
+        <h1 class="text-2xl md:text-4xl font-bold mb-4">{{ page.title }}</h1>
 
         {% if page.intro %}
         <p class="text-lg text-base-content/70 mb-4">{{ page.intro }}</p>
@@ -350,6 +359,16 @@
     document.addEventListener('DOMContentLoaded', function() {
         var body = document.getElementById('richtext-body');
         if (!body) return;
+
+        // Wrap tables in scrollable container for mobile
+        var tables = body.querySelectorAll('table');
+        tables.forEach(function(table) {
+            if (table.parentNode.classList.contains('table-wrapper')) return;
+            var wrapper = document.createElement('div');
+            wrapper.className = 'table-wrapper';
+            table.parentNode.insertBefore(wrapper, table);
+            wrapper.appendChild(table);
+        });
 
         // Wagtail renders embeds as <div><iframe></div> — find iframe parent divs
         var iframes = body.querySelectorAll('iframe');
