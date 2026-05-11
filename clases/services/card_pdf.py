@@ -217,18 +217,59 @@ def generate_cards_pdf(items, output_path=None, fill_items=None, duplicate=False
 
 def _generate_a4_pdf(items, output_path=None):
     """
-    Generate full A4 PDF with smart packing. No cutting lines.
+    Generate full A4 PDF — one image per page, filling the page.
 
-    Short images are packed onto shared pages; tall images get a full page.
-    Pages are sequential — print double-sided for duplex.
+    Each image is scaled to fill the A4 page (respecting aspect ratio).
+    Landscape images use a landscape page; portrait images use portrait.
+    Code label in bottom-right corner. Print double-sided for duplex.
     """
-    pages = _build_a4_pages(items)
-
     buffer = io.BytesIO()
-    c = canvas.Canvas(buffer, pagesize=A4)
+    c = canvas.Canvas(buffer)  # No fixed pagesize — set per page
 
-    for page_items in pages:
-        _draw_a4_page(c, page_items)
+    code_space = 12 * mm
+    margin = 10 * mm
+
+    for item in items:
+        if len(item) >= 3:
+            img, code, desc = item[0], item[1], item[2]
+        else:
+            img, code, desc = item[0], item[1], ""
+
+        img_path = img.file.path if img else None
+        page_w, page_h = A4_WIDTH, A4_HEIGHT  # default portrait
+
+        if not img_path or not os.path.exists(img_path):
+            c.setPageSize(A4)
+            c.setFont("Helvetica", 10)
+            c.drawCentredString(A4_WIDTH / 2, A4_HEIGHT / 2, f"[Image not found: {code}]")
+        else:
+            reader = ImageReader(img_path)
+            img_w, img_h = reader.getSize()
+            is_landscape = img_w > img_h
+
+            if is_landscape:
+                page_w, page_h = A4_HEIGHT, A4_WIDTH  # landscape A4
+            else:
+                page_w, page_h = A4_WIDTH, A4_HEIGHT  # portrait A4
+
+            c.setPageSize((page_w, page_h))
+
+            avail_w = page_w - 2 * margin
+            avail_h = page_h - 2 * margin - code_space
+            scale = min(avail_w / img_w, avail_h / img_h)
+            draw_w = img_w * scale
+            draw_h = img_h * scale
+
+            x = (page_w - draw_w) / 2
+            y = code_space + margin + (avail_h - draw_h) / 2
+
+            c.drawImage(img_path, x, y, draw_w, draw_h, preserveAspectRatio=True, mask='auto')
+
+        # Code label bottom-right
+        label = f"{code} · {desc}" if desc else code
+        c.setFont(CODE_FONT, CODE_FONT_SIZE)
+        label_w = c.stringWidth(label, CODE_FONT, CODE_FONT_SIZE)
+        c.drawString(page_w - margin - label_w, margin, label)
         c.showPage()
 
     c.save()
