@@ -13,8 +13,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="MusIES" />
   <meta name="description"
-        content="Behold My Awesome Project!" />
+        content="MusIES - Recursos musicales IES Martina Bescós" />
   <meta name="author"
         content="Jesús López de Leyva" />
   <meta name="referrer" content="origin" />
@@ -22,7 +23,8 @@
   <!-- Favicon: ICO primero para Chrome, SVG para navegadores modernos -->
   <link rel="icon" href="{% static 'images/favicons/favicon.ico' %}" sizes="32x32" />
   <link rel="icon" href="{% static 'images/favicons/favicon.svg' %}" type="image/svg+xml" />
-  <link rel="apple-touch-icon" href="{% static 'images/favicons/favicon.svg' %}" />
+  <link rel="apple-touch-icon" href="{% static 'images/favicons/icon-192.png' %}" />
+  <link rel="manifest" href="{% static 'manifest.json' %}" />
   {% block css %}
     <!-- Tailwind CSS con DaisyUI -->
     <link href="{% static 'css/output.css' %}" rel="stylesheet" />
