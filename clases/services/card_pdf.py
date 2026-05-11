@@ -88,35 +88,83 @@ def _build_slots(items):
     return slots
 
 
-def generate_cards_pdf(items, output_path=None, fill_items=None, duplicate=False):
+def _build_a4_pages(items):
     """
-    Generate A4 PDF with 2 x A5 study cards per page, laid out for duplex printing.
+    Pack items into full A4 pages. Each page is a list of (image, code, desc) tuples.
 
-    Smart packing: if two consecutive images are short, they share one A5 half
-    (each with its own code). A student cutting one A5 gets 2 or 4 correlative
-    images depending on their height.
+    Greedy bin-packing: keep adding images to the current page while total
+    scaled height fits within the available A4 space. Short images share a page;
+    tall images get their own page.
+    """
+    code_space = 12 * mm
+    page_available_h = A4_HEIGHT - 2 * MARGIN
+    gap = 5 * mm  # vertical gap between images on same page
 
-    Duplex layout ("flip on short edge") works on SLOTS (1 or 2 images each):
-      Page 1 (front): top=slot1, bottom=slot3
-      Page 2 (back):  top=slot2, bottom=slot4
+    pages = []
+    current_page = []
+    current_h = 0
 
-    When cut in half, each A5 piece has correlative content (front/back):
-      Top half  → front=slot1, back=slot2
-      Bottom half → front=slot3, back=slot4
+    for item in items:
+        img = item[0]
+        img_path = _get_image_path(img)
+        if img_path and os.path.exists(img_path):
+            reader = ImageReader(img_path)
+            img_w, img_h = reader.getSize()
+            is_tall = img_h > img_w * 1.2
+            available_w = A4_WIDTH - 2 * MARGIN
+            if is_tall:
+                scale = min(available_w / img_h, (page_available_h - code_space) / img_w)
+                scaled_h = img_w * scale
+            else:
+                scale = min(available_w / img_w, (page_available_h - code_space) / img_h)
+                scaled_h = img_h * scale
+        else:
+            scaled_h = page_available_h  # missing image = full page
 
-    Duplicate mode: same image on top and bottom of A4 (2 identical A5 copies).
-    No back page — just cut in half for 2 copies.
+        needed_h = scaled_h + code_space
+        if current_page:
+            needed_h += gap  # gap before this image
+
+        if current_page and current_h + needed_h > page_available_h:
+            # Start new page
+            pages.append(current_page)
+            current_page = [item]
+            current_h = scaled_h + code_space
+        else:
+            current_page.append(item)
+            current_h += (gap if len(current_page) > 1 else 0) + scaled_h + code_space
+
+    if current_page:
+        pages.append(current_page)
+
+    return pages
+
+
+def generate_cards_pdf(items, output_path=None, fill_items=None, duplicate=False,
+                       page_format="a5"):
+    """
+    Generate study card PDF.
+
+    page_format="a5": A4 pages with 2 x A5 cards, dashed cutting line, duplex interleaved.
+    page_format="a4": Full A4 pages, smart packing (short images share pages),
+                      no cutting line, sequential duplex (print double-sided).
+
+    Smart packing: if two consecutive images are short, they share one half/page
+    (each with its own code).
 
     Args:
-        items: List of (wagtail_image, code_str) tuples
+        items: List of (wagtail_image, code_str) or (wagtail_image, code_str, desc) tuples
         output_path: Optional path. If None, returns bytes.
-        fill_items: Optional list of extra (wagtail_image, code_str) tuples
-                    to fill blank A5 halves when slot count isn't a multiple of 4.
-        duplicate: If True, each image printed twice on same A4 (2 identical A5 copies).
+        fill_items: Optional list of extra tuples to fill blank spaces.
+        duplicate: If True (A5 only), each image printed twice on same A4.
+        page_format: "a5" (default, half-page cards) or "a4" (full-page cards).
 
     Returns:
         str path if output_path given, else bytes
     """
+    if page_format == "a4":
+        return _generate_a4_pdf(items, output_path)
+
     slots = _build_slots(items)
 
     buffer = io.BytesIO()
@@ -165,6 +213,84 @@ def generate_cards_pdf(items, output_path=None, fill_items=None, duplicate=False
             f.write(buffer.getvalue())
         return output_path
     return buffer.getvalue()
+
+
+def _generate_a4_pdf(items, output_path=None):
+    """
+    Generate full A4 PDF with smart packing. No cutting lines.
+
+    Short images are packed onto shared pages; tall images get a full page.
+    Pages are sequential — print double-sided for duplex.
+    """
+    pages = _build_a4_pages(items)
+
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=A4)
+
+    for page_items in pages:
+        _draw_a4_page(c, page_items)
+        c.showPage()
+
+    c.save()
+
+    if output_path:
+        with open(output_path, "wb") as f:
+            f.write(buffer.getvalue())
+        return output_path
+    return buffer.getvalue()
+
+
+def _draw_a4_page(c, page_items):
+    """Draw one A4 page with one or more images packed vertically."""
+    def _unpack(item):
+        if len(item) >= 3:
+            return item[0], item[1], item[2]
+        return item[0], item[1], ""
+
+    code_space = 12 * mm
+    gap = 5 * mm
+    page_available_h = A4_HEIGHT - 2 * MARGIN
+
+    # Calculate total scaled heights to distribute space
+    heights = []
+    for item in page_items:
+        img = item[0]
+        img_path = _get_image_path(img)
+        if img_path and os.path.exists(img_path):
+            reader = ImageReader(img_path)
+            img_w, img_h = reader.getSize()
+            available_w = A4_WIDTH - 2 * MARGIN
+            is_tall = img_h > img_w * 1.2
+            if is_tall:
+                scale = min(available_w / img_h, (page_available_h - code_space) / img_w)
+                scaled_h = img_w * scale
+            else:
+                scale = min(available_w / img_w, (page_available_h - code_space) / img_h)
+                scaled_h = img_h * scale
+            heights.append(scaled_h)
+        else:
+            heights.append(page_available_h - code_space)
+
+    n = len(page_items)
+    total_code_space = n * code_space
+    total_gaps = max(0, n - 1) * gap
+    total_img_h = sum(heights)
+    total_needed = total_img_h + total_code_space + total_gaps
+
+    # If total exceeds available, scale down proportionally
+    if total_needed > page_available_h:
+        shrink = (page_available_h - total_code_space - total_gaps) / total_img_h
+        heights = [h * shrink for h in heights]
+
+    # Draw from top to bottom
+    y_cursor = A4_HEIGHT - MARGIN
+
+    for idx, item in enumerate(page_items):
+        img, code, desc = _unpack(item)
+        zone_h = heights[idx] + code_space
+        y_offset = y_cursor - zone_h
+        _draw_single_image(c, img, code, y_offset, zone_h, desc)
+        y_cursor = y_offset - (gap if idx < n - 1 else 0)
 
 
 def _draw_cutting_line(c):

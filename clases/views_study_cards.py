@@ -291,7 +291,10 @@ def generate_pdf(request, book_id):
                 fill_items.append((img, code))
 
     duplicate = request.POST.get("duplicate") == "on"
-    pdf_bytes = generate_cards_pdf(all_items, fill_items=fill_items, duplicate=duplicate)
+    page_format = request.POST.get("page_format", "a5")
+    pdf_bytes = generate_cards_pdf(
+        all_items, fill_items=fill_items, duplicate=duplicate, page_format=page_format,
+    )
 
     response = HttpResponse(pdf_bytes, content_type="application/pdf")
     safe_title = book.title.replace(" ", "_")[:40]
@@ -367,7 +370,10 @@ def generate_pdf_page(request, page_id):
     fill_items = [(img, code) for img, code in all_codes if img.pk not in selected_ids]
 
     duplicate = request.POST.get("duplicate") == "on"
-    pdf_bytes = generate_cards_pdf(all_items, fill_items=fill_items, duplicate=duplicate)
+    page_format = request.POST.get("page_format", "a5")
+    pdf_bytes = generate_cards_pdf(
+        all_items, fill_items=fill_items, duplicate=duplicate, page_format=page_format,
+    )
 
     response = HttpResponse(pdf_bytes, content_type="application/pdf")
     safe_title = page.title.replace(" ", "_")[:40]

@@ -64,7 +64,11 @@
         <form method="post" action="{% url 'clases:study_cards_generate_pdf' book.pk %}" class="inline"
               onsubmit="var btn=this.querySelector('button'); setTimeout(function(){btn.classList.add('loading');btn.disabled=true;},10);">
             {% csrf_token %}
-            <label class="label cursor-pointer gap-2 mr-2 inline-flex">
+            <select name="page_format" class="select select-sm select-bordered mr-2">
+                <option value="a5">A5 (tarjetas)</option>
+                <option value="a4">A4 (página completa)</option>
+            </select>
+            <label class="label cursor-pointer gap-2 mr-2 inline-flex" id="duplicate-label">
                 <span class="label-text text-sm">2 copias</span>
                 <input type="checkbox" name="duplicate" class="checkbox checkbox-sm checkbox-primary">
             </label>
@@ -102,6 +106,15 @@
     document.body.addEventListener('htmx:oobAfterSwap', syncBtn);
     // Fallback: also watch DOM changes on counter
     new MutationObserver(syncBtn).observe(counter, {childList: true, characterData: true, subtree: true});
+
+    // Hide "2 copias" when A4 format is selected
+    var formatSelect = document.querySelector('select[name="page_format"]');
+    var dupLabel = document.getElementById('duplicate-label');
+    if (formatSelect && dupLabel) {
+        formatSelect.addEventListener('change', function() {
+            dupLabel.style.display = this.value === 'a4' ? 'none' : '';
+        });
+    }
 })();
 </script>
 {% endblock %}
