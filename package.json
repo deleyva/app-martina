@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Frontend para Martina Bescós App",
   "scripts": {
-    "create-css": "mkdir -p ./martina_bescos_app/static/css && echo '@import \"tailwindcss\";\n@plugin \"daisyui\" {\n  themes: light --default, dark --prefersdark;\n  logs: true;\n}' > ./martina_bescos_app/static/css/index.css",
+    "create-css": "mkdir -p ./martina_bescos_app/static/css && echo '@import \"tailwindcss\";\n@source \"../../..\";\n@plugin \"daisyui\" {\n  themes: light --default, dark --prefersdark;\n  logs: true;\n}' > ./martina_bescos_app/static/css/index.css",
     "build-css": "npx @tailwindcss/cli --input ./martina_bescos_app/static/css/index.css --output ./martina_bescos_app/static/css/output.css --minify",
     "build-js": "mkdir -p ./martina_bescos_app/static/js && npx esbuild ./martina_bescos_app/static/js/src/music_cards.js --bundle --outfile=./martina_bescos_app/static/js/music_cards.js --format=iife --minify",
     "build": "npm run create-css && npm run build-css && npm run build-js",
