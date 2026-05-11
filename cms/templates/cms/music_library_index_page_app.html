@@ -125,7 +125,7 @@
         <div class="mb-12">
             <div class="flex items-center justify-between mb-6">
                 <h2 class="text-2xl font-bold">📝 Contenido Editorial</h2>
-                <span class="badge badge-outline badge-sm">{{ blog_entries_count }} publicaciones</span>
+                <span class="text-sm text-base-content/60">{{ blog_entries_count }} publicaciones</span>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="blogEntriesGrid">
@@ -241,7 +241,7 @@
         {% if music_content %}
         <div class="flex items-center justify-between mb-4 mt-8">
             <h2 class="text-2xl font-bold">🎼 Biblioteca Musical</h2>
-            <span class="badge badge-outline badge-sm">
+            <span class="text-sm text-base-content/60">
                 {{ music_content_count }} {% if music_content_total %}de {{ music_content_total }}{% endif %}
             </span>
         </div>
