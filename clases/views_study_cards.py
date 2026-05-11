@@ -104,9 +104,11 @@ def dashboard(request):
             book_child_ids.add(ch.pk)
 
     # Individual BlogPages with images (not already shown as book chapters)
-    all_pages = BlogPage.objects.live().filter(
-        body__contains='embedtype="image"'
-    ).exclude(pk__in=book_child_ids).order_by("title")
+    # Note: can't pre-filter by body content alone — images may come from
+    # StreamField attachments (get_images includes both body embeds + attachments)
+    all_pages = BlogPage.objects.live().exclude(
+        pk__in=book_child_ids
+    ).order_by("title")
     page_data = []
     for page in all_pages:
         stats = _get_page_stats(page)
