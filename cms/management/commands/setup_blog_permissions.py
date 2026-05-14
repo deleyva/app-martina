@@ -15,9 +15,9 @@ except ImportError:
     GroupApprovalTask = None
 
 
-def _get_permission(codename):
+def _get_permission(codename, app_label="wagtailcore"):
     """Get a Permission object by codename (Wagtail 5.1+ uses Permission FK)."""
-    return Permission.objects.get(codename=codename, content_type__app_label="wagtailcore")
+    return Permission.objects.get(codename=codename, content_type__app_label=app_label)
 
 
 class Command(BaseCommand):
@@ -39,6 +39,10 @@ class Command(BaseCommand):
         departments = BlogIndexPage.objects.child_of(hub).live()
         self.stdout.write(f"Found hub: «{hub.title}» with {departments.count()} departments")
 
+        # Permission required to even load the Wagtail admin (/cms/). Page
+        # permissions alone do NOT grant admin access.
+        admin_access_perm = _get_permission("access_admin", app_label="wagtailadmin")
+
         for dept in departments:
             slug = dept.slug
             self.stdout.write(f"\n── {dept.title} (slug: {slug}) ──")
@@ -50,6 +54,8 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.SUCCESS(f"  Created group: {dept_group_name}"))
             else:
                 self.stdout.write(f"  Group exists: {dept_group_name}")
+
+            dept_group.permissions.add(admin_access_perm)
 
             # Assign add + change permissions on the department page
             for codename in ["add_page", "change_page"]:
@@ -69,6 +75,8 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.SUCCESS(f"  Created group: {mod_group_name}"))
             else:
                 self.stdout.write(f"  Group exists: {mod_group_name}")
+
+            mod_group.permissions.add(admin_access_perm)
 
             # Assign publish permission
             publish_perm = _get_permission("publish_page")
