@@ -1,4 +1,4 @@
-{% load static i18n wagtailcore_tags %}<!DOCTYPE html>
+{% load static i18n wagtailcore_tags wagtailuserbar %}<!DOCTYPE html>
 {% get_current_language as LANGUAGE_CODE %}
 <html lang="{{ LANGUAGE_CODE }}" data-theme="lofi">
   <head>
@@ -120,6 +120,7 @@
       </div>
     </footer>
 
+    {% wagtailuserbar %}
     {% block extra_js %}{% endblock extra_js %}
   </body>
 </html>
