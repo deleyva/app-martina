@@ -1,3 +1,5 @@
+import json
+
 from django.db import models
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
@@ -6,6 +8,82 @@ from django.urls import reverse
 from django.utils.html import format_html
 from taggit.managers import TaggableManager
 from martina_bescos_app.users.models import User
+
+
+class LibraryDeck(models.Model):
+    """
+    Mazo de práctica — filtro de tags guardado para estudio recurrente.
+    Almacena un nombre y una lista de tags como JSON. Los items que coincidan
+    con TODOS los tags (lógica AND) forman el contenido del mazo.
+    """
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="library_decks"
+    )
+    name = models.CharField(max_length=100)
+    tags_json = models.TextField(
+        help_text="JSON array of tag names, e.g. [\"guitarra\", \"jazz\"]"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name"]
+        unique_together = ["user", "name"]
+        verbose_name = "Mazo de Biblioteca"
+        verbose_name_plural = "Mazos de Biblioteca"
+
+    def __str__(self):
+        return f"{self.user.username} - {self.name}"
+
+    def get_tags(self):
+        """Return list of tag names."""
+        try:
+            return json.loads(self.tags_json)
+        except (json.JSONDecodeError, TypeError):
+            return []
+
+    def set_tags(self, tag_list):
+        """Set tags from a list of strings."""
+        self.tags_json = json.dumps(tag_list)
+
+    def get_matching_item_pks(self, tag_map):
+        """Return PKs of library items matching ALL deck tags.
+
+        Args:
+            tag_map: dict mapping item PK to set of lowercase tag strings,
+                     built once via LibraryDeck.build_tag_map() and shared across decks.
+        """
+        tags = [t.lower() for t in self.get_tags()]
+        if not tags:
+            return list(tag_map.keys())
+
+        return [pk for pk, item_tags in tag_map.items() if all(t in item_tags for t in tags)]
+
+    @staticmethod
+    def build_tag_map(items_qs):
+        """Build a {pk: set(lowercase_tags)} dict for all items in queryset.
+
+        Call once, share across all decks to avoid per-deck N+1 queries.
+        """
+        tag_map = {}
+        for item in items_qs:
+            tags_set = set()
+            # Item's own tags (prefetched)
+            for tag in item.tags.all():
+                tags_set.add(tag.name.lower())
+            # Content object tags (GenericFK — unavoidable per-item query)
+            obj = item.content_object
+            if obj and hasattr(obj, "tags"):
+                for tag in obj.tags.all():
+                    tags_set.add(tag.name.lower())
+            # Related source page tags
+            if item.source_page_id and item.source_page:
+                specific = item.source_page.specific
+                if hasattr(specific, "tags"):
+                    for tag in specific.tags.all():
+                        tags_set.add(tag.name.lower())
+            tag_map[item.pk] = tags_set
+        return tag_map
 
 
 class LibraryItem(models.Model):

@@ -23,4 +23,9 @@ urlpatterns = [
     path("mark-viewed/<int:pk>/", views.mark_viewed, name="mark_viewed"),
     path("manage-tags/", views.manage_tags, name="manage_tags"),
     path("merge-tags/", views.merge_tags, name="merge_tags"),
+    # Decks
+    path("decks/create/", views.create_deck, name="create_deck"),
+    path("decks/<int:pk>/delete/", views.delete_deck, name="delete_deck"),
+    path("decks/<int:pk>/rename/", views.rename_deck, name="rename_deck"),
+    path("decks/<int:pk>/study/", views.deck_study, name="deck_study"),
 ]

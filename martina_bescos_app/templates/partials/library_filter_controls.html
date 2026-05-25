@@ -96,11 +96,86 @@
             </div>
         </div>
 
-        <button onclick="startStudySession()" id="studyButton" class="btn btn-primary btn-sm gap-2 fixed bottom-[4.5rem] right-4 z-30 shadow-lg lg:relative lg:bottom-auto lg:right-auto lg:z-auto lg:shadow-none" style="display: none;">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
-            </svg>
-            Comenzar estudio (<span id="studyCount">0</span>)
-        </button>
+        <div class="flex gap-2 items-center">
+            <button onclick="openSaveDeckModal()" id="saveDeckButton" class="btn btn-outline btn-secondary btn-sm gap-1" style="display: none;" title="Guardar filtro como mazo">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path>
+                </svg>
+                <span class="hidden sm:inline">Guardar mazo</span>
+            </button>
+            <button onclick="startStudySession()" id="studyButton" class="btn btn-primary btn-sm gap-2 fixed bottom-[4.5rem] right-4 z-30 shadow-lg lg:relative lg:bottom-auto lg:right-auto lg:z-auto lg:shadow-none" style="display: none;">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                </svg>
+                Comenzar estudio (<span id="studyCount">0</span>)
+            </button>
+        </div>
     </div>
 </div>
+
+<!-- Save Deck Modal -->
+<dialog id="saveDeckModal" class="modal">
+    <div class="modal-box w-80">
+        <h3 class="font-bold text-sm mb-3">Guardar como mazo</h3>
+        <div id="saveDeckTagPreview" class="flex flex-wrap gap-1 mb-3"></div>
+        <form id="saveDeckForm"
+              hx-post="{% url 'my_library:create_deck' %}"
+              hx-target="#deckPanel"
+              hx-swap="outerHTML">
+            {% csrf_token %}
+            <input type="hidden" name="tags" id="saveDeckTagsInput">
+            <input type="text" name="name" class="input input-bordered input-sm w-full" id="saveDeckNameInput" placeholder="Nombre del mazo..." required maxlength="100">
+            <div id="saveDeckError" class="text-error text-xs mt-1" style="display:none;"></div>
+            <div class="modal-action">
+                <button type="button" onclick="document.getElementById('saveDeckModal').close()" class="btn btn-ghost btn-sm">Cancelar</button>
+                <button type="submit" class="btn btn-primary btn-sm">Guardar</button>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<script>
+function openSaveDeckModal() {
+    if (typeof activeTagFilters === 'undefined' || activeTagFilters.length === 0) return;
+
+    var modal = document.getElementById('saveDeckModal');
+    var tagsInput = document.getElementById('saveDeckTagsInput');
+    var nameInput = document.getElementById('saveDeckNameInput');
+    var preview = document.getElementById('saveDeckTagPreview');
+
+    // Set tags
+    tagsInput.value = activeTagFilters.join(',');
+
+    // Show tag preview
+    preview.innerHTML = activeTagFilters.map(function(tag) {
+        return '<span class="badge badge-primary badge-xs">' + escapeHtml(tag) + '</span>';
+    }).join('');
+
+    // Suggest name from tags
+    nameInput.value = activeTagFilters.join(' + ');
+
+    modal.showModal();
+    nameInput.focus();
+    nameInput.select();
+}
+
+// Close modal after successful HTMX save
+document.addEventListener('htmx:afterSwap', function(e) {
+    if (e.detail.target && e.detail.target.id === 'deckPanel') {
+        var modal = document.getElementById('saveDeckModal');
+        if (modal && modal.open) modal.close();
+    }
+});
+
+// Handle HTMX error for save deck
+document.addEventListener('htmx:responseError', function(e) {
+    if (e.detail.target && e.detail.target.id === 'deckPanel' && e.detail.xhr.status === 400) {
+        var errorEl = document.getElementById('saveDeckError');
+        if (errorEl) {
+            errorEl.textContent = e.detail.xhr.responseText.replace(/<[^>]*>/g, '');
+            errorEl.style.display = '';
+        }
+    }
+});
+</script>

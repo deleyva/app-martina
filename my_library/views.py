@@ -5,12 +5,14 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
 from django.http import HttpResponse, JsonResponse
 from django.contrib.contenttypes.models import ContentType
+from django.template.loader import render_to_string
+from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_protect
 from django.contrib import messages
 from django.db.models import Count
-from .models import LibraryItem
+from .models import LibraryDeck, LibraryItem
 
 
 @login_required
@@ -19,15 +21,19 @@ def my_library_index(request):
     Vista principal de la biblioteca del usuario.
     TINY VIEW: solo orquesta y renderiza.
     """
-    items = LibraryItem.objects.filter(user=request.user).select_related(
+    all_items = LibraryItem.objects.filter(user=request.user).select_related(
         "content_type", "source_page"
-    )
-    total_items = items.count()
+    ).prefetch_related("tags")
+    total_items = all_items.count()
     show_all = request.GET.get("show_all")
     has_more = False
+    items = all_items
     if not show_all and total_items > 6:
-        items = items[:6]
+        items = all_items[:6]
         has_more = True
+
+    decks_with_counts = _build_decks_with_counts(request.user, all_items)
+
     return render(
         request,
         "my_library/index.html",
@@ -35,6 +41,7 @@ def my_library_index(request):
             "items": items,
             "total_items": total_items,
             "has_more": has_more,
+            "decks_with_counts": decks_with_counts,
         },
     )
 
@@ -449,3 +456,116 @@ def merge_tags(request):
         messages.warning(request, "No se fusionó ningún tag.")
 
     return redirect("my_library:manage_tags")
+
+
+# === Deck CRUD ===
+
+
+@login_required
+@require_POST
+def create_deck(request):
+    """Create a new deck from active tag filters. HTMX endpoint."""
+    name = request.POST.get("name", "").strip()
+    tags_str = request.POST.get("tags", "").strip()
+
+    if not name or not tags_str:
+        return HttpResponse(
+            '<span class="text-error text-sm">Nombre y tags son obligatorios.</span>',
+            status=400,
+        )
+
+    tag_list = [t.strip() for t in tags_str.split(",") if t.strip()]
+    if not tag_list:
+        return HttpResponse(
+            '<span class="text-error text-sm">Selecciona al menos un tag.</span>',
+            status=400,
+        )
+
+    deck, created = LibraryDeck.objects.get_or_create(
+        user=request.user,
+        name=name,
+        defaults={"tags_json": json.dumps(tag_list)},
+    )
+    if not created:
+        return HttpResponse(
+            '<span class="text-error text-sm">Ya existe un mazo con ese nombre.</span>',
+            status=400,
+        )
+
+    # Return updated deck panel
+    return _render_deck_panel(request)
+
+
+@login_required
+@require_POST
+def delete_deck(request, pk):
+    """Delete a deck. HTMX endpoint."""
+    deck = get_object_or_404(LibraryDeck, pk=pk, user=request.user)
+    deck.delete()
+    return _render_deck_panel(request)
+
+
+@login_required
+@require_POST
+def rename_deck(request, pk):
+    """Rename a deck. HTMX endpoint."""
+    deck = get_object_or_404(LibraryDeck, pk=pk, user=request.user)
+    new_name = request.POST.get("name", "").strip()
+    if not new_name:
+        return HttpResponse(status=400)
+
+    # Check unique constraint
+    if LibraryDeck.objects.filter(user=request.user, name=new_name).exclude(pk=pk).exists():
+        return HttpResponse(
+            '<span class="text-error text-sm">Ya existe un mazo con ese nombre.</span>',
+            status=400,
+        )
+
+    deck.name = new_name
+    deck.save(update_fields=["name"])
+    return _render_deck_panel(request)
+
+
+@login_required
+def deck_study(request, pk):
+    """Redirect to study session with deck's matching items."""
+    deck = get_object_or_404(LibraryDeck, pk=pk, user=request.user)
+    items_qs = LibraryItem.objects.filter(user=request.user).select_related(
+        "content_type", "source_page"
+    ).prefetch_related("tags")
+    tag_map = LibraryDeck.build_tag_map(items_qs)
+    pks = deck.get_matching_item_pks(tag_map)
+    if not pks:
+        messages.warning(request, f'El mazo "{deck.name}" no tiene elementos que coincidan.')
+        return redirect("my_library:index")
+    return redirect(f"{reverse('my_library:study_session')}?items={','.join(str(pk) for pk in pks)}")
+
+
+def _build_decks_with_counts(user, items_qs):
+    """Build deck list with matching item counts. Shared by index view and HTMX endpoints."""
+    decks = LibraryDeck.objects.filter(user=user)
+    if not decks.exists():
+        return []
+    tag_map = LibraryDeck.build_tag_map(items_qs)
+    return [
+        {
+            "deck": deck,
+            "tags": deck.get_tags(),
+            "count": len(deck.get_matching_item_pks(tag_map)),
+        }
+        for deck in decks
+    ]
+
+
+def _render_deck_panel(request):
+    """Helper: render the deck panel partial with fresh data."""
+    all_items_qs = LibraryItem.objects.filter(user=request.user).select_related(
+        "content_type", "source_page"
+    ).prefetch_related("tags")
+    decks_with_counts = _build_decks_with_counts(request.user, all_items_qs)
+    html = render_to_string(
+        "my_library/partials/deck_panel.html",
+        {"decks_with_counts": decks_with_counts},
+        request=request,
+    )
+    return HttpResponse(html)

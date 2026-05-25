@@ -1,0 +1,159 @@
+{% comment %}
+  Deck panel — shows saved tag filter decks as cards.
+  Collapsible, with create/delete/study actions.
+  Swapped via HTMX on create/delete/rename.
+{% endcomment %}
+
+<div id="deckPanel" class="mb-6">
+    <div class="flex items-center gap-2 mb-3">
+        <button onclick="toggleDeckPanel()" class="flex items-center gap-1.5 text-sm font-semibold opacity-70 hover:opacity-100 transition-opacity">
+            <svg id="deckChevron" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+            Mis Mazos
+            {% if decks_with_counts %}
+            <span class="badge badge-ghost badge-xs">{{ decks_with_counts|length }}</span>
+            {% endif %}
+        </button>
+    </div>
+
+    <div id="deckPanelContent">
+        {% if decks_with_counts %}
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {% for item in decks_with_counts %}
+            <div class="card card-compact bg-base-100 border border-base-300 shadow-sm hover:shadow-md transition-shadow">
+                <div class="card-body p-3">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1 min-w-0">
+                            <h3 class="font-semibold text-sm truncate" id="deck-name-{{ item.deck.pk }}">{{ item.deck.name }}</h3>
+                            <div class="flex flex-wrap gap-1 mt-1">
+                                {% for tag in item.tags %}
+                                <span class="badge badge-primary badge-xs">{{ tag }}</span>
+                                {% endfor %}
+                            </div>
+                            <div class="text-xs opacity-50 mt-1">{{ item.count }} elemento{{ item.count|pluralize:"s" }}</div>
+                        </div>
+                        <div class="dropdown dropdown-end">
+                            <label tabindex="0" class="btn btn-ghost btn-xs btn-square">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01"></path>
+                                </svg>
+                            </label>
+                            <ul tabindex="0" class="dropdown-content z-[1] menu p-1 shadow bg-base-100 rounded-box w-40 border border-base-300">
+                                <li><a onclick="applyDeckTags(this)" data-deck-tags="{{ item.deck.tags_json|escapejs }}" class="text-xs">Aplicar filtro</a></li>
+                                <li><a onclick="startRenameDeck({{ item.deck.pk }}, '{{ item.deck.name|escapejs }}')" data-rename-url="{% url 'my_library:rename_deck' item.deck.pk %}" class="text-xs">Renombrar</a></li>
+                                <li>
+                                    <form hx-post="{% url 'my_library:delete_deck' item.deck.pk %}"
+                                          hx-target="#deckPanel"
+                                          hx-swap="outerHTML"
+                                          hx-confirm="Eliminar el mazo '{{ item.deck.name|escapejs }}'?"
+                                          class="p-0 m-0">
+                                        {% csrf_token %}
+                                        <button type="submit" class="text-xs text-error w-full text-left px-3 py-1.5 hover:bg-error/10 rounded">Eliminar</button>
+                                    </form>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="card-actions mt-2">
+                        <a href="{% url 'my_library:deck_study' item.deck.pk %}" class="btn btn-primary btn-xs flex-1">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                            </svg>
+                            Estudiar
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-4 text-sm opacity-50">
+            Filtra por tags y guarda combinaciones como mazos de estudio.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Rename modal -->
+<dialog id="renameDeckModal" class="modal">
+    <div class="modal-box w-80">
+        <h3 class="font-bold text-sm mb-3">Renombrar mazo</h3>
+        <form id="renameDeckForm" hx-post="" hx-target="#deckPanel" hx-swap="outerHTML">
+            {% csrf_token %}
+            <input type="text" name="name" class="input input-bordered input-sm w-full" id="renameDeckInput" required maxlength="100">
+            <div class="modal-action">
+                <button type="button" onclick="document.getElementById('renameDeckModal').close()" class="btn btn-ghost btn-sm">Cancelar</button>
+                <button type="submit" class="btn btn-primary btn-sm">Guardar</button>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<script>
+function toggleDeckPanel() {
+    var content = document.getElementById('deckPanelContent');
+    var chevron = document.getElementById('deckChevron');
+    if (content.style.display === 'none') {
+        content.style.display = '';
+        chevron.style.transform = '';
+        localStorage.setItem('deckPanelOpen', '1');
+    } else {
+        content.style.display = 'none';
+        chevron.style.transform = 'rotate(-90deg)';
+        localStorage.setItem('deckPanelOpen', '0');
+    }
+}
+
+// Restore collapsed state
+(function() {
+    if (localStorage.getItem('deckPanelOpen') === '0') {
+        var content = document.getElementById('deckPanelContent');
+        var chevron = document.getElementById('deckChevron');
+        if (content) content.style.display = 'none';
+        if (chevron) chevron.style.transform = 'rotate(-90deg)';
+    }
+})();
+
+function applyDeckTags(el) {
+    var tags;
+    try { tags = JSON.parse(el.dataset.deckTags); } catch(e) { return; }
+
+    // Close any open dropdown
+    document.activeElement.blur();
+    // Clear existing filters and apply deck tags
+    if (typeof activeTagFilters !== 'undefined') {
+        activeTagFilters = [];
+        tags.forEach(function(tag) {
+            activeTagFilters.push(tag);
+        });
+        if (typeof renderChips === 'function') renderChips();
+        if (typeof filterLibraryItems === 'function') filterLibraryItems();
+        if (typeof closeDropdown === 'function') closeDropdown();
+
+        // If page shows subset, redirect with show_all + tags
+        var showAllLink = document.querySelector('a[href="?show_all=1"]');
+        if (showAllLink) {
+            var tagParams = encodeURIComponent(activeTagFilters.join(','));
+            window.location.href = '?show_all=1&study_tags=' + tagParams;
+        }
+    }
+}
+
+function startRenameDeck(pk, currentName) {
+    // Find the rename link to get the URL from its data attribute
+    var renameLink = document.querySelector('[data-rename-url][onclick*="' + pk + '"]');
+    if (!renameLink) return;
+    document.activeElement.blur();
+    var modal = document.getElementById('renameDeckModal');
+    var form = document.getElementById('renameDeckForm');
+    var input = document.getElementById('renameDeckInput');
+    form.setAttribute('hx-post', renameLink.dataset.renameUrl);
+    htmx.process(form);
+    input.value = currentName;
+    modal.showModal();
+    input.focus();
+    input.select();
+}
+</script>
