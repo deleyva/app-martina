@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% load i18n %}
+
+{% block title %}Error de autenticacion{% endblock %}
+
+{% block content %}
+<div class="card max-w-md mx-auto bg-base-100 shadow-xl mt-8">
+  <div class="card-body">
+    <h1 class="card-title text-2xl font-bold text-error">Error de autenticacion</h1>
+
+    <div class="alert alert-error my-4">
+      <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <span>No se ha podido completar el inicio de sesion con {{ auth_error.provider.name|default:"el proveedor social" }}.</span>
+    </div>
+
+    {% if user.is_staff and auth_error %}
+    <div class="bg-base-200 rounded-lg p-4 my-4 text-sm">
+      <p class="font-semibold mb-2">Detalles (solo visible para administradores):</p>
+      <ul class="list-disc list-inside space-y-1">
+        <li><strong>Codigo:</strong> {{ auth_error.code }}</li>
+        {% if auth_error.exception %}
+        <li><strong>Excepcion:</strong> {{ auth_error.exception }}</li>
+        {% endif %}
+      </ul>
+    </div>
+    {% endif %}
+
+    <div class="flex flex-col gap-3 mt-4">
+      <a href="{% url 'account_login' %}" class="btn btn-primary w-full">
+        Intentar de nuevo
+      </a>
+      <a href="/" class="btn btn-outline w-full">
+        Volver al inicio
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}
