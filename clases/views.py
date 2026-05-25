@@ -564,53 +564,59 @@ def class_session_edit(request, pk):
 
     # Query base de biblioteca del grupo
     from django.db.models import Q
-    from cms.models import ScorePage
+    from cms.models import ScorePage, BlogPage, DictadoPage
 
     library_items = GroupLibraryItem.objects.filter(group=session.group)
 
     # Filtrar por búsqueda (título del contenido y tags)
     if search:
-        # Obtener IDs de ScorePages que coinciden con la búsqueda
-        matching_score_ids = (
+        from django.contrib.contenttypes.models import ContentType
+        from wagtail.documents.models import Document
+        from wagtail.images.models import Image
+        from wagtail.models import Page
+
+        # Buscar todas las Pages (ScorePage, BlogPage, DictadoPage) por título
+        matching_page_ids = set(
+            Page.objects.filter(title__icontains=search)
+            .values_list("pk", flat=True)
+        )
+
+        # También buscar por tags/categorías de ScorePage
+        matching_page_ids |= set(
             ScorePage.objects.filter(
-                Q(title__icontains=search)
-                | Q(tags__name__icontains=search)
+                Q(tags__name__icontains=search)
                 | Q(categories__name__icontains=search)
             )
             .values_list("pk", flat=True)
             .distinct()
         )
 
-        # Obtener content_type de ScorePage
-        from django.contrib.contenttypes.models import ContentType
-        from wagtail.documents.models import Document
-        from wagtail.images.models import Image
-
-        scorepage_ct = ContentType.objects.get_for_model(ScorePage)
+        # Content types de páginas
+        page_cts = [
+            ContentType.objects.get_for_model(ScorePage),
+            ContentType.objects.get_for_model(BlogPage),
+            ContentType.objects.get_for_model(DictadoPage),
+        ]
         document_ct = ContentType.objects.get_for_model(Document)
         image_ct = ContentType.objects.get_for_model(Image)
 
-        # Buscar Documents e Images que coincidan con el título
-        matching_doc_ids = Document.objects.filter(title__icontains=search).values_list(
-            "pk", flat=True
+        # Buscar Documents e Images por título
+        matching_doc_ids = list(
+            Document.objects.filter(title__icontains=search).values_list("pk", flat=True)
+        )
+        matching_img_ids = list(
+            Image.objects.filter(title__icontains=search).values_list("pk", flat=True)
         )
 
-        matching_img_ids = Image.objects.filter(title__icontains=search).values_list(
-            "pk", flat=True
-        )
-
-        # object_id es CharField en GenericForeignKey, convertir a strings
-        matching_score_ids_str = [str(pk) for pk in matching_score_ids]
-        matching_doc_ids_str = [str(pk) for pk in matching_doc_ids]
-        matching_img_ids_str = [str(pk) for pk in matching_img_ids]
+        matching_page_ids_list = list(matching_page_ids)
 
         # Filtrar library_items: por tipo/notas o por matches en contenido
         library_items = library_items.filter(
             Q(content_type__model__icontains=search)
             | Q(notes__icontains=search)
-            | Q(content_type=scorepage_ct, object_id__in=matching_score_ids_str)
-            | Q(content_type=document_ct, object_id__in=matching_doc_ids_str)
-            | Q(content_type=image_ct, object_id__in=matching_img_ids_str)
+            | Q(content_type__in=page_cts, object_id__in=matching_page_ids_list)
+            | Q(content_type=document_ct, object_id__in=matching_doc_ids)
+            | Q(content_type=image_ct, object_id__in=matching_img_ids)
         )
 
     # Ordenar: por fecha añadido (el contador de sesiones se muestra pero no ordena)
