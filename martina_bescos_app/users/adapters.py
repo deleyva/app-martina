@@ -118,6 +118,17 @@ class AccountAdapter(DefaultAccountAdapter):
 
 
 class SocialAccountAdapter(DefaultSocialAccountAdapter):
+    def on_authentication_error(self, request, provider, error=None, exception=None, extra_context=None):
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(
+            f"OAuth authentication error: provider={provider}, error={error}, "
+            f"exception={exception}, exception_type={type(exception).__name__ if exception else None}"
+        )
+        if exception:
+            import traceback
+            logger.error(f"OAuth traceback: {traceback.format_exception(exception)}")
+
     def is_open_for_signup(
         self,
         request: HttpRequest,

@@ -16,9 +16,9 @@
       <span>No se ha podido completar el inicio de sesion con {{ auth_error.provider.name|default:"el proveedor social" }}.</span>
     </div>
 
-    {% if user.is_staff and auth_error %}
+    {% if auth_error %}
     <div class="bg-base-200 rounded-lg p-4 my-4 text-sm">
-      <p class="font-semibold mb-2">Detalles (solo visible para administradores):</p>
+      <p class="font-semibold mb-2">Detalles del error:</p>
       <ul class="list-disc list-inside space-y-1">
         <li><strong>Codigo:</strong> {{ auth_error.code }}</li>
         {% if auth_error.exception %}
