@@ -329,8 +329,8 @@
 
     <!-- Navegación: Volver al Índice -->
     <div class="mt-12 text-center font-sans tracking-widest uppercase text-sm">
-        <a href="{{ page.get_parent.get_url }}" class="inline-block py-2 px-6 border border-black text-black hover:bg-black hover:text-white transition-colors">
-            Volver a Portada
+        <a href="{{ back_url|default:page.get_parent.get_url }}" class="inline-block py-2 px-6 border border-black text-black hover:bg-black hover:text-white transition-colors">
+            {% if back_url %}Volver a la sesión{% else %}Volver a Portada{% endif %}
         </a>
     </div>
 

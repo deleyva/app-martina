@@ -742,6 +742,21 @@ class BlogPage(Page):
                     f"El máximo permitido es 10 MB."
                 )
 
+    def get_context(self, request, *args, **kwargs):
+        context = super().get_context(request, *args, **kwargs)
+        from_session = request.GET.get("from_session")
+        if from_session:
+            from_edit = request.GET.get("from") == "edit"
+            if from_edit:
+                context["back_url"] = reverse(
+                    "clases:class_session_edit", args=[from_session]
+                )
+            else:
+                context["back_url"] = reverse(
+                    "clases:class_session_view", args=[from_session]
+                )
+        return context
+
     def is_music_library_child(self):
         """True if this page is a descendant of a MusicLibraryIndexPage at any depth.
 
@@ -861,6 +876,21 @@ class DictadoPage(Page):
 
     parent_page_types = ["cms.MusicLibraryIndexPage"]
     subpage_types = []
+
+    def get_context(self, request, *args, **kwargs):
+        context = super().get_context(request, *args, **kwargs)
+        from_session = request.GET.get("from_session")
+        if from_session:
+            from_edit = request.GET.get("from") == "edit"
+            if from_edit:
+                context["back_url"] = reverse(
+                    "clases:class_session_edit", args=[from_session]
+                )
+            else:
+                context["back_url"] = reverse(
+                    "clases:class_session_view", args=[from_session]
+                )
+        return context
 
     def get_template(self, request, *args, **kwargs):
         if _is_blog_request(request):

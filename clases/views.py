@@ -1203,7 +1203,13 @@ def class_session_item_viewer(request, session_id, item_id):
     # EXCEPTO si estamos intentando ver un embed específico de la misma
     if content_type in ["blogpage", "dictadopage"] and element_type != "embed":
         if hasattr(content, "get_url"):
-            return redirect(content.get_url())
+            url = content.get_url()
+            # Pasar contexto de sesión para que el botón "Volver" regrese aquí
+            if from_view == "view":
+                url += f"?from_session={session_id}"
+            elif from_view == "edit":
+                url += f"?from_session={session_id}&from=edit"
+            return redirect(url)
 
     score_media = item.get_related_scorepage_media()
 

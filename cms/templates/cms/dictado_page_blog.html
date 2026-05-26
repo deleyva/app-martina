@@ -10,11 +10,11 @@
 <div class="container mx-auto px-4 py-8 max-w-full">
     <!-- Header -->
     <div class="mb-8">
-        <a href="{{ page.get_parent.url }}" class="btn btn-ghost btn-sm mb-4">
+        <a href="{{ back_url|default:page.get_parent.url }}" class="btn btn-ghost btn-sm mb-4">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
             </svg>
-            Volver
+            {% if back_url %}Volver a la sesión{% else %}Volver{% endif %}
         </a>
         
         <h1 class="text-4xl font-bold mb-2">{{ page.title }}</h1>
