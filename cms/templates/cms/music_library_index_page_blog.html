@@ -334,7 +334,7 @@
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {% for entry in blog_entries %}
             {% with item=entry.page.specific %}
-            <div class="card bg-base-100 shadow-lg hover:shadow-xl transition-shadow">
+            <div class="card bg-base-100 shadow-lg hover:shadow-xl transition-shadow relative cursor-pointer">
                 {% if item.featured_image %}
                 <figure class="aspect-video">
                     {% image item.featured_image width-400 class="w-full h-full object-cover" %}
@@ -366,8 +366,8 @@
                         </div>
                         {% endfor %}
                         {% for tag in item.tags.all|slice:":3" %}
-                        <a href="?tags={{ tag.name }}{% if search_query %}&q={{ search_query }}{% endif %}" 
-                           class="badge badge-outline badge-sm hover:bg-base-200 cursor-pointer" 
+                        <a href="?tags={{ tag.name }}{% if search_query %}&q={{ search_query }}{% endif %}"
+                           class="badge badge-outline badge-sm hover:bg-base-200 cursor-pointer relative z-10"
                            style="{% if tag.color %}border-color: {{ tag.color }}; color: {{ tag.color }};{% endif %}">
                             🏷️ {{ tag.name }}
                         </a>
@@ -386,15 +386,15 @@
                         
                         <div class="flex gap-2">
                             {% if user.is_authenticated %}
-                            <div id="library-btn-blog-{{ item.pk }}" onclick="event.stopPropagation()">
+                            <div id="library-btn-blog-{{ item.pk }}" class="relative z-10" onclick="event.stopPropagation()">
                                 {% library_button item %}
                             </div>
                             {% endif %}
-                            <a href="{{ item.url }}" class="btn btn-sm btn-primary">
+                            <a href="{{ item.url }}" class="btn btn-sm btn-primary after:absolute after:inset-0 after:content-['']">
                                 {% if entry.type == 'test' %}Resolver test{% else %}Leer más{% endif %}
                             </a>
                             {% if user.is_staff %}
-                            <div class="dropdown dropdown-end">
+                            <div class="dropdown dropdown-end relative z-10">
                                 <div tabindex="0" role="button" class="btn btn-sm btn-ghost">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path>

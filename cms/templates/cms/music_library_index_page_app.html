@@ -131,7 +131,7 @@
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="blogEntriesGrid">
                 {% for entry in blog_entries %}
                 {% with item=entry.page %}
-                <div class="card bg-base-100 shadow-lg hover:shadow-xl transition-shadow overflow-hidden">
+                <div class="card bg-base-100 shadow-lg hover:shadow-xl transition-shadow overflow-hidden relative cursor-pointer">
                     {% if entry.type == 'book' and item.cover_image %}
                     <figure class="aspect-video bg-base-200">
                         <a href="{{ item.url }}" class="block w-full h-full">
@@ -199,17 +199,17 @@
 
                             <div class="flex gap-2">
                                 {% if user.is_authenticated and entry.type != 'book' %}
-                                <div id="library-btn-blog-{{ item.pk }}" onclick="event.stopPropagation()">
+                                <div id="library-btn-blog-{{ item.pk }}" class="relative z-10" onclick="event.stopPropagation()">
                                     {% library_button item %}
                                 </div>
                                 {% endif %}
-                                <a href="{{ item.url }}" class="btn btn-sm btn-primary">
+                                <a href="{{ item.url }}" class="btn btn-sm btn-primary after:absolute after:inset-0 after:content-['']">
                                     {% if entry.type == 'book' %}Abrir libro
                                     {% elif entry.type == 'test' %}Resolver test
                                     {% else %}Leer más{% endif %}
                                 </a>
                                 {% if user.is_staff %}
-                                <a href="/cms/pages/{{ item.id }}/edit/" class="btn btn-sm btn-ghost" title="Editar">
+                                <a href="/cms/pages/{{ item.id }}/edit/" class="btn btn-sm btn-ghost relative z-10" title="Editar">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
                                     </svg>
