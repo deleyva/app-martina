@@ -427,11 +427,13 @@ class LibraryItem(models.Model):
                 "images": score.get_images() if hasattr(score, "get_images") else [],
             }
         elif self.content_type.model == "document":
-            # Verificar si es audio o PDF
+            # Verificar si es audio, GP o PDF
             if hasattr(self.content_object, "file"):
                 filename = self.content_object.file.name.lower()
                 if filename.endswith((".mp3", ".wav", ".ogg", ".m4a", ".aac", ".flac")):
                     return {"audios": [self.content_object]}
+                elif filename.endswith((".gp", ".gp5", ".gpx", ".gp4", ".gp3")):
+                    return {"gp_files": [self.content_object]}
                 else:
                     return {"pdfs": [self.content_object]}
             return {"pdfs": [self.content_object]}

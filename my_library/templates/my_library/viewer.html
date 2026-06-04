@@ -173,6 +173,201 @@
         {% elif documents.images %}
             <!-- Visor Imagen -->
             {% include "my_library/viewers/image_viewer.html" with images=documents.images %}
+        {% elif documents.gp_files %}
+            <!-- Visor Guitar Pro (alphaTab) -->
+            <style>
+                #gp-viewer-container {
+                    width: 100%;
+                    min-height: 100vh;
+                    padding-top: 56px;
+                    padding-bottom: 80px;
+                    background: #fff;
+                    overflow: auto;
+                }
+                #gp-loading {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    height: 60vh;
+                    color: #666;
+                    font-size: 1rem;
+                }
+                #gp-alphatab {
+                    width: 100%;
+                    position: relative;
+                }
+                /* alphaTab cursor styles */
+                #gp-alphatab .at-cursor-bar {
+                    background: rgba(59, 130, 246, 0.08) !important;
+                }
+                #gp-alphatab .at-cursor-beat {
+                    background: rgba(59, 130, 246, 0.5) !important;
+                    width: 3px !important;
+                }
+                #gp-alphatab .at-highlight * {
+                    fill: #3b82f6 !important;
+                }
+                #gp-controls {
+                    position: fixed;
+                    bottom: 0;
+                    left: 0;
+                    right: 0;
+                    z-index: 9999;
+                    display: none;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 10px;
+                    padding: 10px 12px;
+                    background: rgba(0, 0, 0, 0.9);
+                    backdrop-filter: blur(10px);
+                    color: #fff;
+                    flex-wrap: wrap;
+                }
+                .gp-ctrl-btn {
+                    height: 36px;
+                    padding: 0 14px;
+                    border-radius: 999px;
+                    border: 1px solid rgba(255,255,255,0.3);
+                    background: rgba(255,255,255,0.1);
+                    color: #fff;
+                    font-size: 13px;
+                    cursor: pointer;
+                    white-space: nowrap;
+                    transition: background 0.15s;
+                }
+                .gp-ctrl-btn:hover {
+                    background: rgba(255,255,255,0.2);
+                }
+                .gp-ctrl-btn.active {
+                    background: rgba(59, 130, 246, 0.6);
+                    border-color: rgba(59, 130, 246, 0.8);
+                }
+                .gp-ctrl-select {
+                    height: 36px;
+                    border-radius: 8px;
+                    border: 1px solid rgba(255,255,255,0.25);
+                    background: rgba(255,255,255,0.08);
+                    color: #fff;
+                    font-size: 13px;
+                    padding: 0 8px;
+                }
+                #gp-speed-label {
+                    font-size: 12px;
+                    opacity: 0.7;
+                    min-width: 38px;
+                    text-align: center;
+                }
+            </style>
+            <div id="gp-viewer-container">
+                <div id="gp-loading">Cargando partitura...</div>
+                <div id="gp-alphatab"></div>
+                <div id="gp-controls">
+                    <button type="button" id="gp-play-pause" class="gp-ctrl-btn">▶ Play</button>
+                    <button type="button" id="gp-speed-down" class="gp-ctrl-btn">−</button>
+                    <span id="gp-speed-label">1×</span>
+                    <button type="button" id="gp-speed-up" class="gp-ctrl-btn">+</button>
+                    <select id="gp-track-select" class="gp-ctrl-select"></select>
+                </div>
+            </div>
+            <script src="https://cdn.jsdelivr.net/npm/@coderline/alphatab@latest/dist/alphaTab.min.js"></script>
+            <script>
+            (function() {
+                var gpUrl = "{{ documents.gp_files.0.file.url }}";
+                var contentDiv = document.getElementById('gp-alphatab');
+                var loadingDiv = document.getElementById('gp-loading');
+                var controlsDiv = document.getElementById('gp-controls');
+                var playPauseBtn = document.getElementById('gp-play-pause');
+                var trackSelect = document.getElementById('gp-track-select');
+                var speedDownBtn = document.getElementById('gp-speed-down');
+                var speedUpBtn = document.getElementById('gp-speed-up');
+                var speedLabel = document.getElementById('gp-speed-label');
+
+                var speedSteps = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
+                var currentSpeedIdx = 3; // 1×
+
+                var settings = {
+                    file: gpUrl,
+                    player: {
+                        enablePlayer: true,
+                        enableCursor: true,
+                        enableUserInteraction: true,
+                        scrollMode: alphaTab.ScrollMode.Continuous,
+                        scrollOffsetY: -200,
+                        soundFont: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@latest/dist/soundfont/sonivox.sf2'
+                    },
+                    display: {
+                        layoutMode: alphaTab.LayoutMode.Page
+                    },
+                    notation: {
+                        elements: {
+                            scoreTitle: false,
+                            scoreSubTitle: false,
+                            scoreArtist: false,
+                            scoreAlbum: false,
+                            scoreWords: false,
+                            scoreMusic: false,
+                            scoreCopyright: false
+                        }
+                    }
+                };
+
+                var api = new alphaTab.AlphaTabApi(contentDiv, settings);
+
+                api.renderStarted.on(function() {
+                    if (loadingDiv) loadingDiv.style.display = 'none';
+                });
+
+                api.scoreLoaded.on(function(score) {
+                    trackSelect.innerHTML = '';
+                    for (var i = 0; i < score.tracks.length; i++) {
+                        var opt = document.createElement('option');
+                        opt.value = i;
+                        opt.textContent = score.tracks[i].name || ('Track ' + (i + 1));
+                        trackSelect.appendChild(opt);
+                    }
+                    controlsDiv.style.display = 'flex';
+                });
+
+                api.playerStateChanged.on(function(e) {
+                    var playing = (e.state === 1);
+                    playPauseBtn.textContent = playing ? '⏸ Pause' : '▶ Play';
+                    if (playing) {
+                        playPauseBtn.classList.add('active');
+                    } else {
+                        playPauseBtn.classList.remove('active');
+                    }
+                });
+
+                playPauseBtn.addEventListener('click', function() {
+                    api.playPause();
+                });
+
+                trackSelect.addEventListener('change', function() {
+                    var idx = parseInt(trackSelect.value);
+                    api.renderTracks([api.score.tracks[idx]]);
+                });
+
+                function updateSpeed() {
+                    var speed = speedSteps[currentSpeedIdx];
+                    api.playbackSpeed = speed;
+                    speedLabel.textContent = speed + '×';
+                }
+
+                speedDownBtn.addEventListener('click', function() {
+                    if (currentSpeedIdx > 0) {
+                        currentSpeedIdx--;
+                        updateSpeed();
+                    }
+                });
+
+                speedUpBtn.addEventListener('click', function() {
+                    if (currentSpeedIdx < speedSteps.length - 1) {
+                        currentSpeedIdx++;
+                        updateSpeed();
+                    }
+                });
+            })();
+            </script>
         {% elif documents.audios %}
             <!-- Visor Audio -->
             {% include "my_library/viewers/audio_viewer.html" with audios=documents.audios %}

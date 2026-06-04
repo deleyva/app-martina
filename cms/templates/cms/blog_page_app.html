@@ -477,6 +477,45 @@
         <div class="attachment-grid">
             {% for block in page.attachments %}
                 {% if block.block_type == 'pdf_score' and block.value.pdf_file %}
+                {% with file_url=block.value.pdf_file.url %}
+                {% if '.gp' in file_url %}
+                {# Guitar Pro file — rendered with alphaTab #}
+                <div class="card bg-base-100 shadow-xl attachment-card col-span-full">
+                    <div class="card-body p-4">
+                        <h3 class="card-title text-base">🎸 {{ block.value.title|default:block.value.pdf_file.title }}</h3>
+                        <div class="at-wrap" id="alphatab-{{ forloop.counter }}"
+                             data-gp-url="{{ file_url }}"
+                             style="min-height:300px;position:relative;overflow:hidden;border-radius:0.5rem;background:oklch(var(--b2));">
+                            <div class="at-loading" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">
+                                <span class="loading loading-spinner loading-md"></span>
+                                <p class="text-xs mt-1">Loading Guitar Pro...</p>
+                            </div>
+                            <div class="at-main" style="position:relative;overflow:hidden;">
+                                <div class="at-content" style="position:relative;overflow:auto;max-height:500px;"></div>
+                            </div>
+                        </div>
+                        <div class="card-actions justify-end mt-3">
+                            <a href="{% url 'my_library:view_content_object' block.value.pdf_file|content_type_id block.value.pdf_file.pk %}?back={{ request.path|urlencode }}" class="btn btn-ghost btn-sm" title="Open viewer">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                </svg>
+                            </a>
+                            <a href="{{ file_url }}" download class="btn btn-ghost btn-sm gap-1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                            </a>
+                            {% if user.is_authenticated %}
+                            <div id="library-btn-blogdoc-{{ block.value.pdf_file.id }}">
+                                {% library_button block.value.pdf_file %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                {# PDF file — rendered with PDF.js #}
                 <div class="card bg-base-100 shadow-xl attachment-card">
                     <div class="pdf-preview-compact" id="pdf-preview-blog-{{ forloop.counter }}">
                         <div class="pdf-loading">
@@ -486,7 +525,7 @@
                         <div class="pdf-preview-canvas-wrapper">
                             <canvas
                                 class="pdf-preview-canvas"
-                                data-pdf-url="{{ block.value.pdf_file.url }}"
+                                data-pdf-url="{{ file_url }}"
                                 data-half-page="true"
                                 id="pdf-canvas-blog-{{ forloop.counter }}"
                             ></canvas>
@@ -501,12 +540,12 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                                 </svg>
                             </a>
-                            <a href="{{ block.value.pdf_file.url }}" target="_blank" class="btn btn-primary btn-sm">
+                            <a href="{{ file_url }}" target="_blank" class="btn btn-primary btn-sm">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
                                 </svg>
                             </a>
-                            <a href="{{ block.value.pdf_file.url }}" download class="btn btn-ghost btn-sm">
+                            <a href="{{ file_url }}" download class="btn btn-ghost btn-sm">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                                 </svg>
@@ -519,6 +558,8 @@
                         </div>
                     </div>
                 </div>
+                {% endif %}
+                {% endwith %}
 
                 {% elif block.block_type == 'audio' and block.value.audio_file %}
                 <div class="card bg-base-100 shadow-xl attachment-card">
@@ -740,6 +781,60 @@
             }).catch(function(err) {
                 console.error('PDF preview error:', err);
                 if (loadingDiv) loadingDiv.innerHTML = '<p class="text-xs text-error">Error loading preview</p>';
+            });
+        });
+    });
+    </script>
+
+    {# alphaTab for Guitar Pro file rendering #}
+    <script src="https://cdn.jsdelivr.net/npm/@coderline/alphatab@latest/dist/alphaTab.min.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var gpContainers = document.querySelectorAll('[data-gp-url]');
+        if (!gpContainers.length || typeof alphaTab === 'undefined') return;
+
+        gpContainers.forEach(function(wrap) {
+            var gpUrl = wrap.getAttribute('data-gp-url');
+            var loadingDiv = wrap.querySelector('.at-loading');
+            var contentDiv = wrap.querySelector('.at-content');
+            if (!gpUrl || !contentDiv) return;
+
+            var settings = {
+                file: gpUrl,
+                player: {
+                    enablePlayer: true,
+                    enableCursor: true,
+                    enableUserInteraction: true,
+                    scrollMode: alphaTab.ScrollMode.Continuous,
+                    scrollOffsetY: -100,
+                    soundFont: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@latest/dist/soundfont/sonivox.sf2'
+                },
+                display: {
+                    layoutMode: alphaTab.LayoutMode.Page,
+                    staveProfile: alphaTab.StaveProfile.Tab
+                },
+                notation: {
+                    elements: {
+                        scoreTitle: false,
+                        scoreSubTitle: false,
+                        scoreArtist: false,
+                        scoreAlbum: false,
+                        scoreWords: false,
+                        scoreMusic: false,
+                        scoreCopyright: false
+                    }
+                }
+            };
+
+            var api = new alphaTab.AlphaTabApi(contentDiv, settings);
+
+            api.renderStarted.on(function() {
+                if (loadingDiv) loadingDiv.style.display = 'none';
+            });
+
+            api.error.on(function(e) {
+                console.error('alphaTab error:', e);
+                if (loadingDiv) loadingDiv.innerHTML = '<p class="text-xs text-error">Error loading Guitar Pro file</p>';
             });
         });
     });

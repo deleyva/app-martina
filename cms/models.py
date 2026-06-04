@@ -733,14 +733,6 @@ class BlogPage(Page):
 
     def clean(self):
         super().clean()
-        max_video_size = 10 * 1024 * 1024  # 10 MB
-        for video in self.get_videos():
-            doc = video.get("video_file")
-            if doc and doc.file_size > max_video_size:
-                raise ValidationError(
-                    f'El vídeo "{doc.title}" pesa {doc.file_size / (1024*1024):.1f} MB. '
-                    f"El máximo permitido es 10 MB."
-                )
 
     def get_context(self, request, *args, **kwargs):
         context = super().get_context(request, *args, **kwargs)
