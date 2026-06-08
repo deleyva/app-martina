@@ -1,0 +1,332 @@
+{% extends "cms/base_blog.html" %}
+{% load wagtailcore_tags wagtailimages_tags static %}
+
+{% block title %}{{ page.title }} - IES Martina Bescos{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+<style>
+    .slides-container {
+        height: 80vh;
+        border-radius: 1rem;
+        overflow: hidden;
+        position: relative;
+        box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+    }
+    @media (max-width: 768px) {
+        .slides-container { height: 70vh; }
+        .audio-bar .waveform-wrap { height: 36px !important; }
+    }
+    .swiper, .swiper-slide { height: 100%; }
+    .swiper-slide img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .audio-bar {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 20;
+        background: linear-gradient(transparent, rgba(0,0,0,0.85));
+        padding: 2rem 1.5rem 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    .audio-bar .waveform-wrap {
+        flex: 1;
+        height: 48px;
+        min-width: 0;
+    }
+    .audio-bar .time-display {
+        color: rgba(255,255,255,0.8);
+        font-size: 0.75rem;
+        font-variant-numeric: tabular-nums;
+        min-width: 4.5rem;
+        text-align: right;
+    }
+    .audio-bar .audio-title {
+        color: white;
+        font-size: 0.875rem;
+        font-weight: 500;
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .slide-counter {
+        position: absolute;
+        top: 1rem;
+        left: 1rem;
+        z-index: 20;
+        background: rgba(0,0,0,0.6);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.875rem;
+        backdrop-filter: blur(4px);
+    }
+    .autoplay-toggle {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        z-index: 20;
+    }
+    .autoplay-toggle button {
+        background: rgba(0,0,0,0.4);
+        color: white;
+        border: none;
+        padding: 0.375rem 0.75rem;
+        border-radius: 0.375rem;
+        font-size: 0.875rem;
+        cursor: pointer;
+        backdrop-filter: blur(4px);
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+    .autoplay-toggle button.active {
+        background: #3b82f6;
+    }
+    .caption-overlay {
+        position: absolute;
+        top: 1rem;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 20;
+        background: rgba(0,0,0,0.6);
+        color: white;
+        padding: 0.25rem 1rem;
+        border-radius: 0.5rem;
+        font-size: 0.875rem;
+        max-width: 80%;
+        text-align: center;
+        backdrop-filter: blur(4px);
+    }
+    .play-btn {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        border: none;
+        background: white;
+        color: #333;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        flex-shrink: 0;
+        transition: transform 0.15s;
+    }
+    .play-btn:hover { transform: scale(1.1); }
+    .swiper-button-next, .swiper-button-prev { color: white !important; }
+    .swiper-pagination-bullet { background: white !important; }
+    .swiper-pagination-bullet-active { background: white !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<article class="max-w-4xl mx-auto px-4 py-8">
+    <header class="mb-6">
+        <h1 class="text-3xl font-bold mb-1">{{ page.title }}</h1>
+        <p class="text-sm opacity-70 mb-2">{{ page.date|date:"d M Y" }}</p>
+        {% if page.intro %}
+        <div class="prose prose-sm max-w-none mb-4">{{ page.intro|richtext }}</div>
+        {% endif %}
+    </header>
+
+    <div class="slides-container" id="slides-presentation" data-slides='{{ slides_json }}'>
+        <div class="slide-counter" id="slide-counter"></div>
+        <div class="autoplay-toggle">
+            <button id="autoplay-btn" title="Auto-play con crossfade">
+                <svg class="w-4 h-4" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                Auto
+            </button>
+        </div>
+        <div class="swiper" id="slides-swiper">
+            <div class="swiper-wrapper" id="swiper-wrapper"></div>
+            <div class="swiper-button-prev"></div>
+            <div class="swiper-button-next"></div>
+            <div class="swiper-pagination"></div>
+        </div>
+    </div>
+</article>
+
+<script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+<script src="https://unpkg.com/wavesurfer.js@7"></script>
+<script>
+(function() {
+    const container = document.getElementById('slides-presentation');
+    const slidesData = JSON.parse(container.dataset.slides);
+    if (!slidesData.length) return;
+
+    const wrapper = document.getElementById('swiper-wrapper');
+    slidesData.forEach(function(s, i) {
+        const slide = document.createElement('div');
+        slide.className = 'swiper-slide';
+        slide.innerHTML = `
+            <img src="${s.image_url}" alt="${s.image_alt}" loading="${i === 0 ? 'eager' : 'lazy'}">
+            ${s.image_alt ? `<div class="caption-overlay">${s.image_alt}</div>` : ''}
+            <div class="audio-bar">
+                ${s.audio_title ? `<span class="audio-title">${s.audio_title}</span>` : ''}
+                <button class="play-btn" data-idx="${i}" aria-label="Play/Pause">
+                    <svg class="play-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                    <svg class="pause-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                </button>
+                <div class="waveform-wrap" id="waveform-${i}"></div>
+                <span class="time-display" id="time-${i}">0:00 / 0:00</span>
+            </div>
+        `;
+        wrapper.appendChild(slide);
+    });
+
+    const counter = document.getElementById('slide-counter');
+    function updateCounter(idx) {
+        counter.textContent = (idx + 1) + ' / ' + slidesData.length;
+    }
+    updateCounter(0);
+
+    const swiper = new Swiper('#slides-swiper', {
+        effect: 'fade',
+        fadeEffect: { crossFade: true },
+        navigation: { nextEl: '.swiper-button-next', prevEl: '.swiper-button-prev' },
+        pagination: { el: '.swiper-pagination', clickable: true },
+        allowTouchMove: true,
+    });
+
+    const wavesurfers = [];
+
+    function formatTime(sec) {
+        if (isNaN(sec)) return '0:00';
+        const m = Math.floor(sec / 60);
+        const s = Math.floor(sec % 60);
+        return m + ':' + (s < 10 ? '0' : '') + s;
+    }
+
+    slidesData.forEach(function(s, i) {
+        const ws = WaveSurfer.create({
+            container: '#waveform-' + i,
+            height: 48,
+            waveColor: 'rgba(255,255,255,0.4)',
+            progressColor: 'rgba(255,255,255,0.9)',
+            cursorColor: 'transparent',
+            barWidth: 2,
+            barGap: 1,
+            barRadius: 2,
+            url: s.audio_url,
+            normalize: true,
+        });
+
+        ws.on('ready', function() {
+            const dur = ws.getDuration();
+            document.getElementById('time-' + i).textContent = '0:00 / ' + formatTime(s.end_time || dur);
+        });
+
+        ws.on('timeupdate', function(time) {
+            const dur = ws.getDuration();
+            const end = s.end_time || dur;
+            document.getElementById('time-' + i).textContent = formatTime(time) + ' / ' + formatTime(end);
+            if (s.end_time && time >= s.end_time) {
+                ws.pause();
+                updatePlayBtn(i, false);
+                if (autoplayActive) advanceSlide();
+            }
+        });
+
+        ws.on('finish', function() {
+            updatePlayBtn(i, false);
+            if (autoplayActive) advanceSlide();
+        });
+
+        wavesurfers.push(ws);
+    });
+
+    function updatePlayBtn(idx, playing) {
+        const btn = document.querySelector('.play-btn[data-idx="' + idx + '"]');
+        if (!btn) return;
+        btn.querySelector('.play-icon').style.display = playing ? 'none' : 'block';
+        btn.querySelector('.pause-icon').style.display = playing ? 'block' : 'none';
+    }
+
+    function playSlide(idx) {
+        const ws = wavesurfers[idx];
+        const s = slidesData[idx];
+        if (s.start_time && ws.getCurrentTime() < s.start_time) {
+            ws.seekTo(s.start_time / ws.getDuration());
+        }
+        ws.play();
+        updatePlayBtn(idx, true);
+    }
+
+    function pauseSlide(idx) {
+        wavesurfers[idx].pause();
+        updatePlayBtn(idx, false);
+    }
+
+    function pauseAll() {
+        wavesurfers.forEach(function(ws, i) {
+            ws.pause();
+            updatePlayBtn(i, false);
+        });
+    }
+
+    document.querySelectorAll('.play-btn').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const idx = parseInt(btn.dataset.idx);
+            if (wavesurfers[idx].isPlaying()) {
+                pauseSlide(idx);
+            } else {
+                playSlide(idx);
+            }
+        });
+    });
+
+    swiper.on('slideChange', function() {
+        pauseAll();
+        updateCounter(swiper.activeIndex);
+        if (autoplayActive) {
+            playSlide(swiper.activeIndex);
+        }
+    });
+
+    let autoplayActive = false;
+    const autoplayBtn = document.getElementById('autoplay-btn');
+
+    autoplayBtn.addEventListener('click', function() {
+        autoplayActive = !autoplayActive;
+        autoplayBtn.classList.toggle('active', autoplayActive);
+        if (autoplayActive) {
+            playSlide(swiper.activeIndex);
+        }
+    });
+
+    function advanceSlide() {
+        const curr = swiper.activeIndex;
+        if (curr >= slidesData.length - 1) {
+            autoplayActive = false;
+            autoplayBtn.classList.remove('active');
+            return;
+        }
+        const ws = wavesurfers[curr];
+        let vol = 1;
+        const fadeOut = setInterval(function() {
+            vol -= 0.05;
+            if (vol <= 0) {
+                clearInterval(fadeOut);
+                ws.setVolume(0);
+                ws.pause();
+                ws.setVolume(1);
+                updatePlayBtn(curr, false);
+                swiper.slideNext();
+            } else {
+                ws.setVolume(vol);
+            }
+        }, 40);
+    }
+})();
+</script>
+{% endblock %}

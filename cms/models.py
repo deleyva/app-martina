@@ -17,6 +17,7 @@ from wagtail.embeds.exceptions import EmbedException
 from wagtail.blocks import (
     BooleanBlock,
     CharBlock,
+    DecimalBlock,
     TextBlock,
     RichTextBlock,
     URLBlock,
@@ -504,7 +505,7 @@ class BlogIndexPage(Page):
         ),
     ]
 
-    subpage_types = ["cms.BlogIndexPage", "cms.BlogPage"]
+    subpage_types = ["cms.BlogIndexPage", "cms.BlogPage", "cms.SlidesConAudioPage"]
 
     def get_template(self, request, *args, **kwargs):
         """Return book-container template when nested under a MusicLibraryIndexPage.
@@ -831,6 +832,20 @@ class AnswerPDFBlock(StructBlock):
         template = "cms/blocks/answer_pdf_block.html"
 
 
+class SlideBlock(StructBlock):
+    """Slide: foto + audio con trim opcional"""
+    image = ImageChooserBlock(help_text="Foto de la actuacion")
+    caption = TextBlock(required=False, help_text="Pie de foto opcional")
+    audio_file = DocumentChooserBlock(help_text="Grabacion de audio (MP3, WAV, OGG)")
+    audio_title = CharBlock(max_length=255, required=False, help_text="Titulo del audio")
+    start_time = DecimalBlock(required=False, help_text="Segundo de inicio (vacio = desde el principio)", min_value=0)
+    end_time = DecimalBlock(required=False, help_text="Segundo de fin (vacio = hasta el final)", min_value=0)
+
+    class Meta:
+        icon = "image"
+        label = "Slide (Foto + Audio)"
+
+
 class DictadoPage(Page):
     """Página de dictado musical con audio y respuestas ocultas"""
 
@@ -892,6 +907,48 @@ class DictadoPage(Page):
     class Meta:
         verbose_name = "Dictado"
         verbose_name_plural = "Dictados"
+
+
+class SlidesConAudioPage(Page):
+    """Presentacion de slides con foto + audio"""
+    date = models.DateField("Fecha", default=timezone.now)
+    intro = RichTextField(blank=True, help_text="Descripcion breve")
+    slides = StreamField([("slide", SlideBlock())], blank=True, help_text="Anade slides: cada uno con una foto y un audio")
+
+    content_panels = Page.content_panels + [
+        FieldPanel("date"),
+        FieldPanel("intro"),
+        FieldPanel("slides"),
+    ]
+
+    parent_page_types = ["cms.BlogIndexPage"]
+    subpage_types = []
+
+    def get_template(self, request, *args, **kwargs):
+        if _is_blog_request(request):
+            return "cms/slides_con_audio_page_blog.html"
+        return "cms/slides_con_audio_page_app.html"
+
+    def get_context(self, request, *args, **kwargs):
+        context = super().get_context(request, *args, **kwargs)
+        import json
+        slides_data = []
+        for block in self.slides:
+            slide = block.value
+            slides_data.append({
+                "image_url": slide["image"].get_rendition("fill-1200x800").url,
+                "image_alt": slide.get("caption") or "",
+                "audio_url": slide["audio_file"].url,
+                "audio_title": slide.get("audio_title") or "",
+                "start_time": float(slide["start_time"]) if slide.get("start_time") else None,
+                "end_time": float(slide["end_time"]) if slide.get("end_time") else None,
+            })
+        context["slides_json"] = json.dumps(slides_data)
+        return context
+
+    class Meta:
+        verbose_name = "Slides con Audio"
+        verbose_name_plural = "Slides con Audio"
 
 
 class AnswerOptionBlock(StructBlock):
