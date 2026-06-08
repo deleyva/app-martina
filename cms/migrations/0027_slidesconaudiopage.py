@@ -10,7 +10,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('cms', '0026_add_protected_private_visibility'),
-        ('wagtailcore', '0097_baselogentry_uuid_action_timestamp_indexes'),
+        ('wagtailcore', '0096_referenceindex_referenceindex_source_object_and_more'),
     ]
 
     operations = [
