@@ -108,7 +108,6 @@ LOCAL_APPS = [
     "incidencias",  # Sistema de incidencias informáticas
     "analytics",
     "content_hub",  # Sistema flexible de gestión de contenido musical (grafo de conocimiento)
-    "concierto",  # Concierto final de curso
     # Your stuff: custom apps go here
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps

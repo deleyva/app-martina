@@ -67,8 +67,6 @@ urlpatterns = [
     path("my-library/", include("my_library.urls", namespace="my_library")),
     # Incidencias informáticas
     path("incidencias/", include("incidencias.urls", namespace="incidencias")),
-    # Concierto final de curso
-    path("concierto-junio-25-26/", include("concierto.urls", namespace="concierto")),
     # Content Hub - Sistema de gestión de contenido musical con grafo de conocimiento
     path("content/", include("content_hub.urls", namespace="content_hub")),
     # CMS custom views (filtros de partituras)
