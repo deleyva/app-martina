@@ -130,7 +130,7 @@
                                 {% with student_name=student.user.name|default:student.user.get_full_name|default:student.user.email %}
                                 <div class="student-item"
                                      data-student-id="{{ student.user.pk }}"
-                                     data-student-name="{{ student_name|lower }}"
+                                     data-student-name="{{ student_name|lower }} {{ student.user.email|lower }}"
                                      data-group="{{ group_students.grouper.name }}">
                                     <label class="label cursor-pointer justify-start gap-2 hover:bg-base-100 rounded p-1 transition-colors py-1">
                                         <input type="checkbox"
@@ -139,7 +139,7 @@
                                                data-student-name="{{ student_name }}"
                                                data-group="{{ group_students.grouper.name }}"
                                                onchange="updateSelectedStudents_{{ content_object.pk }}_{{ content_type.id }}()">
-                                        <span class="label-text text-sm">{{ student_name }}</span>
+                                        <span class="label-text text-sm">{{ student_name }} <span class="text-xs text-base-content/50">{{ student.user.email }}</span></span>
                                     </label>
                                 </div>
                                 {% endwith %}
