@@ -90,6 +90,10 @@ class Group(models.Model):
         verbose_name = "Grupo"
         verbose_name_plural = "Grupos"
 
+    @property
+    def active_enrollment_count(self):
+        return self.enrollments.filter(is_active=True).count()
+
     def __str__(self):
         return f"{self.name} - {self.subject.name} ({self.academic_year})"
 

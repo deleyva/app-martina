@@ -1294,12 +1294,18 @@ def show_assign_to_students_modal(request, group_id):
     content_type = get_object_or_404(ContentType, id=content_type_id)
     content_object = content_type.get_object_for_this_type(pk=object_id)
 
-    # Obtener estudiantes del grupo ordenados por nombre
+    # Obtener estudiantes del grupo ordenados por nombre (Enrollment primero, legacy fallback)
     students = (
-        Student.objects.filter(group=group)
+        Enrollment.objects.filter(group=group, is_active=True)
         .select_related("user")
         .order_by("user__name")
     )
+    if not students.exists():
+        students = (
+            Student.objects.filter(group=group)
+            .select_related("user")
+            .order_by("user__name")
+        )
 
     return render(
         request,
@@ -1353,19 +1359,27 @@ def assign_to_students(request, group_id):
     students_with_item = []
 
     for student_id in student_ids:
-        student = get_object_or_404(Student, pk=student_id, group=group)
+        # Try Enrollment first, fallback to legacy Student
+        user = None
+        enrollment = Enrollment.objects.filter(pk=student_id, group=group, is_active=True).select_related("user").first()
+        if enrollment:
+            user = enrollment.user
+        else:
+            student = Student.objects.filter(pk=student_id, group=group).select_related("user").first()
+            if student:
+                user = student.user
 
-        if student.user:
+        if user:
             # Usar el método del modelo (FAT MODEL)
             item, created = LibraryItem.add_to_library(
-                user=student.user, content_object=content_object
+                user=user, content_object=content_object
             )
 
             if created:
                 added_count += 1
             else:
                 already_exists_count += 1
-                students_with_item.append(student.user.name)
+                students_with_item.append(user.name)
 
     # Renderizar respuesta con resumen
     response_html = f'<div class="alert alert-success">'

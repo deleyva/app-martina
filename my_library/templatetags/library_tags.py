@@ -59,7 +59,7 @@ def library_button(context, content_object, source_page=None):
 
     source_page: Página de origen (ScorePage/BlogPage) para registrar la asociación correcta.
     """
-    from clases.models import Student, GroupLibraryItem
+    from clases.models import Student, Enrollment, GroupLibraryItem
 
     if content_object is None:
         return {
@@ -96,12 +96,19 @@ def library_button(context, content_object, source_page=None):
             is_teacher = len(teaching_groups) > 0
 
             # Obtener todos los estudiantes de los grupos del profesor
+            # Usa Enrollment (matrículas activas); fallback a Student legacy si no hay enrollments
             if is_teacher:
                 all_students = (
-                    Student.objects.filter(group__in=teaching_groups)
+                    Enrollment.objects.filter(group__in=teaching_groups, is_active=True)
                     .select_related("user", "group")
                     .order_by("group__name", "user__name")
                 )
+                if not all_students.exists():
+                    all_students = (
+                        Student.objects.filter(group__in=teaching_groups)
+                        .select_related("user", "group")
+                        .order_by("group__name", "user__name")
+                    )
 
                 # Verificar qué grupos ya tienen este contenido
                 existing_items = GroupLibraryItem.objects.filter(
