@@ -24,7 +24,7 @@ class EvaluationItem(models.Model):
         ("segunda", "Segunda evaluación"),
         ("tercera", "Tercera evaluación"),
     ]
-    term = models.CharField(choices=TERM_CHOICES, null=True, blank=True)
+    term = models.CharField(max_length=20, choices=TERM_CHOICES, null=True, blank=True)
     description = models.TextField(blank=True)
     ai_prompt = models.TextField(
         blank=True, help_text="Prompt para Gemini que reescribirá la retroalimentación"

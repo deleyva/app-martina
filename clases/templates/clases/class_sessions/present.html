@@ -298,6 +298,14 @@
                 Siguiente
             </button>
             <div class="flyout-divider"></div>
+            {% if is_teacher %}
+            <button class="flyout-btn" onclick="toggleFlyout(false); showSessionComplete();" style="color:#4ade80;">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                Finalizar clase
+            </button>
+            {% endif %}
             <a class="flyout-btn danger" href="{% url 'clases:class_session_view' session.pk %}">
                 <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -319,8 +327,33 @@
         <div class="session-summary">
             <div style="font-size: 48px; margin-bottom: 12px;">✅</div>
             <h2>Clase completada</h2>
+            {% if is_teacher %}
+            <p style="font-size: 14px; opacity: 0.7; margin-bottom: 16px;">¿Cómo ha ido la clase? Deja una reflexión rápida (texto o voz).</p>
+            <textarea id="reflection-text" rows="4" placeholder="Reflexión: qué se ha trabajado, cómo ha respondido el grupo, qué quedó pendiente..."
+                style="width:100%;border-radius:12px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.06);color:#fff;padding:12px;font-size:14px;resize:vertical;margin-bottom:12px;font-family:inherit;">{{ session.reflection }}</textarea>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;justify-content:center;">
+                <button type="button" id="record-btn" onclick="toggleRecording()"
+                    style="display:flex;align-items:center;gap:8px;padding:10px 16px;border-radius:12px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.08);color:#fff;font-size:13px;cursor:pointer;">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14a3 3 0 003-3V5a3 3 0 10-6 0v6a3 3 0 003 3zm5-3a5 5 0 01-10 0H5a7 7 0 006 6.92V21h2v-3.08A7 7 0 0019 11h-2z"/></svg>
+                    <span id="record-label">Grabar nota de voz</span>
+                </button>
+                <audio id="reflection-audio-preview" controls style="display:none;height:36px;max-width:180px;"></audio>
+            </div>
+            <div style="display:flex;gap:10px;justify-content:center;">
+                <button type="button" id="close-session-btn" onclick="submitReflection()"
+                    style="padding:14px 32px;border-radius:12px;border:none;background:#8b5cf6;color:white;font-size:16px;font-weight:600;cursor:pointer;">
+                    Finalizar clase
+                </button>
+                <a href="{% url 'clases:class_session_view' session.pk %}"
+                    style="display:inline-block;padding:14px 20px;border-radius:12px;border:1px solid rgba(255,255,255,0.2);background:transparent;color:#fff;font-size:14px;cursor:pointer;text-decoration:none;line-height:20px;">
+                    Salir sin cerrar
+                </a>
+            </div>
+            <div id="reflection-status" style="font-size:12px;opacity:0.6;margin-top:12px;"></div>
+            {% else %}
             <p style="font-size: 14px; opacity: 0.7; margin-bottom: 24px;">Has visto todos los elementos de la sesión.</p>
             <a href="{% url 'clases:class_session_view' session.pk %}" style="display:inline-block;padding:14px 32px;border-radius:12px;border:none;background:#8b5cf6;color:white;font-size:16px;font-weight:600;cursor:pointer;text-decoration:none;">Volver a la sesión</a>
+            {% endif %}
         </div>
     </div>
 
@@ -503,6 +536,73 @@
         document.getElementById('session-complete').classList.add('active');
         document.getElementById('study-fab').style.display = 'none';
     }
+
+    {% if is_teacher %}
+    // ── Reflexión de cierre: grabación de voz + envío ──
+    var mediaRecorder = null;
+    var recordedChunks = [];
+    var reflectionBlob = null;
+    var isRecording = false;
+
+    function toggleRecording() {
+        if (isRecording) {
+            mediaRecorder.stop();
+            return;
+        }
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            document.getElementById('reflection-status').textContent = 'Tu navegador no soporta grabación de audio.';
+            return;
+        }
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
+            recordedChunks = [];
+            var mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
+            mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType: mimeType }) : new MediaRecorder(stream);
+            mediaRecorder.ondataavailable = function(e) {
+                if (e.data.size > 0) recordedChunks.push(e.data);
+            };
+            mediaRecorder.onstop = function() {
+                stream.getTracks().forEach(function(t) { t.stop(); });
+                reflectionBlob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+                var preview = document.getElementById('reflection-audio-preview');
+                preview.src = URL.createObjectURL(reflectionBlob);
+                preview.style.display = 'inline-block';
+                isRecording = false;
+                document.getElementById('record-label').textContent = 'Volver a grabar';
+                document.getElementById('record-btn').style.background = 'rgba(255,255,255,0.08)';
+            };
+            mediaRecorder.start();
+            isRecording = true;
+            document.getElementById('record-label').textContent = 'Detener grabación';
+            document.getElementById('record-btn').style.background = 'rgba(239,68,68,0.6)';
+        }).catch(function() {
+            document.getElementById('reflection-status').textContent = 'No se pudo acceder al micrófono.';
+        });
+    }
+
+    function submitReflection() {
+        var btn = document.getElementById('close-session-btn');
+        btn.disabled = true;
+        btn.textContent = 'Guardando...';
+        var fd = new FormData();
+        fd.append('reflection', document.getElementById('reflection-text').value);
+        if (reflectionBlob) {
+            fd.append('reflection_audio', reflectionBlob, 'reflexion.webm');
+        }
+        fetch('{% url "clases:class_session_close" session.pk %}', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
+            body: fd
+        }).then(function(r) {
+            if (!r.ok) throw new Error('Error ' + r.status);
+            window.location.href = '{% url "clases:class_session_view" session.pk %}';
+        }).catch(function(err) {
+            btn.disabled = false;
+            btn.textContent = 'Finalizar clase';
+            document.getElementById('reflection-status').textContent = 'Error al guardar: ' + err.message;
+        });
+    }
+    {% endif %}
 
     // Keyboard: Escape to exit, M to toggle menu
     document.addEventListener('keydown', function(e) {

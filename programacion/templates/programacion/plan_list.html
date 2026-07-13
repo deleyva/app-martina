@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Programaciones{% endblock %}
+
+{% block content %}
+<div class="w-full px-4 py-8 max-w-5xl mx-auto">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl sm:text-3xl font-bold">📅 Programaciones</h1>
+        <a href="{% url 'programacion:overview' %}" class="btn btn-ghost btn-sm">Vista comparativa</a>
+    </div>
+
+    <!-- Crear nueva programación -->
+    <div class="card bg-base-100 shadow-md mb-8">
+        <div class="card-body">
+            <h2 class="card-title text-base">Nueva programación</h2>
+            <form method="post" action="{% url 'programacion:plan_create' %}" class="flex flex-col sm:flex-row gap-2 items-end flex-wrap">
+                {% csrf_token %}
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Nombre</span></label>
+                    <input type="text" name="name" required placeholder="Ej: 2º Trimestre 2025-26" class="input input-bordered input-sm w-64">
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Grupo</span></label>
+                    <select name="group" required class="select select-bordered select-sm">
+                        {% for group in groups %}
+                        <option value="{{ group.pk }}">{{ group }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Inicio</span></label>
+                    <input type="date" name="start_date" class="input input-bordered input-sm">
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Fin</span></label>
+                    <input type="date" name="end_date" class="input input-bordered input-sm">
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm">Crear</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Listado -->
+    {% if plans %}
+    <div class="grid gap-4 sm:grid-cols-2">
+        {% for plan in plans %}
+        <a href="{% url 'programacion:plan_detail' plan.pk %}" class="card bg-base-100 shadow-md hover:shadow-lg transition-shadow no-underline text-inherit">
+            <div class="card-body">
+                <div class="flex justify-between items-start">
+                    <h2 class="card-title text-base">{{ plan.name }}</h2>
+                    {% if not plan.is_active %}<span class="badge badge-ghost badge-sm">Archivada</span>{% endif %}
+                </div>
+                <div class="text-sm text-base-content/70">
+                    {{ plan.group }}
+                    {% if plan.start_date %} · {{ plan.start_date|date:"d/m/Y" }} → {{ plan.end_date|date:"d/m/Y"|default:"…" }}{% endif %}
+                </div>
+                {% with progress=plan.get_progress %}
+                <div class="flex items-center gap-2 mt-2">
+                    <progress class="progress progress-primary w-full" value="{{ progress }}" max="100"></progress>
+                    <span class="text-sm font-medium">{{ progress }}%</span>
+                </div>
+                {% endwith %}
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-12 text-base-content/60">
+        <div class="text-5xl mb-3">📅</div>
+        <p>Aún no tienes programaciones. Crea la primera arriba.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

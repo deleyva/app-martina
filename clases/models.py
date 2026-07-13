@@ -979,6 +979,26 @@ class ClassSession(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # === Reflexión al cierre de la clase ===
+    reflection = models.TextField(
+        blank=True,
+        verbose_name="Reflexión",
+        help_text="Reflexión del profesor al finalizar la clase (cómo ha ido, qué quedó pendiente...)",
+    )
+    reflection_audio = models.FileField(
+        upload_to="class_reflections/%Y/%m/",
+        blank=True,
+        null=True,
+        verbose_name="Reflexión (audio)",
+        help_text="Nota de voz grabada al finalizar la clase",
+    )
+    closed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Cerrada el",
+        help_text="Momento en que el profesor dio la clase por finalizada",
+    )
+
     class Meta:
         db_table = "evaluations_classsession"  # Mantener tabla existente
         ordering = ["-date", "-created_at"]
@@ -1010,6 +1030,35 @@ class ClassSession(models.Model):
         """
         for index, item_id in enumerate(item_ids):
             self.items.filter(pk=item_id).update(order=index)
+
+    # === Cierre / reflexión ===
+
+    @property
+    def is_closed(self):
+        """La clase ha sido dada por finalizada por el profesor"""
+        return self.closed_at is not None
+
+    def close(self, reflection_text="", audio_file=None):
+        """
+        Cerrar la sesión guardando la reflexión del profesor.
+        Idempotente: si ya estaba cerrada, actualiza la reflexión sin cambiar closed_at.
+        """
+        from django.utils import timezone
+
+        if reflection_text:
+            self.reflection = reflection_text
+        if audio_file:
+            self.reflection_audio = audio_file
+        if not self.closed_at:
+            self.closed_at = timezone.now()
+        self.save(
+            update_fields=["reflection", "reflection_audio", "closed_at", "updated_at"]
+        )
+
+    def reopen(self):
+        """Reabrir una sesión cerrada (mantiene la reflexión)"""
+        self.closed_at = None
+        self.save(update_fields=["closed_at", "updated_at"])
 
 
 class ClassSessionItem(models.Model):

@@ -8,9 +8,17 @@
     <!-- Header -->
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6 max-w-7xl mx-auto">
         <div>
-            <h1 class="text-2xl sm:text-3xl font-bold">{{ session.title }}</h1>
+            <h1 class="text-2xl sm:text-3xl font-bold">
+                {{ session.title }}
+                {% if session.is_closed %}
+                <span class="badge badge-success badge-outline align-middle ml-2">✓ Finalizada</span>
+                {% endif %}
+            </h1>
             <div class="text-sm text-base-content/70 mt-1">
                 {{ session.group.name }} · {{ session.date|date:"d/m/Y" }}
+                {% if session.is_closed %}
+                · Cerrada el {{ session.closed_at|date:"d/m/Y H:i" }}
+                {% endif %}
             </div>
             {% if session.notes %}
             <div class="text-sm text-base-content/80 mt-2 p-3 bg-base-200 rounded-lg">
@@ -46,6 +54,38 @@
             </a>
         </div>
     </div>
+
+    {% if is_teacher %}
+    <div class="max-w-7xl mx-auto mb-6">
+        <!-- Reflexión del profesor -->
+        <div class="card bg-base-100 shadow-md">
+            <div class="card-body">
+                <h2 class="card-title text-base">
+                    💭 Reflexión de la clase
+                    {% if session.is_closed %}
+                    <form method="post" action="{% url 'clases:class_session_reopen' session.pk %}" class="ml-auto">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-ghost btn-xs">Reabrir sesión</button>
+                    </form>
+                    {% endif %}
+                </h2>
+                {% if session.reflection_audio %}
+                <audio controls class="w-full mt-2" src="{{ session.reflection_audio.url }}"></audio>
+                {% endif %}
+                <form method="post" action="{% url 'clases:class_session_close' session.pk %}" class="mt-2">
+                    {% csrf_token %}
+                    <textarea name="reflection" rows="3" class="textarea textarea-bordered w-full"
+                        placeholder="¿Cómo ha ido la clase? ¿Qué quedó pendiente?">{{ session.reflection }}</textarea>
+                    <div class="flex justify-end mt-2">
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            {% if session.is_closed %}Guardar reflexión{% else %}Finalizar clase y guardar{% endif %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <div class="max-w-7xl mx-auto">
         <!-- Contenido de la sesión (solo lectura) -->

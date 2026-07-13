@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}Comparativa de grupos{% endblock %}
+
+{% block content %}
+<div class="w-full px-4 py-8 max-w-6xl mx-auto">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl sm:text-3xl font-bold">📊 ¿Por dónde va cada grupo?</h1>
+        <a href="{% url 'programacion:plan_list' %}" class="btn btn-ghost btn-sm">← Programaciones</a>
+    </div>
+
+    {% if rows %}
+    <div class="space-y-6">
+        {% for row in rows %}
+        <div class="card bg-base-100 shadow-md">
+            <div class="card-body">
+                <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+                    <div>
+                        <h2 class="card-title text-base">
+                            <a href="{% url 'programacion:plan_detail' row.plan.pk %}" class="link link-hover">
+                                {{ row.group.name }} — {{ row.plan.name }}
+                            </a>
+                        </h2>
+                        {% if row.next_step %}
+                        <div class="text-sm text-base-content/70 mt-1">
+                            👉 Siguiente: {{ row.next_step.get_icon }} {{ row.next_step.get_content_title }}
+                        </div>
+                        {% else %}
+                        <div class="text-sm text-success mt-1">✓ Plan completado</div>
+                        {% endif %}
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <progress class="progress progress-primary w-40" value="{{ row.progress }}" max="100"></progress>
+                        <span class="font-bold">{{ row.progress }}%</span>
+                    </div>
+                </div>
+
+                <!-- Mini-mapa del plan: un segmento por item -->
+                {% if row.items %}
+                <div class="flex gap-1 mt-3">
+                    {% for item in row.items %}
+                    {% with p=item.get_progress %}
+                    <div class="h-2 flex-1 rounded-full tooltip
+                        {% if p >= 100 %}bg-success{% elif p > 0 %}bg-primary{% else %}bg-base-300{% endif %}"
+                        data-tip="{{ item.get_content_title }} ({{ p }}%)"></div>
+                    {% endwith %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-12 text-base-content/60">
+        <div class="text-5xl mb-3">📊</div>
+        <p>No hay programaciones activas. <a href="{% url 'programacion:plan_list' %}" class="link link-primary">Crea una</a>.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

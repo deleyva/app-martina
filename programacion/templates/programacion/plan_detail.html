@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+
+{% block title %}{{ plan.name }} — {{ plan.group.name }}{% endblock %}
+
+{% block content %}
+<div class="w-full px-4 py-8 max-w-6xl mx-auto">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-2">
+        <div>
+            <h1 class="text-2xl sm:text-3xl font-bold">{{ plan.name }}</h1>
+            <div class="text-sm text-base-content/70 mt-1">
+                {{ plan.group }}
+                {% if plan.start_date %} · {{ plan.start_date|date:"d/m/Y" }} → {{ plan.end_date|date:"d/m/Y"|default:"…" }}{% endif %}
+            </div>
+        </div>
+        <div class="flex gap-2">
+            <a href="{% url 'programacion:overview' %}" class="btn btn-ghost btn-sm">Comparativa</a>
+            <a href="{% url 'programacion:plan_list' %}" class="btn btn-ghost btn-sm">← Programaciones</a>
+        </div>
+    </div>
+
+    <!-- Progreso global -->
+    <div class="flex items-center gap-3 mb-8">
+        <progress class="progress progress-primary w-full h-3" value="{{ progress }}" max="100"></progress>
+        <span class="text-lg font-bold whitespace-nowrap">{{ progress }}%</span>
+    </div>
+
+    <!-- Siguiente paso recomendado -->
+    {% if next_step %}
+    <div class="alert bg-primary/10 border border-primary/30 mb-8 flex-col sm:flex-row items-start sm:items-center">
+        <div class="flex-1">
+            <div class="font-semibold">👉 Siguiente paso: {{ next_step.get_icon }} {{ next_step.get_content_title }}</div>
+            <div class="text-sm opacity-70 mt-1">
+                {% if pending_elements %}
+                    {{ pending_elements|length }} elemento{{ pending_elements|length|pluralize }} pendiente{{ pending_elements|length|pluralize }}:
+                    {% for el in pending_elements|slice:":5" %}{{ el.title }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if pending_elements|length > 5 %}…{% endif %}
+                {% else %}
+                    Sin elementos individuales pendientes — puedes marcarlo como completado o presentar la página entera.
+                {% endif %}
+            </div>
+        </div>
+        <form method="post" action="{% url 'programacion:create_session_from_item' plan.pk next_step.pk %}" class="flex gap-2 items-center">
+            {% csrf_token %}
+            <input type="date" name="date" value="{% now 'Y-m-d' %}" class="input input-bordered input-sm">
+            <button type="submit" class="btn btn-primary btn-sm">➕ Crear clase con esto</button>
+        </form>
+    </div>
+    {% endif %}
+
+    <!-- Timeline de items -->
+    <div class="card bg-base-100 shadow-md mb-8">
+        <div class="card-body">
+            <h2 class="card-title text-base mb-2">Recorrido del plan</h2>
+            {% if items %}
+            <ol class="relative border-l-2 border-base-300 ml-3 space-y-6">
+                {% for item in items %}
+                {% with item_progress=item.get_progress %}
+                <li class="ml-5">
+                    <span class="absolute -left-[11px] flex h-5 w-5 items-center justify-center rounded-full text-xs
+                        {% if item_progress >= 100 %}bg-success text-success-content{% elif item_progress > 0 %}bg-primary text-primary-content{% else %}bg-base-300{% endif %}">
+                        {% if item_progress >= 100 %}✓{% else %}{{ forloop.counter }}{% endif %}
+                    </span>
+                    <div class="flex flex-col sm:flex-row sm:items-center gap-2 justify-between">
+                        <div class="flex-1 min-w-0">
+                            <span class="font-medium">{{ item.get_icon }} {{ item.get_content_title }}</span>
+                            <span class="badge badge-ghost badge-sm ml-1">{{ item.get_content_type_label }}</span>
+                            <span class="badge badge-sm ml-1
+                                {% if item.get_status_label == 'Completado' %}badge-success{% elif item.get_status_label == 'En curso' %}badge-primary{% elif item.get_status_label == 'Saltado' %}badge-ghost line-through{% else %}badge-outline{% endif %}">
+                                {{ item.get_status_label }}
+                            </span>
+                            {% if item.content_object.get_url %}
+                            <a href="{{ item.content_object.get_url }}" class="link link-primary text-xs ml-1" target="_blank">ver</a>
+                            {% endif %}
+                        </div>
+                        <div class="flex items-center gap-2 flex-shrink-0">
+                            <progress class="progress progress-primary w-28" value="{{ item_progress }}" max="100"></progress>
+                            <span class="text-sm w-10 text-right">{{ item_progress }}%</span>
+                            <div class="dropdown dropdown-end">
+                                <label tabindex="0" class="btn btn-ghost btn-xs">⋯</label>
+                                <ul tabindex="0" class="dropdown-content z-20 menu p-2 shadow-lg bg-base-100 rounded-box w-56 text-sm">
+                                    <li>
+                                        <form method="post" action="{% url 'programacion:create_session_from_item' plan.pk item.pk %}">
+                                            {% csrf_token %}
+                                            <button type="submit" class="w-full text-left">➕ Crear clase con lo pendiente</button>
+                                        </form>
+                                    </li>
+                                    <li>
+                                        <form method="post" action="{% url 'programacion:plan_item_refresh_coverage' plan.pk item.pk %}">
+                                            {% csrf_token %}
+                                            <button type="submit" class="w-full text-left">🔄 Recalcular progreso</button>
+                                        </form>
+                                    </li>
+                                    {% if item.is_book %}
+                                    <li>
+                                        <form method="post" action="{% url 'programacion:plan_item_sync_chapters' plan.pk item.pk %}">
+                                            {% csrf_token %}
+                                            <button type="submit" class="w-full text-left">📚 Sincronizar capítulos</button>
+                                        </form>
+                                    </li>
+                                    {% endif %}
+                                    <li>
+                                        <form method="post" action="{% url 'programacion:plan_item_status' plan.pk item.pk %}">
+                                            {% csrf_token %}
+                                            {% if item.status == 'done' %}
+                                            <input type="hidden" name="status" value="auto">
+                                            <button type="submit" class="w-full text-left">↩️ Volver a automático</button>
+                                            {% else %}
+                                            <input type="hidden" name="status" value="done">
+                                            <button type="submit" class="w-full text-left">✅ Marcar completado</button>
+                                            {% endif %}
+                                        </form>
+                                    </li>
+                                    <li>
+                                        <form method="post" action="{% url 'programacion:plan_item_status' plan.pk item.pk %}">
+                                            {% csrf_token %}
+                                            {% if item.status == 'skipped' %}
+                                            <input type="hidden" name="status" value="auto">
+                                            <button type="submit" class="w-full text-left">↩️ Reactivar</button>
+                                            {% else %}
+                                            <input type="hidden" name="status" value="skipped">
+                                            <button type="submit" class="w-full text-left">⏭️ Saltar</button>
+                                            {% endif %}
+                                        </form>
+                                    </li>
+                                    <li>
+                                        <form method="post" action="{% url 'programacion:plan_item_remove' plan.pk item.pk %}"
+                                              onsubmit="return confirm('¿Quitar este recurso del plan?');">
+                                            {% csrf_token %}
+                                            <button type="submit" class="w-full text-left text-error">🗑️ Quitar del plan</button>
+                                        </form>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Capítulos (hijos) -->
+                    {% if item.children.all %}
+                    <ul class="mt-3 space-y-2">
+                        {% for child in item.children.all %}
+                        {% with child_progress=child.get_progress %}
+                        <li class="flex items-center gap-2 text-sm pl-2 border-l border-base-300">
+                            <span class="{% if child.status == 'skipped' %}line-through opacity-40{% endif %}">
+                                {{ child.get_content_title }}
+                            </span>
+                            {% if child_progress >= 100 %}<span class="text-success">✓</span>{% endif %}
+                            <div class="flex items-center gap-2 ml-auto">
+                                <progress class="progress progress-primary w-20" value="{{ child_progress }}" max="100"></progress>
+                                <span class="w-9 text-right opacity-60">{{ child_progress }}%</span>
+                                <form method="post" action="{% url 'programacion:create_session_from_item' plan.pk child.pk %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-ghost btn-xs" title="Crear clase con este capítulo">➕</button>
+                                </form>
+                            </div>
+                        </li>
+                        {% endwith %}
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                </li>
+                {% endwith %}
+                {% endfor %}
+            </ol>
+            {% else %}
+            <p class="text-base-content/60 py-4">Aún no hay recursos en este plan. Añade abajo artículos, libros o partituras.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Añadir recursos -->
+    <div class="grid gap-4 sm:grid-cols-2">
+        <div class="card bg-base-100 shadow-md">
+            <div class="card-body">
+                <h2 class="card-title text-base">Desde la biblioteca del grupo</h2>
+                {% if library_choices %}
+                <div class="space-y-2 max-h-72 overflow-y-auto">
+                    {% for gli in library_choices %}
+                    <form method="post" action="{% url 'programacion:plan_item_add' plan.pk %}" class="flex items-center gap-2 p-2 bg-base-200 rounded-lg">
+                        {% csrf_token %}
+                        <input type="hidden" name="content_type_id" value="{{ gli.content_type_id }}">
+                        <input type="hidden" name="object_id" value="{{ gli.object_id }}">
+                        <span>{{ gli.get_icon }}</span>
+                        <span class="flex-1 truncate text-sm">{{ gli.get_content_title }}</span>
+                        <button type="submit" class="btn btn-primary btn-xs">Añadir</button>
+                    </form>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-sm text-base-content/60">No hay contenido nuevo en la biblioteca del grupo.</p>
+                {% endif %}
+            </div>
+        </div>
+        <div class="card bg-base-100 shadow-md">
+            <div class="card-body">
+                <h2 class="card-title text-base">Libros</h2>
+                {% if book_choices %}
+                <div class="space-y-2 max-h-72 overflow-y-auto">
+                    {% for book in book_choices %}
+                    <form method="post" action="{% url 'programacion:plan_item_add' plan.pk %}" class="flex items-center gap-2 p-2 bg-base-200 rounded-lg">
+                        {% csrf_token %}
+                        <input type="hidden" name="content_type_id" value="{{ book.content_type_id }}">
+                        <input type="hidden" name="object_id" value="{{ book.pk }}">
+                        <span>📚</span>
+                        <span class="flex-1 truncate text-sm">{{ book.title }}</span>
+                        <button type="submit" class="btn btn-primary btn-xs">Añadir con capítulos</button>
+                    </form>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-sm text-base-content/60">No hay libros disponibles.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -285,3 +285,6 @@ martina_bescos_app/static/css/output.css
 **/output.css
 .envs/.local/.django
 backups/
+
+# MkDocs build output
+site/

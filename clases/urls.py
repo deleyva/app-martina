@@ -70,6 +70,16 @@ urlpatterns = [
         name="class_session_present",
     ),
     path(
+        "sessions/<int:pk>/close/",
+        views.class_session_close,
+        name="class_session_close",
+    ),
+    path(
+        "sessions/<int:pk>/reopen/",
+        views.class_session_reopen,
+        name="class_session_reopen",
+    ),
+    path(
         "sessions/<int:session_id>/item-content/<int:item_id>/",
         views.class_session_item_content,
         name="class_session_item_content",

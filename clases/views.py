@@ -394,6 +394,60 @@ def class_session_edit_details(request, pk):
 
 
 @login_required
+@user_passes_test(is_staff)
+@require_http_methods(["POST"])
+def class_session_close(request, pk):
+    """
+    Cerrar sesión de clase guardando la reflexión del profesor (texto y/o audio).
+    TINY VIEW: delega en ClassSession.close() (FAT MODEL).
+    Acepta multipart/form-data: reflection (texto), reflection_audio (blob webm/opus).
+    """
+    session = get_object_or_404(ClassSession, pk=pk, teacher=request.user)
+
+    reflection_text = request.POST.get("reflection", "").strip()
+    audio_file = request.FILES.get("reflection_audio")
+
+    if audio_file:
+        # Límite de seguridad: 20 MB
+        if audio_file.size > 20 * 1024 * 1024:
+            return HttpResponse("Audio demasiado grande (máx. 20 MB)", status=400)
+        # Nombre estable con extensión según content type
+        ext = ".webm"
+        if audio_file.content_type in ("audio/mp4", "audio/x-m4a", "audio/m4a"):
+            ext = ".m4a"
+        elif audio_file.content_type == "audio/ogg":
+            ext = ".ogg"
+        audio_file.name = f"reflexion_sesion_{session.pk}{ext}"
+
+    session.close(reflection_text=reflection_text, audio_file=audio_file)
+
+    # Actualizar cobertura del plan de programación (si existe la app)
+    try:
+        from programacion.services import update_coverage_for_session
+
+        update_coverage_for_session(session)
+    except ImportError:
+        pass
+
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return HttpResponse("ok")
+
+    messages.success(request, "Clase finalizada. Reflexión guardada.")
+    return redirect("clases:class_session_view", pk=session.pk)
+
+
+@login_required
+@user_passes_test(is_staff)
+@require_http_methods(["POST"])
+def class_session_reopen(request, pk):
+    """Reabrir una sesión cerrada."""
+    session = get_object_or_404(ClassSession, pk=pk, teacher=request.user)
+    session.reopen()
+    messages.info(request, "Sesión reabierta.")
+    return redirect("clases:class_session_view", pk=session.pk)
+
+
+@login_required
 def class_session_view(request, pk):
     """
     Ver sesión de clase (solo lectura).
@@ -476,6 +530,7 @@ def class_session_present(request, pk):
         {
             "session": session,
             "playlist_json": json.dumps(playlist),
+            "is_teacher": is_teacher and session.teacher == user,
         },
     )
 
