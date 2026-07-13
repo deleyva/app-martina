@@ -1,0 +1,71 @@
+site_name: Martina Bescós App
+site_description: Plataforma open source para educación musical con Django y Wagtail
+site_url: https://deleyva.github.io/app-martina/
+repo_url: https://github.com/deleyva/app-martina
+repo_name: deleyva/app-martina
+docs_dir: documentacion
+edit_uri: edit/main/documentacion/
+
+theme:
+  name: material
+  language: es
+  icon:
+    logo: material/music-clef-treble
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: purple
+      toggle:
+        icon: material/brightness-7
+        name: Cambiar a modo oscuro
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: purple
+      toggle:
+        icon: material/brightness-4
+        name: Cambiar a modo claro
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - search.suggest
+    - content.code.copy
+    - content.action.edit
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+plugins:
+  - search:
+      lang: es
+
+nav:
+  - Inicio: index.md
+  - Guía del profesor:
+      - Primeros pasos: profesor/primeros-pasos.md
+      - Contenidos (artículos, partituras, libros): profesor/contenidos.md
+      - Bibliotecas: profesor/bibliotecas.md
+      - Clases (sesiones): profesor/clases.md
+      - Programaciones de trimestre: profesor/programaciones.md
+      - Study Cards: profesor/study-cards.md
+      - Evaluaciones: profesor/evaluaciones.md
+  - Guía técnica:
+      - Arquitectura: tecnica/arquitectura.md
+      - Apps Django: tecnica/apps.md
+      - App programacion en detalle: tecnica/programacion.md
+      - Desarrollo local: tecnica/desarrollo.md
+      - Despliegue: tecnica/despliegue.md
+      - Esta documentación: tecnica/documentacion.md
