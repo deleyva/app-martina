@@ -10,6 +10,11 @@ from django.utils import timezone
 from cms.models import ExternalResource
 from martina_bescos_app.users.tests.factories import UserFactory
 from my_library.models import LibraryDeck, LibraryItem, ReviewLog
+from my_library.session import (
+    TAMANO_SESION_POR_DEFECTO,
+    agrupar_por_tematica,
+    construir_sesion,
+)
 
 
 @pytest.fixture
@@ -261,6 +266,155 @@ def test_el_visor_sin_mazo_no_manda_deck(client, library_item, user):
     )
 
     assert "var deckPk = '';" in response.content.decode()
+
+
+# === Construcción de sesiones acotadas ===
+
+
+def _item(user, titulo, *, nivel=1, tags=()):
+    recurso = ExternalResource.objects.create(
+        url=f"https://example.org/{titulo}", title=titulo
+    )
+    item = LibraryItem.objects.create(
+        user=user,
+        content_type=ContentType.objects.get_for_model(recurso),
+        object_id=recurso.pk,
+        proficiency_level=nivel,
+    )
+    for t in tags:
+        item.tags.add(t)
+    return item
+
+
+def _practicado_hace(item, dias):
+    ReviewLog.objects.create(
+        user=item.user,
+        item=item,
+        source=ReviewLog.SOURCE_STUDY,
+        reviewed_at=timezone.now() - timedelta(days=dias),
+    )
+
+
+def test_la_sesion_no_crece_con_la_biblioteca(db, user):
+    """El síntoma original: añadir cosas alargaba la sesión."""
+    items = [_item(user, f"item-{n}") for n in range(30)]
+
+    sesion = construir_sesion(items, tamano=8)
+
+    assert len(sesion) == 8
+
+
+def test_la_sesion_devuelve_todo_si_hay_menos_del_tope(db, user):
+    items = [_item(user, f"item-{n}") for n in range(3)]
+
+    assert len(construir_sesion(items, tamano=8)) == 3
+
+
+def test_lo_nunca_practicado_tiene_prioridad_maxima(db, user):
+    nuevo = _item(user, "nunca-tocado")
+    viejo = _item(user, "practicado-ayer")
+    _practicado_hace(viejo, 0)
+
+    sesion = construir_sesion([viejo, nuevo], tamano=1)
+
+    assert sesion == [nuevo]
+
+
+def test_entra_antes_lo_mas_vencido(db, user):
+    """Vencimiento es relativo al nivel, no días absolutos."""
+    # Nivel 4 → plazo 21 días. 30 días = ratio 1.4
+    sabido = _item(user, "me-lo-se", nivel=4)
+    _practicado_hace(sabido, 30)
+    # Nivel 1 → plazo 1 día. 10 días = ratio 10
+    flojo = _item(user, "flojito", nivel=1)
+    _practicado_hace(flojo, 10)
+
+    sesion = construir_sesion([sabido, flojo], tamano=1)
+
+    assert sesion == [flojo]
+
+
+def test_lo_recien_practicado_cede_el_sitio(db, user):
+    reciente = _item(user, "recien-visto", nivel=4)
+    _practicado_hace(reciente, 1)
+    pendiente = _item(user, "pendiente", nivel=2)
+    _practicado_hace(pendiente, 10)
+
+    sesion = construir_sesion([reciente, pendiente], tamano=1)
+
+    assert sesion == [pendiente]
+
+
+def test_valorar_desde_el_indice_no_cuenta_como_practica(db, user):
+    """Solo source=study mueve el reloj de vencimiento."""
+    item = _item(user, "solo-valorado")
+    ReviewLog.objects.create(
+        user=user, item=item, source=ReviewLog.SOURCE_MANUAL,
+        reviewed_at=timezone.now(),
+    )
+    otro = _item(user, "otro")
+    _practicado_hace(otro, 0)
+
+    # El valorado a mano sigue contando como nunca practicado → prioridad máxima
+    assert construir_sesion([otro, item], tamano=1) == [item]
+
+
+def test_lo_de_la_misma_tematica_sale_seguido(db, user):
+    pentas = [_item(user, f"penta-{n}", tags=["pentatonica"]) for n in range(3)]
+    otros = [_item(user, f"otro-{n}", tags=["arpegio"]) for n in range(3)]
+    # Se intercalan a la entrada para que solo la agrupación pueda juntarlos
+    mezclados = [pentas[0], otros[0], pentas[1], otros[1], pentas[2], otros[2]]
+
+    orden = [i.pk for i in agrupar_por_tematica(mezclados)]
+    posiciones = [orden.index(p.pk) for p in pentas]
+
+    assert max(posiciones) - min(posiciones) == 2, "las pentatónicas no salieron seguidas"
+
+
+def test_agrupar_no_pierde_ni_duplica_elementos(db, user):
+    items = [_item(user, f"a-{n}", tags=["x"]) for n in range(3)]
+    items += [_item(user, f"b-{n}", tags=["y"]) for n in range(3)]
+    items += [_item(user, f"c-{n}") for n in range(2)]  # sin etiquetas
+
+    resultado = agrupar_por_tematica(items)
+
+    assert sorted(i.pk for i in resultado) == sorted(i.pk for i in items)
+    assert len(resultado) == len(items)
+
+
+def test_los_bloques_tematicos_son_cortos(db, user):
+    """Agrupar sí, pero no convertir la sesión en un bloque único."""
+    items = [_item(user, f"penta-{n}", tags=["pentatonica"]) for n in range(10)]
+
+    resultado = agrupar_por_tematica(items, max_bloque=4)
+
+    assert len(resultado) == 10  # no pierde nada
+
+
+def test_la_sesion_tolera_una_biblioteca_vacia(db, user):
+    assert construir_sesion([], tamano=8) == []
+
+
+def test_el_tope_de_sesion_esta_acotado(db, user):
+    items = [_item(user, f"item-{n}") for n in range(5)]
+
+    assert len(construir_sesion(items, tamano=0)) == 1
+    assert len(construir_sesion(items, tamano=9999)) == 5
+
+
+def test_el_mazo_arranca_una_sesion_acotada(client, db, user):
+    for n in range(20):
+        _item(user, f"penta-{n}", tags=["pentatonica"])
+    deck = LibraryDeck.objects.create(
+        user=user, name="Pentatónicas", tags_json=json.dumps(["pentatonica"])
+    )
+    client.force_login(user)
+
+    response = client.get(reverse("my_library:deck_study", args=[deck.pk]))
+
+    assert response.status_code == 302
+    pks = response.url.split("items=")[1].split("&")[0].split(",")
+    assert len(pks) == TAMANO_SESION_POR_DEFECTO, f"el mazo mandó {len(pks)} elementos"
 
 
 # === Notas y etiquetas en el visor ===

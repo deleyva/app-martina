@@ -14,6 +14,7 @@ from django.views.decorators.csrf import csrf_protect
 from django.contrib import messages
 from django.db.models import Count
 from .models import LibraryDeck, LibraryItem, ReviewLog
+from .session import TAMANO_SESION_POR_DEFECTO, construir_sesion
 
 
 def _parse_uuid(raw):
@@ -613,7 +614,11 @@ def rename_deck(request, pk):
 
 @login_required
 def deck_study(request, pk):
-    """Redirect to study session with deck's matching items."""
+    """Arranca una sesión acotada con los elementos del mazo.
+
+    El mazo puede tener 200 elementos: la sesión sigue siendo del mismo tamaño.
+    Qué entra y en qué orden lo decide `construir_sesion`.
+    """
     deck = get_object_or_404(LibraryDeck, pk=pk, user=request.user)
     items_qs = LibraryItem.objects.filter(user=request.user).select_related(
         "content_type", "source_page"
@@ -623,7 +628,17 @@ def deck_study(request, pk):
     if not pks:
         messages.warning(request, f'El mazo "{deck.name}" no tiene elementos que coincidan.')
         return redirect("my_library:index")
-    items_param = ",".join(str(pk) for pk in pks)
+
+    tamano_raw = request.GET.get("size", "")
+    tamano = (
+        int(tamano_raw) if tamano_raw.isdigit() else TAMANO_SESION_POR_DEFECTO
+    )
+
+    pks_del_mazo = set(pks)
+    candidatos = [item for item in items_qs if item.pk in pks_del_mazo]
+    sesion = construir_sesion(candidatos, tamano=tamano)
+
+    items_param = ",".join(str(item.pk) for item in sesion)
     return redirect(
         f"{reverse('my_library:study_session')}?items={items_param}&deck={deck.pk}"
     )
