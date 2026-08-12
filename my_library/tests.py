@@ -313,7 +313,7 @@ def test_la_sesion_devuelve_todo_si_hay_menos_del_tope(db, user):
     assert len(construir_sesion(items, tamano=8)) == 3
 
 
-def test_lo_nunca_practicado_tiene_prioridad_maxima(db, user):
+def test_lo_nuevo_entra_siempre_aunque_haya_repaso(db, user):
     nuevo = _item(user, "nunca-tocado")
     viejo = _item(user, "practicado-ayer")
     _practicado_hace(viejo, 0)
@@ -321,6 +321,66 @@ def test_lo_nunca_practicado_tiene_prioridad_maxima(db, user):
     sesion = construir_sesion([viejo, nuevo], tamano=1)
 
     assert sesion == [nuevo]
+
+
+def test_lo_nuevo_no_puede_inundar_la_sesion(db, user):
+    """El defecto que había en producción: 10 elementos nuevos dejaban fuera
+    a 3 que llevaban 60 días sin tocarse. Ni uno de repaso entraba."""
+    vencidos = [_item(user, f"vencido-{n}") for n in range(3)]
+    for v in vencidos:
+        _practicado_hace(v, 60)
+    nuevos = [_item(user, f"nuevo-{n:02d}") for n in range(10)]
+
+    sesion = construir_sesion(vencidos + nuevos, tamano=8)
+    pks = {i.pk for i in sesion}
+
+    assert len(sesion) == 8
+    for v in vencidos:
+        assert v.pk in pks, "un vencido de 60 días se quedó fuera"
+
+
+def test_la_cuota_de_novedad_es_una_cuarta_parte(db, user):
+    conocidos = [_item(user, f"c-{n}") for n in range(20)]
+    for c in conocidos:
+        _practicado_hace(c, 30)
+    nuevos = [_item(user, f"n-{n}") for n in range(20)]
+
+    sesion = construir_sesion(conocidos + nuevos, tamano=8)
+    cuantos_nuevos = sum(1 for i in sesion if i.pk in {n.pk for n in nuevos})
+
+    assert cuantos_nuevos == 2, f"entraron {cuantos_nuevos} nuevos, esperaba 2"
+
+
+def test_sin_repaso_suficiente_la_sesion_se_llena_con_nuevo(db, user):
+    """Dejar la sesión a medias habiendo material sin tocar sería absurdo."""
+    conocido = _item(user, "unico-conocido")
+    _practicado_hace(conocido, 30)
+    nuevos = [_item(user, f"n-{n}") for n in range(10)]
+
+    sesion = construir_sesion([conocido] + nuevos, tamano=8)
+
+    assert len(sesion) == 8
+    assert conocido.pk in {i.pk for i in sesion}
+
+
+def test_sin_material_nuevo_la_sesion_es_todo_repaso(db, user):
+    conocidos = [_item(user, f"c-{n}") for n in range(10)]
+    for c in conocidos:
+        _practicado_hace(c, 30)
+
+    sesion = construir_sesion(conocidos, tamano=8)
+
+    assert len(sesion) == 8
+
+
+def test_lo_nuevo_entra_por_orden_de_alta(db, user):
+    """Lo más parecido al orden del libro que hay hoy en el modelo."""
+    nuevos = [_item(user, f"ej-{n:02d}") for n in range(10)]
+
+    sesion = construir_sesion(nuevos, tamano=4)
+    pks = [i.pk for i in sesion]
+
+    assert pks == sorted(pks), "el material nuevo no salió en orden de alta"
 
 
 def test_entra_antes_lo_mas_vencido(db, user):

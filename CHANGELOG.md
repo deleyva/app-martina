@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## [2026-08-12] - Cuota de novedad en las sesiones
+
+### Fixes
+
+- **El material nuevo ya no inunda la sesion.** Antes lo nunca practicado tenia prioridad maxima absoluta: 10 elementos recien anadidos dejaban fuera a 3 que llevaban 60 dias sin tocarse. Ahora la sesion reserva una cuarta parte de sus huecos para material nuevo y el resto es repaso.
+- Si no hay bastante repaso, los huecos sobrantes se llenan con material nuevo: la sesion nunca se queda a medias.
+- Lo nuevo entra por orden de alta en la biblioteca (lo mas parecido al orden del libro que existe hoy en el modelo).
+
+
 ## [2026-08-12] - Arranque de sesion por faceta
 
 ### Features

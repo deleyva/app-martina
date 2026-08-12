@@ -47,6 +47,17 @@ TAMANO_SESION_POR_DEFECTO = 8
 TAMANO_SESION_MAXIMO = 50
 MAX_BLOQUE = 4  # elementos seguidos de la misma temática
 
+# Qué parte de la sesión se reserva para material que nunca se ha practicado.
+# 0.25 de 8 = 2 huecos.
+#
+# Nació de un defecto real: al principio lo nunca practicado tenía prioridad
+# máxima (`inf`), con la idea de que si no, nunca entraría en rotación. La idea
+# era buena y la implementación demasiado bruta — TODO lo nuevo iba antes que
+# TODO lo demás, así que añadir un libro de 60 ejercicios borraba el repaso
+# durante un mes. Con la cuota, ese mismo libro entra a dos por sesión y el
+# repaso sigue vivo.
+PROPORCION_NOVEDAD = 0.25
+
 
 def intervalo_objetivo(item):
     """Días que este elemento debería aguantar sin practicarse."""
@@ -196,14 +207,31 @@ def construir_sesion(items, tamano=TAMANO_SESION_POR_DEFECTO):
         return []
 
     tamano = max(1, min(int(tamano), TAMANO_SESION_MAXIMO))
-
     dias = _dias_sin_practicar(items)
 
-    # Más vencido primero. El desempate por pk mantiene el orden estable entre
-    # llamadas: sin él, dos elementos igual de vencidos bailarían cada recarga.
-    priorizados = sorted(
-        items,
-        key=lambda i: (-_ratio_vencimiento(i, dias[i.pk]), i.pk),
-    )
+    nuevos = [i for i in items if dias[i.pk] is None]
+    conocidos = [i for i in items if dias[i.pk] is not None]
 
-    return agrupar_por_tematica(priorizados[:tamano])
+    # Lo nuevo, por orden de alta en la biblioteca. Es lo más parecido al orden
+    # del libro que hay hoy en el modelo: no existe ningún ordinal de
+    # capítulo/ejercicio. Cuando exista, se ordena por él.
+    nuevos.sort(key=lambda i: i.pk)
+
+    # Lo conocido, más vencido primero. El desempate por pk mantiene el orden
+    # estable entre llamadas: sin él, dos elementos igual de vencidos bailarían
+    # en cada recarga.
+    conocidos.sort(key=lambda i: (-_ratio_vencimiento(i, dias[i.pk]), i.pk))
+
+    cuota = min(len(nuevos), max(1, round(tamano * PROPORCION_NOVEDAD))) if nuevos else 0
+
+    elegidos = nuevos[:cuota]
+    elegidos += conocidos[: tamano - len(elegidos)]
+
+    # Si no hay bastante repaso para llenar la sesión, entra más material nuevo.
+    # Lo contrario —dejar la sesión a medias habiendo cosas sin tocar— sería
+    # absurdo.
+    if len(elegidos) < tamano:
+        ya = {i.pk for i in elegidos}
+        elegidos += [i for i in nuevos if i.pk not in ya][: tamano - len(elegidos)]
+
+    return agrupar_por_tematica(elegidos)
