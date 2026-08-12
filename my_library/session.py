@@ -139,6 +139,52 @@ def agrupar_por_tematica(items, max_bloque=MAX_BLOQUE):
     return ordenados
 
 
+def facetas_disponibles(items):
+    """Qué se puede elegir para arrancar una sesión, con cuántos elementos.
+
+    `{"instrumento": [("guitarra", 12), ("piano", 3)], "concepto": [...]}`,
+    cada faceta ordenada de más a menos elementos. Solo devuelve las facetas
+    de FACETAS_DE_FILTRO: filtrar por `evaluacion` o `tema` no tiene sentido
+    para practicar.
+    """
+    cuentas = {}
+    for item in items:
+        for etiqueta in _etiquetas(item):
+            faceta, valor = facets.parse(etiqueta)
+            if faceta in facets.FACETAS_DE_FILTRO:
+                cuentas.setdefault(faceta, {})
+                cuentas[faceta][valor] = cuentas[faceta].get(valor, 0) + 1
+
+    return {
+        faceta: sorted(valores.items(), key=lambda par: (-par[1], par[0]))
+        for faceta, valores in sorted(
+            cuentas.items(), key=lambda par: facets.FACETAS_DE_FILTRO.index(par[0])
+        )
+    }
+
+
+def filtrar_por_facetas(items, seleccion):
+    """Elementos que casan con la selección.
+
+    Y entre facetas, O dentro de cada faceta: "guitarra Y (pentatónica O
+    arpegio)". Es lo que se espera al elegir con el ratón — añadir un valor
+    más dentro de una faceta amplía la búsqueda, añadir otra faceta la
+    estrecha.
+
+    Una selección vacía no filtra nada: devuelve todo.
+    """
+    seleccion = {f: set(v) for f, v in (seleccion or {}).items() if v}
+    if not seleccion:
+        return list(items)
+
+    resultado = []
+    for item in items:
+        del_item = facets.por_faceta(_etiquetas(item))
+        if all(del_item.get(f, set()) & valores for f, valores in seleccion.items()):
+            resultado.append(item)
+    return resultado
+
+
 def construir_sesion(items, tamano=TAMANO_SESION_POR_DEFECTO):
     """Devuelve los elementos de una sesión, acotados y ordenados.
 

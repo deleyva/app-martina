@@ -51,6 +51,9 @@
     <div class="flex justify-between items-center mb-3">
         <h1 class="text-xl font-bold flex items-center gap-2">📚 Mi Biblioteca <span class="badge badge-primary badge-sm">{{ total_items }}</span></h1>
         <div class="flex items-center gap-1">
+        <a href="{% url 'my_library:session_start' %}" class="btn btn-primary btn-xs" title="Empezar una sesión de estudio">
+            🎯 Empezar a estudiar
+        </a>
         {% if request.user.is_staff %}
         <a href="{% url 'my_library:manage_tags' %}" class="btn btn-ghost btn-xs" title="Gestión de Tags">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

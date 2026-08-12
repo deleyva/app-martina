@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## [2026-08-12] - Arranque de sesion por faceta
+
+### Features
+
+- **`/my-library/empezar/`**: elige instrumento, concepto, estilo, tipo, tonalidad o dificultad y monta la sesion con lo que coincida. Recuento en vivo por HTMX y vista previa de que entraria hoy.
+- Y entre facetas, O dentro de cada faceta. La seleccion viaja en la URL: una combinacion util se guarda en marcadores.
+- Boton "Empezar a estudiar" en la cabecera de la biblioteca.
+
+
 ## [2026-08-12] - Facetas de etiquetas
 
 ### Features

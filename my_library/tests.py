@@ -15,6 +15,8 @@ from my_library.session import (
     TAMANO_SESION_POR_DEFECTO,
     agrupar_por_tematica,
     construir_sesion,
+    facetas_disponibles,
+    filtrar_por_facetas,
 )
 
 
@@ -485,6 +487,183 @@ def test_la_migracion_es_idempotente(db, tmp_path, user):
 
     assert Tag.objects.filter(name="estilo:jazz").count() == 1
     assert {t.name for t in item.tags.all()} == {"estilo:jazz"}
+
+
+# === Arranque de sesión por faceta (C18) ===
+
+
+def test_filtrar_sin_seleccion_devuelve_todo(db, user):
+    items = [_item(user, f"i-{n}", tags=["instrumento:guitarra"]) for n in range(3)]
+
+    assert len(filtrar_por_facetas(items, {})) == 3
+    assert len(filtrar_por_facetas(items, {"instrumento": []})) == 3
+
+
+def test_una_faceta_filtra(db, user):
+    guitarra = _item(user, "g", tags=["instrumento:guitarra"])
+    _item(user, "p", tags=["instrumento:piano"])
+
+    resultado = filtrar_por_facetas(
+        [guitarra] + list(LibraryItem.objects.exclude(pk=guitarra.pk)),
+        {"instrumento": ["guitarra"]},
+    )
+
+    assert [i.pk for i in resultado] == [guitarra.pk]
+
+
+def test_dentro_de_una_faceta_los_valores_suman(db, user):
+    """O dentro de la faceta: marcar otro valor amplía la búsqueda."""
+    penta = _item(user, "a", tags=["concepto:pentatonica"])
+    arpegio = _item(user, "b", tags=["concepto:arpegio"])
+    otro = _item(user, "c", tags=["concepto:escalas"])
+
+    resultado = filtrar_por_facetas(
+        [penta, arpegio, otro], {"concepto": ["pentatonica", "arpegio"]}
+    )
+
+    assert {i.pk for i in resultado} == {penta.pk, arpegio.pk}
+
+
+def test_entre_facetas_las_condiciones_se_acumulan(db, user):
+    """Y entre facetas: añadir otra faceta estrecha la búsqueda."""
+    ambas = _item(user, "a", tags=["instrumento:guitarra", "concepto:pentatonica"])
+    solo_instrumento = _item(user, "b", tags=["instrumento:guitarra"])
+    solo_concepto = _item(user, "c", tags=["concepto:pentatonica"])
+
+    resultado = filtrar_por_facetas(
+        [ambas, solo_instrumento, solo_concepto],
+        {"instrumento": ["guitarra"], "concepto": ["pentatonica"]},
+    )
+
+    assert [i.pk for i in resultado] == [ambas.pk]
+
+
+def test_facetas_disponibles_cuenta_y_ordena(db, user):
+    for n in range(3):
+        _item(user, f"g-{n}", tags=["instrumento:guitarra"])
+    _item(user, "p", tags=["instrumento:piano"])
+
+    disponibles = facetas_disponibles(list(LibraryItem.objects.filter(user=user)))
+
+    assert disponibles["instrumento"] == [("guitarra", 3), ("piano", 1)]
+
+
+def test_facetas_disponibles_ignora_lo_que_no_sirve_para_filtrar(db, user):
+    """Filtrar por 'evaluacion' o 'tema' no tiene sentido para practicar."""
+    _item(user, "x", tags=["instrumento:guitarra", "evaluacion:examen", "tema:vitalinux"])
+
+    disponibles = facetas_disponibles(list(LibraryItem.objects.filter(user=user)))
+
+    assert set(disponibles) == {"instrumento"}
+
+
+def test_el_selector_se_abre_y_lista_las_facetas(client, db, user):
+    _item(user, "g", tags=["instrumento:guitarra", "concepto:pentatonica"])
+    client.force_login(user)
+
+    response = client.get(reverse("my_library:session_start"))
+    html = response.content.decode()
+
+    assert response.status_code == 200
+    assert "guitarra" in html
+    assert "pentatonica" in html
+
+
+def test_lanzar_una_sesion_filtrada_abre_el_visor_solo_con_lo_elegido(client, db, user):
+    guitarras = [
+        _item(user, f"g-{n}", tags=["instrumento:guitarra"]) for n in range(3)
+    ]
+    _item(user, "p", tags=["instrumento:piano"])
+    client.force_login(user)
+
+    response = client.get(
+        reverse("my_library:session_launch"), {"instrumento": "guitarra"}
+    )
+
+    assert response.status_code == 302
+    pks = {int(p) for p in response.url.split("items=")[1].split("&")[0].split(",")}
+    assert pks == {g.pk for g in guitarras}
+
+
+def test_lanzar_respeta_el_tope_de_sesion(client, db, user):
+    for n in range(20):
+        _item(user, f"g-{n}", tags=["instrumento:guitarra"])
+    client.force_login(user)
+
+    response = client.get(
+        reverse("my_library:session_launch"), {"instrumento": "guitarra"}
+    )
+
+    pks = response.url.split("items=")[1].split("&")[0].split(",")
+    assert len(pks) == TAMANO_SESION_POR_DEFECTO
+
+
+def test_lanzar_sin_coincidencias_avisa_y_no_abre_el_visor(client, db, user):
+    _item(user, "p", tags=["instrumento:piano"])
+    client.force_login(user)
+
+    response = client.get(
+        reverse("my_library:session_launch"), {"instrumento": "trombon"}
+    )
+
+    assert response.status_code == 302
+    assert "study" not in response.url
+    assert "empezar" in response.url
+
+
+def test_la_seleccion_vuelve_marcada_en_la_url(client, db, user):
+    """La selección vive en la URL para poder guardarla en marcadores.
+
+    Ojo al comprobarlo: el HTML lleva `peer-checked:` en las clases de
+    Tailwind, así que buscar la subcadena "checked" da 21 falsos positivos.
+    Hay que mirar el atributo en el input.
+    """
+    import re
+
+    _item(user, "g", tags=["instrumento:guitarra", "concepto:pentatonica"])
+    _item(user, "p", tags=["instrumento:piano"])
+    client.force_login(user)
+
+    html = client.get(
+        reverse("my_library:session_start"),
+        {"instrumento": "guitarra", "concepto": "pentatonica"},
+    ).content.decode()
+
+    # Solo las casillas de faceta: base.html trae sus propios <input>.
+    casillas = [
+        i
+        for i in re.findall(r"<input[^>]*>", html)
+        if re.search(r'name="(instrumento|concepto|estilo|tipo)"', i)
+    ]
+    marcados = [i for i in casillas if re.search(r"\schecked\b", i)]
+
+    assert len(casillas) == 3  # guitarra, piano, pentatonica
+    assert len(marcados) == 2
+    assert all('value="piano"' not in m for m in marcados)
+
+
+def test_el_recuento_en_vivo_responde(client, db, user):
+    _item(user, "g", tags=["instrumento:guitarra"])
+    client.force_login(user)
+
+    response = client.get(
+        reverse("my_library:session_count"), {"instrumento": "guitarra"}
+    )
+
+    assert response.status_code == 200
+    assert "1" in response.content.decode()
+
+
+def test_no_se_ve_la_biblioteca_de_otro(client, db, user, django_user_model):
+    _item(user, "g", tags=["instrumento:guitarra"])
+    intruso = django_user_model.objects.create_user(
+        email="otro2@example.org", password="x"  # noqa: S106
+    )
+    client.force_login(intruso)
+
+    response = client.get(reverse("my_library:session_start"))
+
+    assert "guitarra" not in response.content.decode()
 
 
 # === Facetas ===

@@ -14,7 +14,13 @@ from django.views.decorators.csrf import csrf_protect
 from django.contrib import messages
 from django.db.models import Count
 from .models import LibraryDeck, LibraryItem, ReviewLog, SharedNote
-from .session import TAMANO_SESION_POR_DEFECTO, construir_sesion
+from . import facets
+from .session import (
+    TAMANO_SESION_POR_DEFECTO,
+    construir_sesion,
+    facetas_disponibles,
+    filtrar_por_facetas,
+)
 
 
 def _parse_uuid(raw):
@@ -641,6 +647,106 @@ def rename_deck(request, pk):
     deck.name = new_name
     deck.save(update_fields=["name"])
     return _render_deck_panel(request)
+
+
+def _seleccion_de(request):
+    """Lee la selección de facetas de la query: `?instrumento=guitarra&...`."""
+    seleccion = {}
+    for faceta in facets.FACETAS_DE_FILTRO:
+        valores = [v for v in request.GET.getlist(faceta) if v.strip()]
+        if valores:
+            seleccion[faceta] = valores
+    return seleccion
+
+
+def _items_del_usuario(user):
+    return LibraryItem.objects.filter(user=user).select_related(
+        "content_type", "source_page"
+    ).prefetch_related("tags")
+
+
+@login_required
+def session_start(request):
+    """Selector para arrancar una sesión: instrumento, concepto, estilo…
+
+    Es la petición original: "digo el instrumento y algún concepto y que me
+    filtre lo que tengo para repasar". Imposible hasta tener facetas, porque
+    nada decía qué etiqueta ERA un instrumento.
+    """
+    items = list(_items_del_usuario(request.user))
+    seleccion = _seleccion_de(request)
+
+    # Se arma aquí con el flag `seleccionado` ya resuelto: mirar si un valor
+    # está en un dict-de-conjuntos no se puede hacer en una plantilla Django
+    # sin inventarse un filtro.
+    facetas_ui = [
+        {
+            "nombre": faceta,
+            "valores": [
+                {
+                    "valor": valor,
+                    "cuantos": cuantos,
+                    "seleccionado": valor in seleccion.get(faceta, []),
+                }
+                for valor, cuantos in valores
+            ],
+        }
+        for faceta, valores in facetas_disponibles(items).items()
+    ]
+
+    return render(
+        request,
+        "my_library/session_start.html",
+        {
+            "facetas": facetas_ui,
+            "total_biblioteca": len(items),
+            "tamano_sesion": TAMANO_SESION_POR_DEFECTO,
+            **_resumen_seleccion(items, seleccion),
+        },
+    )
+
+
+def _resumen_seleccion(items, seleccion):
+    coincidencias = filtrar_por_facetas(items, seleccion)
+    sesion = construir_sesion(coincidencias, tamano=TAMANO_SESION_POR_DEFECTO)
+    return {
+        "coincidencias": len(coincidencias),
+        "sesion": sesion,
+        "hay_seleccion": bool(seleccion),
+    }
+
+
+@login_required
+def session_count(request):
+    """Recuento en vivo mientras se eligen facetas. Endpoint HTMX."""
+    items = list(_items_del_usuario(request.user))
+    return render(
+        request,
+        "my_library/partials/session_count.html",
+        {
+            "tamano_sesion": TAMANO_SESION_POR_DEFECTO,
+            **_resumen_seleccion(items, _seleccion_de(request)),
+        },
+    )
+
+
+@login_required
+def session_launch(request):
+    """Construye la sesión con las facetas elegidas y abre el visor."""
+    items = list(_items_del_usuario(request.user))
+    seleccion = _seleccion_de(request)
+
+    coincidencias = filtrar_por_facetas(items, seleccion)
+    if not coincidencias:
+        messages.warning(request, "No hay elementos que casen con esa selección.")
+        return redirect(f"{reverse('my_library:session_start')}?{request.GET.urlencode()}")
+
+    tamano_raw = request.GET.get("size", "")
+    tamano = int(tamano_raw) if tamano_raw.isdigit() else TAMANO_SESION_POR_DEFECTO
+    sesion = construir_sesion(coincidencias, tamano=tamano)
+
+    items_param = ",".join(str(item.pk) for item in sesion)
+    return redirect(f"{reverse('my_library:study_session')}?items={items_param}")
 
 
 @login_required
