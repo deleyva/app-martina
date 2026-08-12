@@ -1,5 +1,23 @@
 {% load wagtailcore_tags wagtailimages_tags wagtailembeds_tags %}
 
+{# Notas y etiquetas del item. Nace oculto aquí y el visor lo traslada al
+   flyout (mismo patrón que #study-media-panel). Va en este partial porque
+   cambia con cada item, mientras que el flyout es estático. #}
+<div id="study-item-meta" data-item-pk="{{ item.pk }}" style="display:none;">
+    {% with item_tags=item.get_content_tags %}
+    {% if item_tags %}
+    <div class="meta-tags">
+        {% for tag in item_tags %}<span class="meta-tag">{{ tag.name }}</span>{% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+    <textarea id="study-notes-input"
+              class="meta-notes"
+              rows="5"
+              placeholder="Qué hay que practicar aquí. Se guarda solo.">{{ item.notes }}</textarea>
+    <div class="meta-notes-status" id="study-notes-status"></div>
+</div>
+
 <div style="width: 100%; height: 100%;">
     {% if documents.pdfs %}
         <!-- PDF Viewer -->

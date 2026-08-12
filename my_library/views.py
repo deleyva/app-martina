@@ -267,6 +267,20 @@ def update_proficiency(request, pk):
     return response
 
 
+@login_required
+@require_POST
+def update_notes(request, pk):
+    """Guarda las notas de práctica de un item.
+
+    Es el camino de escritura del caso 'vi el vídeo una vez y apunté qué hay
+    que hacer': después basta con leer la nota, sin volver a verlo.
+    """
+    item = get_object_or_404(LibraryItem, pk=pk, user=request.user)
+    item.notes = request.POST.get("notes", "").strip()
+    item.save(update_fields=["notes"])
+    return HttpResponse(status=204)
+
+
 @staff_member_required
 @require_POST
 def update_item_title(request, pk):

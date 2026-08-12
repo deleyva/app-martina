@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## [2026-08-12] - Notas y etiquetas en el visor de estudio
+
+### Features
+
+- **Etiquetas visibles mientras practicas**: el visor muestra los tags del item en el panel del flyout (tecla `M`).
+- **Notas de práctica**: `LibraryItem.notes` existia en el modelo desde siempre y no tenia NINGUNA UI, ni de lectura ni de escritura. Ahora se lee y se escribe desde el propio visor, con guardado automatico (debounce de 900ms + al perder el foco). Resuelve el caso "vi el video una vez, apunte que hay que hacer, y ya no necesito volver a verlo".
+- Dos caminos de perdida de datos tapados: `flushNotes()` vuelca lo pendiente antes de cambiar de item, y `Escape` dentro del campo sale del campo guardando, en vez de abandonar la sesion.
+
+
 ## [2026-08-12] - Histórico de repasos (`ReviewLog`)
 
 ### ✨ Features

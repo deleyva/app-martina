@@ -263,6 +263,76 @@ def test_el_visor_sin_mazo_no_manda_deck(client, library_item, user):
     assert "var deckPk = '';" in response.content.decode()
 
 
+# === Notas y etiquetas en el visor ===
+
+
+def test_las_notas_se_guardan(client, library_item, user):
+    client.force_login(user)
+
+    response = client.post(
+        reverse("my_library:update_notes", args=[library_item.pk]),
+        {"notes": "  Posición 2, empezar lento con metrónomo a 60.  "},
+    )
+
+    library_item.refresh_from_db()
+    assert response.status_code == 204
+    assert library_item.notes == "Posición 2, empezar lento con metrónomo a 60."
+
+
+def test_las_notas_se_pueden_vaciar(client, library_item, user):
+    library_item.notes = "algo viejo"
+    library_item.save(update_fields=["notes"])
+    client.force_login(user)
+
+    client.post(reverse("my_library:update_notes", args=[library_item.pk]), {"notes": ""})
+
+    library_item.refresh_from_db()
+    assert library_item.notes == ""
+
+
+def test_no_se_pueden_editar_las_notas_ajenas(client, library_item, django_user_model):
+    intruso = django_user_model.objects.create_user(
+        email="otro@example.org", password="x"  # noqa: S106
+    )
+    client.force_login(intruso)
+
+    response = client.post(
+        reverse("my_library:update_notes", args=[library_item.pk]), {"notes": "mío"}
+    )
+
+    library_item.refresh_from_db()
+    assert response.status_code == 404
+    assert library_item.notes == ""
+
+
+def test_guardar_notas_no_crea_un_repaso(client, library_item, user):
+    """Escribir una nota no es practicar."""
+    client.force_login(user)
+
+    client.post(
+        reverse("my_library:update_notes", args=[library_item.pk]), {"notes": "x"}
+    )
+
+    assert ReviewLog.objects.count() == 0
+
+
+def test_el_visor_muestra_notas_y_etiquetas(client, library_item, user):
+    library_item.notes = "Empezar por la posición 2"
+    library_item.save(update_fields=["notes"])
+    library_item.tags.add("pentatonica", "guitarra")
+    client.force_login(user)
+
+    response = client.get(
+        reverse("my_library:study_item_content", args=[library_item.pk])
+    )
+    html = response.content.decode()
+
+    assert "Empezar por la posición 2" in html
+    assert "pentatonica" in html
+    assert "guitarra" in html
+    assert f'data-item-pk="{library_item.pk}"' in html
+
+
 def test_el_planificador_podra_filtrar_solo_practica_real(client, library_item, user):
     client.force_login(user)
     client.post(

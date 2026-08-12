@@ -180,6 +180,50 @@
             justify-content: center;
         }
 
+        /* Notas y etiquetas del item dentro del flyout */
+        .flyout-meta {
+            padding: 10px 12px 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .flyout-meta:empty {
+            display: none;
+        }
+        .meta-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-bottom: 8px;
+        }
+        .meta-tag {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: rgba(139, 92, 246, 0.18);
+            border: 1px solid rgba(139, 92, 246, 0.35);
+            color: #c4b5fd;
+        }
+        .meta-notes {
+            width: 100%;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.06);
+            color: #fff;
+            font-size: 13px;
+            line-height: 1.45;
+            padding: 8px;
+            resize: vertical;
+            font-family: inherit;
+        }
+        .meta-notes::placeholder {
+            color: rgba(255, 255, 255, 0.35);
+        }
+        .meta-notes-status {
+            font-size: 11px;
+            opacity: 0.45;
+            margin-top: 4px;
+            min-height: 14px;
+        }
+
         /* Flyout backdrop for outside clicks */
         #flyout-backdrop {
             position: fixed;
@@ -405,6 +449,7 @@
         </div>
         <!-- Audio controls placeholder — populated dynamically -->
         <div id="flyout-audio-section"></div>
+        <div id="flyout-meta-section" class="flyout-meta"></div>
     </div>
 
     <!-- Content area (lazy-loaded via fetch) -->
@@ -509,6 +554,7 @@
 
     // ── Core study flow ──
     function loadItem(index) {
+        flushNotes();
         if (index >= playlist.length) {
             showSessionComplete();
             return;
@@ -537,11 +583,80 @@
                 }
                 oldScript.parentNode.replaceChild(newScript, oldScript);
             });
+            // Aislado: un fallo pintando notas/etiquetas no puede tumbar la
+            // carga del item (el .catch de abajo borraría el contenido).
+            try { moveMetaToFlyout(); } catch (e) { console.error('meta panel:', e); }
             // Move media panel into flyout if present
             moveMediaToFlyout();
         })
         .catch(function(err) {
             container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#ff6b6b;">Error al cargar el item</div>';
+        });
+    }
+
+    // ── Notas y etiquetas del item ──
+    var notesSaveTimer = null;
+
+    function moveMetaToFlyout() {
+        var meta = document.getElementById('study-item-meta');
+        var target = document.getElementById('flyout-meta-section');
+        if (!target) return;
+
+        if (!meta) {
+            target.innerHTML = '';
+            return;
+        }
+
+        meta.style.display = '';
+        target.innerHTML = '';
+        target.appendChild(meta);
+
+        var input = document.getElementById('study-notes-input');
+        if (!input) return;
+
+        // Guardado automático: al dejar de escribir y al salir del campo.
+        input.addEventListener('input', function() {
+            clearTimeout(notesSaveTimer);
+            notesSaveTimer = setTimeout(saveNotes, 900);
+        });
+        input.addEventListener('blur', function() {
+            clearTimeout(notesSaveTimer);
+            saveNotes();
+        });
+    }
+
+    // Vuelca un guardado pendiente ANTES de cargar otro item. Se llama al
+    // principio de loadItem, cuando el único #study-item-meta del documento
+    // sigue siendo el del item que se abandona.
+    function flushNotes() {
+        if (notesSaveTimer === null) return;
+        clearTimeout(notesSaveTimer);
+        notesSaveTimer = null;
+        saveNotes();
+    }
+
+    function saveNotes() {
+        var meta = document.getElementById('study-item-meta');
+        var input = document.getElementById('study-notes-input');
+        var status = document.getElementById('study-notes-status');
+        if (!meta || !input) return;
+
+        var pk = meta.dataset.itemPk;
+        var body = new URLSearchParams();
+        body.append('notes', input.value);
+
+        if (status) status.textContent = 'Guardando…';
+        fetch('{% url "my_library:update_notes" pk=99999 %}'.replace('99999', pk), {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken },
+            body: body,
+            credentials: 'same-origin'
+        })
+        .then(function(r) {
+            if (status) status.textContent = r.ok ? 'Guardado' : 'No se pudo guardar';
+        })
+        .catch(function() {
+            if (status) status.textContent = 'No se pudo guardar';
         });
     }
 
@@ -688,6 +803,11 @@
     // Keyboard: Escape to exit, M to toggle menu
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
+            // Escribiendo notas: Escape sale del campo (y guarda), no de la sesión.
+            if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') {
+                e.target.blur();
+                return;
+            }
             var profOverlay = document.getElementById('proficiency-overlay');
             if (profOverlay.classList.contains('active')) {
                 profOverlay.classList.remove('active');

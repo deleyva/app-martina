@@ -1,8 +1,8 @@
 ---
 slug: app-martina
-phase: complete
-progress: false
-iteration: 1
+phase: verify
+progress: true
+iteration: 2
 principal_stated_goal: "ok! eliminemos study_sessions. Y vamos a desarrollar ReviewLog"
 updated: 2026-08-12
 ---
@@ -25,7 +25,6 @@ Este run captura datos. No decide nada sobre ellos.
 
 - Planificador, cooldown, caducidad o cualquier lógica de "qué toca hoy". Solo captura.
 - Tope de tamaño de sesión, agrupación temática, facetado de tags, secuencia de libros, recomendador.
-- Renderizar `notes` y tags en el visor (identificado como alto valor, va en un run aparte).
 - Migrar `LibraryItem` a `content_hub` o unificar los modelos de contenido solapados.
 
 ## Anti-claims
@@ -67,3 +66,20 @@ Cuatro scripts sueltos en la raíz (`test_images.py`, `test_tags.py`, `test_tags
 - Borrado y modelo van en el mismo run porque no se tocan entre sí: `study_sessions` no tiene un solo import externo (verificado con `rg`), así que el borrado no puede romper nada de `my_library`.
 - **Clase de defecto encontrada al escribir `ReviewLog.__str__`:** este `User` define `username = None` (`USERNAME_FIELD = "email"`), así que todo `user.username` del proyecto vale `None`. Barrido con `rg`: 9 sitios vivos. Arreglados los 3 de `my_library` (uno era un crash real: `search_fields = ["user__username"]` reventaba la búsqueda del admin con `FieldError`). Los 6 restantes viven en otras apps y quedan reportados sin tocar, por disciplina de alcance: `cms/models.py:1788`, `cms/wagtail_hooks.py:34`, `evaluations/admin.py:125` (crash de búsqueda), `evaluations/admin.py:163-164`, y dos plantillas de `incidencias` que pintan la inicial "N" en los avatares.
 - El entorno local nunca se había construido (no había imágenes docker del proyecto). El primer `just up` tardó lo suyo.
+
+
+## Fase 2 — Notas y etiquetas en el visor
+
+Cierra dos de las siete peticiones originales. Resultó ser más que "pintar un campo": `notes` existía en el modelo desde siempre y **no tenía ninguna UI** — ni escritura ni lectura, en ningún sitio. Sin camino de escritura, mostrarlo no sirve de nada.
+
+- [x] **C9 — Las etiquetas del item se ven mientras practicas.** *Probe: test sobre `study_item_content` que verifica que los tags salen en el HTML.*
+- [x] **C10 — Las notas se leen y se escriben desde el visor**, con guardado automático. *Probe: tests de `update_notes` (guardar, vaciar, 404 ajeno).*
+- [x] **C11 — Escribir una nota no cuenta como repaso.** *Probe: test que verifica que `update_notes` no crea `ReviewLog`.*
+- [ ] **C12 — `[DEFERRED-VERIFY]` El panel funciona en navegador.** Falta abrir el visor, pulsar `M` y comprobar que se ven etiquetas y notas, que el texto se guarda solo y que sobrevive al cambio de item.
+
+### Decisiones
+
+- **El panel vive en el flyout (tecla `M`)**, no encima del contenido: la partitura o el vídeo ocupan la pantalla entera y taparlos con texto sería peor que el problema que resuelve.
+- **El bloque nace en `study_item_content.html` y se traslada al flyout por JS**, mismo patrón que `#study-media-panel`. Razón: las notas cambian con cada item, el flyout es estático.
+- **Guardado automático con debounce de 900ms + al perder el foco.** Sin botón de guardar: escribir la nota tiene que costar menos que volver a ver el vídeo, que es justo lo que se quiere evitar.
+- **Dos caminos de pérdida de datos, tapados a propósito:** `flushNotes()` al principio de `loadItem` vuelca lo pendiente antes de cambiar de item, y `Escape` dentro del textarea sale del campo (guardando) en vez de abandonar la sesión.
