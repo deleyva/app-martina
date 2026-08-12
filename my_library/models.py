@@ -33,7 +33,8 @@ class LibraryDeck(models.Model):
         verbose_name_plural = "Mazos de Biblioteca"
 
     def __str__(self):
-        return f"{self.user.username} - {self.name}"
+        # Este User no tiene `username` (USERNAME_FIELD = "email")
+        return f"{self.user.email} - {self.name}"
 
     def get_tags(self):
         """Return list of tag names."""
@@ -150,7 +151,8 @@ class LibraryItem(models.Model):
         verbose_name_plural = "Items de Biblioteca"
 
     def __str__(self):
-        return f"{self.user.username} - {self.get_content_title()}"
+        # Este User no tiene `username` (USERNAME_FIELD = "email")
+        return f"{self.user.email} - {self.get_content_title()}"
 
     # === MÉTODOS FAT MODEL (toda la lógica de negocio aquí) ===
 
@@ -307,6 +309,25 @@ class LibraryItem(models.Model):
         self.times_viewed += 1
         self.last_viewed = timezone.now()
         self.save(update_fields=["times_viewed", "last_viewed"])
+
+    @property
+    def last_review(self):
+        """Último repaso registrado, o None si nunca se ha repasado.
+
+        Deriva de ReviewLog, no de `last_viewed`: abrir el visor no es repasar.
+        """
+        return self.reviews.order_by("-reviewed_at").first()
+
+    @property
+    def days_since_last_review(self):
+        """Días desde el último repaso. None = nunca repasado.
+
+        None significa máxima prioridad para un futuro planificador, no cero.
+        """
+        last = self.last_review
+        if last is None:
+            return None
+        return (timezone.now() - last.reviewed_at).days
 
     def get_related_scorepage(self):
         """
@@ -479,3 +500,115 @@ class LibraryItem(models.Model):
         return cls.objects.filter(
             user=user, content_type=content_type, object_id=content_object.pk
         ).exists()
+
+
+class ReviewLog(models.Model):
+    """Registro de un repaso: una fila por evento de práctica.
+
+    Es la única fuente de verdad histórica de la biblioteca. `times_viewed` y
+    `last_viewed` en LibraryItem son agregados que no se pueden desagregar:
+    de eventos se derivan contadores, de contadores no se deriva nada.
+
+    Deliberadamente guarda hechos observados, no predicciones. Sin
+    `next_review_date` ni `ease_factor`: cuando exista un planificador, se
+    derivará de estas filas en vez de venir precocinado en ellas.
+
+    Las filas se tratan como inmutables — se insertan, no se editan (el admin
+    las expone en solo lectura).
+    """
+
+    SOURCE_STUDY = "study"
+    SOURCE_MANUAL = "manual"
+    SOURCE_CHOICES = [
+        (SOURCE_STUDY, "Sesión de estudio"),
+        (SOURCE_MANUAL, "Valoración manual"),
+    ]
+
+    # Tope de duración por item. Sin esto, dejar la pestaña abierta toda la
+    # noche mete un outlier de 8 horas que envenena cualquier media futura.
+    MAX_DURATION_SECONDS = 3600
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="review_logs"
+    )
+    item = models.ForeignKey(
+        LibraryItem, on_delete=models.CASCADE, related_name="reviews"
+    )
+
+    reviewed_at = models.DateTimeField(default=timezone.now, db_index=True)
+
+    # Agrupa los repasos de una misma tanda sin necesidad de un modelo Session.
+    # Lo genera el cliente al abrir el visor de estudio.
+    session_uuid = models.UUIDField(
+        null=True, blank=True, db_index=True,
+        help_text="Agrupa los repasos de una misma sesión",
+    )
+
+    source = models.CharField(
+        max_length=16, choices=SOURCE_CHOICES, default=SOURCE_STUDY,
+        help_text="Dónde ocurrió el repaso — 'manual' no es práctica real",
+    )
+
+    proficiency_before = models.PositiveSmallIntegerField(
+        null=True, blank=True, help_text="Nivel antes de este repaso"
+    )
+    proficiency_after = models.PositiveSmallIntegerField(
+        null=True, blank=True, help_text="Nivel declarado en este repaso"
+    )
+
+    duration_seconds = models.PositiveIntegerField(
+        null=True, blank=True, help_text="Tiempo dedicado al item"
+    )
+
+    # SET_NULL: borrar un mazo no debe borrar la historia de lo practicado con él.
+    deck = models.ForeignKey(
+        LibraryDeck, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="reviews", verbose_name="Mazo de origen",
+    )
+
+    class Meta:
+        ordering = ["-reviewed_at"]
+        indexes = [
+            models.Index(fields=["user", "-reviewed_at"]),  # "¿qué practiqué esta semana?"
+            models.Index(fields=["item", "-reviewed_at"]),  # último repaso de un item
+        ]
+        verbose_name = "Repaso"
+        verbose_name_plural = "Repasos"
+
+    def __str__(self):
+        # Este User no tiene `username` (USERNAME_FIELD = "email")
+        return f"{self.user.email} - {self.item_id} @ {self.reviewed_at:%Y-%m-%d %H:%M}"
+
+    @property
+    def improved(self):
+        """True si el nivel subió en este repaso. None si falta algún extremo."""
+        if self.proficiency_before is None or self.proficiency_after is None:
+            return None
+        return self.proficiency_after > self.proficiency_before
+
+    @classmethod
+    def log(
+        cls,
+        item,
+        *,
+        source=SOURCE_STUDY,
+        proficiency_before=None,
+        proficiency_after=None,
+        duration_seconds=None,
+        session_uuid=None,
+        deck=None,
+    ):
+        """Crea el registro. `user` se deriva del item, nunca se pasa a mano."""
+        if duration_seconds is not None:
+            duration_seconds = min(int(duration_seconds), cls.MAX_DURATION_SECONDS)
+
+        return cls.objects.create(
+            user=item.user,
+            item=item,
+            source=source,
+            proficiency_before=proficiency_before,
+            proficiency_after=proficiency_after,
+            duration_seconds=duration_seconds,
+            session_uuid=session_uuid,
+            deck=deck,
+        )

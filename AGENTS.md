@@ -65,6 +65,18 @@ Las vistas deben ser extremadamente delgadas:
     -   `just manage <comando>`: Ejecutar comandos de Django
     -   Ver `.justfile` para todos los comandos disponibles
 
+### Trampas conocidas (leer antes de perder una hora)
+
+-   **`User` NO tiene `username`.** El modelo define `username = None` y `USERNAME_FIELD = "email"`. Todo `user.username` del proyecto vale `None`: en un `__str__` pinta "None", y en `search_fields` de un admin revienta con `FieldError` al buscar. Usa `email` siempre.
+
+-   **El login por email/contraseña está deshabilitado**, salvo tres exenciones que concede `users/adapters.py`: usuario `is_staff`, login social, o cuenta social vinculada. Para entrar en local sin Google, promociona el usuario a `is_staff`.
+
+-   **`pytest` no arranca sin excluir cuatro scripts de la raíz.** `test_images.py`, `test_tags.py`, `test_tags2.py` y `test_viewer_html.py` son scripts de depuración que llaman a `django.setup()` y tocan la BD al importarse; pytest los recoge por el patrón `test_*.py` y falla la colección entera. Deberían renombrarse.
+
+-   **`conftest.py` solo cubre su propio subárbol.** La fixture `user` vive en `martina_bescos_app/conftest.py` y NO alcanza a apps hermanas como `my_library`. Define la fixture localmente con `UserFactory`.
+
+-   **`just up` falla al final del primer build** con `image ... already exists`: `django` y `huey_consumer` exportan el mismo tag a la vez. La imagen queda bien construida; basta con repetir `docker compose up -d`.
+
 * * *
 
 ## Frontend (Tailwind CSS, DaisyUI y HTMX)

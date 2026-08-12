@@ -1,5 +1,32 @@
 # CHANGELOG
 
+## [2026-08-12] - Histórico de repasos (`ReviewLog`)
+
+### ✨ Features
+
+- **`ReviewLog`**: histórico de práctica en `my_library`. Una fila por repaso, con nivel antes/después, duración, mazo de origen y `session_uuid` que agrupa la tanda.
+  - Guarda hechos observados, no predicciones: sin `next_review_date` ni `ease_factor`. Un futuro planificador se derivará de estas filas en vez de venir precocinado en ellas.
+  - `source` distingue práctica real (`study`) de valorar desde el índice (`manual`), para que un planificador pueda filtrar.
+  - `LibraryItem.last_review` y `.days_since_last_review` derivan del histórico, no de `last_viewed` (abrir el visor no es repasar).
+  - Duración capada a 1 hora por item: dejar la pestaña abierta toda la noche no debe meter un outlier.
+- **Endpoint `log_review`**: el visor de estudio pasa de dos POST por item a uno solo, que graba el histórico y actualiza los contadores.
+
+### 🗑️ Removals
+
+- **App `study_sessions` eliminada**. Contenía un SM-2 completo (`StudyContext`, `UniversalStudyItem`, `StudySession`, `StudyProgress`) pero llevaba tiempo fuera de `INSTALLED_APPS` y sin un solo import externo: código muerto. Sus tablas pueden seguir existiendo en la BD de producción, inertes; no se han tocado.
+
+### 🐛 Fixes
+
+- Este `User` define `username = None` (`USERNAME_FIELD = "email"`), así que todo `user.username` vale `None`. Corregidos los 3 sitios de `my_library`; uno era un crash real (`search_fields = ["user__username"]` reventaba la búsqueda del admin con `FieldError`). Quedan 6 sitios en otras apps, reportados sin tocar.
+
+### 📁 Files Modified
+
+- `my_library/models.py`: modelo `ReviewLog`, propiedades `last_review` / `days_since_last_review`
+- `my_library/views.py`: vista `log_review`, registro `manual` en `update_proficiency`, propagación del mazo
+- `my_library/templates/my_library/study_viewer.html`: un solo POST por item, cronometraje y `session_uuid`
+- `my_library/admin.py`: `ReviewLogAdmin` en solo lectura
+- `my_library/tests.py`: cobertura del histórico
+
 ## [2026-01-26] - AI Publishing System Enhancements
 
 ### ✨ Features

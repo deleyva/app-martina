@@ -1,4 +1,5 @@
 import json
+import uuid
 
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
@@ -12,7 +13,22 @@ from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_protect
 from django.contrib import messages
 from django.db.models import Count
-from .models import LibraryDeck, LibraryItem
+from .models import LibraryDeck, LibraryItem, ReviewLog
+
+
+def _parse_uuid(raw):
+    """UUID del cliente, o None. Un valor mal formado no debe reventar el POST."""
+    try:
+        return uuid.UUID(raw)
+    except (ValueError, AttributeError, TypeError):
+        return None
+
+
+def _parse_level(raw):
+    """Nivel de proficiency 0-4, o None si no es válido."""
+    if raw is not None and str(raw).isdigit() and 0 <= int(raw) <= 4:
+        return int(raw)
+    return None
 
 
 @login_required
@@ -218,11 +234,20 @@ def update_proficiency(request, pk):
         return HttpResponse(status=405)
 
     item = get_object_or_404(LibraryItem, pk=pk, user=request.user)
-    level = request.POST.get("level")
+    level = _parse_level(request.POST.get("level"))
 
-    if level is not None and level.isdigit() and 0 <= int(level) <= 4:
-        item.proficiency_level = int(level)
+    if level is not None:
+        before = item.proficiency_level
+        item.proficiency_level = level
         item.save(update_fields=["proficiency_level"])
+        # Valorar desde el índice no es práctica: queda marcado como 'manual'
+        # para que un futuro planificador pueda descartarlo.
+        ReviewLog.log(
+            item,
+            source=ReviewLog.SOURCE_MANUAL,
+            proficiency_before=before,
+            proficiency_after=level,
+        )
 
     # Renderizar partial con el slider actualizado
     response = render(
@@ -344,11 +369,16 @@ def study_session_view(request):
         for pk in request.GET.get("items", "").split(",")
         if pk.strip().isdigit()
     ]
+    # Mazo de origen, si la sesión viene de uno. Se propaga a cada ReviewLog.
+    deck_pk_raw = request.GET.get("deck", "")
+    deck_pk = int(deck_pk_raw) if deck_pk_raw.isdigit() else ""
+
     if not item_pks:
         return render(request, "my_library/study_viewer.html", {
             "playlist_json": "[]",
             "total_items": 0,
             "first_item_pk": None,
+            "deck_pk": deck_pk,
         })
 
     items = LibraryItem.objects.filter(pk__in=item_pks, user=request.user)
@@ -366,6 +396,7 @@ def study_session_view(request):
         "playlist_json": json.dumps(playlist),
         "total_items": len(playlist),
         "first_item_pk": playlist[0]["pk"] if playlist else None,
+        "deck_pk": deck_pk,
     })
 
 
@@ -388,6 +419,46 @@ def mark_viewed(request, pk):
     """Marca un item como visto (incrementa times_viewed)."""
     item = get_object_or_404(LibraryItem, pk=pk, user=request.user)
     item.mark_as_viewed()
+    return HttpResponse(status=204)
+
+
+@login_required
+@require_POST
+def log_review(request, pk):
+    """Registra un repaso completo desde el visor de estudio.
+
+    Hace las tres cosas en un solo round trip: graba el ReviewLog, actualiza
+    el nivel y marca el item como visto. El ReviewLog es el objetivo; los
+    otros dos son los contadores que ya existían.
+    """
+    item = get_object_or_404(LibraryItem, pk=pk, user=request.user)
+
+    before = item.proficiency_level
+    after = _parse_level(request.POST.get("level"))
+    if after is not None:
+        item.proficiency_level = after
+        item.save(update_fields=["proficiency_level"])
+
+    item.mark_as_viewed()
+
+    duration_raw = request.POST.get("duration_seconds", "")
+    duration_seconds = int(duration_raw) if str(duration_raw).isdigit() else None
+
+    deck = None
+    deck_pk = request.POST.get("deck", "")
+    if str(deck_pk).isdigit():
+        deck = LibraryDeck.objects.filter(pk=int(deck_pk), user=request.user).first()
+
+    ReviewLog.log(
+        item,
+        source=ReviewLog.SOURCE_STUDY,
+        proficiency_before=before,
+        proficiency_after=after,
+        duration_seconds=duration_seconds,
+        session_uuid=_parse_uuid(request.POST.get("session_uuid")),
+        deck=deck,
+    )
+
     return HttpResponse(status=204)
 
 
@@ -538,7 +609,10 @@ def deck_study(request, pk):
     if not pks:
         messages.warning(request, f'El mazo "{deck.name}" no tiene elementos que coincidan.')
         return redirect("my_library:index")
-    return redirect(f"{reverse('my_library:study_session')}?items={','.join(str(pk) for pk in pks)}")
+    items_param = ",".join(str(pk) for pk in pks)
+    return redirect(
+        f"{reverse('my_library:study_session')}?items={items_param}&deck={deck.pk}"
+    )
 
 
 def _build_decks_with_counts(user, items_qs):

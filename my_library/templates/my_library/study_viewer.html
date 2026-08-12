@@ -467,6 +467,18 @@
     var selectedLevel = null;
     var csrfToken = '{{ csrf_token }}';
     var flyoutOpen = false;
+    var deckPk = '{{ deck_pk }}';
+    var itemStartedAt = null;
+
+    // Agrupa todos los repasos de esta tanda en el histórico (ReviewLog.session_uuid)
+    var sessionUuid = (function() {
+        if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
+        // Fallback para navegadores sin randomUUID (Safari < 15.4)
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            var r = Math.random() * 16 | 0;
+            return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+        });
+    })();
 
     // ── Flyout ──
     function toggleFlyout(forceState) {
@@ -502,6 +514,7 @@
             return;
         }
         currentIndex = index;
+        itemStartedAt = Date.now();
         updateFlyout();
         var pk = playlist[index].pk;
         var container = document.getElementById('study-content');
@@ -624,20 +637,19 @@
 
         ratings.push({ title: title, level: selectedLevel });
 
-        // POST proficiency update
-        var profBody = new URLSearchParams();
-        profBody.append('level', selectedLevel);
-        fetch('{% url "my_library:update_proficiency" pk=99999 %}'.replace('99999', pk), {
+        // Un solo POST: graba el repaso en el histórico, actualiza el nivel
+        // y marca como visto.
+        var body = new URLSearchParams();
+        body.append('level', selectedLevel);
+        body.append('session_uuid', sessionUuid);
+        if (deckPk) body.append('deck', deckPk);
+        if (itemStartedAt) {
+            body.append('duration_seconds', Math.round((Date.now() - itemStartedAt) / 1000));
+        }
+        fetch('{% url "my_library:log_review" pk=99999 %}'.replace('99999', pk), {
             method: 'POST',
             headers: { 'X-CSRFToken': csrfToken },
-            body: profBody,
-            credentials: 'same-origin'
-        });
-
-        // POST mark as viewed
-        fetch('{% url "my_library:mark_viewed" pk=99999 %}'.replace('99999', pk), {
-            method: 'POST',
-            headers: { 'X-CSRFToken': csrfToken },
+            body: body,
             credentials: 'same-origin'
         });
 

@@ -21,11 +21,11 @@ Planificación de trimestre y seguimiento. Ver [detalle](programacion.md). Model
 
 ## my_library
 
-Biblioteca personal: `LibraryDeck`, `LibraryItem` (GenericFK). Visor forScore-like y modo estudio.
+Biblioteca personal: `LibraryDeck`, `LibraryItem` (GenericFK), `ReviewLog`. Visor forScore-like y modo estudio.
 
-## study_sessions
+`ReviewLog` es el histórico de repasos: una fila por evento de práctica, con nivel antes/después, duración, mazo de origen y `session_uuid` que agrupa la tanda. Guarda hechos observados, no predicciones — no hay `next_review_date` ni `ease_factor`. Un futuro planificador se derivará de estas filas.
 
-Sistema universal de estudio con repetición espaciada: `StudyContext`, `UniversalStudyItem`, `StudySession`, `StudyParticipation`, `SessionItem`, `StudyProgress`.
+> La app `study_sessions` (`StudyContext`, `UniversalStudyItem`, `StudySession`, `StudyProgress` y su SM-2) se eliminó en agosto de 2026: llevaba tiempo fuera de `INSTALLED_APPS` y sin un solo import externo. Sus tablas pueden seguir existiendo en la BD de producción, inertes.
 
 ## evaluations
 
