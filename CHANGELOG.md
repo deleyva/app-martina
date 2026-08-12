@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## [2026-08-13] - Trocear el material largo (secciones)
+
+### Features
+
+- **`ItemSection`**: un elemento largo se trocea en secciones practicables, cada una con su nombre, su nivel, sus notas y su historial independiente.
+- El nombre manda; el localizador (paginas de un PDF, segundos de un video) es opcional y solo sirve para que el visor salte solo.
+- **Las secciones sustituyen al elemento**: un PDF troceado deja de salir entero en la cola.
+- Un repaso de seccion NO cuenta como repaso del elemento entero.
+- Se trocea desde el visor, en el momento en que te das cuenta de que la pieza es demasiado larga.
+- `?items=` admite ahora `s<pk>` para secciones; los numeros pelados siguen siendo elementos, asi que los enlaces antiguos no se rompen.
+
+
 ## [2026-08-12] - Cuota de novedad en las sesiones
 
 ### Fixes

@@ -1,3 +1,4 @@
+import collections
 import json
 import uuid
 from datetime import timedelta
@@ -10,13 +11,20 @@ from django.utils import timezone
 from cms.models import ExternalResource
 from martina_bescos_app.users.tests.factories import UserFactory
 from my_library import facets
-from my_library.models import LibraryDeck, LibraryItem, ReviewLog, SharedNote
+from my_library.models import (
+    ItemSection,
+    LibraryDeck,
+    LibraryItem,
+    ReviewLog,
+    SharedNote,
+)
 from my_library.session import (
     TAMANO_SESION_POR_DEFECTO,
     agrupar_por_tematica,
     construir_sesion,
     facetas_disponibles,
     filtrar_por_facetas,
+    unidades_de_practica,
 )
 
 
@@ -547,6 +555,220 @@ def test_la_migracion_es_idempotente(db, tmp_path, user):
 
     assert Tag.objects.filter(name="estilo:jazz").count() == 1
     assert {t.name for t in item.tags.all()} == {"estilo:jazz"}
+
+
+# === Trocear material largo (secciones) ===
+
+
+def _seccion(item, nombre, orden=0, **kw):
+    return ItemSection.objects.create(item=item, nombre=nombre, orden=orden, **kw)
+
+
+def test_un_elemento_troceado_deja_de_salir_entero(db, user):
+    """El punto entero: si el PDF sigue saliendo como unidad, no se arregló nada."""
+    largo = _item(user, "popurri")
+    a = _seccion(largo, "intro", 0)
+    b = _seccion(largo, "estribillo", 1)
+
+    unidades = unidades_de_practica([largo])
+
+    assert [u.clave_de_practica for u in unidades] == [
+        ("seccion", a.pk),
+        ("seccion", b.pk),
+    ]
+
+
+def test_un_elemento_sin_secciones_sigue_siendo_la_unidad(db, user):
+    corto = _item(user, "lick")
+
+    unidades = unidades_de_practica([corto])
+
+    assert [u.clave_de_practica for u in unidades] == [("item", corto.pk)]
+
+
+def test_cada_seccion_lleva_su_propio_historial(db, user):
+    largo = _item(user, "popurri")
+    tocada = _seccion(largo, "intro", 0)
+    sin_tocar = _seccion(largo, "final", 1)
+    ReviewLog.objects.create(
+        user=user, item=largo, section=tocada, source=ReviewLog.SOURCE_STUDY,
+        reviewed_at=timezone.now() - timedelta(days=5),
+    )
+
+    assert tocada.days_since_last_review == 5
+    assert sin_tocar.days_since_last_review is None
+
+
+def test_repasar_una_seccion_no_cuenta_como_repasar_el_elemento(db, user):
+    """Si contara, trocear haría que la pieza pareciera repasada entera."""
+    largo = _item(user, "popurri")
+    s = _seccion(largo, "intro")
+    ReviewLog.objects.create(
+        user=user, item=largo, section=s, source=ReviewLog.SOURCE_STUDY
+    )
+
+    assert largo.days_since_last_review is None
+
+
+def test_las_claves_de_elemento_y_seccion_no_se_pisan(db, user):
+    """Los pk de las dos tablas se solapan: el elemento 5 y la sección 5."""
+    item = _item(user, "x")
+    seccion = _seccion(_item(user, "y"), "trozo")
+
+    assert item.clave_de_practica != seccion.clave_de_practica
+    assert item.clave_de_practica[0] == "item"
+    assert seccion.clave_de_practica[0] == "seccion"
+
+
+def test_la_seccion_hereda_las_etiquetas_del_elemento(db, user):
+    largo = _item(user, "blues largo", tags=["estilo:blues", "instrumento:guitarra"])
+    s = _seccion(largo, "solo")
+
+    assert {t.name for t in s.get_content_tags()} == {
+        "estilo:blues",
+        "instrumento:guitarra",
+    }
+
+
+def test_el_titulo_de_la_seccion_dice_de_donde_viene(db, user):
+    largo = _item(user, "popurri")
+    s = _seccion(largo, "estribillo")
+
+    assert "popurri" in s.get_content_title()
+    assert "estribillo" in s.get_content_title()
+
+
+def test_la_sesion_mezcla_secciones_y_elementos_sueltos(db, user):
+    largo = _item(user, "popurri")
+    _seccion(largo, "intro", 0)
+    _seccion(largo, "final", 1)
+    suelto = _item(user, "lick")
+
+    sesion = construir_sesion([largo, suelto], tamano=8)
+    tipos = collections.Counter(u.clave_de_practica[0] for u in sesion)
+
+    assert len(sesion) == 3
+    assert tipos == {"seccion": 2, "item": 1}
+
+
+def test_crear_una_seccion_desde_el_visor(client, db, user):
+    largo = _item(user, "popurri")
+    client.force_login(user)
+
+    response = client.post(
+        reverse("my_library:crear_seccion", args=[largo.pk]),
+        {"nombre": "  Compases 30-60  ", "pagina_desde": "3", "pagina_hasta": "5"},
+    )
+
+    assert response.status_code == 200
+    s = ItemSection.objects.get()
+    assert s.nombre == "Compases 30-60"
+    assert s.rango_paginas == (3, 5)
+
+
+def test_una_seccion_sin_nombre_no_se_crea(client, db, user):
+    largo = _item(user, "popurri")
+    client.force_login(user)
+
+    response = client.post(
+        reverse("my_library:crear_seccion", args=[largo.pk]), {"nombre": "   "}
+    )
+
+    assert response.status_code == 400
+    assert ItemSection.objects.count() == 0
+
+
+def test_las_secciones_se_numeran_en_orden(client, db, user):
+    largo = _item(user, "popurri")
+    client.force_login(user)
+    url = reverse("my_library:crear_seccion", args=[largo.pk])
+
+    client.post(url, {"nombre": "primera"})
+    client.post(url, {"nombre": "segunda"})
+
+    assert [s.orden for s in largo.sections.all()] == [0, 1]
+    assert [s.nombre for s in largo.sections.all()] == ["primera", "segunda"]
+
+
+def test_no_se_trocea_el_elemento_de_otro(client, db, user, django_user_model):
+    largo = _item(user, "popurri")
+    intruso = django_user_model.objects.create_user(
+        email="otro3@example.org", password="x"  # noqa: S106
+    )
+    client.force_login(intruso)
+
+    response = client.post(
+        reverse("my_library:crear_seccion", args=[largo.pk]), {"nombre": "mío"}
+    )
+
+    assert response.status_code == 404
+    assert ItemSection.objects.count() == 0
+
+
+def test_borrar_la_ultima_seccion_devuelve_el_elemento_a_la_cola(client, db, user):
+    largo = _item(user, "popurri")
+    s = _seccion(largo, "unica")
+    client.force_login(user)
+
+    client.post(reverse("my_library:borrar_seccion", args=[s.pk]))
+
+    assert [u.clave_de_practica for u in unidades_de_practica([largo])] == [
+        ("item", largo.pk)
+    ]
+
+
+def test_valorar_una_seccion_mueve_su_nivel_no_el_del_elemento(client, db, user):
+    largo = _item(user, "popurri", nivel=1)
+    s = _seccion(largo, "intro")
+    client.force_login(user)
+
+    client.post(
+        reverse("my_library:log_review", args=[largo.pk]),
+        {"level": "4", "section": str(s.pk)},
+    )
+
+    largo.refresh_from_db()
+    s.refresh_from_db()
+    assert s.proficiency_level == 4
+    assert largo.proficiency_level == 1, "se movió el nivel del elemento entero"
+    assert ReviewLog.objects.get().section_id == s.pk
+
+
+def test_la_sesion_emite_tokens_distintos_para_secciones(client, db, user):
+    largo = _item(user, "popurri", tags=["instrumento:guitarra"])
+    _seccion(largo, "intro", 0)
+    client.force_login(user)
+
+    response = client.get(
+        reverse("my_library:session_launch"), {"instrumento": "guitarra"}
+    )
+
+    tokens = response.url.split("items=")[1].split("&")[0].split(",")
+    assert all(t.startswith("s") for t in tokens), tokens
+
+
+def test_el_visor_reconoce_los_tokens_de_seccion(client, db, user):
+    largo = _item(user, "popurri")
+    s = _seccion(largo, "estribillo")
+    client.force_login(user)
+
+    response = client.get(reverse("my_library:study_session"), {"items": f"s{s.pk}"})
+    html = response.content.decode()
+
+    assert response.status_code == 200
+    assert f'"section": {s.pk}' in html
+    assert "estribillo" in html
+
+
+def test_los_numeros_pelados_siguen_siendo_elementos(client, db, user):
+    """Los enlaces antiguos no deben romperse."""
+    item = _item(user, "lick")
+    client.force_login(user)
+
+    response = client.get(reverse("my_library:study_session"), {"items": str(item.pk)})
+
+    assert response.status_code == 200
+    assert '"section": null' in response.content.decode()
 
 
 # === Arranque de sesión por faceta (C18) ===

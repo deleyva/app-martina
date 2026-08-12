@@ -1,5 +1,15 @@
 from django.contrib import admin
-from .models import LibraryItem, ReviewLog, SharedNote
+from .models import ItemSection, LibraryItem, ReviewLog, SharedNote
+
+
+@admin.register(ItemSection)
+class ItemSectionAdmin(admin.ModelAdmin):
+    """Trozos practicables de un elemento largo."""
+
+    list_display = ["item", "orden", "nombre", "proficiency_level", "pagina_desde"]
+    list_filter = ["proficiency_level", "created_at"]
+    search_fields = ["nombre", "item__user__email"]
+    list_select_related = ["item"]
 
 
 @admin.register(SharedNote)

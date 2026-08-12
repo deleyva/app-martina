@@ -13,7 +13,7 @@ from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_protect
 from django.contrib import messages
 from django.db.models import Count
-from .models import LibraryDeck, LibraryItem, ReviewLog, SharedNote
+from .models import ItemSection, LibraryDeck, LibraryItem, ReviewLog, SharedNote
 from . import facets
 from .session import (
     TAMANO_SESION_POR_DEFECTO,
@@ -413,55 +413,93 @@ def update_item_tags(request, pk):
     )
 
 
+def _tokens_de_sesion(unidades):
+    """Unidades → `"12,s45,7"`.
+
+    Una sección se marca con `s` delante porque los pk de las dos tablas se
+    pisan. Los números pelados siguen siendo elementos, así que los enlaces
+    antiguos siguen funcionando.
+    """
+    tokens = []
+    for unidad in unidades:
+        tipo, pk = unidad.clave_de_practica
+        tokens.append(f"s{pk}" if tipo == "seccion" else str(pk))
+    return ",".join(tokens)
+
+
 @login_required
 def study_session_view(request):
-    """Renderiza study_viewer.html con la playlist de items."""
-    item_pks = [
-        int(pk)
-        for pk in request.GET.get("items", "").split(",")
-        if pk.strip().isdigit()
-    ]
+    """Renderiza study_viewer.html con la playlist de unidades."""
+    crudos = [t.strip() for t in request.GET.get("items", "").split(",") if t.strip()]
+
+    secciones_pks = [int(t[1:]) for t in crudos if t.startswith("s") and t[1:].isdigit()]
+    item_pks = [int(t) for t in crudos if t.isdigit()]
     # Mazo de origen, si la sesión viene de uno. Se propaga a cada ReviewLog.
     deck_pk_raw = request.GET.get("deck", "")
     deck_pk = int(deck_pk_raw) if deck_pk_raw.isdigit() else ""
 
-    if not item_pks:
+    if not crudos:
         return render(request, "my_library/study_viewer.html", {
             "playlist_json": "[]",
             "total_items": 0,
-            "first_item_pk": None,
             "deck_pk": deck_pk,
         })
 
-    items = LibraryItem.objects.filter(pk__in=item_pks, user=request.user)
-    items_by_pk = {item.pk: item for item in items}
-    ordered_items = [items_by_pk[pk] for pk in item_pks if pk in items_by_pk]
-    playlist = [
-        {
-            "pk": item.pk,
-            "title": item.get_content_title(),
-            "type": item.get_content_type_name(),
-        }
-        for item in ordered_items
-    ]
+    por_pk = {
+        i.pk: i for i in LibraryItem.objects.filter(pk__in=item_pks, user=request.user)
+    }
+    secciones = {
+        s.pk: s
+        for s in ItemSection.objects.filter(
+            pk__in=secciones_pks, item__user=request.user
+        ).select_related("item")
+    }
+
+    # Se recorre `crudos` para respetar el orden que decidió el constructor.
+    playlist = []
+    for token in crudos:
+        if token.startswith("s") and token[1:].isdigit():
+            seccion = secciones.get(int(token[1:]))
+            if seccion:
+                playlist.append({
+                    "pk": seccion.item_id,
+                    "section": seccion.pk,
+                    "title": seccion.get_content_title(),
+                    "type": seccion.item.get_content_type_name(),
+                })
+        elif token.isdigit():
+            item = por_pk.get(int(token))
+            if item:
+                playlist.append({
+                    "pk": item.pk,
+                    "section": None,
+                    "title": item.get_content_title(),
+                    "type": item.get_content_type_name(),
+                })
+
     return render(request, "my_library/study_viewer.html", {
         "playlist_json": json.dumps(playlist),
         "total_items": len(playlist),
-        "first_item_pk": playlist[0]["pk"] if playlist else None,
         "deck_pk": deck_pk,
     })
 
 
 @login_required
 def study_item_content(request, pk):
-    """Devuelve el HTML del viewer para un item (sin wrapper)."""
+    """Devuelve el HTML del viewer para un item, o para una de sus secciones."""
     item = get_object_or_404(LibraryItem, pk=pk, user=request.user)
-    documents = item.get_documents()
-    score_media = item.get_related_scorepage_media()
+
+    seccion = None
+    seccion_pk = request.GET.get("section", "")
+    if str(seccion_pk).isdigit():
+        seccion = item.sections.filter(pk=int(seccion_pk)).first()
+
     return render(request, "my_library/partials/study_item_content.html", {
         "item": item,
-        "documents": documents,
-        "score_media": score_media,
+        "seccion": seccion,
+        "secciones": item.sections.all(),
+        "documents": item.get_documents(),
+        "score_media": item.get_related_scorepage_media(),
     })
 
 
@@ -472,6 +510,61 @@ def mark_viewed(request, pk):
     item = get_object_or_404(LibraryItem, pk=pk, user=request.user)
     item.mark_as_viewed()
     return HttpResponse(status=204)
+
+
+def _seccion_del_usuario(request, pk):
+    return get_object_or_404(ItemSection, pk=pk, item__user=request.user)
+
+
+@login_required
+@require_POST
+def crear_seccion(request, pk):
+    """Trocea un elemento largo desde el visor.
+
+    El nombre manda; el localizador (páginas o segundos) es opcional y solo
+    sirve para que el visor salte solo.
+    """
+    item = get_object_or_404(LibraryItem, pk=pk, user=request.user)
+    nombre = request.POST.get("nombre", "").strip()
+    if not nombre:
+        return HttpResponse("Hace falta un nombre", status=400)
+
+    def _entero(campo):
+        valor = request.POST.get(campo, "")
+        return int(valor) if str(valor).isdigit() else None
+
+    siguiente = item.sections.count()
+    ItemSection.objects.create(
+        item=item,
+        nombre=nombre[:200],
+        orden=siguiente,
+        pagina_desde=_entero("pagina_desde"),
+        pagina_hasta=_entero("pagina_hasta"),
+        segundo_desde=_entero("segundo_desde"),
+        segundo_hasta=_entero("segundo_hasta"),
+    )
+    return render(
+        request,
+        "my_library/partials/secciones.html",
+        {"item": item, "secciones": item.sections.all()},
+    )
+
+
+@login_required
+@require_POST
+def borrar_seccion(request, pk):
+    """Borra una sección. Su historial se va con ella (CASCADE).
+
+    Si era la última, el elemento vuelve a ser unidad de práctica por sí mismo.
+    """
+    seccion = _seccion_del_usuario(request, pk)
+    item = seccion.item
+    seccion.delete()
+    return render(
+        request,
+        "my_library/partials/secciones.html",
+        {"item": item, "secciones": item.sections.all()},
+    )
 
 
 @login_required
@@ -485,11 +578,19 @@ def log_review(request, pk):
     """
     item = get_object_or_404(LibraryItem, pk=pk, user=request.user)
 
-    before = item.proficiency_level
+    # Si el repaso fue de una sección, el nivel que se mueve es el de la
+    # sección, no el del elemento: es el punto entero de trocear.
+    seccion = None
+    seccion_pk = request.POST.get("section", "")
+    if str(seccion_pk).isdigit():
+        seccion = item.sections.filter(pk=int(seccion_pk)).first()
+
+    valorado = seccion or item
+    before = valorado.proficiency_level
     after = _parse_level(request.POST.get("level"))
     if after is not None:
-        item.proficiency_level = after
-        item.save(update_fields=["proficiency_level"])
+        valorado.proficiency_level = after
+        valorado.save(update_fields=["proficiency_level"])
 
     item.mark_as_viewed()
 
@@ -503,6 +604,7 @@ def log_review(request, pk):
 
     ReviewLog.log(
         item,
+        section=seccion,
         source=ReviewLog.SOURCE_STUDY,
         proficiency_before=before,
         proficiency_after=after,
@@ -745,8 +847,9 @@ def session_launch(request):
     tamano = int(tamano_raw) if tamano_raw.isdigit() else TAMANO_SESION_POR_DEFECTO
     sesion = construir_sesion(coincidencias, tamano=tamano)
 
-    items_param = ",".join(str(item.pk) for item in sesion)
-    return redirect(f"{reverse('my_library:study_session')}?items={items_param}")
+    return redirect(
+        f"{reverse('my_library:study_session')}?items={_tokens_de_sesion(sesion)}"
+    )
 
 
 @login_required
@@ -775,9 +878,9 @@ def deck_study(request, pk):
     candidatos = [item for item in items_qs if item.pk in pks_del_mazo]
     sesion = construir_sesion(candidatos, tamano=tamano)
 
-    items_param = ",".join(str(item.pk) for item in sesion)
     return redirect(
-        f"{reverse('my_library:study_session')}?items={items_param}&deck={deck.pk}"
+        f"{reverse('my_library:study_session')}"
+        f"?items={_tokens_de_sesion(sesion)}&deck={deck.pk}"
     )
 
 

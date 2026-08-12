@@ -75,28 +75,75 @@ def _ratio_vencimiento(item, dias_sin_practicar):
     return dias_sin_practicar / intervalo_objetivo(item)
 
 
-def _dias_sin_practicar(items):
-    """{pk: días} en una sola consulta, en vez de una por elemento."""
+def unidades_de_practica(items):
+    """Convierte elementos en unidades practicables.
+
+    Un elemento sin secciones ES la unidad. Un elemento troceado se sustituye
+    por sus secciones — el PDF entero deja de salir en la cola, que es el punto
+    entero de trocear.
+    """
+    unidades = []
+    for item in items:
+        secciones = list(item.sections.all())
+        if secciones:
+            unidades.extend(secciones)
+        else:
+            unidades.append(item)
+    return unidades
+
+
+def _dias_sin_practicar(unidades):
+    """{clave: días} en dos consultas, en vez de una por unidad.
+
+    La clave lleva el tipo delante (`("item", 5)` / `("seccion", 5)`) porque
+    los pk de las dos tablas se pisan.
+    """
     from django.db.models import Max
     from django.utils import timezone
 
-    from .models import ReviewLog
+    from .models import ItemSection, ReviewLog
 
-    ultimos = (
-        ReviewLog.objects.filter(item__in=items, source=ReviewLog.SOURCE_STUDY)
-        .values("item")
-        .annotate(ultimo=Max("reviewed_at"))
-    )
+    items = [u for u in unidades if not isinstance(u, ItemSection)]
+    secciones = [u for u in unidades if isinstance(u, ItemSection)]
     ahora = timezone.now()
-    por_pk = {fila["item"]: (ahora - fila["ultimo"]).days for fila in ultimos}
-    return {item.pk: por_pk.get(item.pk) for item in items}
+    dias = {}
+
+    if items:
+        # section__isnull: un repaso de una sección no cuenta como repaso del
+        # elemento entero, aunque lleve su item_id.
+        ultimos = (
+            ReviewLog.objects.filter(
+                item__in=items, source=ReviewLog.SOURCE_STUDY, section__isnull=True
+            )
+            .values("item")
+            .annotate(ultimo=Max("reviewed_at"))
+        )
+        por_pk = {f["item"]: (ahora - f["ultimo"]).days for f in ultimos}
+        dias.update({("item", i.pk): por_pk.get(i.pk) for i in items})
+
+    if secciones:
+        ultimos = (
+            ReviewLog.objects.filter(
+                section__in=secciones, source=ReviewLog.SOURCE_STUDY
+            )
+            .values("section")
+            .annotate(ultimo=Max("reviewed_at"))
+        )
+        por_pk = {f["section"]: (ahora - f["ultimo"]).days for f in ultimos}
+        dias.update({("seccion", s.pk): por_pk.get(s.pk) for s in secciones})
+
+    return dias
 
 
-def _etiquetas(item):
+def _etiquetas(unidad):
     try:
-        return {t.name.lower() for t in item.get_content_tags()}
+        return {t.name.lower() for t in unidad.get_content_tags()}
     except Exception:
         return set()
+
+
+def _clave(unidad):
+    return unidad.clave_de_practica
 
 
 def agrupar_por_tematica(items, max_bloque=MAX_BLOQUE):
@@ -138,15 +185,15 @@ def agrupar_por_tematica(items, max_bloque=MAX_BLOQUE):
     ordenados = []
     colocados = set()
     for _etiqueta, del_grupo in candidatas:
-        bloque = [i for i in del_grupo if i.pk not in colocados][:max_bloque]
+        bloque = [u for u in del_grupo if _clave(u) not in colocados][:max_bloque]
         if len(bloque) < 2:
             continue
-        for item in bloque:
-            colocados.add(item.pk)
+        for unidad in bloque:
+            colocados.add(_clave(unidad))
         ordenados.extend(bloque)
 
     # Lo que no agrupó con nada mantiene su prioridad original, al final.
-    ordenados.extend(i for i in items if i.pk not in colocados)
+    ordenados.extend(u for u in items if _clave(u) not in colocados)
     return ordenados
 
 
@@ -202,25 +249,26 @@ def construir_sesion(items, tamano=TAMANO_SESION_POR_DEFECTO):
     `items` es cualquier iterable de LibraryItem (el mazo, la biblioteca entera,
     un filtro de etiquetas). El resultado nunca excede `tamano`.
     """
-    items = list(items)
-    if not items:
+    unidades = unidades_de_practica(items)
+    if not unidades:
         return []
 
     tamano = max(1, min(int(tamano), TAMANO_SESION_MAXIMO))
-    dias = _dias_sin_practicar(items)
+    dias = _dias_sin_practicar(unidades)
 
-    nuevos = [i for i in items if dias[i.pk] is None]
-    conocidos = [i for i in items if dias[i.pk] is not None]
+    nuevos = [u for u in unidades if dias[_clave(u)] is None]
+    conocidos = [u for u in unidades if dias[_clave(u)] is not None]
 
-    # Lo nuevo, por orden de alta en la biblioteca. Es lo más parecido al orden
-    # del libro que hay hoy en el modelo: no existe ningún ordinal de
-    # capítulo/ejercicio. Cuando exista, se ordena por él.
-    nuevos.sort(key=lambda i: i.pk)
+    # Lo nuevo, por orden de alta. Para secciones, `orden` las mantiene en el
+    # orden en que se trocearon — que sí es el orden de la pieza. Para
+    # elementos sueltos es el pk, lo más parecido al orden del libro que hay
+    # hoy en el modelo: no existe ningún ordinal de capítulo/ejercicio.
+    nuevos.sort(key=lambda u: (getattr(u, "orden", 0), u.pk))
 
-    # Lo conocido, más vencido primero. El desempate por pk mantiene el orden
-    # estable entre llamadas: sin él, dos elementos igual de vencidos bailarían
-    # en cada recarga.
-    conocidos.sort(key=lambda i: (-_ratio_vencimiento(i, dias[i.pk]), i.pk))
+    # Lo conocido, más vencido primero. El desempate por clave mantiene el
+    # orden estable entre llamadas: sin él, dos unidades igual de vencidas
+    # bailarían en cada recarga.
+    conocidos.sort(key=lambda u: (-_ratio_vencimiento(u, dias[_clave(u)]), _clave(u)))
 
     cuota = min(len(nuevos), max(1, round(tamano * PROPORCION_NOVEDAD))) if nuevos else 0
 
@@ -231,7 +279,9 @@ def construir_sesion(items, tamano=TAMANO_SESION_POR_DEFECTO):
     # Lo contrario —dejar la sesión a medias habiendo cosas sin tocar— sería
     # absurdo.
     if len(elegidos) < tamano:
-        ya = {i.pk for i in elegidos}
-        elegidos += [i for i in nuevos if i.pk not in ya][: tamano - len(elegidos)]
+        ya = {_clave(u) for u in elegidos}
+        elegidos += [u for u in nuevos if _clave(u) not in ya][
+            : tamano - len(elegidos)
+        ]
 
     return agrupar_por_tematica(elegidos)

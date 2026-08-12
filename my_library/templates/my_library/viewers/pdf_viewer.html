@@ -283,13 +283,17 @@
         }
     });
 
+    // Página inicial: si se está practicando una sección con localizador de
+    // páginas, el visor abre directamente ahí en vez de en la primera.
+    var paginaInicial = {% if seccion and seccion.pagina_desde %}{{ seccion.pagina_desde }}{% else %}1{% endif %};
+
     // Cargar PDF
     function loadPDF(url) {
         pdfjsLib.getDocument(url).promise.then(function (doc) {
             pdfDoc = doc;
             totalPages = doc.numPages;
             currentPage = 1;
-            renderPage(1);
+            renderPage(Math.min(paginaInicial, totalPages));
         });
     }
 

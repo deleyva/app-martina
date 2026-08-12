@@ -311,17 +311,31 @@ class LibraryItem(models.Model):
         self.save(update_fields=["times_viewed", "last_viewed"])
 
     @property
+    def clave_de_practica(self):
+        return ("item", self.pk)
+
+    @property
+    def tiene_secciones(self):
+        return self.sections.exists()
+
+    @property
     def shared_note(self):
         """Nota docente de este contenido, o None. La ve todo el mundo."""
         return SharedNote.for_content(self.content_object)
 
     @property
     def last_review(self):
-        """Último repaso registrado, o None si nunca se ha repasado.
+        """Último repaso del elemento ENTERO, o None.
 
         Deriva de ReviewLog, no de `last_viewed`: abrir el visor no es repasar.
+
+        Excluye los repasos de secciones aunque lleven este `item_id`: si
+        contaran, trocear una pieza haría que pareciera repasada entera cada
+        vez que se toca un trozo.
         """
-        return self.reviews.order_by("-reviewed_at").first()
+        return (
+            self.reviews.filter(section__isnull=True).order_by("-reviewed_at").first()
+        )
 
     @property
     def days_since_last_review(self):
@@ -507,6 +521,111 @@ class LibraryItem(models.Model):
         ).exists()
 
 
+class ItemSection(models.Model):
+    """Un trozo practicable de un elemento largo.
+
+    Una partitura de veinte páginas no es una unidad de práctica: nadie
+    practica "la sonata entera", practica los compases 30-60. Mientras el PDF
+    sea un solo elemento con una sola valoración, el sistema no puede saber que
+    la primera parte te sale y la tercera no.
+
+    El nombre lo pone el usuario y es lo que manda: la división útil en música
+    es musical, no física — los compases difíciles no caen donde acaba la
+    página. El localizador (páginas para un PDF, segundos para un vídeo) es
+    opcional y solo sirve para que el visor salte solo.
+
+    **Cuando un elemento tiene secciones, las secciones lo sustituyen como
+    unidad de práctica**: el elemento entero deja de salir en la cola. Si
+    siguiera saliendo, no se habría arreglado nada.
+
+    El historial que el elemento tuviera antes de trocearse se queda en el
+    elemento, sin usarse. No se puede repartir hacia atrás: nadie sabe a qué
+    trozo correspondía cada repaso.
+    """
+
+    item = models.ForeignKey(
+        LibraryItem, on_delete=models.CASCADE, related_name="sections"
+    )
+    orden = models.PositiveIntegerField(default=0)
+    nombre = models.CharField(
+        max_length=200,
+        help_text='Cómo lo llamas: "compases 30-60", "el estribillo"',
+    )
+
+    # Localizador opcional — PDF
+    pagina_desde = models.PositiveSmallIntegerField(null=True, blank=True)
+    pagina_hasta = models.PositiveSmallIntegerField(null=True, blank=True)
+
+    # Localizador opcional — vídeo o audio, en segundos
+    segundo_desde = models.PositiveIntegerField(null=True, blank=True)
+    segundo_hasta = models.PositiveIntegerField(null=True, blank=True)
+
+    # Propios de la sección, no heredados del elemento: es el punto entero.
+    proficiency_level = models.PositiveSmallIntegerField(
+        default=1, help_text="Nivel de dominio de ESTA sección"
+    )
+    notes = models.TextField(blank=True, help_text="Notas de esta sección")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["orden", "pk"]
+        indexes = [models.Index(fields=["item", "orden"])]
+        verbose_name = "Sección"
+        verbose_name_plural = "Secciones"
+
+    def __str__(self):
+        return f"{self.item_id} · {self.nombre}"
+
+    # === Interfaz de unidad de práctica ===
+    # LibraryItem e ItemSection se usan indistintamente al construir sesiones.
+    # La clave lleva el tipo delante porque los pk de las dos tablas se pisan:
+    # sin eso, el elemento 5 y la sección 5 serían el mismo en cualquier dict.
+
+    @property
+    def clave_de_practica(self):
+        return ("seccion", self.pk)
+
+    @property
+    def user(self):
+        return self.item.user
+
+    def get_content_title(self):
+        return f"{self.item.get_content_title()} · {self.nombre}"
+
+    def get_content_tags(self):
+        """Hereda las etiquetas del elemento: un trozo del blues sigue siendo
+        blues, y obligar a re-etiquetar cada sección sería absurdo."""
+        return self.item.get_content_tags()
+
+    def get_icon(self):
+        return self.item.get_icon()
+
+    @property
+    def last_review(self):
+        return self.reviews.order_by("-reviewed_at").first()
+
+    @property
+    def days_since_last_review(self):
+        ultimo = self.last_review
+        if ultimo is None:
+            return None
+        return (timezone.now() - ultimo.reviewed_at).days
+
+    @property
+    def rango_paginas(self):
+        """`(desde, hasta)` si hay localizador de páginas, si no None."""
+        if self.pagina_desde is None:
+            return None
+        return (self.pagina_desde, self.pagina_hasta or self.pagina_desde)
+
+    @property
+    def rango_segundos(self):
+        if self.segundo_desde is None:
+            return None
+        return (self.segundo_desde, self.segundo_hasta)
+
+
 class SharedNote(models.Model):
     """Nota pública sobre un contenido, visible para todo el que lo estudie.
 
@@ -602,6 +721,16 @@ class ReviewLog(models.Model):
         LibraryItem, on_delete=models.CASCADE, related_name="reviews"
     )
 
+    # Cuando el repaso fue de una sección concreta. El item se guarda igual,
+    # para poder preguntar "¿cuánto he practicado esta pieza?" sumando trozos.
+    section = models.ForeignKey(
+        "ItemSection",
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="reviews",
+    )
+
     reviewed_at = models.DateTimeField(default=timezone.now, db_index=True)
 
     # Agrupa los repasos de una misma tanda sin necesidad de un modelo Session.
@@ -658,6 +787,7 @@ class ReviewLog(models.Model):
         cls,
         item,
         *,
+        section=None,
         source=SOURCE_STUDY,
         proficiency_before=None,
         proficiency_after=None,
@@ -665,13 +795,18 @@ class ReviewLog(models.Model):
         session_uuid=None,
         deck=None,
     ):
-        """Crea el registro. `user` se deriva del item, nunca se pasa a mano."""
+        """Crea el registro. `user` se deriva del item, nunca se pasa a mano.
+
+        Si se pasa una `section`, el repaso se atribuye a ella; el item se
+        guarda igual, para poder sumar "cuánto he practicado esta pieza".
+        """
         if duration_seconds is not None:
             duration_seconds = min(int(duration_seconds), cls.MAX_DURATION_SECONDS)
 
         return cls.objects.create(
             user=item.user,
             item=item,
+            section=section,
             source=source,
             proficiency_before=proficiency_before,
             proficiency_after=proficiency_after,

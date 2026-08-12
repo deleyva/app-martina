@@ -1,0 +1,51 @@
+{% comment %}
+Panel de secciones dentro del flyout del visor. Se trocea aquí porque es el
+momento en que te das cuenta de que la pieza es demasiado larga: estás
+tocándola.
+
+Sin HTMX a propósito: el visor es una página suelta que no extiende base.html
+y no lo carga. Todo lo demás del visor (notas, valoración, repasos) va con
+fetch, así que esto también.
+
+Aviso en el propio panel: al crear la primera sección el elemento entero deja
+de salir en la cola. Es lo que se quiere, pero no es obvio.
+{% endcomment %}
+
+<div id="panel-secciones" data-item-pk="{{ item.pk }}">
+    <div class="meta-label">Secciones</div>
+
+    {% if secciones %}
+    <ol class="secciones-lista">
+        {% for s in secciones %}
+        <li class="seccion-fila{% if seccion and s.pk == seccion.pk %} seccion-actual{% endif %}">
+            <span class="seccion-orden">{{ forloop.counter }}</span>
+            <span class="seccion-nombre">{{ s.nombre }}</span>
+            {% if s.pagina_desde %}
+            <span class="seccion-loc">p.{{ s.pagina_desde }}{% if s.pagina_hasta and s.pagina_hasta != s.pagina_desde %}-{{ s.pagina_hasta }}{% endif %}</span>
+            {% elif s.segundo_desde %}
+            <span class="seccion-loc">{{ s.segundo_desde }}s</span>
+            {% endif %}
+            <button type="button"
+                    class="seccion-borrar"
+                    title="Borrar esta sección y su historial"
+                    onclick="borrarSeccion({{ s.pk }}, '{{ s.nombre|escapejs }}')">✕</button>
+        </li>
+        {% endfor %}
+    </ol>
+    {% else %}
+    <p class="secciones-vacio">
+        Sin trocear. Al crear la primera sección, este elemento deja de salir
+        entero en la cola y pasan a salir sus secciones.
+    </p>
+    {% endif %}
+
+    <form class="secciones-form" onsubmit="crearSeccion(event)">
+        <input type="text" name="nombre" class="seccion-input"
+               placeholder="Compases 30-60, el estribillo…" maxlength="200" required>
+        <div class="secciones-loc-fila">
+            <input type="number" name="pagina_desde" class="seccion-input seccion-mini" placeholder="p. desde" min="1">
+            <input type="number" name="pagina_hasta" class="seccion-input seccion-mini" placeholder="p. hasta" min="1">
+            <button type="submit" class="seccion-anadir">Añadir</button>
+        </div>
+    </form>
+</div>

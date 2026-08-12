@@ -3,7 +3,10 @@
 {# Notas y etiquetas del item. Nace oculto aquí y el visor lo traslada al
    flyout (mismo patrón que #study-media-panel). Va en este partial porque
    cambia con cada item, mientras que el flyout es estático. #}
-<div id="study-item-meta" data-item-pk="{{ item.pk }}" style="display:none;">
+<div id="study-item-meta"
+     data-item-pk="{{ item.pk }}"
+     data-section-pk="{% if seccion %}{{ seccion.pk }}{% endif %}"
+     style="display:none;">
     {% with item_tags=item.get_content_tags %}
     {% if item_tags %}
     <div class="meta-tags">
@@ -24,6 +27,8 @@
     <div class="meta-shared-read">{{ shared.body|linebreaksbr }}</div>
     {% endif %}
     {% endwith %}
+
+    {% include "my_library/partials/secciones.html" %}
 
     <div class="meta-label">Mis notas</div>
     <textarea id="study-notes-input"
