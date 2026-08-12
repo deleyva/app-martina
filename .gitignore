@@ -288,3 +288,6 @@ backups/
 
 # MkDocs build output
 site/
+
+# Copias de seguridad de datos de producción (no van al repo público)
+backups/
