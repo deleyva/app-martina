@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## [2026-08-12] - Facetas de etiquetas
+
+### Features
+
+- **Facetas `faceta:valor`** (`my_library/facets.py`): instrumento, concepto, estilo, tipo, tonalidad, compas, progresion, voz, dificultad, autor, artista, obra, curso, evaluacion, tema, lugar, idioma.
+- **El separador es `:` y NO `/`**: hay etiquetas de compas (3/4, 6/8, 2/4, 3/8, 4/4) que con barra se parsean como faceta "3" o "6". Ya ocurria.
+- **La sesion de estudio solo agrupa por etiquetas CON faceta**, y el concepto manda sobre el instrumento. Arregla un defecto: antes agrupaba por `4-eso` o `10points`.
+- **Comando `migrar_etiquetas`**: en seco por defecto, `--ejecutar` para aplicar, todo en una transaccion. El mapa revisable esta en `my_library/migracion/mapa_etiquetas.txt`.
+
+
 ## [2026-08-12] - Notas y etiquetas en el visor de estudio
 
 ### Features

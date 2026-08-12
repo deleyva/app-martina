@@ -9,6 +9,7 @@ from django.utils import timezone
 
 from cms.models import ExternalResource
 from martina_bescos_app.users.tests.factories import UserFactory
+from my_library import facets
 from my_library.models import LibraryDeck, LibraryItem, ReviewLog, SharedNote
 from my_library.session import (
     TAMANO_SESION_POR_DEFECTO,
@@ -360,8 +361,10 @@ def test_valorar_desde_el_indice_no_cuenta_como_practica(db, user):
 
 
 def test_lo_de_la_misma_tematica_sale_seguido(db, user):
-    pentas = [_item(user, f"penta-{n}", tags=["pentatonica"]) for n in range(3)]
-    otros = [_item(user, f"otro-{n}", tags=["arpegio"]) for n in range(3)]
+    pentas = [
+        _item(user, f"penta-{n}", tags=["concepto:pentatonica"]) for n in range(3)
+    ]
+    otros = [_item(user, f"otro-{n}", tags=["concepto:arpegio"]) for n in range(3)]
     # Se intercalan a la entrada para que solo la agrupación pueda juntarlos
     mezclados = [pentas[0], otros[0], pentas[1], otros[1], pentas[2], otros[2]]
 
@@ -372,8 +375,8 @@ def test_lo_de_la_misma_tematica_sale_seguido(db, user):
 
 
 def test_agrupar_no_pierde_ni_duplica_elementos(db, user):
-    items = [_item(user, f"a-{n}", tags=["x"]) for n in range(3)]
-    items += [_item(user, f"b-{n}", tags=["y"]) for n in range(3)]
+    items = [_item(user, f"a-{n}", tags=["concepto:x"]) for n in range(3)]
+    items += [_item(user, f"b-{n}", tags=["estilo:y"]) for n in range(3)]
     items += [_item(user, f"c-{n}") for n in range(2)]  # sin etiquetas
 
     resultado = agrupar_por_tematica(items)
@@ -384,11 +387,171 @@ def test_agrupar_no_pierde_ni_duplica_elementos(db, user):
 
 def test_los_bloques_tematicos_son_cortos(db, user):
     """Agrupar sí, pero no convertir la sesión en un bloque único."""
-    items = [_item(user, f"penta-{n}", tags=["pentatonica"]) for n in range(10)]
+    items = [
+        _item(user, f"penta-{n}", tags=["concepto:pentatonica"]) for n in range(10)
+    ]
 
     resultado = agrupar_por_tematica(items, max_bloque=4)
 
     assert len(resultado) == 10  # no pierde nada
+
+
+# === Migración de etiquetas ===
+
+
+def _migrar(tmp_path, lineas, ejecutar=False):
+    from django.core.management import call_command
+
+    mapa = tmp_path / "mapa.txt"
+    mapa.write_text("\n".join(lineas) + "\n")
+    args = ["migrar_etiquetas", "--mapa", str(mapa)]
+    if ejecutar:
+        args.append("--ejecutar")
+    call_command(*args)
+
+
+def test_dos_origenes_al_mismo_destino_se_fusionan(db, tmp_path, user):
+    """El bug que encontró el ensayo en seco: los dos se clasificaban como
+    renombrado y el segundo reventaba contra la unicidad de taggit."""
+    from taggit.models import Tag
+
+    a = _item(user, "uno", tags=["jazz"])
+    b = _item(user, "dos", tags=["genre/jazz"])
+
+    _migrar(tmp_path, ["jazz -> estilo:jazz", "genre/jazz -> estilo:jazz"], ejecutar=True)
+
+    assert Tag.objects.filter(name="estilo:jazz").count() == 1
+    assert not Tag.objects.filter(name__in=["jazz", "genre/jazz"]).exists()
+    assert {t.name for t in a.tags.all()} == {"estilo:jazz"}
+    assert {t.name for t in b.tags.all()} == {"estilo:jazz"}
+
+
+def test_en_seco_no_toca_nada(db, tmp_path, user):
+    from taggit.models import Tag
+
+    _item(user, "uno", tags=["jazz"])
+
+    _migrar(tmp_path, ["jazz -> estilo:jazz"])  # sin --ejecutar
+
+    assert Tag.objects.filter(name="jazz").exists()
+    assert not Tag.objects.filter(name="estilo:jazz").exists()
+
+
+def test_la_migracion_no_pierde_etiquetados(db, tmp_path, user):
+    item = _item(user, "uno", tags=["jazz", "guitar"])
+
+    _migrar(
+        tmp_path,
+        ["jazz -> estilo:jazz", "guitar -> instrumento:guitarra"],
+        ejecutar=True,
+    )
+
+    assert {t.name for t in item.tags.all()} == {"estilo:jazz", "instrumento:guitarra"}
+
+
+def test_un_elemento_con_las_dos_etiquetas_no_queda_duplicado(db, tmp_path, user):
+    """Si un elemento ya tenía 'jazz' Y 'genre/jazz', tras fusionar tiene una."""
+    item = _item(user, "uno", tags=["jazz", "genre/jazz"])
+
+    _migrar(tmp_path, ["jazz -> estilo:jazz", "genre/jazz -> estilo:jazz"], ejecutar=True)
+
+    nombres = [t.name for t in item.tags.all()]
+    assert nombres == ["estilo:jazz"], nombres
+
+
+def test_borrar_elimina_la_etiqueta(db, tmp_path, user):
+    from taggit.models import Tag
+
+    _item(user, "uno", tags=["borrar"])
+
+    _migrar(tmp_path, ["borrar -> __BORRAR__"], ejecutar=True)
+
+    assert not Tag.objects.filter(name="borrar").exists()
+
+
+def test_las_etiquetas_ausentes_se_ignoran(db, tmp_path, user):
+    """El mapa lleva 188 líneas; algunas ya no existirán."""
+    _migrar(tmp_path, ["no-existe-ya -> concepto:loquesea"], ejecutar=True)  # no revienta
+
+
+def test_la_migracion_es_idempotente(db, tmp_path, user):
+    from taggit.models import Tag
+
+    item = _item(user, "uno", tags=["jazz"])
+    lineas = ["jazz -> estilo:jazz"]
+
+    _migrar(tmp_path, lineas, ejecutar=True)
+    _migrar(tmp_path, lineas, ejecutar=True)  # segunda pasada
+
+    assert Tag.objects.filter(name="estilo:jazz").count() == 1
+    assert {t.name for t in item.tags.all()} == {"estilo:jazz"}
+
+
+# === Facetas ===
+
+
+def test_parse_separa_faceta_y_valor():
+    assert facets.parse("instrumento:guitarra") == ("instrumento", "guitarra")
+    assert facets.parse("concepto:pentatonica") == ("concepto", "pentatonica")
+
+
+def test_los_compases_no_se_parsean_como_faceta():
+    """El motivo entero de usar ':' y no '/': 3/4 es un compás, no faceta 3."""
+    for compas in ("3/4", "6/8", "4/4", "2/4", "3/8"):
+        assert facets.parse(compas) == (None, compas)
+        assert not facets.tiene_faceta(compas)
+
+
+def test_una_faceta_desconocida_no_cuenta():
+    assert facets.parse("cualquiera:valor") == (None, "cualquiera:valor")
+    assert facets.parse("instrumento:") == (None, "instrumento:")
+
+
+def test_las_etiquetas_planas_pasan_intactas():
+    for plana in ("vitalinux", "4-eso", "10points", "aragon"):
+        assert facets.parse(plana) == (None, plana)
+
+
+def test_las_administrativas_no_agrupan_una_sesion(db, user):
+    """El defecto que arreglan las facetas: '4-eso' agrupaba de verdad."""
+    items = [_item(user, f"x-{n}", tags=["4-eso", "10points"]) for n in range(4)]
+
+    # Sin faceta no hay nada por lo que agrupar: se respeta el orden de entrada
+    assert [i.pk for i in agrupar_por_tematica(items)] == [i.pk for i in items]
+
+
+def test_el_concepto_manda_sobre_el_instrumento(db, user):
+    """Media biblioteca es de guitarra: agrupar por eso no aporta nada."""
+    pentas = [
+        _item(user, f"p-{n}", tags=["instrumento:guitarra", "concepto:pentatonica"])
+        for n in range(2)
+    ]
+    otros = [
+        _item(user, f"o-{n}", tags=["instrumento:guitarra", "concepto:arpegio"])
+        for n in range(2)
+    ]
+    mezclados = [pentas[0], otros[0], pentas[1], otros[1]]
+
+    orden = [i.pk for i in agrupar_por_tematica(mezclados)]
+    posiciones = [orden.index(p.pk) for p in pentas]
+
+    assert max(posiciones) - min(posiciones) == 1, "ganó el instrumento, no el concepto"
+
+
+def test_clave_de_agrupacion_elige_lo_mas_especifico():
+    etiquetas = ["instrumento:guitarra", "estilo:blues", "concepto:pentatonica"]
+    assert facets.clave_de_agrupacion(etiquetas) == "concepto:pentatonica"
+    assert facets.clave_de_agrupacion(["vitalinux", "4-eso"]) is None
+
+
+def test_por_faceta_descarta_lo_plano():
+    resultado = facets.por_faceta(
+        ["instrumento:guitarra", "instrumento:piano", "concepto:blues", "vitalinux"]
+    )
+    assert resultado == {
+        "instrumento": {"guitarra", "piano"},
+        "concepto": {"blues"},
+    }
 
 
 def test_la_sesion_tolera_una_biblioteca_vacia(db, user):

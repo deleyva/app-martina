@@ -29,6 +29,8 @@ trabajar, no tanta como para que la sesión sea un bloque único.
 
 from collections import defaultdict
 
+from . import facets
+
 # Cuántos días debería aguantar cada nivel antes de volver a tocarse.
 # No es un algoritmo de repetición espaciada: son plazos observables que se
 # ajustarán cuando ReviewLog tenga datos reales. Deliberadamente cortos —
@@ -87,7 +89,11 @@ def _etiquetas(item):
 
 
 def agrupar_por_tematica(items, max_bloque=MAX_BLOQUE):
-    """Reordena para que lo que comparte etiqueta salga seguido, en bloques cortos.
+    """Reordena para que lo que comparte temática salga seguido, en bloques cortos.
+
+    Solo agrupa por etiquetas CON faceta. Sin esa condición el vocabulario plano
+    metía ruido: tres elementos que comparten `4-eso` o `10points` acababan
+    seguidos, y eso no significa nada para practicar.
 
     Preserva todos los elementos: es una permutación, nunca un filtro.
     """
@@ -97,12 +103,25 @@ def agrupar_por_tematica(items, max_bloque=MAX_BLOQUE):
     por_etiqueta = defaultdict(list)
     for item in items:
         for etiqueta in _etiquetas(item):
-            por_etiqueta[etiqueta].append(item)
+            if facets.tiene_faceta(etiqueta):
+                por_etiqueta[etiqueta].append(item)
 
-    # Etiquetas que de verdad agrupan (2+ elementos), las más numerosas primero.
+    # Etiquetas que de verdad agrupan (2+ elementos), por especificidad primero.
+    # El orden de FACETAS_DE_AGRUPACION manda sobre el número de elementos:
+    # si no, `instrumento:guitarra` con 8 elementos se comería a
+    # `concepto:pentatonica` con 3, y agrupar por instrumento no aporta nada
+    # cuando media biblioteca es de guitarra.
+    prioridad = {f: n for n, f in enumerate(facets.FACETAS_DE_AGRUPACION)}
+    ultima = len(prioridad)
+
+    def _orden(par):
+        etiqueta, items_del_grupo = par
+        faceta, _ = facets.parse(etiqueta)
+        return (prioridad.get(faceta, ultima), -len(items_del_grupo), etiqueta)
+
     candidatas = sorted(
         ((e, ii) for e, ii in por_etiqueta.items() if len(ii) >= 2),
-        key=lambda par: (-len(par[1]), par[0]),
+        key=_orden,
     )
 
     ordenados = []

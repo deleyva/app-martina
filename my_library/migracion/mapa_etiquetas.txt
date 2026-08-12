@@ -1,0 +1,195 @@
+# MAPA DE MIGRACIÓN DE ETIQUETAS  —  revisa y corrige, luego ejecuto
+#
+# formato:   etiqueta_actual  ->  etiqueta_nueva
+# '__BORRAR__' elimina la etiqueta. Borra una línea entera para dejarla como está.
+# Dos líneas con el mismo destino = se fusionan en una sola etiqueta.
+# Las marcadas con  # ??  son las que NO tengo claras: decide tú.
+
+10points  ->  evaluacion:10-puntos
+1990s  ->  estilo:anos-90
+2/4  ->  compas:2/4
+2min-improvisar  ->  concepto:improvisacion
+3-term  ->  evaluacion:trimestre-3
+3/4  ->  compas:3/4
+3/8  ->  compas:3/8
+4-eso  ->  curso:4-eso
+4/4  ->  compas:4/4
+6/8  ->  compas:6/8
+6points  ->  evaluacion:6-puntos
+8points  ->  evaluacion:8-puntos
+C  ->  tonalidad:C
+COFOTAP  ->  tema:cofotap
+SAT  ->  voz:sat
+SSA  ->  voz:ssa
+accompaniment  ->  tipo:acompanamiento
+acorde-mayor  ->  concepto:acorde-mayor
+acorde-menor  ->  concepto:acorde-menor
+acordes  ->  concepto:acordes
+alex warren  ->  artista:alex-warren
+aragon  ->  lugar:aragon
+aragón  ->  lugar:aragon
+author/ariel-j-ramos  ->  autor:ariel-j-ramos
+author/jens-larsen  ->  autor:jens-larsen
+author/nancy-faber  ->  autor:nancy-faber
+barítono  ->  voz:barítono
+bemoles  ->  concepto:bemoles
+blake-neely  ->  autor:blake-neely
+blancas  ->  concepto:figura-blanca
+blues  ->  estilo:blues
+book-cover  ->  tipo:portada
+bookstack  ->  tema:bookstack
+borrar  ->  __BORRAR__   # ??
+brazilian-music  ->  estilo:brasilena
+caged-system  ->  concepto:caged
+chad-johnson  ->  autor:chad-johnson
+cheso  ->  idioma:cheso
+chord-progression/I-IV-V  ->  progresion:I-IV-V
+chord-progression/I-V-IV-II  ->  progresion:I-V-IV-II
+chord-progression/I-VI-II-V  ->  progresion:I-VI-II-V
+chords  ->  concepto:acordes
+chordsheet  ->  tipo:chordsheet
+clave-sol  ->  concepto:clave-de-sol
+coldplay  ->  artista:coldplay
+contralto  ->  voz:contralto
+corcheas  ->  concepto:figura-corchea
+coro  ->  voz:coro
+country/spain  ->  lugar:espana
+cover  ->  tipo:portada
+delacroix  ->  autor:delacroix   # ??
+dificultad/fácil  ->  dificultad:facil
+dificultad/intermedia  ->  dificultad:intermedia
+dificultad/media-alta  ->  dificultad:media-alta
+dj  ->  tema:dj
+doc  ->  tipo:documento
+dominante-tonica  ->  concepto:dominante-tonica
+dos-voces  ->  voz:dos-voces
+dummies  ->  tipo:libro   # ??
+ejercicios  ->  evaluacion:ejercicios
+estopa  ->  artista:estopa
+europa  ->  obra:europa   # ??
+examen-3term-4ESO  ->  evaluacion:examen-t3-4eso
+extremoduro  ->  artista:extremoduro
+fake-book  ->  tipo:fake-book
+featured  ->  tema:destacado
+fifths  ->  concepto:quintas
+first-grooves  ->  concepto:grooves
+folk  ->  estilo:folk
+formacion-musical  ->  concepto:formacion-musical
+future  ->  tema:future   # ??
+genre/afro  ->  estilo:afro
+genre/blues  ->  estilo:blues
+genre/bso  ->  estilo:bso
+genre/classic  ->  estilo:clasica
+genre/folk-rock  ->  estilo:folk-rock
+genre/glam  ->  estilo:glam
+genre/jazz  ->  estilo:jazz
+genre/jota  ->  estilo:jota
+genre/peruano  ->  estilo:peruano
+genre/pop  ->  estilo:pop
+genre/rock  ->  estilo:rock
+genre/salsa  ->  estilo:salsa
+genre/villancico  ->  estilo:villancico
+genre/worksongs  ->  estilo:worksong
+glam  ->  estilo:glam
+grados-conjuntos  ->  concepto:grados-conjuntos
+group/choir  ->  voz:coro
+grunge  ->  estilo:grunge
+guitar  ->  instrumento:guitarra
+hip-hop  ->  estilo:hip-hop
+horizontal  ->  tipo:horizontal   # ??
+imprimible  ->  tipo:imprimible
+instrument/bass  ->  instrumento:bajo
+instrument/drums  ->  instrumento:bateria
+instrument/guitar  ->  instrumento:guitarra
+instrument/piano  ->  instrumento:piano
+instrument/saxophone  ->  instrumento:saxofon
+instrument/voice  ->  instrumento:voz
+jazz  ->  estilo:jazz
+jens larsen  ->  autor:jens-larsen
+keyboard  ->  instrumento:teclado
+lang/en  ->  idioma:en
+leadsheet  ->  tipo:leadsheet
+lectura-melodica  ->  concepto:lectura-melodica
+lectura-musical  ->  concepto:lectura-musical
+lectura-ritmica  ->  concepto:lectura-ritmica
+letra  ->  tipo:letra
+libro  ->  tipo:libro
+lr  ->  __BORRAR__   # ??
+lyrics  ->  tipo:letra
+mas-que-nada  ->  obra:mas-que-nada
+melodic-reading  ->  concepto:lectura-melodica
+michael jackson  ->  artista:michael-jackson
+micrograma  ->  tema:micrograma   # ??
+modern jazz  ->  estilo:jazz-moderno
+mpc  ->  tema:mpc
+music-elements/chords  ->  concepto:acordes
+music-elements/ties  ->  concepto:ligaduras
+music-notebook  ->  tipo:cuaderno
+music-theory  ->  concepto:teoria-musical
+music-theory/secondary-dominant  ->  concepto:dominante-secundaria
+musica  ->  __BORRAR__   # ??
+negras  ->  concepto:figura-negra
+nirvana  ->  artista:nirvana
+open source  ->  tema:open-source
+open-source  ->  tema:open-source
+ordinary  ->  obra:ordinary
+orientation  ->  tema:orientacion
+partitura  ->  tipo:partitura
+pentatónica  ->  concepto:pentatonica
+pescador  ->  obra:pescador   # ??
+piano  ->  instrumento:piano
+piano-grooves  ->  concepto:grooves
+plantilla  ->  tipo:plantilla
+pop  ->  estilo:pop
+portada  ->  tipo:portada
+production  ->  tema:produccion-musical
+prueba  ->  evaluacion:prueba
+quintas  ->  concepto:quintas
+rock  ->  estilo:rock
+rock español  ->  estilo:rock-espanol
+rock-n-roll  ->  estilo:rock-and-roll
+rumba catalana  ->  estilo:rumba-catalana
+saltos-3ª  ->  concepto:saltos-de-tercera
+sampler  ->  tema:sampler
+semicorcheas  ->  concepto:figura-semicorchea
+sheet-music  ->  tipo:partitura
+smells-like-teen-spirit  ->  obra:smells-like-teen-spirit
+soberanía digital  ->  tema:soberania-digital
+solfeo  ->  concepto:solfeo
+soprano  ->  voz:soprano
+sostenidos  ->  concepto:sostenidos
+suite-numerique  ->  tema:suite-numerique
+technique  ->  concepto:tecnica
+teclado  ->  instrumento:teclado
+tecnica  ->  concepto:tecnica
+template  ->  tipo:plantilla
+tenor  ->  voz:tenor
+tonalidad  ->  __BORRAR__
+tonalidad/A  ->  tonalidad:A
+tonalidad/Am  ->  tonalidad:Am
+tonalidad/C  ->  tonalidad:C
+tonalidad/Cm  ->  tonalidad:Cm
+tonalidad/F  ->  tonalidad:F
+tonalidad/G  ->  tonalidad:G
+tonalidad/Gm  ->  tonalidad:Gm
+tonica-dominante  ->  concepto:dominante-tonica
+turntable  ->  tema:turntable
+type/accompaniment  ->  tipo:acompanamiento
+type/chordsheet  ->  tipo:chordsheet
+type/hooktheory  ->  tipo:hooktheory
+type/musicscore  ->  tipo:partitura
+type/score  ->  tipo:partitura
+type/tab  ->  tipo:tab
+ukelele  ->  instrumento:ukelele
+ukulele  ->  instrumento:ukelele
+valle-de-hecho  ->  lugar:valle-de-hecho
+vitalinux  ->  tema:vitalinux
+viva-la-vida  ->  obra:viva-la-vida
+voice/alto  ->  voz:contralto
+voice/bass  ->  voz:barítono
+voice/choir  ->  voz:coro
+voice/soprano  ->  voz:soprano
+voice/tenor  ->  voz:tenor
+voz  ->  instrumento:voz
+wikipedia  ->  tema:wikipedia
+willems  ->  autor:willems
