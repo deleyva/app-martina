@@ -13,7 +13,7 @@ from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_protect
 from django.contrib import messages
 from django.db.models import Count
-from .models import LibraryDeck, LibraryItem, ReviewLog
+from .models import LibraryDeck, LibraryItem, ReviewLog, SharedNote
 from .session import TAMANO_SESION_POR_DEFECTO, construir_sesion
 
 
@@ -279,6 +279,37 @@ def update_notes(request, pk):
     item = get_object_or_404(LibraryItem, pk=pk, user=request.user)
     item.notes = request.POST.get("notes", "").strip()
     item.save(update_fields=["notes"])
+    return HttpResponse(status=204)
+
+
+@staff_member_required
+@require_POST
+def update_shared_note(request, pk):
+    """Guarda la nota docente de un contenido. Solo profesorado.
+
+    Se guarda contra el CONTENIDO, no contra el item de biblioteca: la escribe
+    quien enseña y la ve todo el que estudie ese material, tenga o no el
+    elemento en su propia biblioteca.
+    """
+    item = get_object_or_404(LibraryItem, pk=pk)
+    if item.content_object is None:
+        return HttpResponse(status=404)
+
+    body = request.POST.get("body", "").strip()
+    content_type = ContentType.objects.get_for_model(item.content_object)
+
+    if body:
+        SharedNote.objects.update_or_create(
+            content_type=content_type,
+            object_id=item.content_object.pk,
+            defaults={"body": body, "author": request.user},
+        )
+    else:
+        # Vaciarla es borrarla: no dejamos filas vacías por el camino.
+        SharedNote.objects.filter(
+            content_type=content_type, object_id=item.content_object.pk
+        ).delete()
+
     return HttpResponse(status=204)
 
 

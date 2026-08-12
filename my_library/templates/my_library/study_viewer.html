@@ -217,6 +217,27 @@
         .meta-notes::placeholder {
             color: rgba(255, 255, 255, 0.35);
         }
+        .meta-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            opacity: 0.4;
+            margin: 8px 0 4px;
+        }
+        /* La nota docente se distingue de la privada por el borde */
+        .meta-notes-shared {
+            border-color: rgba(52, 211, 153, 0.4);
+            background: rgba(52, 211, 153, 0.07);
+        }
+        .meta-shared-read {
+            font-size: 13px;
+            line-height: 1.5;
+            padding: 8px 10px;
+            border-radius: 8px;
+            border-left: 2px solid rgba(52, 211, 153, 0.5);
+            background: rgba(52, 211, 153, 0.07);
+            color: rgba(255, 255, 255, 0.9);
+        }
         .meta-notes-status {
             font-size: 11px;
             opacity: 0.45;
@@ -595,7 +616,25 @@
     }
 
     // ── Notas y etiquetas del item ──
+    // Dos campos con el mismo comportamiento de autoguardado: "mis notas"
+    // (privada, cualquier usuario) y la nota docente (compartida, solo staff).
+    var CAMPOS_NOTA = [
+        {
+            input: 'study-notes-input',
+            status: 'study-notes-status',
+            campo: 'notes',
+            url: '{% url "my_library:update_notes" pk=99999 %}'
+        },
+        {
+            input: 'study-shared-input',
+            status: 'study-shared-status',
+            campo: 'body',
+            url: '{% url "my_library:update_shared_note" pk=99999 %}'
+        }
+    ];
+
     var notesSaveTimer = null;
+    var campoPendiente = null;
 
     function moveMetaToFlyout() {
         var meta = document.getElementById('study-item-meta');
@@ -611,17 +650,21 @@
         target.innerHTML = '';
         target.appendChild(meta);
 
-        var input = document.getElementById('study-notes-input');
-        if (!input) return;
+        CAMPOS_NOTA.forEach(function(cfg) {
+            var input = document.getElementById(cfg.input);
+            if (!input) return;  // la nota docente solo existe para staff
 
-        // Guardado automático: al dejar de escribir y al salir del campo.
-        input.addEventListener('input', function() {
-            clearTimeout(notesSaveTimer);
-            notesSaveTimer = setTimeout(saveNotes, 900);
-        });
-        input.addEventListener('blur', function() {
-            clearTimeout(notesSaveTimer);
-            saveNotes();
+            // Guardado automático: al dejar de escribir y al salir del campo.
+            input.addEventListener('input', function() {
+                clearTimeout(notesSaveTimer);
+                campoPendiente = cfg;
+                notesSaveTimer = setTimeout(function() { saveNota(cfg); }, 900);
+            });
+            input.addEventListener('blur', function() {
+                clearTimeout(notesSaveTimer);
+                campoPendiente = null;
+                saveNota(cfg);
+            });
         });
     }
 
@@ -629,24 +672,25 @@
     // principio de loadItem, cuando el único #study-item-meta del documento
     // sigue siendo el del item que se abandona.
     function flushNotes() {
-        if (notesSaveTimer === null) return;
+        if (notesSaveTimer === null || campoPendiente === null) return;
         clearTimeout(notesSaveTimer);
+        var cfg = campoPendiente;
         notesSaveTimer = null;
-        saveNotes();
+        campoPendiente = null;
+        saveNota(cfg);
     }
 
-    function saveNotes() {
+    function saveNota(cfg) {
         var meta = document.getElementById('study-item-meta');
-        var input = document.getElementById('study-notes-input');
-        var status = document.getElementById('study-notes-status');
+        var input = document.getElementById(cfg.input);
+        var status = document.getElementById(cfg.status);
         if (!meta || !input) return;
 
-        var pk = meta.dataset.itemPk;
         var body = new URLSearchParams();
-        body.append('notes', input.value);
+        body.append(cfg.campo, input.value);
 
         if (status) status.textContent = 'Guardando…';
-        fetch('{% url "my_library:update_notes" pk=99999 %}'.replace('99999', pk), {
+        fetch(cfg.url.replace('99999', meta.dataset.itemPk), {
             method: 'POST',
             headers: { 'X-CSRFToken': csrfToken },
             body: body,

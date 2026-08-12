@@ -9,7 +9,7 @@ from django.utils import timezone
 
 from cms.models import ExternalResource
 from martina_bescos_app.users.tests.factories import UserFactory
-from my_library.models import LibraryDeck, LibraryItem, ReviewLog
+from my_library.models import LibraryDeck, LibraryItem, ReviewLog, SharedNote
 from my_library.session import (
     TAMANO_SESION_POR_DEFECTO,
     agrupar_por_tematica,
@@ -415,6 +415,131 @@ def test_el_mazo_arranca_una_sesion_acotada(client, db, user):
     assert response.status_code == 302
     pks = response.url.split("items=")[1].split("&")[0].split(",")
     assert len(pks) == TAMANO_SESION_POR_DEFECTO, f"el mazo mandó {len(pks)} elementos"
+
+
+# === Nota docente compartida ===
+
+
+@pytest.fixture
+def profe(db):
+    return UserFactory(is_staff=True)
+
+
+def test_el_profe_escribe_la_nota_compartida(client, library_item, profe):
+    client.force_login(profe)
+
+    response = client.post(
+        reverse("my_library:update_shared_note", args=[library_item.pk]),
+        {"body": "  Fíjate en el fraseo del compás 12.  "},
+    )
+
+    assert response.status_code == 204
+    nota = SharedNote.objects.get()
+    assert nota.body == "Fíjate en el fraseo del compás 12."
+    assert nota.author == profe
+
+
+def test_el_alumnado_no_puede_escribirla(client, library_item, user):
+    """user no es staff."""
+    client.force_login(user)
+
+    client.post(
+        reverse("my_library:update_shared_note", args=[library_item.pk]),
+        {"body": "no debería colar"},
+    )
+
+    assert SharedNote.objects.count() == 0
+
+
+def test_vaciar_la_nota_compartida_la_borra(client, library_item, profe):
+    client.force_login(profe)
+    url = reverse("my_library:update_shared_note", args=[library_item.pk])
+    client.post(url, {"body": "algo"})
+
+    client.post(url, {"body": "   "})
+
+    assert SharedNote.objects.count() == 0
+
+
+def test_la_nota_compartida_la_ven_todos_los_que_estudian_ese_contenido(
+    client, library_item, profe, user
+):
+    """El punto entero: va atada al contenido, no a la biblioteca de cada uno."""
+    client.force_login(profe)
+    client.post(
+        reverse("my_library:update_shared_note", args=[library_item.pk]),
+        {"body": "Empezar por el estribillo"},
+    )
+
+    # OTRO usuario añade EL MISMO contenido a su biblioteca
+    otro_item = LibraryItem.objects.create(
+        user=profe,
+        content_type=library_item.content_type,
+        object_id=library_item.object_id,
+    )
+
+    assert otro_item.user != library_item.user
+    assert otro_item.shared_note is not None
+    assert otro_item.shared_note.body == "Empezar por el estribillo"
+
+
+def test_la_nota_privada_no_se_comparte(client, library_item, user, profe):
+    """La contraparte: mis notas siguen siendo mías."""
+    library_item.notes = "esto es mío"
+    library_item.save(update_fields=["notes"])
+
+    otro_item = LibraryItem.objects.create(
+        user=profe,
+        content_type=library_item.content_type,
+        object_id=library_item.object_id,
+    )
+
+    assert otro_item.notes == ""
+
+
+def test_un_contenido_tiene_como_mucho_una_nota_compartida(client, library_item, profe):
+    client.force_login(profe)
+    url = reverse("my_library:update_shared_note", args=[library_item.pk])
+
+    client.post(url, {"body": "primera"})
+    client.post(url, {"body": "segunda"})
+
+    assert SharedNote.objects.count() == 1
+    assert SharedNote.objects.get().body == "segunda"
+
+
+def test_el_visor_muestra_la_nota_compartida_al_alumnado(client, library_item, user, profe):
+    SharedNote.objects.create(
+        content_type=library_item.content_type,
+        object_id=library_item.object_id,
+        body="Practica solo la primera parte",
+        author=profe,
+    )
+    client.force_login(user)
+
+    response = client.get(
+        reverse("my_library:study_item_content", args=[library_item.pk])
+    )
+    html = response.content.decode()
+
+    assert "Practica solo la primera parte" in html
+    # Al alumnado se le muestra, no se le da a editar
+    assert 'id="study-shared-input"' not in html
+
+
+def test_el_visor_le_da_el_campo_editable_al_profe(client, library_item, profe):
+    item_del_profe = LibraryItem.objects.create(
+        user=profe,
+        content_type=library_item.content_type,
+        object_id=library_item.object_id,
+    )
+    client.force_login(profe)
+
+    response = client.get(
+        reverse("my_library:study_item_content", args=[item_del_profe.pk])
+    )
+
+    assert 'id="study-shared-input"' in response.content.decode()
 
 
 # === Notas y etiquetas en el visor ===

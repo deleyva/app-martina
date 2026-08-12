@@ -311,6 +311,11 @@ class LibraryItem(models.Model):
         self.save(update_fields=["times_viewed", "last_viewed"])
 
     @property
+    def shared_note(self):
+        """Nota docente de este contenido, o None. La ve todo el mundo."""
+        return SharedNote.for_content(self.content_object)
+
+    @property
     def last_review(self):
         """Último repaso registrado, o None si nunca se ha repasado.
 
@@ -500,6 +505,68 @@ class LibraryItem(models.Model):
         return cls.objects.filter(
             user=user, content_type=content_type, object_id=content_object.pk
         ).exists()
+
+
+class SharedNote(models.Model):
+    """Nota pública sobre un contenido, visible para todo el que lo estudie.
+
+    Es la contraparte de `LibraryItem.notes`, que es privada de cada usuario.
+    Las dos coexisten a propósito y resuelven cosas distintas:
+
+    - `LibraryItem.notes` — mi apunte. Atado al par (usuario, contenido).
+    - `SharedNote` — material docente. Atado SOLO al contenido, así que todo el
+      que estudie ese vídeo la ve, tenga o no su propia nota.
+
+    Cuelga del contenido vía GenericForeignKey en vez de ser un campo en cada
+    modelo: el contenido puede ser Document, Image, Embed, ExternalResource o
+    ScorePage, y añadir el campo a cada uno significaría tocar modelos de
+    Wagtail que no son nuestros.
+
+    La escribe el profesorado; el alumnado la lee.
+    """
+
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField()
+    content_object = GenericForeignKey("content_type", "object_id")
+
+    body = models.TextField(
+        blank=True,
+        verbose_name="Nota",
+        help_text="Cómo estudiar este contenido. La ve todo el alumnado.",
+    )
+
+    # SET_NULL: que se borre una cuenta no debe llevarse el material docente.
+    author = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="shared_notes",
+        verbose_name="Autor",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        # Una nota por contenido: es material docente, no un hilo de comentarios.
+        unique_together = ["content_type", "object_id"]
+        ordering = ["-updated_at"]
+        verbose_name = "Nota compartida"
+        verbose_name_plural = "Notas compartidas"
+
+    def __str__(self):
+        return f"Nota compartida sobre {self.content_type.model} #{self.object_id}"
+
+    @classmethod
+    def for_content(cls, content_object):
+        """La nota de este contenido, o None. Nunca crea la fila."""
+        if content_object is None:
+            return None
+        return cls.objects.filter(
+            content_type=ContentType.objects.get_for_model(content_object),
+            object_id=content_object.pk,
+        ).first()
 
 
 class ReviewLog(models.Model):

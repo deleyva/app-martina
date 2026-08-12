@@ -11,6 +11,21 @@
     </div>
     {% endif %}
     {% endwith %}
+    {% with shared=item.shared_note %}
+    {% if user.is_staff %}
+    <div class="meta-label">Nota para el alumnado</div>
+    <textarea id="study-shared-input"
+              class="meta-notes meta-notes-shared"
+              rows="4"
+              placeholder="Cómo estudiar esto. La ve todo el mundo.">{% if shared %}{{ shared.body }}{% endif %}</textarea>
+    <div class="meta-notes-status" id="study-shared-status"></div>
+    {% elif shared and shared.body %}
+    <div class="meta-label">Cómo estudiar esto</div>
+    <div class="meta-shared-read">{{ shared.body|linebreaksbr }}</div>
+    {% endif %}
+    {% endwith %}
+
+    <div class="meta-label">Mis notas</div>
     <textarea id="study-notes-input"
               class="meta-notes"
               rows="5"

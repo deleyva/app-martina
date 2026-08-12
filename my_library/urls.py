@@ -23,6 +23,7 @@ urlpatterns = [
     path("mark-viewed/<int:pk>/", views.mark_viewed, name="mark_viewed"),
     path("log-review/<int:pk>/", views.log_review, name="log_review"),
     path("notes/<int:pk>/", views.update_notes, name="update_notes"),
+    path("shared-note/<int:pk>/", views.update_shared_note, name="update_shared_note"),
     path("manage-tags/", views.manage_tags, name="manage_tags"),
     path("merge-tags/", views.merge_tags, name="merge_tags"),
     # Decks

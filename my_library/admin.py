@@ -1,5 +1,16 @@
 from django.contrib import admin
-from .models import LibraryItem, ReviewLog
+from .models import LibraryItem, ReviewLog, SharedNote
+
+
+@admin.register(SharedNote)
+class SharedNoteAdmin(admin.ModelAdmin):
+    """Notas docentes: las escribe el profesorado, las ve todo el alumnado."""
+
+    list_display = ["content_type", "object_id", "author", "updated_at"]
+    list_filter = ["content_type", "updated_at", "author"]
+    search_fields = ["body", "author__email"]
+    readonly_fields = ["created_at", "updated_at"]
+    date_hierarchy = "updated_at"
 
 
 @admin.register(LibraryItem)
