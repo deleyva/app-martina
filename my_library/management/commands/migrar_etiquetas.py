@@ -59,6 +59,25 @@ def leer_mapa(ruta):
     return mapa
 
 
+def facetas_desconocidas(mapa):
+    """{faceta: [ejemplos]} de destinos cuya faceta no existe.
+
+    Sin esta comprobación el renombrado funciona igual, pero la etiqueta queda
+    muerta: `facets.parse` no la reconoce, así que no agrupa ni filtra. Falla
+    en silencio, que es la peor forma de fallar.
+    """
+    from my_library import facets
+
+    encontradas = {}
+    for origen, destino in sorted(mapa.items()):
+        if destino == BORRAR or facets.SEPARADOR not in destino:
+            continue
+        if facets.parse(destino)[0] is None:
+            faceta = destino.split(facets.SEPARADOR)[0]
+            encontradas.setdefault(faceta, []).append(f"{origen} -> {destino}")
+    return encontradas
+
+
 class Command(BaseCommand):
     help = "Migra las etiquetas de taggit al formato faceta:valor"
 
@@ -73,6 +92,19 @@ class Command(BaseCommand):
     def handle(self, *args, **opciones):
         mapa = leer_mapa(opciones["mapa"])
         ejecutar = opciones["ejecutar"]
+
+        desconocidas = facetas_desconocidas(mapa)
+        if desconocidas:
+            for faceta, ejemplos in sorted(desconocidas.items()):
+                self.stdout.write(
+                    self.style.ERROR(f"Faceta desconocida {faceta!r}: {ejemplos[0]}")
+                )
+            raise CommandError(
+                "Hay destinos con facetas que no existen en facets.FACETAS. "
+                "El renombrado funcionaría, pero la biblioteca las trataría como "
+                "etiquetas planas: no agruparían ni filtrarían. Añade la faceta a "
+                "facets.FACETAS o corrige el mapa."
+            )
 
         renombres, fusiones, borrados, ausentes = [], [], [], []
 

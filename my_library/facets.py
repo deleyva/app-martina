@@ -36,11 +36,12 @@ EVALUACION = "evaluacion"
 TEMA = "tema"
 LUGAR = "lugar"
 IDIOMA = "idioma"
+ORIENTACION = "orientacion"  # disposición de página del material imprimible
 
 FACETAS = (
     INSTRUMENTO, CONCEPTO, ESTILO, TIPO, TONALIDAD, COMPAS, PROGRESION,
     VOZ, DIFICULTAD, AUTOR, ARTISTA, OBRA,
-    CURSO, EVALUACION, TEMA, LUGAR, IDIOMA,
+    CURSO, EVALUACION, TEMA, LUGAR, IDIOMA, ORIENTACION,
 )
 
 # Por cuáles tiene sentido agrupar una sesión de práctica. El orden importa:

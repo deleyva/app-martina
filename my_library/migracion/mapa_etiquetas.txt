@@ -38,7 +38,6 @@ blancas  ->  concepto:figura-blanca
 blues  ->  estilo:blues
 book-cover  ->  tipo:portada
 bookstack  ->  tema:bookstack
-borrar  ->  __BORRAR__   # ??
 brazilian-music  ->  estilo:brasilena
 caged-system  ->  concepto:caged
 chad-johnson  ->  autor:chad-johnson
@@ -55,7 +54,7 @@ corcheas  ->  concepto:figura-corchea
 coro  ->  voz:coro
 country/spain  ->  lugar:espana
 cover  ->  tipo:portada
-delacroix  ->  autor:delacroix   # ??
+delacroix  ->  autor:delacroix
 dificultad/fácil  ->  dificultad:facil
 dificultad/intermedia  ->  dificultad:intermedia
 dificultad/media-alta  ->  dificultad:media-alta
@@ -63,19 +62,19 @@ dj  ->  tema:dj
 doc  ->  tipo:documento
 dominante-tonica  ->  concepto:dominante-tonica
 dos-voces  ->  voz:dos-voces
-dummies  ->  tipo:libro   # ??
+dummies  ->  tipo:libro
 ejercicios  ->  evaluacion:ejercicios
 estopa  ->  artista:estopa
-europa  ->  obra:europa   # ??
+europa  ->  __BORRAR__
 examen-3term-4ESO  ->  evaluacion:examen-t3-4eso
 extremoduro  ->  artista:extremoduro
-fake-book  ->  tipo:fake-book
+fake-book  ->  tipo:libro
 featured  ->  tema:destacado
 fifths  ->  concepto:quintas
 first-grooves  ->  concepto:grooves
 folk  ->  estilo:folk
-formacion-musical  ->  concepto:formacion-musical
-future  ->  tema:future   # ??
+formacion-musical  ->  __BORRAR__
+future  ->  tema:future
 genre/afro  ->  estilo:afro
 genre/blues  ->  estilo:blues
 genre/bso  ->  estilo:bso
@@ -96,7 +95,7 @@ group/choir  ->  voz:coro
 grunge  ->  estilo:grunge
 guitar  ->  instrumento:guitarra
 hip-hop  ->  estilo:hip-hop
-horizontal  ->  tipo:horizontal   # ??
+horizontal  ->  orientacion:horizontal
 imprimible  ->  tipo:imprimible
 instrument/bass  ->  instrumento:bajo
 instrument/drums  ->  instrumento:bateria
@@ -114,29 +113,29 @@ lectura-musical  ->  concepto:lectura-musical
 lectura-ritmica  ->  concepto:lectura-ritmica
 letra  ->  tipo:letra
 libro  ->  tipo:libro
-lr  ->  __BORRAR__   # ??
+lr  ->  __BORRAR__
 lyrics  ->  tipo:letra
-mas-que-nada  ->  obra:mas-que-nada
+mas-que-nada  ->  __BORRAR__
 melodic-reading  ->  concepto:lectura-melodica
 michael jackson  ->  artista:michael-jackson
-micrograma  ->  tema:micrograma   # ??
+micrograma  ->  tipo:micrograma
 modern jazz  ->  estilo:jazz-moderno
-mpc  ->  tema:mpc
+mpc  ->  __BORRAR__
 music-elements/chords  ->  concepto:acordes
 music-elements/ties  ->  concepto:ligaduras
 music-notebook  ->  tipo:cuaderno
 music-theory  ->  concepto:teoria-musical
 music-theory/secondary-dominant  ->  concepto:dominante-secundaria
-musica  ->  __BORRAR__   # ??
+musica  ->  __BORRAR__ 
 negras  ->  concepto:figura-negra
 nirvana  ->  artista:nirvana
 open source  ->  tema:open-source
 open-source  ->  tema:open-source
-ordinary  ->  obra:ordinary
+ordinary  ->  __BORRAR__
 orientation  ->  tema:orientacion
 partitura  ->  tipo:partitura
 pentatónica  ->  concepto:pentatonica
-pescador  ->  obra:pescador   # ??
+pescador  ->  __BORRAR__
 piano  ->  instrumento:piano
 piano-grooves  ->  concepto:grooves
 plantilla  ->  tipo:plantilla
@@ -153,7 +152,7 @@ saltos-3ª  ->  concepto:saltos-de-tercera
 sampler  ->  tema:sampler
 semicorcheas  ->  concepto:figura-semicorchea
 sheet-music  ->  tipo:partitura
-smells-like-teen-spirit  ->  obra:smells-like-teen-spirit
+smells-like-teen-spirit  ->  __BORRAR__
 soberanía digital  ->  tema:soberania-digital
 solfeo  ->  concepto:solfeo
 soprano  ->  voz:soprano
@@ -184,7 +183,7 @@ ukelele  ->  instrumento:ukelele
 ukulele  ->  instrumento:ukelele
 valle-de-hecho  ->  lugar:valle-de-hecho
 vitalinux  ->  tema:vitalinux
-viva-la-vida  ->  obra:viva-la-vida
+viva-la-vida  ->  __BORRAR__
 voice/alto  ->  voz:contralto
 voice/bass  ->  voz:barítono
 voice/choir  ->  voz:coro
