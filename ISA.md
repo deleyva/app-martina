@@ -2,12 +2,53 @@
 slug: app-martina
 phase: verify
 progress: true
-iteration: 2
+iteration: 6
 principal_stated_goal: "ok! eliminemos study_sessions. Y vamos a desarrollar ReviewLog"
-updated: 2026-08-12
+updated: 2026-08-13
 ---
 
-# ISA — app-martina · Histórico de repasos
+# ISA — app-martina · Sistema de estudio de la biblioteca
+
+## Cómo retomar esto
+
+**Di: "lee el ISA de app-martina y sigue por donde íbamos".** Este fichero es el estado del sistema, vive en el repo y viaja con el código.
+
+### Qué hay hecho y desplegado
+
+| Fase | Qué | Commit |
+|---|---|---|
+| 1 | `ReviewLog` — histórico de práctica; borrada la app muerta `study_sessions` | `7912c80` |
+| 2 | Notas privadas y etiquetas en el visor | `d13f488` |
+| 3 | Sesiones acotadas (8) con caducidad por nivel y agrupación temática | `0bd71e9` |
+| 3b | Nota docente compartida (`SharedNote`) | `8b2149e` |
+| 4 | Facetas de etiquetas + migración de las 188 | `3f0129f`, `87848c7` |
+| 5 | Arranque de sesión por faceta (`/my-library/empezar/`) | `604559a` |
+| 5b | Cuota de novedad: lo nuevo no inunda la sesión | `b824d74` |
+| 6 | Trocear material largo en secciones (`ItemSection`) | `724ae7a` |
+
+### Lo siguiente, por orden
+
+1. **Presupuesto de sesión en MINUTOS en vez de en elementos.** Es la mejor idea pendiente y la que arregla que "8 elementos" sea una unidad mentirosa cuando uno es un lick de 40 segundos y otro una pieza de 14 minutos. **Necesita datos**: `ReviewLog.duration_seconds` lleva recogiendo desde el 12/08/2026. Con dos semanas de práctica real, cada elemento tiene su mediana y el presupuesto se calibra solo. *Antes del 26/08 no tiene sentido tocarlo.*
+2. **Orden real dentro de un libro.** Hoy el material nuevo entra por orden de alta en la biblioteca, que coincide con el libro solo por casualidad. Hace falta modelar libro → sección → ejercicio con un ordinal. Es la misma pieza que pedía el troceo, así que encaja encima de `ItemSection`.
+3. **Revisar los plazos de caducidad con datos reales** (hoy 1/1/3/7/21 días por nivel). El de 21 días para "me lo sé muy bien" es el más dudoso: para un dato está bien, para tener una escala en las manos puede ser demasiado.
+
+### Deuda conocida, sin bloquear nada
+
+- **C12 y C28: nada del visor se ha verificado en un navegador real.** Ni el panel de notas, ni la nota docente, ni el selector de facetas, ni el troceo. Interceptor sigue bloqueado por un setup manual de Chrome que requiere clicks humanos.
+- **6 sitios con `user.username`** en otras apps, que en este proyecto siempre vale `None`. Dos son crashes de búsqueda en el admin: `evaluations/admin.py:125` y `cms/models.py:1788`, `cms/wagtail_hooks.py:34`, `evaluations/admin.py:163`, y dos plantillas de `incidencias`.
+- **Cuatro scripts en la raíz rompen `pytest`**: `test_images.py`, `test_tags.py`, `test_tags2.py`, `test_viewer_html.py` llaman a `django.setup()` al importarse. Hay que excluirlos a mano para que la suite arranque; deberían renombrarse.
+- **9 tests preexistentes fallan** en analytics, cms e incidencias. Verificado con `git stash` que ya fallaban antes de todo esto.
+- **La etiqueta `borrar`** es la única de las 139 sin faceta: en la revisión del mapa se eliminó su línea, lo que significa "déjala como está".
+- **Tablas huérfanas de `study_sessions`** en la BD de producción. Inertes; borrarlas es decisión del principal.
+- **`build_tag_map` hace ~2 consultas por elemento** y corre en cada carga del índice y en cada render del panel de mazos. A 500 elementos se notará.
+
+### Datos útiles para retomar
+
+- Producción: `https://apps.iesmartinabescos.es` · deploy con `just deploy-production` (hace `git reset --hard origin/main` en el servidor, así que hay que pushear antes).
+- Local: `just up`, tests con `docker compose -f docker-compose.local.yml run --rm django pytest my_library/tests.py`.
+- Usuario de pruebas en local: `probe@local.test` (staff/superuser). En la BD local, no en producción.
+- Copia previa a la migración de etiquetas: `backups/taggit_antes_facetas_20260812.json` (fuera del repo, está en `.gitignore`).
+- Trampas del proyecto documentadas en `AGENTS.md` § "Trampas conocidas".
 
 ## Goal
 
