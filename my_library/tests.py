@@ -671,15 +671,22 @@ def test_en_seco_no_toca_los_mazos(db, tmp_path, user):
     assert mazo.get_tags() == ["instrument/guitar"]
 
 
-def test_solo_mazos_no_rompe_un_mazo_cuya_etiqueta_sigue_viva(db, tmp_path, user):
-    """La salvaguarda. El caso real del mazo `caged-system`, que SÍ funciona.
+def test_una_etiqueta_viva_en_musictag_no_se_reescribe(db, tmp_path, user):
+    """La salvaguarda, con el caso real que la obligó a existir.
 
-    El renombrado borró la etiqueta plana, pero después nació otra vez al
-    etiquetar material nuevo con el nombre viejo. Aplicar el mapa a ciegas
-    llevaría el mazo a `concepto:caged`, que no tiene nada, y rompería el único
-    mazo que contaba. Si el nombre sigue vivo no hay puntero muerto que arreglar.
+    Hay DOS vocabularios de etiquetas y solo uno se migró: `taggit.Tag`, que
+    renombró esta migración, y `cms.MusicTag`, con su tabla aparte, intacto.
+    `build_tag_map` recoge los nombres de los dos sin distinguir.
+
+    El mazo `caged-system` del principal empareja 11 elementos por `MusicTag`,
+    y `caged-system` no existe en taggit desde el 12/08. Mirar solo taggit lo
+    daría por muerto y lo arrastraría a `concepto:caged`, que no tiene nada:
+    de 11 a 0. Arreglando dos mazos habríamos roto el tercero.
     """
-    item = _item(user, "uno", tags=["caged-system"])  # renació después de migrar
+    from cms.models import MusicTag
+
+    MusicTag.objects.create(name="caged-system")
+
     mazo = _mazo(user, "caged", ["caged-system"])
 
     _migrar(
@@ -688,8 +695,42 @@ def test_solo_mazos_no_rompe_un_mazo_cuya_etiqueta_sigue_viva(db, tmp_path, user
 
     mazo.refresh_from_db()
     assert mazo.get_tags() == ["caged-system"]  # intacto
+
+
+def test_migrar_del_todo_tampoco_reescribe_lo_vivo_en_musictag(db, tmp_path, user):
+    """La misma trampa en el camino normal: renombrar en taggit no borra el
+    nombre en `MusicTag`, así que ese mazo tampoco se toca."""
+    from cms.models import MusicTag
+    from taggit.models import Tag
+
+    MusicTag.objects.create(name="jazz")
+    _item(user, "uno", tags=["jazz"])  # el 'jazz' de taggit, que sí se renombra
+    mazo = _mazo(user, "jazz", ["jazz"])
+
+    _migrar(tmp_path, ["jazz -> estilo:jazz"], ejecutar=True)
+
+    assert Tag.objects.filter(name="estilo:jazz").exists()  # taggit sí migró
+    mazo.refresh_from_db()
+    assert mazo.get_tags() == ["jazz"]  # el mazo no, porque MusicTag sigue viva
+
+
+def test_solo_mazos_arrastra_cuando_el_nombre_esta_muerto_en_los_dos(db, tmp_path, user):
+    """El contraste: si el nombre no vive en ninguno de los dos vocabularios,
+    es un puntero muerto y se arrastra. Es el caso de `instrument/guitar`."""
+    item = _item(user, "uno", tags=["instrumento:guitarra"])
+    mazo = _mazo(user, "guitarra", ["instrument/guitar"])
+
+    _migrar(
+        tmp_path,
+        ["instrument/guitar -> instrumento:guitarra"],
+        ejecutar=True,
+        solo_mazos=True,
+    )
+
+    mazo.refresh_from_db()
+    assert mazo.get_tags() == ["instrumento:guitarra"]
     tag_map = LibraryDeck.build_tag_map(LibraryItem.objects.filter(user=user))
-    assert mazo.get_matching_item_pks(tag_map) == [item.pk]  # sigue contando
+    assert mazo.get_matching_item_pks(tag_map) == [item.pk]
 
 
 def test_solo_mazos_no_toca_ninguna_etiqueta(db, tmp_path, user):

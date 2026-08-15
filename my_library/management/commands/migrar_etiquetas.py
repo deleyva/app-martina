@@ -60,9 +60,37 @@ def leer_mapa(ruta):
 
 
 def nombres_de_etiqueta_vivos(mapa):
-    """Los orígenes del mapa que TODAVÍA existen como fila de `Tag`."""
+    """Los orígenes del mapa que TODAVÍA existen como etiqueta, en CUALQUIER
+    vocabulario de los que puede emparejar un mazo.
+
+    Hay dos, y solo uno se migró a facetas:
+
+    - `taggit.Tag`, global del sitio, el que renombró esta migración.
+    - `cms.MusicTag`, un `ParentalManyToManyField` propio de `ScorePage` y
+      compañía, con su tabla aparte y sus nombres planos. Intacto.
+
+    `LibraryDeck.build_tag_map` recoge los nombres de los dos sin distinguir,
+    así que un mazo puede estar emparejando por `MusicTag` mientras su nombre
+    ya no existe en taggit. Mirar solo taggit daría esa etiqueta por muerta y
+    reescribiría un mazo que funciona. Pasa de verdad: el mazo `caged-system`
+    del principal empareja 11 elementos por `MusicTag`, y `caged-system` no
+    existe en taggit desde la migración del 12/08.
+    """
     return set(
         Tag.objects.filter(name__in=list(mapa)).values_list("name", flat=True)
+    ) | nombres_de_musictag_vivos(mapa)
+
+
+def nombres_de_musictag_vivos(mapa):
+    """Los orígenes del mapa que existen como `MusicTag`.
+
+    Es también el conjunto que sobrevive a una migración completa: el
+    renombrado vacía los orígenes de taggit, pero no toca `MusicTag`.
+    """
+    from cms.models import MusicTag
+
+    return set(
+        MusicTag.objects.filter(name__in=list(mapa)).values_list("name", flat=True)
     )
 
 
@@ -234,10 +262,11 @@ class Command(BaseCommand):
 
             fusiones.extend((o, destino, _usos(o)) for o in pendientes)
 
-        # Al migrar de verdad, todos los orígenes del mapa desaparecen en esta
-        # misma transacción (se renombran, se fusionan o se borran). Así que
-        # ninguno queda vivo y el arrastre alcanza a todos los mazos.
-        plan_mazos = planificar_mazos(mapa, set())
+        # Al migrar de verdad, todos los orígenes del mapa desaparecen de taggit
+        # en esta misma transacción. Los que sobreviven son los de `MusicTag`,
+        # que esta migración no toca: un mazo que empareje por ahí se queda como
+        # está, porque su nombre sigue vivo.
+        plan_mazos = planificar_mazos(mapa, nombres_de_musictag_vivos(mapa))
 
         self._resumen(renombres, fusiones, borrados, ausentes)
         self._resumen_mazos(plan_mazos)
