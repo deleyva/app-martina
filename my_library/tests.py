@@ -469,7 +469,7 @@ def test_los_bloques_tematicos_son_cortos(db, user):
 # === Migración de etiquetas ===
 
 
-def _migrar(tmp_path, lineas, ejecutar=False):
+def _migrar(tmp_path, lineas, ejecutar=False, solo_mazos=False):
     from django.core.management import call_command
 
     mapa = tmp_path / "mapa.txt"
@@ -477,6 +477,8 @@ def _migrar(tmp_path, lineas, ejecutar=False):
     args = ["migrar_etiquetas", "--mapa", str(mapa)]
     if ejecutar:
         args.append("--ejecutar")
+    if solo_mazos:
+        args.append("--solo-mazos")
     call_command(*args)
 
 
@@ -555,6 +557,163 @@ def test_la_migracion_es_idempotente(db, tmp_path, user):
 
     assert Tag.objects.filter(name="estilo:jazz").count() == 1
     assert {t.name for t in item.tags.all()} == {"estilo:jazz"}
+
+
+# === Migración de etiquetas: los mazos van detrás ===
+#
+# El defecto que nadie cubría. El 2026-08-12 la migración corrió en producción,
+# renombró las etiquetas y dejó los mazos apuntando a los nombres viejos. Los
+# tres mazos del principal pasaron a contar 0 sin decir nada.
+
+
+def _mazo(user, nombre, tags):
+    return LibraryDeck.objects.create(
+        user=user, name=nombre, tags_json=json.dumps(tags)
+    )
+
+
+def test_renombrar_una_etiqueta_arrastra_el_mazo(db, tmp_path, user):
+    """El defecto de producción, reproducido: sin esto el mazo cuenta 0."""
+    item = _item(user, "uno", tags=["instrument/guitar"])
+    mazo = _mazo(user, "guitarra", ["instrument/guitar"])
+
+    _migrar(tmp_path, ["instrument/guitar -> instrumento:guitarra"], ejecutar=True)
+
+    mazo.refresh_from_db()
+    assert mazo.get_tags() == ["instrumento:guitarra"]
+    tag_map = LibraryDeck.build_tag_map(LibraryItem.objects.filter(user=user))
+    assert mazo.get_matching_item_pks(tag_map) == [item.pk]
+
+
+def test_el_mazo_se_arrastra_aunque_la_etiqueta_ya_este_renombrada(db, tmp_path, user):
+    """La reparación de lo ya roto. Las etiquetas ya migraron; los mazos no.
+
+    Se aplica el MAPA, no el estado de `Tag`, así que el arrastre funciona
+    sobre mazos que se quedaron atrás en una ejecución anterior.
+    """
+    item = _item(user, "uno", tags=["instrumento:guitarra"])  # ya migrada
+    mazo = _mazo(user, "guitarra", ["instrument/guitar"])  # se quedó atrás
+
+    _migrar(tmp_path, ["instrument/guitar -> instrumento:guitarra"], ejecutar=True)
+
+    mazo.refresh_from_db()
+    assert mazo.get_tags() == ["instrumento:guitarra"]
+    tag_map = LibraryDeck.build_tag_map(LibraryItem.objects.filter(user=user))
+    assert mazo.get_matching_item_pks(tag_map) == [item.pk]
+
+
+def test_el_mazo_multietiqueta_se_arrastra_entero(db, tmp_path, user):
+    """El mazo 'guitarra jazz' real: dos etiquetas, las dos renombradas."""
+    mazo = _mazo(user, "guitarra jazz", ["instrument/guitar", "genre/jazz"])
+
+    _migrar(
+        tmp_path,
+        ["instrument/guitar -> instrumento:guitarra", "genre/jazz -> estilo:jazz"],
+        ejecutar=True,
+    )
+
+    mazo.refresh_from_db()
+    assert mazo.get_tags() == ["instrumento:guitarra", "estilo:jazz"]
+
+
+def test_dos_etiquetas_del_mazo_que_se_fusionan_no_quedan_duplicadas(db, tmp_path, user):
+    mazo = _mazo(user, "jazz", ["jazz", "genre/jazz"])
+
+    _migrar(tmp_path, ["jazz -> estilo:jazz", "genre/jazz -> estilo:jazz"], ejecutar=True)
+
+    mazo.refresh_from_db()
+    assert mazo.get_tags() == ["estilo:jazz"]
+
+
+def test_un_mazo_no_se_queda_vacio_al_borrar_su_unica_etiqueta(db, tmp_path, user):
+    """Un mazo sin etiquetas devuelve la biblioteca ENTERA. Peor que romperlo.
+
+    Se deja apuntando al nombre muerto: cuenta 0, que es visiblemente roto y
+    honesto, en vez de 51, que es silenciosamente falso.
+    """
+    _item(user, "uno", tags=["otra"])
+    mazo = _mazo(user, "muerto", ["borrame"])
+
+    _migrar(tmp_path, ["borrame -> __BORRAR__"], ejecutar=True)
+
+    mazo.refresh_from_db()
+    assert mazo.get_tags() == ["borrame"]
+    tag_map = LibraryDeck.build_tag_map(LibraryItem.objects.filter(user=user))
+    assert mazo.get_matching_item_pks(tag_map) == []
+
+
+def test_el_mazo_conserva_las_etiquetas_que_el_mapa_no_toca(db, tmp_path, user):
+    mazo = _mazo(user, "mixto", ["caged-system", "instrument/guitar"])
+
+    _migrar(tmp_path, ["instrument/guitar -> instrumento:guitarra"], ejecutar=True)
+
+    mazo.refresh_from_db()
+    assert mazo.get_tags() == ["caged-system", "instrumento:guitarra"]
+
+
+def test_arrastrar_mazos_es_idempotente(db, tmp_path, user):
+    mazo = _mazo(user, "guitarra", ["instrument/guitar"])
+    lineas = ["instrument/guitar -> instrumento:guitarra"]
+
+    _migrar(tmp_path, lineas, ejecutar=True)
+    _migrar(tmp_path, lineas, ejecutar=True)
+
+    mazo.refresh_from_db()
+    assert mazo.get_tags() == ["instrumento:guitarra"]
+
+
+def test_en_seco_no_toca_los_mazos(db, tmp_path, user):
+    mazo = _mazo(user, "guitarra", ["instrument/guitar"])
+
+    _migrar(tmp_path, ["instrument/guitar -> instrumento:guitarra"])  # sin --ejecutar
+
+    mazo.refresh_from_db()
+    assert mazo.get_tags() == ["instrument/guitar"]
+
+
+def test_solo_mazos_no_rompe_un_mazo_cuya_etiqueta_sigue_viva(db, tmp_path, user):
+    """La salvaguarda. El caso real del mazo `caged-system`, que SÍ funciona.
+
+    El renombrado borró la etiqueta plana, pero después nació otra vez al
+    etiquetar material nuevo con el nombre viejo. Aplicar el mapa a ciegas
+    llevaría el mazo a `concepto:caged`, que no tiene nada, y rompería el único
+    mazo que contaba. Si el nombre sigue vivo no hay puntero muerto que arreglar.
+    """
+    item = _item(user, "uno", tags=["caged-system"])  # renació después de migrar
+    mazo = _mazo(user, "caged", ["caged-system"])
+
+    _migrar(
+        tmp_path, ["caged-system -> concepto:caged"], ejecutar=True, solo_mazos=True
+    )
+
+    mazo.refresh_from_db()
+    assert mazo.get_tags() == ["caged-system"]  # intacto
+    tag_map = LibraryDeck.build_tag_map(LibraryItem.objects.filter(user=user))
+    assert mazo.get_matching_item_pks(tag_map) == [item.pk]  # sigue contando
+
+
+def test_solo_mazos_no_toca_ninguna_etiqueta(db, tmp_path, user):
+    """La bandera de reparación: arregla los mazos sin re-ejecutar el renombrado.
+
+    El estado real de producción: las etiquetas ya migraron el 12/08 y el mazo
+    se quedó apuntando al nombre viejo, que ya no existe.
+    """
+    from taggit.models import Tag
+
+    _item(user, "uno", tags=["instrumento:guitarra"])  # ya migrada
+    mazo = _mazo(user, "guitarra", ["instrument/guitar"])  # puntero muerto
+    etiquetas_antes = set(Tag.objects.values_list("name", flat=True))
+
+    _migrar(
+        tmp_path,
+        ["instrument/guitar -> instrumento:guitarra"],
+        ejecutar=True,
+        solo_mazos=True,
+    )
+
+    assert set(Tag.objects.values_list("name", flat=True)) == etiquetas_antes
+    mazo.refresh_from_db()
+    assert mazo.get_tags() == ["instrumento:guitarra"]
 
 
 # === Trocear material largo (secciones) ===
@@ -948,6 +1107,20 @@ def test_no_se_ve_la_biblioteca_de_otro(client, db, user, django_user_model):
     assert "guitarra" not in response.content.decode()
 
 
+def test_el_selector_no_escupe_el_comentario_de_la_plantilla(client, db, user):
+    """El hermano del mismo defecto: `{# … #}` a dos líneas en `session_start`.
+    Este no llegó a verse porque hace falta tener facetas para que se renderice
+    el bloque, pero estaba igual de roto."""
+    _item(user, "g", tags=["instrumento:guitarra"])
+    client.force_login(user)
+
+    response = client.get(reverse("my_library:session_start"))
+    html = response.content.decode()
+
+    assert "GET, no POST" not in html
+    assert "{#" not in html and "#}" not in html
+
+
 # === Facetas ===
 
 
@@ -1149,6 +1322,21 @@ def test_el_visor_muestra_la_nota_compartida_al_alumnado(client, library_item, u
     assert "Practica solo la primera parte" in html
     # Al alumnado se le muestra, no se le da a editar
     assert 'id="study-shared-input"' not in html
+
+
+def test_el_visor_no_escupe_el_comentario_de_la_plantilla(client, library_item, user):
+    """`{# … #}` en Django es de UNA línea. En cuanto ocupó dos, el texto salió
+    renderizado encima de la partitura, en producción. Barrido de la clase en
+    el ISA (fase 7); esto fija el sitio donde se vio."""
+    client.force_login(user)
+
+    response = client.get(
+        reverse("my_library:study_item_content", args=[library_item.pk])
+    )
+    html = response.content.decode()
+
+    assert "Notas y etiquetas del item" not in html
+    assert "{#" not in html and "#}" not in html
 
 
 def test_el_visor_le_da_el_campo_editable_al_profe(client, library_item, profe):

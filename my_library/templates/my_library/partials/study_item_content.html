@@ -1,8 +1,10 @@
 {% load wagtailcore_tags wagtailimages_tags wagtailembeds_tags %}
 
-{# Notas y etiquetas del item. Nace oculto aquí y el visor lo traslada al
-   flyout (mismo patrón que #study-media-panel). Va en este partial porque
-   cambia con cada item, mientras que el flyout es estático. #}
+{% comment %}
+Notas y etiquetas del item. Nace oculto aquí y el visor lo traslada al
+flyout (mismo patrón que #study-media-panel). Va en este partial porque
+cambia con cada item, mientras que el flyout es estático.
+{% endcomment %}
 <div id="study-item-meta"
      data-item-pk="{{ item.pk }}"
      data-section-pk="{% if seccion %}{{ seccion.pk }}{% endif %}"

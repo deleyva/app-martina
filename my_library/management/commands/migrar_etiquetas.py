@@ -59,6 +59,71 @@ def leer_mapa(ruta):
     return mapa
 
 
+def nombres_de_etiqueta_vivos(mapa):
+    """Los orígenes del mapa que TODAVÍA existen como fila de `Tag`."""
+    return set(
+        Tag.objects.filter(name__in=list(mapa)).values_list("name", flat=True)
+    )
+
+
+def planificar_mazos(mapa, vivos):
+    """[(mazo, tags_viejos, tags_nuevos, huerfano)] de los mazos que cambian.
+
+    Un `LibraryDeck` guarda su filtro como una lista de NOMBRES en `tags_json`,
+    y el emparejamiento es comparación de cadenas. Renombrar la fila de `Tag`
+    no lo toca: el mazo se queda apuntando a un nombre que ya no existe y pasa
+    a contar 0 en silencio. Eso es justo lo que pasó el 2026-08-12.
+
+    Se aplica el MAPA, no el estado de `Tag`, y por eso la reparación funciona
+    sobre mazos que se quedaron atrás en una ejecución anterior. Es idempotente
+    porque ningún destino del mapa es a su vez un origen.
+
+    `vivos` es la salvaguarda: nombres que SIGUEN existiendo como etiqueta y por
+    tanto NO se tocan. El defecto es que un mazo apunte a un nombre MUERTO; si
+    el nombre sigue vivo no hay nada que arreglar, y reescribirlo rompería un
+    mazo que funciona. Pasa de verdad: una etiqueta plana borrada por el
+    renombrado puede volver a nacer después, al etiquetar material nuevo con el
+    nombre viejo. Al migrar de verdad este conjunto queda vacío — los orígenes
+    acaban de desaparecer — así que arrastra todo, que es lo que se quiere.
+
+    `huerfano` marca los mazos que se quedarían SIN NINGUNA etiqueta porque
+    todas las suyas van a `__BORRAR__`. A esos no se les toca: un mazo vacío no
+    filtra nada y `get_matching_item_pks` devuelve la biblioteca entera. Un
+    mazo que enseña 0 está visiblemente roto; uno que enseña 51 miente.
+    """
+    from my_library.models import LibraryDeck
+
+    indice = {}
+    for origen, destino in mapa.items():
+        clave = origen.lower()
+        if indice.get(clave, destino) != destino:
+            raise CommandError(
+                f"El mapa tiene dos orígenes que solo difieren en mayúsculas "
+                f"({clave!r}) apuntando a destinos distintos."
+            )
+        indice[clave] = destino
+
+    vivos_lower = {n.lower() for n in vivos}
+
+    plan = []
+    for mazo in LibraryDeck.objects.select_related("user").order_by("pk"):
+        viejos = mazo.get_tags()
+        nuevos = []
+        for tag in viejos:
+            if tag.lower() in vivos_lower:
+                destino = tag  # sigue existiendo: no es un puntero muerto
+            else:
+                destino = indice.get(tag.lower(), tag)
+            if destino == BORRAR:
+                continue
+            if destino not in nuevos:  # el renombrado puede fusionar dos en uno
+                nuevos.append(destino)
+        if nuevos == viejos:
+            continue
+        plan.append((mazo, viejos, nuevos, not nuevos))
+    return plan
+
+
 def facetas_desconocidas(mapa):
     """{faceta: [ejemplos]} de destinos cuya faceta no existe.
 
@@ -88,10 +153,37 @@ class Command(BaseCommand):
             action="store_true",
             help="Aplica los cambios. Sin esto solo enseña qué haría.",
         )
+        parser.add_argument(
+            "--solo-mazos",
+            action="store_true",
+            help=(
+                "Solo arrastra los mazos, sin tocar ninguna etiqueta. Para "
+                "reparar mazos que se quedaron atrás en una ejecución previa."
+            ),
+        )
 
     def handle(self, *args, **opciones):
         mapa = leer_mapa(opciones["mapa"])
         ejecutar = opciones["ejecutar"]
+        solo_mazos = opciones["solo_mazos"]
+
+        if solo_mazos:
+            # Reparación sobre una base ya migrada: lo que siga existiendo con
+            # el nombre viejo es una etiqueta viva, no un puntero muerto.
+            plan_mazos = planificar_mazos(mapa, nombres_de_etiqueta_vivos(mapa))
+            self._resumen_mazos(plan_mazos)
+            if not ejecutar:
+                self.stdout.write(
+                    self.style.WARNING(
+                        "\nEN SECO — no se ha tocado nada. "
+                        "Añade --ejecutar para aplicarlo."
+                    )
+                )
+                return
+            with transaction.atomic():
+                self._aplicar_mazos(plan_mazos)
+            self.stdout.write(self.style.SUCCESS("\nHecho."))
+            return
 
         desconocidas = facetas_desconocidas(mapa)
         if desconocidas:
@@ -142,7 +234,13 @@ class Command(BaseCommand):
 
             fusiones.extend((o, destino, _usos(o)) for o in pendientes)
 
+        # Al migrar de verdad, todos los orígenes del mapa desaparecen en esta
+        # misma transacción (se renombran, se fusionan o se borran). Así que
+        # ninguno queda vivo y el arrastre alcanza a todos los mazos.
+        plan_mazos = planificar_mazos(mapa, set())
+
         self._resumen(renombres, fusiones, borrados, ausentes)
+        self._resumen_mazos(plan_mazos)
 
         if not ejecutar:
             self.stdout.write(
@@ -166,7 +264,19 @@ class Command(BaseCommand):
             for origen, _ in borrados:
                 Tag.objects.filter(name=origen).delete()
 
+            # Dentro de la misma transacción que el renombrado: si los mazos no
+            # se pueden arrastrar, tampoco se renombra nada. Quedarse a medias
+            # es precisamente el estado del que venimos.
+            self._aplicar_mazos(plan_mazos)
+
         self.stdout.write(self.style.SUCCESS("\nHecho."))
+
+    def _aplicar_mazos(self, plan):
+        for mazo, _viejos, nuevos, huerfano in plan:
+            if huerfano:
+                continue
+            mazo.set_tags(nuevos)
+            mazo.save(update_fields=["tags_json"])
 
     def _fusionar(self, origen, destino):
         """Mueve los usos de `origen` a `destino` y borra `origen`.
@@ -214,3 +324,25 @@ class Command(BaseCommand):
                 w(f"  {origen}   [{usos} usos se pierden]")
         if ausentes:
             w(f"\nYa no existen en la base de datos ({len(ausentes)}), se ignoran.")
+
+    def _resumen_mazos(self, plan):
+        w = self.stdout.write
+        arrastrados = [f for f in plan if not f[3]]
+        huerfanos = [f for f in plan if f[3]]
+        if not plan:
+            w("\nMAZOS: ninguno cambia.")
+            return
+        if arrastrados:
+            w(self.style.SUCCESS(f"\nMAZOS A ARRASTRAR ({len(arrastrados)})"))
+            for mazo, viejos, nuevos, _ in arrastrados:
+                w(f"  {mazo.user.email} / {mazo.name!r}")
+                w(f"      {viejos}  ->  {nuevos}")
+        if huerfanos:
+            w(self.style.ERROR(f"\nMAZOS QUE QUEDARÍAN VACÍOS ({len(huerfanos)}) — NO se tocan"))
+            for mazo, viejos, _, _ in huerfanos:
+                w(f"  {mazo.user.email} / {mazo.name!r}  tags={viejos}")
+            w(
+                "  Todas sus etiquetas van a __BORRAR__. Vaciar el filtro haría "
+                "que el mazo enseñara la biblioteca entera; se dejan rotos a la "
+                "vista para que se decida a mano."
+            )

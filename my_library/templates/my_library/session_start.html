@@ -17,8 +17,10 @@
     </p>
 
     {% if facetas %}
-    {# GET, no POST: la selección vive en la URL y así una combinación que te
-       gusta se puede guardar en marcadores y repetir mañana. #}
+    {% comment %}
+    GET, no POST: la selección vive en la URL y así una combinación que te
+    gusta se puede guardar en marcadores y repetir mañana.
+    {% endcomment %}
     <form id="selector"
           method="get"
           action="{% url 'my_library:session_launch' %}"
