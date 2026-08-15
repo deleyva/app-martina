@@ -1,10 +1,10 @@
 ---
 slug: app-martina
-phase: verify
+phase: complete
 progress: true
-iteration: 6
+iteration: 7
 principal_stated_goal: "ok! eliminemos study_sessions. Y vamos a desarrollar ReviewLog"
-updated: 2026-08-13
+updated: 2026-08-15
 ---
 
 # ISA — app-martina · Sistema de estudio de la biblioteca
@@ -25,6 +25,7 @@ updated: 2026-08-13
 | 5 | Arranque de sesión por faceta (`/my-library/empezar/`) | `604559a` |
 | 5b | Cuota de novedad: lo nuevo no inunda la sesión | `b824d74` |
 | 6 | Trocear material largo en secciones (`ItemSection`) | `724ae7a` |
+| 7 | Los mazos sobreviven al renombrado + comentarios de plantilla que se veían | `18a2b0e`, `444af8e` |
 
 ### Lo siguiente, por orden
 
@@ -34,7 +35,7 @@ updated: 2026-08-13
 
 ### Deuda conocida, sin bloquear nada
 
-- **C12 y C28: nada del visor se ha verificado en un navegador real.** Ni el panel de notas, ni la nota docente, ni el selector de facetas, ni el troceo. Interceptor sigue bloqueado por un setup manual de Chrome que requiere clicks humanos.
+- **C12, C28 y C30bis: nada del visor se ha verificado en un navegador real.** Ni el panel de notas, ni la nota docente, ni el selector de facetas, ni el troceo, ni el arreglo de los comentarios. Interceptor sigue bloqueado por un setup manual de Chrome que requiere clicks humanos. **Desbloqueo, una vez y para siempre:** en la ventana del perfil de pruebas, icono de Interceptor → Context ID = `interceptor-test` → Guardar, y poner esa misma cadena en `~/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/Interceptor/preferences.env`. Son dos minutos y desatasca cinco claims acumuladas.
 - **6 sitios con `user.username`** en otras apps, que en este proyecto siempre vale `None`. Dos son crashes de búsqueda en el admin: `evaluations/admin.py:125` y `cms/models.py:1788`, `cms/wagtail_hooks.py:34`, `evaluations/admin.py:163`, y dos plantillas de `incidencias`.
 - **Cuatro scripts en la raíz rompen `pytest`**: `test_images.py`, `test_tags.py`, `test_tags2.py`, `test_viewer_html.py` llaman a `django.setup()` al importarse. Hay que excluirlos a mano para que la suite arranque; deberían renombrarse.
 - **9 tests preexistentes fallan** en analytics, cms e incidencias. Verificado con `git stash` que ya fallaban antes de todo esto.
@@ -205,10 +206,10 @@ El de fondo: `LibraryDeck` guarda su filtro como una lista de **nombres** en `ta
 Lo que falló en la verificación de C17: se comprobó que ningún **objeto etiquetado** perdiera etiquetas, y eso estaba bien comprobado. No se buscó si había nombres de etiqueta guardados **fuera de taggit**. La clase de defecto es "copia de un nombre en texto plano que un renombrado deja obsoleta", y `tags_json` era el único sitio.
 
 - [x] **C29 — Ningún comentario de plantilla se ve en la página.** `{# … #}` en Django es de UNA línea; en cuanto ocupa dos, el texto sale renderizado. *Cerrada al nivel de render: barrido de clase sobre todas las plantillas → 2 hermanos, los dos convertidos a `{% comment %}`; y 2 tests de regresión que comprueban que el texto no sale en el HTML. Verificados como falsadores reales: con las plantillas revertidas por `git stash`, los dos fallan.*
-- [ ] **C30bis — `[DEFERRED-VERIFY]` Las dos páginas vistas en un navegador real** una vez desplegado. Se suma a la deuda de C12 y C28: Interceptor sigue bloqueado por el setup manual de Chrome.
+- [ ] **C30bis — `[DEFERRED-VERIFY]` Las dos páginas vistas en un navegador real.** Intentado el 15/08 tras desplegar: Interceptor paró en el gate de aislamiento por rotación del UUID del contexto, y no se sustituye por un curl. Se suma a la deuda de C12 y C28. *Desbloqueo, una vez y para siempre: en la ventana del perfil de pruebas, icono de Interceptor → Context ID = `interceptor-test` → Guardar, y la misma cadena en `preferences.env`.*
 - [x] **C30 — Renombrar una etiqueta arrastra los mazos que la usan.** *Probe: 11 tests nuevos, incluido el escenario exacto de producción (etiqueta ya migrada, mazo atrás). 105/105 en `my_library`.*
 - [x] **C31 — Un mazo nunca se queda sin etiquetas al migrar.** Un `tags_json` vacío hace que `get_matching_item_pks` devuelva la biblioteca entera: el mazo pasaría de contar 0 a contar 51 mintiendo. *Probe: test del mazo huérfano — se queda apuntando al nombre muerto y cuenta 0.*
-- [ ] **C32 — Los tres mazos del principal vuelven a contar en producción.** Pendiente de desplegar y ejecutar `migrar_etiquetas --solo-mazos --ejecutar`. *Probe: consulta a la BD de producción antes y después.*
+- [x] **C32 — Los tres mazos del principal vuelven a contar en producción.** *2026-08-15. Antes: `guitarra jazz` 0, `Piano` 0, `caged-system` 11. Ensayo en seco: 2 a arrastrar, `caged-system` no aparece — la salvaguarda funcionando contra datos reales. Después de `--solo-mazos --ejecutar`: **`guitarra jazz` 23, `Piano` 9, `caged-system` 11**. Anti-claim comprobado: taggit sigue en 139 nombres y `MusicTag` en 80, idénticos.*
 
 ### Anti-claims
 
