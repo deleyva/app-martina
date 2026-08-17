@@ -1,18 +1,19 @@
-# MAPA DE MIGRACIÓN MusicTag -> taggit facetado  —  revisa y corrige, luego ejecuto
+# MAPA DE MIGRACIÓN MusicTag -> taggit facetado  —  REVISADO POR EL PRINCIPAL 2026-08-17
 #
 # formato:   etiqueta_actual  ->  etiqueta_nueva
 # '__BORRAR__' elimina la etiqueta. Borra una línea entera para dejarla como está.
 # Dos líneas con el mismo destino = se fusionan en una sola etiqueta.
-# Las marcadas con  # ??  son las que NO tengo claras: decide tú.
 #
 # El número entre corchetes es el USO REAL en producción (páginas etiquetadas).
-# 80 MusicTag, sobre 4 tipos de página: BlogPage (255), ScorePage (44),
-# DictadoPage (1), TestPage (0). 15 no las usa nadie.
+# 80 MusicTag sobre 4 tipos de página: BlogPage (255), ScorePage (44),
+# DictadoPage (1), TestPage (0).
 #
-# Destinos que YA EXISTEN en taggit se fusionan; los nuevos se crean.
-# Facetas disponibles hoy: instrumento, concepto, estilo, tipo, tonalidad,
-# compas, progresion, voz, dificultad, autor, artista, obra, curso, evaluacion,
-# tema, lugar, idioma, orientacion.
+# Decisiones del principal:
+#   1. Sin faceta `caracter:` — las etiquetas de estado de ánimo se borran.
+#   2. `ejercicios` es un TIPO de material, no una evaluación.
+#   3. De las 15 sin uso: se fusionan las 3 con destino vivo, se borran las 12.
+#   4. Los subgéneros de una sola pieza colapsan en su género padre.
+#   5. `romantic` se borra — ambigua entre periodo y carácter.
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -20,6 +21,7 @@
 # ─────────────────────────────────────────────────────────────────────
 guitar  ->  instrumento:guitarra                  # [52]
 guitarra  ->  instrumento:guitarra                # [6]
+guitar solo  ->  instrumento:guitarra             # [1]
 piano  ->  instrumento:piano                      # [45]
 keyboard  ->  instrumento:teclado                 # [33]
 teclado  ->  instrumento:teclado                  # [32]
@@ -29,22 +31,16 @@ ukulele  ->  instrumento:ukelele                  # [40]
 # ─────────────────────────────────────────────────────────────────────
 # CONCEPTO
 # ─────────────────────────────────────────────────────────────────────
-technique  ->  concepto:tecnica                   # [44] fusiona con tecnica
+technique  ->  concepto:tecnica                   # [44]
 tecnica  ->  concepto:tecnica                     # [40]
 theory  ->  concepto:teoria-musical               # [29]
-music theory  ->  concepto:teoria-musical         # [0]
-caged-system  ->  concepto:caged                  # [15] el mazo que usas
+caged-system  ->  concepto:caged                  # [15]
 acordes  ->  concepto:acordes                     # [13]
-lectura-musical  ->  concepto:lectura-musical     # [0]
-sight-reading  ->  concepto:lectura-musical       # [0]
-solfeo  ->  concepto:solfeo                       # [0]
-groove  ->  concepto:grooves                      # [0]
+rhythm  ->  concepto:ritmo                        # [2] NUEVA
 ear training  ->  concepto:educacion-auditiva     # [1] NUEVA
-rhythm  ->  concepto:ritmo                        # [2] NUEVA — ¿o concepto:lectura-ritmica, que ya existe? # ??
-pattern  ->  concepto:patron                      # [1] NUEVA # ??
-syncopated  ->  concepto:sincopa                  # [0] NUEVA — sin uso, ¿borrar? # ??
-melodic  ->  __BORRAR__                           # [0] descriptor vago, sin uso
-canon  ->  concepto:canon                         # [1] NUEVA — ¿forma o concepto? # ??
+canon  ->  concepto:canon                         # [1] NUEVA — forma musical, no descriptor vago
+lectura-musical  ->  concepto:lectura-musical     # [0] fusión sin coste
+solfeo  ->  concepto:solfeo                       # [0] fusión sin coste
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -53,83 +49,91 @@ canon  ->  concepto:canon                         # [1] NUEVA — ¿forma o conc
 chad-johnson  ->  autor:chad-johnson              # [40]
 blake-neely  ->  autor:blake-neely                # [13]
 jens larsen  ->  autor:jens-larsen                # [6]
-willems  ->  autor:willems                        # [0]
+willems  ->  autor:willems                        # [0] fusión sin coste
 extremoduro  ->  artista:extremoduro              # [2]
 estopa  ->  artista:estopa                        # [1]
 michael jackson  ->  artista:michael-jackson      # [1]
 
 
 # ─────────────────────────────────────────────────────────────────────
-# ESTILO
+# ESTILO — los subgéneros de una pieza colapsan en el género padre
 # ─────────────────────────────────────────────────────────────────────
 blues  ->  estilo:blues                           # [23]
 rock  ->  estilo:rock                             # [10]
+pop rock  ->  estilo:rock                         # [2] colapsa
+hard rock  ->  estilo:rock                        # [1] colapsa
+stadium rock  ->  estilo:rock                     # [1] colapsa
+punk  ->  estilo:rock                             # [1] colapsa
 classical  ->  estilo:clasica                     # [9]
+lieder  ->  estilo:clasica                        # [1] colapsa
 folk  ->  estilo:folk                             # [8]
+colombian folk  ->  estilo:folk                   # [1] colapsa
+traditional  ->  estilo:folk                      # [1] colapsa
 jazz  ->  estilo:jazz                             # [6]
 modern jazz  ->  estilo:jazz-moderno              # [6]
 pop  ->  estilo:pop                               # [3]
 rock español  ->  estilo:rock-espanol             # [2]
-spanish rock  ->  estilo:rock-espanol             # [0] fusiona con la anterior
-pop rock  ->  estilo:pop-rock                     # [2] NUEVA
 dance  ->  estilo:dance                           # [3] NUEVA
-rumba catalana  ->  estilo:rumba-catalana         # [1]
-rumba  ->  estilo:rumba-catalana                  # [1] ¿es la misma que la anterior? # ??
-disco  ->  estilo:disco                           # [1] NUEVA
 funk  ->  estilo:funk                             # [1] NUEVA
-funky  ->  estilo:funk                            # [1] fusiona con la anterior
-funk rock  ->  estilo:funk-rock                   # [0] NUEVA — sin uso, ¿borrar? # ??
-punk  ->  estilo:punk                             # [1] NUEVA
-r&b  ->  estilo:rnb                               # [1] NUEVA
-hard rock  ->  estilo:hard-rock                   # [1] NUEVA
-stadium rock  ->  estilo:rock                     # [1] ¿subgénero propio o rock a secas? # ??
-80s  ->  estilo:anos-80                           # [1] NUEVA (anos-90 ya existe)
-traditional  ->  estilo:tradicional               # [1] NUEVA
-colombian folk  ->  estilo:folk-colombiano        # [1] NUEVA — o estilo:folk + lugar:colombia, pero el mapa es 1 a 1 # ??
-lieder  ->  estilo:lied                           # [1] NUEVA # ??
-romantic  ->  estilo:romantica                    # [2] ¿periodo romántico, o "melancólico"? Cambia la faceta # ??
-popular  ->  __BORRAR__                           # [1] no significa nada operativo # ??
+funky  ->  estilo:funk                            # [1]
+disco  ->  estilo:funk                            # [1] colapsa
+r&b  ->  estilo:funk                              # [1] colapsa
+rumba catalana  ->  estilo:rumba-catalana         # [1]
+rumba  ->  estilo:rumba-catalana                  # [1]
+80s  ->  estilo:anos-80                           # [1] NUEVA — eje de década, como anos-90 que ya existe
 
 
 # ─────────────────────────────────────────────────────────────────────
 # TIPO
 # ─────────────────────────────────────────────────────────────────────
-ejercicios  ->  tipo:ejercicios                   # [40] OJO: hoy existe evaluacion:ejercicios, que parece mal facetada # ??
-fake-book  ->  tipo:fake-book                     # [13] NUEVA — ¿o tipo:libro? # ??
+ejercicios  ->  tipo:ejercicios                   # [40]
+fake-book  ->  tipo:libro                         # [13] igual que en el mapa de las 188, ya revisado
 libro  ->  tipo:libro                             # [6]
 accompaniment  ->  tipo:acompanamiento            # [2]
-instrumental  ->  tipo:instrumental               # [1] NUEVA # ??
-anthem  ->  tipo:himno                            # [1] NUEVA # ??
-ballad  ->  tipo:balada                           # [1] NUEVA # ??
-dictation  ->  tipo:dictado                       # [0] NUEVA — hay DictadoPage, ¿tiene sentido mantenerla? # ??
-dummies  ->  __BORRAR__                           # [0] es una colección editorial, no una etiqueta útil # ??
-educational  ->  __BORRAR__                       # [0] todo el sitio es educativo
-formacion-musical  ->  __BORRAR__                 # [0] demasiado amplia
 
 
 # ─────────────────────────────────────────────────────────────────────
-# VOZ / PROGRESION / EVALUACION / OBRA
+# VOZ / PROGRESION / EVALUACION
 # ─────────────────────────────────────────────────────────────────────
 Coro  ->  voz:coro                                # [4]
-chord progression i-v-vi-iv  ->  progresion:I-V-VI-IV   # [1] NUEVA (hay 3 progresiones ya)
-2nd term  ->  evaluacion:trimestre-2              # [1] NUEVA (trimestre-3 ya existe)
-albinoni chords  ->  obra:adagio-de-albinoni      # [1] NUEVA — primera etiqueta de la faceta obra # ??
-spring  ->  obra:la-primavera                     # [1] ¿Vivaldi, o la estación? # ??
+chord progression i-v-vi-iv  ->  progresion:I-V-VI-IV   # [1] NUEVA
+2nd term  ->  evaluacion:trimestre-2              # [1] NUEVA
 
 
 # ─────────────────────────────────────────────────────────────────────
-# CARÁCTER — NO HAY FACETA PARA ESTO. Decisión tuya (ver nota abajo)
+# BORRADAS (26)
 # ─────────────────────────────────────────────────────────────────────
-melancholic  ->  caracter:melancolico             # [1] # ??
-energetic  ->  caracter:energico                  # [1] # ??
-upbeat  ->  caracter:animado                      # [1] # ??
-lyrical  ->  caracter:lirico                      # [1] # ??
-iconic  ->  caracter:iconico                      # [1] # ??
-driving  ->  caracter:motorico                    # [0] # ??
+# Carácter / estado de ánimo — decisión 1
+melancholic  ->  __BORRAR__                       # [1]
+energetic  ->  __BORRAR__                         # [1]
+upbeat  ->  __BORRAR__                            # [1]
+lyrical  ->  __BORRAR__                           # [1]
+iconic  ->  __BORRAR__                            # [1]
+driving  ->  __BORRAR__                           # [0]
+romantic  ->  __BORRAR__                          # [2] decisión 5
 
+# Descriptores vagos o de una sola pieza, sin faceta que los acoja
+popular  ->  __BORRAR__                           # [1]
+pattern  ->  __BORRAR__                           # [1]
+instrumental  ->  __BORRAR__                      # [1]
+anthem  ->  __BORRAR__                            # [1]
+ballad  ->  __BORRAR__                            # [1]
+nature  ->  __BORRAR__                            # [1]
 
-# ─────────────────────────────────────────────────────────────────────
-# SIN CLASIFICAR CLARA
-# ─────────────────────────────────────────────────────────────────────
-guitar solo  ->  instrumento:guitarra             # [1] describe que la pieza tiene un solo, no el instrumento del material # ??
-nature  ->  tema:naturaleza                       # [1] NUEVA # ??
+# Etiquetas de OBRA — el principal ya las convirtió en borrados al revisar
+# el mapa de las 188. Se mantiene el criterio.
+albinoni chords  ->  __BORRAR__                   # [1]
+spring  ->  __BORRAR__                            # [1]
+
+# Sin ningún uso — decisión 3 (las 12 restantes)
+dictation  ->  __BORRAR__                         # [0]
+dummies  ->  __BORRAR__                           # [0]
+educational  ->  __BORRAR__                       # [0]
+formacion-musical  ->  __BORRAR__                 # [0]
+funk rock  ->  __BORRAR__                         # [0]
+groove  ->  __BORRAR__                            # [0]
+melodic  ->  __BORRAR__                           # [0]
+music theory  ->  __BORRAR__                      # [0]
+sight-reading  ->  __BORRAR__                     # [0]
+spanish rock  ->  __BORRAR__                      # [0]
+syncopated  ->  __BORRAR__                        # [0]

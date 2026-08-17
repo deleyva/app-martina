@@ -63,7 +63,12 @@ doc  ->  tipo:documento
 dominante-tonica  ->  concepto:dominante-tonica
 dos-voces  ->  voz:dos-voces
 dummies  ->  tipo:libro
-ejercicios  ->  evaluacion:ejercicios
+ejercicios  ->  tipo:ejercicios
+# Corregido 2026-08-17: "ejercicios" es un TIPO de material, no una evaluación.
+# La línea de arriba ya no hace nada por sí sola — su origen se renombró el
+# 12/08 — así que la corrección real la aplica esta, con el nombre actual.
+# `evaluacion:ejercicios` tiene 0 usos, así que no mueve ningún etiquetado.
+evaluacion:ejercicios  ->  tipo:ejercicios
 estopa  ->  artista:estopa
 europa  ->  __BORRAR__
 examen-3term-4ESO  ->  evaluacion:examen-t3-4eso
