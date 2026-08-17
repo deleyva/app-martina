@@ -2,9 +2,9 @@
 slug: app-martina
 phase: complete
 progress: true
-iteration: 7
+iteration: 8
 principal_stated_goal: "ok! eliminemos study_sessions. Y vamos a desarrollar ReviewLog"
-updated: 2026-08-15
+updated: 2026-08-17
 ---
 
 # ISA — app-martina · Sistema de estudio de la biblioteca
@@ -26,9 +26,11 @@ updated: 2026-08-15
 | 5b | Cuota de novedad: lo nuevo no inunda la sesión | `b824d74` |
 | 6 | Trocear material largo en secciones (`ItemSection`) | `724ae7a` |
 | 7 | Los mazos sobreviven al renombrado + comentarios de plantilla que se veían | `18a2b0e`, `444af8e` |
+| 8 | **Un solo vocabulario de etiquetas** — mapa cerrado, código sin empezar | `b8572d1` (solo el mapa) |
 
 ### Lo siguiente, por orden
 
+0. **Fase 8 — `MusicTag` → taggit facetado. LISTA PARA EMPEZAR, esperando luz verde.** El mapa de las 80 está revisado y validado; lo que falta es la herramienta, y empieza por una **migración de esquema sobre cuatro modelos de página**. Ver la sección "Fase 8" al final, que lleva el plan, las decisiones ya tomadas y el punto exacto donde se paró. Es lo único de esta lista que está desbloqueado hoy.
 1. **Presupuesto de sesión en MINUTOS en vez de en elementos.** Es la mejor idea pendiente y la que arregla que "8 elementos" sea una unidad mentirosa cuando uno es un lick de 40 segundos y otro una pieza de 14 minutos. **Necesita datos**: `ReviewLog.duration_seconds` lleva recogiendo desde el 12/08/2026. Con dos semanas de práctica real, cada elemento tiene su mediana y el presupuesto se calibra solo. *Antes del 26/08 no tiene sentido tocarlo.*
 2. **Orden real dentro de un libro.** Hoy el material nuevo entra por orden de alta en la biblioteca, que coincide con el libro solo por casualidad. Hace falta modelar libro → sección → ejercicio con un ordinal. Es la misma pieza que pedía el troceo, así que encaja encima de `ItemSection`.
 3. **Revisar los plazos de caducidad con datos reales** (hoy 1/1/3/7/21 días por nivel). El de 21 días para "me lo sé muy bien" es el más dudoso: para un dato está bien, para tener una escala en las manos puede ser demasiado.
@@ -45,7 +47,8 @@ updated: 2026-08-15
 - **El vocabulario de etiquetas está partido en dos y solo uno tiene facetas.** `taggit.Tag` (139, facetadas) y `cms.MusicTag` (80, planas: `guitar`, `guitarra`, `jazz`, `piano`…). Encontrado en la fase 7. La fragmentación que motivó las facetas sigue entera en `MusicTag`, y la sesión de estudio no puede agrupar ni filtrar por nada de lo que viva ahí.
   - **La línea divisoria es limpia:** los ACTIVOS (imágenes y documentos de Wagtail, que son 95 de los 102 elementos de biblioteca) llevan taggit y ya están facetados. Los CONTENEDORES (las páginas) llevan `MusicTag` y están planos.
   - **No es un renombrado como el de las 188, y esto marca el tamaño del trabajo.** En `cms`, taggit solo lo usa `TaggableEmbed`; los cuatro tipos de página con `MusicTag` (BlogPage 255, ScorePage 44, DictadoPage 1, TestPage 0) **no tienen manager de taggit**. Hace falta añadirlo (`ClusterTaggableManager` + through, por las revisiones de Wagtail) y luego una migración de datos que re-etiquete, no un `UPDATE` de nombres.
-  - **Mapa propuesto y validado:** `my_library/migracion/mapa_musictags.txt` — 80 entradas, 65 destinos, 5 borrados, 9 fusiones. Pendiente de revisión del principal.
+  - **Mapa revisado y cerrado** (2026-08-17): `my_library/migracion/mapa_musictags.txt`. Ver fase 8.
+- **`content_hub` es una app muerta montada en producción.** Modelos, API, búsqueda, señales, urls y plantillas, en `INSTALLED_APPS` y en `config/urls.py`, con **0 filas** (`ContentItem` y `ContentLink` vacíos). Trae su propio `migrate_cms_to_content_hub`. Es un intento anterior de unificar el contenido, abandonado a medias. Sus señales siguen vivas: el `Failed to index ContentItem 3352: 'LibraryItem' object has no attribute 'title'` que sale en la suite viene de ahí. Decidir: enterrarla o resucitarla. Enterrarla sería la primera migración de este proyecto que se cierra del todo.
 
 ### Datos útiles para retomar
 
@@ -236,3 +239,62 @@ Lo que falló en la verificación de C17: se comprobó que ningún **objeto etiq
 - **Barrido de clase de los comentarios multilínea**: `rg '\{#' --glob '*.html'` filtrando las líneas sin `#}` → exactamente 2 en todo el proyecto, los dos de la semana pasada (`session_start.html:20`, `study_item_content.html:3`). Ampliado a `.txt/.md/.xml/.svg`: ninguno más.
 - **Un test escrito antes que la salvaguarda se volvió falso y hubo que reescribirlo.** `test_solo_mazos_no_toca_ninguna_etiqueta` ponía la etiqueta vieja viva y esperaba que el mazo se arrastrase: exactamente el caso CAGED, donde lo correcto es no tocar. El código estaba bien y la expectativa mal. Ahora monta el estado real de producción (etiqueta ya migrada, mazo apuntando al nombre muerto) y comprueba además que el juego de etiquetas no cambia.
 - **Docker Desktop no arranca desde una shell no interactiva** (`open -a Docker` vuelve sin error y no deja proceso). Lo abrió el principal a mano. Para la próxima: pedirlo antes de empezar, no a mitad.
+
+
+## Fase 8 — Un solo vocabulario de etiquetas · PLANIFICADA, SIN EMPEZAR
+
+> **Punto de retorno.** El mapa está cerrado y revisado. No se ha escrito ni una línea de código. Lo siguiente es la migración de esquema, y el principal pidió confirmarla antes de empezar porque toca cuatro modelos de página en producción.
+
+Cierra lo que la fase 4 dejó a medias. La fase 7 destapó que hay **dos vocabularios**: los ACTIVOS (imágenes y documentos de Wagtail — 95 de los 102 elementos de biblioteca) usan taggit y ya están facetados; los CONTENEDORES (las páginas) usan `MusicTag` y están planos. Mientras siga así, la sesión de estudio no puede agrupar ni filtrar por nada que viva en las páginas.
+
+### Estado real hoy (medido en producción 2026-08-17)
+
+| | |
+|---|---|
+| `taggit.Tag` | 139, facetadas |
+| `cms.MusicTag` | 80, planas |
+| Páginas con `MusicTag` | BlogPage 255 · ScorePage 44 · DictadoPage 1 · TestPage 0 |
+| Manager de taggit en esas páginas | **ninguno** — en `cms` solo lo tiene `TaggableEmbed` |
+| `MusicCategory` | 22, una TERCERA taxonomía que nadie ha tocado |
+
+### El mapa, ya cerrado
+
+`my_library/migracion/mapa_musictags.txt` — 80 entradas: **54 mapeadas hacia 39 destinos, 26 borradas**. Borrar cuesta 15 etiquetados, catorce de ellos de una sola pieza.
+
+Decisiones del principal (2026-08-17):
+
+1. **No se crea la faceta `caracter:`.** Las seis etiquetas de estado de ánimo se borran. Una faceta nueva con cinco usos se fragmenta sola.
+2. **`ejercicios` es un TIPO de material, no una evaluación.** 40 páginas. Corregida también `evaluacion:ejercicios` en el mapa de taggit — tiene 0 usos, así que no mueve ningún etiquetado.
+3. **De las 15 sin uso: se fusionan 3 con destino vivo, se borran 12.** Da igual funcionalmente (nadie las lleva), pero deja el vocabulario limpio.
+4. **Los subgéneros de una sola pieza colapsan en su género padre.** Crear nueve estilos para nueve piezas es cómo nació la fragmentación que estamos deshaciendo.
+5. **`romantic` se borra** — ambigua entre periodo y carácter.
+
+**Validación hecha sobre los dos mapas:** las 80 cubiertas, ninguna inventada, ninguna duplicada, ninguna faceta desconocida, y sin cadenas origen→destino→origen en ninguno de los dos (siguen siendo idempotentes).
+
+**Y un cruce que conviene repetir en el futuro:** de los 33 nombres presentes en los DOS vocabularios, 30 coincidían y **3 contradecían decisiones de agosto**. `fake-book` volvió a `tipo:libro` por eso. Antes de proponer un mapa nuevo, cruzarlo siempre con el ya aprobado.
+
+### Lo que falta, por orden de riesgo
+
+- [ ] **C33 — Las cuatro páginas tienen manager de taggit.** `ClusterTaggableManager` + through model por tipo de página; el through hace falta por el sistema de revisiones de Wagtail. *Es una migración de esquema en producción: el paso con riesgo, y el que el principal quiere confirmar antes.*
+- [ ] **C34 — Un comando lee el mapa y re-etiqueta las páginas.** No sirve `migrar_etiquetas`: aquel renombra filas de taggit, este mueve de un modelo a otro. Mismo contrato, eso sí — ensayo en seco por defecto, `--ejecutar` para aplicar, todo en una transacción. *Probe: tests sobre fusiones, borrados e idempotencia, más ensayo en seco contra datos reales.*
+- [ ] **C35 — Ningún elemento de biblioteca pierde etiquetas.** El equivalente al control que se hizo con las 188, y esta vez incluyendo lo que aporta `source_page`. *Probe: `build_tag_map` antes y después, comparado elemento a elemento.*
+- [ ] **C36 — `build_tag_map` deja de leer de dos sitios.** Hoy recoge de los dos vocabularios sin distinguir. Al terminar debe leer solo taggit. *Probe: los tres mazos siguen contando 11 / 23 / 9.*
+- [ ] **C37 — `MusicTag` queda vacío y se decide su destino.** Borrar el modelo y el campo `tags` de las cuatro páginas, o dejarlo muerto. Dejarlo muerto es lo que produjo `content_hub`.
+
+### Anti-claims
+
+- **Ningún mazo cambia de recuento** salvo por ganar elementos. Los tres actuales cuentan 11 / 23 / 9; ese es el control.
+- **No se toca `MusicCategory`** en esta fase. Pero queda escrito que es la tercera taxonomía y que unificar etiquetas sin decidir qué pasa con ella repite la media migración.
+- **No se cambia ningún tipo de página.** El debate ScorePage → BlogPage es aparte (ver abajo) y no bloquea nada de esto.
+
+### El debate ScorePage → BlogPage, para no repetirlo
+
+El principal propuso el 17/08 eliminar `ScorePage` y pasar todo a `BlogPage` bajo la biblioteca musical. Análisis crítico hecho ese día; conclusión: **la parte de las etiquetas es la buena y la de los tipos de página es limpieza disfrazada de arreglo.** Los tres argumentos, con los números:
+
+1. **Sería la tercera unificación y las dos anteriores están a medias.** `content_hub` vacío y montado; las facetas, a medio vocabulario. El patrón no es "el modelo está mal elegido", es "las migraciones se empiezan y no se cierran".
+2. **`source_page` está en 98 de los 102 elementos y es de donde salen las etiquetas.** Cambiar el tipo de página en Wagtail no es editar: o creas páginas nuevas —y revientas las 98— o haces cirugía sobre `page_ptr`. Y `clases.GroupLibraryItem.get_related_scorepage()` busca ScorePages hacia atrás; habría que reescribirlo.
+3. **`BlogPage` no es más simple, es especializado en otra cosa.** Obliga a `date` e `intro`; y se pierden `composer` (**43 de 44** ScorePages lo usan), el bloque `metadata` (12) y `embed` (4). El candidato honesto para "un solo tipo" sería un `MaterialPage` genérico, no BlogPage.
+
+Datos que salieron de paso: los `bookmarks` de ScorePage **no se usan en ninguna de las 44** — y `ItemSection` (fase 6) ya hace eso mejor y por usuario. Y `BlogPage.parent_page_types` **ya incluye** `MusicLibraryIndexPage`, así que se puede dejar de crear ScorePages hoy mismo sin migrar nada.
+
+Secuencia acordada: **A)** esta fase 8. **B)** congelar `ScorePage` y crear lo nuevo como BlogPage — cero riesgo, y el problema deja de crecer. **C)** enterrar o resucitar `content_hub`. **D)** las 44 ScorePages, solo si sigue doliendo, y con un plan explícito para las 98 `source_page`.
