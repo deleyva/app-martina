@@ -348,7 +348,7 @@ segundo**; `18:09:27` callback y otro `track/` en el mismo segundo.
 - [x] **C9.4 — `AppModeMiddleware` solo escribe cuando el modo cambia.** *Probe: `AppModeMiddlewareTests`, 6 tests — el defecto no se persiste, repetir incidencias no vuelve a marcar `modified`, y `/analytics/` nunca decide el modo.*
 - [x] **C9.5 — La identidad de analítica es propia, validada y compatible.** *Probe: `VisitorIdentityTests` — UUID válido mide, `session_key` antiguo sigue midiendo, y basura (path traversal, 200 caracteres, vacío, entero, nulo) se ignora con 202 sin crear filas.*
 - [x] **C9.6 — La suite sigue en verde, sin regresiones nuevas.** *Probe: suite completa con `--create-db` a ambos lados de un `git stash`. **Antes: 9 failed / 323 passed. Después: 7 failed / 339 passed.** Los 9 de partida son exactamente los preexistentes documentados; los 2 de analytics eran un `reverse('track_activity')` sin namespace y quedan arreglados de paso. Los 7 restantes (5 cms, 2 incidencias) siguen intactos: no los toca este run.*
-- [ ] **C9.7 — Verificado en producción tras desplegar**: un login con Google real completa. *Probe: navegador real. Interceptor sigue bloqueado por el setup manual de Chrome, así que lo conduce el principal. **Pendiente: requiere aprobación de push + deploy.***
+- [~] **C9.7 — Verificado en producción tras desplegar.** Desplegado el 2026-08-20; `analytics.0003` aplicada OK. **El mecanismo está verificado de extremo a extremo contra producción por HTTP**: se arranca el login (se guarda el `state`), se dispara una petición de telemetría con esa misma cookie —la que antes rompía el flujo— y se vuelve por el callback; el `state` **sigue ahí** y el flujo llega hasta el token endpoint de Google, fallando solo por el `code` falso (`invalid_grant`) y pintando la línea de `Excepcion` que la captura del principal NO tenía. La respuesta de `/analytics/track/` ya no trae `Set-Cookie` de sesión, y la home ya no abre sesión a un visitante anónimo. *Queda abierta la última milla:* un login real con la cuenta de Google del principal, en su navegador. Interceptor sigue bloqueado por el setup manual de Chrome y además es su cuenta, así que ese clic es suyo.
 
 ### Decisiones
 
@@ -378,3 +378,12 @@ segundo**; `18:09:27` callback y otro `track/` en el mismo segundo.
 - **`unique=True` se comprobó contra producción antes de escribirlo**: 338 filas, 0 grupos duplicados, 0 vacías, todas de 32 caracteres. Las nuevas serán UUID de 36; `max_length=40` cubre ambas.
 - **Deuda encontrada, no tocada:** `config/settings/test.py:36` tiene `MEDIA_URL = "http://media.testserver"` sin barra final, lo que rompe `manage.py <lo que sea>` bajo settings de test con `urls.E006`. `pytest` no ejecuta system checks, así que la suite nunca lo notó. Se esquivó con `--skip-checks`; el arreglo es un carácter, pero es de otro run.
 - **Docker Desktop no arranca en esta máquina** (el proceso muere sin dejar el daemon en pie), así que la suite se corrió en un venv con `uv` contra el Postgres local de homebrew en vez de `just test`. Mismo `--ds=config.settings.test`.
+
+### Deploy — 2026-08-20
+
+- Copia de la BD de producción **antes** de tocar el esquema: `production_backup_2026_08_20T12_55_20.sql.gz`.
+- `analytics.0003_usersession_visitor_id` aplicada OK. **Datos intactos tras el RENAME**: 338 `UserSession`, 3.917 `PageVisit`, 5.579 `Interaction`, idénticos a la medición previa (A9.1 cerrada).
+- Los cinco contenedores en `running`. La página de login responde 200 con el botón de Google.
+- Los dos únicos `ERROR` posteriores al deploy son de la propia prueba de extremo a extremo, con `code` falso. Que digan `exception=Error retrieving access token` en vez de `exception=None` **es la prueba**: el `state` se encontró.
+- `martina_bescos_app.users.tasks.clear_expired_sessions` registrada en el consumidor de huey; primer barrido a las 04:30. Hoy la tabla `django_session` tiene 107.016 filas y solo ~17.400 vivas; mañana debería bajar sola.
+- La fila de analítica que creó la prueba se borró después (2 objetos: la sesión y su visita en cascada). Vuelta a 338.
