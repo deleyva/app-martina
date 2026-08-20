@@ -1,4 +1,7 @@
-const SESSION_COOKIE_NAME = 'analytics_session';
+// Clave de localStorage donde vive el identificador de visitante. Se mantiene
+// el nombre histórico a propósito: cambiarlo reiniciaría la identidad de todos
+// los visitantes actuales sin ganar nada.
+const VISITOR_STORAGE_KEY = 'analytics_session';
 const TRACKING_ENDPOINT = '/analytics/track/';
 
 // Function to generate a simple UUID (or use libraries like uuid)
@@ -12,11 +15,11 @@ function generateUUID() {
 
 // Function to send tracking data
 function sendTrackingData(eventType, data) {
-    const sessionKey = localStorage.getItem(SESSION_COOKIE_NAME) || generateUUID();
-    localStorage.setItem(SESSION_COOKIE_NAME, sessionKey);
+    const visitorId = localStorage.getItem(VISITOR_STORAGE_KEY) || generateUUID();
+    localStorage.setItem(VISITOR_STORAGE_KEY, visitorId);
 
     const trackingData = {
-        session_key: sessionKey,
+        visitor_id: visitorId,
         event_type: eventType,
         url: window.location.href,
         title: document.title,

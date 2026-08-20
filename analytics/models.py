@@ -10,7 +10,12 @@ class UserSession(models.Model):
         blank=True,
         related_name='analytics_sessions'
     )
-    session_key = models.CharField(max_length=40, db_index=True)
+    #: UUID v4 generado por el navegador y guardado en su `localStorage`. Antes
+    #: se guardaba aquí la clave de sesión de Django, lo que ataba la telemetría
+    #: a la sesión de autenticación; ver `analytics.views.resolve_visitor_id`.
+    #: Las filas anteriores al renombrado conservan su clave de sesión de 32
+    #: caracteres como identificador histórico: siguen siendo únicas y válidas.
+    visitor_id = models.CharField(max_length=40, unique=True)
     ip_address = models.GenericIPAddressField(null=True, blank=True)
     user_agent = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

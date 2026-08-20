@@ -3,9 +3,38 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from .models import UserSession, PageVisit, Interaction
 import json
+import uuid
 from django.contrib.admin.views.decorators import staff_member_required
 from django.shortcuts import render
 from django.db.models import Count, Avg, F, Q
+
+
+def resolve_visitor_id(data):
+    """
+    Identidad de visitante para la analítica, tomada del cuerpo de la petición.
+
+    Esta función existe para que la telemetría NUNCA toque `request.session`.
+    La sesión es de autenticación: escribir en ella desde aquí acuñaba una
+    cookie nueva a mitad de un login con Google y borraba el `state` que allauth
+    había guardado, con lo que el callback moría con `Codigo: unknown`.
+
+    `analytics.js` ya generaba un UUID v4 por navegador y lo guardaba en
+    `localStorage`; lo mandaba en el cuerpo como `session_key` y el backend lo
+    ignoraba. Se acepta el nombre nuevo (`visitor_id`) y el antiguo, para que
+    los navegadores con el JS viejo cacheado sigan midiendo sin día de corte.
+
+    Devuelve None si no llega un UUID válido. En ese caso no se registra nada:
+    generar uno aquí crearía una fila por petición para cualquier bot que
+    golpee este endpoint, que es `csrf_exempt`.
+    """
+    raw = data.get('visitor_id') or data.get('session_key')
+    if not isinstance(raw, str):
+        return None
+    try:
+        return str(uuid.UUID(raw))
+    except ValueError:
+        return None
+
 
 @csrf_exempt
 def track_activity(request):
@@ -13,13 +42,15 @@ def track_activity(request):
         data = json.loads(request.body)
         event_type = data.get('event_type')
 
-        session_key = request.session.session_key
-        if not session_key:
-            request.session.create()
-            session_key = request.session.session_key
+        visitor_id = resolve_visitor_id(data)
+        if visitor_id is None:
+            return JsonResponse(
+                {'status': 'ignored', 'reason': 'missing or invalid visitor_id'},
+                status=202,
+            )
 
         user_session, created = UserSession.objects.get_or_create(
-            session_key=session_key,
+            visitor_id=visitor_id,
             defaults={
                 'user': request.user if request.user.is_authenticated else None,
                 'ip_address': request.META.get('REMOTE_ADDR'),

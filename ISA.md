@@ -1,10 +1,10 @@
 ---
 slug: app-martina
-phase: complete
+phase: verify
 progress: true
-iteration: 8
-principal_stated_goal: "ok! eliminemos study_sessions. Y vamos a desarrollar ReviewLog"
-updated: 2026-08-17
+iteration: 9
+principal_stated_goal: "ok, quiero que hagas lo más limpio y con visión de futuro"
+updated: 2026-08-19
 ---
 
 # ISA — app-martina · Sistema de estudio de la biblioteca
@@ -298,3 +298,83 @@ El principal propuso el 17/08 eliminar `ScorePage` y pasar todo a `BlogPage` baj
 Datos que salieron de paso: los `bookmarks` de ScorePage **no se usan en ninguna de las 44** — y `ItemSection` (fase 6) ya hace eso mejor y por usuario. Y `BlogPage.parent_page_types` **ya incluye** `MusicLibraryIndexPage`, así que se puede dejar de crear ScorePages hoy mismo sin migrar nada.
 
 Secuencia acordada: **A)** esta fase 8. **B)** congelar `ScorePage` y crear lo nuevo como BlogPage — cero riesgo, y el problema deja de crecer. **C)** enterrar o resucitar `content_hub`. **D)** las 44 ScorePages, solo si sigue doliendo, y con un plan explícito para las 98 `source_page`.
+
+## Fase 9 — La telemetría deja de escribir en la sesión de autenticación
+
+> Run 9 · 2026-08-19 · Goal verbatim: *"ok, quiero que hagas lo más limpio y con visión de futuro"*
+> Disparador: el login con Google fallaba con `Codigo: unknown` y sin línea de `Excepcion`.
+
+### El defecto, medido antes de tocar código
+
+La pantalla de error de allauth se reprodujo por HTTP contra producción **antes** de leer el código sospechoso.
+La ausencia de la línea `Excepcion` es el discriminador: la plantilla solo la pinta si hay excepción, y en
+allauth 65.3.1 solo dos rutas fallan sin excepción. Los logs de nginx descartan una (los dos callbacks traían
+`code` y `state` y **ningún** `error=`), así que queda `_get_state()` devolviendo `None`:
+`render_authentication_error(request, provider)` con sus defaults `error=UNKNOWN, exception=None`.
+
+Es decir: Google consintió bien y allauth no encontró **su propio `state`** en la sesión.
+
+Dos defectos independientes, ambos de la misma clase — *plomería de UI/telemetría escribiendo en la sesión de auth*:
+
+- **D1 · `analytics/views.py:16-19` llamaba a `request.session.create()`.** En Django 5.0.11 (verificado con
+  `inspect.getsource` dentro del contenedor de producción) `create()` acuña una clave nueva, guarda una sesión
+  vacía y marca `modified = True`, así que `SessionMiddleware` emite un `Set-Cookie: __Secure-sessionid` nuevo.
+  Una petición de telemetría sin cookie **reescribía la cookie de sesión del navegador** a mitad del login.
+- **D2 · `AppModeMiddleware` escribía `app_mode` en cada petición no exenta, y `/analytics/track/` no estaba
+  exenta.** `SessionBase.__setitem__` marca `modified = True` siempre, aunque el valor no cambie. El backend de
+  sesión en BD serializa el diccionario **entero**, así que dos peticiones concurrentes son un
+  read-modify-write sin bloqueo: la que carga antes y guarda después **borra `socialaccount_states`**.
+  Esto ocurre aunque la cookie no cambie, y por sí solo basta para romper el login.
+
+Cuadra con la cronología de nginx al segundo: `18:09:21` authorize y `POST /analytics/track/` en el **mismo
+segundo**; `18:09:27` callback y otro `track/` en el mismo segundo.
+
+### Anti-claims
+
+- **A9.1** — La analítica no pierde su continuidad histórica: las 338 filas de `UserSession` y sus 3.917
+  `PageVisit` / 5.579 `Interaction` sobreviven con sus mismos valores y relaciones.
+- **A9.2** — El endpoint de telemetría no vuelve a tocar `request.session` en ninguna de sus ramas. Ni leer
+  para escribir, ni `create()`, ni `save()`.
+- **A9.3** — No se cambia el comportamiento visible de `app_mode`: quien navega por `/incidencias/` sigue
+  viendo su plantilla base, y el logout sigue devolviéndole a su landing.
+- **A9.4** — No se ejecuta ningún borrado de datos en producción en este run. La limpieza de sesiones caducadas
+  usa el comando estándar de Django, que por definición solo toca filas ya expiradas.
+
+### Claims
+
+- [x] **C9.1 — La telemetría no toca la sesión.** *Probe: `grep -rnE 'request\.session[.\[]|request\.session *=' analytics/*.py` → 0 usos en código. La única aparición de la cadena es el docstring de `resolve_visitor_id` que explica la prohibición.*
+- [x] **C9.2 — Un POST de telemetría no altera la cookie de sesión.** *Probe: `TelemetryDoesNotTouchSessionTests::test_tracking_does_not_issue_a_session_cookie` y `::test_tracking_does_not_rotate_an_existing_session`. El primero FALLA contra el middleware antiguo y pasa contra el nuevo — comprobado revirtiendo el fichero y volviéndolo a poner.*
+- [x] **C9.3 — El `state` de OAuth sobrevive a la telemetría.** Cerrada por `test_tracking_performs_no_session_write_at_all`, que es la condición necesaria y sí es comprobable: **sin escritura no hay read-modify-write y sin eso no hay carrera**. *Probe: el test falla contra el middleware antiguo (metía `app_mode='main'` en cada POST a `/analytics/track/`) y pasa contra el nuevo.* **Anotado con honestidad:** la carrera en sí necesita concurrencia real y un cliente de test secuencial no la reproduce; `test_oauth_state_survives_a_tracking_request` documenta el invariante pero pasaría también sobre el código viejo.
+- [x] **C9.4 — `AppModeMiddleware` solo escribe cuando el modo cambia.** *Probe: `AppModeMiddlewareTests`, 6 tests — el defecto no se persiste, repetir incidencias no vuelve a marcar `modified`, y `/analytics/` nunca decide el modo.*
+- [x] **C9.5 — La identidad de analítica es propia, validada y compatible.** *Probe: `VisitorIdentityTests` — UUID válido mide, `session_key` antiguo sigue midiendo, y basura (path traversal, 200 caracteres, vacío, entero, nulo) se ignora con 202 sin crear filas.*
+- [x] **C9.6 — La suite sigue en verde, sin regresiones nuevas.** *Probe: suite completa con `--create-db` a ambos lados de un `git stash`. **Antes: 9 failed / 323 passed. Después: 7 failed / 339 passed.** Los 9 de partida son exactamente los preexistentes documentados; los 2 de analytics eran un `reverse('track_activity')` sin namespace y quedan arreglados de paso. Los 7 restantes (5 cms, 2 incidencias) siguen intactos: no los toca este run.*
+- [ ] **C9.7 — Verificado en producción tras desplegar**: un login con Google real completa. *Probe: navegador real. Interceptor sigue bloqueado por el setup manual de Chrome, así que lo conduce el principal. **Pendiente: requiere aprobación de push + deploy.***
+
+### Decisiones
+
+- **La identidad de analítica se toma del cliente, no del servidor.** `analytics.js` ya generaba un UUID v4 y
+  lo guardaba en `localStorage`, mandándolo en el cuerpo como `session_key`; el backend lo **ignoraba** y usaba
+  la sesión de Django. El arreglo limpio no es inventar un mecanismo nuevo: es usar el que ya estaba escrito.
+  El servidor lo valida como UUID y descarta lo que no lo sea.
+- **Sin `visitor_id` válido no se registra nada (202), no se genera uno en servidor.** Generarlo crearía una
+  fila por petición para cualquier bot que golpee un endpoint que es `csrf_exempt`. El JS siempre manda uno,
+  así que ningún usuario real pierde medición.
+- **`app_mode` deja de persistir el valor `'main'`.** Es el defecto: los dos únicos consumidores
+  (`utils/context_processors.py:10` y `users/adapters.py:114`) comparan contra `'incidencias'` y nada más, así
+  que su ausencia ya significa "main". No guardarlo es lo que corta de raíz una fila de sesión por visitante
+  anónimo — el origen real de las 107.016 sesiones en la tabla frente a solo 338 `UserSession`.
+- **`/analytics/` pasa a ser ruta no navegacional.** Además de la carrera, había un bug latente: navegando por
+  `/incidencias/`, el POST de telemetría caía en la rama `else` y devolvía el modo a `'main'`.
+- **Renombrado `session_key` → `visitor_id` en `UserSession`.** El campo llevaba meses mintiendo. Son 338
+  filas y en Postgres `RENAME COLUMN` es metadata, así que es barato hacerlo bien ahora.
+- **El backend acepta `visitor_id` y `session_key` durante la transición.** Los navegadores con el JS viejo
+  cacheado siguen midiendo sin día de corte.
+
+### Log
+
+- **El bug se reprodujo antes de leer el código sospechoso**, por HTTP contra producción: un callback sin cookie de sesión pinta `Codigo: unknown` sin línea de `Excepcion`, idéntico a la captura del principal; el mismo callback CON cookie llega hasta el token endpoint de Google y pinta `Excepcion: invalid_grant`. Ese A/B es lo que localizó el fallo en `_get_state()` y descartó todo lo demás.
+- **Barrido de la clase de defecto** (`plomería escribiendo en la sesión de auth`): `grep -rn "session\.create()\|session\.save()\|session\.cycle_key\|session\.flush"` sobre todo el árbol devuelve dos sitios vivos, los dos arreglados. El tercer hit, `clases/views.py:379`, es un `ClassSession.save()` del ORM, no una sesión de Django — verificado leyendo el bloque.
+- **La migración se escribió a mano.** `makemigrations` no detecta renombrados sin preguntar por consola y proponía drop + add, que habría tirado las 338 filas. `RenameField` + `AlterField` las conserva. `makemigrations --check --dry-run` sale limpio.
+- **`unique=True` se comprobó contra producción antes de escribirlo**: 338 filas, 0 grupos duplicados, 0 vacías, todas de 32 caracteres. Las nuevas serán UUID de 36; `max_length=40` cubre ambas.
+- **Deuda encontrada, no tocada:** `config/settings/test.py:36` tiene `MEDIA_URL = "http://media.testserver"` sin barra final, lo que rompe `manage.py <lo que sea>` bajo settings de test con `urls.E006`. `pytest` no ejecuta system checks, así que la suite nunca lo notó. Se esquivó con `--skip-checks`; el arreglo es un carácter, pero es de otro run.
+- **Docker Desktop no arranca en esta máquina** (el proceso muere sin dejar el daemon en pie), así que la suite se corrió en un venv con `uv` contra el Postgres local de homebrew en vez de `just test`. Mismo `--ds=config.settings.test`.
