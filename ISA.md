@@ -28,7 +28,7 @@ updated: 2026-08-21
 | 7 | Los mazos sobreviven al renombrado + comentarios de plantilla que se veían | `18a2b0e`, `444af8e` |
 | 8 | **Un solo vocabulario de etiquetas** — mapa cerrado, código sin empezar | `b8572d1` (solo el mapa) |
 | 9 | La telemetría deja de pisar la sesión de OAuth — login con Google arreglado | `8c8605b` |
-| 10 | **La nota se guardaba en el item equivocado** — encontrado al verificar C12 en navegador | pendiente de commit |
+| 10 | **La nota se guardaba en el item equivocado** — encontrado al verificar C12 en navegador | `7bec854` |
 
 ### Lo siguiente, por orden
 
