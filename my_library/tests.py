@@ -1476,3 +1476,257 @@ def test_el_planificador_podra_filtrar_solo_practica_real(client, library_item, 
 
     assert ReviewLog.objects.count() == 2
     assert ReviewLog.objects.filter(source=ReviewLog.SOURCE_STUDY).count() == 1
+
+
+# === Fase 8: mover las etiquetas de MusicTag a taggit facetado ===
+
+
+def _pagina_con_musictags(titulo, slug, nombres, modelo=None, **extra):
+    """Una página real bajo la raíz, con sus `MusicTag` puestas.
+
+    Wagtail no deja crear una página suelta: necesita padre en el árbol, y por
+    eso no vale con `Modelo.objects.create`. `BlogPage` además OBLIGA a
+    `date` e `intro` — es el dato que sostiene el argumento 3 del debate
+    ScorePage -> BlogPage, y aquí se confirma solo.
+    """
+    from cms.models import MusicTag, ScorePage
+    from wagtail.models import Page
+
+    modelo = modelo or ScorePage
+    raiz = Page.objects.get(id=2)
+    pagina = modelo(title=titulo, slug=slug, **extra)
+    raiz.add_child(instance=pagina)
+    for nombre in nombres:
+        etiqueta, _ = MusicTag.objects.get_or_create(name=nombre)
+        pagina.tags.add(etiqueta)
+    pagina.save()
+    return pagina
+
+
+def _mapa_musictags(tmp_path, lineas):
+    mapa = tmp_path / "mapa_musictags.txt"
+    mapa.write_text("\n".join(lineas) + "\n")
+    return mapa
+
+
+def _migrar_musictags(tmp_path, lineas, ejecutar=False):
+    from django.core.management import call_command
+
+    args = ["migrar_musictags", "--mapa", str(_mapa_musictags(tmp_path, lineas))]
+    if ejecutar:
+        args.append("--ejecutar")
+    call_command(*args)
+
+
+def _plan(tmp_path, lineas):
+    from my_library.management.commands.migrar_musictags import (
+        leer_mapa,
+        planificar_paginas,
+    )
+
+    return planificar_paginas(leer_mapa(_mapa_musictags(tmp_path, lineas)))
+
+
+def test_el_plan_traduce_la_etiqueta_plana_a_su_faceta(db, tmp_path):
+    _pagina_con_musictags("Blues en La", "blues-en-la", ["guitar"])
+
+    plan = _plan(tmp_path, ["guitar -> instrumento:guitarra"])
+
+    assert len(plan) == 1
+    _pagina, viejos, nuevos, pelada = plan[0]
+    assert viejos == ["guitar"]
+    assert nuevos == ["instrumento:guitarra"]
+    assert not pelada
+
+
+def test_tres_musictags_al_mismo_destino_no_duplican(db, tmp_path):
+    """`guitar`, `guitarra` y `guitar solo` van las tres a la misma faceta. Sin
+    deduplicar, la escritura reventaría contra la unicidad del through model."""
+    _pagina_con_musictags(
+        "Metodo", "metodo", ["guitar", "guitarra", "guitar solo"]
+    )
+
+    plan = _plan(
+        tmp_path,
+        [
+            "guitar -> instrumento:guitarra",
+            "guitarra -> instrumento:guitarra",
+            "guitar solo -> instrumento:guitarra",
+        ],
+    )
+
+    assert plan[0][2] == ["instrumento:guitarra"]
+
+
+def test_borrar_saca_la_etiqueta_del_plan(db, tmp_path):
+    _pagina_con_musictags("Balada", "balada", ["guitar", "melancholic"])
+
+    plan = _plan(
+        tmp_path,
+        ["guitar -> instrumento:guitarra", "melancholic -> __BORRAR__"],
+    )
+
+    assert plan[0][2] == ["instrumento:guitarra"]
+
+
+def test_una_pagina_con_todo_borrado_queda_marcada(db, tmp_path):
+    """No frena la migración, pero es pérdida real de información y el
+    principal tiene que verla antes de aceptarla."""
+    _pagina_con_musictags("Iconica", "iconica", ["iconic", "upbeat"])
+
+    plan = _plan(tmp_path, ["iconic -> __BORRAR__", "upbeat -> __BORRAR__"])
+
+    _pagina, viejos, nuevos, pelada = plan[0]
+    assert nuevos == []
+    assert pelada
+    assert sorted(viejos) == ["iconic", "upbeat"]
+
+
+def test_las_paginas_sin_etiquetas_no_entran_en_el_plan(db, tmp_path):
+    _pagina_con_musictags("Vacia", "vacia", [])
+    _pagina_con_musictags("Con etiqueta", "con-etiqueta", ["guitar"])
+
+    plan = _plan(tmp_path, ["guitar -> instrumento:guitarra"])
+
+    assert len(plan) == 1
+
+
+def test_los_cuatro_tipos_de_pagina_entran_en_el_plan(db, tmp_path):
+    from cms.models import BlogPage, DictadoPage, ScorePage, TestPage
+
+    _pagina_con_musictags("Score", "score-g", ["guitar"], modelo=ScorePage)
+    _pagina_con_musictags("Dictado", "dictado-g", ["guitar"], modelo=DictadoPage)
+    _pagina_con_musictags("Test", "test-g", ["guitar"], modelo=TestPage)
+    _pagina_con_musictags(
+        "Blog",
+        "blog-g",
+        ["guitar"],
+        modelo=BlogPage,
+        date=timezone.now().date(),
+        intro="Entrada de prueba",
+    )
+
+    plan = _plan(tmp_path, ["guitar -> instrumento:guitarra"])
+
+    tipos = {type(p).__name__ for p, _v, _n, _s in plan}
+    assert tipos == {"ScorePage", "DictadoPage", "TestPage", "BlogPage"}
+
+
+def test_el_plan_es_el_mismo_se_haya_ejecutado_o_no(db, tmp_path):
+    """Se aplica el MAPA, no el estado de taggit. Por eso una ejecución que se
+    quedó a medias se retoma volviendo a lanzar el comando."""
+    from taggit.models import Tag
+
+    _pagina_con_musictags("Blues", "blues-idem", ["guitar"])
+    antes = _plan(tmp_path, ["guitar -> instrumento:guitarra"])
+
+    Tag.objects.create(name="instrumento:guitarra", slug="instrumento-guitarra")
+    despues = _plan(tmp_path, ["guitar -> instrumento:guitarra"])
+
+    assert [(p.pk, n) for p, _v, n, _s in antes] == [
+        (p.pk, n) for p, _v, n, _s in despues
+    ]
+
+
+def test_una_musictag_fuera_del_mapa_aborta(db, tmp_path):
+    """Si alguien etiqueta en el admin después de cerrar el mapa, esa etiqueta
+    se quedaría fuera en silencio. Así es como se pierde media migración."""
+    from django.core.management.base import CommandError
+
+    _pagina_con_musictags("Nueva", "nueva", ["guitar", "bulerias"])
+
+    with pytest.raises(CommandError, match="no están en el mapa"):
+        _migrar_musictags(tmp_path, ["guitar -> instrumento:guitarra"])
+
+
+def test_una_cadena_en_el_mapa_aborta(db, tmp_path):
+    """`a -> b` y `b -> c` hace que ejecutar dos veces no dé lo mismo."""
+    from django.core.management.base import CommandError
+
+    with pytest.raises(CommandError, match="cadenas"):
+        _migrar_musictags(
+            tmp_path,
+            ["guitar -> guitarra", "guitarra -> instrumento:guitarra"],
+        )
+
+
+def test_dos_origenes_que_solo_cambian_en_mayusculas_abortan(db, tmp_path):
+    """`MusicTag.name` distingue mayúsculas y el emparejamiento de mazos no.
+    El resultado dependería del orden de lectura del fichero."""
+    from django.core.management.base import CommandError
+
+    with pytest.raises(CommandError, match="mayúsculas"):
+        _migrar_musictags(
+            tmp_path,
+            ["Coro -> voz:coro", "coro -> concepto:canon"],
+        )
+
+
+def test_una_faceta_desconocida_aborta(db, tmp_path):
+    """La etiqueta nacería muerta: `facets.parse` no la reconoce, así que no
+    agrupa ni filtra. Falla en silencio, que es la peor forma de fallar."""
+    from django.core.management.base import CommandError
+
+    _pagina_con_musictags("Melancolica", "melancolica", ["melancholic"])
+
+    with pytest.raises(CommandError, match="Faceta desconocida|facetas que no existen"):
+        _migrar_musictags(tmp_path, ["melancholic -> caracter:melancolico"])
+
+
+def test_en_seco_no_crea_ninguna_etiqueta_en_taggit(db, tmp_path):
+    from taggit.models import Tag
+
+    _pagina_con_musictags("Blues", "blues-seco", ["guitar"])
+
+    _migrar_musictags(tmp_path, ["guitar -> instrumento:guitarra"])
+
+    assert not Tag.objects.filter(name="instrumento:guitarra").exists()
+
+
+def test_en_seco_no_borra_ninguna_musictag(db, tmp_path):
+    """Qué pasa con el modelo `MusicTag` es C37. Mezclar el movimiento con el
+    borrado dejaría sin red la comprobación de paridad de C35."""
+    from cms.models import MusicTag
+
+    _pagina_con_musictags("Iconica", "iconica-seco", ["iconic"])
+
+    _migrar_musictags(tmp_path, ["iconic -> __BORRAR__"])
+
+    assert MusicTag.objects.filter(name="iconic").exists()
+
+
+def test_el_plan_separa_lo_que_fusiona_de_lo_que_crea(db, tmp_path):
+    """Con 139 etiquetas ya facetadas, un mapa sano crea muy pocas. Ver esa
+    cuenta es lo que dice si el mapa fusiona con el vocabulario bueno o se
+    inventa ramas nuevas."""
+    from my_library.management.commands.migrar_musictags import clasificar_destinos
+    from taggit.models import Tag
+
+    Tag.objects.create(name="instrumento:guitarra", slug="instrumento-guitarra")
+    _pagina_con_musictags("Dos", "dos", ["guitar", "blues"])
+
+    plan = _plan(
+        tmp_path, ["guitar -> instrumento:guitarra", "blues -> estilo:blues"]
+    )
+    conteo, por_crear = clasificar_destinos(plan)
+
+    assert conteo == {"instrumento:guitarra": 1, "estilo:blues": 1}
+    assert por_crear == ["estilo:blues"]
+
+
+def test_ejecutar_sin_el_campo_de_taggit_aborta_y_dice_que_falta(db, tmp_path):
+    """C34b depende de C33: sin manager de taggit no hay dónde escribir.
+
+    Cuando entre C33 este test cambia de sentido y lo sustituyen los de
+    escritura. Hoy comprueba que el comando no se queda callado ni escribe a
+    medias: aborta nombrando la migración que falta.
+    """
+    from django.core.management.base import CommandError
+
+    from my_library.management.commands.migrar_musictags import campo_destino_existe
+
+    _pagina_con_musictags("Blues", "blues-ejec", ["guitar"])
+
+    assert not campo_destino_existe()  # C33 sin hacer
+    with pytest.raises(CommandError, match="C33"):
+        _migrar_musictags(tmp_path, ["guitar -> instrumento:guitarra"], ejecutar=True)

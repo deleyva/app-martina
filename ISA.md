@@ -1,10 +1,10 @@
 ---
 slug: app-martina
-phase: verify
+phase: build
 progress: true
-iteration: 9
+iteration: 10
 principal_stated_goal: "ok, quiero que hagas lo más limpio y con visión de futuro"
-updated: 2026-08-20
+updated: 2026-08-21
 ---
 
 # ISA — app-martina · Sistema de estudio de la biblioteca
@@ -37,7 +37,7 @@ updated: 2026-08-20
 
 ### Deuda conocida, sin bloquear nada
 
-- **C12, C28 y C30bis: nada del visor se ha verificado en un navegador real.** Ni el panel de notas, ni la nota docente, ni el selector de facetas, ni el troceo, ni el arreglo de los comentarios. Interceptor sigue bloqueado por un setup manual de Chrome que requiere clicks humanos. **Desbloqueo, una vez y para siempre:** en la ventana del perfil de pruebas, icono de Interceptor → Context ID = `interceptor-test` → Guardar, y poner esa misma cadena en `~/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/Interceptor/preferences.env`. Son dos minutos y desatasca cinco claims acumuladas.
+- **C12, C28 y C30bis: pendientes de ver en navegador, ya SIN bloqueo.** El principal confirma el 2026-08-21 que **Interceptor funciona**. Quedan por ver el panel de notas, la nota docente, el selector de facetas, el troceo y el arreglo de los comentarios. Ya no es deuda bloqueada: es trabajo pendiente de hacer.
 - **6 sitios con `user.username`** en otras apps, que en este proyecto siempre vale `None`. Dos son crashes de búsqueda en el admin: `evaluations/admin.py:125` y `cms/models.py:1788`, `cms/wagtail_hooks.py:34`, `evaluations/admin.py:163`, y dos plantillas de `incidencias`.
 - **Cuatro scripts en la raíz rompen `pytest`**: `test_images.py`, `test_tags.py`, `test_tags2.py`, `test_viewer_html.py` llaman a `django.setup()` al importarse. Hay que excluirlos a mano para que la suite arranque; deberían renombrarse.
 - **9 tests preexistentes fallan** en analytics, cms e incidencias. Verificado con `git stash` que ya fallaban antes de todo esto.
@@ -259,7 +259,7 @@ Cierra lo que la fase 4 dejó a medias. La fase 7 destapó que hay **dos vocabul
 
 ### El mapa, ya cerrado
 
-`my_library/migracion/mapa_musictags.txt` — 80 entradas: **54 mapeadas hacia 39 destinos, 26 borradas**. Borrar cuesta 15 etiquetados, catorce de ellos de una sola pieza.
+`my_library/migracion/mapa_musictags.txt` — 80 entradas: **54 mapeadas hacia 38 destinos, 26 borradas**. *(Eran 38, no 39: el recuento del 17/08 se pasó por uno. Contado por el comando el 21/08, que lee el fichero.)* Borrar cuesta 15 etiquetados, catorce de ellos de una sola pieza.
 
 Decisiones del principal (2026-08-17):
 
@@ -276,10 +276,23 @@ Decisiones del principal (2026-08-17):
 ### Lo que falta, por orden de riesgo
 
 - [ ] **C33 — Las cuatro páginas tienen manager de taggit.** `ClusterTaggableManager` + through model por tipo de página; el through hace falta por el sistema de revisiones de Wagtail. *Es una migración de esquema en producción: el paso con riesgo, y el que el principal quiere confirmar antes.*
-- [ ] **C34 — Un comando lee el mapa y re-etiqueta las páginas.** No sirve `migrar_etiquetas`: aquel renombra filas de taggit, este mueve de un modelo a otro. Mismo contrato, eso sí — ensayo en seco por defecto, `--ejecutar` para aplicar, todo en una transacción. *Probe: tests sobre fusiones, borrados e idempotencia, más ensayo en seco contra datos reales.*
+- [ ] **C34a — El comando lee el mapa, lo valida y PLANIFICA el re-etiquetado.** Mitad de lectura pura: no necesita el esquema, así que se puede ver contra datos reales antes de tocar producción. Valida que el mapa cubre todas las `MusicTag` vivas, que ningún destino es a su vez origen (idempotencia), que no hay orígenes que solo difieran en mayúsculas y que ninguna faceta de destino es desconocida. *Probe: tests sobre fusiones, borrados, idempotencia y cobertura, más ensayo en seco contra una copia local de la BD de producción.*
+- [ ] **C34b — `--ejecutar` escribe las etiquetas en las páginas.** Depende de C33: sin manager de taggit no hay dónde escribir. Hasta entonces el comando aborta con un mensaje que lo dice. Todo en una transacción; no borra ni una `MusicTag` — el destino del modelo es C37.
 - [ ] **C35 — Ningún elemento de biblioteca pierde etiquetas.** El equivalente al control que se hizo con las 188, y esta vez incluyendo lo que aporta `source_page`. *Probe: `build_tag_map` antes y después, comparado elemento a elemento.*
 - [ ] **C36 — `build_tag_map` deja de leer de dos sitios.** Hoy recoge de los dos vocabularios sin distinguir. Al terminar debe leer solo taggit. *Probe: los tres mazos siguen contando 11 / 23 / 9.*
 - [ ] **C37 — `MusicTag` queda vacío y se decide su destino.** Borrar el modelo y el campo `tags` de las cuatro páginas, o dejarlo muerto. Dejarlo muerto es lo que produjo `content_hub`.
+
+### Decisión de secuencia — expandir, migrar, contraer (2026-08-21)
+
+El campo `tags` de las cuatro páginas **ya está ocupado** por el `ParentalManyToManyField` a `MusicTag`. No se puede añadir el manager de taggit con ese nombre, y renombrar de golpe abre una ventana en la que `build_tag_map` lee un campo vacío y los mazos cuentan 0. Es exactamente el fallo del 12/08 otra vez.
+
+Así que se hace en tres tiempos, y ninguno rompe el sitio por sí solo:
+
+1. **Expandir** (C33) — el manager nuevo entra como `faceted_tags`, junto al `tags` de siempre. Nadie lo lee todavía.
+2. **Migrar** (C34b, C35) — el comando llena `faceted_tags` desde el mapa y se comprueba la paridad elemento a elemento. Las dos vías coexisten.
+3. **Contraer** (C36, C37) — `build_tag_map` pasa a leer solo taggit, y solo entonces se borra `tags` y `faceted_tags` se renombra a `tags`.
+
+El coste es un nombre feo viviendo unos días. Lo que compra es que en ningún momento hay un despliegue con las etiquetas de las páginas en el aire.
 
 ### Anti-claims
 
