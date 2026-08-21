@@ -27,10 +27,12 @@ updated: 2026-08-21
 | 6 | Trocear material largo en secciones (`ItemSection`) | `724ae7a` |
 | 7 | Los mazos sobreviven al renombrado + comentarios de plantilla que se veían | `18a2b0e`, `444af8e` |
 | 8 | **Un solo vocabulario de etiquetas** — mapa cerrado, código sin empezar | `b8572d1` (solo el mapa) |
+| 9 | La telemetría deja de pisar la sesión de OAuth — login con Google arreglado | `8c8605b` |
+| 10 | **La nota se guardaba en el item equivocado** — encontrado al verificar C12 en navegador | pendiente de commit |
 
 ### Lo siguiente, por orden
 
-0. **Fase 8 — `MusicTag` → taggit facetado. LISTA PARA EMPEZAR, esperando luz verde.** El mapa de las 80 está revisado y validado; lo que falta es la herramienta, y empieza por una **migración de esquema sobre cuatro modelos de página**. Ver la sección "Fase 8" al final, que lleva el plan, las decisiones ya tomadas y el punto exacto donde se paró. Es lo único de esta lista que está desbloqueado hoy.
+0. **Fase 8 — `MusicTag` → taggit facetado. EN MARCHA.** El comando de re-etiquetado (C34a) está escrito, con 14 tests, y su ensayo en seco valida el mapa entero. Lo que falta para poder ejecutarlo es **C33, la migración de esquema**, que es el paso que querías confirmar antes. Ver la sección "Fase 8", con la decisión de secuencia expandir → migrar → contraer.
 1. **Presupuesto de sesión en MINUTOS en vez de en elementos.** Es la mejor idea pendiente y la que arregla que "8 elementos" sea una unidad mentirosa cuando uno es un lick de 40 segundos y otro una pieza de 14 minutos. **Necesita datos**: `ReviewLog.duration_seconds` lleva recogiendo desde el 12/08/2026. Con dos semanas de práctica real, cada elemento tiene su mediana y el presupuesto se calibra solo. *Antes del 26/08 no tiene sentido tocarlo.*
 2. **Orden real dentro de un libro.** Hoy el material nuevo entra por orden de alta en la biblioteca, que coincide con el libro solo por casualidad. Hace falta modelar libro → sección → ejercicio con un ordinal. Es la misma pieza que pedía el troceo, así que encaja encima de `ItemSection`.
 3. **Revisar los plazos de caducidad con datos reales** (hoy 1/1/3/7/21 días por nivel). El de 21 días para "me lo sé muy bien" es el más dudoso: para un dato está bien, para tener una escala en las manos puede ser demasiado.
@@ -124,7 +126,7 @@ Cierra dos de las siete peticiones originales. Resultó ser más que "pintar un 
 - [x] **C9 — Las etiquetas del item se ven mientras practicas.** *Probe: test sobre `study_item_content` que verifica que los tags salen en el HTML.*
 - [x] **C10 — Las notas se leen y se escriben desde el visor**, con guardado automático. *Probe: tests de `update_notes` (guardar, vaciar, 404 ajeno).*
 - [x] **C11 — Escribir una nota no cuenta como repaso.** *Probe: test que verifica que `update_notes` no crea `ReviewLog`.*
-- [ ] **C12 — `[DEFERRED-VERIFY]` El panel funciona en navegador.** Falta abrir el visor, pulsar `M` y comprobar que se ven etiquetas y notas, que el texto se guarda solo y que sobrevive al cambio de item.
+- [x] **C12 — El panel funciona en navegador.** *2026-08-21, Chrome real contra el local. Se abre con `M`; se ven las etiquetas (`instrumento:guitarra`, `concepto:pentatonica`), la nota docente y «mis notas»; el texto se guarda solo (estado «Guardado», sin pulsar nada) y sobrevive al cambio de item. Capturas: `~/Downloads/martina-c12-panel-arreglado.png`.* **La verificación destapó un defecto de datos y hubo que arreglarlo antes de poder cerrarla — ver abajo.**
 
 ### Decisiones
 
@@ -192,7 +194,9 @@ Decisiones del principal: **nombre + localizador opcional**, las secciones **sus
 - [x] **C25 — Las claves de elemento y sección no se pisan.** Los pk de las dos tablas se solapan; la clave lleva el tipo delante. *Probe: test de colisión.*
 - [x] **C26 — Los enlaces antiguos siguen funcionando.** Los números pelados en `?items=` siguen siendo elementos; las secciones van con `s` delante. *Probe: test de retrocompatibilidad.*
 - [x] **C27 — El visor abre en la página de la sección** si tiene localizador. *Probe: render con `?section=`; `paginaInicial` en el visor de PDF.*
-- [ ] **C28 — `[DEFERRED-VERIFY]` Trocear en un navegador real.** Ni el panel ni el salto de página se han visto ejecutándose.
+- [~] **C28 — Trocear en un navegador real. Mitad hecha.** *2026-08-21.*
+  - **El panel, visto y usado:** crear la sección «Estribillo» desde el visor funciona — el panel se repinta con «1 Estribillo ✕» y la fila aparece en la BD (`ItemSection` 5, item 34, orden 0). Se ve en la captura del panel.
+  - **El salto de página, comprobado a nivel de estado pero no de píxeles.** Con una sección en la página 5 de un PDF de 15, el visor abre con `paginaInicial = 5` y `currentPage = 5` — no en la 1. Lo que NO se pudo ver es el pixel de esa página, ni pasar página después: la pestaña nunca llegó a `visibilityState = "visible"` ni con `--activate`, y con la pestaña oculta el `requestAnimationFrame` de pdf.js no corre, así que la promesa de `page.render` no resuelve y `rendering` se queda en `true` para siempre. **Con esa bandera atascada, `renderPage` sale por el guardia `if (rendering) return` y no se puede cambiar de página.** Queda por decidir si eso es solo el estrangulamiento de la pestaña oculta —lo más probable— o un fallo real: hace falta una ventana visible de verdad, que es justo lo que no puedo forzar sin robarte el foco. *Reproducirlo cuesta 10 segundos: abre `/my-library/study/?items=s7` en local y mira si puedes pasar de página.*
 
 ### Log
 
@@ -212,7 +216,7 @@ El de fondo: `LibraryDeck` guarda su filtro como una lista de **nombres** en `ta
 Lo que falló en la verificación de C17: se comprobó que ningún **objeto etiquetado** perdiera etiquetas, y eso estaba bien comprobado. No se buscó si había nombres de etiqueta guardados **fuera de taggit**. La clase de defecto es "copia de un nombre en texto plano que un renombrado deja obsoleta", y `tags_json` era el único sitio.
 
 - [x] **C29 — Ningún comentario de plantilla se ve en la página.** `{# … #}` en Django es de UNA línea; en cuanto ocupa dos, el texto sale renderizado. *Cerrada al nivel de render: barrido de clase sobre todas las plantillas → 2 hermanos, los dos convertidos a `{% comment %}`; y 2 tests de regresión que comprueban que el texto no sale en el HTML. Verificados como falsadores reales: con las plantillas revertidas por `git stash`, los dos fallan.*
-- [ ] **C30bis — `[DEFERRED-VERIFY]` Las dos páginas vistas en un navegador real.** Intentado el 15/08 tras desplegar: Interceptor paró en el gate de aislamiento por rotación del UUID del contexto, y no se sustituye por un curl. Se suma a la deuda de C12 y C28. *Desbloqueo, una vez y para siempre: en la ventana del perfil de pruebas, icono de Interceptor → Context ID = `interceptor-test` → Guardar, y la misma cadena en `preferences.env`.*
+- [x] **C30bis — Las dos páginas vistas en un navegador real.** *2026-08-21. Las dos que tocó el arreglo: `/my-library/empezar/` (session_start.html) y el contenido del visor (study_item_content.html). En ninguna aparece el texto de los comentarios en `document.body.innerText`. Interceptor dejó de estar bloqueado el 2026-08-21.*
 - [x] **C30 — Renombrar una etiqueta arrastra los mazos que la usan.** *Probe: 11 tests nuevos, incluido el escenario exacto de producción (etiqueta ya migrada, mazo atrás). 105/105 en `my_library`.*
 - [x] **C31 — Un mazo nunca se queda sin etiquetas al migrar.** Un `tags_json` vacío hace que `get_matching_item_pks` devuelva la biblioteca entera: el mazo pasaría de contar 0 a contar 51 mintiendo. *Probe: test del mazo huérfano — se queda apuntando al nombre muerto y cuenta 0.*
 - [x] **C32 — Los tres mazos del principal vuelven a contar en producción.** *2026-08-15. Antes: `guitarra jazz` 0, `Piano` 0, `caged-system` 11. Ensayo en seco: 2 a arrastrar, `caged-system` no aparece — la salvaguarda funcionando contra datos reales. Después de `--solo-mazos --ejecutar`: **`guitarra jazz` 23, `Piano` 9, `caged-system` 11**. Anti-claim comprobado: taggit sigue en 139 nombres y `MusicTag` en 80, idénticos.*
@@ -400,3 +404,36 @@ segundo**; `18:09:27` callback y otro `track/` en el mismo segundo.
 - Los dos únicos `ERROR` posteriores al deploy son de la propia prueba de extremo a extremo, con `code` falso. Que digan `exception=Error retrieving access token` en vez de `exception=None` **es la prueba**: el `state` se encontró.
 - `martina_bescos_app.users.tasks.clear_expired_sessions` registrada en el consumidor de huey; primer barrido a las 04:30. Hoy la tabla `django_session` tiene 107.016 filas y solo ~17.400 vivas; mañana debería bajar sola.
 - La fila de analítica que creó la prueba se borró después (2 objetos: la sesión y su visita en cascada). Vuelta a 338.
+
+## Fase 10 — La nota se guardaba en el item equivocado
+
+> Encontrado el 2026-08-21 al ir a cerrar C12, la claim que llevaba desde el 12/08 esperando un navegador. Es el argumento entero a favor de la verificación en navegador: **ningún test de la suite podía cazarlo**, porque el defecto vive en el orden del DOM, no en Python.
+
+### El defecto, medido antes de tocar código
+
+El bloque de notas y etiquetas (`#study-item-meta`) nace dentro de `#study-content` y `moveMetaToFlyout()` lo **mueve** al panel. La trampa: `#flyout-meta-section` va ANTES que `#study-content` en el documento, así que a partir del segundo item `document.getElementById('study-item-meta')` devolvía el bloque **viejo** —el que ya estaba en el panel— en vez del recién cargado.
+
+Consecuencias, las dos medidas en Chrome real contra el local:
+
+1. **El panel pintaba el item anterior.** Con el visor enseñando «Pentatonica pos 2» (1/6 → 2/6), el panel llevaba `data-item-pk=34`, que es el item 1, y mostraba su nota.
+2. **Y escribir ahí guardaba en el item anterior.** `saveNota` usa `meta.dataset.itemPk` del mismo bloque rancio. *A/B con la BD: con el visor en el item 2, escribí «NOTA ESCRITA MIRANDO EL ITEM 2» → `LibraryItem 34.notes` = ese texto, `35.notes` = `''`.* Después del arreglo, la misma acción → `34` intacto, `35` con el texto.
+
+Síntoma lateral que lo delató: `document.querySelectorAll('#study-item-meta').length === 2`. Un id duplicado.
+
+### El arreglo
+
+Dejar de buscar por id global y buscar dentro del contenedor que toca en cada caso: `moveMetaToFlyout` toma el bloque de `#study-content`, y `saveNota` lo toma de `#flyout-meta-section`, que es donde vive el del item actual. Los listeners se enganchan sobre `meta.querySelector`, no sobre el documento.
+
+- [x] **C38 — El panel enseña el item que está en pantalla.** *Probe: `data-item-pk` del bloque del panel == item cargado, y `querySelectorAll('#study-item-meta').length === 1`. Antes: 34 vs 35 y length 2. Después: 35 vs 35 y length 1.*
+- [x] **C39 — La nota se guarda en el item que estás mirando.** *Probe: el A/B contra la BD de arriba. Es el falsador real: con el código viejo la fila que cambia es la equivocada.*
+
+### Anti-claims
+
+- **No se toca `moveMediaToFlyout`.** Usa el mismo `getElementById`, pero COPIA el html a otros ids en vez de mover el nodo, y el original muere con cada `innerHTML` de `#study-content`. No duplica nada. Comprobado, no supuesto.
+- **Ningún test de Python cambia de resultado.** 122/122 en `my_library` antes y después. Eso no es una virtud del arreglo: es la prueba de que la suite era ciega a esto.
+
+### Log
+
+- 🧹 CLASE BARRIDA: «`getElementById` sobre un nodo que se mueve entre contenedores». Enumerada con `grep -rn "appendChild\|outerHTML" my_library/templates/` → un solo nodo movido en todo el visor (`#study-item-meta`, consultado en dos sitios). Los dos arreglados; `moveMediaToFlyout` descartado por inspección, no por parecido.
+- **Sin test de regresión en Python, a conciencia.** El defecto es orden del DOM en el navegador; un test de Django renderiza la plantilla y no ejecuta el JS que mueve el nodo. El falsador de esta clase es la comprobación en navegador, y por eso C12 existía.
+- **La plantilla no se recargó sola.** Editar `study_viewer.html` y recargar seguía sirviendo el HTML viejo; hizo falta `docker compose restart django`. Media hora de creer que el arreglo no funcionaba. Anotado para la próxima.

@@ -676,8 +676,16 @@
     var notesSaveTimer = null;
     var campoPendiente = null;
 
+    // El bloque de notas y etiquetas se MUEVE de #study-content al flyout, y ahí
+    // está la trampa: #flyout-meta-section va ANTES que #study-content en el
+    // documento, así que un `getElementById('study-item-meta')` global devuelve
+    // el bloque VIEJO —el que ya está en el flyout— en vez del recién cargado.
+    // El panel se quedaba pintando el item anterior y, peor, `saveNota` leía su
+    // `data-item-pk`: escribir una nota mirando el item 2 la guardaba en el 1.
+    // Por eso aquí no se busca por id global: se busca DENTRO del contenedor que
+    // toca en cada caso.
     function moveMetaToFlyout() {
-        var meta = document.getElementById('study-item-meta');
+        var meta = document.querySelector('#study-content #study-item-meta');
         var target = document.getElementById('flyout-meta-section');
         if (!target) return;
 
@@ -691,7 +699,7 @@
         target.appendChild(meta);
 
         CAMPOS_NOTA.forEach(function(cfg) {
-            var input = document.getElementById(cfg.input);
+            var input = meta.querySelector('#' + cfg.input);
             if (!input) return;  // la nota docente solo existe para staff
 
             // Guardado automático: al dejar de escribir y al salir del campo.
@@ -758,9 +766,12 @@
     }
 
     function saveNota(cfg) {
-        var meta = document.getElementById('study-item-meta');
-        var input = document.getElementById(cfg.input);
-        var status = document.getElementById(cfg.status);
+        // Siempre desde el flyout, que es donde vive el bloque del item ACTUAL.
+        // Un id global aquí es lo que mandaba la nota al item equivocado.
+        var panel = document.getElementById('flyout-meta-section');
+        var meta = panel && panel.querySelector('#study-item-meta');
+        var input = meta && meta.querySelector('#' + cfg.input);
+        var status = meta && meta.querySelector('#' + cfg.status);
         if (!meta || !input) return;
 
         var body = new URLSearchParams();
