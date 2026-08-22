@@ -1730,3 +1730,30 @@ def test_ejecutar_sin_el_campo_de_taggit_aborta_y_dice_que_falta(db, tmp_path):
     assert not campo_destino_existe()  # C33 sin hacer
     with pytest.raises(CommandError, match="C33"):
         _migrar_musictags(tmp_path, ["guitar -> instrumento:guitarra"], ejecutar=True)
+
+
+def test_el_informe_cuenta_lo_que_se_pierde(db, tmp_path):
+    """Un resumen que solo cuenta lo que se gana invita a aprobar una migración
+    sin mirar lo que borra."""
+    from my_library.management.commands.migrar_musictags import (
+        etiquetados_que_se_pierden,
+        leer_mapa,
+    )
+
+    _pagina_con_musictags("Una", "perd-1", ["guitar", "iconic"])
+    _pagina_con_musictags("Otra", "perd-2", ["iconic", "upbeat"])
+
+    mapa = leer_mapa(
+        _mapa_musictags(
+            tmp_path,
+            [
+                "guitar -> instrumento:guitarra",
+                "iconic -> __BORRAR__",
+                "upbeat -> __BORRAR__",
+            ],
+        )
+    )
+    perdidos, paginas = etiquetados_que_se_pierden(mapa)
+
+    assert perdidos == {"iconic": 2, "upbeat": 1}
+    assert paginas == 2

@@ -280,10 +280,13 @@ Decisiones del principal (2026-08-17):
 ### Lo que falta, por orden de riesgo
 
 - [ ] **C33 — Las cuatro páginas tienen manager de taggit.** `ClusterTaggableManager` + through model por tipo de página; el through hace falta por el sistema de revisiones de Wagtail. *Es una migración de esquema en producción: el paso con riesgo, y el que el principal quiere confirmar antes.*
-- [ ] **C34a — El comando lee el mapa, lo valida y PLANIFICA el re-etiquetado.** Mitad de lectura pura: no necesita el esquema, así que se puede ver contra datos reales antes de tocar producción. Valida que el mapa cubre todas las `MusicTag` vivas, que ningún destino es a su vez origen (idempotencia), que no hay orígenes que solo difieran en mayúsculas y que ninguna faceta de destino es desconocida. *Probe: tests sobre fusiones, borrados, idempotencia y cobertura, más ensayo en seco contra una copia local de la BD de producción.*
-- [ ] **C34b — `--ejecutar` escribe las etiquetas en las páginas.** Depende de C33: sin manager de taggit no hay dónde escribir. Hasta entonces el comando aborta con un mensaje que lo dice. Todo en una transacción; no borra ni una `MusicTag` — el destino del modelo es C37.
-- [ ] **C35 — Ningún elemento de biblioteca pierde etiquetas.** El equivalente al control que se hizo con las 188, y esta vez incluyendo lo que aporta `source_page`. *Probe: `build_tag_map` antes y después, comparado elemento a elemento.*
-- [ ] **C36 — `build_tag_map` deja de leer de dos sitios.** Hoy recoge de los dos vocabularios sin distinguir. Al terminar debe leer solo taggit. *Probe: los tres mazos siguen contando 11 / 23 / 9.*
+- [x] **C34a — El comando lee el mapa, lo valida y PLANIFICA el re-etiquetado.** *2026-08-22, ensayo en seco contra una copia de la BD de producción del 20/08 restaurada en local. Las cuatro validaciones pasan sobre los datos reales: el mapa cubre las 80 `MusicTag` vivas, ningún destino es a su vez origen, ningún par de orígenes colisiona en minúsculas, ninguna faceta de destino es desconocida. **Plan: 164 páginas (BlogPage 148, ScorePage 15, DictadoPage 1), 531 etiquetados hacia 35 destinos; 9 etiquetas nuevas en taggit y 26 que fusionan con las que ya existen.** 15 tests.*
+- [ ] **C34b — `--ejecutar` escribe las etiquetas en las páginas.** Depende de C33: sin manager de taggit no hay dónde escribir. *El guardia está probado contra los datos reales: `--ejecutar` aborta nombrando C33 y no toca nada.* Todo en una transacción; no borra ni una `MusicTag` — el destino del modelo es C37.
+- [ ] **C35 — Ningún elemento de biblioteca pierde etiquetas.** *Control ya medido sobre la copia del 20/08 y guardado en `backups/control_c35_antes.json` (fuera del repo): **102 elementos, 469 etiquetados, 16 elementos sin ninguna etiqueta**. Comparar elemento a elemento contra ese fichero después de C34b.*
+- [ ] **C36 — `build_tag_map` deja de leer de dos sitios, Y arrastra los mazos en la misma transacción.** Hoy recoge de los dos vocabularios sin distinguir. Al terminar debe leer solo taggit. *Probe: los tres mazos siguen contando 23 / 9 / 11.*
+  - ⚠️ **Aquí es donde se rompe el mazo `caged-system`, y es la tercera vez que este defecto se presenta.** Medido el 22/08 contra la copia de producción: `caged-system` existe **solo como `MusicTag`**, no en taggit; el mazo empareja 11 elementos y **los 11** sacan la etiqueta de la `MusicTag` de su página. En cuanto `build_tag_map` lea solo taggit, ese nombre deja de existir y el mazo cuenta 0 — exactamente el fallo del 12/08. El mapa lo manda a `concepto:caged`, que ya existe en taggit.
+  - **Los otros dos mazos sobreviven solos:** `guitarra jazz` (`instrumento:guitarra`, `estilo:jazz`) y `Piano` (`instrumento:piano`) ya apuntan a nombres facetados de taggit.
+  - **La herramienta ya existe:** `migrar_etiquetas.planificar_mazos` aplica un mapa a `tags_json`. C36 tiene que llamarla con `mapa_musictags.txt` **dentro de la misma transacción** que el cambio de `build_tag_map`. Quedarse a medias aquí es de lo que venimos.
 - [ ] **C37 — `MusicTag` queda vacío y se decide su destino.** Borrar el modelo y el campo `tags` de las cuatro páginas, o dejarlo muerto. Dejarlo muerto es lo que produjo `content_hub`.
 
 ### Decisión de secuencia — expandir, migrar, contraer (2026-08-21)
@@ -303,6 +306,14 @@ El coste es un nombre feo viviendo unos días. Lo que compra es que en ningún m
 - **Ningún mazo cambia de recuento** salvo por ganar elementos. Los tres actuales cuentan 11 / 23 / 9; ese es el control.
 - **No se toca `MusicCategory`** en esta fase. Pero queda escrito que es la tercera taxonomía y que unificar etiquetas sin decidir qué pasa con ella repite la media migración.
 - **No se cambia ningún tipo de página.** El debate ScorePage → BlogPage es aparte (ver abajo) y no bloquea nada de esto.
+
+### Log de la fase 8
+
+- **El ensayo en seco se hizo contra una copia, no contra producción.** Backup del 20/08 bajado con `just production-download-backup postgres …` y restaurado en local con `just restore-db`. Se reutilizó el backup que ya había en el servidor en vez de crear uno nuevo: la receta `production-backup-db` borra los antiguos y deja solo 2. La copia cuadra con el ISA en los ocho números que había medidos (80 MusicTag, 139 taggit, 22 MusicCategory, BlogPage 255 / ScorePage 44 / DictadoPage 1 / TestPage 0, 102 elementos de biblioteca).
+- **Los 15 etiquetados que cuesta borrar están confirmados.** El mapa lo predijo el 17/08 y los datos reales dan exactamente 15, repartidos en 9 páginas. `romantic` es la única que aparece dos veces. **Ninguna página se queda sin etiquetas**, así que no hay que decidir nada a mano.
+- **De los 38 destinos del mapa, solo 35 llegan a usarse.** Los tres que faltan —`concepto:lectura-musical`, `concepto:solfeo`, `autor:willems`— vienen de orígenes con 0 usos: las `fusiones sin coste` de la decisión 3. Coherente, no hay nada roto.
+- **El informe se cambió a mitad del ensayo para que enseñe la pérdida.** Enseñaba las 531 etiquetas que se ganan y callaba las 15 que se van. Un resumen que solo cuenta lo que gana invita a aprobar sin mirar.
+- **De las 44 ScorePage solo 15 llevan MusicTag**, y de las 255 BlogPage, 148. El resto entra en la migración sin cambios.
 
 ### El debate ScorePage → BlogPage, para no repetirlo
 

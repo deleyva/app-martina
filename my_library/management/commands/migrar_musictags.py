@@ -145,6 +145,24 @@ def planificar_paginas(mapa):
     return plan
 
 
+def etiquetados_que_se_pierden(mapa):
+    """({etiqueta: veces}, n_paginas) de lo que `__BORRAR__` se lleva por delante.
+
+    El informe tiene que enseñar la pérdida, no solo la ganancia. Un resumen que
+    solo cuenta lo que se gana invita a aprobar una migración sin mirar lo que
+    borra, y borrar 26 etiquetas fue una decisión, no un efecto secundario.
+    """
+    perdidos, paginas = {}, set()
+    indice = {o.lower(): d for o, d in mapa.items()}
+    for modelo in modelos_de_pagina():
+        for pagina in modelo.objects.prefetch_related("tags"):
+            for etiqueta in pagina.tags.all():
+                if indice.get(etiqueta.name.lower()) == BORRAR:
+                    perdidos[etiqueta.name] = perdidos.get(etiqueta.name, 0) + 1
+                    paginas.add((modelo.__name__, pagina.pk))
+    return perdidos, len(paginas)
+
+
 def clasificar_destinos(plan):
     """({destino: veces}, nuevos_en_taggit) — cuánto se escribe y qué se crea.
 
@@ -198,8 +216,9 @@ class Command(BaseCommand):
 
         plan = planificar_paginas(mapa)
         conteo, por_crear = clasificar_destinos(plan)
+        perdidos, paginas_con_perdida = etiquetados_que_se_pierden(mapa)
 
-        self._resumen(plan, conteo, por_crear)
+        self._resumen(plan, conteo, por_crear, perdidos, paginas_con_perdida)
 
         if not ejecutar:
             self.stdout.write(
@@ -295,7 +314,7 @@ class Command(BaseCommand):
             getattr(pagina, CAMPO_DESTINO).set(nuevos)
             pagina.save()
 
-    def _resumen(self, plan, conteo, por_crear):
+    def _resumen(self, plan, conteo, por_crear, perdidos, paginas_con_perdida):
         w = self.stdout.write
 
         if not plan:
@@ -330,6 +349,16 @@ class Command(BaseCommand):
             )
             for destino in por_crear:
                 w(f"  {destino}")
+
+        if perdidos:
+            w(
+                self.style.ERROR(
+                    f"\nSE PIERDEN ({sum(perdidos.values())} etiquetados en "
+                    f"{paginas_con_perdida} páginas) — van a __BORRAR__"
+                )
+            )
+            for nombre, veces in sorted(perdidos.items(), key=lambda x: (-x[1], x[0])):
+                w(f"  {nombre}   [{veces}]")
 
         if peladas:
             w(
