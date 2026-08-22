@@ -1714,22 +1714,42 @@ def test_el_plan_separa_lo_que_fusiona_de_lo_que_crea(db, tmp_path):
     assert por_crear == ["estilo:blues"]
 
 
-def test_ejecutar_sin_el_campo_de_taggit_aborta_y_dice_que_falta(db, tmp_path):
-    """C34b depende de C33: sin manager de taggit no hay dónde escribir.
+def test_las_cuatro_paginas_tienen_manager_de_taggit(db):
+    """C33. El campo nace VACÍO y al lado de `tags`, no en su lugar: renombrar de
+    golpe abriría una ventana con `build_tag_map` leyendo un campo vacío."""
+    from cms.models import BlogPage, DictadoPage, ScorePage, TestPage
+    from my_library.management.commands.migrar_musictags import (
+        CAMPO_DESTINO,
+        campo_destino_existe,
+    )
 
-    Cuando entre C33 este test cambia de sentido y lo sustituyen los de
-    escritura. Hoy comprueba que el comando no se queda callado ni escribe a
-    medias: aborta nombrando la migración que falta.
-    """
-    from django.core.management.base import CommandError
+    assert campo_destino_existe()
+    for modelo in (BlogPage, ScorePage, DictadoPage, TestPage):
+        campos = {f.name for f in modelo._meta.get_fields()}
+        assert CAMPO_DESTINO in campos, modelo.__name__
+        assert "tags" in campos, f"{modelo.__name__} perdió el vocabulario viejo"
 
-    from my_library.management.commands.migrar_musictags import campo_destino_existe
 
-    _pagina_con_musictags("Blues", "blues-ejec", ["guitar"])
+def test_el_campo_nuevo_nace_vacio(db):
+    """Si naciera con algo dentro, este despliegue cambiaría lo que ve alguien."""
+    from cms.models import ScorePage
 
-    assert not campo_destino_existe()  # C33 sin hacer
-    with pytest.raises(CommandError, match="C33"):
-        _migrar_musictags(tmp_path, ["guitar -> instrumento:guitarra"], ejecutar=True)
+    pagina = _pagina_con_musictags("Recien creada", "recien", ["guitar"])
+    assert pagina.faceted_tags.count() == 0
+    assert ScorePage.objects.get(pk=pagina.pk).faceted_tags.count() == 0
+
+
+def test_en_seco_no_escribe_aunque_el_campo_ya_exista(db, tmp_path):
+    """Con C33 puesta ya no hay guardia que pare `--ejecutar`, así que lo único
+    que separa un ensayo de una migración es la ausencia de la bandera."""
+    from taggit.models import Tag
+
+    pagina = _pagina_con_musictags("Blues", "blues-seco-c33", ["guitar"])
+
+    _migrar_musictags(tmp_path, ["guitar -> instrumento:guitarra"])
+
+    assert pagina.faceted_tags.count() == 0
+    assert not Tag.objects.filter(name="instrumento:guitarra").exists()
 
 
 def test_el_informe_cuenta_lo_que_se_pierde(db, tmp_path):

@@ -30,6 +30,7 @@ from wagtail.documents.blocks import DocumentChooserBlock
 from wagtail.embeds.blocks import EmbedBlock
 from wagtail.snippets.models import register_snippet
 from wagtail.snippets.blocks import SnippetChooserBlock
+from modelcluster.contrib.taggit import ClusterTaggableManager
 from modelcluster.fields import ParentalKey, ParentalManyToManyField
 from taggit.models import TaggedItemBase
 from taggit.managers import TaggableManager
@@ -42,6 +43,52 @@ class TaggedEmbedItem(TaggedItemBase):
         'cms.TaggableEmbed',
         on_delete=models.CASCADE,
         related_name='tagged_items',
+    )
+
+
+# ── Fase 8, paso 1: EXPANDIR ────────────────────────────────────────────────
+#
+# Las cuatro páginas etiquetan hoy con `tags`, un M2M a `cms.MusicTag`: un
+# vocabulario propio, plano y aparte del taggit que usa el resto del sitio y que
+# ya está facetado (`instrumento:guitarra`, `estilo:jazz`…). La sesión de estudio
+# no sabe agrupar ni filtrar por nada que viva ahí.
+#
+# El nombre `tags` está ocupado, así que el manager nuevo entra al lado como
+# `faceted_tags` y nace VACÍO. Nadie lo lee todavía: `build_tag_map` sigue
+# leyendo `tags`. Esa es la gracia — este despliegue no puede cambiar lo que ve
+# nadie, porque no hay ningún camino de lectura hacia el campo nuevo.
+#
+# Después: `migrar_musictags --ejecutar` lo llena (C34b), se comprueba la paridad
+# elemento a elemento (C35), `build_tag_map` cambia de fuente Y se arrastran los
+# mazos en la misma transacción (C36), y solo entonces `tags` se borra y
+# `faceted_tags` se renombra a `tags` (C37). Borrar todo este bloque es el
+# último paso, no el primero.
+#
+# El through model explícito no es opcional: Wagtail guarda las páginas por
+# revisiones, y sin él las etiquetas no sobreviven al ciclo de revisión.
+
+
+class BlogPageTag(TaggedItemBase):
+    content_object = ParentalKey(
+        "cms.BlogPage", on_delete=models.CASCADE, related_name="tagged_items"
+    )
+
+
+class ScorePageTag(TaggedItemBase):
+    content_object = ParentalKey(
+        "cms.ScorePage", on_delete=models.CASCADE, related_name="tagged_items"
+    )
+
+
+class DictadoPageTag(TaggedItemBase):
+    content_object = ParentalKey(
+        "cms.DictadoPage", on_delete=models.CASCADE, related_name="tagged_items"
+    )
+
+
+class TestPageTag(TaggedItemBase):
+    content_object = ParentalKey(
+        "cms.TestPage", on_delete=models.CASCADE, related_name="tagged_items"
     )
 
 
@@ -626,6 +673,12 @@ class BlogPage(Page):
     # Categorías y tags
     categories = ParentalManyToManyField("MusicCategory", blank=True)
     tags = ParentalManyToManyField("MusicTag", blank=True)
+    faceted_tags = ClusterTaggableManager(
+        through="cms.BlogPageTag",
+        blank=True,
+        verbose_name="Etiquetas facetadas",
+        help_text="Vocabulario facetado (faceta:valor). Convive con las etiquetas de arriba mientras dura la migración.",
+    )
 
     content_panels = Page.content_panels + [
         FieldPanel("date"),
@@ -639,6 +692,7 @@ class BlogPage(Page):
     promote_panels = Page.promote_panels + [
         FieldPanel("categories", widget=forms.CheckboxSelectMultiple),
         FieldPanel("tags", widget=forms.CheckboxSelectMultiple),
+        FieldPanel("faceted_tags", heading="Etiquetas facetadas"),
     ]
 
     settings_panels = Page.settings_panels + [
@@ -869,6 +923,12 @@ class DictadoPage(Page):
     # Categorías y tags para organización
     categories = ParentalManyToManyField("MusicCategory", blank=True)
     tags = ParentalManyToManyField("MusicTag", blank=True)
+    faceted_tags = ClusterTaggableManager(
+        through="cms.DictadoPageTag",
+        blank=True,
+        verbose_name="Etiquetas facetadas",
+        help_text="Vocabulario facetado (faceta:valor). Convive con las etiquetas de arriba mientras dura la migración.",
+    )
 
     content_panels = Page.content_panels + [
         FieldPanel("date"),
@@ -879,6 +939,7 @@ class DictadoPage(Page):
     promote_panels = Page.promote_panels + [
         FieldPanel("categories", widget=forms.CheckboxSelectMultiple),
         FieldPanel("tags", widget=forms.CheckboxSelectMultiple),
+        FieldPanel("faceted_tags", heading="Etiquetas facetadas"),
     ]
 
     parent_page_types = ["cms.MusicLibraryIndexPage"]
@@ -1012,6 +1073,12 @@ class TestPage(Page):
     )
     categories = ParentalManyToManyField("MusicCategory", blank=True)
     tags = ParentalManyToManyField("MusicTag", blank=True)
+    faceted_tags = ClusterTaggableManager(
+        through="cms.TestPageTag",
+        blank=True,
+        verbose_name="Etiquetas facetadas",
+        help_text="Vocabulario facetado (faceta:valor). Convive con las etiquetas de arriba mientras dura la migración.",
+    )
 
     content_panels = Page.content_panels + [
         FieldPanel("date"),
@@ -1023,6 +1090,7 @@ class TestPage(Page):
     promote_panels = Page.promote_panels + [
         FieldPanel("categories", widget=forms.CheckboxSelectMultiple),
         FieldPanel("tags", widget=forms.CheckboxSelectMultiple),
+        FieldPanel("faceted_tags", heading="Etiquetas facetadas"),
     ]
 
     parent_page_types = ["cms.MusicLibraryIndexPage"]
@@ -1559,6 +1627,12 @@ class ScorePage(Page):
         blank=True,
     )
     tags = ParentalManyToManyField("MusicTag", blank=True)
+    faceted_tags = ClusterTaggableManager(
+        through="cms.ScorePageTag",
+        blank=True,
+        verbose_name="Etiquetas facetadas",
+        help_text="Vocabulario facetado (faceta:valor). Convive con las etiquetas de arriba mientras dura la migración.",
+    )
 
     # StreamField para contenido flexible
     content = StreamField(
@@ -1586,6 +1660,7 @@ class ScorePage(Page):
     promote_panels = Page.promote_panels + [
         FieldPanel("categories", widget=forms.CheckboxSelectMultiple),
         FieldPanel("tags", widget=forms.CheckboxSelectMultiple),
+        FieldPanel("faceted_tags", heading="Etiquetas facetadas"),
     ]
 
     # Solo permitir este tipo de página bajo MusicLibraryIndexPage
