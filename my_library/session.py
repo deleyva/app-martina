@@ -205,6 +205,13 @@ def facetas_disponibles(items):
     de FACETAS_DE_FILTRO: filtrar por `evaluacion` o `tema` no tiene sentido
     para practicar.
     """
+    # Sin esto son ~3 consultas por elemento subiendo a la página de origen:
+    # 51 elementos pasaban de 74 a 222 ms, y crece en línea recta.
+    from my_library.models import LibraryDeck
+
+    items = list(items)
+    LibraryDeck.precargar_etiquetas_de_pagina(items)
+
     cuentas = {}
     for item in items:
         for etiqueta in _etiquetas(item):

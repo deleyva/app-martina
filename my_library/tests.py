@@ -1922,3 +1922,111 @@ def test_la_etiqueta_de_pagina_ya_agrupa_una_sesion(db, user):
     facetadas = [t for t in mapa[item.pk] if facets.tiene_faceta(t)]
 
     assert facetadas == ["concepto:pentatonica"]
+
+
+# === C40: el selector y la agrupación ven las etiquetas de la página ===
+
+
+def test_el_selector_de_facetas_ve_la_etiqueta_de_la_pagina(db, user):
+    """El falsador de C40. Antes, `estilo:jazz-moderno` vivía en la página del
+    libro y no aparecía en el selector: los 23 capítulos no se podían filtrar
+    por él."""
+    from taggit.models import Tag
+    from my_library.session import facetas_disponibles
+
+    pagina = _pagina_con_musictags("Libro", "c40-1", ["modern jazz"])
+    pagina.faceted_tags.add(
+        Tag.objects.create(name="estilo:jazz-moderno", slug="estilo-jazz-moderno")
+    )
+    pagina.save()
+    item = _item_de_pagina(user, pagina)
+
+    disponibles = facetas_disponibles([item])
+
+    assert ("jazz-moderno", 1) in disponibles.get(facets.ESTILO, [])
+
+
+def test_la_agrupacion_tematica_ve_la_etiqueta_de_la_pagina(db, user):
+    from taggit.models import Tag
+    from my_library.session import _etiquetas
+
+    pagina = _pagina_con_musictags("Libro", "c40-2", ["modern jazz"])
+    pagina.faceted_tags.add(
+        Tag.objects.create(name="estilo:jazz-moderno", slug="estilo-jazz-moderno-2")
+    )
+    pagina.save()
+    item = _item_de_pagina(user, pagina)
+
+    assert "estilo:jazz-moderno" in _etiquetas(item)
+
+
+def test_la_pagina_no_aporta_el_vocabulario_plano(db, user):
+    """Sumar la página con el vocabulario viejo habría metido 169 etiquetas que
+    ni agrupan ni filtran. Solo entra lo facetado."""
+    from my_library.session import _etiquetas
+
+    pagina = _pagina_con_musictags("Libro", "c40-3", ["modern jazz"])
+    item = _item_de_pagina(user, pagina)
+
+    assert "modern jazz" not in _etiquetas(item)
+
+
+def test_una_etiqueta_repetida_no_sale_dos_veces(db, user):
+    """La misma etiqueta puede estar en el documento y en su página."""
+    from taggit.models import Tag
+
+    etiqueta = Tag.objects.create(name="estilo:blues", slug="estilo-blues-c40")
+    pagina = _pagina_con_musictags("Libro", "c40-4", ["blues"])
+    pagina.faceted_tags.add(etiqueta)
+    pagina.save()
+    item = _item_de_pagina(user, pagina)
+    item.tags.add(etiqueta)
+
+    nombres = [t.name for t in item.get_content_tags()]
+
+    assert nombres.count("estilo:blues") == 1
+
+
+def test_la_seccion_hereda_tambien_lo_de_la_pagina(db, user):
+    """Un trozo del capítulo sigue siendo jazz moderno."""
+    from taggit.models import Tag
+
+    pagina = _pagina_con_musictags("Libro", "c40-5", ["modern jazz"])
+    pagina.faceted_tags.add(
+        Tag.objects.create(name="estilo:jazz-moderno", slug="estilo-jazz-moderno-5")
+    )
+    pagina.save()
+    item = _item_de_pagina(user, pagina)
+    seccion = ItemSection.objects.create(item=item, nombre="Intro", orden=0)
+
+    assert "estilo:jazz-moderno" in {t.name for t in seccion.get_content_tags()}
+
+
+def test_precargar_da_lo_mismo_que_no_precargar(db, user):
+    """La precarga es una optimización, no otra semántica. Si los dos caminos
+    dieran resultados distintos, el selector y el visor discreparían según por
+    dónde se llegara."""
+    from taggit.models import Tag
+
+    pagina = _pagina_con_musictags("Libro", "precarga-1", ["modern jazz"])
+    pagina.faceted_tags.add(
+        Tag.objects.create(name="estilo:jazz-moderno", slug="estilo-jm-precarga")
+    )
+    pagina.save()
+    item = _item_de_pagina(user, pagina)
+    otro = _item_de_pagina(
+        user, _pagina_con_musictags("Suelto", "precarga-2", []), "sin etiquetas"
+    )
+
+    sin_precarga = {
+        i.pk: sorted(t.name for t in i.get_content_tags())
+        for i in LibraryItem.objects.filter(user=user)
+    }
+
+    items = list(LibraryItem.objects.filter(user=user))
+    LibraryDeck.precargar_etiquetas_de_pagina(items)
+    con_precarga = {i.pk: sorted(t.name for t in i.get_content_tags()) for i in items}
+
+    assert sin_precarga == con_precarga
+    assert "estilo:jazz-moderno" in con_precarga[item.pk]
+    assert con_precarga[otro.pk] == []

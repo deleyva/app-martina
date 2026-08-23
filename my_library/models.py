@@ -61,13 +61,42 @@ class LibraryDeck(models.Model):
         return [pk for pk, item_tags in tag_map.items() if all(t in item_tags for t in tags)]
 
     @staticmethod
+    def precargar_etiquetas_de_pagina(items):
+        """Carga en bloque las etiquetas facetadas de las páginas de origen.
+
+        `get_content_tags` sube a `source_page.specific` para leerlas, y eso son
+        unas 3 consultas por elemento: la página, su subclase concreta y sus
+        etiquetas. Medido sobre la biblioteca real: 51 elementos pasaban de 107
+        a 254 consultas y de 74 a 222 ms, y eso crece en línea recta — a 500
+        elementos serían más de dos segundos en la página con la que se arranca
+        cada sesión.
+
+        Esto lo baja a dos consultas para toda la lista. Deja las etiquetas
+        colgadas de cada elemento en `_etiquetas_de_pagina`; sin precarga,
+        `get_content_tags` sigue funcionando igual, solo que consulta una a una.
+        """
+        from wagtail.models import Page
+
+        pks = {item.source_page_id for item in items if item.source_page_id}
+        por_pagina = {}
+        if pks:
+            for pagina in Page.objects.filter(pk__in=pks).specific():
+                if hasattr(pagina, "faceted_tags"):
+                    por_pagina[pagina.pk] = list(pagina.faceted_tags.all())
+        for item in items:
+            item._etiquetas_de_pagina = por_pagina.get(item.source_page_id, [])
+
+    @staticmethod
     def build_tag_map(items_qs):
         """Build a {pk: set(lowercase_tags)} dict for all items in queryset.
 
         Call once, share across all decks to avoid per-deck N+1 queries.
         """
+        items = list(items_qs)
+        LibraryDeck.precargar_etiquetas_de_pagina(items)
+
         tag_map = {}
-        for item in items_qs:
+        for item in items:
             tags_set = set()
             # Item's own tags (prefetched)
             for tag in item.tags.all():
@@ -85,11 +114,8 @@ class LibraryDeck(models.Model):
             #
             # `tags` sigue existiendo y sigue alimentando el filtrado del sitio;
             # lo que se decide en C37 es su destino, no el de esta lectura.
-            if item.source_page_id and item.source_page:
-                specific = item.source_page.specific
-                if hasattr(specific, "faceted_tags"):
-                    for tag in specific.faceted_tags.all():
-                        tags_set.add(tag.name.lower())
+            for tag in getattr(item, "_etiquetas_de_pagina", []):
+                tags_set.add(tag.name.lower())
             tag_map[item.pk] = tags_set
         return tag_map
 
@@ -298,14 +324,52 @@ class LibraryItem(models.Model):
         )
 
     def get_content_tags(self):
-        """Obtener tags del contenido referenciado. Fallback a self.tags para embeds."""
+        """Las etiquetas de este elemento: las suyas MÁS las de su página.
+
+        Las propias salen del contenido referenciado, con `self.tags` de reserva
+        para los embeds y demás que no traen etiquetas propias. A eso se le suman
+        las de `source_page`, que es de donde vienen las que describen el
+        contenedor: los 23 capítulos del libro de Jens Larsen llevan
+        `estilo:jazz-moderno` en la página del libro, no en cada PDF.
+
+        **Por qué se suma aquí y no solo en `build_tag_map`** (decisión del
+        principal, opción A, 2026-08-24): había dos definiciones de "las
+        etiquetas de este elemento" conviviendo. `build_tag_map` miraba la
+        página y esta no, así que la página contaba para emparejar un mazo y no
+        para el selector de facetas ni para la agrupación temática. Ese
+        desdoblamiento es lo que hizo que la fase 8 pareciera terminada sin
+        entregar lo que decía. Ahora hay una sola respuesta, y la pinta también
+        el visor: si un PDF es jazz moderno, ponerlo es información, no ruido.
+
+        Solo se suman las de `faceted_tags`; el `MusicTag` plano no entra. Con
+        el vocabulario viejo esto habría metido 169 etiquetas que ni agrupan ni
+        filtran, que es justo lo que la fase 8 vino a quitar de en medio.
+        """
+        propias = []
         obj = self.content_object
         if obj and hasattr(obj, "tags"):
-            content_tags = obj.tags.all()
-            if content_tags.exists():
-                return content_tags
-        # Fallback: tags en el LibraryItem (para embeds u otros sin tags propios)
-        return self.tags.all()
+            propias = list(obj.tags.all())
+        if not propias:
+            # Reserva: etiquetas del propio LibraryItem (embeds y demás)
+            propias = list(self.tags.all())
+
+        de_pagina = getattr(self, "_etiquetas_de_pagina", None)
+        if de_pagina is None:
+            # Sin precarga: se sube a la página una por una. Correcto pero caro;
+            # cualquier bucle sobre elementos debería llamar antes a
+            # `precargar_etiquetas_de_pagina`.
+            de_pagina = []
+            if self.source_page_id and self.source_page:
+                specific = self.source_page.specific
+                if hasattr(specific, "faceted_tags"):
+                    de_pagina = list(specific.faceted_tags.all())
+
+        vistas = {etiqueta.name.lower() for etiqueta in propias}
+        return propias + [
+            etiqueta
+            for etiqueta in de_pagina
+            if etiqueta.name.lower() not in vistas
+        ]
 
     def get_viewer_url(self):
         """URL para ver el elemento en fullscreen"""
