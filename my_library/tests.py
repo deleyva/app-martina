@@ -1859,3 +1859,66 @@ def test_publicar_un_borrador_viejo_no_se_lleva_las_etiquetas(db, tmp_path):
     assert {t.name for t in releida.faceted_tags.all()} == {"instrumento:guitarra"}, (
         "publicar un borrador anterior a la migración se ha llevado las etiquetas"
     )
+
+
+# === C36: la sesión lee el vocabulario facetado ===
+
+
+def _item_de_pagina(user, pagina, titulo="desde pagina"):
+    """Un LibraryItem cuyo `source_page` es la página dada."""
+    from cms.models import ExternalResource
+
+    recurso = ExternalResource.objects.create(
+        url=f"https://example.org/{pagina.slug}", title=titulo
+    )
+    return LibraryItem.objects.create(
+        user=user,
+        content_type=ContentType.objects.get_for_model(recurso),
+        object_id=recurso.pk,
+        source_page=pagina,
+    )
+
+
+def test_la_sesion_lee_las_etiquetas_facetadas_de_la_pagina(db, user):
+    from taggit.models import Tag
+
+    pagina = _pagina_con_musictags("Blues", "c36-1", ["guitar"])
+    pagina.faceted_tags.add(
+        Tag.objects.create(name="instrumento:guitarra", slug="instrumento-guitarra")
+    )
+    pagina.save()
+    item = _item_de_pagina(user, pagina)
+
+    mapa = LibraryDeck.build_tag_map(LibraryItem.objects.filter(user=user))
+
+    assert "instrumento:guitarra" in mapa[item.pk]
+
+
+def test_la_sesion_ya_no_lee_el_vocabulario_plano_de_la_pagina(db, user):
+    """El falsador de C36. Con la lectura vieja, `guitar` seguiría entrando y la
+    etiqueta de página nunca podría agrupar ni filtrar, que era el motivo de
+    toda la fase 8."""
+    pagina = _pagina_con_musictags("Blues", "c36-2", ["guitar"])
+    item = _item_de_pagina(user, pagina)
+
+    mapa = LibraryDeck.build_tag_map(LibraryItem.objects.filter(user=user))
+
+    assert "guitar" not in mapa[item.pk]
+
+
+def test_la_etiqueta_de_pagina_ya_agrupa_una_sesion(db, user):
+    """Lo que la fase 8 venía a comprar. Antes de C36 esto era imposible:
+    `facets.parse('guitar')` no reconoce faceta, así que no agrupaba."""
+    from taggit.models import Tag
+
+    pagina = _pagina_con_musictags("Blues", "c36-3", ["guitar"])
+    pagina.faceted_tags.add(
+        Tag.objects.create(name="concepto:pentatonica", slug="concepto-pentatonica")
+    )
+    pagina.save()
+    item = _item_de_pagina(user, pagina)
+
+    mapa = LibraryDeck.build_tag_map(LibraryItem.objects.filter(user=user))
+    facetadas = [t for t in mapa[item.pk] if facets.tiene_faceta(t)]
+
+    assert facetadas == ["concepto:pentatonica"]

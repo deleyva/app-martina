@@ -77,11 +77,18 @@ class LibraryDeck(models.Model):
             if obj and hasattr(obj, "tags"):
                 for tag in obj.tags.all():
                     tags_set.add(tag.name.lower())
-            # Related source page tags
+            # Etiquetas de la página de origen. Desde la fase 8 se leen de
+            # `faceted_tags` (taggit, vocabulario facetado) y NO de `tags`, que
+            # es el `MusicTag` plano. Mientras se leían las dos, una etiqueta de
+            # página no podía agrupar ni filtrar una sesión, porque `facets.parse`
+            # no reconoce un nombre sin faceta. Ese era el motivo de la fase.
+            #
+            # `tags` sigue existiendo y sigue alimentando el filtrado del sitio;
+            # lo que se decide en C37 es su destino, no el de esta lectura.
             if item.source_page_id and item.source_page:
                 specific = item.source_page.specific
-                if hasattr(specific, "tags"):
-                    for tag in specific.tags.all():
+                if hasattr(specific, "faceted_tags"):
+                    for tag in specific.faceted_tags.all():
                         tags_set.add(tag.name.lower())
             tag_map[item.pk] = tags_set
         return tag_map
