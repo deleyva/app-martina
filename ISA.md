@@ -300,11 +300,12 @@ Decisiones del principal (2026-08-17):
   - **Estado de producción justo antes de migrar:** `MusicTag` 80, taggit 139, `faceted_tags` 0, mazos 23 / 9 / 11, y **36 páginas con borrador sin publicar** (eran 37 en la copia del 20/08 — el número se mueve solo, que es exactamente por qué la sincronización de revisiones no es opcional). Copia de seguridad del día: `production_backup_2026_08_23T12_33_22.sql.gz`.
   - **Ejecutado en producción el 2026-08-23** con `just production-migrar-musictags-ejecutar`, y verificado ahí mismo: **148 BlogPage (507 etiquetados) + 15 ScorePage (21) + 1 DictadoPage (3) = 164 páginas y 531 etiquetados**, exactamente el plan. taggit 139 → 148. `MusicTag` sigue en 80: C34b no borra nada. **164/164 revisiones sincronizadas, 0 desincronizadas.** Y las tres tipologías de página siguen abriendo sin error en navegador real contra producción.
 - [x] **C35 — Ningún elemento de biblioteca pierde etiquetas.** *2026-08-23, cerrada sobre producción y no por conteo: se comparó el `build_tag_map` completo, elemento a elemento. La huella SHA-256 del mapa canónico de los 102 elementos sale `17ddad1c56f61534` **idéntica** a la del control tomado antes de migrar (`backups/control_c35_antes.json`, 102 elementos, 469 etiquetados). Los tres mazos siguen en 23 / 9 / 11.*
-- [ ] **C36 — `build_tag_map` deja de leer de dos sitios, Y arrastra los mazos en la misma transacción.** Hoy recoge de los dos vocabularios sin distinguir. Al terminar debe leer solo taggit. *Probe: los tres mazos siguen contando 23 / 9 / 11.*
-  - ⚠️ **Aquí es donde se rompe el mazo `caged-system`, y es la tercera vez que este defecto se presenta.** Medido el 22/08 contra la copia de producción: `caged-system` existe **solo como `MusicTag`**, no en taggit; el mazo empareja 11 elementos y **los 11** sacan la etiqueta de la `MusicTag` de su página. En cuanto `build_tag_map` lea solo taggit, ese nombre deja de existir y el mazo cuenta 0 — exactamente el fallo del 12/08. El mapa lo manda a `concepto:caged`, que ya existe en taggit.
-  - **Los otros dos mazos sobreviven solos:** `guitarra jazz` (`instrumento:guitarra`, `estilo:jazz`) y `Piano` (`instrumento:piano`) ya apuntan a nombres facetados de taggit.
-  - **La herramienta ya existe:** `migrar_etiquetas.planificar_mazos` aplica un mapa a `tags_json`. C36 tiene que llamarla con `mapa_musictags.txt` **dentro de la misma transacción** que el cambio de `build_tag_map`. Quedarse a medias aquí es de lo que venimos.
-- [ ] **C37 — `MusicTag` queda vacío y se decide su destino.** Borrar el modelo y el campo `tags` de las cuatro páginas, o dejarlo muerto. Dejarlo muerto es lo que produjo `content_hub`.
+- [~] **C36 — `build_tag_map` lee solo taggit y los mazos van arrastrados. HECHA Y ENSAYADA; FALTA DESPLEGAR.** *2026-08-24, commit `9137cfe`.*
+  - `build_tag_map` deja de leer el `MusicTag` plano de `source_page` y pasa a `faceted_tags`. Los tres tests nuevos **fallan contra la lectura vieja**, comprobado revirtiéndola.
+  - **El arrastre de mazos va como migración de datos (`my_library.0009`), no como comando a mano.** `deploy-production` lanza `migrate` justo después de levantar el código nuevo, así que el arrastre ocurre en el mismo despliegue y no hay ventana entre las dos cosas. El parseo del mapa se repite dentro de la migración a propósito: tiene que seguir corriendo cuando C37 borre el comando.
+  - **El fallo que evita, medido sobre la copia de producción:** con el código nuevo y **sin** arrastrar, el mazo `caged-system` cae a **0**. Es el fallo del 12/08 exacto. Después de arrastrar vuelve a 11 y los tres quedan en **23 / 9 / 11**.
+  - **Falta:** desplegar. El clasificador de permisos de la sesión bloquea el comando, así que lo lanza el principal.
+- [ ] **C37 — `MusicTag` queda vacío y se decide su destino.** Borrar el modelo y el campo `tags` de las cuatro páginas, o dejarlo muerto. Dejarlo muerto es lo que produjo `content_hub`. **Alcance medido el 2026-08-24, para que no aparezca a mitad:** `tags` lo siguen leyendo **22 sitios en Python** (`cms/models.py`, `cms/views.py`, `cms/api.py` — el filtrado del sitio, no la sesión) y **20 plantillas**. Borrarlo es un barrido, no un `RemoveField`.
 
 ### Decisión de secuencia — expandir, migrar, contraer (2026-08-21)
 
@@ -317,6 +318,23 @@ Así que se hace en tres tiempos, y ninguno rompe el sitio por sí solo:
 3. **Contraer** (C36, C37) — `build_tag_map` pasa a leer solo taggit, y solo entonces se borra `tags` y `faceted_tags` se renombra a `tags`.
 
 El coste es un nombre feo viviendo unos días. Lo que compra es que en ningún momento hay un despliegue con las etiquetas de las páginas en el aire.
+
+### El hallazgo de C36: la fase no compra lo que decía comprar
+
+**Verificar C36 destapó un error de diagnóstico en el planteamiento de toda la fase 8.** La fase se justificó con esta frase, que está escrita arriba: *"mientras siga así, la sesión de estudio no puede agrupar ni filtrar por nada que viva en las páginas"*. Es cierta. Lo que no es cierto es que el vocabulario partido fuera la causa.
+
+**Hay dos caminos de etiquetas, no uno**, y solo uno pasa por `build_tag_map`:
+
+| Camino | Quién lo usa | ¿Mira `source_page`? |
+|---|---|---|
+| `build_tag_map` | emparejar mazos (`views.py:866`, `:892`) | Sí. C36 lo arregla. |
+| `get_content_tags` → `session._etiquetas` | **el selector de facetas, la agrupación temática** y las etiquetas que pinta el visor | **No. Nunca ha mirado la página.** |
+
+*Probe, sobre la copia de producción:* el elemento 121 recibe `estilo:jazz-moderno` por `build_tag_map` y **no** por `_etiquetas`. Y el selector de facetas da **19 valores en 6 facetas idénticos antes y después de C36** — medido revirtiendo la lectura y volviéndola a poner.
+
+**Lo que la fase 8 sí ha comprado**, sin adornos: un solo vocabulario; **169 etiquetas planas que ensuciaban `build_tag_map` reducidas a 1**; el emparejamiento de mazos por fin sobre nombres facetados; y la precondición sin la cual arreglar el otro camino no serviría de nada — si `get_content_tags` empezara a leer la página con el vocabulario viejo, metería esas 169 planas, que no agrupan ni filtran.
+
+- [ ] **C40 — El selector de facetas y la agrupación ven las etiquetas de la página.** Es lo que la fase decía comprar y no compra. Requiere que `get_content_tags` (o `session._etiquetas`) incluya `source_page.specific.faceted_tags`. **Decisión del principal antes de tocarlo:** `get_content_tags` también alimenta las etiquetas que se pintan en el visor (`study_item_content.html`, `item_tags.html`), así que cambiarlo altera lo que se ve, no solo lo que se filtra. *Aporte medido si se hace: 26 de los 51 elementos ganan una faceta que hoy no tiene ninguna otra fuente, y `estilo:jazz-moderno` pasa de 0 a 23 elementos filtrables.*
 
 ### Anti-claims
 
