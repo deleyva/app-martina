@@ -1777,3 +1777,85 @@ def test_el_informe_cuenta_lo_que_se_pierde(db, tmp_path):
 
     assert perdidos == {"iconic": 2, "upbeat": 1}
     assert paginas == 2
+
+
+# === C34b: escribir las etiquetas en las páginas ===
+
+
+def test_aplicar_escribe_las_etiquetas_facetadas(db, tmp_path):
+    from cms.models import ScorePage
+
+    pagina = _pagina_con_musictags("Blues", "aplicar-1", ["guitar", "blues"])
+
+    _migrar_musictags(
+        tmp_path,
+        ["guitar -> instrumento:guitarra", "blues -> estilo:blues"],
+        ejecutar=True,
+    )
+
+    releida = ScorePage.objects.get(pk=pagina.pk)
+    assert {t.name for t in releida.faceted_tags.all()} == {
+        "instrumento:guitarra",
+        "estilo:blues",
+    }
+
+
+def test_aplicar_no_toca_el_vocabulario_viejo(db, tmp_path):
+    """`MusicTag` se decide en C37. Mezclar el movimiento con el borrado deja
+    sin red la comprobación de paridad de C35."""
+    from cms.models import MusicTag, ScorePage
+
+    pagina = _pagina_con_musictags("Blues", "aplicar-2", ["guitar"])
+
+    _migrar_musictags(tmp_path, ["guitar -> instrumento:guitarra"], ejecutar=True)
+
+    releida = ScorePage.objects.get(pk=pagina.pk)
+    assert {t.name for t in releida.tags.all()} == {"guitar"}
+    assert MusicTag.objects.filter(name="guitar").exists()
+
+
+def test_aplicar_es_idempotente(db, tmp_path):
+    from cms.models import ScorePage
+
+    pagina = _pagina_con_musictags("Blues", "aplicar-3", ["guitar", "guitarra"])
+    lineas = [
+        "guitar -> instrumento:guitarra",
+        "guitarra -> instrumento:guitarra",
+    ]
+
+    _migrar_musictags(tmp_path, lineas, ejecutar=True)
+    _migrar_musictags(tmp_path, lineas, ejecutar=True)
+
+    releida = ScorePage.objects.get(pk=pagina.pk)
+    assert [t.name for t in releida.faceted_tags.all()] == ["instrumento:guitarra"]
+
+
+def test_publicar_un_borrador_viejo_no_se_lleva_las_etiquetas(db, tmp_path):
+    """LA PREGUNTA QUE DECIDE C34b.
+
+    37 de las 300 páginas de producción tienen un borrador sin publicar, creado
+    ANTES de que existiera `faceted_tags`. Si escribir solo en la fila viva basta,
+    publicar ese borrador después borraría las etiquetas nuevas — una migración
+    que se deshace sola semanas más tarde y sin que nadie la toque.
+    """
+    from cms.models import ScorePage
+
+    pagina = _pagina_con_musictags("Blues", "aplicar-4", ["guitar"])
+    revision_vieja = pagina.save_revision()  # borrador de antes de etiquetar
+
+    _migrar_musictags(tmp_path, ["guitar -> instrumento:guitarra"], ejecutar=True)
+    assert {t.name for t in ScorePage.objects.get(pk=pagina.pk).faceted_tags.all()} == {
+        "instrumento:guitarra"
+    }
+
+    # Releída de la BD, que es lo que hace el admin al publicar. El objeto que
+    # quedó en memoria lleva el `content` de antes de migrar y publicarlo
+    # probaría algo que no pasa nunca por la interfaz.
+    from wagtail.models import Revision
+
+    Revision.objects.get(pk=revision_vieja.pk).publish()
+
+    releida = ScorePage.objects.get(pk=pagina.pk)
+    assert {t.name for t in releida.faceted_tags.all()} == {"instrumento:guitarra"}, (
+        "publicar un borrador anterior a la migración se ha llevado las etiquetas"
+    )

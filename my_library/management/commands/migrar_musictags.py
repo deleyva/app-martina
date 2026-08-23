@@ -197,6 +197,29 @@ def campo_destino_existe():
     )
 
 
+def _sincronizar_revision(pagina):
+    """Mete las etiquetas nuevas en la ÚLTIMA revisión de la página.
+
+    No crea una revisión nueva a propósito: eso enterraría el borrador que el
+    principal pueda tener a medias en esas 37 páginas. Solo se reescribe la
+    lista `tagged_items` del JSON, que es un campo que no existía cuando esa
+    revisión se guardó. Ni una línea del contenido que escribió nadie se toca.
+    """
+    revision = pagina.get_latest_revision()
+    if revision is None:
+        return
+
+    filas = [
+        {"pk": fila.pk, "tag": fila.tag_id, "content_object": pagina.pk}
+        for fila in pagina.tagged_items.all().order_by("pk")
+    ]
+    if revision.content.get("tagged_items") == filas:
+        return
+
+    revision.content["tagged_items"] = filas
+    revision.save(update_fields=["content"])
+
+
 class Command(BaseCommand):
     help = "Mueve las etiquetas de las páginas de MusicTag a taggit facetado"
 
@@ -293,13 +316,20 @@ class Command(BaseCommand):
             )
 
     def _aplicar(self, plan):
-        """La mitad de escritura (C34b). SIN VERIFICAR todavía.
+        """Escribe las etiquetas facetadas en las páginas. Dos escrituras por
+        página, y la segunda no es opcional.
 
-        No se puede ejercitar hasta que exista `faceted_tags` (C33), así que
-        este cuerpo es la intención, no código probado. Queda por resolver con
-        C33 si basta `.set()` + `save()` o hace falta `save_revision()` para
-        que el cambio sobreviva al sistema de revisiones de Wagtail. El guardia
-        de `handle` existe justo para que esto no se ejecute a ciegas.
+        La fila viva se actualiza con `.set()` + `save()`. Pero Wagtail guarda
+        las páginas por revisiones, y las que existen hoy se serializaron ANTES
+        de que `faceted_tags` existiera: su JSON no lleva `tagged_items`.
+        Publicar una de ellas después de migrar deja la página sin etiquetas.
+
+        **Está medido, no supuesto**: el test
+        `test_publicar_un_borrador_viejo_no_se_lleva_las_etiquetas` falla contra
+        una versión que solo escribe la fila viva. Y no es hipotético — de las
+        300 páginas de producción, **37 tienen un borrador sin publicar**. Sin
+        sincronizar la revisión, la migración se deshace sola semanas más tarde,
+        una página cada vez, sin que nadie toque nada.
         """
         from taggit.models import Tag
 
@@ -311,8 +341,14 @@ class Command(BaseCommand):
         for pagina, _viejos, nuevos, pelada in plan:
             if pelada:
                 continue
-            getattr(pagina, CAMPO_DESTINO).set(nuevos)
-            pagina.save()
+            manager = getattr(pagina, CAMPO_DESTINO)
+            # Volver a escribir lo que ya está correcto borraría y recrearía las
+            # filas del through, cambiando sus pk y ensuciando la revisión. Una
+            # segunda pasada del comando debe ser un no-op de verdad.
+            if sorted(t.name for t in manager.all()) != sorted(nuevos):
+                manager.set(nuevos)
+                pagina.save()
+            _sincronizar_revision(pagina)
 
     def _resumen(self, plan, conteo, por_crear, perdidos, paginas_con_perdida):
         w = self.stdout.write
