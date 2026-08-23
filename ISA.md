@@ -4,7 +4,7 @@ phase: build
 progress: true
 iteration: 10
 principal_stated_goal: "ok, quiero que hagas lo más limpio y con visión de futuro"
-updated: 2026-08-23
+updated: 2026-08-24
 ---
 
 # ISA — app-martina · Sistema de estudio de la biblioteca
@@ -31,10 +31,12 @@ updated: 2026-08-23
 | 10 | **La nota se guardaba en el item equivocado** — encontrado al verificar C12 en navegador | `7bec854` |
 | 8·1 | **Expandir: `faceted_tags` vacío en las cuatro páginas** (C33) | `547a547` |
 | 8·2 | **Migrar: 531 etiquetas escritas en 164 páginas** (C34b, C35) | `9ed4e1f` |
+| 8·3 | **Contraer: la sesión lee solo el vocabulario facetado** (C36) | `9137cfe` |
+| 8·4 | **El selector y el visor ven las etiquetas de la página** (C40) | `c6360ab`, sin desplegar |
 
 ### Lo siguiente, por orden
 
-0. **Fase 8 — `MusicTag` → taggit facetado. EN MARCHA. Migrar y contraer: hecho el paso 2, toca C36.** El comando de re-etiquetado (C34a) está escrito, con 14 tests, y su ensayo en seco valida el mapa entero. Lo que falta para poder ejecutarlo es **C33, la migración de esquema**, que es el paso que querías confirmar antes. Ver la sección "Fase 8", con la decisión de secuencia expandir → migrar → contraer.
+0. **Fase 8 — `MusicTag` → taggit facetado. C36 y C40 hechas; C40 pendiente de desplegar. Queda C37, la contracción.** El comando de re-etiquetado (C34a) está escrito, con 14 tests, y su ensayo en seco valida el mapa entero. Lo que falta para poder ejecutarlo es **C33, la migración de esquema**, que es el paso que querías confirmar antes. Ver la sección "Fase 8", con la decisión de secuencia expandir → migrar → contraer.
 1. **Presupuesto de sesión en MINUTOS en vez de en elementos.** Es la mejor idea pendiente y la que arregla que "8 elementos" sea una unidad mentirosa cuando uno es un lick de 40 segundos y otro una pieza de 14 minutos. **Necesita datos**: `ReviewLog.duration_seconds` lleva recogiendo desde el 12/08/2026. Con dos semanas de práctica real, cada elemento tiene su mediana y el presupuesto se calibra solo. *Antes del 26/08 no tiene sentido tocarlo.*
 2. **Orden real dentro de un libro.** Hoy el material nuevo entra por orden de alta en la biblioteca, que coincide con el libro solo por casualidad. Hace falta modelar libro → sección → ejercicio con un ordinal. Es la misma pieza que pedía el troceo, así que encaja encima de `ItemSection`.
 3. **Revisar los plazos de caducidad con datos reales** (hoy 1/1/3/7/21 días por nivel). El de 21 días para "me lo sé muy bien" es el más dudoso: para un dato está bien, para tener una escala en las manos puede ser demasiado.
@@ -300,11 +302,11 @@ Decisiones del principal (2026-08-17):
   - **Estado de producción justo antes de migrar:** `MusicTag` 80, taggit 139, `faceted_tags` 0, mazos 23 / 9 / 11, y **36 páginas con borrador sin publicar** (eran 37 en la copia del 20/08 — el número se mueve solo, que es exactamente por qué la sincronización de revisiones no es opcional). Copia de seguridad del día: `production_backup_2026_08_23T12_33_22.sql.gz`.
   - **Ejecutado en producción el 2026-08-23** con `just production-migrar-musictags-ejecutar`, y verificado ahí mismo: **148 BlogPage (507 etiquetados) + 15 ScorePage (21) + 1 DictadoPage (3) = 164 páginas y 531 etiquetados**, exactamente el plan. taggit 139 → 148. `MusicTag` sigue en 80: C34b no borra nada. **164/164 revisiones sincronizadas, 0 desincronizadas.** Y las tres tipologías de página siguen abriendo sin error en navegador real contra producción.
 - [x] **C35 — Ningún elemento de biblioteca pierde etiquetas.** *2026-08-23, cerrada sobre producción y no por conteo: se comparó el `build_tag_map` completo, elemento a elemento. La huella SHA-256 del mapa canónico de los 102 elementos sale `17ddad1c56f61534` **idéntica** a la del control tomado antes de migrar (`backups/control_c35_antes.json`, 102 elementos, 469 etiquetados). Los tres mazos siguen en 23 / 9 / 11.*
-- [~] **C36 — `build_tag_map` lee solo taggit y los mazos van arrastrados. HECHA Y ENSAYADA; FALTA DESPLEGAR.** *2026-08-24, commit `9137cfe`.*
+- [x] **C36 — `build_tag_map` lee solo taggit y los mazos van arrastrados.** *2026-08-24, commit `9137cfe`, desplegado y verificado en producción.*
   - `build_tag_map` deja de leer el `MusicTag` plano de `source_page` y pasa a `faceted_tags`. Los tres tests nuevos **fallan contra la lectura vieja**, comprobado revirtiéndola.
   - **El arrastre de mazos va como migración de datos (`my_library.0009`), no como comando a mano.** `deploy-production` lanza `migrate` justo después de levantar el código nuevo, así que el arrastre ocurre en el mismo despliegue y no hay ventana entre las dos cosas. El parseo del mapa se repite dentro de la migración a propósito: tiene que seguir corriendo cuando C37 borre el comando.
   - **El fallo que evita, medido sobre la copia de producción:** con el código nuevo y **sin** arrastrar, el mazo `caged-system` cae a **0**. Es el fallo del 12/08 exacto. Después de arrastrar vuelve a 11 y los tres quedan en **23 / 9 / 11**.
-  - **Falta:** desplegar. El clasificador de permisos de la sesión bloquea el comando, así que lo lanza el principal.
+  - **Verificado en producción tras desplegar:** `my_library.0009` aplicada; los mazos quedan en **23 / 9 / 11** y `caged-system` ya apunta a `concepto:caged`. La biblioteca pasa de 469 a 320 etiquetados y de **169 planas a 1**, que es la caída esperada al irse el vocabulario viejo. **Ningún elemento pierde una etiqueta facetada** (comparación elemento a elemento contra el control previo): 0 pierden, **42 ganan, 45 facetas ganadas**. Las páginas siguen abriendo sin error en navegador real.
 - [ ] **C37 — `MusicTag` queda vacío y se decide su destino.** Borrar el modelo y el campo `tags` de las cuatro páginas, o dejarlo muerto. Dejarlo muerto es lo que produjo `content_hub`. **Alcance medido el 2026-08-24, para que no aparezca a mitad:** `tags` lo siguen leyendo **22 sitios en Python** (`cms/models.py`, `cms/views.py`, `cms/api.py` — el filtrado del sitio, no la sesión) y **20 plantillas**. Borrarlo es un barrido, no un `RemoveField`.
 
 ### Decisión de secuencia — expandir, migrar, contraer (2026-08-21)
@@ -334,7 +336,11 @@ El coste es un nombre feo viviendo unos días. Lo que compra es que en ningún m
 
 **Lo que la fase 8 sí ha comprado**, sin adornos: un solo vocabulario; **169 etiquetas planas que ensuciaban `build_tag_map` reducidas a 1**; el emparejamiento de mazos por fin sobre nombres facetados; y la precondición sin la cual arreglar el otro camino no serviría de nada — si `get_content_tags` empezara a leer la página con el vocabulario viejo, metería esas 169 planas, que no agrupan ni filtran.
 
-- [ ] **C40 — El selector de facetas y la agrupación ven las etiquetas de la página.** Es lo que la fase decía comprar y no compra. Requiere que `get_content_tags` (o `session._etiquetas`) incluya `source_page.specific.faceted_tags`. **Decisión del principal antes de tocarlo:** `get_content_tags` también alimenta las etiquetas que se pintan en el visor (`study_item_content.html`, `item_tags.html`), así que cambiarlo altera lo que se ve, no solo lo que se filtra. *Aporte medido si se hace: 26 de los 51 elementos ganan una faceta que hoy no tiene ninguna otra fuente, y `estilo:jazz-moderno` pasa de 0 a 23 elementos filtrables.*
+- [~] **C40 — El selector de facetas y la agrupación ven las etiquetas de la página. HECHA; FALTA DESPLEGAR.** *2026-08-24, commit `c6360ab`. Opción A, elegida por el principal: una sola definición de "las etiquetas de este elemento", las suyas más las de su `source_page`, y se pintan también en el visor.*
+  - **Efecto medido sobre la biblioteca real:** el selector pasa de 19 a 20 valores y aparece `estilo:jazz-moderno`, que cubre los capítulos del libro de Jens Larsen y **antes no se podía elegir**. Solo entran las facetadas: el `MusicTag` plano no.
+  - **Los tres tests clave fallan** contra la versión sin el aporte de la página, comprobado desactivándolo.
+  - **La precarga, que salió de medir el coste.** Subir a `source_page.specific` por elemento son ~3 consultas cada uno: 51 elementos pasaban de 107 a **254 consultas** y de 74 a **222 ms**, y crece en línea recta — a 500 elementos, más de dos segundos en la página con la que se arranca cada sesión. `precargar_etiquetas_de_pagina` lo deja en **124 consultas y 84 ms**, o sea **+17 consultas y +10 ms** sobre no tener etiquetas de página en absoluto. `build_tag_map` la usa también. Un test comprueba que precargar y no precargar dan exactamente lo mismo.
+  - **Falta:** desplegar.
 
 ### Anti-claims
 
