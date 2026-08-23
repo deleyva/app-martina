@@ -488,3 +488,42 @@ book-import-prod slug tags book_title *extra:
 # book-import-prod-dry: Convenience wrapper — always dry-run
 book-import-prod-dry slug tags book_title *extra:
     @just book-import-prod {{slug}} "{{tags}}" "{{book_title}}" --dry-run {{extra}}
+
+# ─────────────────────────────────────────────────────────────────────
+# Comandos de gestión contra producción
+# ─────────────────────────────────────────────────────────────────────
+
+# Uso: just production-command showmigrations cms
+#      just production-command migrar_musictags
+# Es el hermano que le faltaba a `command`, que solo corre en local.
+# production-command: ejecuta cualquier manage.py en producción
+production-command +args:
+    @ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-production && \
+    docker compose -f docker-compose.production.yml run --rm django python ./manage.py {{args}}"
+
+# production-migrar-musictags: ensayo en seco del re-etiquetado, no escribe nada
+production-migrar-musictags:
+    @just production-command migrar_musictags
+
+# Pide confirmación escrita a propósito: no es un comando que se lance por
+# inercia ni por flecha arriba en el historial.
+# production-migrar-musictags-ejecutar: LA DE VERDAD, escribe en producción
+production-migrar-musictags-ejecutar:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "Esto ESCRIBE en la base de datos de producción:"
+    echo "  · 164 páginas re-etiquetadas (148 blog, 15 partituras, 1 dictado)"
+    echo "  · 531 etiquetados nuevos, 9 etiquetas nuevas en taggit"
+    echo "  · 15 etiquetados BORRADOS en 9 páginas"
+    echo "  · MusicTag no se toca: eso es otro paso"
+    echo
+    echo "Si algo sale mal se vuelve atrás restaurando la copia del día."
+    echo "Compruébala antes:  just production-list-backups"
+    echo
+    read -r -p 'Escribe MIGRAR para continuar: ' respuesta
+    if [ "$respuesta" != "MIGRAR" ]; then
+        echo "Cancelado. No se ha tocado nada."
+        exit 1
+    fi
+    ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-production && \
+    docker compose -f docker-compose.production.yml run --rm django python ./manage.py migrar_musictags --ejecutar"
