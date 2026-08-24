@@ -2032,85 +2032,80 @@ def test_precargar_da_lo_mismo_que_no_precargar(db, user):
     assert con_precarga[otro.pk] == []
 
 
-# === C37a: el API escribe en los dos vocabularios ===
+# === C37b: el API escribe etiquetas facetadas por nombre ===
 
 
-def test_el_api_escribe_tambien_las_facetadas(db, tmp_path):
-    """El caso real: PublishIES publica por `POST /api/cms/blog-pages` mandando
-    `tag_ids` de `MusicTag`. Sin esto, cada artículo nuevo nacería con etiquetas
-    planas que la sesión de estudio no ve."""
+def test_el_api_pone_las_etiquetas_por_nombre(db):
+    """El caso real: PublishIES publica por `POST /api/cms/blog-pages`. Los ids
+    de `MusicTag` se retiraron con el modelo; ahora van nombres."""
     from cms.etiquetas import aplicar_etiquetas
-    from cms.models import MusicTag, ScorePage
+    from cms.models import ScorePage
 
-    pagina = _pagina_con_musictags("Nueva", "c37a-1", [])
-    jazz = MusicTag.objects.create(name="jazz")
-
-    aplicar_etiquetas(pagina, [jazz])
-
-    # El API persiste así justo después; `set()` sobre modelcluster solo
-    # deja el cambio en memoria hasta que la página se guarda.
+    pagina = _pagina_con_musictags("Nueva", "c37b-1", [])
+    aplicar_etiquetas(pagina, ["estilo:jazz", "instrumento:guitarra"])
     pagina.save_revision().publish()
 
     releida = ScorePage.objects.get(pk=pagina.pk)
-    assert {t.name for t in releida.tags.all()} == {"jazz"}
-    assert {t.name for t in releida.faceted_tags.all()} == {"estilo:jazz"}
+    assert {t.name for t in releida.faceted_tags.all()} == {
+        "estilo:jazz",
+        "instrumento:guitarra",
+    }
 
 
-def test_el_api_fusiona_como_el_mapa(db):
+def test_el_api_no_duplica_un_nombre_repetido(db):
     from cms.etiquetas import aplicar_etiquetas
-    from cms.models import MusicTag, ScorePage
+    from cms.models import ScorePage
 
-    pagina = _pagina_con_musictags("Nueva", "c37a-2", [])
-    etiquetas = [
-        MusicTag.objects.create(name="guitar"),
-        MusicTag.objects.create(name="guitarra"),
-    ]
-
-    aplicar_etiquetas(pagina, etiquetas)
-
-    # El API persiste así justo después; `set()` sobre modelcluster solo
-    # deja el cambio en memoria hasta que la página se guarda.
+    pagina = _pagina_con_musictags("Nueva", "c37b-2", [])
+    aplicar_etiquetas(pagina, ["estilo:jazz", "Estilo:Jazz ", "estilo:jazz"])
     pagina.save_revision().publish()
 
     releida = ScorePage.objects.get(pk=pagina.pk)
-    assert [t.name for t in releida.faceted_tags.all()] == ["instrumento:guitarra"]
+    assert releida.faceted_tags.count() == 1
 
 
-def test_el_api_respeta_los_borrados_del_mapa(db):
-    """`melancholic` es una de las 26 que el principal decidió borrar."""
-    from cms.etiquetas import aplicar_etiquetas
-    from cms.models import MusicTag, ScorePage
+def test_una_faceta_inventada_se_rechaza(db):
+    """`caracter` no está en `facets.FACETAS`: el principal decidió no crearla.
+    Sin esta comprobación la etiqueta se crearía y nacería muerta."""
+    from cms.etiquetas import facetas_desconocidas
 
-    pagina = _pagina_con_musictags("Nueva", "c37a-3", [])
-    etiquetas = [
-        MusicTag.objects.create(name="blues"),
-        MusicTag.objects.create(name="melancholic"),
-    ]
-
-    aplicar_etiquetas(pagina, etiquetas)
-
-    # El API persiste así justo después; `set()` sobre modelcluster solo
-    # deja el cambio en memoria hasta que la página se guarda.
-    pagina.save_revision().publish()
-
-    releida = ScorePage.objects.get(pk=pagina.pk)
-    assert {t.name for t in releida.faceted_tags.all()} == {"estilo:blues"}
+    assert facetas_desconocidas(["caracter:melancolico"]) == ["caracter:melancolico"]
+    assert facetas_desconocidas(["estilo:jazz"]) == []
 
 
-def test_una_etiqueta_que_el_mapa_no_conoce_pasa_tal_cual(db):
-    """Creada en el admin después de cerrar el mapa. Perderla en silencio sería
-    peor que dejarla sin faceta."""
-    from cms.etiquetas import aplicar_etiquetas
-    from cms.models import MusicTag, ScorePage
+def test_un_nombre_sin_faceta_es_valido(db):
+    """`3/4` y `vitalinux` son etiquetas legítimas sin faceta. El separador es
+    `:`, no `/`, justo para que un compás no se parsee como faceta."""
+    from cms.etiquetas import facetas_desconocidas
 
-    pagina = _pagina_con_musictags("Nueva", "c37a-4", [])
-    nueva = MusicTag.objects.create(name="bulerias")
+    assert facetas_desconocidas(["3/4", "vitalinux"]) == []
 
-    aplicar_etiquetas(pagina, [nueva])
 
-    # El API persiste así justo después; `set()` sobre modelcluster solo
-    # deja el cambio en memoria hasta que la página se guarda.
-    pagina.save_revision().publish()
+def test_precargar_da_lo_mismo_que_no_precargar(db, user):
+    """La precarga es una optimización, no otra semántica. Si los dos caminos
+    dieran resultados distintos, el selector y el visor discreparían según por
+    dónde se llegara."""
+    from taggit.models import Tag
 
-    releida = ScorePage.objects.get(pk=pagina.pk)
-    assert {t.name for t in releida.faceted_tags.all()} == {"bulerias"}
+    pagina = _pagina_con_musictags("Libro", "precarga-1", ["modern jazz"])
+    pagina.faceted_tags.add(
+        Tag.objects.create(name="estilo:jazz-moderno", slug="estilo-jm-precarga")
+    )
+    pagina.save()
+    item = _item_de_pagina(user, pagina)
+    otro = _item_de_pagina(
+        user, _pagina_con_musictags("Suelto", "precarga-2", []), "sin etiquetas"
+    )
+
+    sin_precarga = {
+        i.pk: sorted(t.name for t in i.get_content_tags())
+        for i in LibraryItem.objects.filter(user=user)
+    }
+
+    items = list(LibraryItem.objects.filter(user=user))
+    LibraryDeck.precargar_etiquetas_de_pagina(items)
+    con_precarga = {i.pk: sorted(t.name for t in i.get_content_tags()) for i in items}
+
+    assert sin_precarga == con_precarga
+    assert "estilo:jazz-moderno" in con_precarga[item.pk]
+    assert con_precarga[otro.pk] == []

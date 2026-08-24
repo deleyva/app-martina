@@ -23,7 +23,6 @@ from cms.models import (
     MusicCategory,
     MusicComposer,
     MusicLibraryIndexPage,
-    MusicTag,
     ScorePage,
 )
 
@@ -178,7 +177,7 @@ class ContentPublisher:
 
             if metadata.get("tags"):
                 tags = [self._get_or_create_tag(tag) for tag in metadata["tags"]]
-                score_page.tags.set(tags)
+                score_page.faceted_tags.set(tags)
 
             # Save and optionally publish
             score_page.save()
@@ -431,44 +430,30 @@ class ContentPublisher:
         logger.info(f"Created new category: {category.name} (Parent: {parent})")
         return category
 
-    def _get_or_create_tag(self, name: str) -> MusicTag:
-        """
-        Get existing tag or create a new one.
+    def _get_or_create_tag(self, name: str):
+        """La etiqueta de taggit con ese nombre, creándola si hace falta.
 
-        Args:
-            name: Tag name
-
-        Returns:
-            MusicTag instance
+        Antes creaba una `MusicTag` con un color aleatorio de una lista de
+        ocho. Desde C37b hay un solo vocabulario y el color lo da la FACETA
+        (`cms_tags.color_de_faceta`), así que ni hay campo de color ni hay nada
+        que sortear: una etiqueta nueva nace con el color que le toca.
         """
         if not name or not name.strip():
             return None
 
-        # Normalize name (lowercase)
+        from taggit.models import Tag
+
+        from cms.etiquetas import _slug_para
+
         normalized_name = name.strip().lower()
 
-        # Search for existing tag (case-insensitive)
-        tag = MusicTag.objects.filter(name__iexact=normalized_name).first()
-
+        tag = Tag.objects.filter(name__iexact=normalized_name).first()
         if tag:
             logger.debug(f"Found existing tag: {tag.name}")
             return tag
 
-        # Create new tag with random color
-        import random
-
-        colors = [
-            "#3B82F6",  # Blue
-            "#10B981",  # Green
-            "#F59E0B",  # Amber
-            "#EF4444",  # Red
-            "#8B5CF6",  # Purple
-            "#EC4899",  # Pink
-            "#14B8A6",  # Teal
-            "#F97316",  # Orange
-        ]
-        tag = MusicTag.objects.create(
-            name=normalized_name, color=random.choice(colors)
+        tag = Tag.objects.create(
+            name=normalized_name, slug=_slug_para(normalized_name)
         )
         logger.info(f"Created new tag: {tag.name}")
         return tag
@@ -1074,7 +1059,7 @@ class ContentPublisher:
             
             if metadata.get('tags'):
                 tags = [self._get_or_create_tag(tag) for tag in metadata['tags']]
-                dictado_page.tags.set(tags)
+                dictado_page.faceted_tags.set(tags)
             
             # Save and optionally publish
             dictado_page.save()
@@ -1196,7 +1181,7 @@ class ContentPublisher:
 
             if metadata.get("tags"):
                 tags = [self._get_or_create_tag(tag) for tag in metadata["tags"]]
-                blog_page.tags.set(tags)
+                blog_page.faceted_tags.set(tags)
 
             blog_page.save()
 

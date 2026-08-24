@@ -17,14 +17,39 @@ from .models import (
     BlogPage,
     MusicCategory,
     MusicLibraryIndexPage,
-    MusicTag,
     TestPage,
 )
-from .etiquetas import aplicar_etiquetas
+from my_library import facets
+
+from .etiquetas import aplicar_etiquetas, facetas_desconocidas
 from .services import AIMetadataExtractor, ContentPublisher
 
 
 router = Router(tags=["CMS Tests"], auth=[DatabaseApiKey(), django_auth])
+
+
+def _validar_etiquetas(payload):
+    """`tag_ids` se retiró con `MusicTag` (C37b).
+
+    Falla alto en vez de ignorarlo: un cliente viejo que siga mandando ids
+    numéricos publicaría artículos sin etiquetas y nadie se enteraría hasta
+    buscarlos meses después.
+    """
+    if getattr(payload, "tag_ids", None):
+        raise HttpError(
+            400,
+            "`tag_ids` ya no existe: MusicTag se retiró. Manda `tags` con "
+            'nombres facetados, por ejemplo ["estilo:jazz", "instrumento:guitarra"].',
+        )
+
+    desconocidas = facetas_desconocidas(getattr(payload, "tags", None) or [])
+    if desconocidas:
+        raise HttpError(
+            400,
+            f"Faceta desconocida en {desconocidas}. La etiqueta se crearía pero "
+            "nacería muerta: la biblioteca la trataría como plana y no agruparía "
+            f"ni filtraría. Facetas válidas: {', '.join(facets.FACETAS)}.",
+        )
 DocumentModel = get_document_model()
 ImageModel = get_image_model()
 
@@ -50,6 +75,10 @@ class TestPageIn(Schema):
     featured_image_id: Optional[int] = None
     parent_page_id: Optional[int] = None
     category_ids: List[int] = []
+    tags: List[str] = []
+    # Retirado con `MusicTag` (C37b). Se mantiene en el esquema para poder
+    # rechazarlo con un 400 explícito: un cliente viejo que lo mandara perdería
+    # sus etiquetas en silencio, que es peor que un error.
     tag_ids: List[int] = []
     questions: List[QuestionIn]
 
@@ -147,12 +176,9 @@ def create_test_page(request, payload: TestPageIn):
             if len(categories) != len(set(payload.category_ids)):
                 raise HttpError(400, "Alguna categoría proporcionada no existe.")
             page.categories.set(categories)
-        if payload.tag_ids:
-            tags = list(MusicTag.objects.filter(id__in=payload.tag_ids).distinct())
-            if len(tags) != len(set(payload.tag_ids)):
-                raise HttpError(400, "Alguna etiqueta proporcionada no existe.")
-            # Los DOS vocabularios, mientras dure la fase 8. Ver cms/etiquetas.py.
-            aplicar_etiquetas(page, tags)
+        _validar_etiquetas(payload)
+        if payload.tags:
+            aplicar_etiquetas(page, payload.tags)
 
         page.save_revision().publish()
 
@@ -382,6 +408,10 @@ class BlogPageIn(Schema):
     featured_image_id: Optional[int] = None
     is_featured: bool = False
     category_ids: List[int] = []
+    tags: List[str] = []
+    # Retirado con `MusicTag` (C37b). Se mantiene en el esquema para poder
+    # rechazarlo con un 400 explícito: un cliente viejo que lo mandara perdería
+    # sus etiquetas en silencio, que es peor que un error.
     tag_ids: List[int] = []
     parent_page_id: Optional[int] = None
     publish_immediately: bool = False
@@ -502,12 +532,9 @@ def create_blog_page(request, payload: BlogPageIn):
                 raise HttpError(400, "Alguna categoría proporcionada no existe.")
             page.categories.set(categories)
 
-        if payload.tag_ids:
-            tags = list(MusicTag.objects.filter(id__in=payload.tag_ids).distinct())
-            if len(tags) != len(set(payload.tag_ids)):
-                raise HttpError(400, "Alguna etiqueta proporcionada no existe.")
-            # Los DOS vocabularios, mientras dure la fase 8. Ver cms/etiquetas.py.
-            aplicar_etiquetas(page, tags)
+        _validar_etiquetas(payload)
+        if payload.tags:
+            aplicar_etiquetas(page, payload.tags)
 
         revision = page.save_revision()
         if payload.publish_immediately:
@@ -543,6 +570,8 @@ class BlogPageUpdateIn(Schema):
     featured_image_id: Optional[int] = None
     is_featured: Optional[bool] = None
     category_ids: Optional[List[int]] = None
+    tags: Optional[List[str]] = None
+    # Retirado con `MusicTag` (C37b). Ver arriba.
     tag_ids: Optional[List[int]] = None
     publish_immediately: Optional[bool] = None
     attachment_ids: Optional[List[int]] = None
@@ -595,12 +624,9 @@ def update_blog_page(request, page_id: int, payload: BlogPageUpdateIn):
                 raise HttpError(400, "Alguna categoría proporcionada no existe.")
             page.categories.set(categories)
 
-        if payload.tag_ids is not None:
-            tags = list(MusicTag.objects.filter(id__in=payload.tag_ids).distinct())
-            if len(tags) != len(set(payload.tag_ids)):
-                raise HttpError(400, "Alguna etiqueta proporcionada no existe.")
-            # Los DOS vocabularios, mientras dure la fase 8. Ver cms/etiquetas.py.
-            aplicar_etiquetas(page, tags)
+        _validar_etiquetas(payload)
+        if payload.tags is not None:
+            aplicar_etiquetas(page, payload.tags)
 
         revision = page.save_revision()
         if payload.publish_immediately:

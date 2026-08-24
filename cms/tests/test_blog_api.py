@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from wagtail.models import Page
 
-from cms.models import BlogIndexPage, BlogPage, MusicCategory, MusicTag
+from cms.models import BlogIndexPage, BlogPage, MusicCategory
 
 User = get_user_model()
 
@@ -36,7 +36,8 @@ class BlogPageAPITest(TestCase):
 
         # Snippets auxiliares
         self.cat = MusicCategory.objects.create(name="Teoría Musical")
-        self.tag = MusicTag.objects.create(name="Principiantes", color="#FF5733")
+        # Desde C37b las páginas etiquetan con nombres facetados de taggit.
+        self.etiqueta = "dificultad:facil"
 
         self.url = "/api/cms/blog-pages"
 
@@ -81,7 +82,7 @@ class BlogPageAPITest(TestCase):
                 "intro": "Resumen completo del artículo.",
                 "body": "<p>Cuerpo del artículo en <strong>HTML</strong>.</p>",
                 "category_ids": [self.cat.id],
-                "tag_ids": [self.tag.id],
+                "tags": [self.etiqueta],
                 "parent_page_id": self.blog_index.id,
                 "publish_immediately": True,
             }
@@ -93,7 +94,7 @@ class BlogPageAPITest(TestCase):
         page = BlogPage.objects.get(id=data["id"])
         self.assertEqual(page.body, "<p>Cuerpo del artículo en <strong>HTML</strong>.</p>")
         self.assertIn(self.cat, page.categories.all())
-        self.assertIn(self.tag, page.tags.all())
+        self.assertIn(self.etiqueta, [t.name for t in page.faceted_tags.all()])
 
     def test_sin_parent_usa_primer_blogindexpage(self):
         """Sin parent_page_id debe autodetectar la primera BlogIndexPage."""
@@ -137,14 +138,31 @@ class BlogPageAPITest(TestCase):
         )
         self.assertEqual(response.status_code, 400)
 
-    def test_tag_id_invalido_devuelve_400(self):
-        """Un tag_id inexistente debe devolver 400."""
+    def test_tag_ids_se_rechaza_con_400(self):
+        """`tag_ids` se retiró con MusicTag (C37b). Falla alto en vez de
+        ignorarse: un cliente viejo publicaría sin etiquetas y nadie se
+        enteraría hasta buscarlas meses después."""
         response = self._post(
             {
-                "title": "Tag roto",
+                "title": "Cliente viejo",
                 "date": "2024-09-01",
                 "intro": "Resumen.",
                 "tag_ids": [99999],
+                "parent_page_id": self.blog_index.id,
+            }
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("tag_ids", response.json()["detail"])
+
+    def test_una_faceta_inventada_devuelve_400(self):
+        """`caracter` no existe en facets.FACETAS: la etiqueta se crearía pero
+        no agruparía ni filtraría."""
+        response = self._post(
+            {
+                "title": "Faceta rara",
+                "date": "2024-09-01",
+                "intro": "Resumen.",
+                "tags": ["caracter:melancolico"],
                 "parent_page_id": self.blog_index.id,
             }
         )

@@ -351,26 +351,21 @@ def update_item_title(request, pk):
 def suggest_tags(request):
     """
     Endpoint JSON para autocompletado de tags.
-    Devuelve tags de taggit + MusicTag que coincidan con el query.
+    Un solo vocabulario desde C37b: taggit. `MusicTag` ya no existe, así que
+    tampoco hay nada que combinar.
     """
     from taggit.models import Tag as TaggitTag
-    from cms.models import MusicTag
 
     q = request.GET.get("q", "").strip().lower()
     if len(q) < 1:
         return JsonResponse([], safe=False)
 
-    # Combinar tags de ambos sistemas
     taggit_tags = list(
         TaggitTag.objects.filter(name__icontains=q)
         .values_list("name", flat=True)
         .order_by("name")[:15]
     )
-    music_tags = list(
-        MusicTag.objects.filter(name__icontains=q)
-        .values_list("name", flat=True)
-        .order_by("name")[:15]
-    )
+    music_tags = []
 
     # Unir y deduplicar, mantener orden
     seen = set()
