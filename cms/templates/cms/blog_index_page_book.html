@@ -62,6 +62,7 @@ when the book is a music library descendant.
 
             {% if user.is_authenticated %}
             <div class="flex items-center gap-2 shrink-0">
+                {% boton_objetivo page %}
                 <div id="library-btn-book-{{ page.pk }}">
                     {% library_button page %}
                 </div>

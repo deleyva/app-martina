@@ -1962,3 +1962,68 @@ def test_no_se_descarta_lo_ajeno(client, db, user, django_user_model):
     assert r.status_code == 404
     item.refresh_from_db()
     assert not item.descartado
+
+
+def test_fijar_y_quitar_el_objetivo_desde_la_web(client, db, user):
+    """C42 por HTTP: el mismo botón lo pone y lo quita."""
+    from my_library.models import LibraryGoal
+
+    libro, _ = _libro_con_capitulos("Metodo", "obj-1", [("Semana 1", ["a"])])
+    client.force_login(user)
+    url = reverse("my_library:alternar_objetivo", args=[libro.pk])
+
+    r = client.post(url)
+    assert r.status_code == 200
+    assert LibraryGoal.objects.filter(user=user, libro=libro).exists()
+    assert LibraryItem.objects.filter(user=user).count() == 0  # nada por adelantado
+
+    client.post(url)
+    assert not LibraryGoal.objects.filter(user=user, libro=libro).exists()
+
+
+def test_quitar_el_objetivo_no_borra_lo_practicado(client, db, user):
+    from my_library.libros import siguiente_del_objetivo
+    from my_library.models import LibraryGoal
+
+    libro, _ = _libro_con_capitulos("Metodo", "obj-2", [("Semana 1", ["a"])])
+    LibraryGoal.objects.create(user=user, libro=libro)
+    item = siguiente_del_objetivo(user, libro, cuantos=1)[0]
+    ReviewLog.log(item=item, proficiency_after=3)
+    client.force_login(user)
+
+    client.post(reverse("my_library:alternar_objetivo", args=[libro.pk]))
+
+    assert LibraryItem.objects.filter(pk=item.pk).exists()
+    assert ReviewLog.objects.filter(item=item).count() == 1
+
+
+def test_el_boton_del_objetivo_enseña_el_progreso(db, user, rf):
+    """C46 en la interfaz: «12 de 40», por capítulos y no por elementos."""
+    from my_library.libros import siguiente_del_objetivo
+    from my_library.models import LibraryGoal
+    from my_library.templatetags.library_tags import boton_objetivo
+
+    libro, _ = _libro_con_capitulos(
+        "Metodo", "obj-3", [("Semana 1", ["a"]), ("Semana 2", ["b"])]
+    )
+    LibraryGoal.objects.create(user=user, libro=libro)
+    item = siguiente_del_objetivo(user, libro, cuantos=1)[0]
+    ReviewLog.log(item=item, proficiency_after=2)
+
+    peticion = rf.get("/")
+    peticion.user = user
+    ctx = boton_objetivo({"request": peticion}, libro)
+
+    assert ctx["objetivo_activo"]
+    assert (ctx["progreso_tocados"], ctx["progreso_totales"]) == (1, 2)
+
+
+def test_el_boton_no_sale_en_algo_que_no_es_un_libro(db, user, rf):
+    """Una página sin capítulos no es un libro; pintar el botón mentiría."""
+    from my_library.templatetags.library_tags import boton_objetivo
+
+    suelta = _pagina("Partitura suelta", "obj-4")
+    peticion = rf.get("/")
+    peticion.user = user
+
+    assert boton_objetivo({"request": peticion}, suelta) == {"libro": None}

@@ -1,0 +1,31 @@
+{% comment %}
+El botón de "estudiarme este libro" y, cuando está puesto, por dónde vas.
+
+El progreso cuenta CAPÍTULOS tocados, no elementos: "Semana 12 de 40" dice algo,
+"87 de 283 elementos" no dice nada. Un capítulo cuenta en cuanto has repasado
+algo suyo.
+{% endcomment %}
+<div id="objetivo-libro-{{ libro.pk }}" class="flex items-center gap-2">
+    {% if objetivo_activo %}
+        {% if progreso_totales %}
+        <span class="badge badge-ghost badge-sm" title="Capítulos con algo practicado">
+            {{ progreso_tocados }} de {{ progreso_totales }}
+        </span>
+        {% endif %}
+        <button class="btn btn-sm btn-primary"
+                hx-post="{% url 'my_library:alternar_objetivo' page_id=libro.pk %}"
+                hx-target="#objetivo-libro-{{ libro.pk }}"
+                hx-swap="outerHTML"
+                title="La cola dejará de traerte material de este libro">
+            ✓ Estudiando este libro
+        </button>
+    {% else %}
+        <button class="btn btn-sm btn-outline"
+                hx-post="{% url 'my_library:alternar_objetivo' page_id=libro.pk %}"
+                hx-target="#objetivo-libro-{{ libro.pk }}"
+                hx-swap="outerHTML"
+                title="La cola se irá rellenando con su material, en orden">
+            Estudiarme este libro
+        </button>
+    {% endif %}
+</div>

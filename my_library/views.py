@@ -927,6 +927,42 @@ def contexto_item(request, pk):
     )
 
 
+@login_required
+@require_POST
+def alternar_objetivo(request, page_id):
+    """Fija o quita un libro como objetivo de estudio.
+
+    Fijarlo NO crea ni un elemento: eso lo hace la cola cuando le toca
+    (`libros.rellenar_para_sesion`). Quitarlo tampoco borra nada de lo que ya
+    hayas practicado — el objetivo es la intención, no el material.
+    """
+    from wagtail.models import Page
+
+    from my_library.libros import progreso
+    from my_library.models import LibraryGoal
+
+    libro = get_object_or_404(Page, pk=page_id)
+    objetivo = LibraryGoal.objects.filter(user=request.user, libro=libro).first()
+    if objetivo:
+        objetivo.delete()
+        activo = False
+    else:
+        LibraryGoal.objects.create(user=request.user, libro=libro)
+        activo = True
+
+    tocados, totales = progreso(request.user, libro.specific)
+    return render(
+        request,
+        "my_library/partials/boton_objetivo.html",
+        {
+            "libro": libro,
+            "objetivo_activo": activo,
+            "progreso_tocados": tocados,
+            "progreso_totales": totales,
+        },
+    )
+
+
 def _build_decks_with_counts(user, items_qs):
     """Build deck list with matching item counts. Shared by index view and HTMX endpoints."""
     decks = LibraryDeck.objects.filter(user=user)

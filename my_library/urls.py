@@ -28,6 +28,7 @@ urlpatterns = [
     path("notes/<int:pk>/", views.update_notes, name="update_notes"),
     path("descartar/<int:pk>/", views.descartar_item, name="descartar_item"),
     path("contexto/<int:pk>/", views.contexto_item, name="contexto_item"),
+    path("objetivo/<int:page_id>/", views.alternar_objetivo, name="alternar_objetivo"),
     path("secciones/<int:pk>/crear/", views.crear_seccion, name="crear_seccion"),
     path("secciones/<int:pk>/borrar/", views.borrar_seccion, name="borrar_seccion"),
     path("shared-note/<int:pk>/", views.update_shared_note, name="update_shared_note"),

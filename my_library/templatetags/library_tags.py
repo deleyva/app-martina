@@ -138,3 +138,33 @@ def library_button(context, content_object, source_page=None):
         "groups_with_content": groups_with_content,
         "source_page_id": source_page_id,
     }
+
+
+@register.inclusion_tag(
+    "my_library/partials/boton_objetivo.html", takes_context=True
+)
+def boton_objetivo(context, libro):
+    """Botón de "estudiarme este libro", con el progreso si ya está puesto.
+
+    Solo tiene sentido en un libro, o sea una página con capítulos debajo. En
+    cualquier otra cosa se pinta vacío en vez de mentir con un botón que no
+    haría nada.
+    """
+    from my_library.libros import capitulos_de, progreso
+    from my_library.models import LibraryGoal
+
+    user = getattr(context.get("request"), "user", None)
+    if user is None or not user.is_authenticated or libro is None:
+        return {"libro": None}
+
+    if not capitulos_de(libro):
+        return {"libro": None}
+
+    activo = LibraryGoal.objects.filter(user=user, libro=libro).exists()
+    tocados, totales = progreso(user, libro)
+    return {
+        "libro": libro,
+        "objetivo_activo": activo,
+        "progreso_tocados": tocados,
+        "progreso_totales": totales,
+    }
