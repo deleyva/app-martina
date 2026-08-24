@@ -517,7 +517,7 @@ Dejar de buscar por id global y buscar dentro del contenedor que toca en cada ca
 - **Sin test de regresión en Python, a conciencia.** El defecto es orden del DOM en el navegador; un test de Django renderiza la plantilla y no ejecuta el JS que mueve el nodo. El falsador de esta clase es la comprobación en navegador, y por eso C12 existía.
 - **La plantilla no se recargó sola.** Editar `study_viewer.html` y recargar seguía sirviendo el HTML viejo; hizo falta `docker compose restart django`. Media hora de creer que el arreglo no funcionaba. Anotado para la próxima.
 
-## Fase 11 — Estudiarse un libro · EN MARCHA
+## Fase 11 — Estudiarse un libro · HECHA, SIN DESPLEGAR
 
 > **Lo que el principal pidió el 2026-08-25:** *"tener las cosas ordenadas en un libro y que la cola de estudio, cuando me pongo como objetivo estudiarme ese libro, se vaya rellenando con material nuevo"*. Y el 2026-08-26, sobre la interfaz: *"un botón en el que pueda haber información sobre ese elemento añadido: texto que acompaña a esa imagen en el libro o un enlace a la página del libro"* y *"poder eliminar ese elemento de la lista de estudio si resulta que no me convence"*.
 
@@ -539,11 +539,11 @@ El plan original era un botón que metiera el libro entero. **Medido sobre datos
 ### Criterios
 
 - [x] **C41 — El material de un libro se enumera en orden de libro.** *`libros.material_del_libro`: capítulos por el árbol de Wagtail, y dentro, los medios en orden de aparición. Medido: Ukulele Aerobics 283 medios en 40 capítulos, Jens Larsen 93 en 6.*
-- [x] **C42 — "Estudiarme este libro" es un objetivo que se fija y se quita.** *`LibraryGoal`, único por (usuario, libro). No depende de ninguna etiqueta, así que funciona con un libro que no tenga ninguna — que es lo que antes era imposible.*
+- [x] **C42 — "Estudiarme este libro" es un objetivo que se fija y se quita.** *`LibraryGoal`, único por (usuario, libro). No depende de ninguna etiqueta, así que funciona con un libro que no tenga ninguna. **Botón en la página del libro**, el mismo pone y quita. Quitarlo no borra lo practicado: el objetivo es la intención, no el material.*
 - [x] **C43 — La cola crea el elemento cuando le toca, no antes.** *Probado: fijar el objetivo deja la biblioteca en 0 elementos; `rellenar_para_sesion` crea exactamente los que hacen falta para la cuota de novedad, en orden de libro. Contra datos reales: fijar Jens Larsen creó 0, y una sesión creó 2, los dos primeros del libro.*
 - [x] **C44 — Desde el visor se ve de dónde viene el elemento.** *Ventana emergente, no navegación. Verificado en navegador con el libro real: trae el párrafo del capítulo 1 («Let's begin by looking at the construction of the basic major scale…») y el enlace al capítulo.*
 - [x] **C45 — Descartar un elemento, y que no vuelva.** *Verificado en navegador: descartar avanza el visor de 1/2 a 1/1, la fila queda marcada y el objetivo pasa a ofrecer 1c y 1d, saltándose lo descartado. El falsador: borrar la fila a secas no vale, la creación perezosa la recrearía.*
-- [~] **C46 — Se ve por dónde vas.** *`libros.progreso` calcula (capítulos tocados, totales) y tiene test: con Jens Larsen como objetivo devuelve (0, 6). **Falta la interfaz**: el número no se enseña en ningún sitio todavía.*
+- [x] **C46 — Se ve por dónde vas.** *Con el objetivo puesto, el progreso sale al lado del botón: «1 de 6». Cuenta **capítulos tocados, no elementos** — «Semana 12 de 40» dice algo y «87 de 283 elementos» no dice nada. Un capítulo cuenta en cuanto hay un repaso suyo.*
 
 ### Anti-claims
 
@@ -552,8 +552,20 @@ El plan original era un botón que metiera el libro entero. **Medido sobre datos
 - **Descartar no borra el historial.** Si el elemento llegó a practicarse, su `ReviewLog` y sus notas se quedan. Descartar dice "no me lo ofrezcas más", no "haz como si no hubiera pasado".
 - **No se toca `MusicCategory`.** Sigue siendo la tercera taxonomía sin decidir, y sigue fuera de alcance.
 
+### Verificación del bucle entero (2026-08-26)
+
+Contra la copia de producción, con el libro de Jens Larsen y por la interfaz de verdad, no por la shell:
+
+1. Pulsar «Estudiarme este libro» → el botón pasa a «✓ Estudiando este libro», sale «0 de 6» y se crean **cero elementos**.
+2. Lanzar una sesión → se crean **los dos primeros del libro, en orden** (`Example 1a` y la primera imagen del capítulo 1) y el visor abre con ellos.
+3. «De dónde viene» → trae el párrafo real del capítulo («Let's begin by looking at the construction of the basic major scale…») y el enlace.
+4. «Descartar» → el visor avanza de 1/2 a 1/1, la fila queda marcada y el objetivo pasa a ofrecer 1c y 1d.
+5. Valorar un elemento → al volver a la página del libro el progreso dice **«1 de 6»**.
+
+*No hay captura de pantalla: `Capture.sh` falló con `tabCapture: Extension has not been invoked for the current page` y no se sustituye por otra cosa. Lo verificado son los textos leídos de la página viva, que es evidencia de comportamiento, no de aspecto.*
+
 ### Log de la fase 11
 
 - **La plantilla no se recarga sola, otra vez.** Editar `study_viewer.html` y recargar seguía sirviendo el JS viejo; hizo falta `docker compose restart django`. Ya pasó en la fase 10 y volvió a costar un rato. **Comprobar siempre `document.documentElement.innerHTML.indexOf('<algo del parche>')` antes de dar por roto un arreglo de plantilla.**
 - **Gotcha de verificación, del run anterior y confirmado aquí:** una ventana de Chrome `maximized` pero con `focused: false` deja la pestaña en `visibilityState: "hidden"`, y `--activate` no lo arregla. Para pdf.js y para las transiciones CSS hace falta `interceptor window focus <id>`.
-- **Lo que queda de la fase:** C46 en la interfaz, y decidir dónde se fija un objetivo desde la web — hoy solo se puede crear el `LibraryGoal` a mano.
+- **Lo que queda:** desplegar. Y una idea que salió al construirla y NO se hizo: un objetivo solo se ve desde la página de su libro; si algún día hay varios a la vez, harán falta en el índice de la biblioteca.
