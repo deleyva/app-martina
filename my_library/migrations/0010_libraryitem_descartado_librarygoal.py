@@ -9,7 +9,17 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('my_library', '0009_arrastrar_mazos_al_vocabulario_facetado'),
-        ('wagtailcore', '0097_baselogentry_uuid_action_timestamp_indexes'),
+        # `makemigrations` fija por defecto la ÚLTIMA migración de wagtailcore
+        # que tenga instalada la máquina donde se genera. Aquí eso rompió el
+        # despliegue: local corría Wagtail 7.3.3 y producción 7.3.1, que no
+        # tiene la 0097, así que `migrate` abortó con NodeNotFoundError y la
+        # tabla no se creó — con el código nuevo ya arriba y las páginas de
+        # libro dando 500.
+        #
+        # Para una clave ajena a `Page` basta con que Page exista, y eso pasa en
+        # la 0001. Anclar ahí hace la migración independiente de la versión de
+        # Wagtail de cada entorno.
+        ('wagtailcore', '0001_initial'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
