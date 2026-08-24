@@ -34,12 +34,12 @@ updated: 2026-08-25
 | 8·3 | **Contraer: la sesión lee solo el vocabulario facetado** (C36) | `9137cfe` |
 | 8·4 | **El selector y el visor ven las etiquetas de la página** (C40) | `c6360ab` |
 | 8·5 | **El sitio entero sobre el vocabulario facetado** (C37a, C37b) | `94e5603`, `bfa3646`, `b79737a`, `e2d8d42` |
-| 8·6 | **Borrado `MusicTag`** (C37c) | `32a71c6`, sin desplegar |
+| 8·6 | **Borrado `MusicTag`** (C37c) | `32a71c6` |
 | 11 | **Estudiarse un libro** — planificada, sin empezar | — |
 
 ### Lo siguiente, por orden
 
-0. **Fase 8 — `MusicTag` → taggit facetado. TERMINADA salvo el despliegue de C37c.** El sitio entero corre sobre un solo vocabulario facetado; el modelo viejo está borrado en local y falta subirlo.
+0. **Fase 8 — `MusicTag` → taggit facetado. TERMINADA Y CERRADA** (2026-08-25). Un solo vocabulario en todo el sitio, el modelo viejo borrado, seis pasos desplegados y verificados uno a uno. **Lo siguiente de verdad es la fase 11.**
 1. **Presupuesto de sesión en MINUTOS en vez de en elementos.** Es la mejor idea pendiente y la que arregla que "8 elementos" sea una unidad mentirosa cuando uno es un lick de 40 segundos y otro una pieza de 14 minutos. **Necesita datos**: `ReviewLog.duration_seconds` lleva recogiendo desde el 12/08/2026. Con dos semanas de práctica real, cada elemento tiene su mediana y el presupuesto se calibra solo. *Antes del 26/08 no tiene sentido tocarlo.*
 2. **Estudiarse un libro — es la fase 11, ya escrita.** Lo que pediste: meter un libro entero de una vez, ponerlo como objetivo y que la cola se rellene con su material. El orden dentro del libro es una parte de eso (C43), y la menos urgente: hoy sale bien 21 veces de 22 por casualidad. El bloqueo real es que meter un libro cuesta 40 clics. Ver la sección "Fase 11".
 3. **Revisar los plazos de caducidad con datos reales** (hoy 1/1/3/7/21 días por nivel). El de 21 días para "me lo sé muy bien" es el más dudoso: para un dato está bien, para tener una escala en las manos puede ser demasiado.
@@ -255,9 +255,9 @@ Lo que falló en la verificación de C17: se comprobó que ningún **objeto etiq
 - **Docker Desktop no arranca desde una shell no interactiva** (`open -a Docker` vuelve sin error y no deja proceso). Lo abrió el principal a mano. Para la próxima: pedirlo antes de empezar, no a mitad.
 
 
-## Fase 8 — Un solo vocabulario de etiquetas · PLANIFICADA, SIN EMPEZAR
+## Fase 8 — Un solo vocabulario de etiquetas · TERMINADA
 
-> **Punto de retorno.** El mapa está cerrado y revisado. No se ha escrito ni una línea de código. Lo siguiente es la migración de esquema, y el principal pidió confirmarla antes de empezar porque toca cuatro modelos de página en producción.
+> **Cerrada el 2026-08-25.** Seis pasos, cada uno desplegado y verificado por separado: expandir, migrar, contraer la sesión, el selector y el visor, el sitio entero, y borrar. Ni un elemento de biblioteca perdió una etiqueta en todo el recorrido, comprobado elemento a elemento contra un control tomado antes de empezar.
 
 Cierra lo que la fase 4 dejó a medias. La fase 7 destapó que hay **dos vocabularios**: los ACTIVOS (imágenes y documentos de Wagtail — 95 de los 102 elementos de biblioteca) usan taggit y ya están facetados; los CONTENEDORES (las páginas) usan `MusicTag` y están planos. Mientras siga así, la sesión de estudio no puede agrupar ni filtrar por nada que viva en las páginas.
 
@@ -329,12 +329,12 @@ Decisiones del principal (2026-08-17):
   - **Sin decidir, la misma pregunta de siempre:** `MusicCategory` (22) sigue intacta. Se mantiene el anti-claim de la fase: no se toca aquí.
   - **Deuda encontrada de paso, no tocada:** `test_pagination_logic_js_loading` y `test_tag_filter_links` esperan una barra de filtros que la plantilla `_app` ya no tiene. Fallaban desde antes de la fase 8. Los otros 3 que fallaban eran de `RequestFactory` sin `user` y quedan arreglados (`98663e1`).
 
-- [~] **C37c — Borrado `MusicTag`, sus cuatro campos y los comandos gastados. HECHO; FALTA DESPLEGAR.** *2026-08-24, commit `32a71c6`.*
+- [x] **C37c — Borrado `MusicTag`, sus cuatro campos y los comandos gastados.** *2026-08-25, commit `32a71c6`, desplegado y verificado en producción.*
   - Migración `cms.0030`: **cinco `DROP TABLE` y nada más**, leído con `sqlmigrate`.
   - **Se van con el modelo:** `migrar_musictags` (430 líneas, su trabajo está hecho y verificado en producción), `cms.migrate_tags`, y 25 tests que solo tenían sentido con dos vocabularios. **`migrar_etiquetas` se queda**, sin la salvaguarda del vocabulario doble: renombrar etiquetas de taggit sigue siendo útil. **`mapa_musictags.txt` se queda también**: lo lee `my_library.0009` al migrar.
   - **Y tres sitios más del mismo tipo que el barrido no cubría.** Un `LibraryItem` puede apuntar a un **documento**, a una **imagen** o **a una página**; los dos primeros etiquetan en `tags` y la página en `faceted_tags`. Mirar solo `tags` dejó al **elemento 69 sin su `concepto:canon`**. Son 2 elementos de 102 y por eso pasó desapercibido. Cubierto ahora con un test, y arreglado igual en `clases/models.py`, en `library_filter_controls.html` y en cuatro `prefetch_related("tags")` sobre querysets de páginas.
   - **Efecto medido sobre la copia:** la biblioteca vuelve a **320 etiquetados**, **cero planas** (quedaba una) y el selector **gana un valor**: `concepto:canon`, que antes llegaba sin faceta y no se podía elegir. **21 valores en 6 facetas.**
-  - **Falta:** desplegar.
+  - **Verificado en producción tras desplegar** (2026-08-25, servidor en `38d61f0`): `cms.0030` aplicada, **cero tablas del vocabulario viejo** (`cms_musictag` y los cuatro `*_page_tags` ya no existen) y el modelo no se puede ni importar. La biblioteca: **102 elementos, 320 etiquetados, cero planas**; los mazos en 23 / 9 / 11; el selector en **21 valores**. El elemento 69 lleva su `concepto:canon`. En navegador contra el sitio real: el índice sin error con 10 etiquetas coloreadas, y **filtrar por `concepto:canon` devuelve 1 elemento** — una etiqueta que antes no se podía elegir.
   - **El nombre `faceted_tags` se queda.** El plan original lo renombraba a `tags` al final; no se hace. Renombrar son veinte ficheros para ganar cinco letras, y el nombre actual dice lo que es. Reversible si el principal prefiere lo otro.
 
 ### Decisión de secuencia — expandir, migrar, contraer (2026-08-21)
