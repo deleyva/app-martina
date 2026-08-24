@@ -1,4 +1,5 @@
 import datetime
+from django.contrib.auth.models import AnonymousUser
 from django.test import TestCase, Client, RequestFactory
 from django.utils import timezone
 from wagtail.models import Page
@@ -72,6 +73,9 @@ class MusicLibraryFilteringTest(WagtailPageTests):
     def test_filter_by_tag(self):
         # Request filtering by "Jazz" tag
         request = self.factory.get(self.index_page.url, {'tags': 'Jazz'})
+        # RequestFactory no pasa por el middleware, asi que no trae `user`.
+        # `_filter_visible_pages` lo lee y reventaba con AttributeError.
+        request.user = AnonymousUser()
         context = self.index_page.get_context(request)
         
         # Should return Score1 and Score3 only
@@ -84,6 +88,9 @@ class MusicLibraryFilteringTest(WagtailPageTests):
     def test_filter_by_category(self):
         # Request filtering by "Ejercicios" category
         request = self.factory.get(self.index_page.url, {'categories': 'Ejercicios'})
+        # RequestFactory no pasa por el middleware, asi que no trae `user`.
+        # `_filter_visible_pages` lo lee y reventaba con AttributeError.
+        request.user = AnonymousUser()
         context = self.index_page.get_context(request)
         
         # Should return Score1 only
@@ -123,6 +130,9 @@ class MusicLibraryFilteringTest(WagtailPageTests):
     def test_no_filter(self):
         # No filters
         request = self.factory.get(self.index_page.url)
+        # RequestFactory no pasa por el middleware, asi que no trae `user`.
+        # `_filter_visible_pages` lo lee y reventaba con AttributeError.
+        request.user = AnonymousUser()
         context = self.index_page.get_context(request)
         
         # Should return all 3 scores
