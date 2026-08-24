@@ -15,7 +15,9 @@ from django.contrib import messages
 from django.db.models import Count
 from .models import ItemSection, LibraryDeck, LibraryItem, ReviewLog, SharedNote
 from . import facets
+from .libros import rellenar_para_sesion
 from .session import (
+    PROPORCION_NOVEDAD,
     TAMANO_SESION_POR_DEFECTO,
     construir_sesion,
     facetas_disponibles,
@@ -757,7 +759,13 @@ def _seleccion_de(request):
 
 
 def _items_del_usuario(user):
-    return LibraryItem.objects.filter(user=user).select_related(
+    """Los elementos del usuario que pueden entrar en una sesión.
+
+    Los descartados quedan fuera: siguen existiendo —con su historial y sus
+    notas— pero el principal dijo que no se los ofrezcan más. Se siguen viendo
+    en el índice de la biblioteca, así que un descarte es recuperable.
+    """
+    return LibraryItem.objects.filter(user=user, descartado=False).select_related(
         "content_type", "source_page"
     ).prefetch_related("tags")
 
@@ -830,6 +838,13 @@ def session_count(request):
 @login_required
 def session_launch(request):
     """Construye la sesión con las facetas elegidas y abre el visor."""
+    # Si hay un libro como objetivo y la biblioteca se ha quedado sin material
+    # sin tocar, se crean los siguientes del libro ANTES de armar la sesión.
+    # Es la creación perezosa: hasta que un elemento no toca, no existe.
+    rellenar_para_sesion(
+        request.user, round(TAMANO_SESION_POR_DEFECTO * PROPORCION_NOVEDAD)
+    )
+
     items = list(_items_del_usuario(request.user))
     seleccion = _seleccion_de(request)
 
@@ -876,6 +891,39 @@ def deck_study(request, pk):
     return redirect(
         f"{reverse('my_library:study_session')}"
         f"?items={_tokens_de_sesion(sesion)}&deck={deck.pk}"
+    )
+
+
+@login_required
+@require_POST
+def descartar_item(request, pk):
+    """Saca un elemento de la lista de estudio para siempre.
+
+    El caso que lo pide: el objetivo de un libro mete una imagen que resulta ser
+    decoración. No se borra la fila — con creación perezosa el objetivo la
+    recrearía en la siguiente sesión — se marca. Y el historial se queda: si
+    llegó a practicarse, su `ReviewLog` y sus notas siguen ahí.
+    """
+    item = get_object_or_404(LibraryItem, pk=pk, user=request.user)
+    item.descartado = True
+    item.save(update_fields=["descartado"])
+    return JsonResponse({"ok": True, "descartado": True})
+
+
+@login_required
+def contexto_item(request, pk):
+    """De dónde sale este elemento en el libro. Endpoint JSON para la ventana.
+
+    Ventana emergente y no navegación, a propósito: estás practicando a pantalla
+    completa y irte a otra página rompe la sesión. El enlace al capítulo va
+    dentro, para cuando quieras el capítulo entero.
+    """
+    from my_library.libros import contexto_en_el_libro
+
+    item = get_object_or_404(LibraryItem, pk=pk, user=request.user)
+    texto, titulo, url = contexto_en_el_libro(item)
+    return JsonResponse(
+        {"texto": texto, "capitulo": titulo, "url": url}
     )
 
 

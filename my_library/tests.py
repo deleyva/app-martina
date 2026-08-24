@@ -1718,3 +1718,247 @@ def test_un_elemento_que_apunta_a_una_pagina_recibe_sus_etiquetas(db, user):
     mapa = LibraryDeck.build_tag_map(LibraryItem.objects.filter(user=user))
     assert "concepto:canon" in mapa[item.pk]
     assert "concepto:canon" in {t.name for t in item.get_content_tags()}
+
+
+# === Fase 11: estudiarse un libro ===
+
+
+def _libro_con_capitulos(titulo, slug, capitulos):
+    """Un libro real: `BlogIndexPage` con `BlogPage` debajo, en orden.
+
+    `capitulos` es [(titulo, [imagenes])]. Las imágenes se incrustan en el
+    cuerpo, que es como están en los libros de verdad: el capítulo 1 de Jens
+    Larsen tiene cero bloques adjuntos y dieciséis imágenes dentro del texto.
+    """
+    from cms.models import BlogIndexPage, BlogPage
+    from wagtail.images import get_image_model
+    from wagtail.models import Page
+
+    Image = get_image_model()
+    raiz = Page.objects.get(id=2)
+    libro = BlogIndexPage(title=titulo, slug=slug)
+    raiz.add_child(instance=libro)
+
+    creados = []
+    for n, (titulo_cap, nombres) in enumerate(capitulos):
+        imagenes = []
+        for nombre in nombres:
+            img = Image.objects.create(title=nombre, file=_imagen_minima(nombre))
+            imagenes.append(img)
+        cuerpo = "".join(
+            f'<p>Texto antes de {i.title}.</p>'
+            f'<embed embedtype="image" id="{i.pk}" alt="{i.title}" format="fullwidth"/>'
+            for i in imagenes
+        )
+        cap = BlogPage(
+            title=titulo_cap,
+            slug=f"{slug}-cap-{n}",
+            date=timezone.now().date(),
+            intro=f"Intro de {titulo_cap}",
+            body=cuerpo,
+        )
+        libro.add_child(instance=cap)
+        cap.save_revision().publish()
+        creados.append((cap, imagenes))
+    return libro, creados
+
+
+def _imagen_minima(nombre):
+    """Un PNG de 1x1 real: Wagtail valida el fichero al guardar la imagen."""
+    import base64
+
+    from django.core.files.base import ContentFile
+
+    png = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+    )
+    return ContentFile(png, name=f"{nombre}.png")
+
+
+def test_el_material_del_libro_sale_en_orden_de_libro(db):
+    """C41. Capítulos por el árbol de Wagtail, y dentro, en orden de aparición."""
+    from my_library.libros import material_del_libro
+
+    libro, caps = _libro_con_capitulos(
+        "Metodo", "metodo-1", [("Semana 1", ["a", "b"]), ("Semana 2", ["c"])]
+    )
+
+    material = material_del_libro(libro)
+
+    assert [o.title for _c, o in material] == ["a", "b", "c"]
+    assert [c.title for c, _o in material] == ["Semana 1", "Semana 1", "Semana 2"]
+
+
+def test_fijar_el_objetivo_no_crea_ni_un_elemento(db, user):
+    """C43. Es la decisión que define la fase: no se copia nada por adelantado.
+    Ukulele Aerobics son 283 medios y la biblioteca tiene 51 elementos."""
+    from my_library.models import LibraryGoal
+
+    libro, _ = _libro_con_capitulos(
+        "Metodo", "metodo-2", [("Semana 1", ["a", "b", "c"])]
+    )
+
+    LibraryGoal.objects.create(user=user, libro=libro)
+
+    assert LibraryItem.objects.filter(user=user).count() == 0
+
+
+def test_la_cola_crea_el_elemento_cuando_le_toca(db, user):
+    """C43. Y en orden de libro, no de alta."""
+    from my_library.libros import siguiente_del_objetivo
+
+    libro, _ = _libro_con_capitulos(
+        "Metodo", "metodo-3", [("Semana 1", ["a", "b"]), ("Semana 2", ["c"])]
+    )
+
+    primeros = siguiente_del_objetivo(user, libro, cuantos=2)
+
+    assert [i.content_object.title for i in primeros] == ["a", "b"]
+    assert LibraryItem.objects.filter(user=user).count() == 2
+    assert primeros[0].source_page.title == "Semana 1"
+
+
+def test_la_cola_sigue_por_donde_iba(db, user):
+    from my_library.libros import siguiente_del_objetivo
+
+    libro, _ = _libro_con_capitulos(
+        "Metodo", "metodo-4", [("Semana 1", ["a", "b"]), ("Semana 2", ["c"])]
+    )
+
+    siguiente_del_objetivo(user, libro, cuantos=2)
+    siguientes = siguiente_del_objetivo(user, libro, cuantos=2)
+
+    assert [i.content_object.title for i in siguientes] == ["c"]
+    assert LibraryItem.objects.filter(user=user).count() == 3
+
+
+def test_un_elemento_descartado_no_lo_vuelve_a_ofrecer_el_objetivo(db, user):
+    """C45. El falsador: borrar la fila a secas no vale, porque la creación
+    perezosa la recrearía en la siguiente sesión."""
+    from my_library.libros import siguiente_del_objetivo
+
+    libro, _ = _libro_con_capitulos(
+        "Metodo", "metodo-5", [("Semana 1", ["decoracion", "ejercicio"])]
+    )
+
+    primero = siguiente_del_objetivo(user, libro, cuantos=1)[0]
+    assert primero.content_object.title == "decoracion"
+
+    primero.descartado = True
+    primero.save(update_fields=["descartado"])
+
+    siguientes = siguiente_del_objetivo(user, libro, cuantos=2)
+    assert [i.content_object.title for i in siguientes] == ["ejercicio"]
+
+
+def test_descartar_saca_el_elemento_de_la_sesion(db, user):
+    from my_library.libros import siguiente_del_objetivo
+    from my_library.views import _items_del_usuario
+
+    libro, _ = _libro_con_capitulos("Metodo", "metodo-6", [("Semana 1", ["a", "b"])])
+    items = siguiente_del_objetivo(user, libro, cuantos=2)
+
+    items[0].descartado = True
+    items[0].save(update_fields=["descartado"])
+
+    assert [i.pk for i in _items_del_usuario(user)] == [items[1].pk]
+
+
+def test_descartar_no_borra_el_historial(db, user):
+    """Descartar dice 'no me lo ofrezcas más', no 'haz como si no hubiera pasado'."""
+    from my_library.libros import siguiente_del_objetivo
+
+    libro, _ = _libro_con_capitulos("Metodo", "metodo-7", [("Semana 1", ["a"])])
+    item = siguiente_del_objetivo(user, libro, cuantos=1)[0]
+    ReviewLog.log(item=item, proficiency_after=3)
+
+    item.descartado = True
+    item.save(update_fields=["descartado"])
+
+    assert ReviewLog.objects.filter(item=item).count() == 1
+    assert item.notes == ""
+
+
+def test_el_progreso_cuenta_capitulos_tocados(db, user):
+    """C46. «Semana 12 de 40»."""
+    from my_library.libros import progreso, siguiente_del_objetivo
+
+    libro, _ = _libro_con_capitulos(
+        "Metodo",
+        "metodo-8",
+        [("Semana 1", ["a"]), ("Semana 2", ["b"]), ("Semana 3", ["c"])],
+    )
+
+    assert progreso(user, libro) == (0, 3)
+
+    items = siguiente_del_objetivo(user, libro, cuantos=2)
+    ReviewLog.log(item=items[0], proficiency_after=2)
+
+    assert progreso(user, libro) == (1, 3)
+
+
+def test_el_contexto_devuelve_el_texto_que_rodea_a_la_imagen(db, user):
+    """C44. En estos libros las imágenes van dentro del texto, así que lo que
+    hay justo antes es la explicación del ejercicio."""
+    from my_library.libros import contexto_en_el_libro, siguiente_del_objetivo
+
+    libro, _ = _libro_con_capitulos("Metodo", "ctx-1", [("Semana 1", ["ejercicio"])])
+    item = siguiente_del_objetivo(user, libro, cuantos=1)[0]
+
+    texto, capitulo, url = contexto_en_el_libro(item)
+
+    assert "Texto antes de ejercicio" in texto
+    assert capitulo == "Semana 1"
+    assert url
+
+
+def test_el_contexto_no_revienta_con_un_elemento_suelto(db, user, library_item):
+    """Lo añadido desde el índice no tiene `source_page`."""
+    from my_library.libros import contexto_en_el_libro
+
+    assert contexto_en_el_libro(library_item) == (None, None, None)
+
+
+def test_el_endpoint_de_contexto_responde_json(client, db, user):
+    from my_library.libros import siguiente_del_objetivo
+
+    libro, _ = _libro_con_capitulos("Metodo", "ctx-2", [("Semana 1", ["ejercicio"])])
+    item = siguiente_del_objetivo(user, libro, cuantos=1)[0]
+    client.force_login(user)
+
+    r = client.get(reverse("my_library:contexto_item", args=[item.pk]))
+
+    assert r.status_code == 200
+    assert "Texto antes de ejercicio" in r.json()["texto"]
+    assert r.json()["capitulo"] == "Semana 1"
+
+
+def test_descartar_desde_el_visor(client, db, user):
+    """C45, por HTTP: el endpoint marca y no borra."""
+    from my_library.libros import siguiente_del_objetivo
+
+    libro, _ = _libro_con_capitulos("Metodo", "desc-1", [("Semana 1", ["a"])])
+    item = siguiente_del_objetivo(user, libro, cuantos=1)[0]
+    client.force_login(user)
+
+    r = client.post(reverse("my_library:descartar_item", args=[item.pk]))
+
+    assert r.status_code == 200
+    item.refresh_from_db()
+    assert item.descartado
+    assert LibraryItem.objects.filter(pk=item.pk).exists()
+
+
+def test_no_se_descarta_lo_ajeno(client, db, user, django_user_model):
+    from my_library.libros import siguiente_del_objetivo
+
+    libro, _ = _libro_con_capitulos("Metodo", "desc-2", [("Semana 1", ["a"])])
+    item = siguiente_del_objetivo(user, libro, cuantos=1)[0]
+    otro = UserFactory()
+    client.force_login(otro)
+
+    r = client.post(reverse("my_library:descartar_item", args=[item.pk]))
+
+    assert r.status_code == 404
+    item.refresh_from_db()
+    assert not item.descartado

@@ -130,6 +130,45 @@ class LibraryDeck(models.Model):
         return tag_map
 
 
+class LibraryGoal(models.Model):
+    """Un libro que el principal se ha puesto como objetivo estudiar.
+
+    Guarda la INTENCIÓN, no el material. Fijar un objetivo no crea ni un
+    `LibraryItem`: el elemento se crea cuando le toca salir en la cola
+    (`my_library.libros.siguiente_del_objetivo`).
+
+    Por qué así, medido antes de decidirlo: *Ukulele Aerobics* tiene 283 medios
+    practicables y la biblioteca del principal tiene 51 elementos. Copiarlos por
+    adelantado la convertiría en un 85% de un solo libro. Y del libro de Jens
+    Larsen, de 93 medios eligió 23 — los elegidos y los descartados son
+    indistinguibles por tipo o por título, así que no hay regla que reproduzca
+    su criterio. La creación perezosa hace que el volumen deje de importar: solo
+    existe lo que de verdad ha salido a practicar.
+    """
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="library_goals"
+    )
+    libro = models.ForeignKey(
+        "wagtailcore.Page",
+        on_delete=models.CASCADE,
+        related_name="library_goals",
+        verbose_name="Libro",
+    )
+    activo = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        unique_together = ["user", "libro"]
+        verbose_name = "Objetivo de biblioteca"
+        verbose_name_plural = "Objetivos de biblioteca"
+
+    def __str__(self):
+        # Este User no tiene `username` (USERNAME_FIELD = "email")
+        return f"{self.user.email} - {self.libro.title}"
+
+
 class LibraryItem(models.Model):
     """
     Biblioteca personal del usuario - puede contener cualquier tipo de contenido.
@@ -156,6 +195,14 @@ class LibraryItem(models.Model):
         verbose_name="Página de origen",
         help_text="Página desde la que se añadió este elemento",
     )
+
+    # Descartado: fuera de la cola, y el objetivo no lo vuelve a ofrecer.
+    #
+    # No basta con borrar la fila: con creación perezosa el objetivo la
+    # recrearía en la siguiente sesión. La fila se queda como lápida, y por eso
+    # descartar NO borra el historial — si llegó a practicarse, su `ReviewLog` y
+    # sus notas siguen ahí. Descartar dice "no me lo ofrezcas más".
+    descartado = models.BooleanField(default=False, verbose_name="Descartado")
 
     # Metadatos
     added_at = models.DateTimeField(auto_now_add=True)

@@ -38,6 +38,22 @@ cambia con cada item, mientras que el flyout es estático.
               rows="5"
               placeholder="Qué hay que practicar aquí. Se guarda solo.">{{ item.notes }}</textarea>
     <div class="meta-notes-status" id="study-notes-status"></div>
+
+    {% comment %}
+    Dos acciones sobre el elemento, y las dos nacieron del mismo sitio: con el
+    objetivo de un libro creando elementos solo, a veces sale una imagen que era
+    decoración de la página. "De dónde viene" responde qué era sin salir de la
+    sesión; "Descartar" lo saca y hace que el objetivo no lo vuelva a ofrecer.
+    {% endcomment %}
+    <div class="meta-acciones">
+        <button type="button" class="meta-accion" onclick="verContexto()">
+            De dónde viene
+        </button>
+        <button type="button" class="meta-accion meta-accion-descartar"
+                onclick="descartarItem()">
+            Descartar
+        </button>
+    </div>
 </div>
 
 <div style="width: 100%; height: 100%;">

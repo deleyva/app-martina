@@ -180,6 +180,45 @@
             justify-content: center;
         }
 
+        .meta-acciones {
+            display: flex;
+            gap: 8px;
+            margin-top: 14px;
+        }
+        .meta-accion {
+            flex: 1;
+            padding: 7px 10px;
+            font-size: 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,.18);
+            background: rgba(255,255,255,.06);
+            color: #ddd;
+            cursor: pointer;
+        }
+        .meta-accion:hover { background: rgba(255,255,255,.12); }
+        .meta-accion-descartar { color: #ff8f8f; border-color: rgba(255,143,143,.3); }
+
+        /* Ventana de contexto: se abre encima, no navega. Practicas a pantalla
+           completa y salir a otra página rompe la sesión. */
+        #contexto-fondo {
+            position: fixed; inset: 0; background: rgba(0,0,0,.6);
+            display: none; z-index: 60;
+        }
+        #contexto-fondo.open { display: block; }
+        #contexto-caja {
+            position: fixed; z-index: 61;
+            left: 50%; top: 50%; transform: translate(-50%,-50%);
+            width: min(560px, 90vw); max-height: 70vh; overflow-y: auto;
+            background: #1c1c1e; color: #e8e8e8;
+            border: 1px solid rgba(255,255,255,.14); border-radius: 14px;
+            padding: 20px 22px; display: none;
+            box-shadow: 0 20px 60px rgba(0,0,0,.5);
+        }
+        #contexto-caja.open { display: block; }
+        #contexto-caja h3 { font-size: 14px; opacity: .6; margin: 0 0 10px; font-weight: 500; }
+        #contexto-texto { font-size: 15px; line-height: 1.55; }
+        #contexto-pie { margin-top: 18px; display: flex; gap: 10px; justify-content: flex-end; }
+
         /* Notas y etiquetas del item dentro del flyout */
         .flyout-meta {
             padding: 10px 12px 12px;
@@ -511,6 +550,16 @@
     </div>
 
     <!-- Content area (lazy-loaded via fetch) -->
+    <div id="contexto-fondo" onclick="cerrarContexto()"></div>
+    <div id="contexto-caja">
+        <h3 id="contexto-capitulo"></h3>
+        <div id="contexto-texto"></div>
+        <div id="contexto-pie">
+            <a id="contexto-enlace" class="flyout-btn" target="_blank" rel="noopener">Ver el capítulo</a>
+            <button type="button" class="flyout-btn" onclick="cerrarContexto()">Cerrar</button>
+        </div>
+    </div>
+
     <div id="study-content"></div>
 
     <!-- Proficiency overlay -->
@@ -763,6 +812,70 @@
         })
         .then(function(r) { return r.ok ? r.text() : null; })
         .then(function(html) { if (html) _pintarSecciones(html); });
+    }
+
+    // ── De dónde viene este elemento, y descartarlo ──
+    //
+    // Las dos leen el bloque del flyout, nunca por id global: ahí vive el
+    // elemento ACTUAL. Buscar por id global es lo que mandaba las notas al item
+    // equivocado (fase 10).
+    function _itemActual() {
+        var panel = document.getElementById('flyout-meta-section');
+        var meta = panel && panel.querySelector('#study-item-meta');
+        return meta ? meta.dataset.itemPk : null;
+    }
+
+    function verContexto() {
+        var pk = _itemActual();
+        if (!pk) return;
+        var caja = document.getElementById('contexto-caja');
+        var fondo = document.getElementById('contexto-fondo');
+        document.getElementById('contexto-texto').textContent = 'Cargando…';
+        document.getElementById('contexto-capitulo').textContent = '';
+        caja.classList.add('open');
+        fondo.classList.add('open');
+
+        fetch('{% url "my_library:contexto_item" pk=99999 %}'.replace('99999', pk),
+              { credentials: 'same-origin' })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            document.getElementById('contexto-capitulo').textContent = d.capitulo || '';
+            document.getElementById('contexto-texto').textContent =
+                d.texto || 'Este elemento no viene de ningún capítulo, o el capítulo no lo comenta.';
+            var enlace = document.getElementById('contexto-enlace');
+            if (d.url) { enlace.href = d.url; enlace.style.display = ''; }
+            else { enlace.style.display = 'none'; }
+        })
+        .catch(function() {
+            document.getElementById('contexto-texto').textContent = 'No se pudo cargar.';
+        });
+    }
+
+    function cerrarContexto() {
+        document.getElementById('contexto-caja').classList.remove('open');
+        document.getElementById('contexto-fondo').classList.remove('open');
+    }
+
+    function descartarItem() {
+        var pk = _itemActual();
+        if (!pk) return;
+        fetch('{% url "my_library:descartar_item" pk=99999 %}'.replace('99999', pk), {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken },
+            credentials: 'same-origin'
+        })
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(d) {
+            if (!d) return;
+            // Sale de la sesión en curso, además de no volver a ofrecerse.
+            // El índice del reproductor es `currentIndex` y `loadItem` lo
+            // recibe: quitarlo de la lista y recargar en la misma posición
+            // hace que entre el siguiente sin saltarse nada.
+            playlist.splice(currentIndex, 1);
+            toggleFlyout(false);
+            if (!playlist.length) { showSessionComplete(); return; }
+            loadItem(Math.min(currentIndex, playlist.length - 1));
+        });
     }
 
     function saveNota(cfg) {
