@@ -4,7 +4,7 @@ phase: build
 progress: true
 iteration: 10
 principal_stated_goal: "ok, quiero que hagas lo más limpio y con visión de futuro"
-updated: 2026-08-24
+updated: 2026-08-25
 ---
 
 # ISA — app-martina · Sistema de estudio de la biblioteca
@@ -34,12 +34,14 @@ updated: 2026-08-24
 | 8·3 | **Contraer: la sesión lee solo el vocabulario facetado** (C36) | `9137cfe` |
 | 8·4 | **El selector y el visor ven las etiquetas de la página** (C40) | `c6360ab` |
 | 8·5 | **El sitio entero sobre el vocabulario facetado** (C37a, C37b) | `94e5603`, `bfa3646`, `b79737a`, `e2d8d42` |
+| 8·6 | **Borrado `MusicTag`** (C37c) | `32a71c6`, sin desplegar |
+| 11 | **Estudiarse un libro** — planificada, sin empezar | — |
 
 ### Lo siguiente, por orden
 
-0. **Fase 8 — `MusicTag` → taggit facetado. Desplegado y verificado hasta C37b: no queda un solo camino vivo que lea el vocabulario plano. Solo falta C37c, borrar el modelo, que es un run aparte.** El comando de re-etiquetado (C34a) está escrito, con 14 tests, y su ensayo en seco valida el mapa entero. Lo que falta para poder ejecutarlo es **C33, la migración de esquema**, que es el paso que querías confirmar antes. Ver la sección "Fase 8", con la decisión de secuencia expandir → migrar → contraer.
+0. **Fase 8 — `MusicTag` → taggit facetado. TERMINADA salvo el despliegue de C37c.** El sitio entero corre sobre un solo vocabulario facetado; el modelo viejo está borrado en local y falta subirlo.
 1. **Presupuesto de sesión en MINUTOS en vez de en elementos.** Es la mejor idea pendiente y la que arregla que "8 elementos" sea una unidad mentirosa cuando uno es un lick de 40 segundos y otro una pieza de 14 minutos. **Necesita datos**: `ReviewLog.duration_seconds` lleva recogiendo desde el 12/08/2026. Con dos semanas de práctica real, cada elemento tiene su mediana y el presupuesto se calibra solo. *Antes del 26/08 no tiene sentido tocarlo.*
-2. **Orden real dentro de un libro.** Hoy el material nuevo entra por orden de alta en la biblioteca, que coincide con el libro solo por casualidad. Hace falta modelar libro → sección → ejercicio con un ordinal. Es la misma pieza que pedía el troceo, así que encaja encima de `ItemSection`.
+2. **Estudiarse un libro — es la fase 11, ya escrita.** Lo que pediste: meter un libro entero de una vez, ponerlo como objetivo y que la cola se rellene con su material. El orden dentro del libro es una parte de eso (C43), y la menos urgente: hoy sale bien 21 veces de 22 por casualidad. El bloqueo real es que meter un libro cuesta 40 clics. Ver la sección "Fase 11".
 3. **Revisar los plazos de caducidad con datos reales** (hoy 1/1/3/7/21 días por nivel). El de 21 días para "me lo sé muy bien" es el más dudoso: para un dato está bien, para tener una escala en las manos puede ser demasiado.
 
 ### Deuda conocida, sin bloquear nada
@@ -200,9 +202,11 @@ Decisiones del principal: **nombre + localizador opcional**, las secciones **sus
 - [x] **C25 — Las claves de elemento y sección no se pisan.** Los pk de las dos tablas se solapan; la clave lleva el tipo delante. *Probe: test de colisión.*
 - [x] **C26 — Los enlaces antiguos siguen funcionando.** Los números pelados en `?items=` siguen siendo elementos; las secciones van con `s` delante. *Probe: test de retrocompatibilidad.*
 - [x] **C27 — El visor abre en la página de la sección** si tiene localizador. *Probe: render con `?section=`; `paginaInicial` en el visor de PDF.*
-- [~] **C28 — Trocear en un navegador real. Mitad hecha.** *2026-08-21.*
-  - **El panel, visto y usado:** crear la sección «Estribillo» desde el visor funciona — el panel se repinta con «1 Estribillo ✕» y la fila aparece en la BD (`ItemSection` 5, item 34, orden 0). Se ve en la captura del panel.
-  - **El salto de página, comprobado a nivel de estado pero no de píxeles.** Con una sección en la página 5 de un PDF de 15, el visor abre con `paginaInicial = 5` y `currentPage = 5` — no en la 1. Lo que NO se pudo ver es el pixel de esa página, ni pasar página después: la pestaña nunca llegó a `visibilityState = "visible"` ni con `--activate`, y con la pestaña oculta el `requestAnimationFrame` de pdf.js no corre, así que la promesa de `page.render` no resuelve y `rendering` se queda en `true` para siempre. **Con esa bandera atascada, `renderPage` sale por el guardia `if (rendering) return` y no se puede cambiar de página.** Queda por decidir si eso es solo el estrangulamiento de la pestaña oculta —lo más probable— o un fallo real: hace falta una ventana visible de verdad, que es justo lo que no puedo forzar sin robarte el foco. *Reproducirlo cuesta 10 segundos: abre `/my-library/study/?items=s7` en local y mira si puedes pasar de página.*
+- [x] **C28 — Trocear en un navegador real.** *2026-08-24, cerrada entera.*
+  - **El panel, visto y usado** (21/08): crear la sección «Estribillo» desde el visor funciona; el panel se repinta y la fila aparece en la BD.
+  - **El salto de página, ahora sí con píxeles.** Con una sección en la página 5 de un PDF de 6, el visor abre en `currentPage = 5`, el indicador pinta **«5 / 6»** y la captura muestra el compás 68 de la partitura, no la primera página: `~/Downloads/martina-c28-pdf-pagina5.png`.
+  - **Pasar página funciona**, y lo que parecía un fallo no lo era: la flecha avanza tres cuartos de pantalla dentro de la página y solo cambia de página al llegar al borde. Al llegar, pasa de 5/6 a 6/6.
+  - **El `rendering = true` atascado era la pestaña oculta, no un defecto.** Con `document.visibilityState = "hidden"` pdf.js dibuja el canvas pero no resuelve la promesa de `page.render`, así que el guardia de `renderPage` bloquea. **Desbloqueo:** la ventana del perfil de pruebas estaba maximizada pero `focused: false`; `interceptor window focus <id>` la trae al frente y todo resuelve. *Anotado como gotcha del proyecto: cualquier verificación de pdf.js o de transiciones CSS necesita la ventana visible de verdad, no solo `--activate`.*
 
 ### Log
 
@@ -325,7 +329,13 @@ Decisiones del principal (2026-08-17):
   - **Sin decidir, la misma pregunta de siempre:** `MusicCategory` (22) sigue intacta. Se mantiene el anti-claim de la fase: no se toca aquí.
   - **Deuda encontrada de paso, no tocada:** `test_pagination_logic_js_loading` y `test_tag_filter_links` esperan una barra de filtros que la plantilla `_app` ya no tiene. Fallaban desde antes de la fase 8. Los otros 3 que fallaban eran de `RequestFactory` sin `user` y quedan arreglados (`98663e1`).
 
-- [ ] **C37c — Borrar `MusicTag`, sus cuatro campos y los comandos gastados.** El paso irreversible, ya sin nada que lo lea ni lo escriba.
+- [~] **C37c — Borrado `MusicTag`, sus cuatro campos y los comandos gastados. HECHO; FALTA DESPLEGAR.** *2026-08-24, commit `32a71c6`.*
+  - Migración `cms.0030`: **cinco `DROP TABLE` y nada más**, leído con `sqlmigrate`.
+  - **Se van con el modelo:** `migrar_musictags` (430 líneas, su trabajo está hecho y verificado en producción), `cms.migrate_tags`, y 25 tests que solo tenían sentido con dos vocabularios. **`migrar_etiquetas` se queda**, sin la salvaguarda del vocabulario doble: renombrar etiquetas de taggit sigue siendo útil. **`mapa_musictags.txt` se queda también**: lo lee `my_library.0009` al migrar.
+  - **Y tres sitios más del mismo tipo que el barrido no cubría.** Un `LibraryItem` puede apuntar a un **documento**, a una **imagen** o **a una página**; los dos primeros etiquetan en `tags` y la página en `faceted_tags`. Mirar solo `tags` dejó al **elemento 69 sin su `concepto:canon`**. Son 2 elementos de 102 y por eso pasó desapercibido. Cubierto ahora con un test, y arreglado igual en `clases/models.py`, en `library_filter_controls.html` y en cuatro `prefetch_related("tags")` sobre querysets de páginas.
+  - **Efecto medido sobre la copia:** la biblioteca vuelve a **320 etiquetados**, **cero planas** (quedaba una) y el selector **gana un valor**: `concepto:canon`, que antes llegaba sin faceta y no se podía elegir. **21 valores en 6 facetas.**
+  - **Falta:** desplegar.
+  - **El nombre `faceted_tags` se queda.** El plan original lo renombraba a `tags` al final; no se hace. Renombrar son veinte ficheros para ganar cinco letras, y el nombre actual dice lo que es. Reversible si el principal prefiere lo otro.
 
 ### Decisión de secuencia — expandir, migrar, contraer (2026-08-21)
 
@@ -506,3 +516,41 @@ Dejar de buscar por id global y buscar dentro del contenedor que toca en cada ca
 - 🧹 CLASE BARRIDA: «`getElementById` sobre un nodo que se mueve entre contenedores». Enumerada con `grep -rn "appendChild\|outerHTML" my_library/templates/` → un solo nodo movido en todo el visor (`#study-item-meta`, consultado en dos sitios). Los dos arreglados; `moveMediaToFlyout` descartado por inspección, no por parecido.
 - **Sin test de regresión en Python, a conciencia.** El defecto es orden del DOM en el navegador; un test de Django renderiza la plantilla y no ejecuta el JS que mueve el nodo. El falsador de esta clase es la comprobación en navegador, y por eso C12 existía.
 - **La plantilla no se recargó sola.** Editar `study_viewer.html` y recargar seguía sirviendo el HTML viejo; hizo falta `docker compose restart django`. Media hora de creer que el arreglo no funcionaba. Anotado para la próxima.
+
+## Fase 11 — Estudiarse un libro · PLANIFICADA, SIN EMPEZAR
+
+> **Lo que el principal pidió el 2026-08-25, con sus palabras:** *"tener las cosas ordenadas en un libro y que la cola de estudio, cuando me pongo como objetivo estudiarme ese libro, se vaya rellenando con material nuevo"*.
+
+### Lo que ya funciona, para no reconstruirlo
+
+Medido sobre la biblioteca real antes de planificar nada:
+
+- **La cola ya se rellena sola con novedad.** Una cuarta parte de cada sesión es material sin tocar (fase 5, cuota de novedad). Eso no hay que construirlo.
+- **Un mazo ya acota la sesión a un libro**, si el libro tiene una etiqueta propia. El de Jens Larsen se filtra hoy por `estilo:jazz-moderno` y devuelve sus 23 elementos exactos. Funciona desde C40, cuando las etiquetas de la página empezaron a llegar a la sesión.
+- **El orden sale bien casi siempre, por casualidad.** En ese libro, **21 de 22 pares consecutivos** están en orden correcto de capítulo, porque el pk de alta coincide con el orden de subida. Es una casualidad, pero es una casualidad que hoy funciona.
+- **`ItemSection` ya trocea** un capítulo largo y lo devuelve en orden.
+
+### El bloqueo real, que no estaba en la lista
+
+**Meter un libro en la biblioteca es de uno en uno.** `add_to_library` recibe un `content_type_id` y un `object_id`: un objeto por llamada. Medido: *Ukulele Aerobics* tiene **40 capítulos publicados y cero elementos** en la biblioteca del principal. De los 31 libros del sitio, solo dos están dentro de verdad (Jens Larsen 23, CAGED 11).
+
+De poco sirve que la cola sepa ordenar un libro si meterlo cuesta cuarenta clics. Por eso C41 va primero.
+
+### Criterios
+
+- [ ] **C41 — Un libro entra entero en la biblioteca de una vez.** Desde la página del libro, un botón que añade el material de todos sus capítulos. *Probe: sobre la copia de producción, añadir Ukulele Aerobics deja sus 40 capítulos representados en la biblioteca; volver a pulsarlo no duplica ni un elemento.*
+- [ ] **C42 — "Estudiarme este libro" es un objetivo, no un mazo con una etiqueta que casualmente lo describe.** Hoy se aproxima con `estilo:jazz-moderno` porque ese libro tiene una etiqueta propia; un libro sin etiqueta distintiva no se puede acotar. *Probe: fijar un libro como objetivo acota la sesión a su material sin depender de ninguna etiqueta, y funciona con un libro que no tenga ninguna.*
+- [ ] **C43 — El material nuevo entra en el orden del libro, no por casualidad.** Modelar libro → capítulo → elemento con un ordinal. *Probe: con los elementos dados de alta en orden inverso, la cola los sigue devolviendo en orden de libro. Hoy ese test falla: el orden es el pk.*
+- [ ] **C44 — Se ve por dónde vas.** "Semana 12 de 40". No existe nada parecido. *Probe: con 12 de 40 capítulos con al menos un repaso, el objetivo informa 12/40.*
+
+### Anti-claims
+
+- **La cuota de novedad no se toca.** Un objetivo de libro acota QUÉ entra, no cambia CUÁNTO entra ni el equilibrio con el repaso. Saltarse eso convierte el estudio de un libro en un atracón y rompe lo que la fase 5 vino a arreglar.
+- **Un objetivo no obliga.** Poner un libro como objetivo no puede impedir practicar otra cosa: la sesión sigue siendo del principal, no del plan.
+- **No se toca `MusicCategory`.** Sigue siendo la tercera taxonomía sin decidir, y sigue fuera de alcance.
+
+### Orden y tamaño
+
+1. **C41** es corto y desbloquea lo demás. Probablemente un día.
+2. **C42 y C44 van juntos**: son la misma pieza, el objetivo y su progreso. Es la fase de verdad, la que convierte una biblioteca en un plan de estudio.
+3. **C43 puede esperar.** Hoy aporta poco porque el orden ya sale bien. Sube de prioridad en cuanto entre un libro grande, donde una casualidad de 21 sobre 22 se convierte en muchos saltos.
