@@ -5,8 +5,8 @@
 <div id="allTagsSource" style="display:none;">
     {% for item in items %}
         {% with related_score=item.get_related_scorepage %}
-            {% if related_score and related_score.tags.all %}
-                {% for tag in related_score.tags.all %}
+            {% if related_score and related_score.faceted_tags.all %}
+                {% for tag in related_score.faceted_tags.all %}
                     <span data-tag="{{ tag.name }}"></span>
                 {% endfor %}
             {% endif %}

@@ -7,7 +7,6 @@ from taggit.models import Tag
 from cms.models import (
     MusicLibraryIndexPage,
     ScorePage,
-    MusicTag,
     MusicCategory
 )
 from wagtail.test.utils import WagtailPageTests

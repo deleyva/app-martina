@@ -101,11 +101,21 @@ class LibraryDeck(models.Model):
             # Item's own tags (prefetched)
             for tag in item.tags.all():
                 tags_set.add(tag.name.lower())
-            # Content object tags (GenericFK — unavoidable per-item query)
+            # Etiquetas del contenido referenciado (GenericFK, una consulta por
+            # elemento y no hay forma de evitarla).
+            #
+            # Ojo con el nombre del campo: un documento o una imagen de Wagtail
+            # etiquetan en `tags`, pero **un elemento puede apuntar directamente
+            # a una página**, y esas etiquetan en `faceted_tags`. Mirar solo
+            # `tags` dejó al elemento 69 sin su `concepto:canon` en cuanto se
+            # retiró `MusicTag`: son 2 elementos de 102, y por eso el barrido de
+            # C36 pasó por encima.
             obj = item.content_object
-            if obj and hasattr(obj, "tags"):
-                for tag in obj.tags.all():
-                    tags_set.add(tag.name.lower())
+            for campo in ("faceted_tags", "tags"):
+                if obj is not None and hasattr(obj, campo):
+                    for tag in getattr(obj, campo).all():
+                        tags_set.add(tag.name.lower())
+                    break
             # Etiquetas de la página de origen. Desde la fase 8 se leen de
             # `faceted_tags` (taggit, vocabulario facetado) y NO de `tags`, que
             # es el `MusicTag` plano. Mientras se leían las dos, una etiqueta de
@@ -347,8 +357,12 @@ class LibraryItem(models.Model):
         """
         propias = []
         obj = self.content_object
-        if obj and hasattr(obj, "tags"):
-            propias = list(obj.tags.all())
+        # Un documento o una imagen etiquetan en `tags`; una página, en
+        # `faceted_tags`. Y un elemento puede apuntar a cualquiera de los tres.
+        for campo in ("faceted_tags", "tags"):
+            if obj is not None and hasattr(obj, campo):
+                propias = list(getattr(obj, campo).all())
+                break
         if not propias:
             # Reserva: etiquetas del propio LibraryItem (embeds y demás)
             propias = list(self.tags.all())

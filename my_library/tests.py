@@ -671,66 +671,10 @@ def test_en_seco_no_toca_los_mazos(db, tmp_path, user):
     assert mazo.get_tags() == ["instrument/guitar"]
 
 
-def test_una_etiqueta_viva_en_musictag_no_se_reescribe(db, tmp_path, user):
-    """La salvaguarda, con el caso real que la obligó a existir.
-
-    Hay DOS vocabularios de etiquetas y solo uno se migró: `taggit.Tag`, que
-    renombró esta migración, y `cms.MusicTag`, con su tabla aparte, intacto.
-    `build_tag_map` recoge los nombres de los dos sin distinguir.
-
-    El mazo `caged-system` del principal empareja 11 elementos por `MusicTag`,
-    y `caged-system` no existe en taggit desde el 12/08. Mirar solo taggit lo
-    daría por muerto y lo arrastraría a `concepto:caged`, que no tiene nada:
-    de 11 a 0. Arreglando dos mazos habríamos roto el tercero.
-    """
-    from cms.models import MusicTag
-
-    MusicTag.objects.create(name="caged-system")
-
-    mazo = _mazo(user, "caged", ["caged-system"])
-
-    _migrar(
-        tmp_path, ["caged-system -> concepto:caged"], ejecutar=True, solo_mazos=True
-    )
-
-    mazo.refresh_from_db()
-    assert mazo.get_tags() == ["caged-system"]  # intacto
 
 
-def test_migrar_del_todo_tampoco_reescribe_lo_vivo_en_musictag(db, tmp_path, user):
-    """La misma trampa en el camino normal: renombrar en taggit no borra el
-    nombre en `MusicTag`, así que ese mazo tampoco se toca."""
-    from cms.models import MusicTag
-    from taggit.models import Tag
-
-    MusicTag.objects.create(name="jazz")
-    _item(user, "uno", tags=["jazz"])  # el 'jazz' de taggit, que sí se renombra
-    mazo = _mazo(user, "jazz", ["jazz"])
-
-    _migrar(tmp_path, ["jazz -> estilo:jazz"], ejecutar=True)
-
-    assert Tag.objects.filter(name="estilo:jazz").exists()  # taggit sí migró
-    mazo.refresh_from_db()
-    assert mazo.get_tags() == ["jazz"]  # el mazo no, porque MusicTag sigue viva
 
 
-def test_solo_mazos_arrastra_cuando_el_nombre_esta_muerto_en_los_dos(db, tmp_path, user):
-    """El contraste: si el nombre no vive en ninguno de los dos vocabularios,
-    es un puntero muerto y se arrastra. Es el caso de `instrument/guitar`."""
-    item = _item(user, "uno", tags=["instrumento:guitarra"])
-    mazo = _mazo(user, "guitarra", ["instrument/guitar"])
-
-    _migrar(
-        tmp_path,
-        ["instrument/guitar -> instrumento:guitarra"],
-        ejecutar=True,
-        solo_mazos=True,
-    )
-
-    mazo.refresh_from_db()
-    assert mazo.get_tags() == ["instrumento:guitarra"]
-    tag_map = LibraryDeck.build_tag_map(LibraryItem.objects.filter(user=user))
-    assert mazo.get_matching_item_pks(tag_map) == [item.pk]
 
 
 def test_solo_mazos_no_toca_ninguna_etiqueta(db, tmp_path, user):
@@ -1478,390 +1422,29 @@ def test_el_planificador_podra_filtrar_solo_practica_real(client, library_item, 
     assert ReviewLog.objects.filter(source=ReviewLog.SOURCE_STUDY).count() == 1
 
 
-# === Fase 8: mover las etiquetas de MusicTag a taggit facetado ===
+# === C36: la sesión lee el vocabulario facetado ===
 
 
-def _pagina_con_musictags(titulo, slug, nombres, modelo=None, **extra):
-    """Una página real bajo la raíz, con sus `MusicTag` puestas.
+def _pagina(titulo, slug, modelo=None, **extra):
+    """Una página real bajo la raíz, vacía de etiquetas.
 
     Wagtail no deja crear una página suelta: necesita padre en el árbol, y por
-    eso no vale con `Modelo.objects.create`. `BlogPage` además OBLIGA a
-    `date` e `intro` — es el dato que sostiene el argumento 3 del debate
-    ScorePage -> BlogPage, y aquí se confirma solo.
+    eso no vale con `Modelo.objects.create`. `BlogPage` además OBLIGA a `date` e
+    `intro` — es el dato que sostiene el argumento 3 del debate ScorePage →
+    BlogPage, y aquí se confirma solo.
+
+    Las etiquetas se ponen después con `faceted_tags`: desde C37c es el único
+    vocabulario que tienen las páginas.
     """
-    from cms.models import MusicTag, ScorePage
+    from cms.models import ScorePage
     from wagtail.models import Page
 
     modelo = modelo or ScorePage
     raiz = Page.objects.get(id=2)
     pagina = modelo(title=titulo, slug=slug, **extra)
     raiz.add_child(instance=pagina)
-    for nombre in nombres:
-        etiqueta, _ = MusicTag.objects.get_or_create(name=nombre)
-        pagina.tags.add(etiqueta)
     pagina.save()
     return pagina
-
-
-def _mapa_musictags(tmp_path, lineas):
-    mapa = tmp_path / "mapa_musictags.txt"
-    mapa.write_text("\n".join(lineas) + "\n")
-    return mapa
-
-
-def _migrar_musictags(tmp_path, lineas, ejecutar=False):
-    from django.core.management import call_command
-
-    args = ["migrar_musictags", "--mapa", str(_mapa_musictags(tmp_path, lineas))]
-    if ejecutar:
-        args.append("--ejecutar")
-    call_command(*args)
-
-
-def _plan(tmp_path, lineas):
-    from my_library.management.commands.migrar_musictags import (
-        leer_mapa,
-        planificar_paginas,
-    )
-
-    return planificar_paginas(leer_mapa(_mapa_musictags(tmp_path, lineas)))
-
-
-def test_el_plan_traduce_la_etiqueta_plana_a_su_faceta(db, tmp_path):
-    _pagina_con_musictags("Blues en La", "blues-en-la", ["guitar"])
-
-    plan = _plan(tmp_path, ["guitar -> instrumento:guitarra"])
-
-    assert len(plan) == 1
-    _pagina, viejos, nuevos, pelada = plan[0]
-    assert viejos == ["guitar"]
-    assert nuevos == ["instrumento:guitarra"]
-    assert not pelada
-
-
-def test_tres_musictags_al_mismo_destino_no_duplican(db, tmp_path):
-    """`guitar`, `guitarra` y `guitar solo` van las tres a la misma faceta. Sin
-    deduplicar, la escritura reventaría contra la unicidad del through model."""
-    _pagina_con_musictags(
-        "Metodo", "metodo", ["guitar", "guitarra", "guitar solo"]
-    )
-
-    plan = _plan(
-        tmp_path,
-        [
-            "guitar -> instrumento:guitarra",
-            "guitarra -> instrumento:guitarra",
-            "guitar solo -> instrumento:guitarra",
-        ],
-    )
-
-    assert plan[0][2] == ["instrumento:guitarra"]
-
-
-def test_borrar_saca_la_etiqueta_del_plan(db, tmp_path):
-    _pagina_con_musictags("Balada", "balada", ["guitar", "melancholic"])
-
-    plan = _plan(
-        tmp_path,
-        ["guitar -> instrumento:guitarra", "melancholic -> __BORRAR__"],
-    )
-
-    assert plan[0][2] == ["instrumento:guitarra"]
-
-
-def test_una_pagina_con_todo_borrado_queda_marcada(db, tmp_path):
-    """No frena la migración, pero es pérdida real de información y el
-    principal tiene que verla antes de aceptarla."""
-    _pagina_con_musictags("Iconica", "iconica", ["iconic", "upbeat"])
-
-    plan = _plan(tmp_path, ["iconic -> __BORRAR__", "upbeat -> __BORRAR__"])
-
-    _pagina, viejos, nuevos, pelada = plan[0]
-    assert nuevos == []
-    assert pelada
-    assert sorted(viejos) == ["iconic", "upbeat"]
-
-
-def test_las_paginas_sin_etiquetas_no_entran_en_el_plan(db, tmp_path):
-    _pagina_con_musictags("Vacia", "vacia", [])
-    _pagina_con_musictags("Con etiqueta", "con-etiqueta", ["guitar"])
-
-    plan = _plan(tmp_path, ["guitar -> instrumento:guitarra"])
-
-    assert len(plan) == 1
-
-
-def test_los_cuatro_tipos_de_pagina_entran_en_el_plan(db, tmp_path):
-    from cms.models import BlogPage, DictadoPage, ScorePage, TestPage
-
-    _pagina_con_musictags("Score", "score-g", ["guitar"], modelo=ScorePage)
-    _pagina_con_musictags("Dictado", "dictado-g", ["guitar"], modelo=DictadoPage)
-    _pagina_con_musictags("Test", "test-g", ["guitar"], modelo=TestPage)
-    _pagina_con_musictags(
-        "Blog",
-        "blog-g",
-        ["guitar"],
-        modelo=BlogPage,
-        date=timezone.now().date(),
-        intro="Entrada de prueba",
-    )
-
-    plan = _plan(tmp_path, ["guitar -> instrumento:guitarra"])
-
-    tipos = {type(p).__name__ for p, _v, _n, _s in plan}
-    assert tipos == {"ScorePage", "DictadoPage", "TestPage", "BlogPage"}
-
-
-def test_el_plan_es_el_mismo_se_haya_ejecutado_o_no(db, tmp_path):
-    """Se aplica el MAPA, no el estado de taggit. Por eso una ejecución que se
-    quedó a medias se retoma volviendo a lanzar el comando."""
-    from taggit.models import Tag
-
-    _pagina_con_musictags("Blues", "blues-idem", ["guitar"])
-    antes = _plan(tmp_path, ["guitar -> instrumento:guitarra"])
-
-    Tag.objects.create(name="instrumento:guitarra", slug="instrumento-guitarra")
-    despues = _plan(tmp_path, ["guitar -> instrumento:guitarra"])
-
-    assert [(p.pk, n) for p, _v, n, _s in antes] == [
-        (p.pk, n) for p, _v, n, _s in despues
-    ]
-
-
-def test_una_musictag_fuera_del_mapa_aborta(db, tmp_path):
-    """Si alguien etiqueta en el admin después de cerrar el mapa, esa etiqueta
-    se quedaría fuera en silencio. Así es como se pierde media migración."""
-    from django.core.management.base import CommandError
-
-    _pagina_con_musictags("Nueva", "nueva", ["guitar", "bulerias"])
-
-    with pytest.raises(CommandError, match="no están en el mapa"):
-        _migrar_musictags(tmp_path, ["guitar -> instrumento:guitarra"])
-
-
-def test_una_cadena_en_el_mapa_aborta(db, tmp_path):
-    """`a -> b` y `b -> c` hace que ejecutar dos veces no dé lo mismo."""
-    from django.core.management.base import CommandError
-
-    with pytest.raises(CommandError, match="cadenas"):
-        _migrar_musictags(
-            tmp_path,
-            ["guitar -> guitarra", "guitarra -> instrumento:guitarra"],
-        )
-
-
-def test_dos_origenes_que_solo_cambian_en_mayusculas_abortan(db, tmp_path):
-    """`MusicTag.name` distingue mayúsculas y el emparejamiento de mazos no.
-    El resultado dependería del orden de lectura del fichero."""
-    from django.core.management.base import CommandError
-
-    with pytest.raises(CommandError, match="mayúsculas"):
-        _migrar_musictags(
-            tmp_path,
-            ["Coro -> voz:coro", "coro -> concepto:canon"],
-        )
-
-
-def test_una_faceta_desconocida_aborta(db, tmp_path):
-    """La etiqueta nacería muerta: `facets.parse` no la reconoce, así que no
-    agrupa ni filtra. Falla en silencio, que es la peor forma de fallar."""
-    from django.core.management.base import CommandError
-
-    _pagina_con_musictags("Melancolica", "melancolica", ["melancholic"])
-
-    with pytest.raises(CommandError, match="Faceta desconocida|facetas que no existen"):
-        _migrar_musictags(tmp_path, ["melancholic -> caracter:melancolico"])
-
-
-def test_en_seco_no_crea_ninguna_etiqueta_en_taggit(db, tmp_path):
-    from taggit.models import Tag
-
-    _pagina_con_musictags("Blues", "blues-seco", ["guitar"])
-
-    _migrar_musictags(tmp_path, ["guitar -> instrumento:guitarra"])
-
-    assert not Tag.objects.filter(name="instrumento:guitarra").exists()
-
-
-def test_en_seco_no_borra_ninguna_musictag(db, tmp_path):
-    """Qué pasa con el modelo `MusicTag` es C37. Mezclar el movimiento con el
-    borrado dejaría sin red la comprobación de paridad de C35."""
-    from cms.models import MusicTag
-
-    _pagina_con_musictags("Iconica", "iconica-seco", ["iconic"])
-
-    _migrar_musictags(tmp_path, ["iconic -> __BORRAR__"])
-
-    assert MusicTag.objects.filter(name="iconic").exists()
-
-
-def test_el_plan_separa_lo_que_fusiona_de_lo_que_crea(db, tmp_path):
-    """Con 139 etiquetas ya facetadas, un mapa sano crea muy pocas. Ver esa
-    cuenta es lo que dice si el mapa fusiona con el vocabulario bueno o se
-    inventa ramas nuevas."""
-    from my_library.management.commands.migrar_musictags import clasificar_destinos
-    from taggit.models import Tag
-
-    Tag.objects.create(name="instrumento:guitarra", slug="instrumento-guitarra")
-    _pagina_con_musictags("Dos", "dos", ["guitar", "blues"])
-
-    plan = _plan(
-        tmp_path, ["guitar -> instrumento:guitarra", "blues -> estilo:blues"]
-    )
-    conteo, por_crear = clasificar_destinos(plan)
-
-    assert conteo == {"instrumento:guitarra": 1, "estilo:blues": 1}
-    assert por_crear == ["estilo:blues"]
-
-
-def test_las_cuatro_paginas_tienen_manager_de_taggit(db):
-    """C33. El campo nace VACÍO y al lado de `tags`, no en su lugar: renombrar de
-    golpe abriría una ventana con `build_tag_map` leyendo un campo vacío."""
-    from cms.models import BlogPage, DictadoPage, ScorePage, TestPage
-    from my_library.management.commands.migrar_musictags import (
-        CAMPO_DESTINO,
-        campo_destino_existe,
-    )
-
-    assert campo_destino_existe()
-    for modelo in (BlogPage, ScorePage, DictadoPage, TestPage):
-        campos = {f.name for f in modelo._meta.get_fields()}
-        assert CAMPO_DESTINO in campos, modelo.__name__
-        assert "tags" in campos, f"{modelo.__name__} perdió el vocabulario viejo"
-
-
-def test_el_campo_nuevo_nace_vacio(db):
-    """Si naciera con algo dentro, este despliegue cambiaría lo que ve alguien."""
-    from cms.models import ScorePage
-
-    pagina = _pagina_con_musictags("Recien creada", "recien", ["guitar"])
-    assert pagina.faceted_tags.count() == 0
-    assert ScorePage.objects.get(pk=pagina.pk).faceted_tags.count() == 0
-
-
-def test_en_seco_no_escribe_aunque_el_campo_ya_exista(db, tmp_path):
-    """Con C33 puesta ya no hay guardia que pare `--ejecutar`, así que lo único
-    que separa un ensayo de una migración es la ausencia de la bandera."""
-    from taggit.models import Tag
-
-    pagina = _pagina_con_musictags("Blues", "blues-seco-c33", ["guitar"])
-
-    _migrar_musictags(tmp_path, ["guitar -> instrumento:guitarra"])
-
-    assert pagina.faceted_tags.count() == 0
-    assert not Tag.objects.filter(name="instrumento:guitarra").exists()
-
-
-def test_el_informe_cuenta_lo_que_se_pierde(db, tmp_path):
-    """Un resumen que solo cuenta lo que se gana invita a aprobar una migración
-    sin mirar lo que borra."""
-    from my_library.management.commands.migrar_musictags import (
-        etiquetados_que_se_pierden,
-        leer_mapa,
-    )
-
-    _pagina_con_musictags("Una", "perd-1", ["guitar", "iconic"])
-    _pagina_con_musictags("Otra", "perd-2", ["iconic", "upbeat"])
-
-    mapa = leer_mapa(
-        _mapa_musictags(
-            tmp_path,
-            [
-                "guitar -> instrumento:guitarra",
-                "iconic -> __BORRAR__",
-                "upbeat -> __BORRAR__",
-            ],
-        )
-    )
-    perdidos, paginas = etiquetados_que_se_pierden(mapa)
-
-    assert perdidos == {"iconic": 2, "upbeat": 1}
-    assert paginas == 2
-
-
-# === C34b: escribir las etiquetas en las páginas ===
-
-
-def test_aplicar_escribe_las_etiquetas_facetadas(db, tmp_path):
-    from cms.models import ScorePage
-
-    pagina = _pagina_con_musictags("Blues", "aplicar-1", ["guitar", "blues"])
-
-    _migrar_musictags(
-        tmp_path,
-        ["guitar -> instrumento:guitarra", "blues -> estilo:blues"],
-        ejecutar=True,
-    )
-
-    releida = ScorePage.objects.get(pk=pagina.pk)
-    assert {t.name for t in releida.faceted_tags.all()} == {
-        "instrumento:guitarra",
-        "estilo:blues",
-    }
-
-
-def test_aplicar_no_toca_el_vocabulario_viejo(db, tmp_path):
-    """`MusicTag` se decide en C37. Mezclar el movimiento con el borrado deja
-    sin red la comprobación de paridad de C35."""
-    from cms.models import MusicTag, ScorePage
-
-    pagina = _pagina_con_musictags("Blues", "aplicar-2", ["guitar"])
-
-    _migrar_musictags(tmp_path, ["guitar -> instrumento:guitarra"], ejecutar=True)
-
-    releida = ScorePage.objects.get(pk=pagina.pk)
-    assert {t.name for t in releida.tags.all()} == {"guitar"}
-    assert MusicTag.objects.filter(name="guitar").exists()
-
-
-def test_aplicar_es_idempotente(db, tmp_path):
-    from cms.models import ScorePage
-
-    pagina = _pagina_con_musictags("Blues", "aplicar-3", ["guitar", "guitarra"])
-    lineas = [
-        "guitar -> instrumento:guitarra",
-        "guitarra -> instrumento:guitarra",
-    ]
-
-    _migrar_musictags(tmp_path, lineas, ejecutar=True)
-    _migrar_musictags(tmp_path, lineas, ejecutar=True)
-
-    releida = ScorePage.objects.get(pk=pagina.pk)
-    assert [t.name for t in releida.faceted_tags.all()] == ["instrumento:guitarra"]
-
-
-def test_publicar_un_borrador_viejo_no_se_lleva_las_etiquetas(db, tmp_path):
-    """LA PREGUNTA QUE DECIDE C34b.
-
-    37 de las 300 páginas de producción tienen un borrador sin publicar, creado
-    ANTES de que existiera `faceted_tags`. Si escribir solo en la fila viva basta,
-    publicar ese borrador después borraría las etiquetas nuevas — una migración
-    que se deshace sola semanas más tarde y sin que nadie la toque.
-    """
-    from cms.models import ScorePage
-
-    pagina = _pagina_con_musictags("Blues", "aplicar-4", ["guitar"])
-    revision_vieja = pagina.save_revision()  # borrador de antes de etiquetar
-
-    _migrar_musictags(tmp_path, ["guitar -> instrumento:guitarra"], ejecutar=True)
-    assert {t.name for t in ScorePage.objects.get(pk=pagina.pk).faceted_tags.all()} == {
-        "instrumento:guitarra"
-    }
-
-    # Releída de la BD, que es lo que hace el admin al publicar. El objeto que
-    # quedó en memoria lleva el `content` de antes de migrar y publicarlo
-    # probaría algo que no pasa nunca por la interfaz.
-    from wagtail.models import Revision
-
-    Revision.objects.get(pk=revision_vieja.pk).publish()
-
-    releida = ScorePage.objects.get(pk=pagina.pk)
-    assert {t.name for t in releida.faceted_tags.all()} == {"instrumento:guitarra"}, (
-        "publicar un borrador anterior a la migración se ha llevado las etiquetas"
-    )
-
-
-# === C36: la sesión lee el vocabulario facetado ===
 
 
 def _item_de_pagina(user, pagina, titulo="desde pagina"):
@@ -1882,7 +1465,7 @@ def _item_de_pagina(user, pagina, titulo="desde pagina"):
 def test_la_sesion_lee_las_etiquetas_facetadas_de_la_pagina(db, user):
     from taggit.models import Tag
 
-    pagina = _pagina_con_musictags("Blues", "c36-1", ["guitar"])
+    pagina = _pagina("Blues", "c36-1")
     pagina.faceted_tags.add(
         Tag.objects.create(name="instrumento:guitarra", slug="instrumento-guitarra")
     )
@@ -1898,7 +1481,7 @@ def test_la_sesion_ya_no_lee_el_vocabulario_plano_de_la_pagina(db, user):
     """El falsador de C36. Con la lectura vieja, `guitar` seguiría entrando y la
     etiqueta de página nunca podría agrupar ni filtrar, que era el motivo de
     toda la fase 8."""
-    pagina = _pagina_con_musictags("Blues", "c36-2", ["guitar"])
+    pagina = _pagina("Blues", "c36-2")
     item = _item_de_pagina(user, pagina)
 
     mapa = LibraryDeck.build_tag_map(LibraryItem.objects.filter(user=user))
@@ -1911,7 +1494,7 @@ def test_la_etiqueta_de_pagina_ya_agrupa_una_sesion(db, user):
     `facets.parse('guitar')` no reconoce faceta, así que no agrupaba."""
     from taggit.models import Tag
 
-    pagina = _pagina_con_musictags("Blues", "c36-3", ["guitar"])
+    pagina = _pagina("Blues", "c36-3")
     pagina.faceted_tags.add(
         Tag.objects.create(name="concepto:pentatonica", slug="concepto-pentatonica")
     )
@@ -1934,7 +1517,7 @@ def test_el_selector_de_facetas_ve_la_etiqueta_de_la_pagina(db, user):
     from taggit.models import Tag
     from my_library.session import facetas_disponibles
 
-    pagina = _pagina_con_musictags("Libro", "c40-1", ["modern jazz"])
+    pagina = _pagina("Libro", "c40-1")
     pagina.faceted_tags.add(
         Tag.objects.create(name="estilo:jazz-moderno", slug="estilo-jazz-moderno")
     )
@@ -1950,7 +1533,7 @@ def test_la_agrupacion_tematica_ve_la_etiqueta_de_la_pagina(db, user):
     from taggit.models import Tag
     from my_library.session import _etiquetas
 
-    pagina = _pagina_con_musictags("Libro", "c40-2", ["modern jazz"])
+    pagina = _pagina("Libro", "c40-2")
     pagina.faceted_tags.add(
         Tag.objects.create(name="estilo:jazz-moderno", slug="estilo-jazz-moderno-2")
     )
@@ -1965,7 +1548,7 @@ def test_la_pagina_no_aporta_el_vocabulario_plano(db, user):
     ni agrupan ni filtran. Solo entra lo facetado."""
     from my_library.session import _etiquetas
 
-    pagina = _pagina_con_musictags("Libro", "c40-3", ["modern jazz"])
+    pagina = _pagina("Libro", "c40-3")
     item = _item_de_pagina(user, pagina)
 
     assert "modern jazz" not in _etiquetas(item)
@@ -1976,7 +1559,7 @@ def test_una_etiqueta_repetida_no_sale_dos_veces(db, user):
     from taggit.models import Tag
 
     etiqueta = Tag.objects.create(name="estilo:blues", slug="estilo-blues-c40")
-    pagina = _pagina_con_musictags("Libro", "c40-4", ["blues"])
+    pagina = _pagina("Libro", "c40-4")
     pagina.faceted_tags.add(etiqueta)
     pagina.save()
     item = _item_de_pagina(user, pagina)
@@ -1991,7 +1574,7 @@ def test_la_seccion_hereda_tambien_lo_de_la_pagina(db, user):
     """Un trozo del capítulo sigue siendo jazz moderno."""
     from taggit.models import Tag
 
-    pagina = _pagina_con_musictags("Libro", "c40-5", ["modern jazz"])
+    pagina = _pagina("Libro", "c40-5")
     pagina.faceted_tags.add(
         Tag.objects.create(name="estilo:jazz-moderno", slug="estilo-jazz-moderno-5")
     )
@@ -2008,14 +1591,14 @@ def test_precargar_da_lo_mismo_que_no_precargar(db, user):
     dónde se llegara."""
     from taggit.models import Tag
 
-    pagina = _pagina_con_musictags("Libro", "precarga-1", ["modern jazz"])
+    pagina = _pagina("Libro", "precarga-1")
     pagina.faceted_tags.add(
         Tag.objects.create(name="estilo:jazz-moderno", slug="estilo-jm-precarga")
     )
     pagina.save()
     item = _item_de_pagina(user, pagina)
     otro = _item_de_pagina(
-        user, _pagina_con_musictags("Suelto", "precarga-2", []), "sin etiquetas"
+        user, _pagina("Suelto", "precarga-2"), "sin etiquetas"
     )
 
     sin_precarga = {
@@ -2041,7 +1624,7 @@ def test_el_api_pone_las_etiquetas_por_nombre(db):
     from cms.etiquetas import aplicar_etiquetas
     from cms.models import ScorePage
 
-    pagina = _pagina_con_musictags("Nueva", "c37b-1", [])
+    pagina = _pagina("Nueva", "c37b-1")
     aplicar_etiquetas(pagina, ["estilo:jazz", "instrumento:guitarra"])
     pagina.save_revision().publish()
 
@@ -2056,7 +1639,7 @@ def test_el_api_no_duplica_un_nombre_repetido(db):
     from cms.etiquetas import aplicar_etiquetas
     from cms.models import ScorePage
 
-    pagina = _pagina_con_musictags("Nueva", "c37b-2", [])
+    pagina = _pagina("Nueva", "c37b-2")
     aplicar_etiquetas(pagina, ["estilo:jazz", "Estilo:Jazz ", "estilo:jazz"])
     pagina.save_revision().publish()
 
@@ -2087,14 +1670,14 @@ def test_precargar_da_lo_mismo_que_no_precargar(db, user):
     dónde se llegara."""
     from taggit.models import Tag
 
-    pagina = _pagina_con_musictags("Libro", "precarga-1", ["modern jazz"])
+    pagina = _pagina("Libro", "precarga-1")
     pagina.faceted_tags.add(
         Tag.objects.create(name="estilo:jazz-moderno", slug="estilo-jm-precarga")
     )
     pagina.save()
     item = _item_de_pagina(user, pagina)
     otro = _item_de_pagina(
-        user, _pagina_con_musictags("Suelto", "precarga-2", []), "sin etiquetas"
+        user, _pagina("Suelto", "precarga-2"), "sin etiquetas"
     )
 
     sin_precarga = {
@@ -2109,3 +1692,29 @@ def test_precargar_da_lo_mismo_que_no_precargar(db, user):
     assert sin_precarga == con_precarga
     assert "estilo:jazz-moderno" in con_precarga[item.pk]
     assert con_precarga[otro.pk] == []
+
+
+def test_un_elemento_que_apunta_a_una_pagina_recibe_sus_etiquetas(db, user):
+    """Un `LibraryItem` puede apuntar a un documento, a una imagen o **a una
+    página**. Los dos primeros etiquetan en `tags`; la página, en
+    `faceted_tags`.
+
+    Mirar solo `tags` dejó al elemento 69 de producción sin su `concepto:canon`
+    en cuanto se retiró `MusicTag`. Son 2 elementos de 102, y por eso el barrido
+    de C36 pasó por encima: el caso existe y no lo cubría ningún test.
+    """
+    from taggit.models import Tag
+
+    pagina = _pagina("Partitura suelta", "c37c-1")
+    pagina.faceted_tags.add(Tag.objects.create(name="concepto:canon", slug="concepto-canon"))
+    pagina.save()
+
+    item = LibraryItem.objects.create(
+        user=user,
+        content_type=ContentType.objects.get_for_model(pagina),
+        object_id=pagina.pk,
+    )
+
+    mapa = LibraryDeck.build_tag_map(LibraryItem.objects.filter(user=user))
+    assert "concepto:canon" in mapa[item.pk]
+    assert "concepto:canon" in {t.name for t in item.get_content_tags()}

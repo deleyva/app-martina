@@ -46,26 +46,25 @@ class TaggedEmbedItem(TaggedItemBase):
     )
 
 
-# ── Fase 8, paso 1: EXPANDIR ────────────────────────────────────────────────
+# ── Etiquetas de las páginas ────────────────────────────────────────────────
 #
-# Las cuatro páginas etiquetan hoy con `tags`, un M2M a `cms.MusicTag`: un
-# vocabulario propio, plano y aparte del taggit que usa el resto del sitio y que
-# ya está facetado (`instrumento:guitarra`, `estilo:jazz`…). La sesión de estudio
-# no sabe agrupar ni filtrar por nada que viva ahí.
+# Las cuatro páginas etiquetan con `faceted_tags`, taggit con vocabulario
+# facetado (`instrumento:guitarra`, `estilo:jazz`). Es el mismo taggit que usan
+# las imágenes y los documentos, así que en todo el sitio hay UN vocabulario.
 #
-# El nombre `tags` está ocupado, así que el manager nuevo entra al lado como
-# `faceted_tags` y nace VACÍO. Nadie lo lee todavía: `build_tag_map` sigue
-# leyendo `tags`. Esa es la gracia — este despliegue no puede cambiar lo que ve
-# nadie, porque no hay ningún camino de lectura hacia el campo nuevo.
+# Hasta agosto de 2026 había dos: estas páginas usaban `cms.MusicTag`, propio y
+# plano, y la sesión de estudio no podía agrupar ni filtrar por nada que viviera
+# ahí. La fase 8 lo unificó en cinco pasos (expandir, migrar, contraer), cada uno
+# desplegado y verificado por separado. El relato completo y los números están
+# en `ISA.md`; aquí solo queda el resultado.
 #
-# Después: `migrar_musictags --ejecutar` lo llena (C34b), se comprueba la paridad
-# elemento a elemento (C35), `build_tag_map` cambia de fuente Y se arrastran los
-# mazos en la misma transacción (C36), y solo entonces `tags` se borra y
-# `faceted_tags` se renombra a `tags` (C37). Borrar todo este bloque es el
-# último paso, no el primero.
+# El nombre `faceted_tags` sobrevive al final a propósito: dice qué es. Volver a
+# llamarlo `tags` sería tocar veinte ficheros para ganar cinco letras.
 #
 # El through model explícito no es opcional: Wagtail guarda las páginas por
-# revisiones, y sin él las etiquetas no sobreviven al ciclo de revisión.
+# revisiones, y sin él las etiquetas no sobreviven al ciclo de revisión. Y sus
+# filas hay que meterlas también en el JSON de la revisión al migrar datos, o
+# publicar un borrador anterior deja la página sin etiquetas.
 
 
 class BlogPageTag(TaggedItemBase):
@@ -672,7 +671,6 @@ class BlogPage(Page):
 
     # Categorías y tags
     categories = ParentalManyToManyField("MusicCategory", blank=True)
-    tags = ParentalManyToManyField("MusicTag", blank=True)
     faceted_tags = ClusterTaggableManager(
         through="cms.BlogPageTag",
         blank=True,
@@ -691,7 +689,6 @@ class BlogPage(Page):
 
     promote_panels = Page.promote_panels + [
         FieldPanel("categories", widget=forms.CheckboxSelectMultiple),
-        FieldPanel("tags", widget=forms.CheckboxSelectMultiple),
         FieldPanel("faceted_tags", heading="Etiquetas facetadas"),
     ]
 
@@ -922,7 +919,6 @@ class DictadoPage(Page):
 
     # Categorías y tags para organización
     categories = ParentalManyToManyField("MusicCategory", blank=True)
-    tags = ParentalManyToManyField("MusicTag", blank=True)
     faceted_tags = ClusterTaggableManager(
         through="cms.DictadoPageTag",
         blank=True,
@@ -938,7 +934,6 @@ class DictadoPage(Page):
 
     promote_panels = Page.promote_panels + [
         FieldPanel("categories", widget=forms.CheckboxSelectMultiple),
-        FieldPanel("tags", widget=forms.CheckboxSelectMultiple),
         FieldPanel("faceted_tags", heading="Etiquetas facetadas"),
     ]
 
@@ -1072,7 +1067,6 @@ class TestPage(Page):
         use_json_field=True,
     )
     categories = ParentalManyToManyField("MusicCategory", blank=True)
-    tags = ParentalManyToManyField("MusicTag", blank=True)
     faceted_tags = ClusterTaggableManager(
         through="cms.TestPageTag",
         blank=True,
@@ -1089,7 +1083,6 @@ class TestPage(Page):
 
     promote_panels = Page.promote_panels + [
         FieldPanel("categories", widget=forms.CheckboxSelectMultiple),
-        FieldPanel("tags", widget=forms.CheckboxSelectMultiple),
         FieldPanel("faceted_tags", heading="Etiquetas facetadas"),
     ]
 
@@ -1329,29 +1322,6 @@ class MusicCategory(models.Model):
 
 
 @register_snippet
-class MusicTag(models.Model):
-    """Etiquetas libres - MUSIC PILLS"""
-
-    name = models.CharField(max_length=50, unique=True)
-    color = models.CharField(
-        max_length=7, default="#3B82F6", help_text="Código de color hex"
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    panels = [
-        FieldPanel("name"),
-        FieldPanel("color"),
-    ]
-
-    class Meta:
-        ordering = ["name"]
-        verbose_name = "Etiqueta Musical"
-        verbose_name_plural = "Etiquetas Musicales"
-
-    def __str__(self):
-        return self.name
-
-
 # Pages de Music Pills
 # -----------------------------------------------------------------------------
 
@@ -1438,7 +1408,7 @@ class MusicLibraryIndexPage(Page):
             scores = (
                 ScorePage.objects.child_of(self).live()
                 .select_related("composer")
-                .prefetch_related("tags", "categories")
+                .prefetch_related("faceted_tags", "categories")
                 .order_by("-first_published_at")
             )
             scores = filter_queryset(scores)
@@ -1454,7 +1424,7 @@ class MusicLibraryIndexPage(Page):
         try:
             blog_posts = (
                 BlogPage.objects.child_of(self).live()
-                .prefetch_related("tags", "categories")
+                .prefetch_related("faceted_tags", "categories")
                 .order_by("-first_published_at")
             )
             blog_posts = _filter_visible_pages(blog_posts, request)
@@ -1489,7 +1459,7 @@ class MusicLibraryIndexPage(Page):
         try:
             test_pages = (
                 TestPage.objects.child_of(self).live()
-                .prefetch_related("tags", "categories")
+                .prefetch_related("faceted_tags", "categories")
                 .order_by("-first_published_at")
             )
             test_pages = filter_queryset(test_pages)
@@ -1503,7 +1473,7 @@ class MusicLibraryIndexPage(Page):
         try:
             dictado_pages = (
                 DictadoPage.objects.child_of(self).live()
-                .prefetch_related("tags", "categories")
+                .prefetch_related("faceted_tags", "categories")
                 .order_by("-first_published_at")
             )
             dictado_pages = filter_queryset(dictado_pages)
@@ -1640,7 +1610,6 @@ class ScorePage(Page):
         through="ScorePageCategory",
         blank=True,
     )
-    tags = ParentalManyToManyField("MusicTag", blank=True)
     faceted_tags = ClusterTaggableManager(
         through="cms.ScorePageTag",
         blank=True,
@@ -1673,7 +1642,6 @@ class ScorePage(Page):
 
     promote_panels = Page.promote_panels + [
         FieldPanel("categories", widget=forms.CheckboxSelectMultiple),
-        FieldPanel("tags", widget=forms.CheckboxSelectMultiple),
         FieldPanel("faceted_tags", heading="Etiquetas facetadas"),
     ]
 

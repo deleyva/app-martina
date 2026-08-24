@@ -589,11 +589,12 @@ class GroupLibraryItem(models.Model):
         if hasattr(self.content_object, "tags") and self.content_object.tags.exists():
             return self.content_object.tags.all()
 
-        # Si es una ScorePage, obtener sus tags (MusicTag)
+        # Si es una ScorePage, sus etiquetas están en `faceted_tags`: las
+        # páginas dejaron de tener `tags` cuando se retiró `MusicTag` (C37c).
         if self.content_type.model == "scorepage":
             return (
-                self.content_object.tags.all()
-                if hasattr(self.content_object, "tags")
+                self.content_object.faceted_tags.all()
+                if hasattr(self.content_object, "faceted_tags")
                 else []
             )
 

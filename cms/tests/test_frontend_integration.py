@@ -1,6 +1,6 @@
 from django.test import TestCase, Client
 from taggit.models import Tag
-from cms.models import MusicLibraryIndexPage, ScorePage, MusicTag, MusicCategory, DictadoPage
+from cms.models import MusicLibraryIndexPage, ScorePage, MusicCategory, DictadoPage
 from wagtail.models import Page
 
 class FrontendIntegrationTest(TestCase):
