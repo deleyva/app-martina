@@ -597,10 +597,11 @@ class GroupLibraryItem(models.Model):
                 else []
             )
 
-        # Buscar en ScorePage relacionada
+        # Buscar en ScorePage relacionada. Desde la fase 8 las páginas etiquetan
+        # con `faceted_tags`; el `MusicTag` plano ya no lo lee nadie.
         related_score = self.get_related_scorepage()
-        if related_score and hasattr(related_score, "tags"):
-            return related_score.tags.all()
+        if related_score and hasattr(related_score, "faceted_tags"):
+            return related_score.faceted_tags.all()
 
         return []
 
@@ -664,7 +665,7 @@ class GroupLibraryItem(models.Model):
             'title': str,
             'object': Document|Image object,
             'content_type_id': int,  # ID del ContentType para HTMX
-            'tags': QuerySet de MusicTag (si existen),
+            'tags': QuerySet de etiquetas facetadas (si existen),
             'block': el block del StreamField
         }
         Solo funciona si este GroupLibraryItem apunta a una ScorePage.

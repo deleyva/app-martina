@@ -106,7 +106,7 @@ def create_scorepage_from_ai(
 **Auto-creación**:
 - `MusicComposer`: Búsqueda case-insensitive, crea si no existe
 - `MusicCategory`: Búsqueda case-insensitive, solo categorías raíz
-- `MusicTag`: Búsqueda case-insensitive, color aleatorio
+- Etiquetas (`taggit.Tag`): búsqueda case-insensitive, se crean si no existen. Son **facetadas** (`faceta:valor`) desde la fase 8; el color ya no se guarda por etiqueta, lo da la faceta (`cms_tags.color_de_faceta`).
 
 **StreamField construido**:
 1. Bloque PDF principal (con descripción)

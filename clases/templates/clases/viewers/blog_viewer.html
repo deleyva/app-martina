@@ -118,14 +118,14 @@
                 </div>
                 
                 <!-- Categories and Tags -->
-                {% if blog_page.categories.all or blog_page.tags.all %}
+                {% if blog_page.categories.all or blog_page.faceted_tags.all %}
                 <div class="flex flex-wrap gap-2 mb-6">
                     {% for category in blog_page.categories.all %}
                     <div class="badge badge-info">
                         {% if category.icon %}{{ category.icon }} {% endif %}{{ category.name }}
                     </div>
                     {% endfor %}
-                    {% for tag in blog_page.tags.all %}
+                    {% for tag in blog_page.faceted_tags.all %}
                     <div class="badge badge-outline" style="{% if tag.color %}border-color: {{ tag.color }}; color: {{ tag.color }};{% endif %}">
                         🏷️ {{ tag.name }}
                     </div>

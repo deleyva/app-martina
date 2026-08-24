@@ -4,7 +4,7 @@ Resumen de cada app local y sus modelos principales.
 
 ## cms
 
-El corazón del contenido (Wagtail). Tipos de página: `HomePage`, `BlogIndexPage` (índice de blog **y** libro con capítulos), `BlogPage` (artículo con StreamField de adjuntos), `ScorePage` (partitura Music Pills), `MusicLibraryIndexPage`, `SetlistPage`, `DictadoPage`, `TestPage`, `SlidesConAudioPage`, `HelpIndexPage`/`HelpVideoPage`. Snippets: `MusicComposer`, `MusicCategory`, `MusicTag`, `ExternalResource`. Incluye la publicación asistida por IA y los filtros avanzados de partituras.
+El corazón del contenido (Wagtail). Tipos de página: `HomePage`, `BlogIndexPage` (índice de blog **y** libro con capítulos), `BlogPage` (artículo con StreamField de adjuntos), `ScorePage` (partitura Music Pills), `MusicLibraryIndexPage`, `SetlistPage`, `DictadoPage`, `TestPage`, `SlidesConAudioPage`, `HelpIndexPage`/`HelpVideoPage`. Snippets: `MusicComposer`, `MusicCategory`, `taggit.Tag` (facetado), `ExternalResource`. Incluye la publicación asistida por IA y los filtros avanzados de partituras.
 
 ## clases
 

@@ -639,7 +639,7 @@ def class_session_edit(request, pk):
         # También buscar por tags/categorías de ScorePage
         matching_page_ids |= set(
             ScorePage.objects.filter(
-                Q(tags__name__icontains=search)
+                Q(faceted_tags__name__icontains=search)
                 | Q(categories__name__icontains=search)
             )
             .values_list("pk", flat=True)
