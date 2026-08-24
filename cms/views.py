@@ -41,7 +41,7 @@ def filtered_scores_view(request):
     # Filtrar por etiquetas de página
     if tag_names:
         for tag_name in tag_names:
-            scores = scores.filter(tags__name__iexact=tag_name)
+            scores = scores.filter(faceted_tags__name__iexact=tag_name)
 
     # Filtrar por categorías de página
     if category_names:

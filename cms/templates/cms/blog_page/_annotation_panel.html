@@ -58,7 +58,7 @@
                 </div>
             </div>
             <div class="mt-1">
-                {% include "cms/resource_library/partials/tag_editor.html" with item_type="image" item_pk=image_item.pk tags=image_item.tags.all is_staff=True %}
+                {% include "cms/resource_library/partials/tag_editor.html" with item_type="image" item_pk=image_item.pk tags=image_item.faceted_tags.all is_staff=True %}
             </div>
         </div>
     {% endif %}

@@ -3,6 +3,7 @@ from django.contrib.auth.models import AnonymousUser
 from django.test import TestCase, Client, RequestFactory
 from django.utils import timezone
 from wagtail.models import Page
+from taggit.models import Tag
 from cms.models import (
     MusicLibraryIndexPage,
     ScorePage,
@@ -27,8 +28,11 @@ class MusicLibraryFilteringTest(WagtailPageTests):
         self.index_page.save_revision().publish()
 
         # Create Tags
-        self.tag_jazz = MusicTag.objects.create(name="Jazz", color="#FF5733")
-        self.tag_piano = MusicTag.objects.create(name="Piano", color="#33FF57")
+        # Desde C37b las páginas etiquetan con taggit facetado, no con MusicTag.
+        self.tag_jazz = Tag.objects.create(name="estilo:jazz", slug="estilo-jazz")
+        self.tag_piano = Tag.objects.create(
+            name="instrumento:piano", slug="instrumento-piano"
+        )
 
         # Create Categories
         self.cat_ejercicios = MusicCategory.objects.create(name="Ejercicios")
@@ -42,7 +46,7 @@ class MusicLibraryFilteringTest(WagtailPageTests):
         )
         self.index_page.add_child(instance=self.score1)
         self.score1.save_revision().publish()
-        self.score1.tags.add(self.tag_jazz)
+        self.score1.faceted_tags.add(self.tag_jazz)
         self.score1.categories.add(self.cat_ejercicios)
         self.score1.save()
 
@@ -53,7 +57,7 @@ class MusicLibraryFilteringTest(WagtailPageTests):
         )
         self.index_page.add_child(instance=self.score2)
         self.score2.save_revision().publish()
-        self.score2.tags.add(self.tag_piano)
+        self.score2.faceted_tags.add(self.tag_piano)
         self.score2.categories.add(self.cat_repertorio)
         self.score2.save()
 
@@ -64,7 +68,7 @@ class MusicLibraryFilteringTest(WagtailPageTests):
         )
         self.index_page.add_child(instance=self.score3)
         self.score3.save_revision().publish()
-        self.score3.tags.add(self.tag_jazz)
+        self.score3.faceted_tags.add(self.tag_jazz)
         self.score3.categories.add(self.cat_repertorio)
         self.score3.save()
 
@@ -72,7 +76,7 @@ class MusicLibraryFilteringTest(WagtailPageTests):
 
     def test_filter_by_tag(self):
         # Request filtering by "Jazz" tag
-        request = self.factory.get(self.index_page.url, {'tags': 'Jazz'})
+        request = self.factory.get(self.index_page.url, {'tags': 'estilo:jazz'})
         # RequestFactory no pasa por el middleware, asi que no trae `user`.
         # `_filter_visible_pages` lo lee y reventaba con AttributeError.
         request.user = AnonymousUser()
@@ -103,7 +107,7 @@ class MusicLibraryFilteringTest(WagtailPageTests):
     def test_filter_combined(self):
         # Filter by tag "Jazz" AND category "Repertorio" -> Should return score3
         response = self.client.get(
-            self.index_page.url, {"tags": "Jazz", "categories": "Repertorio"}
+            self.index_page.url, {"tags": "estilo:jazz", "categories": "Repertorio"}
         )
         self.assertEqual(response.status_code, 200)
         scores = response.context["scores"]

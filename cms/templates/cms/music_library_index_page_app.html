@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load wagtailcore_tags wagtailimages_tags %}
+{% load cms_tags %}
 {% load library_tags cms_tags %}
 
 {# MUSIC PILLS - Plantilla de biblioteca musical #}
@@ -176,16 +177,16 @@
                         {% endif %}
 
                         {# Categories and Tags (books don't have them) #}
-                        {% if entry.type != 'book' and item.categories.all or item.tags.all %}
+                        {% if entry.type != 'book' and item.categories.all or item.faceted_tags.all %}
                         <div class="flex flex-wrap gap-1 mb-3">
                             {% for category in item.categories.all|slice:":3" %}
                             <div class="badge badge-info badge-sm">
                                 {% if category.icon %}{{ category.icon }} {% endif %}{{ category.name }}
                             </div>
                             {% endfor %}
-                            {% for tag in item.tags.all|slice:":3" %}
+                            {% for tag in item.faceted_tags.all|slice:":3" %}
                             <div class="badge badge-outline badge-sm"
-                                 {% if tag.color %}style="border-color: {{ tag.color }}; color: {{ tag.color }};"{% endif %}>
+                                 {% if tag|color_de_faceta %}style="border-color: {{ tag|color_de_faceta }}; color: {{ tag|color_de_faceta }};"{% endif %}>
                                 🏷️ {{ tag.name }}
                             </div>
                             {% endfor %}
@@ -343,10 +344,10 @@
 
                             <!-- Tags -->
                             <div class="flex flex-wrap gap-1 mt-1">
-                                {% for tag in page.tags.all %}
+                                {% for tag in page.faceted_tags.all %}
                                 <a href="?tags={{ tag.name }}" 
                                    class="badge badge-xs badge-outline text-[10px] px-1 h-5 hover:opacity-80"
-                                   {% if tag.color %}style="color: {{ tag.color }}; border-color: {{ tag.color }};"{% endif %}
+                                   {% if tag|color_de_faceta %}style="color: {{ tag|color_de_faceta }}; border-color: {{ tag|color_de_faceta }};"{% endif %}
                                    onclick="event.stopPropagation()">
                                     {{ tag.name }}
                                 </a>

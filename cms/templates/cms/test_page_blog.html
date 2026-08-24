@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load wagtailcore_tags wagtailimages_tags %}
+{% load cms_tags %}
 
 {% block title %}{{ page.title }} - Test Musical{% endblock %}
 
@@ -20,8 +21,8 @@
                             {% for category in page.categories.all %}
                             <span class="badge badge-info badge-outline">{{ category.name }}</span>
                             {% endfor %}
-                            {% for tag in page.tags.all %}
-                            <span class="badge badge-outline" style="{% if tag.color %}border-color: {{ tag.color }}; color: {{ tag.color }};{% endif %}">🏷️ {{ tag.name }}</span>
+                            {% for tag in page.faceted_tags.all %}
+                            <span class="badge badge-outline" style="{% if tag|color_de_faceta %}border-color: {{ tag|color_de_faceta }}; color: {{ tag|color_de_faceta }};{% endif %}">🏷️ {{ tag.name }}</span>
                             {% endfor %}
                         </div>
                     </div>

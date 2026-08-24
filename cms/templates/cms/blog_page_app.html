@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load wagtailcore_tags wagtailimages_tags %}
+{% load cms_tags %}
 {% load library_tags %}
 
 {% block title %}{{ page.title }} - IES Martina Bescós{% endblock %}
@@ -299,7 +300,7 @@
                 {% if page.date %}
                 <span>📅 {{ page.date|date:"j \d\e F, Y" }}</span>
                 {% endif %}
-                {% for tag in page.tags.all %}
+                {% for tag in page.faceted_tags.all %}
                 <span class="badge badge-ghost badge-sm">#{{ tag.name }}</span>
                 {% endfor %}
             </div>
@@ -848,12 +849,12 @@
         <a href="{{ back_url|default:page.get_parent.url }}" class="btn btn-primary btn-outline gap-2">
             ← {% if back_url %}Volver a la sesión{% else %}Volver al índice{% endif %}
         </a>
-        {% if page.categories.all or page.tags.all %}
+        {% if page.categories.all or page.faceted_tags.all %}
         <div class="flex flex-wrap gap-2">
-            {% for tag in page.tags.all %}
+            {% for tag in page.faceted_tags.all %}
             <a href="{{ page.get_parent.url }}?tags={{ tag.name }}"
                class="badge badge-outline hover:badge-primary cursor-pointer transition-colors"
-               {% if tag.color %}style="border-color: {{ tag.color }}; color: {{ tag.color }};"{% endif %}>
+               {% if tag|color_de_faceta %}style="border-color: {{ tag|color_de_faceta }}; color: {{ tag|color_de_faceta }};"{% endif %}>
                 #{{ tag.name }}
             </a>
             {% endfor %}

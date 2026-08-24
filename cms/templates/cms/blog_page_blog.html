@@ -313,14 +313,14 @@
     <div class="editorial-divider-thick mt-20"></div>
 
     <!-- Categorías y Tags al final -->
-    {% if page.categories.all or page.tags.all %}
+    {% if page.categories.all or page.faceted_tags.all %}
     <div class="mt-8 font-sans text-sm tracking-wide text-gray-500">
         <div class="flex flex-wrap items-center gap-4">
             <span class="uppercase font-bold text-black tracking-widest">Archivado en:</span>
             {% for category in page.categories.all %}
             <span class="hover:text-black cursor-pointer">{% if category.icon %}{{ category.icon }} {% endif %}{{ category.name }}</span>
             {% endfor %}
-            {% for tag in page.tags.all %}
+            {% for tag in page.faceted_tags.all %}
             <span class="hover:text-black cursor-pointer">#{{ tag.name }}</span>
             {% endfor %}
         </div>

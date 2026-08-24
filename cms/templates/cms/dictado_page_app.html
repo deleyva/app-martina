@@ -30,9 +30,9 @@
             </div>
             {% endif %}
             
-            {% if page.tags.all %}
+            {% if page.faceted_tags.all %}
             <div class="flex gap-2">
-                {% for tag in page.tags.all %}
+                {% for tag in page.faceted_tags.all %}
                 <span class="badge badge-outline badge-sm">{{ tag.name }}</span>
                 {% endfor %}
             </div>

@@ -32,7 +32,7 @@ from wagtail.snippets.models import register_snippet
 from wagtail.snippets.blocks import SnippetChooserBlock
 from modelcluster.contrib.taggit import ClusterTaggableManager
 from modelcluster.fields import ParentalKey, ParentalManyToManyField
-from taggit.models import TaggedItemBase
+from taggit.models import Tag, TaggedItemBase
 from taggit.managers import TaggableManager
 from wagtail.embeds.models import Embed
 
@@ -1418,14 +1418,17 @@ class MusicLibraryIndexPage(Page):
                 if qs.model.__name__ == 'ScorePage':
                     search_filters |= models.Q(composer__name__icontains=search_query)
 
-                # Match by tag name (only if the model has a tags M2M)
-                if hasattr(qs.model, 'tags') and hasattr(qs.model.tags, 'rel'):
-                    search_filters |= models.Q(tags__name__icontains=search_query)
+                # Buscar por nombre de etiqueta. Desde C37b el vocabulario es
+                # `faceted_tags` (taggit); `MusicTag` ya no existe.
+                if hasattr(qs.model, 'faceted_tags'):
+                    search_filters |= models.Q(
+                        faceted_tags__name__icontains=search_query
+                    )
 
                 qs = qs.filter(search_filters)
 
             for tag in tag_names:
-                qs = qs.filter(tags__name__iexact=tag)
+                qs = qs.filter(faceted_tags__name__iexact=tag)
             for category in category_names:
                 qs = qs.filter(categories__name__iexact=category)
             return qs.distinct()
@@ -1537,7 +1540,18 @@ class MusicLibraryIndexPage(Page):
         context["music_content_count"] = len(music_content)
 
         # Añadir todos los tags y categorías para los filtros
-        context["all_tags"] = MusicTag.objects.all().order_by("name")
+        # Solo las etiquetas que de verdad cuelgan de alguna de estas páginas:
+        # `MusicTag.objects.all()` listaba también las que no usaba nadie.
+        context["all_tags"] = (
+            Tag.objects.filter(
+                models.Q(cms_blogpagetag_items__isnull=False)
+                | models.Q(cms_scorepagetag_items__isnull=False)
+                | models.Q(cms_dictadopagetag_items__isnull=False)
+                | models.Q(cms_testpagetag_items__isnull=False)
+            )
+            .distinct()
+            .order_by("name")
+        )
         context["all_categories"] = MusicCategory.objects.all().order_by("name")
         context["search_query"] = search_query
 
@@ -1732,7 +1746,7 @@ class ScorePage(Page):
     def get_all_tags(self):
         """
         Obtener unión de todas las tags de:
-        1. Tags directas de ScorePage (MusicTag)
+        1. Tags directas de la ScorePage (taggit facetado)
         2. Tags de PDFs en el StreamField
         3. Tags de audios en el StreamField
         4. Tags de imágenes en el StreamField
@@ -1741,8 +1755,10 @@ class ScorePage(Page):
         """
         all_tags = []
 
-        # 1. Tags directas (MusicTag)
-        all_tags.extend(self.tags.all())
+        # 1. Tags directas de la página. Desde C37b son las facetadas; el
+        # `MusicTag` plano ya no existe. Los PDFs, audios e imágenes de abajo
+        # llevan taggit desde siempre y no cambian.
+        all_tags.extend(self.faceted_tags.all())
 
         # 2. Tags de PDFs
         for pdf_block in self.get_pdf_blocks():

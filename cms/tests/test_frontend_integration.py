@@ -1,4 +1,5 @@
 from django.test import TestCase, Client
+from taggit.models import Tag
 from cms.models import MusicLibraryIndexPage, ScorePage, MusicTag, MusicCategory, DictadoPage
 from wagtail.models import Page
 
@@ -15,17 +16,18 @@ class FrontendIntegrationTest(TestCase):
         self.root_page.add_child(instance=self.index_page)
         self.index_page.save_revision().publish()
         
-        self.tag1 = MusicTag.objects.create(name="Jazz", color="#123456")
-        self.tag2 = MusicTag.objects.create(name="Classical")
+        # Desde C37b las páginas etiquetan con taggit facetado, no con MusicTag.
+        self.tag1 = Tag.objects.create(name="estilo:jazz", slug="estilo-jazz")
+        self.tag2 = Tag.objects.create(name="estilo:clasica", slug="estilo-clasica")
         
         self.score1 = ScorePage(title="Jazz Tune", slug="jazz-tune")
         self.index_page.add_child(instance=self.score1)
-        self.score1.tags.add(self.tag1)
+        self.score1.faceted_tags.add(self.tag1)
         self.score1.save_revision().publish()
 
         self.dictado1 = DictadoPage(title="Rhythmic Dictation", slug="rhythmic-dictation")
         self.index_page.add_child(instance=self.dictado1)
-        self.dictado1.tags.add(self.tag1)
+        self.dictado1.faceted_tags.add(self.tag1)
         self.dictado1.save_revision().publish()
 
     def test_search_form_presence(self):
@@ -68,7 +70,9 @@ class FrontendIntegrationTest(TestCase):
         self.assertIn(f'<a href="?tags={self.tag1.name}"', content)
         
         # 2. Estilos de color (Jazz tiene color #123456)
-        self.assertIn('style="color: #123456; border-color: #123456;"', content)
+        # El color ya no lo lleva cada etiqueta suelta: lo da su FACETA
+        # (C37b). `estilo:` es #EC4899. Ver cms/templatetags/cms_tags.py.
+        self.assertIn('style="color: #EC4899; border-color: #EC4899;"', content)
 
         # 3. Icono de dictado (buscar parte del SVG path unico o la clase)
         # El SVG de dictado tiene una path específica

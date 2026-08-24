@@ -156,7 +156,7 @@
                 {% for category in page.categories.all %}
                 <div class="badge badge-outline">{{ category.name }}</div>
                 {% endfor %}
-                {% for tag in page.tags.all %}
+                {% for tag in page.faceted_tags.all %}
                 <div class="badge badge-accent badge-outline">{{ tag.name }}</div>
                 {% endfor %}
             </div>

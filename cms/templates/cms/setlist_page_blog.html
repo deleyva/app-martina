@@ -99,7 +99,7 @@
                                     {% if score.difficulty_level %}
                                     <div class="badge badge-primary badge-sm">{{ score.get_difficulty_level_display }}</div>
                                     {% endif %}
-                                    {% for tag in score.tags.all|slice:":3" %}
+                                    {% for tag in score.faceted_tags.all|slice:":3" %}
                                     <div class="badge badge-outline badge-sm">{{ tag.name }}</div>
                                     {% endfor %}
                                 </div>

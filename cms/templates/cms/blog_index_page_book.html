@@ -8,6 +8,7 @@ music library (scores, dictados). Chapters are listed in tree order —
 when the book is a music library descendant.
 {% endcomment %}
 {% load wagtailcore_tags wagtailimages_tags %}
+{% load cms_tags %}
 {% load library_tags %}
 
 {% block title %}{{ page.title }} - Music Pills{% endblock %}
@@ -112,11 +113,11 @@ when the book is a music library descendant.
                         {{ chapter.intro|truncatechars:200 }}
                     </div>
                     {% endif %}
-                    {% if chapter.tags.all %}
+                    {% if chapter.faceted_tags.all %}
                     <div class="flex flex-wrap gap-1 mt-2">
-                        {% for tag in chapter.tags.all|slice:":5" %}
+                        {% for tag in chapter.faceted_tags.all|slice:":5" %}
                         <div class="badge badge-outline badge-sm"
-                             {% if tag.color %}style="border-color: {{ tag.color }}; color: {{ tag.color }};"{% endif %}>
+                             {% if tag|color_de_faceta %}style="border-color: {{ tag|color_de_faceta }}; color: {{ tag|color_de_faceta }};"{% endif %}>
                             {{ tag.name }}
                         </div>
                         {% endfor %}

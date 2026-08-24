@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load wagtailcore_tags wagtailimages_tags %}
+{% load cms_tags %}
 
 {# MUSIC PILLS - Plantilla de partituras filtradas #}
 
@@ -78,15 +79,15 @@
                 {% endif %}
                 
                 <!-- Tags -->
-                {% if score.tags.all %}
+                {% if score.faceted_tags.all %}
                 <div class="flex flex-wrap gap-1 mb-3">
-                    {% for tag in score.tags.all|slice:":3" %}
-                    <div class="badge badge-outline badge-xs" style="{% if tag.color %}border-color: {{ tag.color }}; color: {{ tag.color }};{% endif %}">
+                    {% for tag in score.faceted_tags.all|slice:":3" %}
+                    <div class="badge badge-outline badge-xs" style="{% if tag|color_de_faceta %}border-color: {{ tag|color_de_faceta }}; color: {{ tag|color_de_faceta }};{% endif %}">
                         🏷️ {{ tag.name }}
                     </div>
                     {% endfor %}
-                    {% if score.tags.all|length > 3 %}
-                    <div class="badge badge-ghost badge-xs">+{{ score.tags.all|length|add:"-3" }}</div>
+                    {% if score.faceted_tags.all|length > 3 %}
+                    <div class="badge badge-ghost badge-xs">+{{ score.faceted_tags.all|length|add:"-3" }}</div>
                     {% endif %}
                 </div>
                 {% endif %}
