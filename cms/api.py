@@ -20,6 +20,7 @@ from .models import (
     MusicTag,
     TestPage,
 )
+from .etiquetas import aplicar_etiquetas
 from .services import AIMetadataExtractor, ContentPublisher
 
 
@@ -150,7 +151,8 @@ def create_test_page(request, payload: TestPageIn):
             tags = list(MusicTag.objects.filter(id__in=payload.tag_ids).distinct())
             if len(tags) != len(set(payload.tag_ids)):
                 raise HttpError(400, "Alguna etiqueta proporcionada no existe.")
-            page.tags.set(tags)
+            # Los DOS vocabularios, mientras dure la fase 8. Ver cms/etiquetas.py.
+            aplicar_etiquetas(page, tags)
 
         page.save_revision().publish()
 
@@ -504,7 +506,8 @@ def create_blog_page(request, payload: BlogPageIn):
             tags = list(MusicTag.objects.filter(id__in=payload.tag_ids).distinct())
             if len(tags) != len(set(payload.tag_ids)):
                 raise HttpError(400, "Alguna etiqueta proporcionada no existe.")
-            page.tags.set(tags)
+            # Los DOS vocabularios, mientras dure la fase 8. Ver cms/etiquetas.py.
+            aplicar_etiquetas(page, tags)
 
         revision = page.save_revision()
         if payload.publish_immediately:
@@ -596,7 +599,8 @@ def update_blog_page(request, page_id: int, payload: BlogPageUpdateIn):
             tags = list(MusicTag.objects.filter(id__in=payload.tag_ids).distinct())
             if len(tags) != len(set(payload.tag_ids)):
                 raise HttpError(400, "Alguna etiqueta proporcionada no existe.")
-            page.tags.set(tags)
+            # Los DOS vocabularios, mientras dure la fase 8. Ver cms/etiquetas.py.
+            aplicar_etiquetas(page, tags)
 
         revision = page.save_revision()
         if payload.publish_immediately:
