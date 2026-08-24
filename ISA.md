@@ -517,40 +517,43 @@ Dejar de buscar por id global y buscar dentro del contenedor que toca en cada ca
 - **Sin test de regresión en Python, a conciencia.** El defecto es orden del DOM en el navegador; un test de Django renderiza la plantilla y no ejecuta el JS que mueve el nodo. El falsador de esta clase es la comprobación en navegador, y por eso C12 existía.
 - **La plantilla no se recargó sola.** Editar `study_viewer.html` y recargar seguía sirviendo el HTML viejo; hizo falta `docker compose restart django`. Media hora de creer que el arreglo no funcionaba. Anotado para la próxima.
 
-## Fase 11 — Estudiarse un libro · PLANIFICADA, SIN EMPEZAR
+## Fase 11 — Estudiarse un libro · EN MARCHA
 
-> **Lo que el principal pidió el 2026-08-25, con sus palabras:** *"tener las cosas ordenadas en un libro y que la cola de estudio, cuando me pongo como objetivo estudiarme ese libro, se vaya rellenando con material nuevo"*.
+> **Lo que el principal pidió el 2026-08-25:** *"tener las cosas ordenadas en un libro y que la cola de estudio, cuando me pongo como objetivo estudiarme ese libro, se vaya rellenando con material nuevo"*. Y el 2026-08-26, sobre la interfaz: *"un botón en el que pueda haber información sobre ese elemento añadido: texto que acompaña a esa imagen en el libro o un enlace a la página del libro"* y *"poder eliminar ese elemento de la lista de estudio si resulta que no me convence"*.
 
 ### Lo que ya funciona, para no reconstruirlo
 
-Medido sobre la biblioteca real antes de planificar nada:
-
-- **La cola ya se rellena sola con novedad.** Una cuarta parte de cada sesión es material sin tocar (fase 5, cuota de novedad). Eso no hay que construirlo.
-- **Un mazo ya acota la sesión a un libro**, si el libro tiene una etiqueta propia. El de Jens Larsen se filtra hoy por `estilo:jazz-moderno` y devuelve sus 23 elementos exactos. Funciona desde C40, cuando las etiquetas de la página empezaron a llegar a la sesión.
-- **El orden sale bien casi siempre, por casualidad.** En ese libro, **21 de 22 pares consecutivos** están en orden correcto de capítulo, porque el pk de alta coincide con el orden de subida. Es una casualidad, pero es una casualidad que hoy funciona.
+- **La cola ya se rellena sola con novedad**: una cuarta parte de cada sesión (fase 5).
 - **`ItemSection` ya trocea** un capítulo largo y lo devuelve en orden.
+- **`BlogPage.get_images/get_pdf_blocks/get_audios`** ya enumeran los medios de un capítulo, incluidas las imágenes incrustadas en el texto, que son las que de verdad usan estos libros.
 
-### El bloqueo real, que no estaba en la lista
+### El plan cambió al medirlo, y esto es lo que lo cambió
 
-**Meter un libro en la biblioteca es de uno en uno.** `add_to_library` recibe un `content_type_id` y un `object_id`: un objeto por llamada. Medido: *Ukulele Aerobics* tiene **40 capítulos publicados y cero elementos** en la biblioteca del principal. De los 31 libros del sitio, solo dos están dentro de verdad (Jens Larsen 23, CAGED 11).
+El plan original era un botón que metiera el libro entero. **Medido sobre datos reales, ese botón es una mala idea:**
 
-De poco sirve que la cola sepa ordenar un libro si meterlo cuesta cuarenta clics. Por eso C41 va primero.
+- *Ukulele Aerobics*: 40 capítulos, **283 medios practicables**, cero en la biblioteca. Meterlos todos deja una biblioteca de 51 elementos convertida en 334, el 85% un solo libro.
+- *Jens Larsen*: 93 medios, y el principal metió **23**. Comparados los 23 elegidos con los 70 descartados: **indistinguibles** por tipo o por título. «Example 1c» dentro, «Example 1a» fuera. Eligió por criterio musical, y no hay regla que lo reproduzca.
+
+**Decisión del principal (opción C, 2026-08-26): no se copia nada por adelantado.** El objetivo guarda la intención, y el `LibraryItem` se crea **cuando al elemento le toca salir en la cola**. La biblioteca deja de ser un almacén que hay que llenar antes de estudiar y pasa a ser el registro de lo que has tocado. El volumen deja de ser un problema en vez de amortiguarse.
 
 ### Criterios
 
-- [ ] **C41 — Un libro entra entero en la biblioteca de una vez.** Desde la página del libro, un botón que añade el material de todos sus capítulos. *Probe: sobre la copia de producción, añadir Ukulele Aerobics deja sus 40 capítulos representados en la biblioteca; volver a pulsarlo no duplica ni un elemento.*
-- [ ] **C42 — "Estudiarme este libro" es un objetivo, no un mazo con una etiqueta que casualmente lo describe.** Hoy se aproxima con `estilo:jazz-moderno` porque ese libro tiene una etiqueta propia; un libro sin etiqueta distintiva no se puede acotar. *Probe: fijar un libro como objetivo acota la sesión a su material sin depender de ninguna etiqueta, y funciona con un libro que no tenga ninguna.*
-- [ ] **C43 — El material nuevo entra en el orden del libro, no por casualidad.** Modelar libro → capítulo → elemento con un ordinal. *Probe: con los elementos dados de alta en orden inverso, la cola los sigue devolviendo en orden de libro. Hoy ese test falla: el orden es el pk.*
-- [ ] **C44 — Se ve por dónde vas.** "Semana 12 de 40". No existe nada parecido. *Probe: con 12 de 40 capítulos con al menos un repaso, el objetivo informa 12/40.*
+- [x] **C41 — El material de un libro se enumera en orden de libro.** *`libros.material_del_libro`: capítulos por el árbol de Wagtail, y dentro, los medios en orden de aparición. Medido: Ukulele Aerobics 283 medios en 40 capítulos, Jens Larsen 93 en 6.*
+- [x] **C42 — "Estudiarme este libro" es un objetivo que se fija y se quita.** *`LibraryGoal`, único por (usuario, libro). No depende de ninguna etiqueta, así que funciona con un libro que no tenga ninguna — que es lo que antes era imposible.*
+- [x] **C43 — La cola crea el elemento cuando le toca, no antes.** *Probado: fijar el objetivo deja la biblioteca en 0 elementos; `rellenar_para_sesion` crea exactamente los que hacen falta para la cuota de novedad, en orden de libro. Contra datos reales: fijar Jens Larsen creó 0, y una sesión creó 2, los dos primeros del libro.*
+- [x] **C44 — Desde el visor se ve de dónde viene el elemento.** *Ventana emergente, no navegación. Verificado en navegador con el libro real: trae el párrafo del capítulo 1 («Let's begin by looking at the construction of the basic major scale…») y el enlace al capítulo.*
+- [x] **C45 — Descartar un elemento, y que no vuelva.** *Verificado en navegador: descartar avanza el visor de 1/2 a 1/1, la fila queda marcada y el objetivo pasa a ofrecer 1c y 1d, saltándose lo descartado. El falsador: borrar la fila a secas no vale, la creación perezosa la recrearía.*
+- [~] **C46 — Se ve por dónde vas.** *`libros.progreso` calcula (capítulos tocados, totales) y tiene test: con Jens Larsen como objetivo devuelve (0, 6). **Falta la interfaz**: el número no se enseña en ningún sitio todavía.*
 
 ### Anti-claims
 
-- **La cuota de novedad no se toca.** Un objetivo de libro acota QUÉ entra, no cambia CUÁNTO entra ni el equilibrio con el repaso. Saltarse eso convierte el estudio de un libro en un atracón y rompe lo que la fase 5 vino a arreglar.
+- **La cuota de novedad no se toca.** El objetivo acota QUÉ entra, no cuánto ni el equilibrio con el repaso. Saltárselo convierte estudiar un libro en un atracón y rompe lo que arregló la fase 5.
 - **Un objetivo no obliga.** Poner un libro como objetivo no puede impedir practicar otra cosa: la sesión sigue siendo del principal, no del plan.
+- **Descartar no borra el historial.** Si el elemento llegó a practicarse, su `ReviewLog` y sus notas se quedan. Descartar dice "no me lo ofrezcas más", no "haz como si no hubiera pasado".
 - **No se toca `MusicCategory`.** Sigue siendo la tercera taxonomía sin decidir, y sigue fuera de alcance.
 
-### Orden y tamaño
+### Log de la fase 11
 
-1. **C41** es corto y desbloquea lo demás. Probablemente un día.
-2. **C42 y C44 van juntos**: son la misma pieza, el objetivo y su progreso. Es la fase de verdad, la que convierte una biblioteca en un plan de estudio.
-3. **C43 puede esperar.** Hoy aporta poco porque el orden ya sale bien. Sube de prioridad en cuanto entre un libro grande, donde una casualidad de 21 sobre 22 se convierte en muchos saltos.
+- **La plantilla no se recarga sola, otra vez.** Editar `study_viewer.html` y recargar seguía sirviendo el JS viejo; hizo falta `docker compose restart django`. Ya pasó en la fase 10 y volvió a costar un rato. **Comprobar siempre `document.documentElement.innerHTML.indexOf('<algo del parche>')` antes de dar por roto un arreglo de plantilla.**
+- **Gotcha de verificación, del run anterior y confirmado aquí:** una ventana de Chrome `maximized` pero con `focused: false` deja la pestaña en `visibilityState: "hidden"`, y `--activate` no lo arregla. Para pdf.js y para las transiciones CSS hace falta `interceptor window focus <id>`.
+- **Lo que queda de la fase:** C46 en la interfaz, y decidir dónde se fija un objetivo desde la web — hoy solo se puede crear el `LibraryGoal` a mano.
