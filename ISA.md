@@ -2,7 +2,7 @@
 slug: app-martina
 phase: build
 progress: true
-iteration: 14
+iteration: 15
 principal_stated_goal: "ok, quiero que hagas lo más limpio y con visión de futuro"
 updated: 2026-08-25
 ---
@@ -39,6 +39,7 @@ updated: 2026-08-25
 | 11·1 | **El despliegue se rompió a mitad** — migración anclada a una versión de Wagtail que producción no tenía; wagtail fijado a 7.3.1 | `aa8cbc1`, `b0acc1b` |
 | 12 | **La cuota se mide por objetivo y se alterna** (C47–C49) — la creación perezosa estaba apagada de hecho | `b9e394a`, desplegada |
 | 13 | **Entrar sin Google** (C50, C51) y **el espacio que no se escribía en la nota** (C52) | `b9e394a`, desplegada y verificada |
+| 14 | **Alternar de verdad**: reserva por objetivo y reparto al elegir (C53, C54) | **sin desplegar** |
 
 ### Lo siguiente, por orden
 
@@ -655,31 +656,39 @@ El deploy salió mal y dejó producción con **código nuevo y esquema viejo**: 
 
 **Deuda encontrada de camino:** los `addEventListener('keydown')` de los dos visores se registran **en cada carga de item**, porque el partial se re-inyecta y sus scripts se re-ejecutan. Los manejadores se acumulan durante la sesión, cada uno con el closure de su carga. Hoy la guarda tapa el síntoma; arreglarlo de verdad es nombrar las funciones y quitarlas al descargar el item.
 
-## Fase 14 — Con tres objetivos, alternar la CREACIÓN no basta · ABIERTA
+## Fase 14 — Alternar de verdad: reserva por objetivo y reparto al elegir · HECHA, SIN DESPLEGAR
 
-### Medido en producción con los tres objetivos puestos (2026-08-25)
+### Lo que faltaba, medido en producción con los tres objetivos (2026-08-25)
 
-El principal deja el de `2 Min. para Improvisar I`, y añade el de Jens Larsen. Quedan tres activos:
+El principal deja el de `2 Min. para Improvisar I` y añade el de Jens Larsen. Tres activos:
 
 | Objetivo | Sin tocar |
 |---|---|
 | 2 Min. para Improvisar I | 2 |
 | The Caged System | **0** |
 | Modern Jazz Guitar Concepts (Jens Larsen) | 13 |
-| **Suma de objetivos** | **15** |
+| **Suma** | **15** |
 
-Con cuota de novedad 2: `faltan = 2 - 15 = -13`, así que **una sesión crea cero elementos**. Y eso está bien: hay 15 elementos de objetivo esperando, crear más sería amontonar. La creación perezosa hace justo lo suyo.
+Con cuota 2, el déficit global daba `2 - 15 = -13`: **cero elementos creados**, con CAGED a cero. Y aunque se hubieran creado, no habrían salido: `construir_sesion` ordena lo nuevo por `(orden, pk)` y coge `nuevos[:cuota]`, así que los trece de Larsen, con los pk más bajos, se llevaban los dos huecos de novedad de **todas** las sesiones. **No era mala suerte, era determinista.**
 
-**Pero el principal no va a ver CAGED, y eso es lo que él pidió.** Los 13 de Larsen tapan a CAGED hasta que se practiquen. La alternancia de la fase 12 decide QUÉ objetivo llena el hueco **cuando hay que crear**, y aquí no hay que crear nunca. El reparto que se pidió no llega a actuar.
+**La fase 12 arregló media cosa.** Alternar la creación decide qué objetivo llena el hueco *cuando hay que crear*, y aquí no había que crear nunca. La otra mitad está en la selección, y ahí no se alternaba nada.
 
-### La raíz: quien no alterna es la selección de la sesión, no la creación
+### Los dos cambios, uno en cada sitio
 
-La cuota de novedad se elige del conjunto de elementos sin practicar **sin mirar de qué objetivo viene cada uno**. Aunque se forzara una reserva por objetivo, el único elemento de CAGED competiría de tú a tú con dieciséis: saldría una vez de cada dieciséis. El sitio donde "alternar" significa algo es la selección.
+- **Creación (`libros.rellenar_para_sesion`):** cada objetivo mantiene su propia reserva de `techo(cuota / nº objetivos)` elementos sin tocar, en vez de un déficit global. Con los datos de arriba: Larsen y 2 Min. ya tienen de sobra, CAGED recibe uno.
+- **Selección (`session._repartir_por_libro`):** lo nuevo se intercala por libro antes de cortar por la cuota, conservando el orden DENTRO de cada libro, que es el orden del libro y es lo que compró la fase 11. El libro se saca del `path` de treebeard, sin una consulta por unidad.
 
-### Las dos salidas, y la decisión es del principal
+### Criterios
 
-1. **Reserva por objetivo** (barato): que cada objetivo activo mantenga al menos `techo(cuota / nº objetivos)` elementos sin tocar propios, midiendo por objetivo en vez de sumando. CAGED tendría material desde ya. No garantiza que salga en la sesión.
-2. **Que la cuota de novedad se reparta al ELEGIR** (lo que de verdad se pidió): al armar la sesión, la parte de novedad se reparte entre los objetivos activos. Con cuota 2 y tres objetivos, rotando por sesión. Es más trabajo y toca `session.py`, no solo `libros.py`.
+- [x] **C53 — Un libro con material acumulado no tapa a los demás al crear.** *Reproducida la forma de producción con tres objetivos: solo se crea material para el que estaba a cero. El falsador: si se vuelve a medir el déficit en global, se crea cero. Test: `test_tres_objetivos_cada_uno_con_su_reserva`.*
+- [x] **C54 — La novedad se reparte entre libros al elegir.** *Un libro con cinco pendientes y pk bajos, otro con uno solo y pk alto: el segundo asoma en los dos primeros huecos. Antes salía siempre el primero. Test: `test_la_novedad_se_reparte_entre_libros_al_elegir`.*
 
-**Falsador de que la 1 sola no basta:** ponerla y contar en cuántas sesiones seguidas aparece un elemento de CAGED. Si sale una de cada dieciséis, la 1 no ha resuelto nada.
+### Anti-claims
 
+- **La cuota de novedad no crece.** Sigue siendo una cuarta parte de la sesión. Esto reparte quién la llena y quién la ocupa, nada más.
+- **El orden del libro se respeta.** El reparto intercala ENTRE libros; dentro de cada uno, el orden que puso C41 queda intacto.
+- **Nada se crea por adelantado.** La reserva es un techo por objetivo, no un depósito: un libro agotado devuelve menos y ya está.
+
+### Lo que queda
+
+- **Desplegar**, y comprobar con los datos del principal que CAGED empieza a aparecer.

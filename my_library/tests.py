@@ -1881,6 +1881,61 @@ def test_dos_objetivos_alternan_la_cuota(db, user):
     assert titulos == ["a1", "b1"], "uno de cada libro, no dos del primero"
 
 
+def test_tres_objetivos_cada_uno_con_su_reserva(db, user):
+    """La forma exacta que tenia produccion el 2026-08-25 con tres objetivos.
+
+    Un libro con material acumulado tapaba a los otros dos: la suma sin tocar
+    de objetivo era 15 y la cuota 2, asi que el deficit global salia negativo y
+    no se creaba nada, con el tercer libro a cero. Cada objetivo mantiene ahora
+    su propia reserva.
+
+    El falsador: si se vuelve a medir el deficit en global, esto crea cero.
+    """
+    from my_library.libros import rellenar_para_sesion, siguiente_del_objetivo
+    from my_library.models import LibraryGoal
+
+    lleno, _ = _libro_con_capitulos(
+        "Lleno", "libro-lleno", [("Semana 1", ["x1", "x2", "x3", "x4"])]
+    )
+    medio, _ = _libro_con_capitulos("Medio", "libro-medio", [("Semana 1", ["y1"])])
+    vacio, _ = _libro_con_capitulos("Vacio", "libro-vacio", [("Semana 1", ["z1"])])
+    for libro in (lleno, medio, vacio):
+        LibraryGoal.objects.create(user=user, libro=libro)
+    # `lleno` y `medio` ya tienen material sin tocar; `vacio` no tiene ninguno.
+    siguiente_del_objetivo(user, lleno, cuantos=4)
+    siguiente_del_objetivo(user, medio, cuantos=1)
+
+    creados = rellenar_para_sesion(user, 2)
+
+    assert [i.content_object.title for i in creados] == ["z1"], (
+        "solo el libro sin reserva necesita material"
+    )
+
+
+def test_la_novedad_se_reparte_entre_libros_al_elegir(db, user):
+    """La otra mitad de alternar: con material acumulado de un libro, la cuota
+    de novedad no puede irse entera a ese libro.
+
+    Antes `nuevos` iba ordenado por pk y ganaba siempre el libro mas viejo. No
+    era mala suerte, era determinista.
+    """
+    from my_library.libros import siguiente_del_objetivo
+    from my_library.session import construir_sesion
+
+    viejo, _ = _libro_con_capitulos(
+        "Viejo", "libro-viejo", [("Semana 1", ["v1", "v2", "v3", "v4", "v5"])]
+    )
+    nuevo, _ = _libro_con_capitulos("Nuevo", "libro-nuevo", [("Semana 1", ["n1"])])
+    siguiente_del_objetivo(user, viejo, cuantos=5)   # pk mas bajos
+    siguiente_del_objetivo(user, nuevo, cuantos=1)   # pk mas alto
+
+    sesion = construir_sesion(LibraryItem.objects.filter(user=user), tamano=8)
+    titulos = [u.content_object.title for u in sesion]
+
+    assert "n1" in titulos, "el libro con un solo elemento tiene que asomar"
+    assert titulos.index("n1") <= 1, "y en los primeros huecos, no al final"
+
+
 def test_un_libro_agotado_cede_su_parte_al_otro(db, user):
     """La alternancia no puede dejar la cuota a medias cuando un libro se acaba."""
     from my_library.libros import rellenar_para_sesion

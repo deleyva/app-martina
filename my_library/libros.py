@@ -173,12 +173,12 @@ def rellenar_para_sesion(user, cuota):
     estaba de hecho apagada, y ningún objetivo podía aportar nada. Un elemento
     suelto de hace meses no satisface la intención "quiero estudiarme CAGED".
 
-    **Con varios objetivos la cuota se alterna** (decisión del principal,
-    2026-08-25): en cada vuelta se le pide UNO al objetivo que menos material
-    disponible tenga, así que dos libros a la vez se reparten la novedad en vez
-    de que el primero se la coma entera hasta agotarse. Antes el bucle le pedía
-    `faltan` —todo— al primero, y encima el `filter` no llevaba `order_by`, así
-    que ni siquiera estaba definido cuál era el primero.
+    **Con varios objetivos, cada uno mantiene su propia reserva** de
+    `techo(cuota / nº objetivos)` elementos sin tocar. Así ningún libro con
+    material acumulado tapa a los demás: es la mitad de "alternar la cuota".
+    La otra mitad está en `session.construir_sesion`, que reparte la novedad
+    entre libros al ELEGIR — sin las dos, un libro con trece pendientes se
+    queda con todos los huecos de novedad de todas las sesiones.
 
     Devuelve los elementos creados.
     """
@@ -201,28 +201,20 @@ def rellenar_para_sesion(user, cuota):
         o.pk: _sin_tocar_del_libro(user, libros[o.pk], practicados) for o in objetivos
     }
 
-    faltan = cuota - sum(disponible.values())
-    if faltan <= 0:
-        return []
-
+    # Reserva POR OBJETIVO, no un déficit global. Medido en producción el
+    # 2026-08-25 con tres objetivos: la suma de material sin tocar de objetivo
+    # era 15 y la cuota 2, así que un déficit global daba -13 y no se creaba
+    # nada — con CAGED a cero. Un objetivo con trece elementos pendientes
+    # tapaba a los otros dos. Cada objetivo mantiene ahora su propia reserva.
+    reserva = -(-cuota // len(objetivos))  # techo de la división
     creados = []
-    agotados = set()
-    while faltan > 0:
-        candidatos = [o for o in objetivos if o.pk not in agotados]
-        if not candidatos:
-            break
-        # El que menos tiene se lleva el siguiente; empate, por orden de
-        # creación. Eso es la alternancia: con dos libros y cuota 2, uno cada.
-        objetivo = min(candidatos, key=lambda o: disponible[o.pk])
-        nuevos = siguiente_del_objetivo(user, libros[objetivo.pk], 1)
-        if not nuevos:
-            # Libro agotado: su parte se la reparten los demás en la vuelta
-            # siguiente, en vez de perderse.
-            agotados.add(objetivo.pk)
+    for objetivo in objetivos:
+        faltan = reserva - disponible[objetivo.pk]
+        if faltan <= 0:
             continue
-        creados.extend(nuevos)
-        disponible[objetivo.pk] += 1
-        faltan -= 1
+        # Si el libro se ha acabado devuelve menos de lo pedido, y ya está: la
+        # reserva es un techo por objetivo, no una cuota que haya que llenar.
+        creados.extend(siguiente_del_objetivo(user, libros[objetivo.pk], faltan))
     return creados
 
 

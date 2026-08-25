@@ -250,6 +250,48 @@ def filtrar_por_facetas(items, seleccion):
     return resultado
 
 
+def _libro_de(unidad):
+    """Clave del libro al que pertenece la unidad, o None si va suelta.
+
+    Se saca del `path` de treebeard en vez de `get_parent()` para no hacer una
+    consulta por unidad: el padre de una página es su propio path menos el
+    último paso, y `steplen` es un atributo documentado de Wagtail.
+    """
+    from wagtail.models import Page
+
+    item = getattr(unidad, "item", None) or unidad
+    pagina = getattr(item, "source_page", None)
+    if pagina is None:
+        return None
+    return pagina.path[: -Page.steplen] or None
+
+
+def _repartir_por_libro(nuevos):
+    """Intercala lo nuevo por libro, en vez de servirlo por orden de alta.
+
+    La otra mitad de "alternar la cuota" (decisión del principal, 2026-08-25).
+    Medido en producción: con tres objetivos, `nuevos` salía ordenado por pk y
+    los trece elementos pendientes del libro más viejo ocupaban los dos huecos
+    de novedad de TODAS las sesiones. No era mala suerte, era determinista: los
+    pk más bajos ganan siempre. Los otros dos libros no aparecían nunca.
+
+    Se conserva el orden DENTRO de cada libro, que es el orden del libro y es
+    justo lo que compró la fase 11. Los libros salen en el orden en que
+    aparecía su primer elemento, así que esto es estable entre llamadas.
+    """
+    grupos = {}
+    for unidad in nuevos:
+        grupos.setdefault(_libro_de(unidad), []).append(unidad)
+
+    repartido = []
+    while grupos:
+        for clave in list(grupos):
+            repartido.append(grupos[clave].pop(0))
+            if not grupos[clave]:
+                del grupos[clave]
+    return repartido
+
+
 def construir_sesion(items, tamano=TAMANO_SESION_POR_DEFECTO):
     """Devuelve los elementos de una sesión, acotados y ordenados.
 
@@ -271,6 +313,10 @@ def construir_sesion(items, tamano=TAMANO_SESION_POR_DEFECTO):
     # elementos sueltos es el pk, lo más parecido al orden del libro que hay
     # hoy en el modelo: no existe ningún ordinal de capítulo/ejercicio.
     nuevos.sort(key=lambda u: (getattr(u, "orden", 0), u.pk))
+
+    # Y luego se intercalan por libro, para que un libro con material acumulado
+    # no se quede con todos los huecos de novedad. Ver `_repartir_por_libro`.
+    nuevos = _repartir_por_libro(nuevos)
 
     # Lo conocido, más vencido primero. El desempate por clave mantiene el
     # orden estable entre llamadas: sin él, dos unidades igual de vencidas
