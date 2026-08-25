@@ -2,7 +2,7 @@
 slug: app-martina
 phase: build
 progress: true
-iteration: 10
+iteration: 11
 principal_stated_goal: "ok, quiero que hagas lo más limpio y con visión de futuro"
 updated: 2026-08-25
 ---
@@ -35,11 +35,12 @@ updated: 2026-08-25
 | 8·4 | **El selector y el visor ven las etiquetas de la página** (C40) | `c6360ab` |
 | 8·5 | **El sitio entero sobre el vocabulario facetado** (C37a, C37b) | `94e5603`, `bfa3646`, `b79737a`, `e2d8d42` |
 | 8·6 | **Borrado `MusicTag`** (C37c) | `32a71c6` |
-| 11 | **Estudiarse un libro** — planificada, sin empezar | — |
+| 11 | **Estudiarse un libro** — objetivo por libro y creación perezosa (C41–C46) | `fca4577`, `9ab9c96` |
+| 11·1 | **El despliegue se rompió a mitad** — migración anclada a una versión de Wagtail que producción no tenía; wagtail fijado a 7.3.1 | `aa8cbc1`, `b0acc1b` |
 
 ### Lo siguiente, por orden
 
-0. **Fase 8 — `MusicTag` → taggit facetado. TERMINADA Y CERRADA** (2026-08-25). Un solo vocabulario en todo el sitio, el modelo viejo borrado, seis pasos desplegados y verificados uno a uno. **Lo siguiente de verdad es la fase 11.**
+0. **Fases 8 y 11 — TERMINADAS Y DESPLEGADAS.** La 8 (un solo vocabulario) cerró el 2026-08-25; la 11 (estudiarse un libro) llegó a producción la noche del 24/08, rompiéndose a mitad y arreglándose en el sitio — ver "Fase 11 · El despliegue". Comprobado el 2026-08-25: producción tiene aplicada `0010_libraryitem_descartado_librarygoal`, que es exactamente la tabla que faltaba, y las páginas de libro sirven. **Lo siguiente de verdad es el presupuesto en minutos.**
 1. **Presupuesto de sesión en MINUTOS en vez de en elementos.** Es la mejor idea pendiente y la que arregla que "8 elementos" sea una unidad mentirosa cuando uno es un lick de 40 segundos y otro una pieza de 14 minutos. **Necesita datos**: `ReviewLog.duration_seconds` lleva recogiendo desde el 12/08/2026. Con dos semanas de práctica real, cada elemento tiene su mediana y el presupuesto se calibra solo. *Antes del 26/08 no tiene sentido tocarlo.*
 2. **Estudiarse un libro — es la fase 11, ya escrita.** Lo que pediste: meter un libro entero de una vez, ponerlo como objetivo y que la cola se rellene con su material. El orden dentro del libro es una parte de eso (C43), y la menos urgente: hoy sale bien 21 veces de 22 por casualidad. El bloqueo real es que meter un libro cuesta 40 clics. Ver la sección "Fase 11".
 3. **Revisar los plazos de caducidad con datos reales** (hoy 1/1/3/7/21 días por nivel). El de 21 días para "me lo sé muy bien" es el más dudoso: para un dato está bien, para tener una escala en las manos puede ser demasiado.
@@ -66,6 +67,7 @@ updated: 2026-08-25
 - Local: `just up`, tests con `docker compose -f docker-compose.local.yml run --rm django pytest my_library/tests.py`.
 - Usuario de pruebas en local: `probe@local.test` (staff/superuser). En la BD local, no en producción.
 - Copia previa a la migración de etiquetas: `backups/taggit_antes_facetas_20260812.json` (fuera del repo, está en `.gitignore`).
+- **`static/css/index.css` ya NO se versiona** (2026-08-25). Es la ENTRADA de Tailwind y además se genera sola: `npm run create-css` la escribe, `compose/local/django/start` la regenera en cada arranque y `compose/production/django/entrypoint` la BORRA antes de `collectstatic` para que Whitenoise no la procese. Los tres se peleaban por un fichero versionado y salía sin parar en rojo en `git status`. Untrackeada y en `.gitignore`, junto a `output.css`. Si algún día falta en local: `npm run create-css`.
 - Trampas del proyecto documentadas en `AGENTS.md` § "Trampas conocidas".
 
 ## Goal
@@ -517,7 +519,7 @@ Dejar de buscar por id global y buscar dentro del contenedor que toca en cada ca
 - **Sin test de regresión en Python, a conciencia.** El defecto es orden del DOM en el navegador; un test de Django renderiza la plantilla y no ejecuta el JS que mueve el nodo. El falsador de esta clase es la comprobación en navegador, y por eso C12 existía.
 - **La plantilla no se recargó sola.** Editar `study_viewer.html` y recargar seguía sirviendo el HTML viejo; hizo falta `docker compose restart django`. Media hora de creer que el arreglo no funcionaba. Anotado para la próxima.
 
-## Fase 11 — Estudiarse un libro · HECHA, SIN DESPLEGAR
+## Fase 11 — Estudiarse un libro · DESPLEGADA
 
 > **Lo que el principal pidió el 2026-08-25:** *"tener las cosas ordenadas en un libro y que la cola de estudio, cuando me pongo como objetivo estudiarme ese libro, se vaya rellenando con material nuevo"*. Y el 2026-08-26, sobre la interfaz: *"un botón en el que pueda haber información sobre ese elemento añadido: texto que acompaña a esa imagen en el libro o un enlace a la página del libro"* y *"poder eliminar ese elemento de la lista de estudio si resulta que no me convence"*.
 
@@ -568,4 +570,19 @@ Contra la copia de producción, con el libro de Jens Larsen y por la interfaz de
 
 - **La plantilla no se recarga sola, otra vez.** Editar `study_viewer.html` y recargar seguía sirviendo el JS viejo; hizo falta `docker compose restart django`. Ya pasó en la fase 10 y volvió a costar un rato. **Comprobar siempre `document.documentElement.innerHTML.indexOf('<algo del parche>')` antes de dar por roto un arreglo de plantilla.**
 - **Gotcha de verificación, del run anterior y confirmado aquí:** una ventana de Chrome `maximized` pero con `focused: false` deja la pestaña en `visibilityState: "hidden"`, y `--activate` no lo arregla. Para pdf.js y para las transiciones CSS hace falta `interceptor window focus <id>`.
-- **Lo que queda:** desplegar. Y una idea que salió al construirla y NO se hizo: un objetivo solo se ve desde la página de su libro; si algún día hay varios a la vez, harán falta en el índice de la biblioteca.
+- **Una idea que salió al construirla y NO se hizo:** un objetivo solo se ve desde la página de su libro; si algún día hay varios a la vez, harán falta en el índice de la biblioteca.
+
+### El despliegue, y por qué se rompió a mitad (2026-08-24)
+
+El deploy salió mal y dejó producción con **código nuevo y esquema viejo**: las páginas de libro daban 500 con `relation my_library_librarygoal does not exist`. La cadena, de la superficie al fondo:
+
+1. `migrate` abortó con `NodeNotFoundError` — la migración `0010` dependía de `wagtailcore.0097`, que producción no tenía.
+2. La `0010` quedó anclada ahí porque **`makemigrations` fija por defecto la ÚLTIMA migración de `wagtailcore` de la máquina donde se genera**, y local corría 7.3.3.
+3. Local corría 7.3.3 y producción 7.3.1 porque **`wagtail` estaba SIN FIJAR** en `requirements/base.txt`. Nadie lo sabía.
+4. Y abortó **después** de levantar el código nuevo, porque `deploy-production` hace `up -d` y *luego* `migrate`. El orden convierte cualquier migración que falle en una caída con la app ya arriba.
+
+**Los dos arreglos** (`aa8cbc1`, `b0acc1b`): reanclar la `0010` a `wagtailcore.0001` — para una clave ajena a `Page` basta con que `Page` exista, y eso pasa en la 0001, así que la migración deja de depender de la versión de Wagtail de cada entorno — y fijar `wagtail==7.3.1`, la que YA corría producción, para que producción no se mueva y subir de versión sea un acto deliberado con su ensayo.
+
+**Estado comprobado el 2026-08-25:** `just production-manage showmigrations my_library` da las diez migraciones aplicadas, `0010_libraryitem_descartado_librarygoal` incluida, y una página de libro (`/indice-de-recursos-musicales/2-min-para-improvisar-i-fundamentos/`) sirve su lista de capítulos. *Sin verificar en navegador: el botón «Estudiarme este libro» con sesión iniciada — el Chrome conectado a Interceptor no tiene sesión en la app.*
+
+**La regla que deja esto:** para cualquier dependencia que genere migraciones (Wagtail, Django, taggit), local y producción tienen que correr la MISMA versión, y eso solo se consigue fijándola. **Siguen sin fijar `faker`, `huey`, `django-sql-explorer` y `django-mailbox`**: ninguna genera migraciones que anclemos hoy, pero la trampa es la misma y está armada.

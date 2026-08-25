@@ -283,6 +283,14 @@ martina_bescos_app/media/
 martina_bescos_app/static/css/output.css
 # Ignore all output.css files regardless of location
 **/output.css
+
+# index.css es la ENTRADA de Tailwind, y ademas se genera sola: `npm run
+# create-css` la escribe (package.json), `compose/local/django/start` la
+# regenera en cada arranque y `compose/production/django/entrypoint` la BORRA
+# antes de collectstatic para que Whitenoise no la procese. Estando versionada,
+# esos tres se peleaban por ella y salia sin parar en rojo en `git status`.
+# Nada la referencia como asset: no hace falta en el repo.
+martina_bescos_app/static/css/index.css
 .envs/.local/.django
 backups/
 

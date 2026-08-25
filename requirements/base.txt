@@ -45,14 +45,6 @@ wagtail==7.3.1  # https://github.com/wagtail/wagtail
 # quedaron dando 500 con el codigo nuevo ya arriba. Subir de version es
 # ahora un acto deliberado, con su ensayo, y no un efecto secundario del
 # siguiente build.
-wagtail==7.3.1  # https://github.com/wagtail/wagtail
-# Fijada el 2026-08-26 a la version que YA corria produccion. Estaba sin
-# fijar, y eso dejo local en 7.3.3 y produccion en 7.3.1 sin que nadie lo
-# supiera: makemigrations anclo una migracion de wagtailcore que produccion
-# no tenia, migrate aborto a mitad del despliegue y las paginas de libro
-# quedaron dando 500 con el codigo nuevo ya arriba. Subir de version es
-# ahora un acto deliberado, con su ensayo, y no un efecto secundario del
-# siguiente build.
 
 # Email processing
 django-mailbox>=0.6.9  # https://github.com/coddingtonbear/django-mailbox
