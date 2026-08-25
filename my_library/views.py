@@ -57,7 +57,11 @@ def my_library_index(request):
         items = all_items[:6]
         has_more = True
 
-    decks_with_counts = _build_decks_with_counts(request.user, all_items)
+    # `_build_decks_with_counts` NO se llama desde el 2026-08-25: con el panel
+    # fuera de la plantilla, calcularlo era pagar `build_tag_map` (unas dos
+    # consultas por elemento) para tirarlo. La funcion sigue ahi, y con ella
+    # `_render_deck_panel` y las rutas de mazos, porque esto es reversible a
+    # proposito mientras se decide si el modelo se va del todo.
 
     return render(
         request,
@@ -66,7 +70,6 @@ def my_library_index(request):
             "items": items,
             "total_items": total_items,
             "has_more": has_more,
-            "decks_with_counts": decks_with_counts,
         },
     )
 

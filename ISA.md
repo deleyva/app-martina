@@ -2,7 +2,7 @@
 slug: app-martina
 phase: build
 progress: true
-iteration: 15
+iteration: 16
 principal_stated_goal: "ok, quiero que hagas lo más limpio y con visión de futuro"
 updated: 2026-08-25
 ---
@@ -40,6 +40,7 @@ updated: 2026-08-25
 | 12 | **La cuota se mide por objetivo y se alterna** (C47–C49) — la creación perezosa estaba apagada de hecho | `b9e394a`, desplegada |
 | 13 | **Entrar sin Google** (C50, C51) y **el espacio que no se escribía en la nota** (C52) | `b9e394a`, desplegada y verificada |
 | 14 | **Alternar de verdad**: reserva por objetivo y reparto al elegir (C53, C54) | **sin desplegar** |
+| 15 | **El panel de mazos sale de la interfaz** (C55), modelo intacto y revisión en un mes | **sin desplegar** |
 
 ### Lo siguiente, por orden
 
@@ -692,3 +693,30 @@ Con cuota 2, el déficit global daba `2 - 15 = -13`: **cero elementos creados**,
 ### Lo que queda
 
 - **Desplegar**, y comprobar con los datos del principal que CAGED empieza a aparecer.
+
+## Fase 15 — El panel de mazos sale de la interfaz · HECHA, SIN DESPLEGAR
+
+**Petición del principal (2026-08-25):** *"quiero borrar los mazos creados, puesto que veo mejor el nuevo sistema de estudio basado en sesiones que se alimentan en base a objetivos"*. Se hace la mitad reversible ahora y se revisa la otra en un mes.
+
+### Qué es un mazo, medido antes de tocarlo
+
+`LibraryDeck` guarda `user`, `name`, `tags_json` y `created_at`. Su propio docstring lo dice: **es un filtro de etiquetas guardado**, no un contenedor. Los elementos de un mazo se calculan al vuelo con los que casan con TODAS sus etiquetas. Consecuencia directa: **borrar un mazo no toca ni un elemento de la biblioteca**.
+
+**Y quien heredó su función no son los objetivos, son las facetas.** Un objetivo dice "rellena la novedad con este libro"; un mazo decía "esta sesión va de estas etiquetas". Eso es el arranque por facetas de la fase 5. La única diferencia real que queda: el mazo **guardaba** la combinación y las facetas se eligen cada vez.
+
+### Lo que sí se perdería al borrar el modelo, y por eso no se borra hoy
+
+Medido en producción: **75 repasos, 50 con sello de mazo**. `ReviewLog.deck` es `SET_NULL`, así que los repasos sobrevivirían enteros y perderían la atribución. El presupuesto en minutos trabaja por elemento con `duration_seconds` y no la necesita, pero dos tercios del historial es bastante como para no tirarlo el mismo día que se decide.
+
+### Lo hecho
+
+- El `include` del panel queda comentado en `index.html`, con el porqué al lado.
+- **`_build_decks_with_counts` deja de llamarse desde el índice.** Aquí está el ahorro de verdad: con el panel fuera, calcularlo era pagar `build_tag_map` —unas dos consultas por elemento— para tirar el resultado. Era deuda anotada desde la fase 7.
+- **No se borra nada más**: modelo, las cuatro rutas, `_render_deck_panel`, `deck_study` y el campo `ReviewLog.deck` siguen enteros. Volver a ver el panel es descomentar una línea.
+
+- [x] **C55 — El índice ya no pinta mazos y sigue funcionando.** *Verificado en navegador local con un usuario que tiene tres elementos y un mazo: `#libraryItemsList` presente, `#deckPanel` ausente. El falsador importa: si se quita el `include` pero se deja la llamada en la vista, el ahorro no existe y el defecto sigue.*
+
+### Revisión programada
+
+Recordatorio puesto para el **2026-09-25 a las 07:40 por Telegram** (`DASchedule` id `1787668554241-ik4zhv`): decidir si se va el modelo. Si para entonces no ha echado de menos guardar combinaciones, migración que se lleve modelo, rutas y campo. Si sí las ha echado de menos, la alternativa no es resucitar los mazos sino **guardar combinaciones de FACETAS**, que es el vocabulario que de verdad usa desde la fase 8.
+
