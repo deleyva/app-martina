@@ -2,7 +2,7 @@
 slug: app-martina
 phase: build
 progress: true
-iteration: 13
+iteration: 14
 principal_stated_goal: "ok, quiero que hagas lo más limpio y con visión de futuro"
 updated: 2026-08-25
 ---
@@ -37,8 +37,8 @@ updated: 2026-08-25
 | 8·6 | **Borrado `MusicTag`** (C37c) | `32a71c6` |
 | 11 | **Estudiarse un libro** — objetivo por libro y creación perezosa (C41–C46) | `fca4577`, `9ab9c96` |
 | 11·1 | **El despliegue se rompió a mitad** — migración anclada a una versión de Wagtail que producción no tenía; wagtail fijado a 7.3.1 | `aa8cbc1`, `b0acc1b` |
-| 12 | **La cuota se mide por objetivo y se alterna** (C47–C49) — la creación perezosa estaba apagada de hecho | **sin desplegar** |
-| 13 | **Entrar sin Google** (C50, C51) y **el espacio que no se escribía en la nota** (C52) | **sin desplegar** |
+| 12 | **La cuota se mide por objetivo y se alterna** (C47–C49) — la creación perezosa estaba apagada de hecho | `b9e394a`, desplegada |
+| 13 | **Entrar sin Google** (C50, C51) y **el espacio que no se escribía en la nota** (C52) | `b9e394a`, desplegada y verificada |
 
 ### Lo siguiente, por orden
 
@@ -649,15 +649,37 @@ El deploy salió mal y dejó producción con **código nuevo y esquema viejo**: 
 
 `viewers/pdf_viewer.html` y `viewers/image_viewer.html` registran cada uno un `document.addEventListener('keydown')` que atrapa `' '`, las flechas y AvPág/RePág con `preventDefault()` **sin mirar `e.target`**. Los visores se inyectan en el MISMO documento que la nota (`study_item_content` llega por `fetch` y sus `<script>` se re-ejecutan), así que escribir un espacio en `#study-shared-input` movía el visor en vez de escribirse. **No era solo el espacio:** las flechas y AvPág/RePág tampoco movían el cursor dentro del campo.
 
-- [x] **C52 — Escribiendo en un campo, el teclado es del campo.** *Guarda por `e.target` en los dos visores: `TEXTAREA`, `INPUT`, `SELECT` y `isContentEditable` salen antes del `switch`. `Escape` sigue pasando a propósito: lo maneja `study_viewer.html`, que saca del campo y guarda.* **SIGUE SIN VERIFICAR** — ver abajo.
+- [x] **C52 — Escribiendo en un campo, el teclado es del campo.** *Guarda por `e.target` en los dos visores: `TEXTAREA`, `INPUT`, `SELECT` y `isContentEditable` salen antes del `switch`. `Escape` sigue pasando a propósito: lo maneja `study_viewer.html`, que saca del campo y guarda.* *Verificado por el principal en producción el 2026-08-25: «Tecla de espacio y cursor funcionando donde les corresponde». También confirma que el guardado automático de la nota va.*
 
-**Lo que falta por comprobar, y no se da por bueno.** El arreglo está leído en el código y es de una pieza, pero NO se ha visto funcionar. Tres intentos y por qué fallan, para que el siguiente no los repita:
-
-1. **La nota compartida no la ve la cuenta de pruebas.** `study_item_content.html` la envuelve en `{% if user.is_staff %}`, y la cuenta de servicio es no-staff a propósito. El campo «Mis notas» (`#study-notes-input`) sí lo ve todo el mundo y sirve igual de bien.
-2. **`interceptor keys` manda atajos, no texto.** Pulsa la tecla pero no inserta caracteres, así que el guardado automático no llega a escribir nada y la BD no sirve de testigo.
-3. **`interceptor eval` está bloqueado por la CSP de la página**, así que no se puede leer `container.scrollTop`; y `screenshot --selector` re-renderiza el elemento, con lo que **no refleja el scroll**. Las capturas salieron idénticas antes y después, y también en el control sin foco: el instrumento estaba ciego, no es que el arreglo funcionara.
-
-**Se cierra en cinco segundos desde una cuenta staff**: abrir sesión de estudio con un item con imagen o PDF, escribir un espacio en «Mis notas» y ver si se escribe. Comprobar de paso las flechas, que se las quedaba el mismo `switch`.
+**Cómo se cerró, y lo que costó.** Lo comprobó el principal, no yo: mis tres intentos de medirlo estaban ciegos y conviene que quede escrito. (1) La nota compartida va dentro de `{% if user.is_staff %}` y la cuenta de servicio es no-staff a propósito; «Mis notas» (`#study-notes-input`) no tiene esa puerta y sirve igual. (2) `interceptor keys` manda atajos pero no inserta caracteres, así que el guardado automático nunca escribía y la BD no valía de testigo. (3) La CSP de la página bloquea `eval`, así que no hay forma de leer `container.scrollTop`, y `screenshot --selector` re-renderiza el elemento, con lo que **no refleja el scroll**: las capturas salían idénticas antes y después, y también en el control sin foco. Instrumento ciego, no arreglo funcionando.
 
 **Deuda encontrada de camino:** los `addEventListener('keydown')` de los dos visores se registran **en cada carga de item**, porque el partial se re-inyecta y sus scripts se re-ejecutan. Los manejadores se acumulan durante la sesión, cada uno con el closure de su carga. Hoy la guarda tapa el síntoma; arreglarlo de verdad es nombrar las funciones y quitarlas al descargar el item.
+
+## Fase 14 — Con tres objetivos, alternar la CREACIÓN no basta · ABIERTA
+
+### Medido en producción con los tres objetivos puestos (2026-08-25)
+
+El principal deja el de `2 Min. para Improvisar I`, y añade el de Jens Larsen. Quedan tres activos:
+
+| Objetivo | Sin tocar |
+|---|---|
+| 2 Min. para Improvisar I | 2 |
+| The Caged System | **0** |
+| Modern Jazz Guitar Concepts (Jens Larsen) | 13 |
+| **Suma de objetivos** | **15** |
+
+Con cuota de novedad 2: `faltan = 2 - 15 = -13`, así que **una sesión crea cero elementos**. Y eso está bien: hay 15 elementos de objetivo esperando, crear más sería amontonar. La creación perezosa hace justo lo suyo.
+
+**Pero el principal no va a ver CAGED, y eso es lo que él pidió.** Los 13 de Larsen tapan a CAGED hasta que se practiquen. La alternancia de la fase 12 decide QUÉ objetivo llena el hueco **cuando hay que crear**, y aquí no hay que crear nunca. El reparto que se pidió no llega a actuar.
+
+### La raíz: quien no alterna es la selección de la sesión, no la creación
+
+La cuota de novedad se elige del conjunto de elementos sin practicar **sin mirar de qué objetivo viene cada uno**. Aunque se forzara una reserva por objetivo, el único elemento de CAGED competiría de tú a tú con dieciséis: saldría una vez de cada dieciséis. El sitio donde "alternar" significa algo es la selección.
+
+### Las dos salidas, y la decisión es del principal
+
+1. **Reserva por objetivo** (barato): que cada objetivo activo mantenga al menos `techo(cuota / nº objetivos)` elementos sin tocar propios, midiendo por objetivo en vez de sumando. CAGED tendría material desde ya. No garantiza que salga en la sesión.
+2. **Que la cuota de novedad se reparta al ELEGIR** (lo que de verdad se pidió): al armar la sesión, la parte de novedad se reparte entre los objetivos activos. Con cuota 2 y tres objetivos, rotando por sesión. Es más trabajo y toca `session.py`, no solo `libros.py`.
+
+**Falsador de que la 1 sola no basta:** ponerla y contar en cuántas sesiones seguidas aparece un elemento de CAGED. Si sale una de cada dieciséis, la 1 no ha resuelto nada.
 
