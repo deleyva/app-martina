@@ -2,7 +2,7 @@
 slug: app-martina
 phase: build
 progress: true
-iteration: 16
+iteration: 17
 principal_stated_goal: "ok, quiero que hagas lo más limpio y con visión de futuro"
 updated: 2026-08-25
 ---
@@ -37,20 +37,29 @@ updated: 2026-08-25
 | 8·6 | **Borrado `MusicTag`** (C37c) | `32a71c6` |
 | 11 | **Estudiarse un libro** — objetivo por libro y creación perezosa (C41–C46) | `fca4577`, `9ab9c96` |
 | 11·1 | **El despliegue se rompió a mitad** — migración anclada a una versión de Wagtail que producción no tenía; wagtail fijado a 7.3.1 | `aa8cbc1`, `b0acc1b` |
-| 12 | **La cuota se mide por objetivo y se alterna** (C47–C49) — la creación perezosa estaba apagada de hecho | `b9e394a`, desplegada |
-| 13 | **Entrar sin Google** (C50, C51) y **el espacio que no se escribía en la nota** (C52) | `b9e394a`, desplegada y verificada |
-| 14 | **Alternar de verdad**: reserva por objetivo y reparto al elegir (C53, C54) | **sin desplegar** |
-| 15 | **El panel de mazos sale de la interfaz** (C55), modelo intacto y revisión en un mes | **sin desplegar** |
+| 12 | **La cuota se mide por objetivo y se alterna** (C47–C49) — la creación perezosa estaba apagada de hecho | `b9e394a` |
+| 13 | **Entrar sin Google** (C50, C51) y **el espacio que no se escribía en la nota** (C52) | `b9e394a` |
+| 14 | **Alternar de verdad**: reserva por objetivo y reparto al elegir (C53, C54) | `b3f8fd5` |
+| 15 | **El panel de mazos sale de la interfaz** (C55), modelo intacto y revisión el 25/09 | `285f904` |
 
 ### Lo siguiente, por orden
 
-0. **Fases 8 y 11 — TERMINADAS Y DESPLEGADAS.** La 8 (un solo vocabulario) cerró el 2026-08-25; la 11 (estudiarse un libro) llegó a producción la noche del 24/08, rompiéndose a mitad y arreglándose en el sitio — ver "Fase 11 · El despliegue". Comprobado el 2026-08-25: producción tiene aplicada `0010_libraryitem_descartado_librarygoal`, que es exactamente la tabla que faltaba, y las páginas de libro sirven. **La fase 12 está hecha y SIN DESPLEGAR: es lo primero.** Después, el presupuesto en minutos.
-1. **Desplegar la fase 12** — la cuota por objetivo y la alternancia. Mientras no suba, la creación perezosa sigue apagada en producción para cualquiera que tenga material sin tocar acumulado.
-2. **Presupuesto de sesión en MINUTOS en vez de en elementos.** Es la mejor idea pendiente y la que arregla que "8 elementos" sea una unidad mentirosa cuando uno es un lick de 40 segundos y otro una pieza de 14 minutos. **Necesita datos**: `ReviewLog.duration_seconds` lleva recogiendo desde el 12/08/2026. Con dos semanas de práctica real, cada elemento tiene su mediana y el presupuesto se calibra solo. *Antes del 26/08 no tiene sentido tocarlo.*
-3. **Estudiarse un libro — es la fase 11, ya escrita.** Lo que pediste: meter un libro entero de una vez, ponerlo como objetivo y que la cola se rellene con su material. El orden dentro del libro es una parte de eso (C43), y la menos urgente: hoy sale bien 21 veces de 22 por casualidad. El bloqueo real es que meter un libro cuesta 40 clics. Ver la sección "Fase 11".
+0. **Todo lo de las fases 8 a 15 está DESPLEGADO** (`285f904`, 2026-08-25). El día cerró con el vocabulario único, estudiarse un libro, la alternancia de la cuota, el login por contraseña con lista, el teclado que ya no le roba el espacio a la nota, y el panel de mazos fuera. Verificado en producción por navegador salvo donde se dice lo contrario.
+
+1. **Que CAGED asome de verdad.** Es lo ÚNICO del día que queda sin ver con los ojos. Aritmética comprobada sobre los datos de producción: reserva 1 por objetivo, «2 Min.» tiene 2 sin tocar y Larsen 13, así que no reciben nada, y CAGED está a 0 y recibe uno en la próxima sesión. **Falta estudiar una sesión y mirarlo.** Si no sale, el sitio donde mirar es `_repartir_por_libro`: el reparto usa el `path` de treebeard para agrupar, y un elemento suelto sin `source_page` cae en el grupo `None`.
+
+2. **Presupuesto de sesión en MINUTOS en vez de en elementos.** La mejor idea pendiente, y la que arregla que "8 elementos" sea una unidad mentirosa cuando uno es un lick de 40 segundos y otro una pieza de 14 minutos. `ReviewLog.duration_seconds` recoge desde el 12/08/2026, así que **a partir del 26/08 ya hay dos semanas** y cada elemento tiene su mediana: el presupuesto se calibra solo.
+
+3. **25 de septiembre: decidir si se borra `LibraryDeck`.** Recordatorio programado por Telegram (`DASchedule` id `1787668554241-ik4zhv`). Ver fase 15 para lo que se pierde y para la alternativa, que es guardar combinaciones de FACETAS y no resucitar mazos.
+
 4. **Revisar los plazos de caducidad con datos reales** (hoy 1/1/3/7/21 días por nivel). El de 21 días para "me lo sé muy bien" es el más dudoso: para un dato está bien, para tener una escala en las manos puede ser demasiado.
 
+5. **Meter un libro sigue costando lo suyo si no es por objetivo.** El botón de «estudiarme este libro» resolvió el caso bueno; añadir material suelto desde el índice sigue siendo de uno en uno.
+
 ### Deuda conocida, sin bloquear nada
+
+- **El login por contraseña fuera de la lista devuelve 500, no un mensaje.** `AccountAdapter.pre_login` hace `raise ValidationError`, y allauth no la captura ahí. El texto («usa tu cuenta de Google») está escrito y no lo ve nadie. Un alumno que pruebe el formulario se come un error de servidor. Se arregla devolviendo una respuesta (`ImmediateHttpResponse`) en vez de lanzar. *(Medido el 2026-08-25 al intentar entrar.)*
+- **Los `keydown` de los visores se acumulan en cada carga de item.** `study_item_content` llega por `fetch` y sus `<script>` se re-ejecutan, así que `pdf_viewer` e `image_viewer` registran su manejador otra vez con cada elemento de la sesión, cada uno con el closure de su carga. La guarda de C52 tapa el síntoma; arreglarlo de verdad es nombrar las funciones y quitarlas al descargar el item.
 
 - **C12, C28 y C30bis: pendientes de ver en navegador, ya SIN bloqueo.** El principal confirma el 2026-08-21 que **Interceptor funciona**. Quedan por ver el panel de notas, la nota docente, el selector de facetas, el troceo y el arreglo de los comentarios. Ya no es deuda bloqueada: es trabajo pendiente de hacer.
 - **6 sitios con `user.username`** en otras apps, que en este proyecto siempre vale `None`. Dos son crashes de búsqueda en el admin: `evaluations/admin.py:125` y `cms/models.py:1788`, `cms/wagtail_hooks.py:34`, `evaluations/admin.py:163`, y dos plantillas de `incidencias`.
@@ -594,7 +603,7 @@ El deploy salió mal y dejó producción con **código nuevo y esquema viejo**: 
 
 **La regla que deja esto:** para cualquier dependencia que genere migraciones (Wagtail, Django, taggit), local y producción tienen que correr la MISMA versión, y eso solo se consigue fijándola. **Siguen sin fijar `faker`, `huey`, `django-sql-explorer` y `django-mailbox`**: ninguna genera migraciones que anclemos hoy, pero la trampa es la misma y está armada.
 
-## Fase 12 — La cuota de novedad se mide por objetivo y se alterna · HECHA, SIN DESPLEGAR
+## Fase 12 — La cuota de novedad se mide por objetivo y se alterna · DESPLEGADA (`b9e394a`)
 
 ### El defecto, medido en producción antes de tocar código (2026-08-25)
 
@@ -634,7 +643,7 @@ El deploy salió mal y dejó producción con **código nuevo y esquema viejo**: 
 - **Desplegar.** Y avisar al principal de que su objetivo de `2 Min. para Improvisar I` sigue puesto: si no lo quiere, se quita desde la página del libro.
 - **Lo que la medición deja abierto:** con 28 elementos sin tocar acumulados, la sesión seguirá sirviendo material viejo antes que nuevo. Eso NO es un defecto de esta fase —la cuota de novedad es una cuarta parte a propósito— pero explica la sensación de "no me mete lo del libro", y conviene mirarlo al hacer el presupuesto en minutos.
 
-## Fase 13 — Entrar sin Google, y el espacio que no se escribía · HECHA, SIN DESPLEGAR
+## Fase 13 — Entrar sin Google, y el espacio que no se escribía · DESPLEGADA Y VERIFICADA (`b9e394a`)
 
 ### El login por contraseña estaba bloqueado en el adaptador, y el bloqueo daba 500
 
@@ -657,7 +666,7 @@ El deploy salió mal y dejó producción con **código nuevo y esquema viejo**: 
 
 **Deuda encontrada de camino:** los `addEventListener('keydown')` de los dos visores se registran **en cada carga de item**, porque el partial se re-inyecta y sus scripts se re-ejecutan. Los manejadores se acumulan durante la sesión, cada uno con el closure de su carga. Hoy la guarda tapa el síntoma; arreglarlo de verdad es nombrar las funciones y quitarlas al descargar el item.
 
-## Fase 14 — Alternar de verdad: reserva por objetivo y reparto al elegir · HECHA, SIN DESPLEGAR
+## Fase 14 — Alternar de verdad: reserva por objetivo y reparto al elegir · DESPLEGADA (`b3f8fd5`)
 
 ### Lo que faltaba, medido en producción con los tres objetivos (2026-08-25)
 
@@ -694,7 +703,7 @@ Con cuota 2, el déficit global daba `2 - 15 = -13`: **cero elementos creados**,
 
 - **Desplegar**, y comprobar con los datos del principal que CAGED empieza a aparecer.
 
-## Fase 15 — El panel de mazos sale de la interfaz · HECHA, SIN DESPLEGAR
+## Fase 15 — El panel de mazos sale de la interfaz · DESPLEGADA Y VERIFICADA (`285f904`)
 
 **Petición del principal (2026-08-25):** *"quiero borrar los mazos creados, puesto que veo mejor el nuevo sistema de estudio basado en sesiones que se alimentan en base a objetivos"*. Se hace la mitad reversible ahora y se revisa la otra en un mes.
 
