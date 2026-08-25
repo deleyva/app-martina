@@ -17,6 +17,24 @@ if typing.TYPE_CHECKING:
 
 
 class AccountAdapter(DefaultAccountAdapter):
+    def _password_login_permitido(self, user) -> bool:
+        """¿Puede ESTE correo entrar con contraseña?
+
+        La regla del sitio es Google para todo el mundo. `PASSWORD_LOGIN_EMAILS`
+        abre una puerta nominal para cuentas de pruebas o de servicio, que si no
+        habría que meter en `is_staff` — o sea, darles el admin entero — solo
+        para que puedan entrar.
+        """
+        correo = (getattr(user, "email", "") or "").strip().lower()
+        if not correo:
+            return False
+        permitidos = {
+            c.strip().lower()
+            for c in getattr(settings, "PASSWORD_LOGIN_EMAILS", [])
+            if c.strip()
+        }
+        return correo in permitidos
+
     def is_open_for_signup(self, request: HttpRequest) -> bool:
         # Rely on the global setting, as the template only shows social signup.
         return getattr(settings, "ACCOUNT_ALLOW_REGISTRATION", True)
@@ -65,7 +83,8 @@ class AccountAdapter(DefaultAccountAdapter):
             has_social_account = user.socialaccount_set.exists()
         
         # Permitir el login si se cumple alguna de las condiciones
-        if is_staff or is_social_login or has_social_account or is_impersonating:
+        if (is_staff or is_social_login or has_social_account or is_impersonating
+                or self._password_login_permitido(user)):
             return super().login(request, user)
         
         # Si no cumple ninguna condición, rechazar el login
@@ -90,7 +109,8 @@ class AccountAdapter(DefaultAccountAdapter):
             has_social_account = user.socialaccount_set.exists()
         
         # Permitir el login si se cumple alguna de las condiciones
-        if is_staff or is_social_login or has_social_account or is_impersonating:
+        if (is_staff or is_social_login or has_social_account or is_impersonating
+                or self._password_login_permitido(user)):
             return super().pre_login(request, user, **kwargs)
         
         # Si llega aquí, es un intento de login normal y no es administrador

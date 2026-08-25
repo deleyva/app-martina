@@ -2,7 +2,7 @@
 slug: app-martina
 phase: build
 progress: true
-iteration: 12
+iteration: 13
 principal_stated_goal: "ok, quiero que hagas lo más limpio y con visión de futuro"
 updated: 2026-08-25
 ---
@@ -38,6 +38,7 @@ updated: 2026-08-25
 | 11 | **Estudiarse un libro** — objetivo por libro y creación perezosa (C41–C46) | `fca4577`, `9ab9c96` |
 | 11·1 | **El despliegue se rompió a mitad** — migración anclada a una versión de Wagtail que producción no tenía; wagtail fijado a 7.3.1 | `aa8cbc1`, `b0acc1b` |
 | 12 | **La cuota se mide por objetivo y se alterna** (C47–C49) — la creación perezosa estaba apagada de hecho | **sin desplegar** |
+| 13 | **Entrar sin Google** (C50, C51) y **el espacio que no se escribía en la nota** (C52) | **sin desplegar** |
 
 ### Lo siguiente, por orden
 
@@ -630,3 +631,27 @@ El deploy salió mal y dejó producción con **código nuevo y esquema viejo**: 
 
 - **Desplegar.** Y avisar al principal de que su objetivo de `2 Min. para Improvisar I` sigue puesto: si no lo quiere, se quita desde la página del libro.
 - **Lo que la medición deja abierto:** con 28 elementos sin tocar acumulados, la sesión seguirá sirviendo material viejo antes que nuevo. Eso NO es un defecto de esta fase —la cuota de novedad es una cuarta parte a propósito— pero explica la sensación de "no me mete lo del libro", y conviene mirarlo al hacer el presupuesto en minutos.
+
+## Fase 13 — Entrar sin Google, y el espacio que no se escribía · HECHA, SIN DESPLEGAR
+
+### El login por contraseña estaba bloqueado en el adaptador, y el bloqueo daba 500
+
+`AccountAdapter.pre_login` (`users/adapters.py`) permitía entrar por contraseña solo a staff, a cuentas con social vinculada y a impersonación; en cualquier otro caso hacía `raise ValidationError`. Medido intentando entrar en producción el 2026-08-25: **página de "Server Error"**, no un mensaje de formulario. El texto del error ("usa tu cuenta de Google") está escrito para el usuario, pero el usuario nunca lo ve: allauth no captura esa excepción ahí y sale un 500.
+
+**El arreglo, y por qué así.** `PASSWORD_LOGIN_EMAILS` (env `DJANGO_PASSWORD_LOGIN_EMAILS`, vacía por defecto) lista los correos que SÍ pueden entrar con contraseña. La alternativa era darle `is_staff` a la cuenta de pruebas, y eso es el admin de Django entero para poder hacer login: mucho más privilegio del necesario. Con la lista vacía, el comportamiento no cambia para nadie.
+
+- [x] **C50 — El correo de la lista entra con contraseña.** *Verificado en local por navegador: login con email y contraseña de la cuenta de servicio (nombre solo en la variable de entorno, no en el repo), sin `is_staff`, redirige a la ficha del usuario. Test: `test_el_correo_de_la_lista_puede_entrar_con_contrasena`.*
+- [x] **C51 — Nadie más.** *El falsador de toda la fase: si esto pasa a `True`, la obligación de Google deja de existir para el alumnado. Tests: `test_cualquier_otro_correo_sigue_sin_poder`, `test_sin_configurar_no_cambia_nada_para_nadie`.*
+
+**Deuda que deja:** el `raise ValidationError` sigue devolviendo 500 a quien intente entrar por contraseña sin estar en la lista. Ahora es un camino que casi nadie pisa, pero un alumno que pruebe el formulario se come un error de servidor en vez del mensaje que ya está escrito. Se arregla devolviendo una respuesta (`ImmediateHttpResponse`) en vez de lanzar.
+
+### El espacio no se escribía en la nota: dos visores se quedaban el teclado
+
+`viewers/pdf_viewer.html` y `viewers/image_viewer.html` registran cada uno un `document.addEventListener('keydown')` que atrapa `' '`, las flechas y AvPág/RePág con `preventDefault()` **sin mirar `e.target`**. Los visores se inyectan en el MISMO documento que la nota (`study_item_content` llega por `fetch` y sus `<script>` se re-ejecutan), así que escribir un espacio en `#study-shared-input` movía el visor en vez de escribirse. **No era solo el espacio:** las flechas y AvPág/RePág tampoco movían el cursor dentro del campo.
+
+- [x] **C52 — Escribiendo en un campo, el teclado es del campo.** *Guarda por `e.target` en los dos visores: `TEXTAREA`, `INPUT`, `SELECT` y `isContentEditable` salen antes del `switch`. `Escape` sigue pasando a propósito: lo maneja `study_viewer.html`, que saca del campo y guarda.* **SIN VERIFICAR EN NAVEGADOR** — ver abajo.
+
+**Lo que falta por comprobar, y no se da por bueno:** el arreglo está leído en el código y es de una pieza, pero no se ha visto funcionar en un navegador. La cuenta de pruebas es `is_staff=False` y el campo de nota compartida no llegó a renderizarse con ella, así que no hubo dónde teclear. Se cierra abriendo una sesión de estudio con un item con imagen o PDF y escribiendo un espacio en la nota.
+
+**Deuda encontrada de camino:** los `addEventListener('keydown')` de los dos visores se registran **en cada carga de item**, porque el partial se re-inyecta y sus scripts se re-ejecutan. Los manejadores se acumulan durante la sesión, cada uno con el closure de su carga. Hoy la guarda tapa el síntoma; arreglarlo de verdad es nombrar las funciones y quitarlas al descargar el item.
+

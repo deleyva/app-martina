@@ -280,6 +280,19 @@
 
     // Navegación con teclado
     document.addEventListener('keydown', function (e) {
+        // Escribiendo en un campo, el teclado es del campo. Sin esta guarda, un
+        // espacio en la nota compartida avanzaba el visor en vez de escribirse
+        // (2026-08-25), y las flechas y AvPág/RePág movían el visor en lugar
+        // del cursor. `Escape` sí sigue: lo maneja study_viewer.html, que saca
+        // del campo y guarda.
+        var campo = e.target;
+        if (campo && e.key !== 'Escape' && (
+                campo.tagName === 'TEXTAREA' ||
+                campo.tagName === 'INPUT' ||
+                campo.tagName === 'SELECT' ||
+                campo.isContentEditable)) {
+            return;
+        }
         switch (e.key) {
             case 'Escape':
                 // Dejar que se maneje en viewer.html

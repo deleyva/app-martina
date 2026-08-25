@@ -313,6 +313,13 @@ REDIS_SSL = REDIS_URL.startswith("rediss://")
 # django-allauth
 # ------------------------------------------------------------------------------
 ACCOUNT_ALLOW_REGISTRATION = env.bool("DJANGO_ACCOUNT_ALLOW_REGISTRATION", True)
+# Correos que SÍ pueden entrar con email y contraseña. El adaptador
+# (`users/adapters.py`) obliga a Google a todo el mundo salvo staff, cuentas con
+# social vinculada e impersonación; esto abre una puerta estrecha y NOMINAL para
+# cuentas de pruebas o de servicio, sin tener que darles `is_staff` —que es
+# acceso al admin— ni abrir el login por contraseña a todo el alumnado.
+# Vacío por defecto: sin configurar la variable, no cambia nada para nadie.
+PASSWORD_LOGIN_EMAILS = env.list("DJANGO_PASSWORD_LOGIN_EMAILS", default=[])
 # https://docs.allauth.org/en/latest/account/configuration.html
 ACCOUNT_AUTHENTICATION_METHOD = "email"
 # https://docs.allauth.org/en/latest/account/configuration.html
