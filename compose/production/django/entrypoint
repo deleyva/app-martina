@@ -21,21 +21,15 @@ SOURCE_CSS_FILE_2="/app/martina_bescos_app/static/css/input.css" # <-- Archivo a
 COMPILED_CSS_FILE="/app/martina_bescos_app/static/css/output.css"
 
 # --- Eliminar archivos fuente ---
-# Eliminar index.css si existe
-if [ -f "$SOURCE_CSS_FILE_1" ]; then
-  echo "Temporarily removing source CSS file: $SOURCE_CSS_FILE_1"
-  rm "$SOURCE_CSS_FILE_1"
-else
-  echo "Source CSS file 1 not found, skipping removal: $SOURCE_CSS_FILE_1"
-fi
-
-# Eliminar input.css si existe <-- NUEVO
-if [ -f "$SOURCE_CSS_FILE_2" ]; then
-  echo "Temporarily removing source CSS file: $SOURCE_CSS_FILE_2"
-  rm "$SOURCE_CSS_FILE_2"
-else
-  echo "Source CSS file 2 not found, skipping removal: $SOURCE_CSS_FILE_2"
-fi
+# `rm -f`, no `rm`, y a proposito. En local, `django` y `huey_consumer` salen de
+# la MISMA imagen y montan el MISMO arbol de trabajo, asi que arrancan a la vez
+# y ejecutan esto a la vez: uno gana la carrera y borra, y al otro le falla el
+# `rm` entre el `[ -f ]` y el borrado. Con `set -o errexit` arriba, ese fallo
+# mata el contenedor (exit 1, 2026-08-25). `-f` no falla ni con el fichero
+# ausente ni con la carrera, que es justo lo que queremos: esto es limpieza
+# idempotente antes de collectstatic, no una comprobacion.
+echo "Removing Tailwind source CSS (Whitenoise no debe procesarlo)"
+rm -f "$SOURCE_CSS_FILE_1" "$SOURCE_CSS_FILE_2"
 # --- Fin de eliminar archivos fuente ---
 
 

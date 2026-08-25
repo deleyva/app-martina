@@ -67,7 +67,9 @@ updated: 2026-08-25
 - Local: `just up`, tests con `docker compose -f docker-compose.local.yml run --rm django pytest my_library/tests.py`.
 - Usuario de pruebas en local: `probe@local.test` (staff/superuser). En la BD local, no en producción.
 - Copia previa a la migración de etiquetas: `backups/taggit_antes_facetas_20260812.json` (fuera del repo, está en `.gitignore`).
-- **`static/css/index.css` ya NO se versiona** (2026-08-25). Es la ENTRADA de Tailwind y además se genera sola: `npm run create-css` la escribe, `compose/local/django/start` la regenera en cada arranque y `compose/production/django/entrypoint` la BORRA antes de `collectstatic` para que Whitenoise no la procese. Los tres se peleaban por un fichero versionado y salía sin parar en rojo en `git status`. Untrackeada y en `.gitignore`, junto a `output.css`. Si algún día falta en local: `npm run create-css`.
+- **`static/css/index.css` ya NO se versiona, y el entrypoint ya no se mata por ella** (2026-08-25). Dos cosas distintas con la misma raíz:
+  - **El fichero.** Es la ENTRADA de Tailwind y además se genera sola: `npm run create-css` la escribe, `compose/local/django/start` la regenera en cada arranque y `compose/production/django/entrypoint` la BORRA antes de `collectstatic` para que Whitenoise no la procese. Tres cosas peleándose por un fichero versionado: salía sin parar en rojo en `git status`. Untrackeada y en `.gitignore`, junto a `output.css`. Si algún día falta en local: `npm run create-css`.
+  - **La carrera, que es la causa de fondo.** El entrypoint hacía `[ -f fichero ] && rm fichero`. En LOCAL, `django` y `huey_consumer` salen de la misma imagen y montan el MISMO árbol de trabajo, así que arrancan a la vez: uno borra y al otro le falla el `rm` entre la comprobación y el borrado. Con `set -o errexit`, ese fallo **mata el contenedor con exit 1** — así estaba el stack local al empezar la sesión. Arreglado con `rm -f` sobre los dos ficheros, que es limpieza idempotente y no una comprobación. **Producción no sufría la carrera**: allí `django` y `huey_consumer` solo montan media y backups, no el árbol, así que cada uno borra su propia copia.
 - Trampas del proyecto documentadas en `AGENTS.md` § "Trampas conocidas".
 
 ## Goal
@@ -571,6 +573,15 @@ Contra la copia de producción, con el libro de Jens Larsen y por la interfaz de
 - **La plantilla no se recarga sola, otra vez.** Editar `study_viewer.html` y recargar seguía sirviendo el JS viejo; hizo falta `docker compose restart django`. Ya pasó en la fase 10 y volvió a costar un rato. **Comprobar siempre `document.documentElement.innerHTML.indexOf('<algo del parche>')` antes de dar por roto un arreglo de plantilla.**
 - **Gotcha de verificación, del run anterior y confirmado aquí:** una ventana de Chrome `maximized` pero con `focused: false` deja la pestaña en `visibilityState: "hidden"`, y `--activate` no lo arregla. Para pdf.js y para las transiciones CSS hace falta `interceptor window focus <id>`.
 - **Una idea que salió al construirla y NO se hizo:** un objetivo solo se ve desde la página de su libro; si algún día hay varios a la vez, harán falta en el índice de la biblioteca.
+
+### DOS OBJETIVOS A LA VEZ: sospecha abierta, sin comprobar contra datos (2026-08-25)
+
+El principal pone dos libros como objetivo en producción (Jens Larsen y CAGED), estudia tres veces, y **el segundo libro no parece aportar material**. Leyendo `rellenar_para_sesion` hay dos mecanismos que lo explicarían, y no son excluyentes:
+
+1. **El primer objetivo se come la cuota entera.** El bucle es `for objetivo in LibraryGoal.objects.filter(user=user, activo=True)` y a cada uno le pide `faltan` — TODO lo que queda — así que el segundo libro solo entra cuando el primero se ha agotado. Jens Larsen tiene 93 medios: CAGED no aparecerá en meses. Y el `filter` **no lleva `order_by`**, así que ni siquiera está definido cuál es "el primero"; hoy sale el orden de inserción por casualidad, como pasaba con el orden dentro del libro antes de C41.
+2. **`faltan` mira la biblioteca ENTERA, no el objetivo.** `sin_tocar` cuenta todos los elementos sin practicar del usuario, vengan de donde vengan. Si queda material antiguo sin tocar, `faltan <= 0` y **no se crea nada de ningún libro**, con los dos objetivos puestos.
+
+**Falsadores, antes de tocar una línea:** (a) mirar en producción cuántos `LibraryItem` tiene `jlopez` por libro y cuántos sin `ReviewLog`; si hay material sin tocar de sobra, es el mecanismo 2. (b) Si hay poco sin tocar y aun así todo lo nuevo sale de Larsen, es el mecanismo 1. **La pregunta de diseño que hay debajo, y que es del principal, no del código:** con dos libros a la vez, ¿la cuota se reparte entre ellos, se alterna por sesión, o manda uno? Hoy el código no responde: se limita a hacer lo primero que salga.
 
 ### El despliegue, y por qué se rompió a mitad (2026-08-24)
 
