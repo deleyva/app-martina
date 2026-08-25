@@ -145,37 +145,84 @@ def progreso(user, libro):
     return len(con_repaso), len(capitulos)
 
 
+def _sin_tocar_del_libro(user, libro, practicados):
+    """Cuántos elementos DE ESTE LIBRO tiene el usuario sin practicar todavía."""
+    from my_library.models import LibraryItem
+
+    return (
+        LibraryItem.objects.filter(
+            user=user, descartado=False, source_page__in=capitulos_de(libro)
+        )
+        .exclude(pk__in=practicados)
+        .count()
+    )
+
+
 def rellenar_para_sesion(user, cuota):
     """Crea material nuevo desde los objetivos activos, si hace falta.
 
     La cuota de novedad de la sesión es una cuarta parte (fase 5) y no se toca:
     el objetivo decide QUÉ entra, no cuánto. Esto solo se asegura de que haya
-    material sin practicar disponible cuando la biblioteca se ha quedado seca,
-    que es exactamente el caso de un libro recién puesto como objetivo.
+    material sin practicar disponible cuando la biblioteca se ha quedado seca.
+
+    **Se mide por objetivo, no sobre la biblioteca entera.** Medirlo global era
+    un defecto real, no una simplificación: el 2026-08-25, con dos objetivos
+    puestos, el usuario tenía 28 elementos sin tocar —13 de un libro sin
+    objetivo y 12 sueltos del índice— así que `cuota - sin_tocar` salía en
+    negativo y esto devolvía `[]` **en cada sesión**. La creación perezosa
+    estaba de hecho apagada, y ningún objetivo podía aportar nada. Un elemento
+    suelto de hace meses no satisface la intención "quiero estudiarme CAGED".
+
+    **Con varios objetivos la cuota se alterna** (decisión del principal,
+    2026-08-25): en cada vuelta se le pide UNO al objetivo que menos material
+    disponible tenga, así que dos libros a la vez se reparten la novedad en vez
+    de que el primero se la coma entera hasta agotarse. Antes el bucle le pedía
+    `faltan` —todo— al primero, y encima el `filter` no llevaba `order_by`, así
+    que ni siquiera estaba definido cuál era el primero.
 
     Devuelve los elementos creados.
     """
-    from my_library.models import LibraryGoal, LibraryItem, ReviewLog
+    from my_library.models import LibraryGoal, ReviewLog
+
+    if cuota <= 0:
+        return []
+
+    objetivos = list(
+        LibraryGoal.objects.filter(user=user, activo=True).order_by("created_at", "pk")
+    )
+    if not objetivos:
+        return []
 
     practicados = set(
         ReviewLog.objects.filter(user=user).values_list("item_id", flat=True)
     )
-    sin_tocar = (
-        LibraryItem.objects.filter(user=user, descartado=False)
-        .exclude(pk__in=practicados)
-        .count()
-    )
-    faltan = cuota - sin_tocar
+    libros = {o.pk: o.libro.specific for o in objetivos}
+    disponible = {
+        o.pk: _sin_tocar_del_libro(user, libros[o.pk], practicados) for o in objetivos
+    }
+
+    faltan = cuota - sum(disponible.values())
     if faltan <= 0:
         return []
 
     creados = []
-    for objetivo in LibraryGoal.objects.filter(user=user, activo=True):
-        if faltan <= 0:
+    agotados = set()
+    while faltan > 0:
+        candidatos = [o for o in objetivos if o.pk not in agotados]
+        if not candidatos:
             break
-        nuevos = siguiente_del_objetivo(user, objetivo.libro.specific, faltan)
+        # El que menos tiene se lleva el siguiente; empate, por orden de
+        # creación. Eso es la alternancia: con dos libros y cuota 2, uno cada.
+        objetivo = min(candidatos, key=lambda o: disponible[o.pk])
+        nuevos = siguiente_del_objetivo(user, libros[objetivo.pk], 1)
+        if not nuevos:
+            # Libro agotado: su parte se la reparten los demás en la vuelta
+            # siguiente, en vez de perderse.
+            agotados.add(objetivo.pk)
+            continue
         creados.extend(nuevos)
-        faltan -= len(nuevos)
+        disponible[objetivo.pk] += 1
+        faltan -= 1
     return creados
 
 

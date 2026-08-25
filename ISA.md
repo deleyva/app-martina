@@ -2,7 +2,7 @@
 slug: app-martina
 phase: build
 progress: true
-iteration: 11
+iteration: 12
 principal_stated_goal: "ok, quiero que hagas lo más limpio y con visión de futuro"
 updated: 2026-08-25
 ---
@@ -37,13 +37,15 @@ updated: 2026-08-25
 | 8·6 | **Borrado `MusicTag`** (C37c) | `32a71c6` |
 | 11 | **Estudiarse un libro** — objetivo por libro y creación perezosa (C41–C46) | `fca4577`, `9ab9c96` |
 | 11·1 | **El despliegue se rompió a mitad** — migración anclada a una versión de Wagtail que producción no tenía; wagtail fijado a 7.3.1 | `aa8cbc1`, `b0acc1b` |
+| 12 | **La cuota se mide por objetivo y se alterna** (C47–C49) — la creación perezosa estaba apagada de hecho | **sin desplegar** |
 
 ### Lo siguiente, por orden
 
-0. **Fases 8 y 11 — TERMINADAS Y DESPLEGADAS.** La 8 (un solo vocabulario) cerró el 2026-08-25; la 11 (estudiarse un libro) llegó a producción la noche del 24/08, rompiéndose a mitad y arreglándose en el sitio — ver "Fase 11 · El despliegue". Comprobado el 2026-08-25: producción tiene aplicada `0010_libraryitem_descartado_librarygoal`, que es exactamente la tabla que faltaba, y las páginas de libro sirven. **Lo siguiente de verdad es el presupuesto en minutos.**
-1. **Presupuesto de sesión en MINUTOS en vez de en elementos.** Es la mejor idea pendiente y la que arregla que "8 elementos" sea una unidad mentirosa cuando uno es un lick de 40 segundos y otro una pieza de 14 minutos. **Necesita datos**: `ReviewLog.duration_seconds` lleva recogiendo desde el 12/08/2026. Con dos semanas de práctica real, cada elemento tiene su mediana y el presupuesto se calibra solo. *Antes del 26/08 no tiene sentido tocarlo.*
-2. **Estudiarse un libro — es la fase 11, ya escrita.** Lo que pediste: meter un libro entero de una vez, ponerlo como objetivo y que la cola se rellene con su material. El orden dentro del libro es una parte de eso (C43), y la menos urgente: hoy sale bien 21 veces de 22 por casualidad. El bloqueo real es que meter un libro cuesta 40 clics. Ver la sección "Fase 11".
-3. **Revisar los plazos de caducidad con datos reales** (hoy 1/1/3/7/21 días por nivel). El de 21 días para "me lo sé muy bien" es el más dudoso: para un dato está bien, para tener una escala en las manos puede ser demasiado.
+0. **Fases 8 y 11 — TERMINADAS Y DESPLEGADAS.** La 8 (un solo vocabulario) cerró el 2026-08-25; la 11 (estudiarse un libro) llegó a producción la noche del 24/08, rompiéndose a mitad y arreglándose en el sitio — ver "Fase 11 · El despliegue". Comprobado el 2026-08-25: producción tiene aplicada `0010_libraryitem_descartado_librarygoal`, que es exactamente la tabla que faltaba, y las páginas de libro sirven. **La fase 12 está hecha y SIN DESPLEGAR: es lo primero.** Después, el presupuesto en minutos.
+1. **Desplegar la fase 12** — la cuota por objetivo y la alternancia. Mientras no suba, la creación perezosa sigue apagada en producción para cualquiera que tenga material sin tocar acumulado.
+2. **Presupuesto de sesión en MINUTOS en vez de en elementos.** Es la mejor idea pendiente y la que arregla que "8 elementos" sea una unidad mentirosa cuando uno es un lick de 40 segundos y otro una pieza de 14 minutos. **Necesita datos**: `ReviewLog.duration_seconds` lleva recogiendo desde el 12/08/2026. Con dos semanas de práctica real, cada elemento tiene su mediana y el presupuesto se calibra solo. *Antes del 26/08 no tiene sentido tocarlo.*
+3. **Estudiarse un libro — es la fase 11, ya escrita.** Lo que pediste: meter un libro entero de una vez, ponerlo como objetivo y que la cola se rellene con su material. El orden dentro del libro es una parte de eso (C43), y la menos urgente: hoy sale bien 21 veces de 22 por casualidad. El bloqueo real es que meter un libro cuesta 40 clics. Ver la sección "Fase 11".
+4. **Revisar los plazos de caducidad con datos reales** (hoy 1/1/3/7/21 días por nivel). El de 21 días para "me lo sé muy bien" es el más dudoso: para un dato está bien, para tener una escala en las manos puede ser demasiado.
 
 ### Deuda conocida, sin bloquear nada
 
@@ -574,15 +576,6 @@ Contra la copia de producción, con el libro de Jens Larsen y por la interfaz de
 - **Gotcha de verificación, del run anterior y confirmado aquí:** una ventana de Chrome `maximized` pero con `focused: false` deja la pestaña en `visibilityState: "hidden"`, y `--activate` no lo arregla. Para pdf.js y para las transiciones CSS hace falta `interceptor window focus <id>`.
 - **Una idea que salió al construirla y NO se hizo:** un objetivo solo se ve desde la página de su libro; si algún día hay varios a la vez, harán falta en el índice de la biblioteca.
 
-### DOS OBJETIVOS A LA VEZ: sospecha abierta, sin comprobar contra datos (2026-08-25)
-
-El principal pone dos libros como objetivo en producción (Jens Larsen y CAGED), estudia tres veces, y **el segundo libro no parece aportar material**. Leyendo `rellenar_para_sesion` hay dos mecanismos que lo explicarían, y no son excluyentes:
-
-1. **El primer objetivo se come la cuota entera.** El bucle es `for objetivo in LibraryGoal.objects.filter(user=user, activo=True)` y a cada uno le pide `faltan` — TODO lo que queda — así que el segundo libro solo entra cuando el primero se ha agotado. Jens Larsen tiene 93 medios: CAGED no aparecerá en meses. Y el `filter` **no lleva `order_by`**, así que ni siquiera está definido cuál es "el primero"; hoy sale el orden de inserción por casualidad, como pasaba con el orden dentro del libro antes de C41.
-2. **`faltan` mira la biblioteca ENTERA, no el objetivo.** `sin_tocar` cuenta todos los elementos sin practicar del usuario, vengan de donde vengan. Si queda material antiguo sin tocar, `faltan <= 0` y **no se crea nada de ningún libro**, con los dos objetivos puestos.
-
-**Falsadores, antes de tocar una línea:** (a) mirar en producción cuántos `LibraryItem` tiene `jlopez` por libro y cuántos sin `ReviewLog`; si hay material sin tocar de sobra, es el mecanismo 2. (b) Si hay poco sin tocar y aun así todo lo nuevo sale de Larsen, es el mecanismo 1. **La pregunta de diseño que hay debajo, y que es del principal, no del código:** con dos libros a la vez, ¿la cuota se reparte entre ellos, se alterna por sesión, o manda uno? Hoy el código no responde: se limita a hacer lo primero que salga.
-
 ### El despliegue, y por qué se rompió a mitad (2026-08-24)
 
 El deploy salió mal y dejó producción con **código nuevo y esquema viejo**: las páginas de libro daban 500 con `relation my_library_librarygoal does not exist`. La cadena, de la superficie al fondo:
@@ -597,3 +590,43 @@ El deploy salió mal y dejó producción con **código nuevo y esquema viejo**: 
 **Estado comprobado el 2026-08-25:** `just production-manage showmigrations my_library` da las diez migraciones aplicadas, `0010_libraryitem_descartado_librarygoal` incluida, y una página de libro (`/indice-de-recursos-musicales/2-min-para-improvisar-i-fundamentos/`) sirve su lista de capítulos. *Sin verificar en navegador: el botón «Estudiarme este libro» con sesión iniciada — el Chrome conectado a Interceptor no tiene sesión en la app.*
 
 **La regla que deja esto:** para cualquier dependencia que genere migraciones (Wagtail, Django, taggit), local y producción tienen que correr la MISMA versión, y eso solo se consigue fijándola. **Siguen sin fijar `faker`, `huey`, `django-sql-explorer` y `django-mailbox`**: ninguna genera migraciones que anclemos hoy, pero la trampa es la misma y está armada.
+
+## Fase 12 — La cuota de novedad se mide por objetivo y se alterna · HECHA, SIN DESPLEGAR
+
+### El defecto, medido en producción antes de tocar código (2026-08-25)
+
+`jlopez`, en producción:
+
+| | |
+|---|---|
+| Objetivos activos | `2 Min. para Improvisar I` (24/08 21:20) y `CAGED` (25/08 08:37) |
+| Biblioteca sin descartar | 51 |
+| **Sin tocar (lo que miraba `faltan`)** | **28** |
+| Por libro | Jens Larsen 23 (13 sin tocar) · Índice suelto 14 (12) · CAGED 11 (0) · 2 Min. 2 (2) |
+
+**Dos cosas que la medición corrige, y una es de la cabeza del principal:**
+
+- **Jens Larsen NO tenía objetivo.** El principal creía tener puestos Larsen y CAGED; los activos eran `2 Min. para Improvisar I` —de las pruebas del 24/08— y CAGED. Los 23 elementos de Larsen son de antes de la fase 11, metidos a mano.
+- **La creación perezosa estaba apagada de hecho.** Con cuota de novedad 2 y `sin_tocar = 28`, `faltan = 2 - 28 = -26`: `rellenar_para_sesion` devolvía `[]` **en cada sesión**. Ningún objetivo podía aportar nada, ni CAGED ni ningún otro. El mecanismo del "primer objetivo se lo come todo" ni siquiera llegaba a ejecutarse.
+
+### Los dos arreglos
+
+- **Se mide por objetivo, no sobre la biblioteca entera.** Un elemento suelto de hace meses no satisface la intención "quiero estudiarme CAGED". `_sin_tocar_del_libro` cuenta solo lo del libro del objetivo.
+- **Con varios objetivos, la cuota se alterna** (decisión del principal). En cada vuelta se le pide UNO al objetivo que menos material disponible tenga: con dos libros y cuota 2, uno de cada. Un libro agotado cede su parte a los demás en vez de perderla. Y el `filter` lleva ya `order_by("created_at", "pk")`: antes ni siquiera estaba definido cuál era "el primero".
+
+### Criterios
+
+- [x] **C47 — El material suelto sin tocar no apaga el objetivo.** *Reproducido en local con la forma exacta de jlopez —28 sueltos, objetivos secos—: el código viejo daba `faltan = -26` y creaba cero; el nuevo crea 2. Test: `test_material_suelto_sin_tocar_no_apaga_el_objetivo`.*
+- [x] **C48 — Dos objetivos se reparten la cuota.** *Con cuota 2 y dos libros sale uno de cada, no dos del primero. Verificado además contra la copia de producción con Larsen y CAGED: `+1` y `+1`. Test: `test_dos_objetivos_alternan_la_cuota`.*
+- [x] **C49 — Un libro agotado cede su parte.** *Cuota 3, un libro con un solo medio y otro con tres: salen `c1`, `l1`, `l2`. El falsador: sin la cesión saldrían solo dos elementos. Test: `test_un_libro_agotado_cede_su_parte_al_otro`.*
+
+### Anti-claims
+
+- **La cuota de novedad sigue siendo la misma.** Alternar reparte QUIÉN la llena, no la agranda. La proporción de la fase 5 no se toca.
+- **Nada se crea por adelantado.** La creación perezosa de C43 sigue intacta: esto solo arregla cuándo se dispara y de qué libro.
+- **No se toca la biblioteca de nadie.** El arreglo cambia qué se crea de aquí en adelante; los 51 elementos de `jlopez` se quedan como están.
+
+### Lo que queda
+
+- **Desplegar.** Y avisar al principal de que su objetivo de `2 Min. para Improvisar I` sigue puesto: si no lo quiere, se quita desde la página del libro.
+- **Lo que la medición deja abierto:** con 28 elementos sin tocar acumulados, la sesión seguirá sirviendo material viejo antes que nuevo. Eso NO es un defecto de esta fase —la cuota de novedad es una cuarta parte a propósito— pero explica la sensación de "no me mete lo del libro", y conviene mirarlo al hacer el presupuesto en minutos.

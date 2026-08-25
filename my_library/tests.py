@@ -1832,6 +1832,73 @@ def test_la_cola_sigue_por_donde_iba(db, user):
     assert LibraryItem.objects.filter(user=user).count() == 3
 
 
+def test_material_suelto_sin_tocar_no_apaga_el_objetivo(db, user):
+    """El defecto medido en produccion el 2026-08-25.
+
+    `rellenar_para_sesion` contaba el material sin practicar de la biblioteca
+    ENTERA. El principal tenia 28 elementos sin tocar ajenos a sus objetivos
+    -13 de un libro sin objetivo y 12 sueltos del indice-, asi que
+    `cuota - sin_tocar` salia en negativo y la creacion perezosa devolvia []
+    en CADA sesion: ningun objetivo podia aportar nada. Se mide por objetivo.
+
+    El falsador: si se vuelve a medir global, esto crea cero.
+    """
+    from my_library.libros import rellenar_para_sesion
+    from my_library.models import LibraryGoal
+
+    libro, _ = _libro_con_capitulos(
+        "Metodo", "metodo-suelto", [("Semana 1", ["a", "b"])]
+    )
+    LibraryGoal.objects.create(user=user, libro=libro)
+    for i in range(28):
+        _item(user, f"suelto {i}")
+
+    creados = rellenar_para_sesion(user, 2)
+
+    assert len(creados) == 2
+    assert [i.content_object.title for i in creados] == ["a", "b"]
+
+
+def test_dos_objetivos_alternan_la_cuota(db, user):
+    """Decision del principal (2026-08-25): con varios libros a la vez la cuota
+    se alterna, no se la come el primero.
+
+    Antes el bucle le pedia `faltan` -toda la cuota- al primer objetivo, y el
+    `filter` no llevaba `order_by`, asi que ni siquiera estaba definido cual
+    era el primero. Con un libro de 93 medios, el segundo no asomaba en meses.
+    """
+    from my_library.libros import rellenar_para_sesion
+    from my_library.models import LibraryGoal
+
+    uno, _ = _libro_con_capitulos("Uno", "libro-uno", [("Semana 1", ["a1", "a2"])])
+    dos, _ = _libro_con_capitulos("Dos", "libro-dos", [("Semana 1", ["b1", "b2"])])
+    LibraryGoal.objects.create(user=user, libro=uno)
+    LibraryGoal.objects.create(user=user, libro=dos)
+
+    creados = rellenar_para_sesion(user, 2)
+
+    titulos = sorted(i.content_object.title for i in creados)
+    assert titulos == ["a1", "b1"], "uno de cada libro, no dos del primero"
+
+
+def test_un_libro_agotado_cede_su_parte_al_otro(db, user):
+    """La alternancia no puede dejar la cuota a medias cuando un libro se acaba."""
+    from my_library.libros import rellenar_para_sesion
+    from my_library.models import LibraryGoal
+
+    corto, _ = _libro_con_capitulos("Corto", "libro-corto", [("Semana 1", ["c1"])])
+    largo, _ = _libro_con_capitulos(
+        "Largo", "libro-largo", [("Semana 1", ["l1", "l2", "l3"])]
+    )
+    LibraryGoal.objects.create(user=user, libro=corto)
+    LibraryGoal.objects.create(user=user, libro=largo)
+
+    creados = rellenar_para_sesion(user, 3)
+
+    titulos = sorted(i.content_object.title for i in creados)
+    assert titulos == ["c1", "l1", "l2"]
+
+
 def test_un_elemento_descartado_no_lo_vuelve_a_ofrecer_el_objetivo(db, user):
     """C45. El falsador: borrar la fila a secas no vale, porque la creación
     perezosa la recrearía en la siguiente sesión."""
