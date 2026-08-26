@@ -2203,3 +2203,89 @@ def test_el_indice_no_pinta_el_comentario_de_plantilla(client, library_item, use
     assert "El panel de mazos sale de la interfaz" not in html
     assert "build_tag_map" not in html
     assert 'id="deckPanel"' not in html, "y el panel sigue fuera"
+
+
+def test_estado_estudio_cuenta_los_grupos_que_se_quedan_fuera(db, user, capsys):
+    """El comando existe para ver lo que la vista previa esconde: cuantos
+    GRUPOS compiten por los huecos de novedad y cuales no entran nunca.
+
+    Un comando que solo se haya corrido contra una base vacia no prueba nada,
+    asi que aqui se le da la forma de produccion del 2026-08-26.
+    """
+    from django.core.management import call_command
+
+    from my_library.libros import siguiente_del_objetivo
+    from my_library.models import LibraryGoal
+
+    _item(user, "suelto")
+    larsen, _ = _libro_con_capitulos(
+        "Larsen", "libro-larsen", [("Semana 1", ["l1", "l2", "l3"])]
+    )
+    siguiente_del_objetivo(user, larsen, cuantos=3)
+    otro, _ = _libro_con_capitulos("Otro", "libro-otro", [("Semana 1", ["o1"])])
+    siguiente_del_objetivo(user, otro, cuantos=1)
+    caged, _ = _libro_con_capitulos("Caged", "libro-caged", [("Semana 1", ["c1"])])
+    siguiente_del_objetivo(user, caged, cuantos=1)
+    LibraryGoal.objects.create(user=user, libro=caged)
+
+    call_command("estado_estudio", email=user.email)
+    salida = capsys.readouterr().out
+
+    assert "Caged" in salida, "el libro tiene que salir nombrado"
+    assert "objetivo" in salida
+    # Cuatro grupos y dos huecos: dos se quedan fuera de todas las sesiones.
+    assert "2 grupo(s) se quedan fuera" in salida, salida
+    assert "biblioteca sin descartar: 6" in salida
+
+
+def test_estado_estudio_no_crea_nada(db, user):
+    """Solo lectura. El falsador importa: si llamara a `rellenar_para_sesion`,
+    medir cambiaria lo medido."""
+    from django.core.management import call_command
+
+    from my_library.models import LibraryGoal
+
+    caged, _ = _libro_con_capitulos("Caged", "libro-caged", [("Semana 1", ["c1"])])
+    LibraryGoal.objects.create(user=user, libro=caged)
+    antes = LibraryItem.objects.filter(user=user).count()
+
+    call_command("estado_estudio", email=user.email)
+
+    assert LibraryItem.objects.filter(user=user).count() == antes
+
+
+def test_el_objetivo_pasa_por_delante_de_los_libros_sin_objetivo(db, user):
+    """C58. La forma exacta de produccion del 2026-08-26, despues del primer
+    arreglo: el suelto ya cedia, pero quedaban TRES grupos de libro por delante
+    del objetivo recien empezado y la cuota seguia siendo 2.
+
+    El falsador: si los grupos se ordenan solo por "tiene pagina o no", `c1` no
+    sale, que es exactamente lo que hacia produccion.
+    """
+    from my_library.libros import siguiente_del_objetivo
+    from my_library.models import LibraryGoal
+    from my_library.session import construir_sesion
+
+    _item(user, "suelto")
+    for titulo, slug in (("Uno", "libro-uno"), ("Dos", "libro-dos")):
+        libro, _ = _libro_con_capitulos(titulo, slug, [("Semana 1", [f"{slug}-a"])])
+        siguiente_del_objetivo(user, libro, cuantos=1)  # sin objetivo, pk bajos
+
+    larsen, _ = _libro_con_capitulos(
+        "Larsen", "libro-larsen", [("Semana 1", ["l1", "l2", "l3"])]
+    )
+    siguiente_del_objetivo(user, larsen, cuantos=3)
+    caged, _ = _libro_con_capitulos("Caged", "libro-caged", [("Semana 1", ["c1"])])
+    siguiente_del_objetivo(user, caged, cuantos=1)  # el pk mas alto de todos
+    LibraryGoal.objects.create(user=user, libro=larsen)
+    LibraryGoal.objects.create(user=user, libro=caged)
+
+    for n in range(10):
+        _practicado_hace(_item(user, f"conocido-{n}"), dias=30)
+
+    sesion = construir_sesion(LibraryItem.objects.filter(user=user), tamano=8)
+    titulos = [u.content_object.title for u in sesion]
+
+    assert "c1" in titulos, f"el objetivo recien empezado tiene que asomar: {titulos}"
+    assert "l1" in titulos, f"y el otro objetivo tambien: {titulos}"
+    assert "libro-uno-a" not in titulos, f"los libros sin objetivo ceden: {titulos}"

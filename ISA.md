@@ -2,7 +2,7 @@
 slug: app-martina
 phase: build
 progress: true
-iteration: 18
+iteration: 19
 principal_stated_goal: "ok, quiero que hagas lo más limpio y con visión de futuro"
 updated: 2026-08-26
 ---
@@ -41,7 +41,7 @@ updated: 2026-08-26
 | 13 | **Entrar sin Google** (C50, C51) y **el espacio que no se escribía en la nota** (C52) | `b9e394a` |
 | 14 | **Alternar de verdad**: reserva por objetivo y reparto al elegir (C53, C54) | `b3f8fd5` |
 | 15 | **El panel de mazos sale de la interfaz** (C55), modelo intacto y revisión el 25/09 | `285f904` |
-| 16 | **El libro recién empezado no asomaba** (C56) y **el comentario de plantilla se veía** (C57) | sin desplegar |
+| 16 | **El libro recién empezado no asomaba** (C56, C58) y **el comentario se veía** (C57); comando de medida (C59) | `5cdcb85` parcial |
 
 ### Lo siguiente, por orden
 
@@ -760,11 +760,6 @@ O sea: la fase 14 compró su mitad. `rellenar_para_sesion` creó el elemento del
 
 `{# #}` de Django es de **una sola línea**. El bloque de nueve líneas que la fase 15 dejó en `index.html` explicando por qué salía el panel de mazos **se estaba pintando entero encima de la lista**, en producción. Es la segunda vez en este proyecto: la primera la arregló `444af8e` en la fase 7. Esta vez queda un test detrás.
 
-### Criterios
-
-- [x] **C56 — Con tres grupos de material sin tocar, el libro recién empezado entra y el suelto cede.** *El falsador es doble y los dos importan: si `c1` no sale, el defecto sigue; si sale `suelto` en vez de `l1`, se ha roto el otro libro. Reproducida la forma exacta de producción —un suelto con el pk más bajo, tres de Larsen, uno de CAGED creado el último, y diez practicados para que la sesión se llene y el hueco sobrante no tape el defecto—: en rojo salía `['suelto', 'l1', ...]`, en verde salen `l1` y `c1`. Test: `test_el_libro_recien_empezado_no_asoma_con_tres_grupos`. C54 sigue verde.*
-- [x] **C57 — El índice no pinta el comentario de plantilla.** *Verificado que el test FALLA con la plantilla vieja (`git stash` del fichero) y pasa con la nueva: un test de esto que no se pueda poner en rojo no vale para nada. Test: `test_el_indice_no_pinta_el_comentario_de_plantilla`.*
-
 ### Anti-claims
 
 - **La cuota de novedad no crece.** Sigue siendo una cuarta parte. Esto cambia QUIÉN ocupa los huecos, no cuántos hay.
@@ -772,11 +767,33 @@ O sea: la fase 14 compró su mitad. `rellenar_para_sesion` creó el elemento del
 - **El material suelto no se pierde.** Cede el hueco de NOVEDAD; sigue entrando por caducidad como cualquier otro elemento en cuanto se practique una vez.
 - **No se toca la creación.** `rellenar_para_sesion` queda igual: la medición demostró que hacía su trabajo.
 
+### El primer arreglo no bastó, y lo dijo producción el mismo día
+
+Desplegado `5cdcb85` y lanzada una sesión: **CAGED seguía sin salir**. El arreglo SÍ cambió el reparto —donde antes entraba `Makumaná`, ahora entra un capítulo de Larsen— así que el suelto cedió su hueco como se había diseñado. Pero el objetivo recién empezado siguió fuera.
+
+**Lo que se me escapó fue la simplificación que yo mismo había marcado.** Ordené los grupos por «tiene página o no», no por «es objetivo o no». Con el suelto ya fuera quedaban TRES grupos de libro por delante de CAGED y la cuota seguía siendo 2. Un capítulo que está en la biblioteca porque se metió a mano hace meses no es lo mismo que un libro que el principal ha declarado que quiere estudiarse: ordenarlos igual es tirar justo la información que la fase 11 metió en el modelo.
+
+**Y se me escapó por medir con el instrumento equivocado.** La vista previa solo enseña los 8 elegidos, así que no se ve cuántos GRUPOS compiten ni en qué orden van. De ahí sale `estado_estudio` (abajo): eso es lo que había que mirar antes del primer despliegue, no después.
+
+### El comando de medida
+
+`my_library/management/commands/estado_estudio.py`, de **solo lectura**, y en particular sin llamar a `rellenar_para_sesion`: medir no puede cambiar lo medido. Enseña los objetivos con su reserva, **los grupos sin tocar en el orden en que se sirven y cuáles no entran nunca**, la sesión de ahora, y las medianas de `duration_seconds`, que es lo que hace falta para el presupuesto en minutos.
+
+    just production-command estado_estudio --email <correo>
+
+### Criterios
+
+- [x] **C56 — Con tres grupos de material sin tocar, el libro recién empezado entra y el suelto cede.** *El falsador es doble y los dos importan: si `c1` no sale, el defecto sigue; si sale `suelto` en vez de `l1`, se ha roto el otro libro. Reproducida la forma exacta de producción: en rojo salía `['suelto', 'l1', ...]`, en verde salen `l1` y `c1`. Test: `test_el_libro_recien_empezado_no_asoma_con_tres_grupos`. C54 sigue verde.*
+- [x] **C57 — El índice no pinta el comentario de plantilla.** *Verificado que el test FALLA con la plantilla vieja (`git stash` del fichero) y pasa con la nueva: un test de esto que no se pueda poner en rojo no vale para nada. **Cerrado en producción por navegador el 2026-08-26** tras desplegar `5cdcb85`. Test: `test_el_indice_no_pinta_el_comentario_de_plantilla`.*
+- [x] **C58 — Un objetivo pasa por delante de los libros sin objetivo.** *Reproducida la forma de producción DESPUÉS del primer arreglo, que es la que importa: suelto + dos libros sin objetivo con pk bajos + dos objetivos, el recién empezado con el pk más alto. En rojo salían `['libro-uno-a', 'libro-dos-a', ...]`; en verde salen los dos objetivos. Confirmado con `git stash` de `session.py` que el test se pone rojo sin el arreglo. Cuesta UNA consulta por sesión, no una por unidad. Test: `test_el_objetivo_pasa_por_delante_de_los_libros_sin_objetivo`.*
+- [x] **C59 — El comando de medida no escribe.** *El falsador: si llamara a `rellenar_para_sesion`, medir crearía elementos. Y se prueba con la forma de producción, no contra una base vacía: un comando corrido solo en vacío no ha probado ninguna de sus ramas. Tests: `test_estado_estudio_cuenta_los_grupos_que_se_quedan_fuera`, `test_estado_estudio_no_crea_nada`.*
+
 ### Lo que queda
 
-- **Desplegar.** Está en verde en local (142/142 en `my_library`) y sin desplegar.
-- **Verificar C56 en producción por navegador** después del despliegue: lanzar una sesión y ver el elemento de CAGED dentro. Hoy solo está verificado el defecto, no el arreglo.
-- **Con tres objetivos, uno sigue quedándose fuera de todas las sesiones.** Esto saca al suelto de la competición, pero la cuota es 2 y los objetivos 3. Ver punto 3 de «Lo siguiente».
+- **Desplegar C58 y el comando** (145/145 en verde en local, sin desplegar).
+- **Verificar C56 y C58 en producción por navegador**: lanzar una sesión y ver CAGED dentro. Hoy está verificado el defecto y el arreglo en local, no el arreglo en producción.
+- **Medir con `estado_estudio` en producción** antes de dar nada por cerrado: cuántos grupos hay de verdad y cuántos se quedan fuera.
+- **Aun con los objetivos delante, sobran grupos para los huecos que hay.** Con tres objetivos y cuota 2, uno se queda fuera de todas las sesiones. Ver punto 3 de «Lo siguiente».
 
 ### Deuda encontrada de camino
 

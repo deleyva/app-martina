@@ -266,6 +266,25 @@ def _libro_de(unidad):
     return pagina.path[: -Page.steplen] or None
 
 
+def _paths_con_objetivo(unidades):
+    """Paths de los libros que este usuario ha declarado como objetivo.
+
+    Una sola consulta para toda la sesión: el usuario sale de la primera unidad
+    porque `construir_sesion` recibe elementos de un único usuario.
+    """
+    from my_library.models import LibraryGoal
+
+    if not unidades:
+        return set()
+    primera = unidades[0]
+    item = getattr(primera, "item", None) or primera
+    return set(
+        LibraryGoal.objects.filter(user=item.user, activo=True).values_list(
+            "libro__path", flat=True
+        )
+    )
+
+
 def _repartir_por_libro(nuevos):
     """Intercala lo nuevo por libro, en vez de servirlo por orden de alta.
 
@@ -293,17 +312,25 @@ def _repartir_por_libro(nuevos):
     creación: un elemento suelto de hace meses no satisface la intención "quiero
     estudiarme CAGED". El lado de la selección nunca la recibió.
 
-    Simplificación consciente: aquí "libro" es tener `source_page`, no tener un
-    objetivo activo. Un capítulo metido a mano antes de que existieran los
-    objetivos cuenta como libro — tiene orden y pertenece a algo, que es lo que
-    distingue al suelto. Mirar los objetivos costaría una consulta más en un
-    camino escrito a propósito para no hacer ninguna por unidad.
+    **Y los objetivos van por delante de los demás libros.** Distinguir solo
+    "libro" de "suelto" no bastó, y lo dijo producción el mismo día: con el
+    suelto ya fuera de la competición quedaban TRES grupos de libro por delante
+    de CAGED y la cuota seguía siendo 2, así que el objetivo recién empezado
+    seguía sin entrar. Un capítulo que está en la biblioteca porque se metió a
+    mano hace meses no es lo mismo que un libro que el usuario ha declarado que
+    quiere estudiarse; ordenarlos igual es perder justo la información que la
+    fase 11 añadió al modelo.
+
+    Cuesta UNA consulta por sesión, no una por unidad, que es la línea que este
+    camino no puede cruzar.
     """
     grupos = {}
     for unidad in nuevos:
         grupos.setdefault(_libro_de(unidad), []).append(unidad)
 
-    orden = [clave for clave in grupos if clave is not None]
+    con_objetivo = _paths_con_objetivo(nuevos)
+    orden = [c for c in grupos if c is not None and c in con_objetivo]
+    orden += [c for c in grupos if c is not None and c not in con_objetivo]
     if None in grupos:
         orden.append(None)
 
