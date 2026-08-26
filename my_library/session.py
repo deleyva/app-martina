@@ -349,6 +349,27 @@ def _repartir_por_libro(nuevos):
     return repartido
 
 
+def filtrar_por_libros(items, paths):
+    """Elementos que salen de alguno de estos libros.
+
+    `paths` son los `path` de treebeard de los libros (no sus pk): así el
+    filtro es una comparación de cadenas contra lo que ya calcula `_libro_de`,
+    sin una consulta por elemento.
+
+    Es un filtro DISTINTO al de facetas y por eso vive aparte. Una faceta
+    describe el contenido ("de guitarra", "de blues"); un libro es un
+    contenedor, y dos libros solo pueden combinarse con O — nada pertenece a
+    dos libros a la vez. Entre el libro y las facetas la combinación es Y, que
+    es lo que se espera: "de este libro Y de pentatónicas".
+
+    Una lista vacía no filtra nada: devuelve todo.
+    """
+    paths = set(paths or [])
+    if not paths:
+        return list(items)
+    return [u for u in items if _libro_de(u) in paths]
+
+
 def construir_sesion(items, tamano=TAMANO_SESION_POR_DEFECTO):
     """Devuelve los elementos de una sesión, acotados y ordenados.
 

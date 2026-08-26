@@ -20,6 +20,7 @@ from .session import (
     PROPORCION_NOVEDAD,
     TAMANO_SESION_POR_DEFECTO,
     construir_sesion,
+    filtrar_por_libros,
     facetas_disponibles,
     filtrar_por_facetas,
 )
@@ -773,6 +774,56 @@ def _items_del_usuario(user):
     ).prefetch_related("tags")
 
 
+def _objetivos_de(request):
+    """Los libros elegidos en la pantalla de empezar: `?libro=<page_id>`.
+
+    Solo cuentan los que el usuario tiene puestos como objetivo activo: la
+    pantalla ofrece esos chips y no otros, así que un id de fuera se ignora en
+    vez de dar error.
+    """
+    from my_library.models import LibraryGoal
+
+    pedidos = {p for p in request.GET.getlist("libro") if p.isdigit()}
+    if not pedidos:
+        return []
+    return [
+        o
+        for o in LibraryGoal.objects.filter(
+            user=request.user, activo=True
+        ).select_related("libro")
+        if str(o.libro_id) in pedidos
+    ]
+
+
+def _chips_de_objetivo(request, items):
+    """Un chip por objetivo activo, con cuántos elementos tiene ya y si está
+    elegido. Se arma en la vista porque la plantilla no puede resolverlo."""
+    from my_library.models import LibraryGoal
+    from my_library.session import _libro_de
+
+    elegidos = {o.libro_id for o in _objetivos_de(request)}
+    objetivos = LibraryGoal.objects.filter(
+        user=request.user, activo=True
+    ).select_related("libro").order_by("created_at", "pk")
+
+    chips = []
+    for o in objetivos:
+        path = o.libro.path
+        chips.append(
+            {
+                "id": o.libro_id,
+                "titulo": o.libro.title,
+                "cuantos": sum(1 for i in items if _libro_de(i) == path),
+                "seleccionado": o.libro_id in elegidos,
+            }
+        )
+    return chips
+
+
+def _paths_elegidos(request):
+    return [o.libro.path for o in _objetivos_de(request)]
+
+
 @login_required
 def session_start(request):
     """Selector para arrancar una sesión: instrumento, concepto, estilo…
@@ -807,20 +858,23 @@ def session_start(request):
         "my_library/session_start.html",
         {
             "facetas": facetas_ui,
+            "objetivos": _chips_de_objetivo(request, items),
             "total_biblioteca": len(items),
             "tamano_sesion": TAMANO_SESION_POR_DEFECTO,
-            **_resumen_seleccion(items, seleccion),
+            **_resumen_seleccion(items, seleccion, _paths_elegidos(request)),
         },
     )
 
 
-def _resumen_seleccion(items, seleccion):
-    coincidencias = filtrar_por_facetas(items, seleccion)
+def _resumen_seleccion(items, seleccion, paths=None):
+    """El libro estrecha primero y las facetas después: es Y entre los dos."""
+    coincidencias = filtrar_por_libros(items, paths)
+    coincidencias = filtrar_por_facetas(coincidencias, seleccion)
     sesion = construir_sesion(coincidencias, tamano=TAMANO_SESION_POR_DEFECTO)
     return {
         "coincidencias": len(coincidencias),
         "sesion": sesion,
-        "hay_seleccion": bool(seleccion),
+        "hay_seleccion": bool(seleccion) or bool(paths),
     }
 
 
@@ -833,7 +887,9 @@ def session_count(request):
         "my_library/partials/session_count.html",
         {
             "tamano_sesion": TAMANO_SESION_POR_DEFECTO,
-            **_resumen_seleccion(items, _seleccion_de(request)),
+            **_resumen_seleccion(
+                items, _seleccion_de(request), _paths_elegidos(request)
+            ),
         },
     )
 
@@ -848,15 +904,18 @@ def session_launch(request):
     # también la creación, para no acumular material sin tocar de los libros
     # que hoy no se están estudiando.
     seleccion = _seleccion_de(request)
+    objetivos = _objetivos_de(request)
     rellenar_para_sesion(
         request.user,
         round(TAMANO_SESION_POR_DEFECTO * PROPORCION_NOVEDAD),
         seleccion=seleccion,
+        solo_libros=[o.libro_id for o in objetivos],
     )
 
     items = list(_items_del_usuario(request.user))
 
-    coincidencias = filtrar_por_facetas(items, seleccion)
+    coincidencias = filtrar_por_libros(items, [o.libro.path for o in objetivos])
+    coincidencias = filtrar_por_facetas(coincidencias, seleccion)
     if not coincidencias:
         messages.warning(request, "No hay elementos que casen con esa selección.")
         return redirect(f"{reverse('my_library:session_start')}?{request.GET.urlencode()}")

@@ -191,7 +191,7 @@ def casa_con_la_seleccion(libro, seleccion):
     return all(del_libro.get(f, set()) & valores for f, valores in seleccion.items())
 
 
-def rellenar_para_sesion(user, cuota, seleccion=None):
+def rellenar_para_sesion(user, cuota, seleccion=None, solo_libros=None):
     """Crea material nuevo desde los objetivos activos, si hace falta.
 
     La cuota de novedad de la sesión es una cuarta parte (fase 5) y no se toca:
@@ -235,6 +235,10 @@ def rellenar_para_sesion(user, cuota, seleccion=None):
     objetivos = list(
         LibraryGoal.objects.filter(user=user, activo=True).order_by("created_at", "pk")
     )
+    # Elegir un libro concreto es un filtro más fuerte que las facetas: dice
+    # exactamente qué objetivo puede aportar hoy, sin aproximar por etiquetas.
+    if solo_libros:
+        objetivos = [o for o in objetivos if o.libro_id in set(solo_libros)]
     objetivos = [
         o for o in objetivos if casa_con_la_seleccion(o.libro.specific, seleccion)
     ]

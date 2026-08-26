@@ -511,6 +511,31 @@
         </svg>
     </button>
 
+    <script>
+        // El boton de encajar solo existe para las imagenes. El visor de
+        // imagenes llama a esto al cargarse; para los demas tipos nadie llama y
+        // el boton se queda oculto, que es lo correcto.
+        //
+        // Se limpia en cada carga de elemento porque los partials se re-inyectan
+        // y el visor anterior deja su `window.toggleAjusteImagen` puesta: sin
+        // esto, el boton seguiria saliendo encima de un PDF.
+        window.marcarAjusteImagen = function (encajado) {
+            var boton = document.getElementById('flyout-ajuste-btn');
+            var texto = document.getElementById('flyout-ajuste-texto');
+            if (!boton) return;
+            boton.style.display = '';
+            if (texto) {
+                texto.textContent = encajado ? 'Ancho completo' : 'Encajar en pantalla';
+            }
+        };
+        window.olvidarAjusteImagen = function () {
+            var boton = document.getElementById('flyout-ajuste-btn');
+            if (boton) boton.style.display = 'none';
+            window.toggleAjusteImagen = null;
+            window.hayAjusteImagen = false;
+        };
+    </script>
+
     <!-- Flyout Panel -->
     <div id="study-flyout">
         <div class="flyout-header">
@@ -523,6 +548,15 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                 </svg>
                 Valorar
+            </button>
+            <button class="flyout-btn" id="flyout-ajuste-btn"
+                    style="display: none"
+                    onclick="if (window.toggleAjusteImagen) window.toggleAjusteImagen()">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4"></path>
+                </svg>
+                <span id="flyout-ajuste-texto">Encajar en pantalla</span>
             </button>
             <button class="flyout-btn" id="flyout-prev-btn" onclick="navigateItem(-1)">
                 <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -672,6 +706,12 @@
         var pk = playlist[index].pk;
         var container = document.getElementById('study-content');
         container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;"><div style="font-size:14px;opacity:0.5;">Cargando...</div></div>';
+
+        // El visor anterior deja sus funciones globales puestas: se olvidan
+        // ANTES de cargar el siguiente para que el boton de encajar no aparezca
+        // encima de un PDF. Si el nuevo elemento es una imagen, su propio script
+        // vuelve a anunciarse al ejecutarse.
+        if (window.olvidarAjusteImagen) window.olvidarAjusteImagen();
 
         // Una sección se pide con ?section=, para que el visor abra en su
         // página y el panel sepa qué se está practicando.

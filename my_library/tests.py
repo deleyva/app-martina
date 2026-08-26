@@ -2377,3 +2377,94 @@ def test_elegir_piano_no_crea_material_de_guitarra(client, db, user):
         if "instrumento:piano" in {t.name for t in i.get_content_tags()}
     ]
     assert de_piano, "y el libro elegido si recibe material"
+
+
+def _con_objetivo(user, titulo, slug, imagenes, cuantos):
+    """Un libro marcado como objetivo, con parte de su material ya en la
+    biblioteca."""
+    from my_library.libros import siguiente_del_objetivo
+    from my_library.models import LibraryGoal
+
+    libro, _ = _libro_con_capitulos(titulo, slug, [("Semana 1", imagenes)])
+    LibraryGoal.objects.create(user=user, libro=libro)
+    siguiente_del_objetivo(user, libro, cuantos=cuantos)
+    return libro
+
+
+def test_elegir_un_libro_deja_la_sesion_entera_de_ese_libro(client, db, user):
+    """C64. Decision del principal (2026-08-26): la sesion ENTERA, repaso
+    incluido, no solo los huecos de novedad.
+
+    El falsador: si el filtro solo alcanzara a la novedad, saldrian elementos
+    del otro libro en los huecos de repaso.
+    """
+    caged = _con_objetivo(user, "Caged", "libro-caged", ["c1", "c2", "c3"], 3)
+    _con_objetivo(user, "Larsen", "libro-larsen", ["l1", "l2", "l3"], 3)
+    # Todo practicado: asi los huecos que quedan son de REPASO, que es donde
+    # se vería el defecto.
+    for item in LibraryItem.objects.filter(user=user):
+        _practicado_hace(item, dias=30)
+
+    client.force_login(user)
+    respuesta = client.get(
+        reverse("my_library:session_launch"), {"libro": str(caged.pk)}
+    )
+
+    pks = [int(p) for p in respuesta.url.split("items=")[1].split("&")[0].split(",")]
+    titulos = [
+        i.content_object.title for i in LibraryItem.objects.filter(pk__in=pks)
+    ]
+    assert titulos, "la sesion no puede salir vacia"
+    assert all(t.startswith("c") for t in titulos), (
+        f"eligiendo CAGED no puede colarse nada de Larsen: {titulos}"
+    )
+
+
+def test_elegir_un_libro_solo_crea_de_ese_libro(client, db, user):
+    """El filtro por libro frena la creacion igual que el de facetas (C63)."""
+    caged = _con_objetivo(user, "Caged", "libro-caged", ["c1", "c2", "c3", "c4"], 1)
+    _con_objetivo(user, "Larsen", "libro-larsen", ["l1", "l2", "l3", "l4"], 0)
+
+    client.force_login(user)
+    client.get(reverse("my_library:session_launch"), {"libro": str(caged.pk)})
+
+    titulos = {
+        i.content_object.title for i in LibraryItem.objects.filter(user=user)
+    }
+    assert not any(t.startswith("l") for t in titulos), (
+        f"Larsen no puede recibir material hoy: {sorted(titulos)}"
+    )
+    assert len([t for t in titulos if t.startswith("c")]) > 1, "y CAGED si avanza"
+
+
+def test_dos_libros_elegidos_se_suman(client, db, user):
+    """Dos libros solo pueden combinarse con O: nada esta en dos libros."""
+    caged = _con_objetivo(user, "Caged", "libro-caged", ["c1", "c2"], 2)
+    larsen = _con_objetivo(user, "Larsen", "libro-larsen", ["l1", "l2"], 2)
+    _con_objetivo(user, "Otro", "libro-otro", ["o1", "o2"], 2)
+
+    client.force_login(user)
+    respuesta = client.get(
+        reverse("my_library:session_launch"),
+        {"libro": [str(caged.pk), str(larsen.pk)]},
+    )
+
+    pks = [int(p) for p in respuesta.url.split("items=")[1].split("&")[0].split(",")]
+    titulos = {
+        i.content_object.title for i in LibraryItem.objects.filter(pk__in=pks)
+    }
+    assert any(t.startswith("c") for t in titulos)
+    assert any(t.startswith("l") for t in titulos)
+    assert not any(t.startswith("o") for t in titulos), f"el tercero no: {titulos}"
+
+
+def test_los_chips_de_objetivo_salen_en_la_pantalla_de_empezar(client, db, user):
+    """Si no se ven, no existen."""
+    _con_objetivo(user, "El Sistema CAGED", "libro-caged", ["c1", "c2"], 2)
+
+    client.force_login(user)
+    html = client.get(reverse("my_library:session_start")).content.decode()
+
+    assert "Seguir un libro" in html
+    assert "El Sistema CAGED" in html
+    assert 'name="libro"' in html

@@ -35,6 +35,25 @@
         height: auto;
         display: block;
     }
+
+    /* Encajar la imagen entera en el alto de la pantalla.
+       El ancho completo es el modo normal y se queda como estaba: esto es la
+       excepcion, para las imagenes muy altas donde ver el conjunto importa mas
+       que el detalle (peticion del principal, 2026-08-26).
+       La columna flex es lo que hace que el titulo, cuando lo hay, no empuje la
+       imagen fuera de la pantalla: reparte el alto entre los dos. */
+    #image-container.encajar .image-content.active {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+    }
+    #image-container.encajar .image-content img {
+        flex: 1;
+        min-height: 0;
+        width: 100%;
+        height: auto;
+        object-fit: contain;
+    }
 </style>
 
 <!-- Contenedor fullscreen para imágenes -->
@@ -312,6 +331,40 @@
                 break;
         }
     });
+
+    // Ajuste vertical: recordado entre elementos y entre sesiones.
+    //
+    // Se guarda en `localStorage` porque el partial se recarga con cada
+    // elemento de la sesion, asi que cualquier estado en memoria se perderia
+    // en el siguiente. Aplicarlo al arrancar es idempotente, que es lo que
+    // hace falta aqui: estos scripts se re-ejecutan en cada carga.
+    var CLAVE_AJUSTE = 'my_library:imagen-encajada';
+
+    function leerAjuste() {
+        try {
+            return localStorage.getItem(CLAVE_AJUSTE) === '1';
+        } catch (e) {
+            return false;  // ventana privada, cookies bloqueadas: modo normal
+        }
+    }
+
+    function aplicarAjuste(encajar) {
+        container.classList.toggle('encajar', encajar);
+        try {
+            localStorage.setItem(CLAVE_AJUSTE, encajar ? '1' : '0');
+        } catch (e) { /* si no se puede guardar, al menos se ve */ }
+        if (window.marcarAjusteImagen) window.marcarAjusteImagen(encajar);
+    }
+
+    // La expone el visor para que el menu la pueda llamar. Se redefine en cada
+    // carga a proposito: siempre apunta al contenedor del elemento actual.
+    window.toggleAjusteImagen = function () {
+        aplicarAjuste(!container.classList.contains('encajar'));
+        container.scrollTop = 0;
+    };
+    window.hayAjusteImagen = true;
+
+    aplicarAjuste(leerAjuste());
 
     // Mostrar indicador inicial si hay múltiples imágenes
     if (totalImages > 1) {

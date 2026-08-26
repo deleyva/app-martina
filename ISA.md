@@ -2,7 +2,7 @@
 slug: app-martina
 phase: build
 progress: true
-iteration: 22
+iteration: 23
 principal_stated_goal: "ok, quiero que hagas lo más limpio y con visión de futuro"
 updated: 2026-08-26
 ---
@@ -43,7 +43,9 @@ updated: 2026-08-26
 | 15 | **El panel de mazos sale de la interfaz** (C55), modelo intacto y revisión el 25/09 | `285f904` |
 | 16 | **El libro recién empezado no asomaba** (C56, C58) y **el comentario se veía** (C57); comando de medida (C59) | `5cdcb85` parcial |
 | 17 | **Sesión de 15 con 3 huecos de novedad** (C60), y qué hace el filtro por instrumento (C61, C62) | `c31f13e` |
-| 18 | **El filtro frena también la creación** (C63) | sin desplegar |
+| 18 | **El filtro frena también la creación** (C63) | `6d3e7e8` |
+| 19 | **Seguir un libro desde la pantalla de empezar** (C64-C67) | sin desplegar |
+| 20 | **Encajar la imagen en la pantalla** | sin desplegar, SIN VERIFICAR |
 
 ### Lo siguiente, por orden
 
@@ -890,3 +892,53 @@ La regla de casado es la misma que la de `filtrar_por_facetas`, y eso es a prop�
 
 - **Desplegar.**
 - **Lo ya acumulado sigue ahí.** Merece una medida con `estado_estudio` antes de decidir si hay que hacer algo con ello.
+
+## Fase 19 — Seguir un libro desde la pantalla de empezar · SIN DESPLEGAR
+
+**Petición del principal (2026-08-26):** *"algún botón en la pantalla de Empezar en la que pudiera seleccionar el objetivo de aprendizaje, el libro que he marcado, para seguir solo por ese libro"*.
+
+### Las dos decisiones que se le pasaron, y lo que se descartó
+
+- **Solo los chips de objetivo.** La alternativa era meter además `autor` y `obra` en `FACETAS_DE_FILTRO`, que habría permitido acotar a CUALQUIER libro, tenga objetivo o no. Descartado por el principal. **Queda anotado el hueco:** hoy `AUTOR` existe como faceta pero no está en la lista de filtrado, así que un libro sin objetivo no se puede acotar de ninguna manera.
+- **La sesión entera, repaso incluido.** No solo los tres huecos de novedad. Elegir CAGED da quince elementos de CAGED. **Coste aceptado a conciencia:** ese día no se repasa nada de los otros libros, y lo vencido de fuera se acumula.
+
+### Por qué el libro no es una faceta más
+
+Una faceta describe el contenido ("de guitarra", "de blues"); un libro es un contenedor. Dos libros solo pueden combinarse con **O**, porque nada está en dos libros a la vez, mientras que dos facetas distintas se combinan con **Y**. Meterlos en el mismo grupo de la pantalla habría hecho que dos chips de aspecto idéntico se comportaran distinto. Por eso los libros van arriba, separados por una línea, y con su propio color.
+
+Entre el libro y las facetas la combinación sí es Y: "de este libro Y de pentatónicas".
+
+El filtro se aplica por el `path` de treebeard, igual que `_libro_de`, así que es una comparación de cadenas y no una consulta por elemento.
+
+### Criterios
+
+- [x] **C64 — Elegir un libro deja la sesión entera de ese libro.** *El falsador: con todo el material practicado, los huecos que quedan son de REPASO; si el filtro solo alcanzara a la novedad, se colaría el otro libro. Test: `test_elegir_un_libro_deja_la_sesion_entera_de_ese_libro`.*
+- [x] **C65 — Elegir un libro frena la creación de los demás.** *Misma regla que C63, con un filtro más fuerte: el libro dice exactamente qué objetivo puede aportar hoy, sin aproximar por etiquetas. Test: `test_elegir_un_libro_solo_crea_de_ese_libro`.*
+- [x] **C66 — Dos libros elegidos se suman, y un tercero no entra.** *Test: `test_dos_libros_elegidos_se_suman`.*
+- [x] **C67 — Los chips salen en la pantalla.** *Si no se ven no existen. Este test encontró de paso que el selector entero vivía dentro de `{% if facetas %}`: un objetivo cuyo material no tuviera etiquetas facetadas no se podía elegir, porque no se pintaba nada. Ahora la condición es `facetas or objetivos`. Test: `test_los_chips_de_objetivo_salen_en_la_pantalla_de_empezar`.*
+
+### El comentario de plantilla, TERCERA vez
+
+Escribiendo esta fase volví a poner un `{# … #}` a dos líneas, y volvió a pintarse. Lo cazó `test_el_selector_no_escupe_el_comentario_de_la_plantilla`, que existía desde la fase 7. **El test hizo exactamente su trabajo**, y por eso esta vez no llegó a producción. Es la mejor prueba de que la regla no se aprende: hay que dejarla cazada.
+
+## Fase 20 — Encajar la imagen en la pantalla · SIN DESPLEGAR
+
+**Petición del principal (2026-08-26), con captura:** una partitura de acorde salía enorme y pedía scroll para ver una sola figura. *"Generalmente esa es la visión que quiero \[ancho completo\], pero de vez en cuando me gustaría tener la opción"*.
+
+### Lo hecho
+
+El ancho completo **sigue siendo el modo normal** y no se toca. Se añade un modo `encajar` que mete la imagen entera en el alto de la ventana, con un botón en el menú del visor que dice `Encajar en pantalla` / `Ancho completo` según el estado.
+
+- **La columna flex es lo que lo hace bien.** Con `max-height` a secas, el título del elemento —que va dentro del mismo bloque— empuja la imagen fuera de la pantalla. Con `display: flex` en columna a `100vh`, el alto se reparte entre título e imagen y el conjunto cabe de verdad.
+- **La elección se recuerda** en `localStorage`, y no por comodidad: el partial del visor se recarga con CADA elemento de la sesión, así que cualquier estado en memoria se perdería en el siguiente. Aplicarlo al arrancar es idempotente, que es justo lo que hace falta con scripts que se re-ejecutan.
+- **El botón se olvida antes de cargar el siguiente elemento.** Los visores dejan sus funciones globales puestas al descargarse (la deuda de los `keydown` de la fase 13 es el mismo fenómeno); sin limpiarlo, el botón de encajar saldría encima de un PDF.
+
+### Anti-claims
+
+- **El modo normal no cambia.** Sin tocar el botón, el visor se comporta exactamente igual que antes.
+- **Solo imágenes.** El visor de PDF no recibe el botón, y con un PDF delante el botón no sale.
+- **No hay zoom.** Es un ajuste de dos posiciones, no un control continuo. Si hiciera falta acercarse a un detalle, eso es otra cosa y no está hecha.
+
+### Lo que queda
+
+- **Verificarlo en un navegador con una imagen alta de verdad.** Esto es una claim de APARIENCIA: no se cierra sin ver los píxeles. Sin desplegar y sin verificar.

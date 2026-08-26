@@ -16,7 +16,13 @@
         {{ tamano_sesion }} priorizando lo que llevas más tiempo sin tocar.
     </p>
 
-    {% if facetas %}
+    {% comment %}
+       Con objetivos pero sin etiquetas facetadas el selector tiene que salir
+       igual: el libro se puede elegir aunque su material no tenga etiquetas.
+       Y va con {% comment %}, no con la forma de una linea: es la tercera vez
+       en este proyecto que un comentario a dos lineas se pinta en la pagina.
+    {% endcomment %}
+    {% if facetas or objetivos %}
     {% comment %}
     GET, no POST: la selección vive en la URL y así una combinación que te
     gusta se puede guardar en marcadores y repetir mañana.
@@ -28,6 +34,40 @@
           hx-trigger="change"
           hx-target="#recuento"
           hx-swap="innerHTML">
+
+        {% comment %}
+           Los libros van arriba y separados de las facetas a proposito: no son
+           lo mismo. Una faceta describe el contenido ("de guitarra"); un libro
+           es un contenedor, y dos libros solo pueden combinarse con O porque
+           nada esta en dos libros a la vez. Entre el libro y las facetas la
+           combinacion es Y: "de este libro Y de pentatonicas".
+        {% endcomment %}
+        {% if objetivos %}
+        <div class="mb-5">
+            <div class="text-xs uppercase tracking-wide opacity-50 mb-2">
+                Seguir un libro
+            </div>
+            <div class="flex flex-wrap gap-2">
+                {% for o in objetivos %}
+                <label class="cursor-pointer">
+                    <input type="checkbox"
+                           name="libro"
+                           value="{{ o.id }}"
+                           class="peer sr-only"
+                           {% if o.seleccionado %}checked{% endif %}>
+                    <span class="badge badge-lg badge-outline gap-1
+                                 peer-checked:badge-secondary
+                                 peer-checked:text-secondary-content
+                                 hover:border-secondary transition-colors">
+                        🎯 {{ o.titulo }}
+                        <span class="opacity-50 text-xs">{{ o.cuantos }}</span>
+                    </span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="divider my-4"></div>
+        {% endif %}
 
         <div class="flex flex-col gap-5">
             {% for faceta in facetas %}
