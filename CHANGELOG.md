@@ -1,5 +1,24 @@
 # CHANGELOG
 
+## [2026-08-26] - El libro que estudias asoma de verdad, y la sesion crece a 15
+
+### Features
+
+- **Sesion de 15 elementos con 3 huecos de material nuevo** (antes 8 y 2). La proporcion baja de 0.25 a 0.2 para que salgan 3 exactos: 15 x 0.25 redondea a 4.
+- **Chips de "Seguir un libro" en `/my-library/empezar/`**: uno por libro marcado como objetivo, con cuantos elementos tienes ya de el. Elegir uno deja la sesion ENTERA de ese libro, repaso incluido, y frena la creacion de material de los demas.
+- Los libros van separados de las facetas a proposito: dos libros solo se combinan con O, dos facetas con Y. Entre libro y facetas, Y.
+- **El filtro frena tambien la creacion.** Antes, elegir piano dejaba la sesion de piano pero ese mismo dia se creaba material de los libros de guitarra, que se caia del filtro y se quedaba sin tocar en la biblioteca. Ya no.
+- **Modo "Encajar en pantalla" en el visor de imagenes**, con boton en el menu. El ancho completo sigue siendo el modo normal; encajar mete la imagen entera en el alto de la ventana. La eleccion se recuerda.
+- **`estado_estudio`**: comando de gestion de solo lectura que ensena los objetivos con su reserva, los grupos de material sin tocar en el orden en que se sirven y cuales no entran, la sesion que saldria ahora, y las medianas de duracion por elemento.
+
+### Fixes
+
+- **El libro recien empezado no salia NUNCA.** El reparto de la novedad ordenaba los grupos por su primer elemento, o sea por pk, y lo que crea la creacion perezosa tiene siempre el pk mas alto: su libro caia el ultimo y con dos huecos y tres grupos no entraba jamas. Medido en produccion: la faceta `caged` subia de 11 a 12 al lanzar la sesion, y la sesion salia sin ese elemento.
+- **Los objetivos pasan por delante de los libros sin objetivo y del material suelto.** Ordenar los grupos por "tiene pagina o no" no bastaba: quedaban tres grupos de libro por delante. Un capitulo metido a mano hace meses no es un libro que has declarado que quieres estudiarte.
+- **El comentario de plantilla de la fase 15 se pintaba entero en el indice de la biblioteca.** `{# #}` en Django es de una linea. Segunda vez en el proyecto; ahora con test detras.
+- **El selector de sesion no se pintaba si no habia etiquetas facetadas**, asi que un objetivo cuyo material no estuviera etiquetado no se podia elegir.
+
+
 ## [2026-08-13] - Trocear el material largo (secciones)
 
 ### Features

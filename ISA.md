@@ -2,7 +2,7 @@
 slug: app-martina
 phase: build
 progress: true
-iteration: 24
+iteration: 25
 principal_stated_goal: "ok, quiero que hagas lo más limpio y con visión de futuro"
 updated: 2026-08-26
 ---
@@ -49,22 +49,28 @@ updated: 2026-08-26
 
 ### Lo siguiente, por orden
 
-0. **Las fases 8 a 15 están DESPLEGADAS** (`285f904`, 2026-08-25). La 16 está **escrita y en verde, sin desplegar**.
+**Todo lo de las fases 1 a 20 está desplegado y verificado en producción** (`c28869d`, 2026-08-26). No queda nada a medias.
 
-1. **Todo lo de las fases 16 a 20 está desplegado y verificado en producción** (`c28869d`, 2026-08-26).
+1. **Presupuesto de sesión en MINUTOS en vez de en elementos.** La mejor idea pendiente, y **los datos para calibrarla ya están medidos** (fase 16): 23 elementos con duración, mediana 49 s, mínimo 11 s, máximo 469 s. Un factor 42 entre el más corto y el más largo, que es el argumento entero: dos sesiones de "15 elementos" pueden durar nueve minutos o casi dos horas. El principal lo confirmó el 26/08: *"en un futuro muy próximo querré hacer presupuesto en minutos"*. Se mide con `just production-command estado_estudio --email <correo>`.
 
-2. **Presupuesto de sesión en MINUTOS en vez de en elementos.** La mejor idea pendiente, y la que arregla que "8 elementos" sea una unidad mentirosa cuando uno es un lick de 40 segundos y otro una pieza de 14 minutos. `ReviewLog.duration_seconds` recoge desde el 12/08/2026, así que **desde el 26/08 ya hay dos semanas** y cada elemento tiene su mediana: el presupuesto se calibra solo. Para medirlo en producción hace falta un comando de gestión de solo lectura: por SSH directo el clasificador lo bloquea, y `just production-command` no admite pasarle un script.
+2. **`autor` y `obra` no se pueden filtrar.** Existen como facetas pero no están en `FACETAS_DE_FILTRO`, así que **un libro sin objetivo no se puede acotar de ninguna manera**. Los chips de la fase 19 resuelven los libros con objetivo y solo esos. Es un cambio de una línea más su interfaz; se descartó el 26/08 para no ampliar el alcance, no porque sea mala idea.
 
-3. **Con tres objetivos, uno se queda fuera de todas las sesiones.** La fase 16 saca al material suelto de la competición, pero la cuota sigue siendo 2 y los objetivos son 3: el tercer libro no entra nunca, y siempre es el mismo. Rotar quién abre la ronda lo arreglaría, y pide guardar estado. **Se decide con el presupuesto en minutos, no antes**: con presupuesto por tiempo la cuota deja de ser "2 huecos" y el problema cambia de forma.
+3. **Con cuatro objetivos, uno se quedará fuera de todas las sesiones.** Hoy no pasa: tres objetivos y tres huecos encajan justos, y eso lo arregló el paso a 15 de la fase 17. Con un cuarto objetivo vuelve, y siempre le tocará al mismo. La solución es rotar quién abre la ronda en `_repartir_por_libro`, y pide guardar estado. **Se decide con el presupuesto en minutos**: con presupuesto por tiempo la cuota deja de ser "3 huecos" y el problema cambia de forma.
 
-4. **25 de septiembre: decidir si se borra `LibraryDeck`.** Recordatorio programado por Telegram (`DASchedule` id `1787668554241-ik4zhv`). Ver fase 15 para lo que se pierde y para la alternativa, que es guardar combinaciones de FACETAS y no resucitar mazos.
+4. **Elegir un libro apaga el repaso de los demás ese día.** Decisión consciente del principal (fase 19), no un defecto. Merece mirarse después de una semana de uso real: si se acumula vencido en los libros que no se eligen, la respuesta es probablemente reservar algún hueco de repaso fuera del filtro.
 
-5. **Revisar los plazos de caducidad con datos reales** (hoy 1/1/3/7/21 días por nivel). El de 21 días para "me lo sé muy bien" es el más dudoso: para un dato está bien, para tener una escala en las manos puede ser demasiado.
+5. **25 de septiembre: decidir si se borra `LibraryDeck`.** Recordatorio programado por Telegram (`DASchedule` id `1787668554241-ik4zhv`). Ver fase 15 para lo que se pierde y para la alternativa, que es guardar combinaciones de FACETAS y no resucitar mazos.
 
-6. **Meter un libro sigue costando lo suyo si no es por objetivo.** El botón de «estudiarme este libro» resolvió el caso bueno; añadir material suelto desde el índice sigue siendo de uno en uno.
+6. **Revisar los plazos de caducidad con datos reales** (hoy 1/1/3/7/21 días por nivel). El de 21 días para "me lo sé muy bien" es el más dudoso: para un dato está bien, para tener una escala en las manos puede ser demasiado.
+
+7. **Meter un libro sigue costando lo suyo si no es por objetivo.** El botón de «estudiarme este libro» resolvió el caso bueno; añadir material suelto desde el índice sigue siendo de uno en uno.
+
+8. **El botón de encajar está solo en el menú**, o sea dos toques. Un atajo de teclado es una línea, pero toca el manejador de `keydown` que ya se acumula en cada carga; arreglar esa deuda primero.
 
 ### Deuda conocida, sin bloquear nada
 
+- **`{# … #}` de Django es de UNA línea, y en este proyecto ya se ha pintado en pantalla TRES veces** (fase 7, fase 16 y otra vez el 26/08 escribiendo la fase 19). Las dos primeras llegaron a producción; la tercera la cazó `test_el_selector_no_escupe_el_comentario_de_la_plantilla`. **La lección no es "acuérdate": es que hay que dejarlo cazado.** Hoy hay un test por plantilla tocada (`index.html` y `session_start.html`); cualquier plantilla nueva con un comentario largo debería llevar el suyo, o mejor, usar `{% comment %}` siempre. Anotado también en `AGENTS.md`.
+- **Los grupos sin objetivo acumulan material sin tocar y ya nadie se lo lleva.** Medido el 26/08: «Índice de recursos musicales» tiene 12 elementos sin tocar y el grupo suelto 1, y desde la fase 16 ninguno de los dos entra en la cuota de novedad mientras haya tres objetivos. No es un defecto —los objetivos deben ganar— pero esos 13 elementos no volverán a salir como novedad nunca. Salen por caducidad solo si se practican una vez.
 - **El login por contraseña fuera de la lista devuelve 500, no un mensaje.** `AccountAdapter.pre_login` hace `raise ValidationError`, y allauth no la captura ahí. El texto («usa tu cuenta de Google») está escrito y no lo ve nadie. Un alumno que pruebe el formulario se come un error de servidor. Se arregla devolviendo una respuesta (`ImmediateHttpResponse`) en vez de lanzar. *(Medido el 2026-08-25 al intentar entrar.)*
 - **Los `keydown` de los visores se acumulan en cada carga de item.** `study_item_content` llega por `fetch` y sus `<script>` se re-ejecutan, así que `pdf_viewer` e `image_viewer` registran su manejador otra vez con cada elemento de la sesión, cada uno con el closure de su carga. La guarda de C52 tapa el síntoma; arreglarlo de verdad es nombrar las funciones y quitarlas al descargar el item.
 
@@ -85,6 +91,7 @@ updated: 2026-08-26
 
 - Producción: `https://apps.iesmartinabescos.es` · deploy con `just deploy-production` (hace `git reset --hard origin/main` en el servidor, así que hay que pushear antes).
 - **Un `manage.py` contra producción: `just production-command <lo que sea>`** (añadida el 23/08; `command` solo corre en local). Para la fase 8 hay dos atajos: `production-migrar-musictags` (en seco) y `production-migrar-musictags-ejecutar`, que pide escribir `MIGRAR`.
+- **Radiografía de la sesión, de solo lectura: `just production-command estado_estudio --email <correo>`** (añadida el 26/08, fase 16). Enseña los objetivos con su reserva, **los grupos de material sin tocar en el orden en que se sirven y cuáles no entran**, la sesión que saldría ahora, y las medianas de `duration_seconds`. Es lo que hay que mirar ANTES de tocar el reparto: la vista previa del navegador solo enseña los elegidos, así que no deja ver cuántos grupos compiten. Ese error costó un despliegue el 26/08.
 - Local: `just up`, tests con `docker compose -f docker-compose.local.yml run --rm django pytest my_library/tests.py`.
 - Usuario de pruebas en local: `probe@local.test` (staff/superuser). En la BD local, no en producción.
 - Copia previa a la migración de etiquetas: `backups/taggit_antes_facetas_20260812.json` (fuera del repo, está en `.gitignore`).

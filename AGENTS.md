@@ -75,6 +75,8 @@ Las vistas deben ser extremadamente delgadas:
 
 -   **`conftest.py` solo cubre su propio subárbol.** La fixture `user` vive en `martina_bescos_app/conftest.py` y NO alcanza a apps hermanas como `my_library`. Define la fixture localmente con `UserFactory`.
 
+-   **`{# … #}` de Django es de UNA SOLA LÍNEA.** Un comentario de varias líneas escrito así **se pinta entero en la página**, sin error ni aviso. Ha pasado TRES veces en este proyecto (agosto de 2026), dos de ellas llegaron a producción y una la cazó un test. Para varias líneas, `{% comment %}…{% endcomment %}`, siempre. Y cuando toques una plantilla que se renderiza en una vista con test, añade `assert "{#" not in html`: es la única forma de que no vuelva a pasar.
+
 -   **`just up` falla al final del primer build** con `image ... already exists`: `django` y `huey_consumer` exportan el mismo tag a la vez. La imagen queda bien construida; basta con repetir `docker compose up -d`.
 
 * * *

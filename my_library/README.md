@@ -1,5 +1,14 @@
 # My Library - Biblioteca Personal Musical
 
+> **El estado de verdad de esta app vive en `ISA.md`, en la raiz del repo.**
+> Este README describe la biblioteca tal como se construyo al principio y se ha
+> quedado atras: no cubre el sistema de estudio (ReviewLog, sesiones acotadas,
+> facetas, objetivos por libro, secciones), que es donde esta hoy casi todo el
+> trabajo. Para saber que hay hecho, que esta desplegado y que viene despues,
+> lee el ISA. Para retomar el trabajo: *"lee el ISA de app-martina y sigue por
+> donde ibamos"*.
+
+
 Sistema de biblioteca personal integrado con Wagtail CMS que permite a los usuarios guardar y organizar contenido musical.
 
 ## ✅ Implementación Completa
