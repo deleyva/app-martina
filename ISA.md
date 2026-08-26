@@ -2,7 +2,7 @@
 slug: app-martina
 phase: build
 progress: true
-iteration: 20
+iteration: 21
 principal_stated_goal: "ok, quiero que hagas lo más limpio y con visión de futuro"
 updated: 2026-08-26
 ---
@@ -42,7 +42,8 @@ updated: 2026-08-26
 | 14 | **Alternar de verdad**: reserva por objetivo y reparto al elegir (C53, C54) | `b3f8fd5` |
 | 15 | **El panel de mazos sale de la interfaz** (C55), modelo intacto y revisión el 25/09 | `285f904` |
 | 16 | **El libro recién empezado no asomaba** (C56, C58) y **el comentario se veía** (C57); comando de medida (C59) | `5cdcb85` parcial |
-| 17 | **Sesión de 15 con 3 huecos de novedad** (C60), y qué hace el filtro por instrumento (C61, C62) | sin desplegar |
+| 17 | **Sesión de 15 con 3 huecos de novedad** (C60), y qué hace el filtro por instrumento (C61, C62) | `c31f13e` |
+| 18 | **El filtro frena también la creación** (C63) | sin desplegar |
 
 ### Lo siguiente, por orden
 
@@ -832,4 +833,31 @@ Es la misma clase de defecto que la fase 12: material sin tocar que se acumula p
 
 ### Lo que queda
 
-- **Decidir si el filtro de facetas debe frenar también la creación.** Hoy no la frena. Medir primero cuánto material sin tocar acumula un mes de sesiones filtradas.
+- Nada. La pregunta abierta —si el filtro debe frenar también la creación— la contestó el principal el mismo día. Ver fase 18.
+
+## Fase 18 — El filtro frena también la creación · SIN DESPLEGAR
+
+**Decisión del principal (2026-08-26), respondiendo a lo que dejó abierto la fase 17:** *"Sí, el filtro debería frenar también la creación. No quiero material acumulado."*
+
+### Qué cambia
+
+`rellenar_para_sesion` recibe ahora la selección de facetas y **solo rellena los objetivos cuyo libro casa con ella**. La selección se lee en `session_launch` ANTES de crear, no después.
+
+La regla de casado es la misma que la de `filtrar_por_facetas`, y eso es a propósito: Y entre facetas, O dentro de cada faceta. Un libro es "de piano" porque sus capítulos llevan `instrumento:piano`, que es donde viven las etiquetas desde C37c.
+
+**La reserva se reparte entre los objetivos que casan, no entre todos.** Eligiendo piano con un solo libro de piano, los tres huecos de novedad son suyos: `reserva = techo(3/1) = 3`. Sin esto, el filtro habría frenado la creación pero también la habría reducido a un tercio.
+
+### Criterios
+
+- [x] **C63 — Eligiendo piano no se crea material de guitarra.** *Es el mismo test de C62, dado la vuelta: antes constataba el defecto, ahora exige el arreglo. Confirmado con `git stash` de `libros.py` y `views.py` que se pone rojo sin el cambio. Y comprueba las dos mitades: nada de guitarra, y el libro elegido sí recibe material. Test: `test_elegir_piano_no_crea_material_de_guitarra`.*
+
+### Anti-claims
+
+- **Sin filtro no cambia nada.** Una selección vacía casa con todo, así que la sesión sin facetas se comporta exactamente igual que antes.
+- **No se borra ni se descarta nada de lo ya acumulado.** Esto frena la acumulación de aquí en adelante; lo que ya está en la biblioteca sigue donde está.
+- **El objetivo no se desactiva.** Filtrar por piano no toca los objetivos de guitarra: simplemente hoy no se les pide material.
+
+### Lo que queda
+
+- **Desplegar.**
+- **Lo ya acumulado sigue ahí.** Merece una medida con `estado_estudio` antes de decidir si hay que hacer algo con ello.

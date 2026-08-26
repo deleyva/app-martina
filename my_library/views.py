@@ -844,12 +844,17 @@ def session_launch(request):
     # Si hay un libro como objetivo y la biblioteca se ha quedado sin material
     # sin tocar, se crean los siguientes del libro ANTES de armar la sesión.
     # Es la creación perezosa: hasta que un elemento no toca, no existe.
+    # La selección se lee ANTES de crear: desde el 2026-08-26 el filtro frena
+    # también la creación, para no acumular material sin tocar de los libros
+    # que hoy no se están estudiando.
+    seleccion = _seleccion_de(request)
     rellenar_para_sesion(
-        request.user, round(TAMANO_SESION_POR_DEFECTO * PROPORCION_NOVEDAD)
+        request.user,
+        round(TAMANO_SESION_POR_DEFECTO * PROPORCION_NOVEDAD),
+        seleccion=seleccion,
     )
 
     items = list(_items_del_usuario(request.user))
-    seleccion = _seleccion_de(request)
 
     coincidencias = filtrar_por_facetas(items, seleccion)
     if not coincidencias:

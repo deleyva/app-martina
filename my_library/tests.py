@@ -2340,13 +2340,16 @@ def test_elegir_piano_deja_la_sesion_solo_de_piano(client, db, user):
     )
 
 
-def test_elegir_piano_no_impide_que_se_cree_material_de_guitarra(client, db, user):
+def test_elegir_piano_no_crea_material_de_guitarra(client, db, user):
     """La otra mitad de la respuesta, y es la que no se ve.
 
-    `rellenar_para_sesion` corre ANTES del filtro y no sabe nada de las facetas:
-    crea de los TRES objetivos aunque hoy solo se estudie piano. Lo creado de
-    guitarra no entra en la sesion de hoy —el filtro se lo lleva— pero se queda
-    en la biblioteca sin tocar, y compite en las sesiones sin filtrar.
+    Desde el 2026-08-26 el filtro frena TAMBIEN la creacion, por decision del
+    principal: "no quiero material acumulado". Antes se creaba de los tres
+    objetivos aunque solo se estudiara piano, y lo de guitarra se quedaba en la
+    biblioteca sin tocar compitiendo en las sesiones sin filtrar.
+
+    El falsador: si `rellenar_para_sesion` vuelve a ignorar la seleccion, este
+    test se pone rojo.
     """
     from my_library.models import LibraryGoal
 
@@ -2365,7 +2368,12 @@ def test_elegir_piano_no_impide_que_se_cree_material_de_guitarra(client, db, use
         i for i in creados
         if "instrumento:guitarra" in {t.name for t in i.get_content_tags()}
     ]
-    assert de_guitarra, (
-        "hoy se crea material de guitarra aunque se haya elegido piano: "
-        "el filtro es de seleccion, no de creacion"
+    assert not de_guitarra, (
+        "eligiendo piano no se puede crear material de guitarra: "
+        "el filtro frena tambien la creacion"
     )
+    de_piano = [
+        i for i in creados
+        if "instrumento:piano" in {t.name for t in i.get_content_tags()}
+    ]
+    assert de_piano, "y el libro elegido si recibe material"

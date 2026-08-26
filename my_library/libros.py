@@ -158,7 +158,40 @@ def _sin_tocar_del_libro(user, libro, practicados):
     )
 
 
-def rellenar_para_sesion(user, cuota):
+def facetas_del_libro(libro):
+    """Las etiquetas facetadas que describen este libro.
+
+    Son las de sus capítulos, que es donde viven de verdad: desde C37c las
+    páginas etiquetan en `faceted_tags`, y un libro de piano lo es porque sus
+    capítulos llevan `instrumento:piano`. Se suman también las del propio
+    índice del libro si las tuviera, que hoy no es el caso de ningún tipo de
+    página pero cuesta una línea y evita una sorpresa.
+    """
+    etiquetas = set()
+    propias = getattr(libro, "faceted_tags", None)
+    if propias is not None:
+        etiquetas |= {t.name.lower() for t in propias.all()}
+    for capitulo in capitulos_de(libro):
+        etiquetas |= {t.name.lower() for t in capitulo.faceted_tags.all()}
+    return etiquetas
+
+
+def casa_con_la_seleccion(libro, seleccion):
+    """¿Este libro es de lo que se ha elegido estudiar hoy?
+
+    Misma regla que `session.filtrar_por_facetas`, y a propósito: Y entre
+    facetas, O dentro de cada faceta. Una selección vacía no filtra nada.
+    """
+    from my_library import facets
+
+    seleccion = {f: set(v) for f, v in (seleccion or {}).items() if v}
+    if not seleccion:
+        return True
+    del_libro = facets.por_faceta(facetas_del_libro(libro))
+    return all(del_libro.get(f, set()) & valores for f, valores in seleccion.items())
+
+
+def rellenar_para_sesion(user, cuota, seleccion=None):
     """Crea material nuevo desde los objetivos activos, si hace falta.
 
     La cuota de novedad de la sesión es una cuarta parte (fase 5) y no se toca:
@@ -180,6 +213,18 @@ def rellenar_para_sesion(user, cuota):
     entre libros al ELEGIR — sin las dos, un libro con trece pendientes se
     queda con todos los huecos de novedad de todas las sesiones.
 
+    **Y respeta el filtro de facetas de la sesión** (decisión del principal,
+    2026-08-26: *"el filtro debería frenar también la creación. No quiero
+    material acumulado"*). Antes esto corría antes del filtro y sin saber nada
+    de él: elegir piano dejaba la sesión de piano, sí, pero ese mismo día se
+    creaba material de los libros de guitarra, que se caía del filtro y se
+    quedaba en la biblioteca sin tocar. Un mes estudiando solo piano dejaba las
+    guitarras con material nuevo que nadie había pedido, compitiendo luego en
+    las sesiones sin filtrar. Es la misma clase de defecto que la fase 12.
+
+    Con el filtro puesto, la reserva se reparte entre los objetivos QUE CASAN:
+    eligiendo piano con un solo libro de piano, sus tres huecos son suyos.
+
     Devuelve los elementos creados.
     """
     from my_library.models import LibraryGoal, ReviewLog
@@ -190,6 +235,9 @@ def rellenar_para_sesion(user, cuota):
     objetivos = list(
         LibraryGoal.objects.filter(user=user, activo=True).order_by("created_at", "pk")
     )
+    objetivos = [
+        o for o in objetivos if casa_con_la_seleccion(o.libro.specific, seleccion)
+    ]
     if not objetivos:
         return []
 
