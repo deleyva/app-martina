@@ -278,17 +278,41 @@ def _repartir_por_libro(nuevos):
     Se conserva el orden DENTRO de cada libro, que es el orden del libro y es
     justo lo que compró la fase 11. Los libros salen en el orden en que
     aparecía su primer elemento, así que esto es estable entre llamadas.
+
+    **Y el material suelto va el último.** Ordenar los grupos solo por primera
+    aparición es ordenarlos por pk, y eso deja al libro recién empezado
+    SIEMPRE en la cola: lo que acaba de crear `rellenar_para_sesion` tiene por
+    fuerza el pk más alto. Medido en producción el 2026-08-26 —tres grupos sin
+    tocar (un suelto, Larsen y el elemento de CAGED recién creado) y cuota 2—:
+    la creación perezosa hacía su trabajo, la faceta `caged` pasaba de 11 a 12,
+    y la sesión salía sin él. No era mala suerte otra vez: era el mismo
+    determinismo que arregló C54, que se probó con DOS grupos y en producción
+    hay tres.
+
+    La regla ya estaba escrita en `libros.rellenar_para_sesion`, del lado de la
+    creación: un elemento suelto de hace meses no satisface la intención "quiero
+    estudiarme CAGED". El lado de la selección nunca la recibió.
+
+    Simplificación consciente: aquí "libro" es tener `source_page`, no tener un
+    objetivo activo. Un capítulo metido a mano antes de que existieran los
+    objetivos cuenta como libro — tiene orden y pertenece a algo, que es lo que
+    distingue al suelto. Mirar los objetivos costaría una consulta más en un
+    camino escrito a propósito para no hacer ninguna por unidad.
     """
     grupos = {}
     for unidad in nuevos:
         grupos.setdefault(_libro_de(unidad), []).append(unidad)
 
+    orden = [clave for clave in grupos if clave is not None]
+    if None in grupos:
+        orden.append(None)
+
     repartido = []
-    while grupos:
-        for clave in list(grupos):
+    while orden:
+        for clave in list(orden):
             repartido.append(grupos[clave].pop(0))
             if not grupos[clave]:
-                del grupos[clave]
+                orden.remove(clave)
     return repartido
 
 

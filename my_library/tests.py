@@ -2149,3 +2149,57 @@ def test_el_boton_no_sale_en_algo_que_no_es_un_libro(db, user, rf):
     peticion.user = user
 
     assert boton_objetivo({"request": peticion}, suelta) == {"libro": None}
+
+
+def test_el_libro_recien_empezado_no_asoma_con_tres_grupos(db, user):
+    """C54 se probo con DOS grupos; produccion tiene tres.
+
+    `_repartir_por_libro` ordena los grupos por su primer elemento, que es el
+    de pk mas bajo. El material que acaba de crear la creacion perezosa tiene
+    SIEMPRE el pk mas alto, asi que su grupo cae el ultimo: con cuota 2 y tres
+    grupos con material sin tocar, el libro recien empezado no entra nunca.
+
+    Medido en produccion el 2026-08-26: `rellenar_para_sesion` creo el elemento
+    de CAGED (la faceta paso de 11 a 12) y la sesion salio sin el.
+    """
+    from my_library.libros import siguiente_del_objetivo
+    from my_library.session import construir_sesion
+
+    # Sin tocar, en tres grupos y por orden de pk creciente.
+    _item(user, "suelto")  # grupo None
+    larsen, _ = _libro_con_capitulos(
+        "Larsen", "libro-larsen", [("Semana 1", ["l1", "l2", "l3"])]
+    )
+    siguiente_del_objetivo(user, larsen, cuantos=3)
+    caged, _ = _libro_con_capitulos("Caged", "libro-caged", [("Semana 1", ["c1"])])
+    siguiente_del_objetivo(user, caged, cuantos=1)  # el pk mas alto
+
+    # Repaso de sobra para llenar la sesion: sin esto el hueco sobrante se
+    # rellena con lo nuevo y el defecto queda tapado.
+    for n in range(10):
+        _practicado_hace(_item(user, f"conocido-{n}"), dias=30)
+
+    sesion = construir_sesion(LibraryItem.objects.filter(user=user), tamano=8)
+    titulos = [u.content_object.title for u in sesion]
+
+    assert "c1" in titulos, f"el libro recien empezado tiene que asomar: {titulos}"
+    assert "l1" in titulos, f"y el otro libro sigue entrando: {titulos}"
+    assert "suelto" not in titulos, (
+        f"el suelto es quien cede el hueco, no el libro: {titulos}"
+    )
+
+
+def test_el_indice_no_pinta_el_comentario_de_plantilla(client, library_item, user):
+    """`{# #}` es de UNA linea en Django: un bloque de varias se pinta entero.
+
+    Visto en produccion el 2026-08-26, encima de la lista de la biblioteca.
+    Es la segunda vez que pasa en este proyecto (la primera la arreglo `444af8e`
+    en la fase 7), asi que esta vez queda un test detras.
+    """
+    client.force_login(user)
+
+    html = client.get(reverse("my_library:index")).content.decode()
+
+    assert "El panel de mazos sale de la interfaz" not in html
+    assert "build_tag_map" not in html
+    assert 'id="deckPanel"' not in html, "y el panel sigue fuera"

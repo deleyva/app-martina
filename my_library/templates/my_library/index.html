@@ -72,15 +72,23 @@
     </div>
     
     {% if items %}
-    {# El panel de mazos sale de la interfaz el 2026-08-25, a peticion del
+    {% comment %}
+       El panel de mazos sale de la interfaz el 2026-08-25, a peticion del
        principal: un mazo es un filtro de etiquetas guardado, y quien heredo esa
        funcion es el arranque por facetas (`/my-library/empezar/`). No se borra
        nada: el modelo, las rutas y el sello de `ReviewLog.deck` siguen enteros,
-       y volver a verlo es descomentar esta linea. La decision de quitar el
-       modelo se revisa a finales de septiembre de 2026, cuando el presupuesto
-       en minutos tenga datos. Quitarlo de aqui ademas ahorra `build_tag_map`,
-       que hace unas dos consultas por elemento en cada carga del indice. #}
-    {# {% include "my_library/partials/deck_panel.html" %} #}
+       y volver a verlo es descomentar el include de abajo. La decision de
+       quitar el modelo se revisa a finales de septiembre de 2026, cuando el
+       presupuesto en minutos tenga datos. Quitarlo de aqui ademas ahorra
+       `build_tag_map`, que hace unas dos consultas por elemento en cada carga
+       del indice.
+
+       `{# #}` es de UNA linea en Django: escrito asi, este bloque entero se
+       pintaba como texto en el indice. Mismo defecto que arreglo `444af8e` en
+       la fase 7. Para varias lineas, `{% comment %}`.
+
+       {% include "my_library/partials/deck_panel.html" %}
+    {% endcomment %}
     {% include "partials/library_filter_controls.html" %}
 
     <!-- Lista (una fila por elemento) -->

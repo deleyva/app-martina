@@ -2,9 +2,9 @@
 slug: app-martina
 phase: build
 progress: true
-iteration: 17
+iteration: 18
 principal_stated_goal: "ok, quiero que hagas lo más limpio y con visión de futuro"
-updated: 2026-08-25
+updated: 2026-08-26
 ---
 
 # ISA — app-martina · Sistema de estudio de la biblioteca
@@ -41,20 +41,23 @@ updated: 2026-08-25
 | 13 | **Entrar sin Google** (C50, C51) y **el espacio que no se escribía en la nota** (C52) | `b9e394a` |
 | 14 | **Alternar de verdad**: reserva por objetivo y reparto al elegir (C53, C54) | `b3f8fd5` |
 | 15 | **El panel de mazos sale de la interfaz** (C55), modelo intacto y revisión el 25/09 | `285f904` |
+| 16 | **El libro recién empezado no asomaba** (C56) y **el comentario de plantilla se veía** (C57) | sin desplegar |
 
 ### Lo siguiente, por orden
 
-0. **Todo lo de las fases 8 a 15 está DESPLEGADO** (`285f904`, 2026-08-25). El día cerró con el vocabulario único, estudiarse un libro, la alternancia de la cuota, el login por contraseña con lista, el teclado que ya no le roba el espacio a la nota, y el panel de mazos fuera. Verificado en producción por navegador salvo donde se dice lo contrario.
+0. **Las fases 8 a 15 están DESPLEGADAS** (`285f904`, 2026-08-25). La 16 está **escrita y en verde, sin desplegar**.
 
-1. **Que CAGED asome de verdad.** Es lo ÚNICO del día que queda sin ver con los ojos. Aritmética comprobada sobre los datos de producción: reserva 1 por objetivo, «2 Min.» tiene 2 sin tocar y Larsen 13, así que no reciben nada, y CAGED está a 0 y recibe uno en la próxima sesión. **Falta estudiar una sesión y mirarlo.** Si no sale, el sitio donde mirar es `_repartir_por_libro`: el reparto usa el `path` de treebeard para agrupar, y un elemento suelto sin `source_page` cae en el grupo `None`.
+1. **Desplegar la fase 16.** Es lo único que separa el arreglo de CAGED de estar en producción, y el comentario de plantilla se está viendo en el índice ahora mismo.
 
-2. **Presupuesto de sesión en MINUTOS en vez de en elementos.** La mejor idea pendiente, y la que arregla que "8 elementos" sea una unidad mentirosa cuando uno es un lick de 40 segundos y otro una pieza de 14 minutos. `ReviewLog.duration_seconds` recoge desde el 12/08/2026, así que **a partir del 26/08 ya hay dos semanas** y cada elemento tiene su mediana: el presupuesto se calibra solo.
+2. **Presupuesto de sesión en MINUTOS en vez de en elementos.** La mejor idea pendiente, y la que arregla que "8 elementos" sea una unidad mentirosa cuando uno es un lick de 40 segundos y otro una pieza de 14 minutos. `ReviewLog.duration_seconds` recoge desde el 12/08/2026, así que **desde el 26/08 ya hay dos semanas** y cada elemento tiene su mediana: el presupuesto se calibra solo. Para medirlo en producción hace falta un comando de gestión de solo lectura: por SSH directo el clasificador lo bloquea, y `just production-command` no admite pasarle un script.
 
-3. **25 de septiembre: decidir si se borra `LibraryDeck`.** Recordatorio programado por Telegram (`DASchedule` id `1787668554241-ik4zhv`). Ver fase 15 para lo que se pierde y para la alternativa, que es guardar combinaciones de FACETAS y no resucitar mazos.
+3. **Con tres objetivos, uno se queda fuera de todas las sesiones.** La fase 16 saca al material suelto de la competición, pero la cuota sigue siendo 2 y los objetivos son 3: el tercer libro no entra nunca, y siempre es el mismo. Rotar quién abre la ronda lo arreglaría, y pide guardar estado. **Se decide con el presupuesto en minutos, no antes**: con presupuesto por tiempo la cuota deja de ser "2 huecos" y el problema cambia de forma.
 
-4. **Revisar los plazos de caducidad con datos reales** (hoy 1/1/3/7/21 días por nivel). El de 21 días para "me lo sé muy bien" es el más dudoso: para un dato está bien, para tener una escala en las manos puede ser demasiado.
+4. **25 de septiembre: decidir si se borra `LibraryDeck`.** Recordatorio programado por Telegram (`DASchedule` id `1787668554241-ik4zhv`). Ver fase 15 para lo que se pierde y para la alternativa, que es guardar combinaciones de FACETAS y no resucitar mazos.
 
-5. **Meter un libro sigue costando lo suyo si no es por objetivo.** El botón de «estudiarme este libro» resolvió el caso bueno; añadir material suelto desde el índice sigue siendo de uno en uno.
+5. **Revisar los plazos de caducidad con datos reales** (hoy 1/1/3/7/21 días por nivel). El de 21 días para "me lo sé muy bien" es el más dudoso: para un dato está bien, para tener una escala en las manos puede ser demasiado.
+
+6. **Meter un libro sigue costando lo suyo si no es por objetivo.** El botón de «estudiarme este libro» resolvió el caso bueno; añadir material suelto desde el índice sigue siendo de uno en uno.
 
 ### Deuda conocida, sin bloquear nada
 
@@ -729,3 +732,53 @@ Medido en producción: **75 repasos, 50 con sello de mazo**. `ReviewLog.deck` es
 
 Recordatorio puesto para el **2026-09-25 a las 07:40 por Telegram** (`DASchedule` id `1787668554241-ik4zhv`): decidir si se va el modelo. Si para entonces no ha echado de menos guardar combinaciones, migración que se lleve modelo, rutas y campo. Si sí las ha echado de menos, la alternativa no es resucitar los mazos sino **guardar combinaciones de FACETAS**, que es el vocabulario que de verdad usa desde la fase 8.
 
+## Fase 16 — El libro recién empezado no asomaba, y el comentario se veía · SIN DESPLEGAR
+
+Conducido en navegador con la sesión del principal en producción, 2026-08-26. Era el punto 1 que la fase 14 dejó abierto: «comprobar con los datos del principal que CAGED empieza a aparecer».
+
+### La creación perezosa funcionaba. Lo que fallaba era la selección
+
+| Medido al lanzar la sesión | |
+|---|---|
+| Faceta `caged` antes → después | 11 → **12** |
+| Elemento creado | `Chapter One - What is the CAGED System? — img-001.png`, sin tocar |
+| Sesión servida (`items=100,102,95,96,22,69,19,97`) | los mismos 8 de la vista previa, **sin CAGED** |
+
+O sea: la fase 14 compró su mitad. `rellenar_para_sesion` creó el elemento del libro que estaba a cero, exactamente como decía la aritmética. Y luego la sesión lo dejó fuera.
+
+**El porqué, y es el mismo determinismo que ya arregló C54 una vez.** `_repartir_por_libro` agrupa lo nuevo por libro y hace un round-robin, pero los grupos van **en el orden en que aparece su primer elemento**, que es orden de pk. Lo que la creación perezosa acaba de crear tiene por fuerza el pk MÁS ALTO de la biblioteca, así que su grupo cae siempre el último. Con tres grupos sin tocar y cuota 2, el tercero no entra nunca.
+
+**C54 se probó con DOS grupos; producción tiene tres.** Ahí está el hueco entero. Con dos grupos el round-robin reparte bien y el test verde no mentía: simplemente no cubría la forma que tenía producción.
+
+### El arreglo
+
+**El material suelto va el último; los libros conservan su orden.** Es la regla que ya estaba escrita del lado de la creación —«un elemento suelto de hace meses no satisface la intención "quiero estudiarme CAGED"»— aplicada al lado de la selección, que nunca la recibió. Decisión del principal entre tres opciones (2026-08-26); las otras dos eran ordenar por material sin tocar de menos a más, y rotar quién abre la ronda en cada sesión.
+
+**Simplificación consciente:** aquí "libro" es tener `source_page`, no tener un objetivo activo. Un capítulo metido a mano antes de que existieran los objetivos cuenta como libro, porque tiene orden y pertenece a algo, que es lo que lo distingue del suelto. Mirar los objetivos costaría una consulta más en un camino escrito a propósito para no hacer ninguna por unidad.
+
+### El comentario de plantilla, otra vez
+
+`{# #}` de Django es de **una sola línea**. El bloque de nueve líneas que la fase 15 dejó en `index.html` explicando por qué salía el panel de mazos **se estaba pintando entero encima de la lista**, en producción. Es la segunda vez en este proyecto: la primera la arregló `444af8e` en la fase 7. Esta vez queda un test detrás.
+
+### Criterios
+
+- [x] **C56 — Con tres grupos de material sin tocar, el libro recién empezado entra y el suelto cede.** *El falsador es doble y los dos importan: si `c1` no sale, el defecto sigue; si sale `suelto` en vez de `l1`, se ha roto el otro libro. Reproducida la forma exacta de producción —un suelto con el pk más bajo, tres de Larsen, uno de CAGED creado el último, y diez practicados para que la sesión se llene y el hueco sobrante no tape el defecto—: en rojo salía `['suelto', 'l1', ...]`, en verde salen `l1` y `c1`. Test: `test_el_libro_recien_empezado_no_asoma_con_tres_grupos`. C54 sigue verde.*
+- [x] **C57 — El índice no pinta el comentario de plantilla.** *Verificado que el test FALLA con la plantilla vieja (`git stash` del fichero) y pasa con la nueva: un test de esto que no se pueda poner en rojo no vale para nada. Test: `test_el_indice_no_pinta_el_comentario_de_plantilla`.*
+
+### Anti-claims
+
+- **La cuota de novedad no crece.** Sigue siendo una cuarta parte. Esto cambia QUIÉN ocupa los huecos, no cuántos hay.
+- **El orden del libro se respeta.** El reparto ordena ENTRE grupos; dentro de cada libro, el orden que puso C41 queda intacto.
+- **El material suelto no se pierde.** Cede el hueco de NOVEDAD; sigue entrando por caducidad como cualquier otro elemento en cuanto se practique una vez.
+- **No se toca la creación.** `rellenar_para_sesion` queda igual: la medición demostró que hacía su trabajo.
+
+### Lo que queda
+
+- **Desplegar.** Está en verde en local (142/142 en `my_library`) y sin desplegar.
+- **Verificar C56 en producción por navegador** después del despliegue: lanzar una sesión y ver el elemento de CAGED dentro. Hoy solo está verificado el defecto, no el arreglo.
+- **Con tres objetivos, uno sigue quedándose fuera de todas las sesiones.** Esto saca al suelto de la competición, pero la cuota es 2 y los objetivos 3. Ver punto 3 de «Lo siguiente».
+
+### Deuda encontrada de camino
+
+- **Títulos repetidos en la faceta `caged`:** `Example 3.1c`, `Example 3.2a` y `Example 3.2c` salen **dos veces cada uno** en la vista previa filtrada. Puede ser que el libro traiga la misma imagen dos veces, o que haya elementos duplicados en la biblioteca. Sin medir todavía.
+- **El botón «Empezar sesión» no respondió a dos clics sintéticos** del navegador automatizado; navegando a mano a `/my-library/empezar/lanzar/` funciona a la primera. Instrumento sospechoso antes que defecto: no se afirma que el botón esté roto. Comprobarlo con un clic humano.
