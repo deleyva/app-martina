@@ -2,7 +2,7 @@
 slug: app-martina
 phase: build
 progress: true
-iteration: 23
+iteration: 24
 principal_stated_goal: "ok, quiero que hagas lo más limpio y con visión de futuro"
 updated: 2026-08-26
 ---
@@ -44,14 +44,14 @@ updated: 2026-08-26
 | 16 | **El libro recién empezado no asomaba** (C56, C58) y **el comentario se veía** (C57); comando de medida (C59) | `5cdcb85` parcial |
 | 17 | **Sesión de 15 con 3 huecos de novedad** (C60), y qué hace el filtro por instrumento (C61, C62) | `c31f13e` |
 | 18 | **El filtro frena también la creación** (C63) | `6d3e7e8` |
-| 19 | **Seguir un libro desde la pantalla de empezar** (C64-C67) | sin desplegar |
-| 20 | **Encajar la imagen en la pantalla** | sin desplegar, SIN VERIFICAR |
+| 19 | **Seguir un libro desde la pantalla de empezar** (C64-C67) | `c28869d` |
+| 20 | **Encajar la imagen en la pantalla** (C68) | `c28869d` |
 
 ### Lo siguiente, por orden
 
 0. **Las fases 8 a 15 están DESPLEGADAS** (`285f904`, 2026-08-25). La 16 está **escrita y en verde, sin desplegar**.
 
-1. **Desplegar la fase 16.** Es lo único que separa el arreglo de CAGED de estar en producción, y el comentario de plantilla se está viendo en el índice ahora mismo.
+1. **Todo lo de las fases 16 a 20 está desplegado y verificado en producción** (`c28869d`, 2026-08-26).
 
 2. **Presupuesto de sesión en MINUTOS en vez de en elementos.** La mejor idea pendiente, y la que arregla que "8 elementos" sea una unidad mentirosa cuando uno es un lick de 40 segundos y otro una pieza de 14 minutos. `ReviewLog.duration_seconds` recoge desde el 12/08/2026, así que **desde el 26/08 ya hay dos semanas** y cada elemento tiene su mediana: el presupuesto se calibra solo. Para medirlo en producción hace falta un comando de gestión de solo lectura: por SSH directo el clasificador lo bloquea, y `just production-command` no admite pasarle un script.
 
@@ -939,6 +939,10 @@ El ancho completo **sigue siendo el modo normal** y no se toca. Se añade un mod
 - **Solo imágenes.** El visor de PDF no recibe el botón, y con un PDF delante el botón no sale.
 - **No hay zoom.** Es un ajuste de dos posiciones, no un control continuo. Si hiciera falta acercarse a un detalle, eso es otra cosa y no está hecha.
 
+### Criterios
+
+- [x] **C68 — La imagen entera cabe en la pantalla al encajarla.** *Claim de APARIENCIA, así que se cierra viendo los píxeles y no de otra forma. Verificado en producción el 2026-08-26 con la imagen que trajo el principal, `A Shape` del capítulo 1 de CAGED, en su propio navegador: **antes** solo se veía el título y el primer traste, y hacía falta scroll; **después** entran el título, la X, la cejilla y los trastes 12 y 15 completos. El falsador que lo confirma: con el modo puesto, cinco clics de rueda hacia abajo NO mueven nada, o sea que no queda contenido fuera. Y el botón cambia su texto a `Ancho completo`.*
+
 ### Lo que queda
 
-- **Verificarlo en un navegador con una imagen alta de verdad.** Esto es una claim de APARIENCIA: no se cierra sin ver los píxeles. Sin desplegar y sin verificar.
+- **El botón solo está en el menú.** Dos toques. Si al usarlo de verdad estorba, un atajo de teclado es una línea, pero toca el manejador de `keydown` que ya se acumula en cada carga (deuda de la fase 13), así que conviene arreglar eso primero.
