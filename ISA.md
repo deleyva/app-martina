@@ -2,7 +2,7 @@
 slug: app-martina
 phase: build
 progress: true
-iteration: 19
+iteration: 20
 principal_stated_goal: "ok, quiero que hagas lo más limpio y con visión de futuro"
 updated: 2026-08-26
 ---
@@ -42,6 +42,7 @@ updated: 2026-08-26
 | 14 | **Alternar de verdad**: reserva por objetivo y reparto al elegir (C53, C54) | `b3f8fd5` |
 | 15 | **El panel de mazos sale de la interfaz** (C55), modelo intacto y revisión el 25/09 | `285f904` |
 | 16 | **El libro recién empezado no asomaba** (C56, C58) y **el comentario se veía** (C57); comando de medida (C59) | `5cdcb85` parcial |
+| 17 | **Sesión de 15 con 3 huecos de novedad** (C60), y qué hace el filtro por instrumento (C61, C62) | sin desplegar |
 
 ### Lo siguiente, por orden
 
@@ -799,3 +800,36 @@ Desplegado `5cdcb85` y lanzada una sesión: **CAGED seguía sin salir**. El arre
 
 - **Títulos repetidos en la faceta `caged`:** `Example 3.1c`, `Example 3.2a` y `Example 3.2c` salen **dos veces cada uno** en la vista previa filtrada. Puede ser que el libro traiga la misma imagen dos veces, o que haya elementos duplicados en la biblioteca. Sin medir todavía.
 - **El botón «Empezar sesión» no respondió a dos clics sintéticos** del navegador automatizado; navegando a mano a `/my-library/empezar/lanzar/` funciona a la primera. Instrumento sospechoso antes que defecto: no se afirma que el botón esté roto. Comprobarlo con un clic humano.
+
+## Fase 17 — Sesión de 15 con tres huecos de novedad, y qué pasa al filtrar por instrumento · SIN DESPLEGAR
+
+**Petición del principal (2026-08-26):** *"prefiero meter tres huecos de estudio de material nuevo y sumar o ampliar a 15 los elementos de estudio"*.
+
+### Los dos números, y por qué la proporción baja
+
+`TAMANO_SESION_POR_DEFECTO` pasa de 8 a 15, y `PROPORCION_NOVEDAD` de 0.25 a 0.2. Lo segundo no es un capricho: `15 × 0.25 = 3.75`, que redondea a **4**. Con 0.2 sale 3 exacto, que es lo pedido. Para los tamaños que se pasan a mano el número no cambia: con 8 la cuota sigue siendo 2 (`round(8 × 0.2) = 2`, igual que `round(8 × 0.25)`).
+
+**Efecto secundario que resuelve el punto 3 al tamaño actual.** Con tres objetivos y tres huecos, cada objetivo recibe uno: `reserva = techo(3/3) = 1` al crear, y tres grupos con objetivo caben en los tres huecos al elegir. El problema de "un objetivo se queda fuera de todas las sesiones" desaparece **mientras haya tres objetivos o menos**. Con cuatro vuelve, y entonces sí habrá que rotar.
+
+### La pregunta del principal: "si elijo piano, ¿los tres huecos salen del libro de piano?"
+
+**Sí, y está medido, no razonado.** El filtro de facetas corre después de crear y antes de construir la sesión, así que lo que no es de piano se cae antes de repartir los huecos. Con dos libros de guitarra y uno de piano como objetivos, eligiendo `instrumento:piano` la sesión sale entera de piano. Test: `test_elegir_piano_deja_la_sesion_solo_de_piano`.
+
+**Pero hay una mitad que no se ve, y conviene saberla.** `rellenar_para_sesion` corre ANTES del filtro y **no sabe nada de las facetas**: ese día se crea material de los tres objetivos, guitarra incluida. Lo de guitarra no entra en la sesión de hoy porque el filtro se lo lleva, pero **se queda en la biblioteca sin tocar** y compite en las sesiones sin filtrar. Un mes estudiando solo piano deja las dos guitarras con material nuevo acumulado que nadie pidió. Test: `test_elegir_piano_no_impide_que_se_cree_material_de_guitarra`.
+
+Es la misma clase de defecto que la fase 12: material sin tocar que se acumula por un camino que nadie mira. No se arregla aquí porque el arreglo es una decisión —¿el filtro debería frenar también la creación?— y no hay medida todavía de cuánto se acumula de verdad.
+
+### Criterios
+
+- [x] **C60 — La sesión por defecto es de 15 con 3 huecos de novedad.** *`round(15 × 0.2) = 3`. El falsador de la proporción: con 0.25 salen 4, no 3. La interfaz lo dice sola, el texto sale de `tamano_sesion`.*
+- [x] **C61 — Filtrar por instrumento deja la sesión de ese instrumento.** *El falsador: si el filtro corriera después de repartir los huecos, se colaría guitarra. Test: `test_elegir_piano_deja_la_sesion_solo_de_piano`.*
+- [x] **C62 — El filtro NO frena la creación.** *No es un arreglo, es la constatación de lo que hoy pasa, escrita como test para que el día que se decida cambiarlo se vea en rojo. Test: `test_elegir_piano_no_impide_que_se_cree_material_de_guitarra`.*
+
+### Anti-claims
+
+- **La unidad sigue siendo el elemento, y sigue siendo mentirosa.** Quince elementos no son quince de nada: uno puede ser un lick de cuarenta segundos y otro una pieza de catorce minutos. Eso lo arregla el presupuesto en minutos, no este número.
+- **No se toca la caducidad.** Los plazos por nivel siguen siendo 1/1/3/7/21.
+
+### Lo que queda
+
+- **Decidir si el filtro de facetas debe frenar también la creación.** Hoy no la frena. Medir primero cuánto material sin tocar acumula un mes de sesiones filtradas.

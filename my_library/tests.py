@@ -2228,7 +2228,9 @@ def test_estado_estudio_cuenta_los_grupos_que_se_quedan_fuera(db, user, capsys):
     siguiente_del_objetivo(user, caged, cuantos=1)
     LibraryGoal.objects.create(user=user, libro=caged)
 
-    call_command("estado_estudio", email=user.email)
+    # Tamano explicito: el test mide el reparto, no el valor de la constante,
+    # y el principal la sube cuando le conviene.
+    call_command("estado_estudio", email=user.email, tamano=8)
     salida = capsys.readouterr().out
 
     assert "Caged" in salida, "el libro tiene que salir nombrado"
@@ -2289,3 +2291,81 @@ def test_el_objetivo_pasa_por_delante_de_los_libros_sin_objetivo(db, user):
     assert "c1" in titulos, f"el objetivo recien empezado tiene que asomar: {titulos}"
     assert "l1" in titulos, f"y el otro objetivo tambien: {titulos}"
     assert "libro-uno-a" not in titulos, f"los libros sin objetivo ceden: {titulos}"
+
+
+def _libro_etiquetado(titulo, slug, imagenes, etiqueta):
+    """Un libro cuyos capitulos llevan una etiqueta facetada de la pagina."""
+    from taggit.models import Tag
+
+    libro, capitulos = _libro_con_capitulos(titulo, slug, [("Semana 1", imagenes)])
+    tag, _ = Tag.objects.get_or_create(
+        name=etiqueta, defaults={"slug": etiqueta.replace(":", "-")}
+    )
+    for capitulo, _imgs in capitulos:
+        capitulo.faceted_tags.add(tag)
+        capitulo.save()
+    return libro
+
+
+def test_elegir_piano_deja_la_sesion_solo_de_piano(client, db, user):
+    """La pregunta del principal (2026-08-26): con tres objetivos —dos de
+    guitarra y uno de piano— y eligiendo piano al empezar, ¿los tres huecos de
+    novedad salen del libro de piano?
+
+    Si. El filtro de facetas corre DESPUES de crear y ANTES de construir la
+    sesion, asi que lo que no es de piano se cae antes de repartir los huecos.
+    """
+    from my_library.models import LibraryGoal
+
+    piano = _libro_etiquetado("Piano", "libro-piano", ["p1", "p2", "p3", "p4"],
+                              "instrumento:piano")
+    for titulo, slug in (("Guit A", "libro-guit-a"), ("Guit B", "libro-guit-b")):
+        libro = _libro_etiquetado(titulo, slug, ["g1", "g2"], "instrumento:guitarra")
+        LibraryGoal.objects.create(user=user, libro=libro)
+    LibraryGoal.objects.create(user=user, libro=piano)
+
+    client.force_login(user)
+    respuesta = client.get(
+        reverse("my_library:session_launch"), {"instrumento": "piano"}
+    )
+
+    pks = [int(p) for p in respuesta.url.split("items=")[1].split("&")[0].split(",")]
+    sesion = LibraryItem.objects.filter(pk__in=pks)
+    etiquetas = {
+        t.name for item in sesion for t in item.get_content_tags()
+    }
+    assert "instrumento:piano" in etiquetas
+    assert "instrumento:guitarra" not in etiquetas, (
+        "eligiendo piano no puede colarse guitarra en la sesion"
+    )
+
+
+def test_elegir_piano_no_impide_que_se_cree_material_de_guitarra(client, db, user):
+    """La otra mitad de la respuesta, y es la que no se ve.
+
+    `rellenar_para_sesion` corre ANTES del filtro y no sabe nada de las facetas:
+    crea de los TRES objetivos aunque hoy solo se estudie piano. Lo creado de
+    guitarra no entra en la sesion de hoy —el filtro se lo lleva— pero se queda
+    en la biblioteca sin tocar, y compite en las sesiones sin filtrar.
+    """
+    from my_library.models import LibraryGoal
+
+    piano = _libro_etiquetado("Piano", "libro-piano", ["p1", "p2"],
+                              "instrumento:piano")
+    guitarra = _libro_etiquetado("Guit", "libro-guit", ["g1", "g2"],
+                                 "instrumento:guitarra")
+    LibraryGoal.objects.create(user=user, libro=piano)
+    LibraryGoal.objects.create(user=user, libro=guitarra)
+
+    client.force_login(user)
+    client.get(reverse("my_library:session_launch"), {"instrumento": "piano"})
+
+    creados = LibraryItem.objects.filter(user=user)
+    de_guitarra = [
+        i for i in creados
+        if "instrumento:guitarra" in {t.name for t in i.get_content_tags()}
+    ]
+    assert de_guitarra, (
+        "hoy se crea material de guitarra aunque se haya elegido piano: "
+        "el filtro es de seleccion, no de creacion"
+    )

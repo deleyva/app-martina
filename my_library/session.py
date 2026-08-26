@@ -43,12 +43,18 @@ INTERVALO_POR_NIVEL = {
     4: 21,  # me lo sé muy bien
 }
 
-TAMANO_SESION_POR_DEFECTO = 8
+# Subido de 8 a 15 el 2026-08-26, a petición del principal. La unidad sigue
+# siendo el elemento, que es una unidad mentirosa cuando uno es un lick de
+# cuarenta segundos y otro una pieza de catorce minutos: eso lo arregla el
+# presupuesto en minutos, no este número.
+TAMANO_SESION_POR_DEFECTO = 15
 TAMANO_SESION_MAXIMO = 50
 MAX_BLOQUE = 4  # elementos seguidos de la misma temática
 
 # Qué parte de la sesión se reserva para material que nunca se ha practicado.
-# 0.25 de 8 = 2 huecos.
+# 0.2 de 15 = 3 huecos (2026-08-26, petición del principal: tres huecos, no dos).
+# La proporción baja de 0.25 a 0.2 para que el número redondo salga exacto:
+# 15 × 0.25 = 3.75, que redondea a 4.
 #
 # Nació de un defecto real: al principio lo nunca practicado tenía prioridad
 # máxima (`inf`), con la idea de que si no, nunca entraría en rotación. La idea
@@ -56,7 +62,7 @@ MAX_BLOQUE = 4  # elementos seguidos de la misma temática
 # TODO lo demás, así que añadir un libro de 60 ejercicios borraba el repaso
 # durante un mes. Con la cuota, ese mismo libro entra a dos por sesión y el
 # repaso sigue vivo.
-PROPORCION_NOVEDAD = 0.25
+PROPORCION_NOVEDAD = 0.2
 
 
 def intervalo_objetivo(item):
