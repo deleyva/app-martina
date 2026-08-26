@@ -115,7 +115,7 @@ class Command(BaseCommand):
         for n, u in enumerate(construir_sesion(items, tamano=tamano), 1):
             d = dias[u.clave_de_practica]
             cuando = "sin tocar" if d is None else f"hace {d} d"
-            self.stdout.write(f"  {n}. {str(u)[:52]:<52} {cuando}")
+            self.stdout.write(f"  {n:>2}. {_titulo(u)[:56]:<56} {cuando}")
 
         # Para el presupuesto en minutos: cuánto dura de verdad cada elemento.
         self.stdout.write("\nDURACIÓN MEDIDA (para el presupuesto en minutos)")
@@ -148,3 +148,14 @@ def _titulo_del_path(path):
 
     pagina = Page.objects.filter(path=path).first()
     return pagina.title if pagina else f"(path {path})"
+
+
+def _titulo(unidad):
+    """El titulo que se ve, no el `__str__` del modelo.
+
+    `LibraryItem.__str__` empieza por el correo del usuario, asi que la lista
+    entera salia con el correo repetido en cada linea y el titulo cortado.
+    """
+    item = getattr(unidad, "item", None) or unidad
+    objeto = getattr(item, "content_object", None)
+    return getattr(objeto, "title", None) or str(unidad)

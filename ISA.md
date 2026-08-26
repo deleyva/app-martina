@@ -2,7 +2,7 @@
 slug: app-martina
 phase: build
 progress: true
-iteration: 21
+iteration: 22
 principal_stated_goal: "ok, quiero que hagas lo más limpio y con visión de futuro"
 updated: 2026-08-26
 ---
@@ -785,9 +785,9 @@ Desplegado `5cdcb85` y lanzada una sesión: **CAGED seguía sin salir**. El arre
 
 ### Criterios
 
-- [x] **C56 — Con tres grupos de material sin tocar, el libro recién empezado entra y el suelto cede.** *El falsador es doble y los dos importan: si `c1` no sale, el defecto sigue; si sale `suelto` en vez de `l1`, se ha roto el otro libro. Reproducida la forma exacta de producción: en rojo salía `['suelto', 'l1', ...]`, en verde salen `l1` y `c1`. Test: `test_el_libro_recien_empezado_no_asoma_con_tres_grupos`. C54 sigue verde.*
+- [x] **C56 — Con tres grupos de material sin tocar, el libro recién empezado entra y el suelto cede.** *El falsador es doble y los dos importan: si `c1` no sale, el defecto sigue; si sale `suelto` en vez de `l1`, se ha roto el otro libro. Reproducida la forma exacta de producción: en rojo salía `['suelto', 'l1', ...]`, en verde salen `l1` y `c1`. Test: `test_el_libro_recien_empezado_no_asoma_con_tres_grupos`. C54 sigue verde. **Cerrado en producción el 2026-08-26** tras desplegar `c31f13e`: ver la medida de abajo y el navegador.*
 - [x] **C57 — El índice no pinta el comentario de plantilla.** *Verificado que el test FALLA con la plantilla vieja (`git stash` del fichero) y pasa con la nueva: un test de esto que no se pueda poner en rojo no vale para nada. **Cerrado en producción por navegador el 2026-08-26** tras desplegar `5cdcb85`. Test: `test_el_indice_no_pinta_el_comentario_de_plantilla`.*
-- [x] **C58 — Un objetivo pasa por delante de los libros sin objetivo.** *Reproducida la forma de producción DESPUÉS del primer arreglo, que es la que importa: suelto + dos libros sin objetivo con pk bajos + dos objetivos, el recién empezado con el pk más alto. En rojo salían `['libro-uno-a', 'libro-dos-a', ...]`; en verde salen los dos objetivos. Confirmado con `git stash` de `session.py` que el test se pone rojo sin el arreglo. Cuesta UNA consulta por sesión, no una por unidad. Test: `test_el_objetivo_pasa_por_delante_de_los_libros_sin_objetivo`.*
+- [x] **C58 — Un objetivo pasa por delante de los libros sin objetivo.** *Reproducida la forma de producción DESPUÉS del primer arreglo, que es la que importa: suelto + dos libros sin objetivo con pk bajos + dos objetivos, el recién empezado con el pk más alto. En rojo salían `['libro-uno-a', 'libro-dos-a', ...]`; en verde salen los dos objetivos. Confirmado con `git stash` de `session.py` que el test se pone rojo sin el arreglo. Cuesta UNA consulta por sesión, no una por unidad. Test: `test_el_objetivo_pasa_por_delante_de_los_libros_sin_objetivo`. **Cerrado en producción el 2026-08-26**: los tres grupos con objetivo ocupan los tres huecos y los dos sin objetivo se quedan fuera.*
 - [x] **C59 — El comando de medida no escribe.** *El falsador: si llamara a `rellenar_para_sesion`, medir crearía elementos. Y se prueba con la forma de producción, no contra una base vacía: un comando corrido solo en vacío no ha probado ninguna de sus ramas. Tests: `test_estado_estudio_cuenta_los_grupos_que_se_quedan_fuera`, `test_estado_estudio_no_crea_nada`.*
 
 ### Lo que queda
@@ -801,6 +801,35 @@ Desplegado `5cdcb85` y lanzada una sesión: **CAGED seguía sin salir**. El arre
 
 - **Títulos repetidos en la faceta `caged`:** `Example 3.1c`, `Example 3.2a` y `Example 3.2c` salen **dos veces cada uno** en la vista previa filtrada. Puede ser que el libro traiga la misma imagen dos veces, o que haya elementos duplicados en la biblioteca. Sin medir todavía.
 - **El botón «Empezar sesión» no respondió a dos clics sintéticos** del navegador automatizado; navegando a mano a `/my-library/empezar/lanzar/` funciona a la primera. Instrumento sospechoso antes que defecto: no se afirma que el botón esté roto. Comprobarlo con un clic humano.
+
+### La medida de producción que lo cierra (2026-08-26, tras desplegar `c31f13e`)
+
+    biblioteca sin descartar: 52 · con al menos un repaso: 24
+    sesión de 15, cuota de novedad 3
+
+    OBJETIVOS ACTIVOS
+      2 Min. para Improvisar I        sin_tocar=2    reserva=1  crearía=0
+      The Caged System                sin_tocar=1    reserva=1  crearía=0
+      Modern Jazz Guitar (Larsen)     sin_tocar=13   reserva=1  crearía=0
+
+    GRUPOS SIN TOCAR, en el orden en que se sirven
+      1. Modern Jazz Guitar (Larsen)      13 sin tocar · ¿entra? SÍ ← objetivo
+      2. 2 Min. para Improvisar I          2 sin tocar · ¿entra? SÍ ← objetivo
+      3. The Caged System                  1 sin tocar · ¿entra? SÍ ← objetivo
+      4. Índice de recursos musicales     12 sin tocar · ¿entra? no
+      5. (suelto, sin página)              1 sin tocar · ¿entra? no
+      → 2 grupos fuera: hay 5 y solo 3 huecos.
+
+**Los tres objetivos ocupan los tres huecos, y los dos grupos sin objetivo ceden.** Es exactamente lo que compraron C58 y la fase 17 juntas. Confirmado además en el navegador con la sesión del principal: `1/15`, primer elemento `Chapter One - What is the CAGED System? — img-001.png`, etiquetado `concepto:caged`.
+
+### Y la calibración para el presupuesto en minutos, ya medida
+
+    elementos con duración: 23
+    mediana de las medianas: 49 s
+    mínimo / máximo: 11 s / 469 s
+    una sesión de 15 de los más cortos: ~9 min
+
+**El rango es de 42×.** Once segundos el más corto, casi ocho minutos el más largo. Ahí está, medido, el argumento entero de por qué "15 elementos" no es una unidad: dos sesiones del mismo tamaño nominal pueden durar nueve minutos o casi dos horas. Estos 23 elementos con duración son la base para calibrar el presupuesto.
 
 ## Fase 17 — Sesión de 15 con tres huecos de novedad, y qué pasa al filtrar por instrumento · SIN DESPLEGAR
 
