@@ -997,8 +997,22 @@ El ancho completo **sigue siendo el modo normal** y no se toca. Se añade un mod
 - **Una referencia rota no tumba nada.** Una página borrada o despublicada se salta; los duplicados dentro de un mismo libro también, porque referenciar dos veces la misma página no añade material y rompería el conteo de progreso.
 - **El `orden` es una foto del momento de crear.** Reordenar el libro después cambia el orden de lo que queda por crear, no el de lo ya creado. Recalcularlo en cada sesión obligaría a recorrer todo el material del libro, parseando el StreamField y el RichText de cada capítulo, en cada carga.
 
+### Desplegado, y la medida que cierra el síntoma (2026-08-27)
+
+Las tres migraciones aplicaron limpias en producción. Medido justo después:
+
+    OBJETIVOS ACTIVOS
+      2 Min. para Improvisar I    material=44    en_biblioteca=2    sin_tocar=0  crearía=1
+      The Caged System            material=302   en_biblioteca=18   sin_tocar=1  crearía=0
+      Modern Jazz Guitar (Larsen) material=93    en_biblioteca=23   sin_tocar=8  crearía=0
+
+**`material=44` es la prueba.** Ese libro es de embeds, y antes de esta fase `material_de` no los miraba: para el sistema tenía CERO material practicable, así que la creación perezosa no podía darle nada por mucho que fuera objetivo. Ahora ve 44, tiene 2 en la biblioteca y crearía el siguiente. Es exactamente el síntoma que reportó el principal, y no era del reparto: era que no había nada que repartir.
+
+De paso queda medido el tamaño real de los otros dos: 302 y 93 elementos practicables, de los que hay 18 y 23 en la biblioteca. La creación perezosa de la fase 11 se gana el sueldo: copiarlos por adelantado habría metido 439 elementos en una biblioteca de 52.
+
 ### Lo que queda
 
-- **Desplegar y verificar en producción**, empezando por el síntoma que lo motivó: que «2 Min. para Improvisar» empiece a dar material nuevo. `estado_estudio` enseña ahora `material=` y `en_biblioteca=` por objetivo, que es justo lo que responde a «¿por qué no me mete nada?».
+- **Verificar en navegador que la sesión sirve ese material.** La medida dice que el sistema YA lo ve; falta ver una sesión de «2 Min. para Improvisar» con vídeos dentro. No está hecho: la ventana automatizada se abrió sin sesión iniciada y el login es por Google, que no puedo pasar yo.
+- **Un `LibroDeEstudioPage` de verdad, creado a mano**, para cerrar C69 y C70 fuera de los tests. Hasta que el principal cree uno, la forma está probada pero no usada.
 - **Reordenar un libro no renumera lo ya creado.** Si llega a molestar, un comando que renumere es pequeño; hoy no hay evidencia de que haga falta.
 - **`DictadoPage` no aporta material**: no tiene ninguno de los accesores. Se puede referenciar, pero no dará elementos de estudio.
