@@ -196,6 +196,38 @@ class LibraryItem(models.Model):
         help_text="Página desde la que se añadió este elemento",
     )
 
+    # De qué libro salió, cuando el libro no es su padre en el árbol.
+    #
+    # Solo lo llevan los elementos de un `LibroDeEstudioPage`, que agrupa por
+    # REFERENCIA: sus capítulos viven en otro sitio del árbol, así que
+    # `source_page.path` no dice a qué libro pertenece esto. Para los libros por
+    # árbol se queda a `None` a propósito, y el libro se sigue deduciendo del
+    # path del padre — mezclarlo partiría en dos el grupo de un mismo libro,
+    # unos elementos por FK y otros por path.
+    libro = models.ForeignKey(
+        "wagtailcore.Page",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="library_items_del_libro",
+        verbose_name="Libro de origen",
+        help_text="Solo para libros que agrupan páginas por referencia",
+    )
+
+    # Dónde va este elemento en el orden del libro.
+    #
+    # Sin esto la sesión ordena lo nuevo por pk, que coincide con el orden del
+    # libro solo porque la creación es secuencial: en cuanto se reordena el
+    # libro o se le mete un capítulo en medio, deja de coincidir. Y con libros
+    # por referencia deja de coincidir siempre, porque las páginas se
+    # referencian en cualquier orden y sus pk son los que son.
+    #
+    # Se asigna al crear, y es el índice del material dentro de la secuencia
+    # completa del libro. `ItemSection` ya tenía el suyo desde la fase 6.
+    orden = models.PositiveIntegerField(
+        default=0, verbose_name="Orden en el libro"
+    )
+
     # Descartado: fuera de la cola, y el objetivo no lo vuelve a ofrecer.
     #
     # No basta con borrar la fila: con creación perezosa el objetivo la

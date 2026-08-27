@@ -2468,3 +2468,168 @@ def test_los_chips_de_objetivo_salen_en_la_pantalla_de_empezar(client, db, user)
     assert "Seguir un libro" in html
     assert "El Sistema CAGED" in html
     assert 'name="libro"' in html
+
+
+# === Libros por referencia (fase 21) ===
+
+
+def _libro_por_referencia(titulo, slug, paginas):
+    """Un `LibroDeEstudioPage` que apunta a paginas que ya viven en el arbol."""
+    from cms.models import LibroDeEstudioPage
+    from wagtail.models import Page
+
+    raiz = Page.objects.get(id=2)
+    libro = LibroDeEstudioPage(
+        title=titulo,
+        slug=slug,
+        capitulos=[("pagina", p) for p in paginas],
+    )
+    raiz.add_child(instance=libro)
+    libro.save_revision().publish()
+    return libro
+
+
+def test_una_pagina_puede_estar_en_dos_libros_a_la_vez(db):
+    """C69. Es la razon de ser de todo esto: en el arbol una pagina tiene UN
+    padre, asi que agrupar por el arbol obliga a elegir un solo libro para
+    siempre. El falsador es directo: si `capitulos_de` de los dos libros no
+    devuelve la misma pagina, no sirve."""
+    from my_library.libros import capitulos_de
+
+    _libro, capitulos = _libro_con_capitulos(
+        "Sueltas", "paginas-sueltas", [("Hotel California", ["hc1"])]
+    )
+    cancion = capitulos[0][0]
+
+    setenta = _libro_por_referencia("Los 70", "los-70", [cancion])
+    eso = _libro_por_referencia("3 ESO", "tres-eso", [cancion])
+
+    assert [p.pk for p in capitulos_de(setenta)] == [cancion.pk]
+    assert [p.pk for p in capitulos_de(eso)] == [cancion.pk]
+    assert cancion.get_parent().pk not in (setenta.pk, eso.pk), (
+        "la cancion sigue colgando de donde estaba: no se le ha tocado la URL"
+    )
+
+
+def test_el_orden_del_libro_manda_sobre_el_pk(db, user):
+    """C70. El defecto que abre la fase: la sesion ordenaba lo nuevo por pk.
+
+    Aqui las paginas se referencian al REVES de su pk, que es justo lo que pasa
+    cuando juntas canciones escritas en meses distintos. El falsador: sin el
+    campo `orden`, sale el orden de pk y este test se pone rojo.
+    """
+    from my_library.libros import siguiente_del_objetivo
+    from my_library.models import LibraryGoal
+    from my_library.session import construir_sesion
+
+    _libro, capitulos = _libro_con_capitulos(
+        "Sueltas",
+        "paginas-sueltas",
+        [("Enero", ["a1"]), ("Marzo", ["b1"]), ("Septiembre", ["c1"])],
+    )
+    paginas = [c[0] for c in capitulos]  # pk creciente: Enero, Marzo, Septiembre
+
+    # En el libro las quiere al reves.
+    libro = _libro_por_referencia("Los 70", "los-70", list(reversed(paginas)))
+    LibraryGoal.objects.create(user=user, libro=libro)
+
+    creados = siguiente_del_objetivo(user, libro, cuantos=3)
+    assert [i.content_object.title for i in creados] == ["c1", "b1", "a1"]
+
+    sesion = construir_sesion(LibraryItem.objects.filter(user=user), tamano=15)
+    assert [u.content_object.title for u in sesion] == ["c1", "b1", "a1"], (
+        "la sesion tiene que servir el orden del libro, no el de los pk"
+    )
+
+
+def test_el_cuerpo_sale_en_orden_estricto_y_antes_que_los_adjuntos(db):
+    """C71. Decision del principal (2026-08-27): primero el cuerpo, en orden de
+    aparicion, y despues los adjuntos.
+
+    El falsador: `get_images()` devuelve los adjuntos PRIMERO y luego el cuerpo,
+    asi que si `material_de` se apoyara en el, el orden saldria al reves.
+    """
+    from wagtail.images import get_image_model
+
+    from my_library.libros import material_de
+
+    Imagen = get_image_model()
+    dentro = [
+        Imagen.objects.create(title=f"cuerpo-{n}", file=_imagen_minima(f"cuerpo-{n}"))
+        for n in range(3)
+    ]
+    adjunta = Imagen.objects.create(title="adjunta", file=_imagen_minima("adjunta"))
+
+    # El cuerpo las nombra en orden 2, 0, 1: el orden de aparicion no es el de pk.
+    orden_en_el_texto = [dentro[2], dentro[0], dentro[1]]
+    cuerpo = "".join(
+        f'<p>t</p><embed embedtype="image" id="{i.pk}" alt="{i.title}" format="fullwidth"/>'
+        for i in orden_en_el_texto
+    )
+    pagina = _pagina_blog_con_cuerpo("Cancion", "cancion", cuerpo, adjunta)
+
+    titulos = [o.title for o in material_de(pagina)]
+
+    assert titulos[:3] == ["cuerpo-2", "cuerpo-0", "cuerpo-1"], titulos
+    assert titulos[3] == "adjunta", f"los adjuntos van detras: {titulos}"
+    assert len(titulos) == 4, f"y nada duplicado: {titulos}"
+
+
+def test_un_embed_del_cuerpo_es_material_de_estudio(db):
+    """C72. Hasta hoy `material_de` no miraba los embeds: una pagina de cancion
+    con un YouTube incrustado no aportaba ni un elemento de estudio, aunque la
+    biblioteca lleva guardando embeds desde antes.
+
+    El embed se pre-siembra en la BD para que `get_embed` no salga a la red.
+    """
+    from wagtail.embeds.embeds import get_embed_hash
+    from wagtail.embeds.models import Embed
+
+    from my_library.libros import material_de
+
+    url = "https://www.youtube.com/watch?v=cancion"
+    Embed.objects.create(
+        hash=get_embed_hash(url, None, None),
+        url=url,
+        max_width=None,
+        type="video",
+        html="<iframe></iframe>",
+        title="La cancion en YouTube",
+        provider_name="YouTube",
+        thumbnail_url="",
+        width=480,
+        height=270,
+    )
+    cuerpo = f'<p>t</p><embed embedtype="media" url="{url}"/>'
+    pagina = _pagina_blog_con_cuerpo("Cancion", "cancion", cuerpo, None)
+
+    material = material_de(pagina)
+
+    assert [type(o).__name__ for o in material] == ["Embed"], material
+    assert material[0].url == url
+
+
+def _pagina_blog_con_cuerpo(titulo, slug, cuerpo, imagen_adjunta):
+    """Una `BlogPage` con cuerpo y, si se pide, una imagen adjunta."""
+    from cms.models import BlogIndexPage, BlogPage
+    from wagtail.models import Page
+
+    raiz = Page.objects.get(id=2)
+    indice = BlogIndexPage(title=f"idx-{slug}", slug=f"idx-{slug}")
+    raiz.add_child(instance=indice)
+
+    adjuntos = []
+    if imagen_adjunta is not None:
+        adjuntos.append(("image", {"image": imagen_adjunta, "caption": ""}))
+
+    pagina = BlogPage(
+        title=titulo,
+        slug=slug,
+        date=timezone.now().date(),
+        intro="i",
+        body=cuerpo,
+        attachments=adjuntos,
+    )
+    indice.add_child(instance=pagina)
+    pagina.save_revision().publish()
+    return pagina

@@ -75,8 +75,16 @@ class Command(BaseCommand):
             capitulos = libros.capitulos_de(libro)
             paths_con_objetivo.add(libro.path)
             faltan = max(0, reserva - sin_tocar)
+            # El total de material es lo que responde a "¿por qué no me mete
+            # nada nuevo?": si sale 0 o igual a lo que ya hay, el objetivo no
+            # tiene de dónde sacar, y eso no es un fallo del reparto.
+            total_material = len(libros.material_del_libro(libro))
+            ya = LibraryItem.objects.filter(
+                user=user, source_page__in=capitulos
+            ).count()
             self.stdout.write(
-                f"  {libro.title[:44]:<44} sin_tocar={sin_tocar:<3} "
+                f"  {libro.title[:40]:<40} material={total_material:<4} "
+                f"en_biblioteca={ya:<4} sin_tocar={sin_tocar:<3} "
                 f"reserva={reserva} crearía={faltan}"
             )
 

@@ -1827,6 +1827,89 @@ class SetlistPage(Page):
         return scores
 
 
+class LibroDeEstudioPage(Page):
+    """Un libro que agrupa paginas que YA EXISTEN, sin moverlas del arbol.
+
+    El problema que resuelve, y por que no vale un `BlogIndexPage`: en Wagtail
+    una pagina tiene UN padre, y su URL sale de ahi. Para juntar cuatro
+    canciones de los 70 en un libro habria que moverlas, lo que les cambia la
+    URL y, sobre todo, **las deja sin poder estar en ningun otro libro**. Una
+    cancion pertenece a varios sitios a la vez ("los 70", "3 ESO", "acordes
+    abiertos"), y el arbol no sabe expresar eso.
+
+    Aqui el libro guarda REFERENCIAS. La pagina se queda donde vive, con su
+    URL, y N libros la apuntan. Es el mismo patron que `SetlistPage` usa con
+    las partituras, ampliado a cualquier pagina con material practicable.
+
+    **El orden de los bloques ES el orden de estudio.** Arrastrar un capitulo
+    en el editor cambia el orden en que su material sale en las sesiones, sin
+    tocar nada mas.
+    """
+
+    intro = RichTextField(blank=True, help_text="De que va este libro")
+
+    cover_image = models.ForeignKey(
+        "wagtailimages.Image",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+        verbose_name="Portada",
+    )
+
+    capitulos = StreamField(
+        [
+            (
+                "pagina",
+                PageChooserBlock(
+                    page_type=["cms.BlogPage", "cms.ScorePage", "cms.DictadoPage"],
+                    help_text="Una pagina que ya existe. El orden manda.",
+                ),
+            ),
+        ],
+        blank=True,
+        use_json_field=True,
+        verbose_name="Capitulos",
+        help_text="Arrastra para ordenar: este es el orden en que saldra a estudiar.",
+    )
+
+    content_panels = Page.content_panels + [
+        FieldPanel("intro"),
+        FieldPanel("cover_image"),
+        FieldPanel("capitulos"),
+    ]
+
+    subpage_types = []
+
+    class Meta:
+        verbose_name = "Libro de estudio"
+        verbose_name_plural = "Libros de estudio"
+
+    def get_context(self, request, *args, **kwargs):
+        contexto = super().get_context(request, *args, **kwargs)
+        contexto["capitulos"] = self.paginas_referenciadas()
+        return contexto
+
+    def paginas_referenciadas(self):
+        """Las paginas del libro, en el orden de los bloques.
+
+        Se saltan las que ya no existen o no estan publicadas: un libro con una
+        referencia rota tiene que seguir funcionando, no reventar la sesion.
+        Se saltan tambien los duplicados, porque referenciar dos veces la misma
+        pagina no anade material y si romperia el conteo de progreso.
+        """
+        paginas, vistas = [], set()
+        for bloque in self.capitulos:
+            if bloque.block_type != "pagina":
+                continue
+            pagina = bloque.value
+            if pagina is None or not pagina.live or pagina.pk in vistas:
+                continue
+            vistas.add(pagina.pk)
+            paginas.append(pagina.specific)
+        return paginas
+
+
 # =============================================================================
 # FIN DE MUSIC PILLS MODELS
 # =============================================================================

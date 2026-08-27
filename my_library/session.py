@@ -266,6 +266,14 @@ def _libro_de(unidad):
     from wagtail.models import Page
 
     item = getattr(unidad, "item", None) or unidad
+
+    # Los libros por REFERENCIA lo llevan escrito: sus capítulos viven en otro
+    # sitio del árbol, así que el path del padre no dice nada de a qué libro
+    # pertenece esto. Se devuelve con etiqueta para que un id de página no
+    # pueda coincidir por accidente con un path.
+    if getattr(item, "libro_id", None):
+        return ("ref", item.libro_id)
+
     pagina = getattr(item, "source_page", None)
     if pagina is None:
         return None
@@ -349,12 +357,24 @@ def _repartir_por_libro(nuevos):
     return repartido
 
 
-def filtrar_por_libros(items, paths):
+def clave_de_libro(pagina):
+    """La clave con la que `_libro_de` identifica a los elementos de este libro.
+
+    Existe para que las vistas no tengan que saber si un libro agrupa por árbol
+    o por referencia: preguntan aquí y comparan.
+    """
+    especifica = getattr(pagina, "specific", pagina)
+    if callable(getattr(especifica, "paginas_referenciadas", None)):
+        return ("ref", especifica.pk)
+    return especifica.path
+
+
+def filtrar_por_libros(items, claves):
     """Elementos que salen de alguno de estos libros.
 
-    `paths` son los `path` de treebeard de los libros (no sus pk): así el
-    filtro es una comparación de cadenas contra lo que ya calcula `_libro_de`,
-    sin una consulta por elemento.
+    `claves` son lo que devuelve `clave_de_libro`: el `path` de treebeard para
+    los libros por árbol, `("ref", pk)` para los de referencia. Así el filtro
+    compara contra lo que ya calcula `_libro_de`, sin una consulta por elemento.
 
     Es un filtro DISTINTO al de facetas y por eso vive aparte. Una faceta
     describe el contenido ("de guitarra", "de blues"); un libro es un
@@ -364,10 +384,10 @@ def filtrar_por_libros(items, paths):
 
     Una lista vacía no filtra nada: devuelve todo.
     """
-    paths = set(paths or [])
-    if not paths:
+    claves = set(claves or [])
+    if not claves:
         return list(items)
-    return [u for u in items if _libro_de(u) in paths]
+    return [u for u in items if _libro_de(u) in claves]
 
 
 def construir_sesion(items, tamano=TAMANO_SESION_POR_DEFECTO):

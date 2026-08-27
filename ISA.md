@@ -2,7 +2,7 @@
 slug: app-martina
 phase: build
 progress: true
-iteration: 25
+iteration: 26
 principal_stated_goal: "ok, quiero que hagas lo más limpio y con visión de futuro"
 updated: 2026-08-26
 ---
@@ -46,6 +46,7 @@ updated: 2026-08-26
 | 18 | **El filtro frena también la creación** (C63) | `6d3e7e8` |
 | 19 | **Seguir un libro desde la pantalla de empezar** (C64-C67) | `c28869d` |
 | 20 | **Encajar la imagen en la pantalla** (C68) | `c28869d` |
+| 21 | **Libros por referencia, orden del libro y embeds como material** (C69-C72) | sin desplegar |
 
 ### Lo siguiente, por orden
 
@@ -953,3 +954,51 @@ El ancho completo **sigue siendo el modo normal** y no se toca. Se añade un mod
 ### Lo que queda
 
 - **El botón solo está en el menú.** Dos toques. Si al usarlo de verdad estorba, un atajo de teclado es una línea, pero toca el manejador de `keydown` que ya se acumula en cada carga (deuda de la fase 13), así que conviene arreglar eso primero.
+
+## Fase 21 — Libros que agrupan páginas por referencia, y el orden del libro manda · SIN DESPLEGAR
+
+**Petición del principal (2026-08-27):** juntar canciones que ya existen en libros temáticos («Música de los años 70»), ponerlos como objetivo, y que el material salga **en el orden que se ve en el libro** y, dentro de cada página, **por orden de aparición**.
+
+### Lo que se comprobó antes de tocar nada, porque medio recuerdo era falso
+
+- **El orden de los capítulos NO era el pk.** `capitulos_de` ordena por el `path` de treebeard, o sea el orden que se ve y se arrastra en el explorador de Wagtail. Eso ya estaba bien.
+- **Donde sí mandaba el pk era al ELEGIR** qué material nuevo entra en la sesión: `construir_sesion` ordenaba lo nuevo por pk, y coincidía con el orden del libro solo porque la creación es secuencial. El instinto del principal era correcto, apuntaba al sitio equivocado.
+- **Y había un agujero que nadie había mencionado: los embeds y los vídeos no se recogían.** `material_de` cogía imágenes, PDF y audios; `get_embeds`, `get_videos` y `get_external_links` existían en el modelo y **no los llamaba nadie**. Esto explica un síntoma que el principal reportó el mismo día: *"si selecciono 2 minutos para improvisar, he hecho ya dos o tres estudios y no me mete vídeos nuevos"*. Ese libro es de embeds, así que la creación perezosa nunca tuvo nada que ofrecer.
+
+### La pregunta que decidió el diseño
+
+*"¿Una BlogPage podría estar colgando de varios libros?"* **No.** En Wagtail una página tiene UN padre y su URL sale de ahí; eso es de treebeard y no se negocia. Agrupar por el árbol obliga a elegir un solo libro para siempre, y una canción pertenece a varios a la vez («los 70», «3 ESO», «acordes abiertos»).
+
+**Por eso el libro guarda referencias.** `LibroDeEstudioPage` es un StreamField de `PageChooserBlock`: la página se queda donde vive, con su URL, y N libros la apuntan. Es el patrón que ya usaba `SetlistPage` con las partituras, ampliado. El orden de los bloques ES el orden de estudio.
+
+### Las tres piezas, y por qué la tercera no era opcional
+
+1. **El libro por referencia.** `capitulos_de` distingue las dos formas por capacidad y no por `isinstance`, para no atar `my_library` a un tipo concreto de `cms`.
+2. **El orden dentro de la página.** Primero el cuerpo en orden ESTRICTO de aparición —imágenes y embeds mezclados según dónde estén escritos— y después los adjuntos. Decisión del principal. **Los dos grupos no se pueden entrelazar** y conviene que quede dicho: cuerpo y adjuntos son campos distintos del modelo, sin orden común; cuál va primero es una regla elegida, no un dato que se pueda leer.
+3. **`LibraryItem.orden`.** Sin este campo las dos primeras piezas son invisibles: la sesión seguiría sirviendo por pk. Es la pieza que el principal no pidió y la que sostiene las otras dos. `ItemSection` ya tenía el suyo desde la fase 6.
+
+**`LibraryItem.libro` solo se guarda en los libros por referencia**, a propósito. En los de árbol el libro se sigue deduciendo del path del padre: rellenarlo en unos sí y en otros no partiría en dos el grupo de un mismo libro, unos elementos por FK y otros por path, y el reparto de la novedad los trataría como libros distintos.
+
+### La migración de datos, y por qué hacía falta
+
+`0012` rellena `orden` en los elementos que ya existen, reconstruyéndolo como `(path del capítulo, pk)`. **No es opcional:** dejarlos a 0 mandaría todo lo viejo delante de todo lo nuevo y el orden saldría peor que antes de la fase. Lo que reconstruye es exactamente lo que ya había, pero escrito en un campo en vez de deducido del pk.
+
+### Criterios
+
+- [x] **C69 — Una página puede estar en dos libros a la vez.** *La razón de ser de la fase. El falsador es directo: si `capitulos_de` de los dos libros no devuelve la misma página, no sirve. Se comprueba además que la canción sigue colgando de donde estaba, o sea que no se le ha tocado la URL. Test: `test_una_pagina_puede_estar_en_dos_libros_a_la_vez`.*
+- [x] **C70 — El orden del libro manda sobre el pk.** *Tres páginas referenciadas al REVÉS de su pk, que es lo que pasa al juntar canciones escritas en meses distintos. Sale `c1, b1, a1` en la creación y en la sesión. El falsador: sin el campo `orden`, sale el orden de pk. Test: `test_el_orden_del_libro_manda_sobre_el_pk`.*
+- [x] **C71 — El cuerpo sale en orden estricto y antes que los adjuntos.** *El falsador importa y es sutil: `get_images()` devuelve los adjuntos PRIMERO y luego el cuerpo, así que apoyarse en él da el orden al revés. Se comprueba también que nada sale duplicado, que es el riesgo de sumar las dos fuentes. Test: `test_el_cuerpo_sale_en_orden_estricto_y_antes_que_los_adjuntos`.*
+- [x] **C72 — Un embed del cuerpo es material de estudio.** *Lo que faltaba para «2 Min. para Improvisar». El embed se pre-siembra en la BD por su hash para que `get_embed` no salga a la red durante el test. Test: `test_un_embed_del_cuerpo_es_material_de_estudio`.*
+
+### Anti-claims
+
+- **Los libros por árbol no cambian.** Jens Larsen y CAGED siguen funcionando igual: mismo orden, mismo reparto, misma deducción del libro por el path.
+- **No se mueve ninguna página ni se toca ninguna URL.** Es la propiedad que compra todo lo demás.
+- **Una referencia rota no tumba nada.** Una página borrada o despublicada se salta; los duplicados dentro de un mismo libro también, porque referenciar dos veces la misma página no añade material y rompería el conteo de progreso.
+- **El `orden` es una foto del momento de crear.** Reordenar el libro después cambia el orden de lo que queda por crear, no el de lo ya creado. Recalcularlo en cada sesión obligaría a recorrer todo el material del libro, parseando el StreamField y el RichText de cada capítulo, en cada carga.
+
+### Lo que queda
+
+- **Desplegar y verificar en producción**, empezando por el síntoma que lo motivó: que «2 Min. para Improvisar» empiece a dar material nuevo. `estado_estudio` enseña ahora `material=` y `en_biblioteca=` por objetivo, que es justo lo que responde a «¿por qué no me mete nada?».
+- **Reordenar un libro no renumera lo ya creado.** Si llega a molestar, un comando que renumere es pequeño; hoy no hay evidencia de que haga falta.
+- **`DictadoPage` no aporta material**: no tiene ninguno de los accesores. Se puede referenciar, pero no dará elementos de estudio.

@@ -19,6 +19,7 @@ from .libros import rellenar_para_sesion
 from .session import (
     PROPORCION_NOVEDAD,
     TAMANO_SESION_POR_DEFECTO,
+    clave_de_libro,
     construir_sesion,
     filtrar_por_libros,
     facetas_disponibles,
@@ -799,7 +800,7 @@ def _chips_de_objetivo(request, items):
     """Un chip por objetivo activo, con cuántos elementos tiene ya y si está
     elegido. Se arma en la vista porque la plantilla no puede resolverlo."""
     from my_library.models import LibraryGoal
-    from my_library.session import _libro_de
+    from my_library.session import _libro_de, clave_de_libro
 
     elegidos = {o.libro_id for o in _objetivos_de(request)}
     objetivos = LibraryGoal.objects.filter(
@@ -808,20 +809,22 @@ def _chips_de_objetivo(request, items):
 
     chips = []
     for o in objetivos:
-        path = o.libro.path
+        clave = clave_de_libro(o.libro)
         chips.append(
             {
                 "id": o.libro_id,
                 "titulo": o.libro.title,
-                "cuantos": sum(1 for i in items if _libro_de(i) == path),
+                "cuantos": sum(1 for i in items if _libro_de(i) == clave),
                 "seleccionado": o.libro_id in elegidos,
             }
         )
     return chips
 
 
-def _paths_elegidos(request):
-    return [o.libro.path for o in _objetivos_de(request)]
+def _claves_elegidas(request):
+    from my_library.session import clave_de_libro
+
+    return [clave_de_libro(o.libro) for o in _objetivos_de(request)]
 
 
 @login_required
@@ -861,20 +864,20 @@ def session_start(request):
             "objetivos": _chips_de_objetivo(request, items),
             "total_biblioteca": len(items),
             "tamano_sesion": TAMANO_SESION_POR_DEFECTO,
-            **_resumen_seleccion(items, seleccion, _paths_elegidos(request)),
+            **_resumen_seleccion(items, seleccion, _claves_elegidas(request)),
         },
     )
 
 
-def _resumen_seleccion(items, seleccion, paths=None):
+def _resumen_seleccion(items, seleccion, claves=None):
     """El libro estrecha primero y las facetas después: es Y entre los dos."""
-    coincidencias = filtrar_por_libros(items, paths)
+    coincidencias = filtrar_por_libros(items, claves)
     coincidencias = filtrar_por_facetas(coincidencias, seleccion)
     sesion = construir_sesion(coincidencias, tamano=TAMANO_SESION_POR_DEFECTO)
     return {
         "coincidencias": len(coincidencias),
         "sesion": sesion,
-        "hay_seleccion": bool(seleccion) or bool(paths),
+        "hay_seleccion": bool(seleccion) or bool(claves),
     }
 
 
@@ -888,7 +891,7 @@ def session_count(request):
         {
             "tamano_sesion": TAMANO_SESION_POR_DEFECTO,
             **_resumen_seleccion(
-                items, _seleccion_de(request), _paths_elegidos(request)
+                items, _seleccion_de(request), _claves_elegidas(request)
             ),
         },
     )
@@ -914,7 +917,9 @@ def session_launch(request):
 
     items = list(_items_del_usuario(request.user))
 
-    coincidencias = filtrar_por_libros(items, [o.libro.path for o in objetivos])
+    coincidencias = filtrar_por_libros(
+        items, [clave_de_libro(o.libro) for o in objetivos]
+    )
     coincidencias = filtrar_por_facetas(coincidencias, seleccion)
     if not coincidencias:
         messages.warning(request, "No hay elementos que casen con esa selección.")

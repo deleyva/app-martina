@@ -23,34 +23,128 @@ from my_library.models import LibraryItem
 
 
 def capitulos_de(libro):
-    """Los capítulos publicados del libro, en el orden del libro."""
+    """Los capítulos publicados del libro, en el orden del libro.
+
+    Conviven DOS formas de libro, a propósito:
+
+    - **Por árbol.** Un índice con páginas colgando debajo. Es como llegaron los
+      libros importados (Jens Larsen, CAGED). El orden es el `path` de
+      treebeard, o sea el que se ve y se arrastra en el explorador de Wagtail.
+    - **Por referencia.** `LibroDeEstudioPage` apunta a páginas que viven en
+      otro sitio del árbol. Es la única forma de que una canción esté en varios
+      libros a la vez: en Wagtail una página tiene UN padre y su URL sale de
+      ahí, así que agrupar por el árbol obliga a elegir un solo libro para
+      siempre. El orden es el de los bloques.
+
+    Se distinguen por capacidad y no por `isinstance` para no atar `my_library`
+    a un tipo concreto de `cms`: cualquier página que sepa decir qué páginas
+    referencia se comporta como un libro por referencia.
+    """
     from cms.models import BlogPage
 
+    referencias = getattr(libro, "paginas_referenciadas", None)
+    if callable(referencias):
+        return referencias()
     return list(BlogPage.objects.child_of(libro).live().order_by("path"))
 
 
-def material_de(capitulo):
-    """Los medios practicables de un capítulo, en el orden en que aparecen.
+def _incrustado_en_el_cuerpo(pagina):
+    """Lo que va dentro del texto, en orden ESTRICTO de aparición.
 
-    Imágenes primero porque son el caso mayoritario y las que llevan la
-    partitura; después los PDF y los audios. `get_images` ya mezcla las de
-    los bloques adjuntos con las incrustadas en el texto, que son las que de
-    verdad usan estos libros: el capítulo 1 de Jens Larsen tiene cero bloques
-    y dieciséis imágenes dentro del cuerpo.
+    Imágenes y embeds mezclados según dónde estén escritos, que es como se lee
+    la página. `get_images()` no vale para esto: devuelve primero los adjuntos
+    y luego el cuerpo, así que pierde justo el orden que aquí importa.
+
+    Los embeds (YouTube, Vimeo…) se resuelven a `wagtail.embeds.models.Embed`,
+    que es un modelo con pk y por tanto puede ser el contenido de un
+    `LibraryItem` — la biblioteca ya guarda embeds así desde antes.
     """
-    objetos = list(capitulo.get_images() or [])
+    cuerpo = getattr(pagina, "body", None)
+    if not cuerpo or "<embed" not in cuerpo:
+        return []
 
-    for bloque in capitulo.get_pdf_blocks() or []:
-        documento = bloque.get("pdf_file") if hasattr(bloque, "get") else None
-        if documento:
-            objetos.append(documento)
+    from bs4 import BeautifulSoup
+    from wagtail.embeds.embeds import get_embed
+    from wagtail.embeds.exceptions import EmbedException
+    from wagtail.images import get_image_model
 
-    for bloque in capitulo.get_audios() or []:
-        documento = bloque.get("audio_file") if hasattr(bloque, "get") else None
-        if documento:
-            objetos.append(documento)
+    sopa = BeautifulSoup(cuerpo, "html.parser")
+    etiquetas = sopa.find_all("embed")
 
-    return [o for o in objetos if o is not None]
+    # Las imágenes se resuelven en UNA consulta, no una por etiqueta.
+    Imagen = get_image_model()
+    ids = [t.get("id") for t in etiquetas if t.get("embedtype") == "image" and t.get("id")]
+    imagenes = {str(i.pk): i for i in Imagen.objects.filter(pk__in=ids)} if ids else {}
+
+    salida = []
+    for etiqueta in etiquetas:
+        tipo = etiqueta.get("embedtype")
+        if tipo == "image":
+            imagen = imagenes.get(str(etiqueta.get("id")))
+            if imagen is not None:
+                salida.append(imagen)
+        elif tipo == "media" and etiqueta.get("url"):
+            try:
+                # Puede pegarle a la red la primera vez; después va de la BD.
+                salida.append(get_embed(etiqueta["url"]))
+            except EmbedException:
+                # Un embed que el proveedor ya no sirve no puede tumbar el libro.
+                continue
+    return salida
+
+
+def _de_los_adjuntos(pagina):
+    """Los adjuntos del StreamField, por tipo y en el orden en que se pusieron.
+
+    Se piden con `getattr` porque no todas las páginas referenciables tienen
+    los mismos accesores: `BlogPage` y `ScorePage` sí, `DictadoPage` no ninguno.
+    """
+    salida = []
+
+    def _acceso(nombre):
+        metodo = getattr(pagina, nombre, None)
+        return list(metodo() or []) if callable(metodo) else []
+
+    salida.extend(_acceso("get_images"))
+    for campo, nombre in (
+        ("pdf_file", "get_pdf_blocks"),
+        ("audio_file", "get_audios"),
+        ("video_file", "get_videos"),
+    ):
+        for bloque in _acceso(nombre):
+            documento = bloque.get(campo) if hasattr(bloque, "get") else None
+            if documento is not None:
+                salida.append(documento)
+    return salida
+
+
+def material_de(capitulo):
+    """Los medios practicables de un capítulo, en orden de aparición.
+
+    **Primero el cuerpo, luego los adjuntos** (decisión del principal,
+    2026-08-27). Dentro del cuerpo el orden es estricto: imágenes y embeds
+    salen según dónde estén escritos, porque ahí es donde está el hilo con el
+    que se explica la pieza.
+
+    Los dos grupos NO se pueden entrelazar, y conviene que quede dicho: el
+    cuerpo y los adjuntos son campos distintos del modelo, sin ningún orden
+    común entre ellos. Cuál va primero es una regla elegida, no un dato que se
+    pueda leer de la página.
+
+    Se deduplica porque `get_images()` devuelve adjuntos Y cuerpo mezclados: sin
+    esto, una imagen incrustada saldría dos veces, y la segunda con el orden
+    equivocado.
+    """
+    objetos, vistos = [], set()
+    for objeto in list(_incrustado_en_el_cuerpo(capitulo)) + list(_de_los_adjuntos(capitulo)):
+        if objeto is None:
+            continue
+        clave = (objeto.__class__.__name__, objeto.pk)
+        if clave in vistos:
+            continue
+        vistos.add(clave)
+        objetos.append(objeto)
+    return objetos
 
 
 def material_del_libro(libro):
@@ -104,12 +198,25 @@ def siguiente_del_objetivo(user, libro, cuantos=1):
     Esta es la creación perezosa: hasta que un elemento no toca, no existe.
     Se salta lo que ya tiene fila, descartado incluido, así que la cola avanza
     por el libro y no se atasca en lo que el principal ya dijo que no.
+
+    **El `orden` es una foto del momento de crear.** Reordenar el libro después
+    cambia el orden de lo que quede por crear, no el de lo ya creado. Para el
+    uso normal —montar el libro y luego estudiarlo— es lo correcto y es barato;
+    recalcularlo en cada sesión obligaría a recorrer todo el material del libro,
+    parseando el StreamField y el RichText de cada capítulo, en cada carga.
     """
     from my_library.models import LibraryItem
 
     vistos = _ya_vistos(user, libro)
+    # `libro` solo se guarda en los libros por REFERENCIA: en los de árbol el
+    # libro se deduce del path del padre, y guardarlo en unos sí y en otros no
+    # partiría en dos el grupo de un mismo libro. Ver `session._libro_de`.
+    por_referencia = callable(getattr(libro, "paginas_referenciadas", None))
     nuevos = []
-    for capitulo, objeto in material_del_libro(libro):
+    # El índice de la enumeración COMPLETA es el ordinal: cuenta también lo que
+    # se salta, que es lo que hace que el hueco de un elemento ya creado o
+    # descartado no desplace a los que vienen detrás.
+    for n, (capitulo, objeto) in enumerate(material_del_libro(libro)):
         if len(nuevos) >= cuantos:
             break
         tipo = ContentType.objects.get_for_model(objeto)
@@ -119,7 +226,11 @@ def siguiente_del_objetivo(user, libro, cuantos=1):
             user=user,
             content_type=tipo,
             object_id=objeto.pk,
-            defaults={"source_page": capitulo},
+            defaults={
+                "source_page": capitulo,
+                "orden": n,
+                "libro": libro if por_referencia else None,
+            },
         )
         vistos.add((tipo.pk, objeto.pk))
         nuevos.append(item)

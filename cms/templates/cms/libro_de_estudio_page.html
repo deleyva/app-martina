@@ -1,0 +1,38 @@
+{% extends "cms/base_blog.html" %}
+{% load wagtailcore_tags wagtailimages_tags %}
+{% load library_tags %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-4xl">
+
+    <h1 class="text-5xl font-bold font-serif-title mb-6 text-center">{{ page.title }}</h1>
+
+    {% if page.intro %}
+    <div class="max-w-2xl mx-auto text-xl italic text-gray-700 text-center mb-10 leading-relaxed">
+        {{ page.intro|richtext }}
+    </div>
+    {% endif %}
+
+    <div class="flex justify-center mb-10">
+        {% boton_objetivo page %}
+    </div>
+
+    {% if capitulos %}
+    <ol class="flex flex-col gap-3">
+        {% for capitulo in capitulos %}
+        <li class="flex items-baseline gap-3 border-b border-base-300 pb-3">
+            <span class="opacity-40 text-sm w-6 text-right">{{ forloop.counter }}</span>
+            <a href="{% pageurl capitulo %}" class="link link-hover font-medium flex-1">
+                {{ capitulo.title }}
+            </a>
+        </li>
+        {% endfor %}
+    </ol>
+    {% else %}
+    <div class="alert">
+        <div>Este libro todavía no tiene capítulos. Añádelos desde el editor.</div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
