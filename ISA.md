@@ -1012,7 +1012,7 @@ De paso queda medido el tamaño real de los otros dos: 302 y 93 elementos practi
 
 ### Lo que queda
 
-- **Verificar en navegador que la sesión sirve ese material.** La medida dice que el sistema YA lo ve; falta ver una sesión de «2 Min. para Improvisar» con vídeos dentro. No está hecho: la ventana automatizada se abrió sin sesión iniciada y el login es por Google, que no puedo pasar yo.
+- ~~Verificar en navegador~~ **HECHO, 2026-08-27.** Lanzada una sesión con el chip de «2 Min. para Improvisar»: `items=153,154,155,140,141`, o sea **tres elementos nuevos** (los tres huecos de novedad, porque con un solo objetivo que casa la reserva es `techo(3/1) = 3`) más los dos que ya había. El primero es `2 minutos para improvisar: T1 E005 Tónica y Dominante`, y **el vídeo de YouTube se ve y se puede reproducir dentro del visor**. C72 cerrado con píxeles, que es lo que pedía: era una claim sobre material que antes no existía para el sistema.
 - **Un `LibroDeEstudioPage` de verdad, creado a mano**, para cerrar C69 y C70 fuera de los tests. Hasta que el principal cree uno, la forma está probada pero no usada.
 - **Reordenar un libro no renumera lo ya creado.** Si llega a molestar, un comando que renumere es pequeño; hoy no hay evidencia de que haga falta.
 - **`DictadoPage` no aporta material**: no tiene ninguno de los accesores. Se puede referenciar, pero no dará elementos de estudio.
