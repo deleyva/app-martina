@@ -684,6 +684,43 @@ class BlogPage(Page):
         help_text="Archivos que se muestran como cards con descarga, visor y botón de librería",
     )
 
+    # --- Metadatos musicales (2026-08-28) ---
+    # BlogPage sustituye a ScorePage como único tipo de página de contenido.
+    # Espejo de MetadataBlock, salvo `difficulty`: ese se clasifica con la
+    # faceta de etiqueta `dificultad`, según la decisión ya tomada en ScorePage
+    # ("Campos difficulty_level y rating eliminados - usar tags").
+    # Todos opcionales: las BlogPage que no son canciones quedan intactas.
+    artist = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name="Artista / compositor",
+        help_text="Quién la firma. ej: Fito & Fitipaldis",
+    )
+    key_signature = models.CharField(
+        max_length=20,
+        blank=True,
+        verbose_name="Tonalidad",
+        help_text="ej: Em, C mayor, F# menor",
+    )
+    tempo = models.CharField(
+        max_length=20,
+        blank=True,
+        verbose_name="Tempo",
+        help_text="BPM o indicación de tempo. ej: 117, Allegro",
+    )
+    duration_minutes = models.CharField(
+        max_length=10,
+        blank=True,
+        verbose_name="Duración",
+        help_text="En minutos. ej: 3:24",
+    )
+    reference = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name="Referencia",
+        help_text="Número de catálogo, opus, o versión de referencia. ej: vers. Halestorm",
+    )
+
     # Categorías y tags
     categories = ParentalManyToManyField("MusicCategory", blank=True)
     faceted_tags = ClusterTaggableManager(
@@ -699,6 +736,17 @@ class BlogPage(Page):
         FieldPanel("featured_image"),
         FieldPanel("is_featured"),
         FieldPanel("body"),
+        MultiFieldPanel(
+            [
+                FieldPanel("artist"),
+                FieldPanel("key_signature"),
+                FieldPanel("tempo"),
+                FieldPanel("duration_minutes"),
+                FieldPanel("reference"),
+            ],
+            heading="Metadatos musicales",
+            classname="collapsed",
+        ),
         FieldPanel("attachments", heading="Adjuntos"),
     ]
 

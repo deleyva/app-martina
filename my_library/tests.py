@@ -2796,3 +2796,44 @@ def test_la_vista_previa_no_crea_nada(client, db, user):
     assert LibraryItem.objects.filter(user=user).count() == 0, (
         "mirar la pantalla no puede crear nada"
     )
+
+
+def test_estado_estudio_resume_la_practica_de_hoy(db, user, capsys):
+    """C80. "Que he practicado hoy" es la pregunta que motivo `ReviewLog` en la
+    fase 1, y hasta ahora no habia forma de responderla sin abrir el admin y
+    sumar a mano.
+
+    Se prueba con datos, no en vacio: un comando cuya rama interesante nunca se
+    ha ejecutado no esta probado.
+    """
+    import uuid
+
+    from django.core.management import call_command
+
+    from my_library.models import ReviewLog
+
+    libro, capitulos = _libro_con_capitulos(
+        "Caged", "libro-caged", [("Semana 1", ["c1", "c2"])]
+    )
+    from my_library.libros import siguiente_del_objetivo
+
+    items = siguiente_del_objetivo(user, libro, cuantos=2)
+    tanda = uuid.uuid4()
+    for item, segundos in zip(items, (90, 30)):
+        ReviewLog.objects.create(
+            user=user, item=item, source=ReviewLog.SOURCE_STUDY,
+            session_uuid=tanda, duration_seconds=segundos,
+        )
+    # Una valoracion desde el indice: no es practica y no puede sumar tiempo.
+    ReviewLog.objects.create(
+        user=user, item=items[0], source=ReviewLog.SOURCE_MANUAL,
+        duration_seconds=600,
+    )
+
+    call_command("estado_estudio", email=user.email)
+    salida = capsys.readouterr().out
+
+    assert "HOY — PRÁCTICA" in salida
+    assert "2 repasos en 1 tanda(s)" in salida, salida
+    assert "2 min 00 s" in salida, f"90+30 son dos minutos, no diez: {salida}"
+    assert "Caged" in salida

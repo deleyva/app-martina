@@ -20,6 +20,65 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--email", required=True)
         parser.add_argument("--tamano", type=int, default=None)
+        parser.add_argument(
+            "--dias",
+            type=int,
+            default=1,
+            help="Cuántos días atrás resumir la práctica (1 = hoy)",
+        )
+
+    def _practica_reciente(self, user, dias):
+        """Qué se ha practicado en los últimos `dias`, y cuánto tiempo.
+
+        Solo cuenta los repasos de sesión (`source=study`): valorar un elemento
+        desde el índice no es practicarlo, y mezclarlos inflaría el tiempo con
+        eventos que duraron cero.
+        """
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from my_library.models import ReviewLog
+
+        desde = timezone.localtime() - timedelta(days=dias)
+        repasos = list(
+            ReviewLog.objects.filter(
+                user=user, source=ReviewLog.SOURCE_STUDY, reviewed_at__gte=desde
+            ).select_related("item", "item__source_page")
+        )
+
+        etiqueta = "HOY" if dias == 1 else f"ÚLTIMOS {dias} DÍAS"
+        self.stdout.write(f"\n{etiqueta} — PRÁCTICA")
+        if not repasos:
+            self.stdout.write("  (nada)")
+            return
+
+        # Sin duración no es cero: es un repaso que no la registró. Se cuentan
+        # aparte para no bajar la media con ceros que no ocurrieron.
+        con_tiempo = [r for r in repasos if r.duration_seconds]
+        total = sum(r.duration_seconds for r in con_tiempo)
+        tandas = len({r.session_uuid for r in repasos if r.session_uuid})
+
+        self.stdout.write(
+            f"  {len(repasos)} repasos en {tandas} tanda(s) · "
+            f"{_minutos(total)} medidos en {len(con_tiempo)} de ellos"
+        )
+
+        por_libro = {}
+        for r in repasos:
+            pagina = r.item.source_page if r.item else None
+            libro = pagina.get_parent().title if pagina else "(suelto)"
+            n, seg = por_libro.get(libro, (0, 0))
+            por_libro[libro] = (n + 1, seg + (r.duration_seconds or 0))
+        for libro, (n, seg) in sorted(por_libro.items(), key=lambda p: -p[1][1]):
+            self.stdout.write(f"    {libro[:44]:<44} {n:>3} repasos · {_minutos(seg)}")
+
+        primero = min(r.reviewed_at for r in repasos)
+        ultimo = max(r.reviewed_at for r in repasos)
+        self.stdout.write(
+            f"  de {timezone.localtime(primero):%H:%M} a "
+            f"{timezone.localtime(ultimo):%H:%M}"
+        )
 
     def handle(self, *args, **opciones):
         from django.contrib.auth import get_user_model
@@ -131,6 +190,11 @@ class Command(BaseCommand):
             cuando = "sin tocar" if d is None else f"hace {d} d"
             self.stdout.write(f"  {n:>2}. {_titulo(u)[:56]:<56} {cuando}")
 
+        # "¿Qué he practicado hoy?" es la pregunta que motivó `ReviewLog` en la
+        # fase 1, y hasta ahora no había forma de responderla sin abrir el admin
+        # y sumar a mano.
+        self._practica_reciente(user, opciones["dias"])
+
         # Para el presupuesto en minutos: cuánto dura de verdad cada elemento.
         self.stdout.write("\nDURACIÓN MEDIDA (para el presupuesto en minutos)")
         con_duracion = (
@@ -173,3 +237,7 @@ def _titulo(unidad):
     item = getattr(unidad, "item", None) or unidad
     objeto = getattr(item, "content_object", None)
     return getattr(objeto, "title", None) or str(unidad)
+
+
+def _minutos(segundos):
+    return f"{segundos // 60} min {segundos % 60:02d} s"
