@@ -2651,3 +2651,69 @@ def test_el_libro_de_estudio_se_puede_crear_donde_viven_los_libros(db):
         "el indice de recursos musicales es donde el principal fue a buscarlo"
     )
     assert BlogIndexPage in permitidos
+
+
+def test_el_libro_usa_la_plantilla_de_la_app_fuera_del_blog(db, client):
+    """C74. El sitio tiene dos pieles y el libro solo traia la del blog, asi
+    que en apps.iesmartinabescos salia con la maqueta equivocada.
+
+    El falsador: sin `get_template`, Wagtail sirve la plantilla por defecto del
+    modelo —la del blog— en los dos dominios.
+    """
+    libro = _libro_por_referencia("Los 70", "los-70", [])
+
+    # Servida de verdad fuera del dominio de blogs: la piel de la app.
+    respuesta = client.get(libro.url)
+    plantillas = [t.name for t in respuesta.templates if t.name]
+    assert "cms/libro_de_estudio_page_app.html" in plantillas, plantillas
+    assert "base.html" in plantillas, "la piel de la app hereda de base.html"
+
+    # Y con el host de blogs, la del blog. Se comprueba sobre `get_template`
+    # con un doble minimo: `_is_blog_request` solo llama a `get_host()`, y
+    # levantar el dominio de verdad chocaria con ALLOWED_HOSTS en los tests.
+    class _PeticionDeBlog:
+        def get_host(self):
+            return "blogs.iesmartinabescos.es"
+
+    assert (
+        libro.get_template(_PeticionDeBlog())
+        == "cms/libro_de_estudio_page_blog.html"
+    )
+
+
+def test_el_pajarito_de_wagtail_esta_en_la_plantilla_de_la_app(db):
+    """C75. Sin el userbar hay que ponerse botones de edicion a mano.
+
+    `base_blog.html` lo tenia desde siempre y `base.html` no: por eso aparecia
+    en blogs.iesmartinabescos y no en apps. Se comprueba sobre el fichero
+    porque el tag solo se PINTA para quien puede editar, y lo que aqui importa
+    es que este puesto.
+    """
+    import io as _io
+    from pathlib import Path
+
+    contenido = _io.open(
+        Path("martina_bescos_app/templates/base.html"), encoding="utf-8"
+    ).read()
+
+    assert "wagtailuserbar" in contenido.split("<!DOCTYPE")[0], "hay que cargarlo"
+    assert "{% wagtailuserbar %}" in contenido, "y pintarlo"
+
+
+def test_un_libro_vacio_no_revienta_la_pagina(db, client):
+    """C76. `boton_objetivo` devuelve `{"libro": None}` en tres casos —sin
+    sesion, pagina que no es un libro, libro sin capitulos— pero la plantilla
+    seguia pintando el boton con `page_id=None`, y eso es `NoReverseMatch`: un
+    500 en la pagina entera.
+
+    Encontrado al servir un `LibroDeEstudioPage` recien creado y todavia vacio,
+    que es exactamente lo que ve el principal justo despues de crear uno.
+    """
+    libro = _libro_por_referencia("Vacio", "libro-vacio", [])
+
+    respuesta = client.get(libro.url)
+
+    assert respuesta.status_code == 200, "un libro vacio se tiene que poder ver"
+    assert b"Estudiarme este libro" not in respuesta.content, (
+        "y sin ofrecer un boton que no haria nada"
+    )

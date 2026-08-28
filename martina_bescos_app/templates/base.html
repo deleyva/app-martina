@@ -1,5 +1,5 @@
 
-{% load static i18n %}<!DOCTYPE html>
+{% load static i18n wagtailuserbar %}<!DOCTYPE html>
 {% get_current_language as LANGUAGE_CODE %}
 <html lang="{{ LANGUAGE_CODE }}" data-theme="light">
   <head>
@@ -323,6 +323,15 @@
       </div>
     </div>
   </div>
+  {% comment %}
+     El pajarito de Wagtail: enlace de edicion desde la propia pagina, en vez
+     de botones puestos a mano. `base_blog.html` lo tenia desde siempre y esta
+     no, que es por lo que aparecia en blogs.iesmartinabescos y no en apps.
+
+     Solo se pinta para quien puede editar: el alumnado no lo ve.
+  {% endcomment %}
+  {% wagtailuserbar %}
+
   {% endblock body %}
 
   {# Mobile Bottom Dock Navigation #}

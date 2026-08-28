@@ -4,7 +4,15 @@ El botón de "estudiarme este libro" y, cuando está puesto, por dónde vas.
 El progreso cuenta CAPÍTULOS tocados, no elementos: "Semana 12 de 40" dice algo,
 "87 de 283 elementos" no dice nada. Un capítulo cuenta en cuanto has repasado
 algo suyo.
+
+El `{% if libro %}` no es defensa por si acaso: `boton_objetivo` devuelve
+`{"libro": None}` a proposito en tres casos —visitante sin sesion, pagina que no
+es un libro, y libro sin capitulos— y sin la guarda la plantilla seguia
+pintando, con `page_id=None`, y eso revienta con `NoReverseMatch`. O sea un 500
+en la pagina entera. Encontrado el 2026-08-28 al servir un libro recien creado y
+todavia vacio.
 {% endcomment %}
+{% if libro %}
 <div id="objetivo-libro-{{ libro.pk }}" class="flex items-center gap-2">
     {% if objetivo_activo %}
         {% if progreso_totales %}
@@ -29,3 +37,4 @@ algo suyo.
         </button>
     {% endif %}
 </div>
+{% endif %}

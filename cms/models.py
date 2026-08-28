@@ -1891,6 +1891,14 @@ class LibroDeEstudioPage(Page):
         verbose_name = "Libro de estudio"
         verbose_name_plural = "Libros de estudio"
 
+    def get_template(self, request, *args, **kwargs):
+        # Dos pieles, como el resto del sitio: blogs.iesmartinabescos lleva la
+        # del blog, apps.iesmartinabescos la de la aplicacion. Sin esto se
+        # servia siempre la del blog, que es la que hereda la plantilla base.
+        if _is_blog_request(request):
+            return "cms/libro_de_estudio_page_blog.html"
+        return "cms/libro_de_estudio_page_app.html"
+
     def get_context(self, request, *args, **kwargs):
         contexto = super().get_context(request, *args, **kwargs)
         contexto["capitulos"] = self.paginas_referenciadas()

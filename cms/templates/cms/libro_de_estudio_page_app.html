@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags wagtailimages_tags %}
+{% load library_tags %}
+
+{% block title %}{{ page.title }} - IES Martina Bescós{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-3xl">
+
+    <h1 class="text-3xl font-bold mb-3">{{ page.title }}</h1>
+
+    {% if page.intro %}
+    <div class="text-base opacity-70 mb-6">{{ page.intro|richtext }}</div>
+    {% endif %}
+
+    <div class="mb-8">
+        {% boton_objetivo page %}
+    </div>
+
+    {% if capitulos %}
+    <div class="text-xs uppercase tracking-wide opacity-50 mb-2">
+        Capítulos · {{ capitulos|length }}
+    </div>
+    <ol class="flex flex-col">
+        {% for capitulo in capitulos %}
+        <li class="flex items-baseline gap-3 border-b border-base-300 py-3">
+            <span class="opacity-40 text-sm w-6 text-right">{{ forloop.counter }}</span>
+            <a href="{% pageurl capitulo %}" class="link link-hover flex-1">{{ capitulo.title }}</a>
+        </li>
+        {% endfor %}
+    </ol>
+    {% else %}
+    <div class="alert">
+        <div>Este libro todavía no tiene capítulos. Añádelos desde el editor.</div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock content %}
