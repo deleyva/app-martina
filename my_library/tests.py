@@ -2717,3 +2717,36 @@ def test_un_libro_vacio_no_revienta_la_pagina(db, client):
     assert b"Estudiarme este libro" not in respuesta.content, (
         "y sin ofrecer un boton que no haria nada"
     )
+
+
+def test_el_libro_de_estudio_tiene_las_propiedades_de_visibilidad(db, client):
+    """C77. El principal las pidio viendo la pestana Propiedades de un libro
+    normal: "me gustaria que tuviera las propiedades que tienen los libros".
+
+    No basta con anadir los campos: `_check_page_visibility` los tenia
+    cableados a `BlogPage` y `BlogIndexPage` en TRES sitios, asi que un libro
+    marcado como protegido se habria servido igual a cualquiera. El falsador
+    es ese: la pagina protegida vista sin sesion tiene que redirigir al login.
+    """
+    from cms.models import LibroDeEstudioPage
+
+    libro = _libro_por_referencia("Los 70", "los-70", [])
+
+    assert client.get(libro.url).status_code == 200, "sin marcar, se ve"
+
+    libro.is_protected = True
+    libro.save()
+    libro.save_revision().publish()
+
+    respuesta = client.get(libro.url)
+    assert respuesta.status_code == 302, "protegida, redirige al login"
+    assert "/accounts/login/" in respuesta["Location"]
+
+    # Y la pestana Propiedades tiene que ofrecerlos, que es lo que se pidio.
+    campos = {
+        panel.field_name
+        for panel in LibroDeEstudioPage.settings_panels
+        for panel in getattr(panel, "children", [panel])
+        if hasattr(panel, "field_name")
+    }
+    assert {"is_protected", "is_private"} <= campos, campos

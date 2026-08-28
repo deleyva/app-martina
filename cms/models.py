@@ -161,6 +161,20 @@ def _login_redirect(request):
     return redirect(f"{login_url}?next={request.path}")
 
 
+def _ancestro_con(ancestors, campo):
+    """El primer ancestro que tenga ese campo de visibilidad puesto, o None.
+
+    Se consulta por tipo porque el campo vive en la tabla concreta de cada
+    modelo, no en `Page`: `ancestors.type(X).filter(x__is_private=True)`.
+    """
+    for modelo in TIPOS_CON_VISIBILIDAD:
+        clave = f"{modelo._meta.model_name}__{campo}"
+        encontrado = ancestors.type(modelo).filter(**{clave: True}).first()
+        if encontrado is not None:
+            return encontrado
+    return None
+
+
 def _check_page_visibility(page, request):
     """Check visibility of a page based on is_protected/is_private fields.
 
@@ -168,17 +182,19 @@ def _check_page_visibility(page, request):
     if access should be denied. Checks the page itself and its BlogIndexPage /
     BlogPage ancestors for inherited restrictions.
 
-    Only BlogPage and BlogIndexPage carry visibility fields, so pages that are
-    not of those types and have no such ancestors are skipped cheaply.
+    Los tipos que llevan campos de visibilidad estan en `TIPOS_CON_VISIBILIDAD`.
+    Antes estaban escritos a mano en tres sitios de esta funcion, asi que anadir
+    un tipo obligaba a acordarse de los tres: `LibroDeEstudioPage` se anadio el
+    2026-08-28 y esto se generalizo a la vez. Las paginas que no son de esos
+    tipos y no tienen ancestros que lo sean se descartan barato.
     """
-    is_blog_type = isinstance(page, (BlogPage, BlogIndexPage))
+    is_blog_type = isinstance(page, TIPOS_CON_VISIBILIDAD)
     ancestors = page.get_ancestors()
 
     # Fast path: page has no visibility fields and no blog-type ancestors
     if not is_blog_type:
-        has_blog_ancestors = (
-            ancestors.type(BlogIndexPage).exists()
-            or ancestors.type(BlogPage).exists()
+        has_blog_ancestors = any(
+            ancestors.type(modelo).exists() for modelo in TIPOS_CON_VISIBILIDAD
         )
         if not has_blog_ancestors:
             return None
@@ -194,18 +210,12 @@ def _check_page_visibility(page, request):
             protected = True
 
     # Check blog-type ancestors via DB queries (no .specific() needed)
-    private_ancestor = (
-        ancestors.type(BlogIndexPage).filter(blogindexpage__is_private=True).first()
-        or ancestors.type(BlogPage).filter(blogpage__is_private=True).first()
-    )
+    private_ancestor = _ancestro_con(ancestors, "is_private")
     if private_ancestor:
         private_owner = private_ancestor.owner
 
     if not protected:
-        protected = (
-            ancestors.type(BlogIndexPage).filter(blogindexpage__is_protected=True).exists()
-            or ancestors.type(BlogPage).filter(blogpage__is_protected=True).exists()
-        )
+        protected = _ancestro_con(ancestors, "is_protected") is not None
 
     # Private takes precedence over protected
     if private_owner is not None:
@@ -1879,10 +1889,31 @@ class LibroDeEstudioPage(Page):
         help_text="Arrastra para ordenar: este es el orden en que saldra a estudiar.",
     )
 
+    is_protected = models.BooleanField(
+        default=False,
+        verbose_name="Protegida",
+        help_text="Requiere iniciar sesión para ver esta página.",
+    )
+    is_private = models.BooleanField(
+        default=False,
+        verbose_name="Privada",
+        help_text="Solo el creador de la página puede verla.",
+    )
+
     content_panels = Page.content_panels + [
         FieldPanel("intro"),
         FieldPanel("cover_image"),
         FieldPanel("capitulos"),
+    ]
+
+    settings_panels = Page.settings_panels + [
+        MultiFieldPanel(
+            [
+                FieldPanel("is_protected"),
+                FieldPanel("is_private"),
+            ],
+            heading="Visibilidad",
+        ),
     ]
 
     subpage_types = []
@@ -1922,6 +1953,19 @@ class LibroDeEstudioPage(Page):
             vistas.add(pagina.pk)
             paginas.append(pagina.specific)
         return paginas
+
+
+# Los tipos de página que llevan campos de visibilidad. Se declara aquí, y no
+# arriba, porque necesita las clases ya definidas — y en un solo sitio, porque
+# antes estaban escritos a mano en tres puntos de `_check_page_visibility` y
+# añadir un tipo obligaba a acordarse de los tres.
+#
+# **Ojo con `LibroDeEstudioPage`:** agrupa por REFERENCIA, así que sus capítulos
+# NO son hijos suyos en el árbol. Marcar un libro como protegido o privado
+# protege LA PÁGINA DEL LIBRO, no las canciones que referencia — esas siguen
+# con la visibilidad que tengan donde viven de verdad. Con los libros por árbol
+# la herencia sí funciona, porque ahí sí son hijos.
+TIPOS_CON_VISIBILIDAD = (BlogPage, BlogIndexPage, LibroDeEstudioPage)
 
 
 # =============================================================================
