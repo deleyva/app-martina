@@ -2,7 +2,7 @@
 slug: app-martina
 phase: build
 progress: true
-iteration: 26
+iteration: 27
 principal_stated_goal: "ok, quiero que hagas lo más limpio y con visión de futuro"
 updated: 2026-08-26
 ---
@@ -46,7 +46,9 @@ updated: 2026-08-26
 | 18 | **El filtro frena también la creación** (C63) | `6d3e7e8` |
 | 19 | **Seguir un libro desde la pantalla de empezar** (C64-C67) | `c28869d` |
 | 20 | **Encajar la imagen en la pantalla** (C68) | `c28869d` |
-| 21 | **Libros por referencia, orden del libro y embeds como material** (C69-C72) | sin desplegar |
+| 21 | **Libros por referencia, orden del libro y embeds como material** (C69-C72) | `1cf505f` |
+| 21·1 | El tipo de página en el menú (C73), piel de la app y pajarito (C74, C75), 500 en libros vacíos (C76), propiedades de visibilidad (C77) | `704649c`, `88b116a`, `24f920c` |
+| 22 | **La vista previa enseña la sesión que se va a servir** (C78, C79) | sin desplegar |
 
 ### Lo siguiente, por orden
 
@@ -1025,3 +1027,39 @@ De paso queda medido el tamaño real de los otros dos: 302 y 93 elementos practi
 **Y un límite que hay que saber:** el libro agrupa por REFERENCIA, así que sus capítulos NO son hijos suyos en el árbol. Marcar un libro como protegido o privado protege **la página del libro**, no las canciones que referencia: esas conservan la visibilidad que tengan donde viven de verdad. Con los libros por árbol la herencia sí funciona, porque ahí sí son hijos.
 - **Reordenar un libro no renumera lo ya creado.** Si llega a molestar, un comando que renumere es pequeño; hoy no hay evidencia de que haga falta.
 - **`DictadoPage` no aporta material**: no tiene ninguno de los accesores. Se puede referenciar, pero no dará elementos de estudio.
+
+## Fase 22 — La vista previa enseña la sesión que se va a servir · SIN DESPLEGAR
+
+**Reportado por el principal (2026-08-28):** *"¿por qué selecciono The CAGED System y solo me muestra 12 elementos y solo uno nuevo?"*
+
+### Lo que pasaba, y no era lo que parecía
+
+Dos cosas distintas, y solo una era un defecto.
+
+- **Los 12 no son un error.** Son los elementos de ese libro que YA existen en su biblioteca, sin contar descartados: 20 creados menos 8 descartados. El libro tiene **302 elementos practicables**; solo existen 12 porque nada se crea hasta que le toca. Eso es la creación perezosa de la fase 11 funcionando.
+- **El "solo uno nuevo" sí era un defecto, y de la pantalla.** `_resumen_seleccion` NO llamaba a `rellenar_para_sesion`, así que enseñaba el estado actual mientras el lanzamiento servía otra cosa. Con ese libro elegido la reserva es 3, y con 1 sin tocar se crean 2 más: **la vista previa prometía 1 nuevo y la sesión traía 3**.
+
+### El arreglo, y por qué no es una aproximación
+
+La tentación era calcular "cuántos se crearían" y sumarlo al recuento. Eso es una segunda respuesta a la misma pregunta, y tarde o temprano discrepa de la primera.
+
+En vez de eso, **la vista previa monta la sesión con el mismo código que el lanzamiento**. `previsualizar_relleno` devuelve `LibraryItem` **sin guardar**, se le pasan a `construir_sesion` junto a los reales, y todo lo demás —el reparto por libro, la cuota, la caducidad, la agrupación temática— funciona igual porque no sabe que son distintos.
+
+**El pk negativo es el requisito, no un truco.** `construir_sesion` usa el pk como clave para agrupar y ordenar; `None` chocaría consigo mismo en cuanto hubiera dos. Negativo y decreciente los mantiene únicos, distintos de cualquier real, y en el orden en que se crearían.
+
+Y la aritmética se extrajo a `reparto_del_relleno`, que ahora comparten creación y previsión. Dos copias parecidas de la misma cuenta es exactamente cómo se vuelve a desincronizar.
+
+### Criterios
+
+- [x] **C78 — Lo que promete la vista previa es lo que sirve el lanzamiento.** *El falsador es la comparación directa: se pide la previa, se lanza, y las dos listas tienen que ser la misma. Sin el arreglo la previa sale vacía y el lanzamiento sirve tres. Test: `test_la_vista_previa_ensena_la_sesion_que_se_va_a_servir`.*
+- [x] **C79 — Y no crea nada.** *El falsador por el otro lado, y es el que importa: sería fácil hacer que la previa acertara creando de verdad, y eso convertiría mirar la pantalla en comprometerse. Se piden las dos vistas —la página y el endpoint HTMX del recuento en vivo, que se dispara con cada faceta— y la biblioteca sigue vacía. Test: `test_la_vista_previa_no_crea_nada`.*
+
+### Anti-claims
+
+- **No se toca la creación.** `rellenar_para_sesion` hace exactamente lo mismo que antes; solo se le extrajo la aritmética a una función que ahora comparte con la previsión.
+- **La cuota no cambia.** Siguen siendo tres huecos de novedad.
+- **Los candidatos no se guardan nunca.** Nada del camino de lectura llama a `save()`, y hay un test que lo vigila.
+
+### Lo que queda
+
+- **Desplegar y verificarlo en producción**, comparando la previa con la sesión que llega.

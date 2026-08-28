@@ -207,34 +207,88 @@ def siguiente_del_objetivo(user, libro, cuantos=1):
     """
     from my_library.models import LibraryItem
 
-    vistos = _ya_vistos(user, libro)
-    # `libro` solo se guarda en los libros por REFERENCIA: en los de árbol el
-    # libro se deduce del path del padre, y guardarlo en unos sí y en otros no
-    # partiría en dos el grupo de un mismo libro. Ver `session._libro_de`.
-    por_referencia = callable(getattr(libro, "paginas_referenciadas", None))
     nuevos = []
-    # El índice de la enumeración COMPLETA es el ordinal: cuenta también lo que
-    # se salta, que es lo que hace que el hueco de un elemento ya creado o
-    # descartado no desplace a los que vienen detrás.
-    for n, (capitulo, objeto) in enumerate(material_del_libro(libro)):
-        if len(nuevos) >= cuantos:
-            break
-        tipo = ContentType.objects.get_for_model(objeto)
-        if (tipo.pk, objeto.pk) in vistos:
-            continue
+    for capitulo, objeto, tipo, orden in candidatos_del_objetivo(user, libro, cuantos):
         item, _ = LibraryItem.objects.get_or_create(
             user=user,
             content_type=tipo,
             object_id=objeto.pk,
             defaults={
                 "source_page": capitulo,
-                "orden": n,
-                "libro": libro if por_referencia else None,
+                "orden": orden,
+                "libro": libro if _por_referencia(libro) else None,
             },
         )
-        vistos.add((tipo.pk, objeto.pk))
         nuevos.append(item)
     return nuevos
+
+
+def _por_referencia(libro):
+    """`libro` solo se guarda en los libros por REFERENCIA: en los de árbol se
+    deduce del path del padre, y guardarlo en unos sí y en otros no partiría en
+    dos el grupo de un mismo libro. Ver `session._libro_de`."""
+    return callable(getattr(libro, "paginas_referenciadas", None))
+
+
+def candidatos_del_objetivo(user, libro, cuantos):
+    """`[(capitulo, objeto, content_type, orden)]` de lo siguiente del libro.
+
+    El recorrido, sin crear nada. Lo comparten la creación y la vista previa,
+    que es la única forma de que la vista previa no mienta: si cada una hiciera
+    su propio recorrido, acabarían discrepando.
+    """
+    vistos = _ya_vistos(user, libro)
+    salida = []
+    # El índice de la enumeración COMPLETA es el ordinal: cuenta también lo que
+    # se salta, que es lo que hace que el hueco de un elemento ya creado o
+    # descartado no desplace a los que vienen detrás.
+    for n, (capitulo, objeto) in enumerate(material_del_libro(libro)):
+        if len(salida) >= cuantos:
+            break
+        tipo = ContentType.objects.get_for_model(objeto)
+        if (tipo.pk, objeto.pk) in vistos:
+            continue
+        vistos.add((tipo.pk, objeto.pk))
+        salida.append((capitulo, objeto, tipo, n))
+    return salida
+
+
+def previsualizar_relleno(user, cuota, seleccion=None, solo_libros=None):
+    """Los elementos que `rellenar_para_sesion` crearía, SIN crearlos.
+
+    Devuelve `LibraryItem` **sin guardar**, para que la vista previa monte la
+    sesión exactamente igual que la montará el lanzamiento: se le pasan a
+    `construir_sesion` junto a los reales y todo lo demás funciona igual.
+
+    El pk negativo no es un truco sucio, es el requisito: `construir_sesion`
+    usa el pk como clave para agrupar y ordenar, y `None` chocaría entre sí en
+    cuanto hubiera dos. Negativo y decreciente los mantiene únicos, distintos
+    de cualquier real, y en el orden en que se crearían. Nada del camino de
+    lectura llama a `save()`.
+
+    Se marcan con `es_nuevo` para que la plantilla pueda decir cuáles van a
+    aparecer al empezar.
+    """
+    from my_library.models import LibraryItem
+
+    items, siguiente_pk = [], -1
+    for libro, cuantos in reparto_del_relleno(user, cuota, seleccion, solo_libros):
+        for capitulo, objeto, tipo, orden in candidatos_del_objetivo(
+            user, libro, cuantos
+        ):
+            item = LibraryItem(
+                pk=siguiente_pk,
+                user=user,
+                content_type=tipo,
+                object_id=objeto.pk,
+                source_page=capitulo,
+                orden=orden,
+                libro=libro if _por_referencia(libro) else None,
+            )
+            item.es_nuevo = True
+            items.append(item)
+            siguiente_pk -= 1
+    return items
 
 
 def progreso(user, libro):
@@ -338,6 +392,21 @@ def rellenar_para_sesion(user, cuota, seleccion=None, solo_libros=None):
 
     Devuelve los elementos creados.
     """
+    return [
+        item
+        for libro, cuantos in reparto_del_relleno(user, cuota, seleccion, solo_libros)
+        for item in siguiente_del_objetivo(user, libro, cuantos)
+    ]
+
+
+def reparto_del_relleno(user, cuota, seleccion=None, solo_libros=None):
+    """`[(libro, cuantos)]` — qué objetivo aporta cuánto. SIN efectos.
+
+    Se extrajo de `rellenar_para_sesion` para que la vista previa use la MISMA
+    aritmética que la creación en vez de una copia parecida. Una vista previa
+    que calcula distinto que lo que va a pasar no es una vista previa: es otra
+    respuesta a la misma pregunta, y tarde o temprano se contradicen.
+    """
     from my_library.models import LibraryGoal, ReviewLog
 
     if cuota <= 0:
@@ -370,15 +439,14 @@ def rellenar_para_sesion(user, cuota, seleccion=None, solo_libros=None):
     # nada — con CAGED a cero. Un objetivo con trece elementos pendientes
     # tapaba a los otros dos. Cada objetivo mantiene ahora su propia reserva.
     reserva = -(-cuota // len(objetivos))  # techo de la división
-    creados = []
+    reparto = []
     for objetivo in objetivos:
         faltan = reserva - disponible[objetivo.pk]
-        if faltan <= 0:
-            continue
-        # Si el libro se ha acabado devuelve menos de lo pedido, y ya está: la
-        # reserva es un techo por objetivo, no una cuota que haya que llenar.
-        creados.extend(siguiente_del_objetivo(user, libros[objetivo.pk], faltan))
-    return creados
+        if faltan > 0:
+            # Si el libro se ha acabado dará menos de lo pedido, y ya está: la
+            # reserva es un techo por objetivo, no una cuota que llenar.
+            reparto.append((libros[objetivo.pk], faltan))
+    return reparto
 
 
 def contexto_en_el_libro(item, palabras=60):

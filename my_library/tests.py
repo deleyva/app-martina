@@ -2750,3 +2750,49 @@ def test_el_libro_de_estudio_tiene_las_propiedades_de_visibilidad(db, client):
         if hasattr(panel, "field_name")
     }
     assert {"is_protected", "is_private"} <= campos, campos
+
+
+def test_la_vista_previa_ensena_la_sesion_que_se_va_a_servir(client, db, user):
+    """C78. La vista previa ensenaba el estado ACTUAL y el lanzamiento servia
+    otra cosa: el principal veia "1 elemento nuevo" y recibia 3 (2026-08-28).
+
+    El falsador es la comparacion directa: lo que promete la vista previa y lo
+    que sirve el lanzamiento tienen que ser la MISMA lista.
+    """
+    from my_library.models import LibraryGoal
+
+    libro, _ = _libro_con_capitulos(
+        "Caged", "libro-caged", [("Semana 1", ["c1", "c2", "c3", "c4", "c5"])]
+    )
+    LibraryGoal.objects.create(user=user, libro=libro)
+    client.force_login(user)
+
+    previa = client.get(reverse("my_library:session_start"))
+    prometidos = [str(u) for u in previa.context["sesion"]]
+    assert previa.context["por_crear"] == 3, "los tres huecos son del libro"
+    assert len(prometidos) == 3, prometidos
+
+    respuesta = client.get(reverse("my_library:session_launch"))
+    pks = [int(p) for p in respuesta.url.split("items=")[1].split("&")[0].split(",")]
+    servidos = [str(i) for i in LibraryItem.objects.filter(pk__in=pks)]
+
+    assert sorted(servidos) == sorted(prometidos), (
+        f"la previa prometio {prometidos} y sirvio {servidos}"
+    )
+
+
+def test_la_vista_previa_no_crea_nada(client, db, user):
+    """El falsador de C78 por el otro lado: seria facil hacer que la previa
+    acertara creando de verdad, y eso convertiria mirar en comprometerse."""
+    from my_library.models import LibraryGoal
+
+    libro, _ = _libro_con_capitulos("Caged", "libro-caged", [("Semana 1", ["c1"])])
+    LibraryGoal.objects.create(user=user, libro=libro)
+    client.force_login(user)
+
+    client.get(reverse("my_library:session_start"))
+    client.get(reverse("my_library:session_count"))
+
+    assert LibraryItem.objects.filter(user=user).count() == 0, (
+        "mirar la pantalla no puede crear nada"
+    )

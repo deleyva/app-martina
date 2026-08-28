@@ -3,6 +3,10 @@ Recuento en vivo del selector. Se recarga por HTMX cada vez que se marca o
 desmarca una faceta, así que dice siempre cuántos elementos casan y cuáles
 entrarían HOY en la sesión — que no es lo mismo: el filtro decide el conjunto
 candidato, la caducidad decide quién entra.
+
+Y desde el 2026-08-28 incluye lo que la creación perezosa va a crear al
+empezar, marcado con `es_nuevo`. Antes esta lista enseñaba el estado actual y
+el lanzamiento servía otra cosa: se prometía "1 nuevo" y llegaban 3.
 {% endcomment %}
 
 <div class="flex flex-col gap-3">
@@ -21,13 +25,25 @@ candidato, la caducidad decide quién entra.
         <div class="text-xs uppercase tracking-wide opacity-50 mb-2">
             Hoy te tocaría esto
         </div>
+        {% if por_crear %}
+        <p class="text-xs opacity-60 mb-2">
+            {{ por_crear }} {% if por_crear == 1 %}elemento nuevo{% else %}elementos nuevos{% endif %}
+            de tus libros se {% if por_crear == 1 %}añadirá{% else %}añadirán{% endif %}
+            a la biblioteca al empezar.
+        </p>
+        {% endif %}
         <ol class="flex flex-col gap-1">
             {% for item in sesion %}
             <li class="flex items-center gap-2 text-sm">
                 <span class="opacity-40 w-4 text-right">{{ forloop.counter }}</span>
                 <span>{{ item.get_icon }}</span>
                 <span class="truncate">{{ item.get_content_title }}</span>
-                {% if item.days_since_last_review == None %}
+                {% if item.es_nuevo %}
+                <span class="badge badge-primary badge-xs shrink-0"
+                      title="No existe todavía: se añadirá al empezar la sesión">
+                    nuevo del libro
+                </span>
+                {% elif item.days_since_last_review == None %}
                 <span class="badge badge-ghost badge-xs shrink-0">sin tocar</span>
                 {% elif item.days_since_last_review > 0 %}
                 <span class="badge badge-ghost badge-xs shrink-0">

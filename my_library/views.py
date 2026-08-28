@@ -15,7 +15,7 @@ from django.contrib import messages
 from django.db.models import Count
 from .models import ItemSection, LibraryDeck, LibraryItem, ReviewLog, SharedNote
 from . import facets
-from .libros import rellenar_para_sesion
+from .libros import previsualizar_relleno, rellenar_para_sesion
 from .session import (
     PROPORCION_NOVEDAD,
     TAMANO_SESION_POR_DEFECTO,
@@ -864,19 +864,45 @@ def session_start(request):
             "objetivos": _chips_de_objetivo(request, items),
             "total_biblioteca": len(items),
             "tamano_sesion": TAMANO_SESION_POR_DEFECTO,
-            **_resumen_seleccion(items, seleccion, _claves_elegidas(request)),
+            **_resumen_seleccion(
+                items,
+                seleccion,
+                _claves_elegidas(request),
+                user=request.user,
+                solo_libros=[o.libro_id for o in _objetivos_de(request)],
+            ),
         },
     )
 
 
-def _resumen_seleccion(items, seleccion, claves=None):
-    """El libro estrecha primero y las facetas después: es Y entre los dos."""
-    coincidencias = filtrar_por_libros(items, claves)
+def _resumen_seleccion(items, seleccion, claves=None, user=None, solo_libros=None):
+    """La sesión que se va a servir de verdad, no la que hay ahora.
+
+    El libro estrecha primero y las facetas después: es Y entre los dos.
+
+    **Incluye lo que la creación perezosa va a crear al empezar.** Sin esto la
+    vista previa enseñaba el estado actual y el lanzamiento servía otra cosa:
+    el principal veía "1 elemento nuevo" y recibía 3 (2026-08-28). Los
+    candidatos van sin guardar; `construir_sesion` los trata igual que a los
+    reales, así que la previsualización usa el MISMO código que el lanzamiento
+    en vez de una aproximación.
+    """
+    pendientes = []
+    if user is not None:
+        pendientes = previsualizar_relleno(
+            user,
+            round(TAMANO_SESION_POR_DEFECTO * PROPORCION_NOVEDAD),
+            seleccion=seleccion,
+            solo_libros=solo_libros,
+        )
+
+    coincidencias = filtrar_por_libros(list(items) + pendientes, claves)
     coincidencias = filtrar_por_facetas(coincidencias, seleccion)
     sesion = construir_sesion(coincidencias, tamano=TAMANO_SESION_POR_DEFECTO)
     return {
         "coincidencias": len(coincidencias),
         "sesion": sesion,
+        "por_crear": len(pendientes),
         "hay_seleccion": bool(seleccion) or bool(claves),
     }
 
@@ -891,7 +917,11 @@ def session_count(request):
         {
             "tamano_sesion": TAMANO_SESION_POR_DEFECTO,
             **_resumen_seleccion(
-                items, _seleccion_de(request), _claves_elegidas(request)
+                items,
+                _seleccion_de(request),
+                _claves_elegidas(request),
+                user=request.user,
+                solo_libros=[o.libro_id for o in _objetivos_de(request)],
             ),
         },
     )
