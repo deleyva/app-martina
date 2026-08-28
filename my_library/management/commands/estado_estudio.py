@@ -79,13 +79,19 @@ class Command(BaseCommand):
             # nada nuevo?": si sale 0 o igual a lo que ya hay, el objetivo no
             # tiene de dónde sacar, y eso no es un fallo del reparto.
             total_material = len(libros.material_del_libro(libro))
-            ya = LibraryItem.objects.filter(
+            # Vivos y descartados por separado: contarlos juntos hacía que el
+            # número no cuadrara con lo que enseña el selector de sesión, que
+            # sí excluye los descartados. Un número que no cuadra con la
+            # pantalla es peor que no darlo.
+            del_libro = LibraryItem.objects.filter(
                 user=user, source_page__in=capitulos
-            ).count()
+            )
+            vivos = del_libro.filter(descartado=False).count()
+            descartados = del_libro.filter(descartado=True).count()
             self.stdout.write(
-                f"  {libro.title[:40]:<40} material={total_material:<4} "
-                f"en_biblioteca={ya:<4} sin_tocar={sin_tocar:<3} "
-                f"reserva={reserva} crearía={faltan}"
+                f"  {libro.title[:38]:<38} material={total_material:<4} "
+                f"en_biblioteca={vivos:<4} descartados={descartados:<3} "
+                f"sin_tocar={sin_tocar:<3} reserva={reserva} crearía={faltan}"
             )
 
         # Los grupos que de verdad compiten por los huecos de novedad, en el
