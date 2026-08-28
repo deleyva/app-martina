@@ -551,7 +551,12 @@ class BlogIndexPage(Page):
         ),
     ]
 
-    subpage_types = ["cms.BlogIndexPage", "cms.BlogPage", "cms.SlidesConAudioPage"]
+    subpage_types = [
+        "cms.BlogIndexPage",
+        "cms.BlogPage",
+        "cms.SlidesConAudioPage",
+        "cms.LibroDeEstudioPage",
+    ]
 
     def get_template(self, request, *args, **kwargs):
         """Return book-container template when nested under a MusicLibraryIndexPage.
@@ -1345,6 +1350,7 @@ class MusicLibraryIndexPage(Page):
         "cms.BlogPage",
         "cms.TestPage",
         "cms.DictadoPage",
+        "cms.LibroDeEstudioPage",
     ]
 
     def get_template(self, request, *args, **kwargs):

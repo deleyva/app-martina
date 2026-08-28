@@ -2633,3 +2633,21 @@ def _pagina_blog_con_cuerpo(titulo, slug, cuerpo, imagen_adjunta):
     indice.add_child(instance=pagina)
     pagina.save_revision().publish()
     return pagina
+
+
+def test_el_libro_de_estudio_se_puede_crear_donde_viven_los_libros(db):
+    """C73. Si el tipo de pagina no sale en el menu de crear, no existe.
+
+    `subpage_types` del padre manda: `LibroDeEstudioPage` no estaba en la lista
+    de ninguno de los dos indices donde viven los libros, asi que el 2026-08-28
+    el principal fue a crear uno y no lo encontro. No lleva migracion: es un
+    atributo de clase, no un campo.
+    """
+    from cms.models import BlogIndexPage, LibroDeEstudioPage, MusicLibraryIndexPage
+
+    permitidos = LibroDeEstudioPage.allowed_parent_page_models()
+
+    assert MusicLibraryIndexPage in permitidos, (
+        "el indice de recursos musicales es donde el principal fue a buscarlo"
+    )
+    assert BlogIndexPage in permitidos
