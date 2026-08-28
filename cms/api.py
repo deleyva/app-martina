@@ -416,6 +416,14 @@ class BlogPageIn(Schema):
     parent_page_id: Optional[int] = None
     publish_immediately: bool = False
     attachment_ids: List[int] = []
+    # Metadatos musicales (2026-08-28). BlogPage sustituye a ScorePage, así que
+    # el API tiene que poder ponerlos explícitamente — sin pasar por ai-publish,
+    # que los deduciría con un LLM habiendo dato exacto.
+    artist: Optional[str] = ""
+    key_signature: Optional[str] = ""
+    tempo: Optional[str] = ""
+    duration_minutes: Optional[str] = ""
+    reference: Optional[str] = ""
 
 
 class BlogPageOut(Schema):
@@ -426,6 +434,11 @@ class BlogPageOut(Schema):
     live: bool
     edit_url: str
     preview_url: str
+    artist: str = ""
+    key_signature: str = ""
+    tempo: str = ""
+    duration_minutes: str = ""
+    reference: str = ""
 
 
 def _parse_tags(tags: str) -> List[str]:
@@ -513,6 +526,11 @@ def create_blog_page(request, payload: BlogPageIn):
             intro=payload.intro,
             body=payload.body or "",
             is_featured=payload.is_featured,
+            artist=payload.artist or "",
+            key_signature=payload.key_signature or "",
+            tempo=payload.tempo or "",
+            duration_minutes=payload.duration_minutes or "",
+            reference=payload.reference or "",
             # Wagtail hereda live=True del padre si está publicado;
             # lo sobreescribimos explícitamente para gestionar el estado desde la API.
             live=payload.publish_immediately,
@@ -557,6 +575,11 @@ def create_blog_page(request, payload: BlogPageIn):
         live=page.live,
         edit_url=edit_url,
         preview_url=preview_url,
+        artist=page.artist,
+        key_signature=page.key_signature,
+        tempo=page.tempo,
+        duration_minutes=page.duration_minutes,
+        reference=page.reference,
     )
 
 
@@ -575,6 +598,12 @@ class BlogPageUpdateIn(Schema):
     tag_ids: Optional[List[int]] = None
     publish_immediately: Optional[bool] = None
     attachment_ids: Optional[List[int]] = None
+    # Metadatos musicales (2026-08-28). None = no tocar; "" = borrar.
+    artist: Optional[str] = None
+    key_signature: Optional[str] = None
+    tempo: Optional[str] = None
+    duration_minutes: Optional[str] = None
+    reference: Optional[str] = None
 
 
 @router.put("/blog-pages/{page_id}", response=BlogPageOut, tags=["Blog"])
@@ -615,6 +644,10 @@ def update_blog_page(request, page_id: int, payload: BlogPageUpdateIn):
             page.is_featured = payload.is_featured
         if payload.attachment_ids is not None:
             page.attachments = _build_attachments(payload.attachment_ids)
+        for _campo in ("artist", "key_signature", "tempo", "duration_minutes", "reference"):
+            _valor = getattr(payload, _campo)
+            if _valor is not None:
+                setattr(page, _campo, _valor)
 
         if payload.category_ids is not None:
             categories = list(
@@ -648,6 +681,11 @@ def update_blog_page(request, page_id: int, payload: BlogPageUpdateIn):
         live=page.live,
         edit_url=edit_url,
         preview_url=preview_url,
+        artist=page.artist,
+        key_signature=page.key_signature,
+        tempo=page.tempo,
+        duration_minutes=page.duration_minutes,
+        reference=page.reference,
     )
 
 

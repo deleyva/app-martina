@@ -328,6 +328,31 @@
     {% endif %}
 
     {# Article body - richtext with custom styles #}
+    {# Metadatos musicales (2026-08-28) — BlogPage sustituye a ScorePage. #}
+    {% if page.artist or page.key_signature or page.tempo or page.duration_minutes or page.reference %}
+    <div class="card bg-base-200 shadow-lg mb-6">
+        <div class="card-body">
+            <h2 class="card-title">🏷️ Ficha musical</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% if page.artist %}
+                <div><span class="font-medium">Artista:</span> <span>{{ page.artist }}</span></div>
+                {% endif %}
+                {% if page.key_signature %}
+                <div><span class="font-medium">Tonalidad:</span> <span>{{ page.key_signature }}</span></div>
+                {% endif %}
+                {% if page.tempo %}
+                <div><span class="font-medium">Tempo:</span> <span>{{ page.tempo }}</span></div>
+                {% endif %}
+                {% if page.duration_minutes %}
+                <div><span class="font-medium">Duración:</span> <span>{{ page.duration_minutes }}</span></div>
+                {% endif %}
+                {% if page.reference %}
+                <div class="md:col-span-2 lg:col-span-3"><span class="font-medium">Referencia:</span> <span>{{ page.reference }}</span></div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
     {% if page.body %}
     <div id="richtext-body" class="richtext-body text-base leading-relaxed mb-12">
         {{ page.body|richtext }}
