@@ -420,10 +420,15 @@ class BlogPageIn(Schema):
     # el API tiene que poder ponerlos explícitamente — sin pasar por ai-publish,
     # que los deduciría con un LLM habiendo dato exacto.
     artist: Optional[str] = ""
-    key_signature: Optional[str] = ""
-    tempo: Optional[str] = ""
-    duration_minutes: Optional[str] = ""
     reference: Optional[str] = ""
+    # Numéricos: MusicXML `fifths`/`mode`, `beats`/`beat-type`, y tempo como
+    # número. Guardarlos como texto impedía ordenar, filtrar y exportar.
+    key_fifths: Optional[int] = None
+    key_mode: Optional[str] = ""
+    time_signature_beats: Optional[int] = None
+    time_signature_beat_type: Optional[int] = None
+    tempo_bpm: Optional[int] = None
+    duration_seconds: Optional[int] = None
 
 
 class BlogPageOut(Schema):
@@ -435,10 +440,17 @@ class BlogPageOut(Schema):
     edit_url: str
     preview_url: str
     artist: str = ""
-    key_signature: str = ""
-    tempo: str = ""
-    duration_minutes: str = ""
     reference: str = ""
+    key_fifths: Optional[int] = None
+    key_mode: str = ""
+    time_signature_beats: Optional[int] = None
+    time_signature_beat_type: Optional[int] = None
+    tempo_bpm: Optional[int] = None
+    duration_seconds: Optional[int] = None
+    # Cómo se lee, para no obligar al cliente a rehacer el cálculo.
+    key_display: str = ""
+    time_signature_display: str = ""
+    duration_display: str = ""
 
 
 def _parse_tags(tags: str) -> List[str]:
@@ -527,10 +539,13 @@ def create_blog_page(request, payload: BlogPageIn):
             body=payload.body or "",
             is_featured=payload.is_featured,
             artist=payload.artist or "",
-            key_signature=payload.key_signature or "",
-            tempo=payload.tempo or "",
-            duration_minutes=payload.duration_minutes or "",
             reference=payload.reference or "",
+            key_fifths=payload.key_fifths,
+            key_mode=payload.key_mode or "",
+            time_signature_beats=payload.time_signature_beats,
+            time_signature_beat_type=payload.time_signature_beat_type,
+            tempo_bpm=payload.tempo_bpm,
+            duration_seconds=payload.duration_seconds,
             # Wagtail hereda live=True del padre si está publicado;
             # lo sobreescribimos explícitamente para gestionar el estado desde la API.
             live=payload.publish_immediately,
@@ -576,10 +591,16 @@ def create_blog_page(request, payload: BlogPageIn):
         edit_url=edit_url,
         preview_url=preview_url,
         artist=page.artist,
-        key_signature=page.key_signature,
-        tempo=page.tempo,
-        duration_minutes=page.duration_minutes,
         reference=page.reference,
+        key_fifths=page.key_fifths,
+        key_mode=page.key_mode,
+        time_signature_beats=page.time_signature_beats,
+        time_signature_beat_type=page.time_signature_beat_type,
+        tempo_bpm=page.tempo_bpm,
+        duration_seconds=page.duration_seconds,
+        key_display=page.key_display,
+        time_signature_display=page.time_signature_display,
+        duration_display=page.duration_display,
     )
 
 
@@ -600,10 +621,13 @@ class BlogPageUpdateIn(Schema):
     attachment_ids: Optional[List[int]] = None
     # Metadatos musicales (2026-08-28). None = no tocar; "" = borrar.
     artist: Optional[str] = None
-    key_signature: Optional[str] = None
-    tempo: Optional[str] = None
-    duration_minutes: Optional[str] = None
     reference: Optional[str] = None
+    key_fifths: Optional[int] = None
+    key_mode: Optional[str] = None
+    time_signature_beats: Optional[int] = None
+    time_signature_beat_type: Optional[int] = None
+    tempo_bpm: Optional[int] = None
+    duration_seconds: Optional[int] = None
 
 
 @router.put("/blog-pages/{page_id}", response=BlogPageOut, tags=["Blog"])
@@ -644,7 +668,9 @@ def update_blog_page(request, page_id: int, payload: BlogPageUpdateIn):
             page.is_featured = payload.is_featured
         if payload.attachment_ids is not None:
             page.attachments = _build_attachments(payload.attachment_ids)
-        for _campo in ("artist", "key_signature", "tempo", "duration_minutes", "reference"):
+        for _campo in ("artist", "reference", "key_fifths", "key_mode",
+                       "time_signature_beats", "time_signature_beat_type",
+                       "tempo_bpm", "duration_seconds"):
             _valor = getattr(payload, _campo)
             if _valor is not None:
                 setattr(page, _campo, _valor)
@@ -682,10 +708,16 @@ def update_blog_page(request, page_id: int, payload: BlogPageUpdateIn):
         edit_url=edit_url,
         preview_url=preview_url,
         artist=page.artist,
-        key_signature=page.key_signature,
-        tempo=page.tempo,
-        duration_minutes=page.duration_minutes,
         reference=page.reference,
+        key_fifths=page.key_fifths,
+        key_mode=page.key_mode,
+        time_signature_beats=page.time_signature_beats,
+        time_signature_beat_type=page.time_signature_beat_type,
+        tempo_bpm=page.tempo_bpm,
+        duration_seconds=page.duration_seconds,
+        key_display=page.key_display,
+        time_signature_display=page.time_signature_display,
+        duration_display=page.duration_display,
     )
 
 

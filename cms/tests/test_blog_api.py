@@ -197,25 +197,29 @@ class BlogPageAPITest(TestCase):
 
 
 class BlogPageMetadatosMusicalesTest(BlogPageAPITest):
-    """Metadatos musicales en BlogPage (2026-08-28).
+    """Ficha musical en BlogPage, guardada como manda el estándar (2026-08-29).
 
-    BlogPage sustituye a ScorePage como único tipo de página de contenido, así
-    que tiene que poder llevar la ficha musical por campo explícito — sin pasar
-    por `ai-publish`, que la deduciría con un LLM habiendo dato exacto.
+    Tonalidad como `fifths` + `mode` (MusicXML 4.0; el meta-evento MIDI FF 59
+    guarda exactamente lo mismo en `sf`/`mi`). Compás como dos enteros
+    (`beats`/`beat-type`, FF 58 `nn`/`dd`). Tempo numérico. Nada de texto.
     """
 
+    # Por la boca vive el pez, Fito & Fitipaldis: Si menor = 2 sostenidos.
     FICHA = {
         "artist": "Fito & Fitipaldis",
-        "key_signature": "Bm",
-        "tempo": "151",
-        "duration_minutes": "3:24",
+        "key_fifths": 2,
+        "key_mode": "minor",
+        "time_signature_beats": 4,
+        "time_signature_beat_type": 4,
+        "tempo_bpm": 151,
+        "duration_seconds": 204,
         "reference": "vers. directo",
     }
 
-    def test_crear_con_ficha_musical_persiste_los_cinco_campos(self):
+    def test_crear_con_ficha_persiste_todos_los_campos(self):
         resp = self._post({
             "title": "Por la boca vive el pez",
-            "date": "2026-08-28",
+            "date": "2026-08-29",
             "intro": "Repertorio de El Grupo Luciérnaga.",
             "parent_page_id": self.blog_index.id,
             **self.FICHA,
@@ -225,51 +229,84 @@ class BlogPageMetadatosMusicalesTest(BlogPageAPITest):
         for campo, esperado in self.FICHA.items():
             self.assertEqual(getattr(page, campo), esperado, f"campo {campo}")
 
-    def test_la_respuesta_devuelve_la_ficha(self):
-        """Sin esto habría que abrir el admin para comprobar lo que se guardó."""
+    def test_la_respuesta_devuelve_dato_y_presentacion(self):
         resp = self._post({
             "title": "Uptown Funk",
-            "date": "2026-08-28",
-            "intro": "Repertorio de El Grupo Luciérnaga.",
+            "date": "2026-08-29",
+            "intro": "Repertorio.",
             "parent_page_id": self.blog_index.id,
             **self.FICHA,
         })
         self.assertEqual(resp.status_code, 200, resp.content)
-        for campo, esperado in self.FICHA.items():
-            self.assertEqual(resp.json()[campo], esperado, f"campo {campo}")
+        cuerpo = resp.json()
+        self.assertEqual(cuerpo["key_fifths"], 2)
+        self.assertEqual(cuerpo["key_display"], "Bm")
+        self.assertEqual(cuerpo["time_signature_display"], "4/4")
+        self.assertEqual(cuerpo["duration_display"], "3:24")
+
+    def test_circulo_de_quintas_en_los_dos_sentidos(self):
+        """La conversión es la razón de ser del formato numérico."""
+        page = BlogPage(title="x", slug="x", date="2026-08-29", intro="x")
+        casos_mayor = {-7: "Cb", -4: "Ab", -1: "F", 0: "C", 2: "D", 5: "B", 7: "C#"}
+        for fifths, esperado in casos_mayor.items():
+            page.key_fifths, page.key_mode = fifths, "major"
+            self.assertEqual(page.key_display, esperado, f"mayor {fifths}")
+        casos_menor = {0: "Am", 1: "Em", 2: "Bm", -1: "Dm", 3: "F#m", -3: "Cm"}
+        for fifths, esperado in casos_menor.items():
+            page.key_fifths, page.key_mode = fifths, "minor"
+            self.assertEqual(page.key_display, esperado, f"menor {fifths}")
+
+    def test_modo_modal_no_inventa_tonica(self):
+        """Con un modo que no es mayor ni menor, la tónica no se deduce sola."""
+        page = BlogPage(title="x", slug="x", date="2026-08-29", intro="x")
+        page.key_fifths, page.key_mode = 1, "mixolydian"
+        self.assertIn("mixolidio", page.key_display)
+
+    def test_sin_armadura_no_pinta_tonalidad(self):
+        page = BlogPage(title="x", slug="x", date="2026-08-29", intro="x")
+        self.assertEqual(page.key_display, "")
+        self.assertEqual(page.time_signature_display, "")
+        self.assertEqual(page.duration_display, "")
+        self.assertFalse(page.tiene_ficha_musical)
+
+    def test_do_mayor_es_cero_no_vacio(self):
+        """Trampa clásica: fifths=0 es Do mayor, no 'sin dato'."""
+        page = BlogPage(title="x", slug="x", date="2026-08-29", intro="x")
+        page.key_fifths, page.key_mode = 0, "major"
+        self.assertEqual(page.key_display, "C")
+        self.assertTrue(page.tiene_ficha_musical)
 
     def test_una_blogpage_normal_sigue_creandose_sin_ficha(self):
         """Anti-criterio: los artículos que no son canciones no se rompen."""
         resp = self._post({
             "title": "Artículo sin música",
-            "date": "2026-08-28",
+            "date": "2026-08-29",
             "intro": "Un artículo normal y corriente.",
             "parent_page_id": self.blog_index.id,
         })
         self.assertEqual(resp.status_code, 200, resp.content)
         page = BlogPage.objects.get(id=resp.json()["id"])
-        for campo in self.FICHA:
-            self.assertEqual(getattr(page, campo), "", f"campo {campo}")
+        self.assertIsNone(page.key_fifths)
+        self.assertFalse(page.tiene_ficha_musical)
 
     def test_la_ficha_se_pinta_en_la_pagina(self):
         """Existir en la base no es verse: la plantilla tiene que pintarla."""
         resp = self._post({
             "title": "Entre dos tierras",
-            "date": "2026-08-28",
-            "intro": "Repertorio de El Grupo Luciérnaga.",
+            "date": "2026-08-29",
+            "intro": "Repertorio.",
             "parent_page_id": self.blog_index.id,
             "publish_immediately": True,
             **self.FICHA,
         })
         self.assertEqual(resp.status_code, 200, resp.content)
         page = BlogPage.objects.get(id=resp.json()["id"])
-        # Servimos la página directamente: en el árbol de test no hay Site que
-        # resuelva su URL, y client.get(page.url) devolvería un 404 que no dice
-        # nada sobre la plantilla, que es lo que aquí se comprueba.
         request = RequestFactory().get("/")
         request.user = self.user
         request.session = {}  # lo pide el context processor de impersonación
         html = page.serve(request).render().content.decode()
         self.assertIn("Ficha musical", html)
-        self.assertIn("Bm", html)
-        self.assertIn("Fito &amp; Fitipaldis", html)
+        self.assertIn("Bm", html)          # no "2"
+        self.assertIn("4/4", html)
+        self.assertIn("151 BPM", html)
+        self.assertIn("3:24", html)

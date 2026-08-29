@@ -1,3 +1,4 @@
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.conf import settings
 from django import forms
@@ -696,23 +697,66 @@ class BlogPage(Page):
         verbose_name="Artista / compositor",
         help_text="Quién la firma. ej: Fito & Fitipaldis",
     )
-    key_signature = models.CharField(
-        max_length=20,
+    # Tonalidad como la guardan MusicXML 4.0 y el MIDI estándar: el número de
+    # alteraciones en el círculo de quintas (negativo bemoles, positivo
+    # sostenidos) más el modo por separado. MusicXML lo llama `fifths`; el SMF
+    # lo llama `sf`/`mi` en el meta-evento FF 59. Es el mismo dato.
+    # Guardarlo como texto ("Bm") impide ordenar, filtrar por armadura,
+    # transportar o exportar a partitura sin volver a interpretar la cadena.
+    key_fifths = models.SmallIntegerField(
+        null=True,
         blank=True,
-        verbose_name="Tonalidad",
-        help_text="ej: Em, C mayor, F# menor",
+        verbose_name="Armadura (quintas)",
+        validators=[MinValueValidator(-7), MaxValueValidator(7)],
+        help_text="-7 a 7. Negativo bemoles, positivo sostenidos. 0 = Do mayor / La menor.",
     )
-    tempo = models.CharField(
-        max_length=20,
+    key_mode = models.CharField(
+        max_length=12,
         blank=True,
-        verbose_name="Tempo",
-        help_text="BPM o indicación de tempo. ej: 117, Allegro",
+        choices=[
+            ("major", "Mayor"),
+            ("minor", "Menor"),
+            ("dorian", "Dórico"),
+            ("phrygian", "Frigio"),
+            ("lydian", "Lidio"),
+            ("mixolydian", "Mixolidio"),
+            ("aeolian", "Eólico"),
+            ("locrian", "Locrio"),
+        ],
+        verbose_name="Modo",
+        help_text="Valores de MusicXML. Los modales importan para el trabajo de improvisación.",
     )
-    duration_minutes = models.CharField(
-        max_length=10,
+    # Compás: dos enteros, como `beats` y `beat-type` en MusicXML y `nn`/`dd`
+    # en el meta-evento FF 58. Nunca la cadena "4/4".
+    time_signature_beats = models.PositiveSmallIntegerField(
+        null=True,
         blank=True,
-        verbose_name="Duración",
-        help_text="En minutos. ej: 3:24",
+        verbose_name="Compás — numerador",
+        validators=[MinValueValidator(1), MaxValueValidator(64)],
+        help_text="El número de arriba. ej: 4 en 4/4, 6 en 6/8",
+    )
+    time_signature_beat_type = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Compás — denominador",
+        choices=[(1, "1"), (2, "2"), (4, "4"), (8, "8"), (16, "16"), (32, "32")],
+        help_text="El número de abajo. Potencia de dos, como exige el estándar.",
+    )
+    # Tempo en pulsos por minuto, entero. MusicXML lo lleva en `<sound tempo>`
+    # y el MIDI en microsegundos por negra: en los dos es un número, no texto.
+    tempo_bpm = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Tempo (BPM)",
+        validators=[MinValueValidator(20), MaxValueValidator(400)],
+        help_text="Pulsos por minuto. ej: 151",
+    )
+    # Duración en segundos, no "3:24". ID3 la guarda en milisegundos (TLEN).
+    duration_seconds = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Duración (segundos)",
+        help_text="En segundos. La plantilla la pinta como m:ss.",
     )
     reference = models.CharField(
         max_length=200,
@@ -739,9 +783,12 @@ class BlogPage(Page):
         MultiFieldPanel(
             [
                 FieldPanel("artist"),
-                FieldPanel("key_signature"),
-                FieldPanel("tempo"),
-                FieldPanel("duration_minutes"),
+                FieldPanel("key_fifths"),
+                FieldPanel("key_mode"),
+                FieldPanel("time_signature_beats"),
+                FieldPanel("time_signature_beat_type"),
+                FieldPanel("tempo_bpm"),
+                FieldPanel("duration_seconds"),
                 FieldPanel("reference"),
             ],
             heading="Metadatos musicales",
@@ -767,6 +814,52 @@ class BlogPage(Page):
 
     # Permitir BlogPage como hijo de BlogIndexPage y MusicLibraryIndexPage
     parent_page_types = ["cms.BlogIndexPage", "cms.MusicLibraryIndexPage"]
+
+    # --- Presentación de la ficha musical ---------------------------------
+    # El dato se guarda como manda el estándar; estas propiedades lo devuelven
+    # a la forma en que un músico lo lee. La plantilla nunca calcula nada.
+
+    # Círculo de quintas. El índice 7 es 0 alteraciones.
+    _TONICAS_MAYOR = ["Cb", "Gb", "Db", "Ab", "Eb", "Bb", "F", "C",
+                      "G", "D", "A", "E", "B", "F#", "C#"]
+    _TONICAS_MENOR = ["Ab", "Eb", "Bb", "F", "C", "G", "D", "A",
+                      "E", "B", "F#", "C#", "G#", "D#", "A#"]
+
+    @property
+    def key_display(self):
+        """ej: Bm, D, G (mixolidio). Cadena vacía si no hay armadura."""
+        if self.key_fifths is None:
+            return ""
+        i = self.key_fifths + 7
+        if self.key_mode == "minor":
+            return f"{self._TONICAS_MENOR[i]}m"
+        if self.key_mode in ("", "major"):
+            return self._TONICAS_MAYOR[i]
+        # Modal: la tónica depende del modo, así que damos la armadura y el
+        # nombre del modo en vez de inventar una tónica que podría no ser.
+        return f"{self._TONICAS_MAYOR[i]} ({self.get_key_mode_display().lower()})"
+
+    @property
+    def time_signature_display(self):
+        """ej: 4/4. Vacío si falta cualquiera de los dos números."""
+        if not self.time_signature_beats or not self.time_signature_beat_type:
+            return ""
+        return f"{self.time_signature_beats}/{self.time_signature_beat_type}"
+
+    @property
+    def duration_display(self):
+        """ej: 3:24."""
+        if not self.duration_seconds:
+            return ""
+        minutos, segundos = divmod(self.duration_seconds, 60)
+        return f"{minutos}:{segundos:02d}"
+
+    @property
+    def tiene_ficha_musical(self):
+        return any([
+            self.artist, self.key_display, self.time_signature_display,
+            self.tempo_bpm, self.duration_display, self.reference,
+        ])
 
     def get_template(self, request, *args, **kwargs):
         if _is_blog_request(request):
