@@ -2,7 +2,7 @@
 slug: app-martina
 phase: build
 progress: true
-iteration: 28
+iteration: 29
 principal_stated_goal: "ok, quiero que hagas lo más limpio y con visión de futuro"
 updated: 2026-08-26
 ---
@@ -1100,6 +1100,8 @@ Y la aritmética se extrajo a `reparto_del_relleno`, que ahora comparten creaci�
 
 ### Lo que queda
 
-- **Los homónimos siguen siendo indistinguibles en la interfaz.** Tres «Example 3.1c» seguidos en una sesión se ven igual, y no hay forma de saber cuál se descartó. El arreglo natural es enseñar el capítulo al lado del título cuando dos elementos de la sesión lo comparten. No está hecho.
+- [x] **C83 — Los homónimos se distinguen por capítulo.** *Hecho el 2026-08-29 a petición del principal. `desambiguar_homonimos` marca SOLO lo que comparte título dentro de la misma lista: enseñar el capítulo en todos los elementos sería ruido en la mayoría de las sesiones, donde no hay homónimos. Se aplica en la vista previa y en el título del menú del visor, que es donde se decide descartar. El falsador: sin marcar, las tres entradas son la misma cadena. Tests: `test_los_homonimos_se_distinguen_por_capitulo`, `test_si_los_homonimos_comparten_capitulo_se_cae_al_fichero`.*
+
+  **El capítulo no siempre basta, y por eso hay respaldo.** Si los homónimos están en el MISMO capítulo, enseñarlo no distingue nada: se cae al nombre del fichero, que en estos libros sí es único. Sin ese respaldo esto sería un arreglo que no arregla justo el caso peor, que es el que más se parece a un fallo del descarte. Los tres «Example 3.1c» de producción tienen pks consecutivos (131, 132, 133), lo que apunta a que salieron del mismo recorrido y probablemente comparten capítulo — o sea que el respaldo no es hipotético.
 - **`descartado` no guarda cuándo.** Si vuelve a haber dudas sobre el orden entre un descarte y un repaso, no hay forma de demostrarlo. Añadir la fecha es barato y todavía no hace falta.
 - **Verificar el scroll del menú con los ojos.** Desplegado y sin mirar.

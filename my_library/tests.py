@@ -2898,3 +2898,53 @@ def test_hoy_significa_desde_medianoche_no_las_ultimas_24_horas(db, user, capsys
     salida = capsys.readouterr().out.split("HOY — PRÁCTICA")[1]
 
     assert "(nada)" in salida, f"lo de ayer por la tarde no es hoy: {salida}"
+
+
+def test_los_homonimos_se_distinguen_por_capitulo(db, user):
+    """C83. Tres imagenes DISTINTAS tituladas igual se ven identicas en la
+    lista, y por eso descartar una parecia no funcionar (medido en produccion
+    el 2026-08-29: el libro de CAGED tiene tres "Example 3.1c").
+
+    El falsador: sin marcar, las tres entradas son la misma cadena.
+    """
+    from my_library.session import desambiguar_homonimos
+
+    _libro, capitulos = _libro_con_capitulos(
+        "Caged", "libro-caged",
+        [("Capitulo Uno", ["Example 3.1c"]), ("Capitulo Dos", ["Example 3.1c"])],
+    )
+    from my_library.libros import siguiente_del_objetivo
+
+    items = siguiente_del_objetivo(user, _libro, cuantos=2)
+    solitario = _item(user, "otra cosa")
+
+    desambiguar_homonimos(items + [solitario])
+
+    detalles = sorted(i.desambiguador for i in items)
+    assert detalles == ["Capitulo Dos", "Capitulo Uno"], detalles
+    assert not getattr(solitario, "desambiguador", ""), (
+        "lo que no se repite no se marca: seria ruido"
+    )
+
+
+def test_si_los_homonimos_comparten_capitulo_se_cae_al_fichero(db, user):
+    """El respaldo, y es el caso peor: si las dos estan en el MISMO capitulo,
+    ensenar el capitulo no distingue nada.
+
+    Sin este respaldo, C83 seria un arreglo que no arregla justo el caso que
+    mas se parece a un fallo del descarte.
+    """
+    from my_library.session import desambiguar_homonimos
+
+    _libro, capitulos = _libro_con_capitulos(
+        "Caged", "libro-caged", [("Capitulo Uno", ["Example 3.1c", "Example 3.1c"])]
+    )
+    from my_library.libros import siguiente_del_objetivo
+
+    items = siguiente_del_objetivo(user, _libro, cuantos=2)
+
+    desambiguar_homonimos(items)
+
+    detalles = [i.desambiguador for i in items]
+    assert len(set(detalles)) == 2, f"tienen que quedar distinguibles: {detalles}"
+    assert all(".png" in d or ".jpg" in d or ".jpeg" in d for d in detalles), detalles

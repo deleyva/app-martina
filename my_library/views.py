@@ -21,6 +21,7 @@ from .session import (
     TAMANO_SESION_POR_DEFECTO,
     clave_de_libro,
     construir_sesion,
+    desambiguar_homonimos,
     filtrar_por_libros,
     facetas_disponibles,
     filtrar_por_facetas,
@@ -457,6 +458,10 @@ def study_session_view(request):
         ).select_related("item")
     }
 
+    # Los homónimos se marcan sobre la sesión ENTERA, antes de recorrerla: si
+    # se hiciera por elemento no habría con qué comparar.
+    desambiguar_homonimos(list(por_pk.values()) + list(secciones.values()))
+
     # Se recorre `crudos` para respetar el orden que decidió el constructor.
     playlist = []
     for token in crudos:
@@ -467,6 +472,7 @@ def study_session_view(request):
                     "pk": seccion.item_id,
                     "section": seccion.pk,
                     "title": seccion.get_content_title(),
+                    "detalle": getattr(seccion, "desambiguador", ""),
                     "type": seccion.item.get_content_type_name(),
                 })
         elif token.isdigit():
@@ -476,6 +482,7 @@ def study_session_view(request):
                     "pk": item.pk,
                     "section": None,
                     "title": item.get_content_title(),
+                    "detalle": getattr(item, "desambiguador", ""),
                     "type": item.get_content_type_name(),
                 })
 
@@ -898,7 +905,9 @@ def _resumen_seleccion(items, seleccion, claves=None, user=None, solo_libros=Non
 
     coincidencias = filtrar_por_libros(list(items) + pendientes, claves)
     coincidencias = filtrar_por_facetas(coincidencias, seleccion)
-    sesion = construir_sesion(coincidencias, tamano=TAMANO_SESION_POR_DEFECTO)
+    sesion = desambiguar_homonimos(
+        construir_sesion(coincidencias, tamano=TAMANO_SESION_POR_DEFECTO)
+    )
     return {
         "coincidencias": len(coincidencias),
         "sesion": sesion,

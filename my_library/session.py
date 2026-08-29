@@ -390,6 +390,57 @@ def filtrar_por_libros(items, claves):
     return [u for u in items if _libro_de(u) in claves]
 
 
+def _capitulo_de(unidad):
+    item = getattr(unidad, "item", None) or unidad
+    return getattr(item, "source_page", None)
+
+
+def _fichero_de(unidad):
+    """El nombre del fichero, cuando ni el título ni el capítulo distinguen."""
+    item = getattr(unidad, "item", None) or unidad
+    objeto = getattr(item, "content_object", None)
+    nombre = getattr(getattr(objeto, "file", None), "name", "") or ""
+    return nombre.rsplit("/", 1)[-1]
+
+
+def desambiguar_homonimos(unidades):
+    """Marca con `desambiguador` lo que comparte título DENTRO de esta lista.
+
+    El caso que lo pide, medido en producción el 2026-08-29: el libro de CAGED
+    tiene tres imágenes DISTINTAS tituladas «Example 3.1c». En la lista se ven
+    idénticas, así que descartar una y seguir viendo las otras dos parece que
+    el botón no funcionó. No era un defecto del descarte: era que no había
+    forma de saber cuál era cuál.
+
+    Solo se marca lo que de verdad se repite. Enseñar el capítulo en todos los
+    elementos sería ruido en la mayoría de las sesiones, donde no hay homónimos.
+
+    **El capítulo no siempre basta**, y por eso hay respaldo: si los homónimos
+    están en el MISMO capítulo, enseñarlo no distingue nada y se cae al nombre
+    del fichero, que en estos libros sí es único. Sin ese respaldo, esto sería
+    un arreglo que no arregla justo el caso peor.
+    """
+    por_titulo = {}
+    for unidad in unidades:
+        titulo = unidad.get_content_title() or ""
+        por_titulo.setdefault(titulo, []).append(unidad)
+
+    for iguales in por_titulo.values():
+        if len(iguales) < 2:
+            continue
+        capitulos = {getattr(_capitulo_de(u), "pk", None) for u in iguales}
+        distingue_el_capitulo = len(capitulos) == len(iguales)
+        for unidad in iguales:
+            capitulo = _capitulo_de(unidad)
+            if distingue_el_capitulo and capitulo is not None:
+                unidad.desambiguador = capitulo.title
+            else:
+                unidad.desambiguador = _fichero_de(unidad) or (
+                    capitulo.title if capitulo is not None else ""
+                )
+    return unidades
+
+
 def construir_sesion(items, tamano=TAMANO_SESION_POR_DEFECTO):
     """Devuelve los elementos de una sesión, acotados y ordenados.
 

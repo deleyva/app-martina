@@ -684,7 +684,10 @@
     function updateFlyout() {
         var item = playlist[currentIndex];
         if (!item) return;
-        document.getElementById('flyout-title').textContent = item.title;
+        // El detalle solo viene cuando otro elemento de la sesión se llama
+        // igual, así que ponerlo siempre que exista no añade ruido.
+        document.getElementById('flyout-title').textContent =
+            item.detalle ? item.title + ' · ' + item.detalle : item.title;
         document.getElementById('flyout-counter').textContent = (currentIndex + 1) + '/' + playlist.length;
         // Disable prev/next at boundaries
         var prevBtn = document.getElementById('flyout-prev-btn');
