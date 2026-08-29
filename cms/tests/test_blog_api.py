@@ -310,3 +310,8 @@ class BlogPageMetadatosMusicalesTest(BlogPageAPITest):
         self.assertIn("4/4", html)
         self.assertIn("151 BPM", html)
         self.assertIn("3:24", html)
+        # {# ... #} en Django es de UNA linea: uno multilinea se imprime tal
+        # cual en la pagina. Los asserts de arriba pasaban con el comentario
+        # visible encima de la tarjeta; esto lo pillo el navegador, no el test.
+        self.assertNotIn("{#", html)
+        self.assertNotIn("MusicXML/MIDI", html)

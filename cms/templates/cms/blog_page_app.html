@@ -328,8 +328,10 @@
     {% endif %}
 
     {# Article body - richtext with custom styles #}
-    {# Metadatos musicales (2026-08-29) — guardados como manda MusicXML/MIDI,
-       pintados como los lee un músico. El cálculo vive en el modelo. #}
+    {% comment %}
+    Metadatos musicales (2026-08-29) — guardados como manda MusicXML/MIDI,
+    pintados como los lee un músico. El cálculo vive en el modelo.
+    {% endcomment %}
     {% if page.tiene_ficha_musical %}
     <div class="card bg-base-200 shadow-lg mb-6">
         <div class="card-body">
