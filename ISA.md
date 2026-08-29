@@ -2,7 +2,7 @@
 slug: app-martina
 phase: build
 progress: true
-iteration: 27
+iteration: 28
 principal_stated_goal: "ok, quiero que hagas lo más limpio y con visión de futuro"
 updated: 2026-08-26
 ---
@@ -48,7 +48,8 @@ updated: 2026-08-26
 | 20 | **Encajar la imagen en la pantalla** (C68) | `c28869d` |
 | 21 | **Libros por referencia, orden del libro y embeds como material** (C69-C72) | `1cf505f` |
 | 21·1 | El tipo de página en el menú (C73), piel de la app y pajarito (C74, C75), 500 en libros vacíos (C76), propiedades de visibilidad (C77) | `704649c`, `88b116a`, `24f920c` |
-| 22 | **La vista previa enseña la sesión que se va a servir** (C78, C79) | sin desplegar |
+| 22 | **La vista previa enseña la sesión que se va a servir** (C78, C79) | `5be6f63` |
+| 23 | **Descartar funcionaba; eran homónimos** (C81, C82) y el menú se desplaza | `77a3818`, `d12d9b4` |
 
 ### Lo siguiente, por orden
 
@@ -1063,3 +1064,42 @@ Y la aritmética se extrajo a `reparto_del_relleno`, que ahora comparten creaci�
 ### Lo que queda
 
 - **Desplegar y verificarlo en producción**, comparando la previa con la sesión que llega.
+
+## Fase 23 — Descartar sí funcionaba; lo que se repetía eran homónimos · DESPLEGADA
+
+**Reportado por el principal (2026-08-29):** *"el botón Descartar no está funcionando… en la última red me has repetido cosas… y para llegar a Descartar no puedo hacer scroll"*. Tres cosas, y solo dos eran defectos.
+
+### El scroll sí era un defecto, y cierto
+
+`#study-flyout` tenía `max-height: calc(100vh - 120px)` con **`overflow: hidden`**. Con la lista larga, el menú se recortaba sin dejar desplazarlo, y a «Descartar» solo se llegaba con el tabulador, que arrastra el foco a la vista. Ahora se desplaza en Y y se recorta en X, que es lo que redondea las esquinas.
+
+### Descartar funcionaba. Lo medido en producción
+
+    descartados: 14 · de ésos, en la lista de estudio: 0
+    el MISMO contenido dos veces: 0 caso(s)
+    mismo TÍTULO, contenido distinto: 4 caso(s)
+      Example 3.2c   pks 136, 137
+      Example 3.2a   pks 134, 135
+      Example 3.1c   pks 133, 131, 132
+      Example 3.1a   pks 130, 129
+
+**Catorce descartes, ninguno se cuela.** Y cero duplicación real: no hay un solo caso del mismo contenido guardado dos veces.
+
+**Lo que se repetía son homónimos.** El libro de CAGED tiene varias imágenes DISTINTAS con el mismo título —«Example 3.1c» son tres imágenes diferentes—, y en la lista se ven idénticas. Descartas una, siguen apareciendo las otras dos, y parece que el botón no hizo nada. Hizo exactamente lo que debía sobre el elemento que era.
+
+**Por qué importa la distinción:** un descartado que reaparece es un defecto del filtro y se arregla en el código; tres imágenes con el mismo nombre es un problema de identificación en la interfaz y se arregla enseñando algo que las distinga. Confundirlos habría llevado a tocar el filtro, que estaba bien.
+
+### Un defecto de la propia herramienta, encontrado al usarla
+
+`--dias 1` restaba 24 horas en vez de ir a medianoche, así que a las 11:00 «hoy» incluía la sesión de la víspera de las 17:47 y la respuesta a *"¿cuánto he estudiado hoy?"* salía inflada: 24 min 31 s en vez de 5 min 54 s. **Cuatro veces el valor real.** Una herramienta de medida que se equivoca es peor que no tenerla, porque su respuesta se cita.
+
+### Criterios
+
+- [x] **C81 — La medida separa descartes de homónimos.** *Probado con las dos formas presentes a la vez, que es como están los datos del principal: dos imágenes distintas del mismo título y un elemento descartado. Test: `test_estado_estudio_distingue_descartados_de_homonimos`.*
+- [x] **C82 — «Hoy» es desde medianoche.** *El falsador: un repaso de ayer por la tarde NO puede contar en hoy. Test: `test_hoy_significa_desde_medianoche_no_las_ultimas_24_horas`.*
+
+### Lo que queda
+
+- **Los homónimos siguen siendo indistinguibles en la interfaz.** Tres «Example 3.1c» seguidos en una sesión se ven igual, y no hay forma de saber cuál se descartó. El arreglo natural es enseñar el capítulo al lado del título cuando dos elementos de la sesión lo comparten. No está hecho.
+- **`descartado` no guarda cuándo.** Si vuelve a haber dudas sobre el orden entre un descarte y un repaso, no hay forma de demostrarlo. Añadir la fecha es barato y todavía no hace falta.
+- **Verificar el scroll del menú con los ojos.** Desplegado y sin mirar.
