@@ -1143,5 +1143,6 @@ Así que la fase trae tres cosas, y la del medio no se pidió:
 
 ### Lo que queda
 
-- **Verificarlo con los ojos**, que es lo único que cierra un contador translúcido: hay que ver que se lee sobre fondo claro y sobre fondo oscuro.
+- ~~Verificarlo con los ojos~~ **HECHO, 2026-08-29**, y sobre los dos fondos porque uno solo no cerraba la claim: «1 de 3» sobre una partitura en blanco, y «1 de 2» sobre un vídeo de YouTube en negro. Legible en ambos, y sin tapar el contenido.
+- **El atajo de doble D no está probado en producción**, y a propósito: probarlo descartaría un elemento real del principal. La lógica está en test; el gesto lo comprueba él.
 - **Deshacer solo dura mientras no cambies de elemento.** Al descartar se pasa al siguiente y el aviso sigue seis segundos; si se descarta otro antes, el primero ya no se puede deshacer desde ahí. Recuperarlo entonces exige el admin.
