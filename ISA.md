@@ -50,7 +50,7 @@ updated: 2026-08-26
 | 21·1 | El tipo de página en el menú (C73), piel de la app y pajarito (C74, C75), 500 en libros vacíos (C76), propiedades de visibilidad (C77) | `704649c`, `88b116a`, `24f920c` |
 | 22 | **La vista previa enseña la sesión que se va a servir** (C78, C79) | `5be6f63` |
 | 23 | **Descartar funcionaba; eran homónimos** (C81-C84) y el menú se desplaza | `77a3818`, `ef7c71f`, `456e66f` |
-| 24 | **Contador de sesión arriba y descartar con doble D** (C85, C86) | sin desplegar |
+| 24 | **Contador de sesión arriba y descartar con doble D** (C85, C86) | `dec6b7b` |
 
 ### Lo siguiente, por orden
 
@@ -1110,7 +1110,7 @@ Y la aritmética se extrajo a `reparto_del_relleno`, que ahora comparten creaci�
 - **`descartado` no guarda cuándo.** Si vuelve a haber dudas sobre el orden entre un descarte y un repaso, no hay forma de demostrarlo. Añadir la fecha es barato y todavía no hace falta.
 - **Verificar el scroll del menú con los ojos.** Desplegado y sin mirar.
 
-## Fase 24 — Cuánto llevas de la sesión, y descartar con doble D · SIN DESPLEGAR
+## Fase 24 — Cuánto llevas de la sesión, y descartar con doble D · DESPLEGADA Y VERIFICADA
 
 **Petición del principal (2026-08-29):** *"me gustaría que se viera por encima qué elemento de cuántos… un poco pálido, translúcido por encima de la imagen de fondo, bien pegado arriba"* y *"si le doy dos veces seguidas a la D, quiero que se descarte eso"*.
 
@@ -1144,5 +1144,5 @@ Así que la fase trae tres cosas, y la del medio no se pidió:
 ### Lo que queda
 
 - ~~Verificarlo con los ojos~~ **HECHO, 2026-08-29**, y sobre los dos fondos porque uno solo no cerraba la claim: «1 de 3» sobre una partitura en blanco, y «1 de 2» sobre un vídeo de YouTube en negro. Legible en ambos, y sin tapar el contenido.
-- **El atajo de doble D no está probado en producción**, y a propósito: probarlo descartaría un elemento real del principal. La lógica está en test; el gesto lo comprueba él.
+- ~~El atajo de doble D no está probado en producción~~ **Cerrado por el principal el 2026-08-29**, que era la única forma: probarlo yo habría descartado un elemento real suyo. Confirma que el aviso con «Deshacer» sale. La fase 24 queda entera.
 - **Deshacer solo dura mientras no cambies de elemento.** Al descartar se pasa al siguiente y el aviso sigue seis segundos; si se descarta otro antes, el primero ya no se puede deshacer desde ahí. Recuperarlo entonces exige el admin.
