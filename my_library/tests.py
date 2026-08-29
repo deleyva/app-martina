@@ -2869,3 +2869,32 @@ def test_estado_estudio_distingue_descartados_de_homonimos(db, user, capsys):
     assert "el MISMO contenido dos veces: 0 caso(s)" in salida, salida
     assert "mismo TÍTULO, contenido distinto: 1 caso(s)" in salida, salida
     assert "descartados: 1 · de ésos, en la lista de estudio: 0" in salida, salida
+
+
+def test_hoy_significa_desde_medianoche_no_las_ultimas_24_horas(db, user, capsys):
+    """C82. Defecto de la propia herramienta, encontrado al usarla: `--dias 1`
+    restaba 24 horas, asi que a las 11:00 "hoy" incluia la sesion de ayer por
+    la tarde y la respuesta a "cuanto he estudiado hoy" salia inflada.
+
+    El falsador: un repaso de ayer por la tarde NO puede contar en hoy.
+    """
+    from datetime import timedelta
+
+    from django.core.management import call_command
+    from django.utils import timezone
+
+    from my_library.models import ReviewLog
+
+    item = _item(user, "algo")
+    medianoche = timezone.localtime().replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    ReviewLog.objects.create(
+        user=user, item=item, source=ReviewLog.SOURCE_STUDY,
+        duration_seconds=600, reviewed_at=medianoche - timedelta(hours=6),
+    )
+
+    call_command("estado_estudio", email=user.email, dias=1)
+    salida = capsys.readouterr().out.split("HOY — PRÁCTICA")[1]
+
+    assert "(nada)" in salida, f"lo de ayer por la tarde no es hoy: {salida}"

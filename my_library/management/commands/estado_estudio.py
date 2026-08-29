@@ -40,7 +40,12 @@ class Command(BaseCommand):
 
         from my_library.models import ReviewLog
 
-        desde = timezone.localtime() - timedelta(days=dias)
+        # Desde MEDIANOCHE, no una ventana de 24 horas. No es un matiz: con la
+        # ventana móvil, "hoy" a las 11:00 incluía lo practicado ayer a las
+        # 17:47, y la respuesta a "¿cuánto he estudiado hoy?" salía inflada
+        # con la sesión de la víspera (2026-08-29).
+        hoy = timezone.localtime().replace(hour=0, minute=0, second=0, microsecond=0)
+        desde = hoy - timedelta(days=dias - 1)
         repasos = list(
             ReviewLog.objects.filter(
                 user=user, source=ReviewLog.SOURCE_STUDY, reviewed_at__gte=desde
