@@ -2972,3 +2972,53 @@ def test_el_sufijo_de_django_se_quita_solo_si_sobra(db, user):
     assert _ficheros_de(colision) == ["img-004.png", "img-004_mO9B6Ri.png"], (
         "aqui el sufijo es lo unico que distingue: no se puede quitar"
     )
+
+
+def test_recuperar_deshace_un_descarte(client, library_item, user):
+    """C85. Descartar no se podia deshacer desde ninguna parte de la interfaz.
+
+    Con el menu eran tres pasos deliberados y no hacia falta; desde que se hace
+    con dos teclas, una accion irreversible a dos pulsaciones de una tecla
+    comun es una trampa.
+    """
+    client.force_login(user)
+    client.post(reverse("my_library:descartar_item", args=[library_item.pk]))
+    library_item.refresh_from_db()
+    assert library_item.descartado is True
+
+    client.post(reverse("my_library:recuperar_item", args=[library_item.pk]))
+
+    library_item.refresh_from_db()
+    assert library_item.descartado is False, "deshacer tiene que devolverlo a la cola"
+
+
+def test_no_se_puede_recuperar_lo_de_otro(client, library_item, db):
+    """El falsador que importa de cualquier endpoint por pk: que no valga para
+    tocar la biblioteca de otra persona."""
+    otro = UserFactory()
+    library_item.descartado = True
+    library_item.save()
+    client.force_login(otro)
+
+    respuesta = client.post(
+        reverse("my_library:recuperar_item", args=[library_item.pk])
+    )
+
+    assert respuesta.status_code == 404
+    library_item.refresh_from_db()
+    assert library_item.descartado is True
+
+
+def test_el_visor_ensena_el_progreso_y_el_atajo_de_descarte(client, library_item, user):
+    """C86. Si no esta en la pagina, no existe: el contador de sesion y el
+    atajo viven en el visor y no hay forma de probarlos por endpoint."""
+    client.force_login(user)
+
+    html = client.get(
+        reverse("my_library:study_session"), {"items": str(library_item.pk)}
+    ).content.decode()
+
+    assert 'id="session-progress"' in html, "el contador tiene que estar"
+    assert "' de ' + playlist.length" in html, "y decir cuantos van de cuantos"
+    assert "VENTANA_DOBLE_D" in html, "el atajo de doble D"
+    assert 'id="descarte-aviso"' in html, "y su aviso con deshacer"

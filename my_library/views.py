@@ -1022,6 +1022,21 @@ def descartar_item(request, pk):
 
 
 @login_required
+@require_POST
+def recuperar_item(request, pk):
+    """Deshace un descarte.
+
+    Existe desde que descartar se puede hacer con dos teclas (2026-08-29). Con
+    el menú eran tres pasos deliberados y no hacía falta; con un atajo, una
+    acción irreversible a dos pulsaciones de una tecla común es una trampa.
+    """
+    item = get_object_or_404(LibraryItem, pk=pk, user=request.user)
+    item.descartado = False
+    item.save(update_fields=["descartado"])
+    return JsonResponse({"ok": True, "descartado": False})
+
+
+@login_required
 def contexto_item(request, pk):
     """De dónde sale este elemento en el libro. Endpoint JSON para la ventana.
 

@@ -419,6 +419,8 @@ class BlogPageIn(Schema):
     # Metadatos musicales (2026-08-28). BlogPage sustituye a ScorePage, así que
     # el API tiene que poder ponerlos explícitamente — sin pasar por ai-publish,
     # que los deduciría con un LLM habiendo dato exacto.
+    is_protected: bool = False
+    is_private: bool = False
     artist: Optional[str] = ""
     reference: Optional[str] = ""
     # Numéricos: MusicXML `fifths`/`mode`, `beats`/`beat-type`, y tempo como
@@ -439,6 +441,9 @@ class BlogPageOut(Schema):
     live: bool
     edit_url: str
     preview_url: str
+    is_protected: bool = False
+    is_private: bool = False
+    owner_id: Optional[int] = None
     artist: str = ""
     reference: str = ""
     key_fifths: Optional[int] = None
@@ -538,6 +543,13 @@ def create_blog_page(request, payload: BlogPageIn):
             intro=payload.intro,
             body=payload.body or "",
             is_featured=payload.is_featured,
+            # El owner es lo que hace efectiva `is_private`: la comprobacion de
+            # visibilidad lo usa para decidir quien puede ver la pagina. Las
+            # creadas por API nacian sin el, asi que marcarlas privadas no
+            # protegia nada (2026-08-29).
+            owner=request.user if request.user.is_authenticated else None,
+            is_protected=payload.is_protected,
+            is_private=payload.is_private,
             artist=payload.artist or "",
             reference=payload.reference or "",
             key_fifths=payload.key_fifths,
@@ -590,6 +602,9 @@ def create_blog_page(request, payload: BlogPageIn):
         live=page.live,
         edit_url=edit_url,
         preview_url=preview_url,
+        is_protected=page.is_protected,
+        is_private=page.is_private,
+        owner_id=page.owner_id,
         artist=page.artist,
         reference=page.reference,
         key_fifths=page.key_fifths,
@@ -620,6 +635,8 @@ class BlogPageUpdateIn(Schema):
     publish_immediately: Optional[bool] = None
     attachment_ids: Optional[List[int]] = None
     # Metadatos musicales (2026-08-28). None = no tocar; "" = borrar.
+    is_protected: Optional[bool] = None
+    is_private: Optional[bool] = None
     artist: Optional[str] = None
     reference: Optional[str] = None
     key_fifths: Optional[int] = None
@@ -668,6 +685,14 @@ def update_blog_page(request, page_id: int, payload: BlogPageUpdateIn):
             page.is_featured = payload.is_featured
         if payload.attachment_ids is not None:
             page.attachments = _build_attachments(payload.attachment_ids)
+        if payload.is_protected is not None:
+            page.is_protected = payload.is_protected
+        if payload.is_private is not None:
+            page.is_private = payload.is_private
+            # Hacer privada una pagina huerfana sin darle dueno la dejaria
+            # accesible por URL directa. Se adopta al vuelo.
+            if payload.is_private and page.owner is None and request.user.is_authenticated:
+                page.owner = request.user
         for _campo in ("artist", "reference", "key_fifths", "key_mode",
                        "time_signature_beats", "time_signature_beat_type",
                        "tempo_bpm", "duration_seconds"):
@@ -707,6 +732,9 @@ def update_blog_page(request, page_id: int, payload: BlogPageUpdateIn):
         live=page.live,
         edit_url=edit_url,
         preview_url=preview_url,
+        is_protected=page.is_protected,
+        is_private=page.is_private,
+        owner_id=page.owner_id,
         artist=page.artist,
         reference=page.reference,
         key_fifths=page.key_fifths,
@@ -942,4 +970,65 @@ def add_study_book_chapters(request, page_id: int, payload: ChaptersIn):
         anadidos=anadidos,
         ya_estaban=ya_estaban,
         edit_url=f"/cms/pages/{libro.id}/edit/",
+    )
+
+
+class LibroVisibilidadIn(Schema):
+    """Visibilidad de un libro de estudio. `None` = no tocar."""
+
+    is_protected: Optional[bool] = None
+    is_private: Optional[bool] = None
+    publish_immediately: bool = True
+
+
+class LibroVisibilidadOut(Schema):
+    id: int
+    title: str
+    live: bool
+    is_protected: bool
+    is_private: bool
+    owner_id: Optional[int] = None
+
+
+@router.post("/study-books/{page_id}/visibility", response=LibroVisibilidadOut, tags=["Libro de estudio"])
+def set_study_book_visibility(request, page_id: int, payload: LibroVisibilidadIn):
+    """Marcar un libro de estudio como protegido o privado.
+
+    Privado exige dueño: sin él la comprobación de visibilidad no llega a
+    ejecutarse y el libro se serviría por URL directa. Si el libro no tiene
+    dueño, lo adopta quien hace la llamada.
+    """
+    from .models import LibroDeEstudioPage
+
+    try:
+        libro = LibroDeEstudioPage.objects.get(id=page_id)
+    except LibroDeEstudioPage.DoesNotExist:
+        raise HttpError(404, f"No hay ningún libro de estudio con id {page_id}.")
+
+    with transaction.atomic():
+        if payload.is_protected is not None:
+            libro.is_protected = payload.is_protected
+        if payload.is_private is not None:
+            libro.is_private = payload.is_private
+            if payload.is_private and libro.owner is None:
+                if not request.user.is_authenticated:
+                    raise HttpError(
+                        400,
+                        "No se puede marcar privado un libro sin dueño desde una "
+                        "petición sin usuario: quedaría accesible por URL directa.",
+                    )
+                libro.owner = request.user
+
+        revision = libro.save_revision()
+        if payload.publish_immediately:
+            revision.publish()
+            libro.refresh_from_db()
+
+    return LibroVisibilidadOut(
+        id=libro.id,
+        title=libro.title,
+        live=libro.live,
+        is_protected=libro.is_protected,
+        is_private=libro.is_private,
+        owner_id=libro.owner_id,
     )

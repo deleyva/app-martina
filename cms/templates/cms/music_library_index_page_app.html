@@ -161,7 +161,7 @@
                             </div>
                             {% elif entry.type == 'book' %}
                             <div class="text-xs text-base-content/60 flex items-center gap-1">
-                                {{ item.get_children.live.count }} capítulos
+                                {% if item.n_capitulos %}{{ item.n_capitulos }}{% else %}{{ item.get_children.live.count }}{% endif %} capítulos
                             </div>
                             {% endif %}
                         </div>

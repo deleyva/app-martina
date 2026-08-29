@@ -2,7 +2,7 @@
 slug: app-martina
 phase: build
 progress: true
-iteration: 29
+iteration: 30
 principal_stated_goal: "ok, quiero que hagas lo más limpio y con visión de futuro"
 updated: 2026-08-26
 ---
@@ -49,7 +49,8 @@ updated: 2026-08-26
 | 21 | **Libros por referencia, orden del libro y embeds como material** (C69-C72) | `1cf505f` |
 | 21·1 | El tipo de página en el menú (C73), piel de la app y pajarito (C74, C75), 500 en libros vacíos (C76), propiedades de visibilidad (C77) | `704649c`, `88b116a`, `24f920c` |
 | 22 | **La vista previa enseña la sesión que se va a servir** (C78, C79) | `5be6f63` |
-| 23 | **Descartar funcionaba; eran homónimos** (C81, C82) y el menú se desplaza | `77a3818`, `d12d9b4` |
+| 23 | **Descartar funcionaba; eran homónimos** (C81-C84) y el menú se desplaza | `77a3818`, `ef7c71f`, `456e66f` |
+| 24 | **Contador de sesión arriba y descartar con doble D** (C85, C86) | sin desplegar |
 
 ### Lo siguiente, por orden
 
@@ -1108,3 +1109,39 @@ Y la aritmética se extrajo a `reparto_del_relleno`, que ahora comparten creaci�
   **El capítulo no siempre basta, y por eso hay respaldo.** Si los homónimos están en el MISMO capítulo, enseñarlo no distingue nada: se cae al nombre del fichero, que en estos libros sí es único. Sin ese respaldo esto sería un arreglo que no arregla justo el caso peor, que es el que más se parece a un fallo del descarte. Los tres «Example 3.1c» de producción tienen pks consecutivos (131, 132, 133), lo que apunta a que salieron del mismo recorrido y probablemente comparten capítulo — o sea que el respaldo no es hipotético.
 - **`descartado` no guarda cuándo.** Si vuelve a haber dudas sobre el orden entre un descarte y un repaso, no hay forma de demostrarlo. Añadir la fecha es barato y todavía no hace falta.
 - **Verificar el scroll del menú con los ojos.** Desplegado y sin mirar.
+
+## Fase 24 — Cuánto llevas de la sesión, y descartar con doble D · SIN DESPLEGAR
+
+**Petición del principal (2026-08-29):** *"me gustaría que se viera por encima qué elemento de cuántos… un poco pálido, translúcido por encima de la imagen de fondo, bien pegado arriba"* y *"si le doy dos veces seguidas a la D, quiero que se descarte eso"*.
+
+### El contador
+
+Fijo arriba, centrado, con fondo translúcido y `backdrop-filter`: se lee sobre una partitura blanca y sobre un vídeo oscuro sin taparlos. **`pointer-events: none` no es un detalle:** sin eso se comería los taps de la zona central del visor, que es como se abre la barra.
+
+El dato ya existía en el menú (`flyout-counter`). Saber cuánto queda no debería costar abrir un menú.
+
+### El atajo, y lo que hubo que arreglar antes
+
+**Descartar no se podía deshacer desde ninguna parte de la interfaz.** Buscado a propósito antes de escribir el atajo: `descartar_item` solo ponía el flag a `True` y nada lo devolvía. Con el menú eran tres pasos deliberados —abrir, desplazar, pulsar— y no hacía falta. **Con dos pulsaciones de una tecla común, una acción irreversible es una trampa.**
+
+Así que la fase trae tres cosas, y la del medio no se pidió:
+
+1. **Doble D descarta.** Dos pulsaciones dentro de 500 ms, no una: la `d` es común y esto saca el elemento de la cola para siempre. Cualquier otra tecla reinicia la cuenta, así que dos `d` separadas no son un descarte. Y no dispara mientras se escribe en un campo, la misma guarda que la fase 13.
+2. **`recuperar_item`**, que deshace el descarte.
+3. **Un aviso con «Deshacer»** durante seis segundos.
+
+### Criterios
+
+- [x] **C85 — Recuperar deshace un descarte.** *Tests: `test_recuperar_deshace_un_descarte` y `test_no_se_puede_recuperar_lo_de_otro`. El segundo es el falsador que importa de cualquier endpoint por pk: que no sirva para tocar la biblioteca de otra persona.*
+- [x] **C86 — El contador y el atajo están en la página.** *Si no está en la página no existe, y ni el contador ni un manejador de teclado se pueden probar por endpoint. Test: `test_el_visor_ensena_el_progreso_y_el_atajo_de_descarte`.*
+
+### Anti-claims
+
+- **El descarte por menú no cambia.** Sigue estando y hace lo mismo; el atajo es otra puerta a la misma acción.
+- **El contador no captura taps.** `pointer-events: none`.
+- **No se descarta escribiendo.** Teclear «dd» en una nota no descarta nada.
+
+### Lo que queda
+
+- **Verificarlo con los ojos**, que es lo único que cierra un contador translúcido: hay que ver que se lee sobre fondo claro y sobre fondo oscuro.
+- **Deshacer solo dura mientras no cambies de elemento.** Al descartar se pasa al siguiente y el aviso sigue seis segundos; si se descarta otro antes, el primero ya no se puede deshacer desde ahí. Recuperarlo entonces exige el admin.

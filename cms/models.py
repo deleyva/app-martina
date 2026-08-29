@@ -204,9 +204,18 @@ def _check_page_visibility(page, request):
     protected = False
     private_owner = None
 
+    # Una pagina privada SIN owner no puede quedar publica. La comprobacion de
+    # abajo se activa con `private_owner is not None`, asi que un owner nulo
+    # saltaba el bloqueo entero y la pagina se servia a cualquiera con la URL,
+    # aunque los listados si la escondieran. Media privacidad se lee como
+    # privacidad. Con `sin_dueno` la pagina queda visible solo para superusuarios
+    # (2026-08-29: lo destaparon 31 paginas creadas por API, que nacen sin owner).
+    sin_dueno = False
+
     if is_blog_type:
         if page.is_private:
             private_owner = page.owner
+            sin_dueno = page.owner is None
         if page.is_protected:
             protected = True
 
@@ -214,15 +223,18 @@ def _check_page_visibility(page, request):
     private_ancestor = _ancestro_con(ancestors, "is_private")
     if private_ancestor:
         private_owner = private_ancestor.owner
+        sin_dueno = private_ancestor.owner is None
 
     if not protected:
         protected = _ancestro_con(ancestors, "is_protected") is not None
 
     # Private takes precedence over protected
-    if private_owner is not None:
+    if private_owner is not None or sin_dueno:
         if not request.user.is_authenticated:
             return _login_redirect(request)
-        if not request.user.is_superuser and request.user != private_owner:
+        if request.user.is_superuser:
+            return None
+        if sin_dueno or request.user != private_owner:
             return HttpResponseForbidden("No tienes permiso para ver esta página.")
         return None
 
@@ -244,8 +256,12 @@ def _filter_visible_pages(queryset, request):
 
     if request.user.is_authenticated:
         # Authenticated users: hide private pages unless they own them
+        # `owner=request.user` no casa cuando owner es NULL, asi que una privada
+        # sin dueno ya queda excluida aqui. Se deja explicito para que no se
+        # pierda si alguien reescribe la condicion.
         return queryset.exclude(
-            models.Q(is_private=True) & ~models.Q(owner=request.user)
+            models.Q(is_private=True)
+            & (models.Q(owner__isnull=True) | ~models.Q(owner=request.user))
         )
 
     # Anonymous users: hide protected and private pages
@@ -1682,11 +1698,33 @@ class MusicLibraryIndexPage(Page):
         context["all_categories"] = MusicCategory.objects.all().order_by("name")
         context["search_query"] = search_query
 
+        # Libros de estudio (LibroDeEstudioPage). Estaban permitidos como hijos
+        # desde que se creo el tipo, pero nunca se anadieron aqui, asi que no
+        # salian en el indice ni en su buscador (destapado 2026-08-29 buscando
+        # "Luciernaga"). Mismo filtro de visibilidad que el resto.
+        try:
+            libros_estudio = (
+                LibroDeEstudioPage.objects.child_of(self).live()
+                .order_by("-first_published_at")
+            )
+            libros_estudio = _filter_visible_pages(libros_estudio, request)
+            if search_query:
+                libros_estudio = libros_estudio.filter(
+                    models.Q(title__icontains=search_query)
+                    | models.Q(intro__icontains=search_query)
+                )
+            libros_estudio = libros_estudio.distinct()
+            context["libros_estudio"] = libros_estudio
+        except (ProgrammingError, OperationalError):
+            context["libros_estudio"] = []
+
         # Combinar entradas tipo libro/blog/test para la sección editorial.
         # Los libros (BlogIndexPage) van primero dentro de la sección.
         combined_entries = []
         for book in context["book_indexes"]:
             combined_entries.append({"type": "book", "page": book})
+        for libro in context["libros_estudio"]:
+            combined_entries.append({"type": "book", "page": libro})
         for post in context["blog_posts"]:
             combined_entries.append({"type": "blog", "page": post})
         for test in context["test_pages"]:
@@ -2013,6 +2051,12 @@ class LibroDeEstudioPage(Page):
         related_name="+",
         verbose_name="Portada",
     )
+
+    @property
+    def n_capitulos(self):
+        """Los capitulos viven en el StreamField, no como paginas hijas, asi que
+        `get_children` da 0 y la tarjeta del indice mentiria."""
+        return len(self.capitulos)
 
     capitulos = StreamField(
         [

@@ -27,6 +27,7 @@ urlpatterns = [
     path("log-review/<int:pk>/", views.log_review, name="log_review"),
     path("notes/<int:pk>/", views.update_notes, name="update_notes"),
     path("descartar/<int:pk>/", views.descartar_item, name="descartar_item"),
+    path("recuperar/<int:pk>/", views.recuperar_item, name="recuperar_item"),
     path("contexto/<int:pk>/", views.contexto_item, name="contexto_item"),
     path("objetivo/<int:page_id>/", views.alternar_objetivo, name="alternar_objetivo"),
     path("secciones/<int:pk>/crear/", views.crear_seccion, name="crear_seccion"),

@@ -55,6 +55,52 @@
         }
 
         /* ── Flyout Panel ── */
+        /* Cuánto llevas de la sesión, siempre visible y sin estorbar.
+           Pegado arriba y translúcido: se lee sobre una partitura blanca y
+           sobre un vídeo oscuro sin taparlos. `pointer-events: none` es lo que
+           evita que se coma los taps de la zona central del visor, que es como
+           se pasa de elemento. */
+        #session-progress {
+            position: fixed;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9997;
+            padding: 3px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: 0.02em;
+            color: rgba(255, 255, 255, 0.9);
+            background: rgba(0, 0, 0, 0.35);
+            backdrop-filter: blur(6px);
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+
+        #descarte-aviso {
+            position: fixed;
+            bottom: 24px;
+            left: 24px;
+            z-index: 10002;
+            display: none;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 14px;
+            border-radius: 12px;
+            font-size: 13px;
+            color: #fff;
+            background: rgba(20, 20, 20, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+        }
+        #descarte-aviso.open { display: flex; }
+        #descarte-aviso button {
+            color: #8fb8ff;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
         #study-flyout {
             position: fixed;
             bottom: 84px;
@@ -511,6 +557,13 @@
     <!-- Backdrop for closing flyout on outside click -->
     <div id="flyout-backdrop" onclick="toggleFlyout(false)"></div>
 
+    <div id="session-progress"></div>
+
+    <div id="descarte-aviso">
+        <span id="descarte-texto">Descartado</span>
+        <button type="button" onclick="deshacerDescarte()">Deshacer</button>
+    </div>
+
     <!-- Floating Action Button -->
     <button id="study-fab" onclick="toggleFlyout()" title="Menu (M)">
         <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -689,6 +742,10 @@
         document.getElementById('flyout-title').textContent =
             item.detalle ? item.title + ' · ' + item.detalle : item.title;
         document.getElementById('flyout-counter').textContent = (currentIndex + 1) + '/' + playlist.length;
+        // El mismo dato, arriba y siempre visible: saber cuánto queda no
+        // debería costar abrir un menú.
+        document.getElementById('session-progress').textContent =
+            (currentIndex + 1) + ' de ' + playlist.length;
         // Disable prev/next at boundaries
         var prevBtn = document.getElementById('flyout-prev-btn');
         var nextBtn = document.getElementById('flyout-next-btn');
@@ -927,6 +984,66 @@
             loadItem(Math.min(currentIndex, playlist.length - 1));
         });
     }
+
+    // ── Descartar con doble D, y poder deshacerlo ──
+    //
+    // Dos pulsaciones seguidas y no una: la `d` es una tecla común y esto es
+    // una acción que saca el elemento de la cola para siempre. La ventana es
+    // corta a propósito — dos `d` separadas no son un descarte.
+    var VENTANA_DOBLE_D = 500;
+    var ultimaD = 0;
+    var ultimoDescartado = null;
+    var avisoTimeout = null;
+
+    function _escribiendo(destino) {
+        return destino && (
+            destino.tagName === 'TEXTAREA' ||
+            destino.tagName === 'INPUT' ||
+            destino.tagName === 'SELECT' ||
+            destino.isContentEditable
+        );
+    }
+
+    function mostrarAvisoDescarte(titulo) {
+        var aviso = document.getElementById('descarte-aviso');
+        document.getElementById('descarte-texto').textContent =
+            'Descartado: ' + (titulo || 'el elemento');
+        aviso.classList.add('open');
+        clearTimeout(avisoTimeout);
+        avisoTimeout = setTimeout(function () {
+            aviso.classList.remove('open');
+        }, 6000);
+    }
+
+    function deshacerDescarte() {
+        if (!ultimoDescartado) return;
+        var pk = ultimoDescartado;
+        ultimoDescartado = null;
+        document.getElementById('descarte-aviso').classList.remove('open');
+        fetch('{% url "my_library:recuperar_item" pk=99999 %}'.replace('99999', pk), {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken },
+            credentials: 'same-origin'
+        });
+    }
+
+    document.addEventListener('keydown', function (e) {
+        if (_escribiendo(e.target)) return;
+        if (e.key !== 'd' && e.key !== 'D') { ultimaD = 0; return; }
+        var ahora = Date.now();
+        if (ahora - ultimaD < VENTANA_DOBLE_D) {
+            ultimaD = 0;
+            e.preventDefault();
+            var actual = playlist[currentIndex];
+            if (actual) {
+                ultimoDescartado = actual.pk;
+                mostrarAvisoDescarte(actual.title);
+            }
+            descartarItem();
+        } else {
+            ultimaD = ahora;
+        }
+    });
 
     function saveNota(cfg) {
         // Siempre desde el flyout, que es donde vive el bloque del item ACTUAL.
