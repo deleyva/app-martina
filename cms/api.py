@@ -9,7 +9,7 @@ from ninja.files import UploadedFile
 from ninja.security import django_auth
 from wagtail.documents import get_document_model
 from wagtail.images import get_image_model
-from wagtail.models import Collection
+from wagtail.models import Collection, Page as WagtailPage
 
 from api_keys.auth import DatabaseApiKey
 from .models import (
@@ -809,3 +809,105 @@ def upload_document(
         document.tags.add(*tag_list)
 
     return DocumentUploadOut(id=document.id, title=document.title)
+
+
+# ---------------------------------------------------------------------------
+# Libro de estudio — capítulos (2026-08-28)
+#
+# `capitulos` es un StreamField de PageChooserBlock, así que hasta ahora la
+# única forma de añadir una página al libro era arrastrarla a mano en el admin
+# de Wagtail. Con BlogPage sustituyendo a ScorePage y repertorios de decenas de
+# canciones, eso no escala.
+# ---------------------------------------------------------------------------
+
+CAPITULO_TIPOS_VALIDOS = ("BlogPage", "ScorePage", "DictadoPage")
+
+
+class ChaptersIn(Schema):
+    """Schema de entrada para añadir capítulos a un LibroDeEstudioPage."""
+
+    page_ids: List[int]
+    # Por defecto añade al final y conserva lo que ya hubiera: un libro con
+    # capítulos ya ordenados a mano no debe perderlos por una llamada de API.
+    replace: bool = False
+    publish_immediately: bool = False
+
+
+class ChaptersOut(Schema):
+    id: int
+    title: str
+    live: bool
+    total_capitulos: int
+    anadidos: List[int]
+    ya_estaban: List[int]
+    edit_url: str
+
+
+@router.post("/study-books/{page_id}/chapters", response=ChaptersOut, tags=["Libro de estudio"])
+def add_study_book_chapters(request, page_id: int, payload: ChaptersIn):
+    """Añadir páginas como capítulos de un libro de estudio.
+
+    El orden de `page_ids` manda: es el orden en que saldrán a estudiar.
+    Las páginas que ya fueran capítulos se ignoran en vez de duplicarse, así
+    que reintentar una llamada a medias es seguro.
+    """
+    from .models import LibroDeEstudioPage
+
+    try:
+        libro = LibroDeEstudioPage.objects.get(id=page_id)
+    except LibroDeEstudioPage.DoesNotExist:
+        raise HttpError(404, f"No hay ningún libro de estudio con id {page_id}.")
+
+    if not payload.page_ids:
+        raise HttpError(400, "`page_ids` está vacío: no hay nada que añadir.")
+
+    paginas = WagtailPage.objects.filter(id__in=payload.page_ids).specific()
+    por_id = {p.id: p for p in paginas}
+
+    faltan = [i for i in payload.page_ids if i not in por_id]
+    if faltan:
+        raise HttpError(400, f"Estas páginas no existen: {faltan}.")
+
+    # Default-deny sobre el tipo: el bloque solo acepta tres, y meter otro
+    # dejaría el StreamField ilegible en el admin en vez de fallar aquí.
+    invalidas = {
+        i: type(por_id[i]).__name__
+        for i in payload.page_ids
+        if type(por_id[i]).__name__ not in CAPITULO_TIPOS_VALIDOS
+    }
+    if invalidas:
+        raise HttpError(
+            400,
+            f"Tipos no admitidos como capítulo: {invalidas}. "
+            f"Solo valen {', '.join(CAPITULO_TIPOS_VALIDOS)}.",
+        )
+
+    with transaction.atomic():
+        if payload.replace:
+            existentes = []
+            libro.capitulos = []
+        else:
+            existentes = [b.value.id for b in libro.capitulos if b.value]
+
+        anadidos, ya_estaban = [], []
+        for i in payload.page_ids:
+            if i in existentes or i in anadidos:
+                ya_estaban.append(i)
+                continue
+            libro.capitulos.append(("pagina", por_id[i]))
+            anadidos.append(i)
+
+        revision = libro.save_revision()
+        if payload.publish_immediately:
+            revision.publish()
+            libro.refresh_from_db()
+
+    return ChaptersOut(
+        id=libro.id,
+        title=libro.title,
+        live=libro.live,
+        total_capitulos=len(libro.capitulos),
+        anadidos=anadidos,
+        ya_estaban=ya_estaban,
+        edit_url=f"/cms/pages/{libro.id}/edit/",
+    )
