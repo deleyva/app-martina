@@ -2837,3 +2837,35 @@ def test_estado_estudio_resume_la_practica_de_hoy(db, user, capsys):
     assert "2 repasos en 1 tanda(s)" in salida, salida
     assert "2 min 00 s" in salida, f"90+30 son dos minutos, no diez: {salida}"
     assert "Caged" in salida
+
+
+def test_estado_estudio_distingue_descartados_de_homonimos(db, user, capsys):
+    """C81. Dos cosas que se confunden al mirar una sesion, y solo una es un
+    defecto: un DESCARTADO que reaparece lo seria; dos elementos DISTINTOS con
+    el mismo titulo no, pero se ven identicos en la lista.
+
+    Probado con las dos formas presentes a la vez, que es como estan los datos
+    del principal.
+    """
+    from django.core.management import call_command
+    from wagtail.images import get_image_model
+
+    Imagen = get_image_model()
+    a = Imagen.objects.create(title="Example 3.1c", file=_imagen_minima("a"))
+    b = Imagen.objects.create(title="Example 3.1c", file=_imagen_minima("b"))
+    for imagen in (a, b):
+        LibraryItem.objects.create(
+            user=user,
+            content_type=ContentType.objects.get_for_model(imagen),
+            object_id=imagen.pk,
+        )
+    descartado = _item(user, "no me lo ofrezcas")
+    descartado.descartado = True
+    descartado.save()
+
+    call_command("estado_estudio", email=user.email)
+    salida = capsys.readouterr().out
+
+    assert "el MISMO contenido dos veces: 0 caso(s)" in salida, salida
+    assert "mismo TÍTULO, contenido distinto: 1 caso(s)" in salida, salida
+    assert "descartados: 1 · de ésos, en la lista de estudio: 0" in salida, salida

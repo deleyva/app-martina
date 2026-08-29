@@ -71,7 +71,14 @@
             transform: translateY(12px) scale(0.95);
             pointer-events: none;
             transition: opacity 0.2s ease, transform 0.2s ease;
-            overflow: hidden;
+            /* `overflow: hidden` recortaba el menú sin dejar desplazarlo: con
+               la lista larga, "Descartar" quedaba fuera y solo se llegaba con
+               el tabulador, que arrastra el foco a la vista (2026-08-29).
+               En Y se desplaza; en X se recorta, que es lo que redondea las
+               esquinas sin sacar una barra horizontal. */
+            overflow-y: auto;
+            overflow-x: hidden;
+            overscroll-behavior: contain;
             box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
         }
         #study-flyout.open {

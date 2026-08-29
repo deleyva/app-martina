@@ -80,6 +80,55 @@ class Command(BaseCommand):
             f"{timezone.localtime(ultimo):%H:%M}"
         )
 
+    def _descartados_y_repetidos(self, user, items):
+        """Dos cosas que se confunden entre sí al mirar una sesión.
+
+        Un elemento DESCARTADO que reapareciera sería un defecto del filtro.
+        Dos elementos DISTINTOS con el mismo título no lo son, pero se ven
+        exactamente igual en la lista, así que parecen un descarte que no
+        funcionó. Se separan aquí para no discutir sobre la impresión.
+        """
+        from my_library.models import LibraryItem
+
+        self.stdout.write("\nDESCARTADOS Y REPETIDOS")
+
+        descartados = LibraryItem.objects.filter(user=user, descartado=True).count()
+        colados = [i for i in items if i.descartado]
+        self.stdout.write(
+            f"  descartados: {descartados} · de ésos, en la lista de estudio: "
+            f"{len(colados)}"
+        )
+
+        # Misma cosa dos veces: eso sí sería duplicación de verdad.
+        mismos, por_titulo = {}, {}
+        for item in items:
+            mismos.setdefault((item.content_type_id, item.object_id), []).append(item)
+            titulo = item.get_content_title() or "(sin título)"
+            por_titulo.setdefault(titulo, []).append(item)
+
+        dobles = {k: v for k, v in mismos.items() if len(v) > 1}
+        self.stdout.write(
+            f"  el MISMO contenido dos veces: {len(dobles)} caso(s)"
+            + (" ← defecto" if dobles else "")
+        )
+        for items_del_caso in list(dobles.values())[:5]:
+            pks = ", ".join(str(i.pk) for i in items_del_caso)
+            self.stdout.write(f"    {items_del_caso[0].get_content_title()[:44]:<44} pks {pks}")
+
+        homonimos = {k: v for k, v in por_titulo.items() if len(v) > 1 and k not in ()}
+        homonimos = {
+            k: v
+            for k, v in homonimos.items()
+            if len({(i.content_type_id, i.object_id) for i in v}) > 1
+        }
+        self.stdout.write(
+            f"  mismo TÍTULO, contenido distinto: {len(homonimos)} caso(s)"
+            " (se ven igual, pero no son el mismo)"
+        )
+        for titulo, iguales in list(homonimos.items())[:5]:
+            pks = ", ".join(str(i.pk) for i in iguales)
+            self.stdout.write(f"    {titulo[:44]:<44} pks {pks}")
+
     def handle(self, *args, **opciones):
         from django.contrib.auth import get_user_model
         from django.db.models import Count
@@ -194,6 +243,8 @@ class Command(BaseCommand):
         # fase 1, y hasta ahora no había forma de responderla sin abrir el admin
         # y sumar a mano.
         self._practica_reciente(user, opciones["dias"])
+
+        self._descartados_y_repetidos(user, items)
 
         # Para el presupuesto en minutos: cuánto dura de verdad cada elemento.
         self.stdout.write("\nDURACIÓN MEDIDA (para el presupuesto en minutos)")
