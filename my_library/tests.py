@@ -2948,3 +2948,27 @@ def test_si_los_homonimos_comparten_capitulo_se_cae_al_fichero(db, user):
     detalles = [i.desambiguador for i in items]
     assert len(set(detalles)) == 2, f"tienen que quedar distinguibles: {detalles}"
     assert all(".png" in d or ".jpg" in d or ".jpeg" in d for d in detalles), detalles
+
+
+def test_el_sufijo_de_django_se_quita_solo_si_sobra(db, user):
+    """C84. `img-004_mO9B6Ri.png` se lee peor que `img-004.png`, pero ese
+    sufijo lo puso Django porque habia una colision de nombre: quitarlo a
+    ciegas puede dejar dos nombres iguales y los homonimos otra vez
+    indistinguibles, que es el defecto que esto venia a arreglar.
+
+    El falsador de la version ingenua: dos ficheros que solo se diferencian en
+    el sufijo tienen que conservarlo.
+    """
+    from my_library.session import _ficheros_de
+
+    class _Falso:
+        def __init__(self, nombre):
+            self.content_object = type("O", (), {"file": type("F", (), {"name": nombre})})
+
+    distintos = [_Falso("img-004_mO9B6Ri.png"), _Falso("img-005_Oso425R.png")]
+    assert _ficheros_de(distintos) == ["img-004.png", "img-005.png"]
+
+    colision = [_Falso("img-004.png"), _Falso("img-004_mO9B6Ri.png")]
+    assert _ficheros_de(colision) == ["img-004.png", "img-004_mO9B6Ri.png"], (
+        "aqui el sufijo es lo unico que distingue: no se puede quitar"
+    )

@@ -27,6 +27,7 @@ El compromiso son bloques CORTOS (MAX_BLOQUE): continuidad suficiente para
 trabajar, no tanta como para que la sesión sea un bloque único.
 """
 
+import re
 from collections import defaultdict
 
 from . import facets
@@ -395,12 +396,34 @@ def _capitulo_de(unidad):
     return getattr(item, "source_page", None)
 
 
+# El sufijo que Django añade cuando dos ficheros se llaman igual:
+# `img-004.png` → `img-004_mO9B6Ri.png`. Es ruido para leer, pero a veces es lo
+# ÚNICO que distingue, así que solo se quita cuando sobra (ver `_ficheros_de`).
+_SUFIJO_DE_DJANGO = re.compile(r"_[A-Za-z0-9]{7}(?=\.[^.]+$)")
+
+
 def _fichero_de(unidad):
     """El nombre del fichero, cuando ni el título ni el capítulo distinguen."""
     item = getattr(unidad, "item", None) or unidad
     objeto = getattr(item, "content_object", None)
     nombre = getattr(getattr(objeto, "file", None), "name", "") or ""
     return nombre.rsplit("/", 1)[-1]
+
+
+def _ficheros_de(unidades):
+    """Nombres de fichero limpios, y solo si siguen distinguiendo.
+
+    `img-004_mO9B6Ri.png` se lee peor que `img-004.png`, pero ese sufijo lo
+    puso Django precisamente porque había una colisión: quitarlo a ciegas puede
+    devolver dos nombres iguales y dejar los homónimos otra vez indistinguibles,
+    que es el defecto que esto viene a arreglar. Se limpia solo si al limpiar
+    siguen siendo distintos.
+    """
+    crudos = [_fichero_de(u) for u in unidades]
+    limpios = [_SUFIJO_DE_DJANGO.sub("", n) for n in crudos]
+    if len(set(limpios)) == len(set(crudos)):
+        return limpios
+    return crudos
 
 
 def desambiguar_homonimos(unidades):
@@ -430,12 +453,13 @@ def desambiguar_homonimos(unidades):
             continue
         capitulos = {getattr(_capitulo_de(u), "pk", None) for u in iguales}
         distingue_el_capitulo = len(capitulos) == len(iguales)
-        for unidad in iguales:
+        ficheros = None if distingue_el_capitulo else _ficheros_de(iguales)
+        for n, unidad in enumerate(iguales):
             capitulo = _capitulo_de(unidad)
             if distingue_el_capitulo and capitulo is not None:
                 unidad.desambiguador = capitulo.title
             else:
-                unidad.desambiguador = _fichero_de(unidad) or (
+                unidad.desambiguador = ficheros[n] or (
                     capitulo.title if capitulo is not None else ""
                 )
     return unidades
