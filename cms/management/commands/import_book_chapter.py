@@ -34,10 +34,11 @@ Book manifest shape:
       ]
     }
 
-Tag handling: pass --tags "tag1,tag2" to apply tags to all created
-BlogPages and all their inline Wagtail Images. If --tags is omitted and
-the command is running in a TTY, the command prompts interactively once
-at the start of the run.
+Tag handling: pass --tags "faceta:valor,faceta:valor" to apply tags to all
+created BlogPages and all their inline Wagtail Images. If --tags is omitted
+and the command is running in a TTY, the command prompts interactively once
+at the start of the run. Every tag must carry a known facet (see
+`my_library.facets`); the run aborts before touching anything otherwise.
 """
 from __future__ import annotations
 
@@ -56,8 +57,10 @@ from django.utils.text import slugify
 
 from wagtail.images import get_image_model
 
+from cms.etiquetas import facetas_desconocidas
 from cms.models import BlogIndexPage, BlogPage, MusicLibraryIndexPage
 from cms.services.content_publisher import ContentPublisher
+from my_library import facets
 
 
 ImageModel = get_image_model()
@@ -298,6 +301,38 @@ class Command(BaseCommand):
         raw = input("Tags: ").strip()
         return self._parse_tags(raw)
 
+    def _validate_tags(self, tags: list[str]) -> None:
+        """Abort unless every tag carries a known facet.
+
+        The study session groups and filters by facet, so a plain tag on book
+        material is born dead: it is stored, it renders in the page header,
+        and it does nothing. `facetas_desconocidas` on its own does not catch
+        that case — a name without a colon is legal site-wide (`3/4`,
+        `vitalinux`) — but inside a music book every tag should be faceted.
+
+        Runs before the dry-run summary, so a bad vocabulary shows up on the
+        rehearsal instead of after the pages are already live.
+        """
+        if not tags:
+            return
+
+        desconocidas = facetas_desconocidas(tags)
+        if desconocidas:
+            self._abort(
+                f"Faceta desconocida en {desconocidas}. La etiqueta se crearía "
+                "pero nacería muerta: la biblioteca la trataría como plana y no "
+                f"agruparía ni filtraría. Facetas válidas: {', '.join(facets.FACETAS)}."
+            )
+
+        planas = [t for t in tags if not facets.tiene_faceta(t)]
+        if planas:
+            self._abort(
+                f"Etiquetas sin faceta: {planas}. En un libro toda etiqueta va "
+                "como `faceta:valor` — por ejemplo 'autor:willems', 'tipo:libro', "
+                "'concepto:lectura-ritmica'. Sin faceta la sesión de estudio no "
+                f"agrupa ni filtra por ella. Facetas válidas: {', '.join(facets.FACETAS)}."
+            )
+
     @staticmethod
     def _parse_tags(raw: str | None) -> list[str]:
         if not raw:
@@ -515,7 +550,7 @@ class Command(BaseCommand):
                 # Apply tags to the BlogPage
                 if tags:
                     tag_objects = [publisher._get_or_create_tag(t) for t in tags]
-                    blog_page.tags.set(tag_objects)
+                    blog_page.faceted_tags.set(tag_objects)
 
                 blog_page.save_revision().publish()
 
@@ -637,6 +672,7 @@ class Command(BaseCommand):
 
         # --- tag questionnaire --------------------------------------------
         tags = self._prompt_tags_if_needed(tags_arg)
+        self._validate_tags(tags)
         if tags:
             self.stdout.write(self.style.NOTICE(f"Tags to apply: {', '.join(tags)}"))
         else:
