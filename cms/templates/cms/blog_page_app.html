@@ -155,6 +155,23 @@
         margin: 0;
     }
 
+    /* Pie de figura. El párrafo que sigue inmediatamente a una imagen la
+       describe, pero con 1.5rem por arriba y por abajo quedaba equidistante
+       y el ojo lo agrupaba con el bloque anterior. Se pega a su imagen y se
+       separa del siguiente. `:has` acota la regla a las imágenes que
+       realmente llevan pie; sin soporte, el pie sigue quedando más cerca
+       de abajo que de arriba. */
+    .richtext-body .blog-image-wrapper:has(+ p) {
+        margin-bottom: 0.25rem;
+    }
+
+    .richtext-body .blog-image-wrapper + p {
+        margin-top: 0;
+        margin-bottom: 2rem;
+        font-size: 0.9em;
+        opacity: 0.75;
+    }
+
     .blog-image-wrapper .image-library-btn-prerender {
         display: flex !important;
         justify-content: flex-end;
