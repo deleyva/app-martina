@@ -251,6 +251,12 @@ class Command(BaseCommand):
 
         self._descartados_y_repetidos(user, items)
 
+        troceados = sum(1 for i in items if i.sections.exists())
+        self.stdout.write(
+            f"\nTROCEADOS EN SECCIONES: {troceados} de {len(items)}"
+            "  (la alternativa al presupuesto en minutos para el material largo)"
+        )
+
         # Para el presupuesto en minutos: cuánto dura de verdad cada elemento.
         self.stdout.write("\nDURACIÓN MEDIDA (para el presupuesto en minutos)")
         con_duracion = (
@@ -266,8 +272,29 @@ class Command(BaseCommand):
                 ).values_list("duration_seconds", flat=True)
             )
             medianas.append(valores[len(valores) // 2])
-        self.stdout.write(f"  elementos con duración: {len(medianas)}")
+        total_practicables = len(unidades)
+        self.stdout.write(
+            f"  elementos con duración: {len(medianas)} de {total_practicables} "
+            f"({100 * len(medianas) // max(1, total_practicables)}%)"
+        )
         if medianas:
+            # La distribución, no solo la mediana: un presupuesto en minutos se
+            # calibra con la FORMA de los datos. Si casi todo son elementos
+            # cortos, el presupuesto dará sesiones más largas que las de ahora,
+            # que es lo contrario de lo que se busca.
+            tramos = [
+                ("menos de 30 s", lambda d: d < 30),
+                ("30 s a 1 min", lambda d: 30 <= d < 60),
+                ("1 a 3 min", lambda d: 60 <= d < 180),
+                ("3 a 8 min", lambda d: 180 <= d < 480),
+                ("más de 8 min", lambda d: d >= 480),
+            ]
+            for nombre, cabe in tramos:
+                cuantos = sum(1 for d in medianas if cabe(d))
+                barra = "█" * cuantos
+                self.stdout.write(f"    {nombre:<14} {cuantos:>3}  {barra}")
+            media = sum(medianas) / len(medianas)
+            self.stdout.write(f"  media: {media:.0f}s")
             medianas.sort()
             self.stdout.write(f"  mediana de las medianas: {medianas[len(medianas)//2]}s")
             self.stdout.write(f"  mínimo / máximo: {medianas[0]}s / {medianas[-1]}s")
