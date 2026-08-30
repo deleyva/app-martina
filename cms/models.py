@@ -681,8 +681,10 @@ class BlogPage(Page):
     attachments = StreamField(
         [
             ("pdf_score", StructBlock([
-                ("pdf_file", DocumentChooserBlock(help_text="Seleccionar archivo PDF")),
-            ], icon="doc-full-inverse", label="PDF")),
+                ("pdf_file", DocumentChooserBlock(
+                    help_text="Seleccionar un PDF o un archivo Guitar Pro (.gp, .gp3, .gp4, .gp5, .gpx)"
+                )),
+            ], icon="doc-full-inverse", label="PDF / Guitar Pro")),
             ("audio", StructBlock([
                 ("audio_file", DocumentChooserBlock(help_text="Seleccionar archivo audio")),
             ], icon="media", label="Audio")),

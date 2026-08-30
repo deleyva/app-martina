@@ -431,6 +431,12 @@ WAGTAILDOCS_EXTENSIONS = [
     "mp4",
     "webm",
     "mov",
+    # Guitar Pro — se renderizan con alphaTab en la ficha y en el visor
+    "gp",
+    "gp3",
+    "gp4",
+    "gp5",
+    "gpx",
 ]
 
 # Wagtail Embeds Custom Finders

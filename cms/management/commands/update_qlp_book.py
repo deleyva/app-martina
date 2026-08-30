@@ -8,7 +8,6 @@ Expects:
 """
 from __future__ import annotations
 
-import html
 import re
 from pathlib import Path
 
@@ -145,22 +144,10 @@ class Command(BaseCommand):
             # --- Clean and rebuild body HTML ---
             clean_body = strip_redundant_lines(page.body or "")
 
-            parts = []
-            # Video player at top of body
-            if video_filename:
-                video_url = f"/media/videos/quick-lessons-pro/{video_filename}"
-                parts.append(
-                    f'<div style="position:relative;width:100%;margin:0 0 1.5rem 0;">'
-                    f'<video controls playsinline preload="metadata" '
-                    f'style="width:100%;border-radius:0.5rem;background:#000;">'
-                    f'<source src="{html.escape(video_url)}" type="video/webm">'
-                    f'Tu navegador no soporta la reproducci\u00f3n de v\u00eddeo.'
-                    f'</video></div>'
-                )
-            if clean_body:
-                parts.append(clean_body)
-
-            page.body = "\n".join(parts)
+            # El reproductor NO se inyecta en el body: Draftail no sabe parsear
+            # <source> y la vista de edicion devuelve un 500. El video se
+            # adjunta abajo como bloque y la plantilla lo pinta arriba.
+            page.body = clean_body
 
             # --- Build attachments: video + PDF + GP ---
             attachment_blocks = []

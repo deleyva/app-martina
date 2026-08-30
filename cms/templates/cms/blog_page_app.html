@@ -376,6 +376,26 @@
         </div>
     </div>
     {% endif %}
+    {% comment %}
+    Reproductor principal (2026-08-30) — antes este <video> se inyectaba como HTML
+    crudo dentro del RichTextField `body`. Draftail no sabe parsear <source>, asi
+    que la vista de edicion de esas 29 paginas reventaba con un 500
+    ("Unmatched tags: expected source, got video"). El video vive en el
+    StreamField de adjuntos; aqui solo se pinta.
+    {% endcomment %}
+    {% with hero_video=page.get_videos.0 %}
+    {% if hero_video.video_file %}
+    <div class="mb-6" style="position:relative;width:100%;">
+        <video controls playsinline preload="metadata"
+               class="w-full rounded-lg"
+               style="background:#000;">
+            <source src="{{ hero_video.video_file.url }}">
+            Tu navegador no soporta la reproducción de vídeo.
+        </video>
+    </div>
+    {% endif %}
+    {% endwith %}
+
     {% if page.body %}
     <div id="richtext-body" class="richtext-body text-base leading-relaxed mb-12">
         {{ page.body|richtext }}
