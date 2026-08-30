@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.conf import settings
@@ -6,6 +8,7 @@ from django.http import HttpResponseForbidden
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.core.exceptions import ValidationError
+from django.db import connection
 from django.db.utils import OperationalError, ProgrammingError
 from django.utils import timezone
 from django.utils.functional import cached_property
@@ -1493,6 +1496,34 @@ class MusicCategory(models.Model):
         return " > ".join(path)
 
 
+@lru_cache(maxsize=1)
+def _hay_unaccent():
+    """¿Está disponible la extensión `unaccent` en esta base de datos?
+
+    Crearla (migración `cms/0035`) exige superusuario de base de datos. Si un
+    despliegue no lo tiene, el buscador del índice musical vuelve a distinguir
+    tildes en vez de reventar la portada con un `FieldError`. Se cachea por
+    proceso: habilitar la extensión más tarde pide reiniciar los contenedores.
+    """
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1 FROM pg_extension WHERE extname = 'unaccent'")
+            return cursor.fetchone() is not None
+    except Exception:
+        return False
+
+
+def q_texto(campo, texto):
+    """`Q` que ignora mayúsculas y —si la base lo permite— también tildes.
+
+    Sin `unaccent`, buscar "armonia" no encontraba "Armonía": `icontains` en
+    Postgres respeta los acentos, así que media biblioteca era invisible salvo
+    que se escribiera el acento exacto.
+    """
+    lookup = "unaccent__icontains" if _hay_unaccent() else "icontains"
+    return models.Q(**{f"{campo}__{lookup}": texto})
+
+
 # Vocabulario del filtro por tipo de contenido del índice musical. El `slug` es
 # lo que viaja en `?types=`, así que es API pública: no se renombra sin romper
 # los enlaces que la gente haya guardado.
@@ -1589,20 +1620,18 @@ class MusicLibraryIndexPage(Page):
             # (solo ScorePage) y también en nombres de tags, de modo que
             # escribir "jazz" encuentre elementos etiquetados como "jazz".
             if search_query:
-                search_filters = models.Q(title__unaccent__icontains=search_query)
+                search_filters = q_texto("title", search_query)
 
                 if hasattr(qs.model, 'intro'):
-                    search_filters |= models.Q(intro__unaccent__icontains=search_query)
+                    search_filters |= q_texto("intro", search_query)
 
                 if qs.model.__name__ == 'ScorePage':
-                    search_filters |= models.Q(composer__name__unaccent__icontains=search_query)
+                    search_filters |= q_texto("composer__name", search_query)
 
                 # Buscar por nombre de etiqueta. Desde C37b el vocabulario es
                 # `faceted_tags` (taggit); `MusicTag` ya no existe.
                 if hasattr(qs.model, 'faceted_tags'):
-                    search_filters |= models.Q(
-                        faceted_tags__name__unaccent__icontains=search_query
-                    )
+                    search_filters |= q_texto("faceted_tags__name", search_query)
 
                 qs = qs.filter(search_filters)
 
@@ -1658,8 +1687,8 @@ class MusicLibraryIndexPage(Page):
             book_indexes = _filter_visible_pages(book_indexes, request)
             if search_query:
                 book_indexes = book_indexes.filter(
-                    models.Q(title__unaccent__icontains=search_query)
-                    | models.Q(intro__unaccent__icontains=search_query)
+                    q_texto("title", search_query)
+                    | q_texto("intro", search_query)
                 )
             book_indexes = aplicar_tipo(book_indexes.distinct(), "libro")
             context["book_indexes"] = book_indexes
@@ -1752,8 +1781,8 @@ class MusicLibraryIndexPage(Page):
             libros_estudio = _filter_visible_pages(libros_estudio, request)
             if search_query:
                 libros_estudio = libros_estudio.filter(
-                    models.Q(title__unaccent__icontains=search_query)
-                    | models.Q(intro__unaccent__icontains=search_query)
+                    q_texto("title", search_query)
+                    | q_texto("intro", search_query)
                 )
             libros_estudio = aplicar_tipo(libros_estudio.distinct(), "libro")
             context["libros_estudio"] = libros_estudio

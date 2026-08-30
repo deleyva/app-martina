@@ -1,4 +1,5 @@
 import datetime
+from unittest.mock import patch
 from django.contrib.auth.models import AnonymousUser
 from django.test import TestCase, Client, RequestFactory
 from django.utils import timezone
@@ -298,3 +299,18 @@ class MusicLibraryUnaccentSearchTest(WagtailPageTests):
         self.con_tilde.save()
         response = self.client.get(self.index_page.url, {"q": "educación"})
         self.assertIn(self.con_tilde, response.context["scores"])
+
+    @patch("cms.models._hay_unaccent", return_value=False)
+    def test_sin_la_extension_el_buscador_degrada_pero_no_revienta(self, _):
+        """Si `unaccent` no está en la base, se distinguen tildes; nunca un 500.
+
+        Crear la extensión exige superusuario, y no todos los despliegues lo
+        tienen. La portada del sitio no puede depender de eso.
+        """
+        response = self.client.get(self.index_page.url, {"q": "Armonía"})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(self.con_tilde, response.context["scores"])
+
+        # Y sin la extensión vuelve el comportamiento viejo: la tilde importa.
+        response = self.client.get(self.index_page.url, {"q": "armonia"})
+        self.assertNotIn(self.con_tilde, response.context["scores"])
