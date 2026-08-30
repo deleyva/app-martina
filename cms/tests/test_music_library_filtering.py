@@ -5,6 +5,9 @@ from django.utils import timezone
 from wagtail.models import Page
 from taggit.models import Tag
 from cms.models import (
+    BlogIndexPage,
+    BlogPage,
+    DictadoPage,
     MusicLibraryIndexPage,
     ScorePage,
     MusicCategory
@@ -141,3 +144,157 @@ class MusicLibraryFilteringTest(WagtailPageTests):
         # Should return all 3 scores
         scores = context['scores']
         self.assertEqual(scores.count(), 3)
+
+
+class MusicLibraryTypeFilterTest(WagtailPageTests):
+    """El filtro por tipo de página y su combinación con el texto libre."""
+
+    def setUp(self):
+        self.root_page = Page.objects.get(id=2)
+        self.index_page = MusicLibraryIndexPage(
+            title="Biblioteca Musical",
+            slug="biblioteca-tipos",
+            intro="Bienvenido a la biblioteca",
+        )
+        self.root_page.add_child(instance=self.index_page)
+        self.index_page.save_revision().publish()
+
+        # Un elemento de cada tipo, todos con "armonia" en el título salvo uno,
+        # para poder cruzar texto y tipo.
+        self.score = ScorePage(title="Armonia en partitura", slug="armonia-partitura")
+        self.index_page.add_child(instance=self.score)
+        self.score.save_revision().publish()
+
+        self.dictado = DictadoPage(
+            title="Armonia dictada", slug="armonia-dictada", intro="Dictado de armonia"
+        )
+        self.index_page.add_child(instance=self.dictado)
+        self.dictado.save_revision().publish()
+
+        self.articulo = BlogPage(
+            title="Armonia explicada",
+            slug="armonia-explicada",
+            date=datetime.date.today(),
+            intro="Articulo sobre armonia",
+        )
+        self.index_page.add_child(instance=self.articulo)
+        self.articulo.save_revision().publish()
+
+        self.libro = BlogIndexPage(
+            title="Armonia el libro", slug="armonia-libro", intro="Libro de armonia"
+        )
+        self.index_page.add_child(instance=self.libro)
+        self.libro.save_revision().publish()
+
+        self.otro = ScorePage(title="Contrapunto", slug="contrapunto")
+        self.index_page.add_child(instance=self.otro)
+        self.otro.save_revision().publish()
+
+    def _titulos(self, response, clave):
+        return {entry["page"].title for entry in response.context[clave]}
+
+    def test_sin_filtro_de_tipo_salen_todos(self):
+        response = self.client.get(self.index_page.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Armonia en partitura", self._titulos(response, "music_content"))
+        self.assertIn("Armonia dictada", self._titulos(response, "music_content"))
+        self.assertIn("Armonia explicada", self._titulos(response, "blog_entries"))
+        self.assertIn("Armonia el libro", self._titulos(response, "blog_entries"))
+
+    def test_filtrar_por_un_tipo(self):
+        response = self.client.get(self.index_page.url, {"types": "dictado"})
+        self.assertEqual(
+            self._titulos(response, "music_content"), {"Armonia dictada"}
+        )
+        self.assertEqual(self._titulos(response, "blog_entries"), set())
+
+    def test_filtrar_por_varios_tipos(self):
+        response = self.client.get(
+            self.index_page.url, {"types": ["articulo", "libro"]}
+        )
+        self.assertEqual(
+            self._titulos(response, "blog_entries"),
+            {"Armonia explicada", "Armonia el libro"},
+        )
+        self.assertEqual(self._titulos(response, "music_content"), set())
+
+    def test_tipos_separados_por_coma(self):
+        """La forma `?types=a,b` de los enlaces compartidos equivale a repetir el parámetro."""
+        response = self.client.get(self.index_page.url, {"types": "articulo,libro"})
+        self.assertEqual(
+            self._titulos(response, "blog_entries"),
+            {"Armonia explicada", "Armonia el libro"},
+        )
+
+    def test_texto_y_tipo_se_combinan(self):
+        """Buscar "armonia" y acotar a partituras deja una sola, no las dos partituras."""
+        response = self.client.get(
+            self.index_page.url, {"q": "Armonia", "types": "partitura"}
+        )
+        self.assertEqual(
+            self._titulos(response, "music_content"), {"Armonia en partitura"}
+        )
+        self.assertNotIn("Contrapunto", self._titulos(response, "music_content"))
+
+    def test_contadores_ignoran_el_filtro_de_tipo(self):
+        """Las pastillas cuentan sobre el texto, no sobre el tipo marcado."""
+        response = self.client.get(
+            self.index_page.url, {"q": "Armonia", "types": "dictado"}
+        )
+        counts = {f["slug"]: f["count"] for f in response.context["type_facets"]}
+        self.assertEqual(counts["partitura"], 1)
+        self.assertEqual(counts["dictado"], 1)
+        self.assertEqual(counts["articulo"], 1)
+        self.assertEqual(counts["libro"], 1)
+        self.assertEqual(response.context["total_matches"], 4)
+
+    def test_tipo_desconocido_se_ignora(self):
+        response = self.client.get(self.index_page.url, {"types": "chorizo"})
+        self.assertEqual(response.context["selected_types"], [])
+        self.assertIn("Armonia dictada", self._titulos(response, "music_content"))
+
+    def test_seleccion_marcada_en_las_pastillas(self):
+        response = self.client.get(self.index_page.url, {"types": "test"})
+        seleccionadas = [f["slug"] for f in response.context["type_facets"] if f["selected"]]
+        self.assertEqual(seleccionadas, ["test"])
+        self.assertEqual(response.context["types_query"], "test")
+
+
+class MusicLibraryUnaccentSearchTest(WagtailPageTests):
+    """El buscador ignora las tildes en ambos sentidos."""
+
+    def setUp(self):
+        self.root_page = Page.objects.get(id=2)
+        self.index_page = MusicLibraryIndexPage(
+            title="Biblioteca Musical", slug="biblioteca-tildes", intro="Bienvenido"
+        )
+        self.root_page.add_child(instance=self.index_page)
+        self.index_page.save_revision().publish()
+
+        self.con_tilde = ScorePage(title="Armonía moderna", slug="armonia-moderna")
+        self.index_page.add_child(instance=self.con_tilde)
+        self.con_tilde.save_revision().publish()
+
+        self.sin_tilde = ScorePage(title="Interpretacion basica", slug="interpretacion")
+        self.index_page.add_child(instance=self.sin_tilde)
+        self.sin_tilde.save_revision().publish()
+
+    def test_buscar_sin_tilde_encuentra_con_tilde(self):
+        response = self.client.get(self.index_page.url, {"q": "armonia"})
+        self.assertIn(self.con_tilde, response.context["scores"])
+
+    def test_buscar_con_tilde_encuentra_sin_tilde(self):
+        response = self.client.get(self.index_page.url, {"q": "interpretación"})
+        self.assertIn(self.sin_tilde, response.context["scores"])
+
+    def test_la_busqueda_sigue_discriminando(self):
+        """Ignorar tildes no puede convertir el buscador en un comodín."""
+        response = self.client.get(self.index_page.url, {"q": "armonia"})
+        self.assertNotIn(self.sin_tilde, response.context["scores"])
+
+    def test_etiquetas_tambien_ignoran_tildes(self):
+        tag = Tag.objects.create(name="concepto:educacion-auditiva", slug="ea")
+        self.con_tilde.faceted_tags.add(tag)
+        self.con_tilde.save()
+        response = self.client.get(self.index_page.url, {"q": "educación"})
+        self.assertIn(self.con_tilde, response.context["scores"])

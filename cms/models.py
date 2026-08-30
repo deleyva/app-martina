@@ -1493,6 +1493,18 @@ class MusicCategory(models.Model):
         return " > ".join(path)
 
 
+# Vocabulario del filtro por tipo de contenido del índice musical. El `slug` es
+# lo que viaja en `?types=`, así que es API pública: no se renombra sin romper
+# los enlaces que la gente haya guardado.
+TIPOS_DE_CONTENIDO = [
+    {"slug": "partitura", "label": "Partituras", "icon": "🎼"},
+    {"slug": "dictado", "label": "Dictados", "icon": "🎧"},
+    {"slug": "articulo", "label": "Artículos", "icon": "📝"},
+    {"slug": "libro", "label": "Libros", "icon": "📖"},
+    {"slug": "test", "label": "Tests", "icon": "🧠"},
+]
+
+
 @register_snippet
 # Pages de Music Pills
 # -----------------------------------------------------------------------------
@@ -1542,7 +1554,31 @@ class MusicLibraryIndexPage(Page):
             else []
         )
         search_query = request.GET.get("q", "").strip()
-        
+
+        # Filtro por tipo de contenido. Se aceptan las dos formas: `?types=a&types=b`
+        # (lo que envían las casillas del formulario) y `?types=a,b` (enlaces
+        # compartidos a mano). Los valores desconocidos se descartan en silencio.
+        tipos_pedidos = []
+        for valor in request.GET.getlist("types"):
+            tipos_pedidos.extend(t.strip().lower() for t in valor.split(","))
+        tipos_validos = {t["slug"] for t in TIPOS_DE_CONTENIDO}
+        # `dict.fromkeys` deduplica conservando el orden: htmx puede mandar el
+        # mismo valor dos veces (el elemento que dispara + el `hx-include`).
+        selected_types = [
+            t for t in dict.fromkeys(tipos_pedidos) if t in tipos_validos
+        ]
+
+        # Los contadores de cada pastilla se calculan ANTES de filtrar por tipo:
+        # así "Artículos · 3" sigue diciendo cuántos artículos casan con el texto
+        # aunque ahora mismo solo estén visibles los dictados.
+        type_counts = {}
+
+        def aplicar_tipo(qs, slug):
+            type_counts[slug] = type_counts.get(slug, 0) + qs.count()
+            if selected_types and slug not in selected_types:
+                return qs.none()
+            return qs
+
         # Limpiar nombres
         tag_names = [name.strip() for name in tag_names if name.strip()]
         category_names = [name.strip() for name in category_names if name.strip()]
@@ -1553,19 +1589,19 @@ class MusicLibraryIndexPage(Page):
             # (solo ScorePage) y también en nombres de tags, de modo que
             # escribir "jazz" encuentre elementos etiquetados como "jazz".
             if search_query:
-                search_filters = models.Q(title__icontains=search_query)
+                search_filters = models.Q(title__unaccent__icontains=search_query)
 
                 if hasattr(qs.model, 'intro'):
-                    search_filters |= models.Q(intro__icontains=search_query)
+                    search_filters |= models.Q(intro__unaccent__icontains=search_query)
 
                 if qs.model.__name__ == 'ScorePage':
-                    search_filters |= models.Q(composer__name__icontains=search_query)
+                    search_filters |= models.Q(composer__name__unaccent__icontains=search_query)
 
                 # Buscar por nombre de etiqueta. Desde C37b el vocabulario es
                 # `faceted_tags` (taggit); `MusicTag` ya no existe.
                 if hasattr(qs.model, 'faceted_tags'):
                     search_filters |= models.Q(
-                        faceted_tags__name__icontains=search_query
+                        faceted_tags__name__unaccent__icontains=search_query
                     )
 
                 qs = qs.filter(search_filters)
@@ -1584,12 +1620,13 @@ class MusicLibraryIndexPage(Page):
                 .prefetch_related("faceted_tags", "categories")
                 .order_by("-first_published_at")
             )
-            scores = filter_queryset(scores)
+            scores = aplicar_tipo(filter_queryset(scores), "partitura")
             context["scores"] = scores
             # Forzar evaluación del queryset para capturar errores de DB aquí
             context["scores_count"] = scores.count()
         except (ProgrammingError, OperationalError):
             # Si la tabla ScorePage no existe aún, devolver lista vacía
+            type_counts.setdefault("partitura", 0)
             context["scores"] = []
             context["scores_count"] = 0
 
@@ -1601,11 +1638,12 @@ class MusicLibraryIndexPage(Page):
                 .order_by("-first_published_at")
             )
             blog_posts = _filter_visible_pages(blog_posts, request)
-            blog_posts = filter_queryset(blog_posts)
+            blog_posts = aplicar_tipo(filter_queryset(blog_posts), "articulo")
             context["blog_posts"] = blog_posts
             context["blog_posts_count"] = blog_posts.count()
         except (ProgrammingError, OperationalError):
             # Si la tabla BlogPage no existe aún, devolver lista vacía
+            type_counts.setdefault("articulo", 0)
             context["blog_posts"] = []
             context["blog_posts_count"] = 0
 
@@ -1620,12 +1658,13 @@ class MusicLibraryIndexPage(Page):
             book_indexes = _filter_visible_pages(book_indexes, request)
             if search_query:
                 book_indexes = book_indexes.filter(
-                    models.Q(title__icontains=search_query)
-                    | models.Q(intro__icontains=search_query)
+                    models.Q(title__unaccent__icontains=search_query)
+                    | models.Q(intro__unaccent__icontains=search_query)
                 )
-            book_indexes = book_indexes.distinct()
+            book_indexes = aplicar_tipo(book_indexes.distinct(), "libro")
             context["book_indexes"] = book_indexes
         except (ProgrammingError, OperationalError):
+            type_counts.setdefault("libro", 0)
             context["book_indexes"] = []
 
         # Obtener todas las páginas de test que son hijas de esta página
@@ -1635,10 +1674,11 @@ class MusicLibraryIndexPage(Page):
                 .prefetch_related("faceted_tags", "categories")
                 .order_by("-first_published_at")
             )
-            test_pages = filter_queryset(test_pages)
+            test_pages = aplicar_tipo(filter_queryset(test_pages), "test")
             context["test_pages"] = test_pages
             context["test_pages_count"] = test_pages.count()
         except (ProgrammingError, OperationalError):
+            type_counts.setdefault("test", 0)
             context["test_pages"] = []
             context["test_pages_count"] = 0
 
@@ -1649,11 +1689,12 @@ class MusicLibraryIndexPage(Page):
                 .prefetch_related("faceted_tags", "categories")
                 .order_by("-first_published_at")
             )
-            dictado_pages = filter_queryset(dictado_pages)
+            dictado_pages = aplicar_tipo(filter_queryset(dictado_pages), "dictado")
             context["dictado_pages"] = dictado_pages
             context["dictado_pages_count"] = dictado_pages.count()
         except (ProgrammingError, OperationalError):
             # Si la tabla DictadoPage no existe aún, devolver lista vacía
+            type_counts.setdefault("dictado", 0)
             context["dictado_pages"] = []
             context["dictado_pages_count"] = 0
 
@@ -1673,7 +1714,7 @@ class MusicLibraryIndexPage(Page):
             reverse=True,
         )
         # Server-side pagination: limit to 6 unless filtered or show_all
-        is_filtered = tag_names or category_names or search_query
+        is_filtered = tag_names or category_names or search_query or selected_types
         show_all_music = is_filtered or request.GET.get("show_all_music")
         if not show_all_music and len(music_content) > 6:
             context["has_more_music"] = True
@@ -1697,6 +1738,7 @@ class MusicLibraryIndexPage(Page):
         )
         context["all_categories"] = MusicCategory.objects.all().order_by("name")
         context["search_query"] = search_query
+        context["selected_types"] = selected_types
 
         # Libros de estudio (LibroDeEstudioPage). Estaban permitidos como hijos
         # desde que se creo el tipo, pero nunca se anadieron aqui, asi que no
@@ -1710,12 +1752,13 @@ class MusicLibraryIndexPage(Page):
             libros_estudio = _filter_visible_pages(libros_estudio, request)
             if search_query:
                 libros_estudio = libros_estudio.filter(
-                    models.Q(title__icontains=search_query)
-                    | models.Q(intro__icontains=search_query)
+                    models.Q(title__unaccent__icontains=search_query)
+                    | models.Q(intro__unaccent__icontains=search_query)
                 )
-            libros_estudio = libros_estudio.distinct()
+            libros_estudio = aplicar_tipo(libros_estudio.distinct(), "libro")
             context["libros_estudio"] = libros_estudio
         except (ProgrammingError, OperationalError):
+            type_counts.setdefault("libro", 0)
             context["libros_estudio"] = []
 
         # Combinar entradas tipo libro/blog/test para la sección editorial.
@@ -1746,6 +1789,23 @@ class MusicLibraryIndexPage(Page):
             combined_entries = combined_entries[:6]
         context["blog_entries"] = combined_entries
         context["blog_entries_count"] = len(combined_entries)
+
+        # Pastillas de tipo. Se montan aquí, al final, porque `libros_estudio`
+        # sigue sumando al contador de "libro" después de la sección de música.
+        # `types_query` es la forma con comas, para los enlaces normales
+        # ("mostrar todo") que no pasan por el formulario.
+        context["types_query"] = ",".join(selected_types)
+        context["type_facets"] = [
+            {
+                "slug": tipo["slug"],
+                "label": tipo["label"],
+                "icon": tipo["icon"],
+                "count": type_counts.get(tipo["slug"], 0),
+                "selected": tipo["slug"] in selected_types,
+            }
+            for tipo in TIPOS_DE_CONTENIDO
+        ]
+        context["total_matches"] = sum(type_counts.values())
 
         return context
 

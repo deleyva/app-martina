@@ -68,6 +68,7 @@ DJANGO_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django.contrib.humanize", # Handy template tags
+    "django.contrib.postgres",  # registra el lookup `unaccent` del buscador
     "django.contrib.admin",
     "django.forms",
 ]

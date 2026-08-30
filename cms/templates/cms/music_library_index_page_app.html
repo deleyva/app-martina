@@ -90,32 +90,83 @@
 
     <!-- Filters and Search -->
     <div class="mb-6">
-        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
-            
-            {# Single text-only filter: matches title, intro and tag name #}
-            <div class="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
-                <form method="GET" action="." class="form-control w-full max-w-sm" id="searchForm" role="search">
-                    <div class="join w-full">
-                        <input type="text"
-                               name="q"
-                               value="{{ search_query }}"
-                               placeholder="Buscar por título o etiqueta..."
-                               class="input input-bordered join-item w-full sm:w-80"
-                               aria-label="Buscar"
-                               hx-get="."
-                               hx-trigger="keyup changed delay:200ms, search"
-                               hx-target="#searchResults"
-                               hx-select="#searchResults"
-                               hx-include="#searchForm"
-                               hx-swap="outerHTML"
-                               autocomplete="off">
-                        <button type="submit" class="btn btn-square join-item">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                        </button>
-                    </div>
-                </form>
+        {% comment %}
+        Un solo formulario: texto libre + tipo de página. El texto busca en
+        título, intro y etiquetas; las pastillas acotan por tipo. Ambos filtros
+        se combinan y viajan juntos en la URL (?q=...&types=...).
+        {% endcomment %}
+        <form method="GET" action="." id="searchForm" role="search" class="mb-6">
+            <div class="join w-full max-w-md">
+                <input type="text"
+                       id="searchInput"
+                       name="q"
+                       value="{{ search_query }}"
+                       placeholder="Buscar por título o etiqueta..."
+                       class="input input-bordered join-item w-full"
+                       aria-label="Buscar"
+                       hx-get="."
+                       hx-trigger="keyup changed delay:200ms, search"
+                       hx-target="#searchResults"
+                       hx-select="#searchResults"
+                       hx-select-oob="#typeFacets"
+                       hx-include="#searchForm"
+                       hx-swap="outerHTML"
+                       autocomplete="off">
+                <button type="submit" class="btn btn-square join-item" aria-label="Buscar">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                </button>
             </div>
-        </div>
+
+            {% comment %}
+            Pastillas de tipo. Envuelven en varias líneas en vez de deslizarse:
+            una tira con scroll horizontal aquí arrastraba a la página entera
+            (medido a 386px de ancho), y además escondía pastillas. Los
+            contadores se calculan sobre el texto buscado, no sobre el tipo.
+            {% endcomment %}
+            <div id="typeFacets"
+                 role="group"
+                 aria-label="Filtrar por tipo de página"
+                 class="mt-3 flex flex-wrap items-center gap-2">
+
+                <button type="button"
+                        aria-pressed="{% if selected_types %}false{% else %}true{% endif %}"
+                        onclick="document.querySelectorAll('#typeFacets input[name=types]').forEach(function (c) { c.checked = false; }); htmx.trigger('#searchInput', 'search');"
+                        class="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-medium transition-colors sm:py-1.5 sm:text-sm
+                               {% if selected_types %}border-base-300 bg-base-100 text-base-content/70 hover:border-primary/50 hover:text-base-content{% else %}border-primary bg-primary text-primary-content{% endif %}">
+                    Todo
+                    <span class="text-xs opacity-70">{{ total_matches }}</span>
+                </button>
+
+                {% for facet in type_facets %}
+                <label class="shrink-0 cursor-pointer{% if not facet.count and not facet.selected %} opacity-40{% endif %}">
+                    <input type="checkbox"
+                           name="types"
+                           value="{{ facet.slug }}"
+                           class="peer sr-only"
+                           {% if facet.selected %}checked{% endif %}
+                           hx-get="."
+                           hx-trigger="change"
+                           hx-target="#searchResults"
+                           hx-select="#searchResults"
+                           hx-select-oob="#typeFacets"
+                           hx-include="#searchForm"
+                           hx-swap="outerHTML">
+                    <span class="inline-flex items-center gap-1.5 rounded-full border border-base-300 bg-base-100 px-3 py-2 text-xs font-medium text-base-content/70 transition-colors sm:py-1.5 sm:text-sm
+                                 hover:border-primary/50 hover:text-base-content
+                                 peer-checked:border-primary peer-checked:bg-primary peer-checked:text-primary-content
+                                 peer-focus-visible:ring-2 peer-focus-visible:ring-primary/40">
+                        <span aria-hidden="true">{{ facet.icon }}</span>
+                        {{ facet.label }}
+                        <span class="text-xs opacity-70">{{ facet.count }}</span>
+                    </span>
+                </label>
+                {% endfor %}
+            </div>
+
+            <noscript>
+                <button type="submit" class="btn btn-primary btn-sm mt-3">Aplicar filtros</button>
+            </noscript>
+        </form>
 
 
         {# Wrapper for HTMX partial swap — filter refreshes BOTH sections #}
@@ -226,7 +277,7 @@
 
             {% if has_more_blog %}
             <div class="text-center mt-6">
-                <a href="?show_all_blog=1{% if search_query %}&q={{ search_query }}{% endif %}"
+                <a href="?show_all_blog=1{% if search_query %}&q={{ search_query }}{% endif %}{% if types_query %}&types={{ types_query }}{% endif %}"
                    class="btn btn-outline btn-primary">
                     Mostrar todo ({{ blog_entries_total }})
                 </a>
@@ -253,16 +304,17 @@
         <div class="text-center py-12">
             <div class="text-6xl mb-4">🔍</div>
             <h2 class="text-2xl font-bold mb-2">Sin resultados</h2>
-            <p class="text-base-content/70 mb-6">Prueba a cambiar el texto de búsqueda.</p>
-            <a href="." class="btn btn-primary">Limpiar búsqueda</a>
+            <p class="text-base-content/70 mb-6">
+                {% if selected_types %}Prueba a cambiar el texto o a quitar el filtro de tipo.{% else %}Prueba a cambiar el texto de búsqueda.{% endif %}
+            </p>
+            <a href="." class="btn btn-primary">Limpiar filtros</a>
         </div>
         {% endif %}
 
         <div>
+            {% if music_content %}
             <ul class="list bg-base-100 rounded-box shadow-md" id="musicList">
-                {% if music_content %}
                 <li class="p-4 pb-2 text-xs opacity-60 tracking-wide">Your Music Library</li>
-                {% endif %}
                 
                 {% for item in music_content %}
                 {% with page=item.page item_type=item.type %}
@@ -387,10 +439,11 @@
                 {% endwith %}
                 {% endfor %}
             </ul>
-            
+            {% endif %}
+
             {% if has_more_music %}
             <div class="text-center mt-6">
-                <a href="?show_all_music=1{% if search_query %}&q={{ search_query }}{% endif %}{% for tag in request.GET|get_list:'tags' %}&tags={{ tag }}{% endfor %}{% for cat in request.GET|get_list:'categories' %}&categories={{ cat }}{% endfor %}"
+                <a href="?show_all_music=1{% if search_query %}&q={{ search_query }}{% endif %}{% if types_query %}&types={{ types_query }}{% endif %}{% for tag in request.GET|get_list:'tags' %}&tags={{ tag }}{% endfor %}{% for cat in request.GET|get_list:'categories' %}&categories={{ cat }}{% endfor %}"
                    class="btn btn-outline btn-primary">
                     Mostrar todo ({{ music_content_total }})
                     <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
