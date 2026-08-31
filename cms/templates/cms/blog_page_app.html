@@ -13,6 +13,50 @@
         scroll-padding-top: 5rem;
     }
     /* Estilos para el contenido RichText de Wagtail */
+    .chordpro-sheet .chord-sheet {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        line-height: 1.35;
+    }
+
+    .chordpro-sheet .paragraph {
+        margin-bottom: 1.25rem;
+    }
+
+    .chordpro-sheet .row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+    }
+
+    .chordpro-sheet .chord {
+        font-weight: 700;
+        color: oklch(var(--p));
+        min-height: 1.3em;
+        white-space: pre;
+    }
+
+    .chordpro-sheet .lyrics {
+        white-space: pre;
+    }
+
+    /* El formatter emite su propio h1/h2 con titulo y subtitulo; la pagina ya
+       los tiene arriba, asi que sobran. */
+    .chordpro-sheet .title,
+    .chordpro-sheet .subtitle {
+        display: none;
+    }
+
+    .chordpro-sheet .comment {
+        font-style: italic;
+        opacity: 0.7;
+        margin: 0.5rem 0;
+    }
+
+    .at-wrap:hover .at-songsterr,
+    .at-songsterr:focus {
+        opacity: 1 !important;
+    }
+
     .richtext-body h1 {
         font-size: 2rem;
         font-weight: 700;
@@ -396,6 +440,30 @@
     {% endif %}
     {% endwith %}
 
+    {% comment %}
+    Letra con acordes (ChordPro). El texto se guarda SIN transponer; ChordSheetJS
+    transpone en el navegador, asi que lo que se ve es una vista, no otro dato
+    que mantener. El origen va en un <script type="text/plain"> para que el
+    navegador no interprete corchetes ni llaves.
+    {% endcomment %}
+    {% if page.chordpro %}
+    <div id="chordpro" class="mb-12">
+        <div class="flex items-center gap-2 mb-3 flex-wrap">
+            <h2 class="text-xl font-bold mr-auto">🎤 Letra con acordes</h2>
+            <div class="join">
+                <button type="button" id="cp-down" class="btn btn-sm join-item" title="Bajar medio tono">−</button>
+                <span id="cp-steps" class="btn btn-sm join-item no-animation pointer-events-none">Tono original</span>
+                <button type="button" id="cp-up" class="btn btn-sm join-item" title="Subir medio tono">+</button>
+            </div>
+            <button type="button" id="cp-reset" class="btn btn-sm btn-ghost">Reiniciar</button>
+        </div>
+        {# json_script escapa bien: un </script> dentro de la letra no rompe la pagina. #}
+        {{ page.chordpro|json_script:"cp-source" }}
+        <div id="cp-output" class="chordpro-sheet"></div>
+        <p id="cp-error" class="text-sm text-error" style="display:none;"></p>
+    </div>
+    {% endif %}
+
     {% if page.body %}
     <div id="richtext-body" class="richtext-body text-base leading-relaxed mb-12">
         {{ page.body|richtext }}
@@ -555,6 +623,19 @@
                         <div class="at-wrap" id="alphatab-{{ forloop.counter }}"
                              data-gp-url="{{ file_url }}"
                              style="min-height:300px;position:relative;overflow:hidden;border-radius:0.5rem;background:oklch(var(--b2));">
+                            {% comment %}
+                            Atajo a Songsterr. Va superpuesto arriba a la derecha, con
+                            opacidad baja hasta que el raton entra en la tablatura, para
+                            que no compita con la partitura.
+                            {% endcomment %}
+                            {% if page.songsterr_link %}
+                            <a href="{{ page.songsterr_link.url }}" target="_blank" rel="noopener"
+                               class="at-songsterr btn btn-xs gap-1"
+                               title="{% if page.songsterr_link.exacto %}Abrir esta tablatura en Songsterr{% else %}Buscar esta canción en Songsterr{% endif %}"
+                               style="position:absolute;top:0.5rem;right:0.5rem;z-index:5;opacity:0.35;transition:opacity .15s;">
+                                🎼 Songsterr{% if not page.songsterr_link.exacto %} <span aria-hidden="true">?</span>{% endif %}
+                            </a>
+                            {% endif %}
                             <div class="at-loading" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">
                                 <span class="loading loading-spinner loading-md"></span>
                                 <p class="text-xs mt-1">Loading Guitar Pro...</p>
@@ -854,6 +935,76 @@
         });
     });
     </script>
+
+    {# ChordSheetJS: renderiza la letra con acordes y transpone en cliente #}
+    {% if page.chordpro %}
+    <script src="https://cdn.jsdelivr.net/npm/chordsheetjs@16.2.2/lib/bundle.min.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var sourceEl = document.getElementById('cp-source');
+        var outputEl = document.getElementById('cp-output');
+        var errorEl = document.getElementById('cp-error');
+        var stepsEl = document.getElementById('cp-steps');
+        if (!sourceEl || !outputEl) return;
+
+        if (typeof ChordSheetJS === 'undefined') {
+            errorEl.textContent = 'No se pudo cargar el renderizador de acordes.';
+            errorEl.style.display = 'block';
+            return;
+        }
+
+        // HtmlDivFormatter NO escapa la letra, y el resultado entra por innerHTML.
+        // Sin esto, un `<img src=x onerror=...>` escrito en el campo se ejecutaria
+        // para todo el que abra la pagina, y ademas la letra pierde el texto.
+        // Escapando antes de parsear, el formatter emite entidades e innerHTML las
+        // devuelve como texto literal, que es justo lo que se quiere ver.
+        function escaparHtml(texto) {
+            return texto
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
+
+        var song;
+        try {
+            song = new ChordSheetJS.ChordProParser().parse(escaparHtml(JSON.parse(sourceEl.textContent)));
+        } catch (e) {
+            console.error('ChordPro parse error:', e);
+            errorEl.textContent = 'La letra tiene un error de formato ChordPro: ' + e.message;
+            errorEl.style.display = 'block';
+            return;
+        }
+
+        var formatter = new ChordSheetJS.HtmlDivFormatter();
+        var steps = 0;
+
+        function render() {
+            var vista = song;
+            for (var i = 0; i < Math.abs(steps); i++) {
+                vista = steps > 0 ? vista.transposeUp() : vista.transposeDown();
+            }
+            outputEl.innerHTML = formatter.format(vista);
+            if (steps === 0) {
+                stepsEl.textContent = 'Tono original';
+            } else {
+                stepsEl.textContent = (steps > 0 ? '+' : '') + steps + (Math.abs(steps) === 1 ? ' semitono' : ' semitonos');
+            }
+        }
+
+        function mover(delta) {
+            // Mas de una octava arriba o abajo no aporta nada: vuelve al mismo sitio.
+            steps = Math.max(-11, Math.min(11, steps + delta));
+            render();
+        }
+
+        document.getElementById('cp-up').addEventListener('click', function() { mover(1); });
+        document.getElementById('cp-down').addEventListener('click', function() { mover(-1); });
+        document.getElementById('cp-reset').addEventListener('click', function() { steps = 0; render(); });
+
+        render();
+    });
+    </script>
+    {% endif %}
 
     {# alphaTab for Guitar Pro file rendering #}
     <script src="https://cdn.jsdelivr.net/npm/@coderline/alphatab@latest/dist/alphaTab.min.js"></script>

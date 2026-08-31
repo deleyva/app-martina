@@ -785,6 +785,30 @@ class BlogPage(Page):
         verbose_name="Referencia",
         help_text="Número de catálogo, opus, o versión de referencia. ej: vers. Halestorm",
     )
+    # El id de Songsterr no viene dentro del .gp, asi que hay que guardarlo. Si
+    # se deja vacio, la plantilla cae en una busqueda por artista y titulo.
+    songsterr_url = models.URLField(
+        blank=True,
+        max_length=500,
+        verbose_name="Tablatura en Songsterr",
+        help_text=(
+            "URL de la canción en Songsterr, para el botón sobre la tablatura. "
+            "Si se deja vacío, el botón busca por artista y título."
+        ),
+    )
+    # Letra con acordes en formato ChordPro: [Am]texto y directivas {start_of_verse}.
+    # La transposición la hace ChordSheetJS en el navegador, no se guarda transpuesta.
+    chordpro = models.TextField(
+        blank=True,
+        verbose_name="Letra con acordes (ChordPro)",
+        help_text=(
+            "Formato ChordPro: los acordes entre corchetes justo antes de la sílaba "
+            "en la que caen, p. ej. [Am]On the street where you [F]live. "
+            "Directivas admitidas: {start_of_verse}, {end_of_verse}, {start_of_chorus}, "
+            "{end_of_chorus}, {comment: ...}. No hace falta poner {title} ni {artist}: "
+            "esos ya salen de la ficha."
+        ),
+    )
 
     # Categorías y tags
     categories = ParentalManyToManyField("MusicCategory", blank=True)
@@ -801,6 +825,7 @@ class BlogPage(Page):
         FieldPanel("featured_image"),
         FieldPanel("is_featured"),
         FieldPanel("body"),
+        FieldPanel("chordpro", heading="Letra con acordes (ChordPro)"),
         MultiFieldPanel(
             [
                 FieldPanel("artist"),
@@ -811,6 +836,7 @@ class BlogPage(Page):
                 FieldPanel("tempo_bpm"),
                 FieldPanel("duration_seconds"),
                 FieldPanel("reference"),
+                FieldPanel("songsterr_url"),
             ],
             heading="Metadatos musicales",
             classname="collapsed",
@@ -881,6 +907,27 @@ class BlogPage(Page):
             self.artist, self.key_display, self.time_signature_display,
             self.tempo_bpm, self.duration_display, self.reference,
         ])
+
+    @property
+    def songsterr_link(self):
+        """URL para el botón que se superpone a la tablatura.
+
+        El .gp no lleva dentro el id de Songsterr, asi que sin `songsterr_url`
+        lo unico honesto es abrir su buscador con lo que si sabemos.
+        Devuelve None cuando no hay ni URL ni titulo con el que buscar.
+        """
+        if self.songsterr_url:
+            return {"url": self.songsterr_url, "exacto": True}
+
+        from urllib.parse import urlencode
+
+        patron = " ".join(p for p in [self.artist, self.title] if p).strip()
+        if not patron:
+            return None
+        return {
+            "url": "https://www.songsterr.com/?" + urlencode({"pattern": patron}),
+            "exacto": False,
+        }
 
     def get_template(self, request, *args, **kwargs):
         if _is_blog_request(request):
