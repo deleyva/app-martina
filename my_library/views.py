@@ -202,6 +202,38 @@ def view_library_item(request, pk):
 
 
 @login_required
+def _songsterr_link_desde_back(request, back_url):
+    """Enlace a Songsterr de la pagina desde la que se abrio el visor.
+
+    El visor solo recibe el documento, que no sabe nada de Songsterr: el id vive
+    en la BlogPage. Lo unico que las une es el `back`, asi que se resuelve esa
+    ruta a una pagina de Wagtail y se le pide su enlace. Sin `back`, o si la ruta
+    no corresponde a una pagina con ficha musical, no hay boton.
+    """
+    if not back_url:
+        return None
+
+    from urllib.parse import urlparse
+
+    from django.http import Http404
+    from wagtail.models import Site
+
+    componentes = [c for c in urlparse(back_url).path.split("/") if c]
+    if not componentes:
+        return None
+
+    site = Site.find_for_request(request)
+    if site is None:
+        return None
+
+    try:
+        resultado = site.root_page.specific.route(request, componentes)
+    except Http404:
+        return None
+
+    return getattr(resultado.page, "songsterr_link", None)
+
+
 def view_content_object(request, content_type_id, object_id):
     content_type = get_object_or_404(ContentType, pk=content_type_id)
     model_class = content_type.model_class()
@@ -235,6 +267,7 @@ def view_content_object(request, content_type_id, object_id):
             "documents": documents,
             "score_media": score_media,
             "back_url": back_url,
+            "songsterr_link": _songsterr_link_desde_back(request, back_url),
         },
     )
 

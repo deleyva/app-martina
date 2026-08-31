@@ -251,6 +251,31 @@
                     font-size: 13px;
                     padding: 0 8px;
                 }
+                #gp-songsterr {
+                    position: fixed;
+                    top: 64px;
+                    right: 12px;
+                    z-index: 40;
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 4px;
+                    padding: 4px 10px;
+                    border-radius: 9999px;
+                    border: 1px solid rgba(0,0,0,0.12);
+                    background: rgba(255,255,255,0.92);
+                    color: #1f2937;
+                    font-size: 13px;
+                    text-decoration: none;
+                    /* Sobre el fondo blanco del visor, 0.35 se lee demasiado
+                       flojo; 0.5 sigue cediendo el protagonismo a la partitura. */
+                    opacity: 0.5;
+                    transition: opacity .15s;
+                }
+                #gp-songsterr:hover,
+                #gp-songsterr:focus,
+                #gp-viewer-container:hover #gp-songsterr {
+                    opacity: 1;
+                }
                 #gp-speed-label {
                     font-size: 12px;
                     opacity: 0.7;
@@ -259,6 +284,18 @@
                 }
             </style>
             <div id="gp-viewer-container">
+                {% comment %}
+                Mismo atajo que en la ficha, pero aqui el enlace no lo tiene el
+                documento: lo resuelve la vista desde el `back`. Fijo para que no
+                se pierda al desplazar la partitura, y discreto hasta el hover.
+                {% endcomment %}
+                {% if songsterr_link %}
+                <a href="{{ songsterr_link.url }}" target="_blank" rel="noopener"
+                   id="gp-songsterr"
+                   title="{% if songsterr_link.exacto %}Abrir esta tablatura en Songsterr{% else %}Buscar esta canción en Songsterr{% endif %}">
+                    🎼 Songsterr{% if not songsterr_link.exacto %} <span aria-hidden="true">?</span>{% endif %}
+                </a>
+                {% endif %}
                 <div id="gp-loading">Cargando partitura...</div>
                 <div id="gp-alphatab"></div>
                 <div id="gp-controls">
