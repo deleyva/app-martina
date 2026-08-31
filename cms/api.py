@@ -431,6 +431,10 @@ class BlogPageIn(Schema):
     time_signature_beat_type: Optional[int] = None
     tempo_bpm: Optional[int] = None
     duration_seconds: Optional[int] = None
+    # Songsterr y ChordPro (2026-08-31). El id de Songsterr no viaja dentro del
+    # .gp, asi que el cliente que sube la tablatura tiene que poder mandarlo.
+    songsterr_url: Optional[str] = ""
+    chordpro: Optional[str] = ""
 
 
 class BlogPageOut(Schema):
@@ -452,6 +456,8 @@ class BlogPageOut(Schema):
     time_signature_beat_type: Optional[int] = None
     tempo_bpm: Optional[int] = None
     duration_seconds: Optional[int] = None
+    songsterr_url: str = ""
+    chordpro: str = ""
     # Cómo se lee, para no obligar al cliente a rehacer el cálculo.
     key_display: str = ""
     time_signature_display: str = ""
@@ -558,6 +564,8 @@ def create_blog_page(request, payload: BlogPageIn):
             time_signature_beat_type=payload.time_signature_beat_type,
             tempo_bpm=payload.tempo_bpm,
             duration_seconds=payload.duration_seconds,
+            songsterr_url=payload.songsterr_url or "",
+            chordpro=payload.chordpro or "",
             # Wagtail hereda live=True del padre si está publicado;
             # lo sobreescribimos explícitamente para gestionar el estado desde la API.
             live=payload.publish_immediately,
@@ -613,6 +621,8 @@ def create_blog_page(request, payload: BlogPageIn):
         time_signature_beat_type=page.time_signature_beat_type,
         tempo_bpm=page.tempo_bpm,
         duration_seconds=page.duration_seconds,
+        songsterr_url=page.songsterr_url,
+        chordpro=page.chordpro,
         key_display=page.key_display,
         time_signature_display=page.time_signature_display,
         duration_display=page.duration_display,
@@ -645,6 +655,8 @@ class BlogPageUpdateIn(Schema):
     time_signature_beat_type: Optional[int] = None
     tempo_bpm: Optional[int] = None
     duration_seconds: Optional[int] = None
+    songsterr_url: Optional[str] = None
+    chordpro: Optional[str] = None
 
 
 @router.put("/blog-pages/{page_id}", response=BlogPageOut, tags=["Blog"])
@@ -695,7 +707,8 @@ def update_blog_page(request, page_id: int, payload: BlogPageUpdateIn):
                 page.owner = request.user
         for _campo in ("artist", "reference", "key_fifths", "key_mode",
                        "time_signature_beats", "time_signature_beat_type",
-                       "tempo_bpm", "duration_seconds"):
+                       "tempo_bpm", "duration_seconds",
+                       "songsterr_url", "chordpro"):
             _valor = getattr(payload, _campo)
             if _valor is not None:
                 setattr(page, _campo, _valor)
@@ -743,6 +756,8 @@ def update_blog_page(request, page_id: int, payload: BlogPageUpdateIn):
         time_signature_beat_type=page.time_signature_beat_type,
         tempo_bpm=page.tempo_bpm,
         duration_seconds=page.duration_seconds,
+        songsterr_url=page.songsterr_url,
+        chordpro=page.chordpro,
         key_display=page.key_display,
         time_signature_display=page.time_signature_display,
         duration_display=page.duration_display,
