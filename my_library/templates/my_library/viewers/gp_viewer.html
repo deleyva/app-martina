@@ -140,8 +140,34 @@ Recibe:
         <select id="gp-track-select" class="gp-ctrl-select"></select>
     </div>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/@coderline/alphatab@latest/dist/alphaTab.min.js"></script>
 <script>
+/**
+ * La sesion de estudio inyecta este partial por HTMX, y un <script src> metido
+ * asi no bloquea al script que le sigue: alphaTab todavia no existe cuando se
+ * intenta usar y la partitura se queda en "Cargando...". En el visor a pantalla
+ * completa no pasaba porque ahi la pagina se carga entera de una vez.
+ *
+ * La promesa se guarda en window para que una segunda insercion no vuelva a
+ * bajar la libreria.
+ */
+window.__cargarAlphaTab = window.__cargarAlphaTab || function () {
+    if (window.__alphaTabPromesa) return window.__alphaTabPromesa;
+    if (typeof alphaTab !== "undefined") {
+        window.__alphaTabPromesa = Promise.resolve();
+        return window.__alphaTabPromesa;
+    }
+    window.__alphaTabPromesa = new Promise(function (resolver, rechazar) {
+        var s = document.createElement("script");
+        s.src = "https://cdn.jsdelivr.net/npm/@coderline/alphatab@latest/dist/alphaTab.min.js";
+        s.onload = resolver;
+        s.onerror = function () { rechazar(new Error("No se pudo cargar alphaTab")); };
+        document.head.appendChild(s);
+    });
+    return window.__alphaTabPromesa;
+};
+</script>
+<script>
+window.__cargarAlphaTab().then(function () {
 (function() {
     var gpUrl = "{{ gp_file.file.url }}";
     var contentDiv = document.getElementById('gp-alphatab');
@@ -238,4 +264,9 @@ Recibe:
         }
     });
 })();
+}).catch(function (e) {
+    console.error("alphaTab:", e);
+    var l = document.getElementById("gp-loading");
+    if (l) l.textContent = "No se pudo cargar el visor de partituras.";
+});
 </script>
