@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% load wagtailcore_tags wagtailimages_tags %}
 {% load cms_tags %}
 {% load library_tags %}
@@ -1007,7 +1008,7 @@
     {% endif %}
 
     {# alphaTab for Guitar Pro file rendering #}
-    <script src="https://cdn.jsdelivr.net/npm/@coderline/alphatab@latest/dist/alphaTab.min.js"></script>
+    <script src="{% static 'vendor/alphatab/alphaTab.min.js' %}"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         var gpContainers = document.querySelectorAll('[data-gp-url]');
@@ -1021,13 +1022,21 @@
 
             var settings = {
                 file: gpUrl,
+                core: {
+                    // Estaticos con hash: alphaTab no puede deducir la ruta de
+                    // Bravura desde la del script.
+                    smuflFontSources: new Map([
+                        [alphaTab.FontFileFormat.Woff2, "{% static 'vendor/alphatab/font/Bravura.woff2' %}"],
+                        [alphaTab.FontFileFormat.Woff, "{% static 'vendor/alphatab/font/Bravura.woff' %}"],
+                    ]),
+                },
                 player: {
                     enablePlayer: true,
                     enableCursor: true,
                     enableUserInteraction: true,
                     scrollMode: alphaTab.ScrollMode.Continuous,
                     scrollOffsetY: -100,
-                    soundFont: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@latest/dist/soundfont/sonivox.sf2'
+                    soundFont: "{% static 'vendor/alphatab/soundfont/sonivox.sf2' %}"
                 },
                 display: {
                     layoutMode: alphaTab.LayoutMode.Page,
