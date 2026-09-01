@@ -1019,8 +1019,12 @@
             var contentDiv = wrap.querySelector('.at-content');
             if (!gpUrl || !contentDiv) return;
 
+            // Sin `file:`. La descarga interna de alphaTab falla en silencio: el
+            // score no se carga, la superficie queda con altura 0 y no salta
+            // ningun error, asi que la partitura se queda en "Cargando" para
+            // siempre. Descargandolo nosotros y pasandolo por `api.load()` si
+            // renderiza, y un fallo de red se puede contar en pantalla.
             var settings = {
-                file: gpUrl,
                 player: {
                     enablePlayer: true,
                     enableCursor: true,
@@ -1047,6 +1051,17 @@
             };
 
             var api = new alphaTab.AlphaTabApi(contentDiv, settings);
+
+            fetch(gpUrl)
+                .then(function(r) {
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    return r.arrayBuffer();
+                })
+                .then(function(buffer) { api.load(new Uint8Array(buffer)); })
+                .catch(function(e) {
+                    console.error('Guitar Pro:', e);
+                    if (loadingDiv) loadingDiv.innerHTML = '<p class="text-xs text-error">No se pudo cargar la partitura.</p>';
+                });
 
             api.renderStarted.on(function() {
                 if (loadingDiv) loadingDiv.style.display = 'none';

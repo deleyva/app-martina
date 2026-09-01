@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -306,7 +307,19 @@
                     <select id="gp-track-select" class="gp-ctrl-select"></select>
                 </div>
             </div>
-            <script src="https://cdn.jsdelivr.net/npm/@coderline/alphatab@latest/dist/alphaTab.min.js"></script>
+            {% comment %}
+            alphaTab se sirve desde nuestro dominio, no desde jsdelivr. No es por
+            velocidad: hace el maquetado en un Web Worker, y `new Worker()` con
+            una URL de otro origen lanza SecurityError. Cuando eso pasa el
+            fichero .gp llega a parsearse (el selector de pistas se rellena) pero
+            el render no arranca nunca y la partitura se queda en "Cargando".
+            Version fijada: `@latest` nos cambiaria la libreria sin avisar.
+
+            Las fuentes NO se configuran a mano: alphaTab las busca en `font/`
+            junto al script, y whitenoise conserva ahi los ficheros sin hash
+            ademas de los hasheados, asi que la deduccion funciona sola.
+            {% endcomment %}
+            <script src="{% static 'vendor/alphatab/alphaTab.min.js' %}"></script>
             <script>
             (function() {
                 var gpUrl = "{{ documents.gp_files.0.file.url }}";
@@ -322,15 +335,20 @@
                 var speedSteps = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
                 var currentSpeedIdx = 3; // 1×
 
+                // Sin `file:`. La descarga interna de alphaTab falla en silencio
+                // aqui: el score no se carga, la superficie queda con altura 0 y
+                // no salta ningun error, asi que la partitura se queda en
+                // "Cargando" para siempre. Descargando el .gp nosotros y
+                // pasandolo por `api.load()` renderiza bien, y ademas un fallo
+                // de red se puede contar en pantalla en vez de colgarse.
                 var settings = {
-                    file: gpUrl,
                     player: {
                         enablePlayer: true,
                         enableCursor: true,
                         enableUserInteraction: true,
                         scrollMode: alphaTab.ScrollMode.Continuous,
                         scrollOffsetY: -200,
-                        soundFont: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@latest/dist/soundfont/sonivox.sf2'
+                        soundFont: "{% static 'vendor/alphatab/soundfont/sonivox.sf2' %}"
                     },
                     display: {
                         layoutMode: alphaTab.LayoutMode.Page
@@ -349,6 +367,17 @@
                 };
 
                 var api = new alphaTab.AlphaTabApi(contentDiv, settings);
+
+                fetch(gpUrl)
+                    .then(function(r) {
+                        if (!r.ok) throw new Error('HTTP ' + r.status);
+                        return r.arrayBuffer();
+                    })
+                    .then(function(buffer) { api.load(new Uint8Array(buffer)); })
+                    .catch(function(e) {
+                        console.error('Guitar Pro:', e);
+                        if (loadingDiv) loadingDiv.textContent = 'No se pudo cargar la partitura.';
+                    });
 
                 api.renderStarted.on(function() {
                     if (loadingDiv) loadingDiv.style.display = 'none';
