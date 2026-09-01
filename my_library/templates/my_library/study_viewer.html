@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -6,6 +7,12 @@
     <title>Modo Estudio</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://unpkg.com/wavesurfer.js@7"></script>
+    {% comment %}
+    alphaTab va aqui, como las otras dos: el elemento entra por HTMX, y un
+    <script src> insertado asi no bloquea al script inline que le sigue. Cargada
+    de antemano, cuando llega el partial la libreria ya existe.
+    {% endcomment %}
+    <script src="{% static 'vendor/alphatab/alphaTab.min.js' %}"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {

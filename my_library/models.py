@@ -464,6 +464,18 @@ class LibraryItem(models.Model):
             if etiqueta.name.lower() not in vistas
         ]
 
+    @property
+    def songsterr_link(self):
+        """Enlace a Songsterr de la pagina de la que salio este elemento.
+
+        Un documento .gp no sabe nada de Songsterr: el id vive en la BlogPage.
+        Aqui si tenemos `source_page`, asi que no hace falta el rodeo por el
+        `back` que usa el visor a pantalla completa.
+        """
+        if not self.source_page_id:
+            return None
+        return getattr(self.source_page.specific, "songsterr_link", None)
+
     def get_viewer_url(self):
         """URL para ver el elemento en fullscreen"""
         return reverse("my_library:view_item", args=[self.pk])
