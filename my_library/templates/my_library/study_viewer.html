@@ -1,4 +1,3 @@
-{% load static %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -7,19 +6,6 @@
     <title>Modo Estudio</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://unpkg.com/wavesurfer.js@7"></script>
-    {% comment %}
-    alphaTab se precarga aqui, como pdf.js y wavesurfer, y no cuando el elemento
-    entra por HTMX. Esa era toda la diferencia con el visor a pantalla completa,
-    donde la libreria va en el HTML inicial y por eso pintaba al momento: en la
-    sesion se pedia en caliente y la partitura tardaba ~20 s en aparecer.
-    El soundfont se precarga tambien, pero con `prefetch`: solo hace falta al
-    pulsar Play, asi que no debe competir con el primer pintado.
-    {% endcomment %}
-    <script src="{% static 'vendor/alphatab/alphaTab.min.js' %}"></script>
-    <link rel="preload" as="font" type="font/woff2" crossorigin
-          href="{% static 'vendor/alphatab/font/Bravura.woff2' %}">
-    <link rel="prefetch" as="fetch" crossorigin
-          href="{% static 'vendor/alphatab/soundfont/sonivox.sf2' %}">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {

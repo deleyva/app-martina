@@ -1,4 +1,3 @@
-{% load static %}
 {% comment %}
 Visor Guitar Pro con alphaTab: partitura, reproductor, velocidad y seleccion de
 pista. Vive aqui y no en cada plantilla porque lo usan dos sitios con el mismo
@@ -149,9 +148,7 @@ Recibe:
  * completa no pasaba porque ahi la pagina se carga entera de una vez.
  *
  * La promesa se guarda en window para que una segunda insercion no vuelva a
- * bajar la libreria. Y la libreria se sirve desde staticfiles, no desde un CDN:
- * son 1,1 MB que ahora van por la conexion ya abierta, con la cache de
- * whitenoise y sin depender de que jsdelivr responda.
+ * bajar la libreria.
  */
 window.__cargarAlphaTab = window.__cargarAlphaTab || function () {
     if (window.__alphaTabPromesa) return window.__alphaTabPromesa;
@@ -161,7 +158,7 @@ window.__cargarAlphaTab = window.__cargarAlphaTab || function () {
     }
     window.__alphaTabPromesa = new Promise(function (resolver, rechazar) {
         var s = document.createElement("script");
-        s.src = "{% static 'vendor/alphatab/alphaTab.min.js' %}";
+        s.src = "https://cdn.jsdelivr.net/npm/@coderline/alphatab@latest/dist/alphaTab.min.js";
         s.onload = resolver;
         s.onerror = function () { rechazar(new Error("No se pudo cargar alphaTab")); };
         document.head.appendChild(s);
@@ -187,22 +184,13 @@ window.__cargarAlphaTab().then(function () {
 
     var settings = {
         file: gpUrl,
-        core: {
-            // En produccion los estaticos llevan hash en el nombre, asi que
-            // alphaTab no puede deducir donde esta Bravura a partir de la ruta
-            // del script. Se le dan explicitas.
-            smuflFontSources: new Map([
-                [alphaTab.FontFileFormat.Woff2, "{% static 'vendor/alphatab/font/Bravura.woff2' %}"],
-                [alphaTab.FontFileFormat.Woff, "{% static 'vendor/alphatab/font/Bravura.woff' %}"],
-            ]),
-        },
         player: {
             enablePlayer: true,
             enableCursor: true,
             enableUserInteraction: true,
             scrollMode: alphaTab.ScrollMode.Continuous,
             scrollOffsetY: -200,
-            soundFont: "{% static 'vendor/alphatab/soundfont/sonivox.sf2' %}"
+            soundFont: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@latest/dist/soundfont/sonivox.sf2'
         },
         display: {
             layoutMode: alphaTab.LayoutMode.Page
