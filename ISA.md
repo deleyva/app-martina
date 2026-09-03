@@ -2,9 +2,9 @@
 slug: app-martina
 phase: build
 progress: true
-iteration: 30
-principal_stated_goal: "ok, quiero que hagas lo más limpio y con visión de futuro"
-updated: 2026-08-26
+iteration: 31
+principal_stated_goal: "Por favor, sepárame la app CMS en dos apps distintas, por lo menos, para empezar una para blogs y otra para apps.música.es, Martina Bescós o lo que sea. No quiero tener más líos de templates. Por ejemplo, no quiero que tengan fichas musicales los artículos en blogs. Ni tampoco quiero que una persona, a la hora de subir una imagen, tenga que elegir si lo hace en la app de música o en el departamento de filosofía."
+updated: 2026-09-04
 ---
 
 # ISA — app-martina · Sistema de estudio de la biblioteca
@@ -1146,3 +1146,112 @@ Así que la fase trae tres cosas, y la del medio no se pidió:
 - ~~Verificarlo con los ojos~~ **HECHO, 2026-08-29**, y sobre los dos fondos porque uno solo no cerraba la claim: «1 de 3» sobre una partitura en blanco, y «1 de 2» sobre un vídeo de YouTube en negro. Legible en ambos, y sin tapar el contenido.
 - ~~El atajo de doble D no está probado en producción~~ **Cerrado por el principal el 2026-08-29**, que era la única forma: probarlo yo habría descartado un elemento real suyo. Confirma que el aviso con «Deshacer» sale. La fase 24 queda entera.
 - **Deshacer solo dura mientras no cambies de elemento.** Al descartar se pasa al siguiente y el aviso sigue seis segundos; si se descarta otro antes, el primero ya no se puede deshacer desde ahí. Recuperarlo entonces exige el admin.
+
+## Fase 25 — Partir `cms` en `blogs` y `musica` · EN CURSO
+
+**Goal (literal de Jesús, 2026-09-04):** «Por favor, sepárame la app CMS en dos apps distintas, por lo menos, para empezar una para blogs y otra para apps.música.es, Martina Bescós o lo que sea. No quiero tener más líos de templates. Por ejemplo, no quiero que tengan fichas musicales los artículos en blogs. Ni tampoco quiero que una persona, a la hora de subir una imagen, tenga que elegir si lo hace en la app de música o en el departamento de filosofía.»
+
+Contexto: es el punto 4 del artículo «BookStack o Django: la frontera que hay que dibujar»
+(`readlater…/bookmarks/SjS1r6W7FGnPw5MWZCcJL3`) y la sección 3 de «El blog de departamentos
+ya existe, ya tiene moderación y está vacío» (`…/UvQfTrsypBd3KtN7HhqQJJ`).
+
+### Lo que medí antes de tocar nada (BD local, 2026-09-04)
+
+| Cosa | Cuánto | A dónde va |
+|---|---|---|
+| `BlogPage` bajo la biblioteca musical | **238** | `musica.CancionPage` |
+| `BlogPage` en departamentos | **17** | `blogs.ArticuloPage` |
+| `BlogIndexPage` raíz de blogs (id=60) | 1 | `blogs.BlogsHomePage` |
+| `BlogIndexPage` departamentos | 18 | `blogs.DepartamentoPage` |
+| `BlogIndexPage` libros de la biblioteca | 12 | `musica.LibroPage` |
+| `ScorePage` (todas bajo el índice musical) | 44 | `musica.ScorePage` tal cual |
+| `MusicLibraryIndexPage` / `DictadoPage` | 1 / 1 | `musica` tal cual |
+| `SetlistPage`, `TestPage`, `SlidesConAudioPage`, `LibroDeEstudioPage` | 0 | `musica`, vacías |
+| `HomePage`, `StandardPage`, `HelpIndexPage`, `HelpVideoPage`, `ExternalResource`, `TaggableEmbed` | pocas | se quedan en `cms` = núcleo compartido |
+
+**Los tres hallazgos que hacen esto barato y que no daba por supuestos:**
+
+1. **Ninguna de las 255 `BlogPage` tiene un solo campo musical relleno** — ni `artist`, ni
+   `key_fifths`, ni `tempo_bpm`, ni `chordpro`, ni `songsterr_url`, ni `duration_seconds`,
+   ni `reference`, ni `time_signature_beats`. Partir el modelo en dos no arrastra datos.
+2. **Ninguna otra app tiene una FK a un modelo de `cms`.** `my_library`, `clases`,
+   `programacion` y `content_hub` apuntan todas a `wagtailcore.Page`, que conserva el `id`
+   al mover el modelo de app. La biblioteca de estudio no se entera.
+3. **El único acoplamiento real es `content_type_id`**, y está acotado y contado:
+
+   | Tabla | Filas que apuntan a `cms` |
+   |---|---|
+   | `wagtailcore_page` | 335 |
+   | `wagtailcore_revision` | 777 |
+   | `wagtailsearch_indexentry` | 335 |
+   | `clases_grouplibraryitem` | 115 |
+   | `clases_classsessionitem` | 41 |
+   | `programacion_planitem` | 7 |
+   | `programacion_contentcoverage` | 6 |
+   | `my_library_libraryitem` | 2 |
+   | `wagtailcore_workflowstate` | 1 |
+   | **total** | **~1.619, todas mecánicas** |
+
+   Un único lookup de content type escrito a mano en todo el repo
+   (`my_library/management/commands/backfill_library_source_page.py:23`), y es un comando
+   de una sola vez ya ejecutado.
+
+### Claims
+
+- [ ] **ISC-25.1** — Existen las apps `blogs` y `musica`; `cms` queda como núcleo compartido
+      y ya no contiene ningún modelo de blog ni de música.
+      *Falsador:* `grep -c "class \(Blog\|Music\|Score\|Setlist\|Dictado\|Slides\|Libro\)" cms/models.py` > 0.
+- [ ] **ISC-25.2** — El formulario de un artículo de departamento **no muestra ningún campo
+      musical**: ni ChordPro, ni artista, ni armadura, ni compás, ni tempo, ni duración,
+      ni referencia, ni Songsterr.
+      *Falsador:* abrir en Chrome real el formulario de creación bajo Filosofía y encontrar
+      cualquiera de esos rótulos.
+- [ ] **ISC-25.3** — Las 238 canciones conservan sus campos musicales y su `page.id`, y las
+      17 entradas de departamento conservan las suyas.
+      *Falsador:* un `id` de página que cambie, o un campo musical que se pierda.
+- [ ] **ISC-25.4** — Las ~1.619 referencias `content_type_id` quedan reapuntadas: cero filas
+      huérfanas en las 9 tablas de la tabla de arriba.
+      *Falsador:* `SELECT` que devuelva alguna fila con content_type de `cms` para un modelo
+      que ya no existe allí.
+- [ ] **ISC-25.5** — `my_library` sigue funcionando: la sesión de estudio se arma y sirve los
+      mismos items que antes de la migración.
+      *Falsador:* comparar el conteo de items servibles antes/después; cualquier diferencia.
+- [ ] **ISC-25.6** — Las plantillas viven cada una en su app (`blogs/templates/blogs/`,
+      `musica/templates/musica/`) y desaparece el sufijo `_blog`/`_app` de las que ya no
+      sirven a dos sitios.
+      *Falsador:* una plantilla de blog que siga decidiendo por `_is_blog_request`.
+- [ ] **ISC-25.7** — Un profesor de departamento que sube una imagen **no elige colección**:
+      el campo no aparece porque su grupo sólo tiene permiso de alta en la colección de su
+      departamento.
+      *Falsador:* abrir la subida de imagen como usuario de un grupo de departamento en
+      Chrome real y ver el selector de colección.
+- [ ] **ISC-25.8** — La suite pasa: `pytest` en verde, y `makemigrations --check` sin cambios
+      pendientes.
+      *Falsador:* cualquier test roto o migración sin generar.
+
+### Anti-claims
+
+- **No se toca la producción en esta run.** Todo se construye y se verifica contra la copia
+  local. El despliegue exige que Jesús lo autorice explícitamente (regla de
+  `OperationalRules.md`: migración de esquema en producción = puerta de confirmación).
+- **Ningún `page.id`, `slug` ni `url_path` cambia.** Las URLs públicas y los enlaces que ya
+  circulan siguen resolviendo. Si algo obliga a cambiar una URL, se para y se pregunta.
+- **No se convierten las 44 `ScorePage` a `CancionPage`.** Es deuda de la deprecación
+  anterior, tiene otra forma (`StreamField content` frente a campos planos) y es otra run.
+  Se mueven a `musica` tal cual.
+- **No se renombra la app `cms`.** Encogerla a núcleo compartido ya paga; renombrarla es otra
+  ronda de content types sin beneficio hoy.
+- **No se arregla aquí que `date` e `intro` sean obligatorios y `body` opcional** — está del
+  revés y lo documenté en el artículo, pero no es lo que Jesús pidió. Queda anotado abajo.
+
+### Out of scope (anotado, no hecho)
+
+- Invertir la obligatoriedad de `date`/`intro`/`body` en el artículo de departamento.
+- Convertir `ScorePage` → `CancionPage`.
+- Sacar `HelpIndexPage`/`HelpVideoPage` a su propia app `ayuda`.
+- Reactivar OIDC/SAML en BookStack (otro sistema, otra run).
+
+### Log
+
+- 2026-09-04 · Medido todo lo de arriba contra la BD local antes de escribir una línea de
+  modelo. El repo estaba a la par de `origin/main` (0 detrás, 0 delante) al empezar.
