@@ -1285,6 +1285,52 @@ ya existe, ya tiene moderación y está vacío» (`…/UvQfTrsypBd3KtN7HhqQJJ`).
   recogía como tests y reventaban la recolección entera. Movidos a `scripts/` con
   nombre `debug_*`; los 4 tests siguen rojos y no son de esta run.
 
+### Comprobación A/B de las apps que dependían de `cms` (2026-09-04)
+
+Jesús preguntó lo que había que preguntar: si la biblioteca, las sesiones de
+estudio, las clases y los visores siguen funcionando. No basta con «los tests
+pasan», así que monté la comparación honesta: **código de `006497c` contra una
+restauración de la base PRE-migración**, frente a **código actual contra la base
+migrada**, y comparé la huella del texto visible de cada vista.
+
+Un tropiezo por el camino que conviene dejar escrito: el primer intento pasó
+`-e POSTGRES_DB=antes_fase25`, y **Django lee `DATABASE_URL`, no `POSTGRES_DB`**.
+El leg «antes» estuvo corriendo contra la base ya migrada y la comparación no
+valía nada, aunque salía verde. Se arregló reescribiendo el último segmento de
+`DATABASE_URL` y **verificando `connection.settings_dict["NAME"]` en cada leg**
+antes de fiarse del resultado.
+
+| Vista | antes → después |
+|---|---|
+| `/my-library/` | 200 → 200, huella distinta **solo** en «Visto 12 veces» → «Visto 13 veces» (contador que incrementé yo al verificar) |
+| `/my-library/empezar/` | 200 → 200, **idéntica** |
+| `/my-library/empezar/recuento/` | 200 → 200, **idéntica** («51 elementos coinciden · sesión de 15») |
+| `/my-library/study/` | 200 → 200, **idéntica** |
+| `/my-library/view/<pk>/` (visor) | 200 → 200, **idéntica** |
+| `/my-library/study-item/<pk>/` | 200 → 200, **idéntica** |
+| `/programacion/` | 200 → 200, **idéntica** |
+| `/clases/` y `/clases/sesion/<pk>/` | 404 → 404, **idéntica** (esas rutas ya daban 404 antes) |
+
+Conteos, con la cuenta real de jlopez (51 elementos, 50 ReviewLog):
+
+| | antes | después |
+|---|---|---|
+| `LibraryItem` | 51 | 51 |
+| `ReviewLog` | 50 | 50 |
+| `ClassSession` | 110 | 110 |
+| `PlanItem` | 7 | 7 |
+| `GroupLibraryItem` | 175 | **168** |
+| GFK rotos en `GroupLibraryItem` | 7 | **0** |
+| GFK rotos en `LibraryItem` | 1 | 1 |
+
+Las dos únicas diferencias son las mismas 7 filas muertas que borró la migración
+0003, y el `LibraryItem` roto que queda apunta a `wagtaildocs.document` id=1 —
+un documento que **tampoco existía antes** (el id más bajo en la copia previa es
+el 2) y que la migración no toca, porque nunca mira `wagtaildocs`.
+
+Suites de las apps dependientes: `my_library` 171, `clases` 19, `programacion` 8,
+`evaluations` 9. Todas verdes.
+
 ### Lo siguiente, cuando Jesús diga
 
 1. **Desplegar.** Nada de esto ha tocado producción. El orden es: copia de la base,
