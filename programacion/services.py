@@ -35,7 +35,7 @@ def get_page_elements(page):
     model = type(specific).__name__.lower()
     elements = []
 
-    if model == "blogpage":
+    if model == "recursopage":
         cache = specific._parse_attachments()
         for sv in cache["pdfs"]:
             doc = sv.get("pdf_file")
@@ -153,7 +153,7 @@ def update_coverage_for_session(session):
         if item.source_page_id:
             pages.add(item.source_page)
         # El item puede SER una página (artículo completo en la sesión)
-        if item.content_type.model in ("blogpage", "scorepage", "dictadopage"):
+        if item.content_type.model in ("recursopage", "scorepage", "dictadopage"):
             obj = item.content_object
             if obj:
                 pages.add(obj)

@@ -1,4 +1,4 @@
-{% extends "cms/base_blog.html" %}
+{% extends "blogs/base.html" %}
 {% load wagtailcore_tags wagtailimages_tags %}
 {% load library_tags %}
 
@@ -215,11 +215,6 @@
             <span>{{ page.date|date:"j \\d\\e F, Y" }}</span>
             {% endif %}
             
-            {% if page.categories.all %}
-            <span>•</span>
-            <span>{{ page.categories.first.name }}</span>
-            {% endif %}
-            
             <!-- Botonera Admin (sin botón librería en el blog) -->
             {% if user.is_staff %}
             <span>•</span>
@@ -249,37 +244,6 @@
     {% endif %}
 
     <!-- Cuerpo del Artículo -->
-    {% comment %}
-    Metadatos musicales (2026-08-29) — guardados como manda MusicXML/MIDI,
-    pintados como los lee un músico. El cálculo vive en el modelo.
-    {% endcomment %}
-    {% if page.tiene_ficha_musical %}
-    <div class="card bg-base-200 shadow-lg mb-6">
-        <div class="card-body">
-            <h2 class="card-title">🏷️ Ficha musical</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {% if page.artist %}
-                <div><span class="font-medium">Artista:</span> <span>{{ page.artist }}</span></div>
-                {% endif %}
-                {% if page.key_display %}
-                <div><span class="font-medium">Tonalidad:</span> <span>{{ page.key_display }}</span></div>
-                {% endif %}
-                {% if page.time_signature_display %}
-                <div><span class="font-medium">Compás:</span> <span>{{ page.time_signature_display }}</span></div>
-                {% endif %}
-                {% if page.tempo_bpm %}
-                <div><span class="font-medium">Tempo:</span> <span>{{ page.tempo_bpm }} BPM</span></div>
-                {% endif %}
-                {% if page.duration_display %}
-                <div><span class="font-medium">Duración:</span> <span>{{ page.duration_display }}</span></div>
-                {% endif %}
-                {% if page.reference %}
-                <div class="md:col-span-2 lg:col-span-3"><span class="font-medium">Referencia:</span> <span>{{ page.reference }}</span></div>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-    {% endif %}
     {% if page.body %}
     <div id="article-content" class="article-content font-serif mx-auto max-w-3xl">
         {{ page.body|richtext }}
@@ -344,13 +308,10 @@
     <div class="editorial-divider-thick mt-20"></div>
 
     <!-- Categorías y Tags al final -->
-    {% if page.categories.all or page.faceted_tags.all %}
+    {% if page.faceted_tags.all %}
     <div class="mt-8 font-sans text-sm tracking-wide text-gray-500">
         <div class="flex flex-wrap items-center gap-4">
             <span class="uppercase font-bold text-black tracking-widest">Archivado en:</span>
-            {% for category in page.categories.all %}
-            <span class="hover:text-black cursor-pointer">{% if category.icon %}{{ category.icon }} {% endif %}{{ category.name }}</span>
-            {% endfor %}
             {% for tag in page.faceted_tags.all %}
             <span class="hover:text-black cursor-pointer">#{{ tag.name }}</span>
             {% endfor %}

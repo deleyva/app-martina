@@ -560,7 +560,7 @@ def class_session_item_content(request, session_id, item_id):
     content = item.content_object
 
     # BlogPages/DictadoPages: show in iframe via a simple redirect partial
-    if content_type in ("blogpage", "dictadopage", "scorepage"):
+    if content_type in ("recursopage", "dictadopage", "scorepage"):
         if hasattr(content, "get_url"):
             page_url = content.get_url()
             html = (
@@ -1055,7 +1055,7 @@ def group_library_item_viewer(request, group_id, pk):
     # de un attachment, en cuyo caso abrimos el visor fullscreen del elemento.
     _element_view_types = {"pdf", "audio", "image", "embed"}
     if (
-        content_type in ["blogpage", "dictadopage"]
+        content_type in ["recursopage", "dictadopage"]
         and element_type not in _element_view_types
     ):
         if hasattr(content, "get_url"):
@@ -1132,7 +1132,7 @@ def group_library_item_viewer(request, group_id, pk):
                             break
                         elif not element_type:
                             documents["embeds"].append(embed_val)
-    elif content_type == "blogpage":
+    elif content_type == "recursopage":
         # RecursoPage: extraer PDFs, audios, imágenes del StreamField `attachments`.
         # Solo se ejecuta cuando se ha pedido un element_type concreto,
         # porque si no hay element_type el flujo ya ha hecho redirect al
@@ -1256,7 +1256,7 @@ def class_session_item_viewer(request, session_id, item_id):
 
     # BlogPages y DictadoPages: redirigir a su visualización normal de Wagtail
     # EXCEPTO si estamos intentando ver un embed específico de la misma
-    if content_type in ["blogpage", "dictadopage"] and element_type != "embed":
+    if content_type in ["recursopage", "dictadopage"] and element_type != "embed":
         if hasattr(content, "get_url"):
             url = content.get_url()
             # Pasar contexto de sesión para que el botón "Volver" regrese aquí

@@ -1,4 +1,4 @@
-{% extends "cms/base_blog.html" %}
+{% extends "blogs/base.html" %}
 {% load wagtailcore_tags wagtailimages_tags %}
 
 {% block title %}Publicaciones - IES Martina Bescós{% endblock title %}
@@ -27,17 +27,17 @@
 {% block content %}
 
   {# ── 1. Hero Slider de destacados ── #}
-  {% include "cms/_blog_hero_slider.html" with posts=hero_posts %}
+  {% include "blogs/_editorial_hero.html" with posts=hero_posts %}
 
   {# ── 2. Strip de Editoriales ── #}
-  {% include "cms/_blog_editorials_strip.html" with posts=editorial_posts %}
+  {% include "blogs/_editorial_tira.html" with posts=editorial_posts %}
 
   {# ── 3. Secciones por departamento (hasta 4) ── #}
   {% for section in department_sections %}
     {% if forloop.first %}
-      {% include "cms/_blog_department_section.html" with section=section show_sidebar=True sidebar_posts=sidebar_recent %}
+      {% include "blogs/_editorial_seccion.html" with section=section show_sidebar=True sidebar_posts=sidebar_recent %}
     {% else %}
-      {% include "cms/_blog_department_section.html" with section=section show_sidebar=False %}
+      {% include "blogs/_editorial_seccion.html" with section=section show_sidebar=False %}
     {% endif %}
   {% endfor %}
 

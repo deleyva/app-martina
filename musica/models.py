@@ -798,10 +798,14 @@ class MusicLibraryIndexPage(Page):
         # `MusicTag.objects.all()` listaba también las que no usaba nadie.
         context["all_tags"] = (
             Tag.objects.filter(
-                models.Q(cms_blogpagetag_items__isnull=False)
-                | models.Q(cms_scorepagetag_items__isnull=False)
-                | models.Q(cms_dictadopagetag_items__isnull=False)
-                | models.Q(cms_testpagetag_items__isnull=False)
+                # El prefijo de la relacion inversa lleva el app_label, asi que
+                # partir `cms` los renombro todos: `cms_blogpagetag_items` paso a
+                # ser `musica_recursopagetag_items`. Falla en tiempo de consulta,
+                # no de importacion: lo destaparon los tests del filtrado.
+                models.Q(musica_recursopagetag_items__isnull=False)
+                | models.Q(musica_scorepagetag_items__isnull=False)
+                | models.Q(musica_dictadopagetag_items__isnull=False)
+                | models.Q(musica_testpagetag_items__isnull=False)
             )
             .distinct()
             .order_by("name")
@@ -1317,7 +1321,12 @@ class LibroPage(Page):
     ]
 
     parent_page_types = ["musica.MusicLibraryIndexPage", "musica.LibroPage"]
-    subpage_types = ["musica.LibroPage", "musica.RecursoPage"]
+    subpage_types = [
+        "musica.LibroPage",
+        "musica.RecursoPage",
+        "musica.SlidesConAudioPage",
+        "musica.LibroDeEstudioPage",
+    ]
 
     def get_template(self, request, *args, **kwargs):
         return "musica/libro.html"

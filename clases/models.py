@@ -372,7 +372,7 @@ class GroupLibraryItem(models.Model):
         mapping = {
             "scorepage": "Partitura",
             "image": "Imagen",
-            "blogpage": "Artículo de Blog",
+            "recursopage": "Artículo de Blog",
             "dictadopage": "Dictado",
             "embed": "Contenido Incrustado",
         }
@@ -394,7 +394,7 @@ class GroupLibraryItem(models.Model):
             "scorepage": "🎼",
             "document": "📄",
             "image": "🖼️",
-            "blogpage": "📝",
+            "recursopage": "📝",
             "embed": "▶️",
         }
         return icons.get(model_name, "📁")
@@ -792,7 +792,7 @@ class GroupLibraryItem(models.Model):
         elements = []
 
         # Solo procesar si es RecursoPage
-        if self.content_type.model != "blogpage":
+        if self.content_type.model != "recursopage":
             self._blogpage_elements_cache = elements
             return elements
 
@@ -939,7 +939,7 @@ class GroupLibraryItem(models.Model):
         Suma los `session_count` ya calculados en `get_blogpage_elements()`
         en vez de re-consultar la base de datos por cada elemento.
         """
-        if self.content_type.model != "blogpage":
+        if self.content_type.model != "recursopage":
             return 0
         return sum(e["session_count"] for e in self.get_blogpage_elements())
 
@@ -1139,7 +1139,7 @@ class ClassSessionItem(models.Model):
         mapping = {
             "scorepage": "Partitura",
             "image": "Imagen",
-            "blogpage": "Artículo de Blog",
+            "recursopage": "Artículo de Blog",
             "grouplibraryitem": "Item de Biblioteca",
             "embed": "Contenido Incrustado",
         }
@@ -1160,7 +1160,7 @@ class ClassSessionItem(models.Model):
             "scorepage": "🎼",
             "document": "📄",
             "image": "🖼️",
-            "blogpage": "📝",
+            "recursopage": "📝",
             "embed": "▶️",
         }
         return icons.get(model_name, "📁")

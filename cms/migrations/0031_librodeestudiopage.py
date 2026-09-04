@@ -19,7 +19,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('page_ptr', models.OneToOneField(auto_created=True, on_delete=django.db.models.deletion.CASCADE, parent_link=True, primary_key=True, serialize=False, to='wagtailcore.page')),
                 ('intro', wagtail.fields.RichTextField(blank=True, help_text='De que va este libro')),
-                ('capitulos', wagtail.fields.StreamField([('pagina', 0)], blank=True, block_lookup={0: ('wagtail.blocks.PageChooserBlock', (), {'help_text': 'Una pagina que ya existe. El orden manda.', 'page_type': ['cms.BlogPage', 'cms.ScorePage', 'cms.DictadoPage']})}, help_text='Arrastra para ordenar: este es el orden en que saldra a estudiar.', verbose_name='Capitulos')),
+                ('capitulos', wagtail.fields.StreamField([('pagina', 0)], blank=True, block_lookup={0: ('wagtail.blocks.PageChooserBlock', (), {'help_text': 'Una pagina que ya existe. El orden manda.', 'page_type': ['musica.RecursoPage', 'musica.ScorePage', 'musica.DictadoPage']})}, help_text='Arrastra para ordenar: este es el orden en que saldra a estudiar.', verbose_name='Capitulos')),
                 ('cover_image', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to='wagtailimages.image', verbose_name='Portada')),
             ],
             options={

@@ -6,7 +6,7 @@ def base_template_context(request):
     """
     host = request.get_host()
     if "blogs.iesmartinabescos" in host:
-        base_template = "cms/base_blog.html"
+        base_template = "blogs/base.html"
     elif request.session.get("app_mode") == "incidencias":
         base_template = "incidencias/base_incidencias.html"
     else:

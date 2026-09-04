@@ -1,6 +1,7 @@
 """Privacidad de paginas y libros de estudio (2026-08-29).
 
-El agujero que estos tests cierran: `_check_page_visibility` activaba el
+El agujero que estos tests cierran: `check_page_visibility` (antes
+`cms.models._check_page_visibility`, hoy en `cms/visibilidad.py`) activaba el
 bloqueo con `private_owner is not None`, asi que una pagina marcada privada
 pero SIN owner se saltaba la comprobacion entera y se servia a cualquiera con
 la URL, aunque los listados si la escondieran. Media privacidad se lee como
@@ -13,13 +14,9 @@ from django.contrib.auth import get_user_model
 from django.test import RequestFactory, TestCase
 from wagtail.models import Page
 
-
-    BlogIndexPage,
-    BlogPage,
-    LibroDeEstudioPage,
-    _check_page_visibility,
-    _filter_visible_pages,
-)
+from blogs.models import ArticuloPage, BlogIndexPage
+from musica.models import LibroDeEstudioPage, LibroPage, RecursoPage
+from cms.visibilidad import check_page_visibility, filter_visible_pages
 
 User = get_user_model()
 
@@ -38,7 +35,7 @@ class PrivacidadTest(TestCase):
         self.index.save_revision().publish()
 
     def _pagina(self, **kw):
-        p = BlogPage(title="Cancion", slug=kw.pop("slug", "cancion"),
+        p = ArticuloPage(title="Cancion", slug=kw.pop("slug", "cancion"),
                      date="2026-08-29", intro="x", **kw)
         self.index.add_child(instance=p)
         p.save_revision().publish()
@@ -54,31 +51,31 @@ class PrivacidadTest(TestCase):
         """El caso exacto del agujero: sin owner, antes devolvia None (pasa)."""
         p = self._pagina(is_private=True, slug="huerfana")
         self.assertIsNone(p.owner)
-        resp = _check_page_visibility(p, self._peticion(self.otro))
+        resp = check_page_visibility(p, self._peticion(self.otro))
         self.assertIsNotNone(resp, "una privada sin dueno se estaba sirviendo")
         self.assertEqual(resp.status_code, 403)
 
     def test_privada_sin_duenyo_si_la_ve_un_superusuario(self):
         p = self._pagina(is_private=True, slug="huerfana2")
-        self.assertIsNone(_check_page_visibility(p, self._peticion(self.duenyo)))
+        self.assertIsNone(check_page_visibility(p, self._peticion(self.duenyo)))
 
     def test_privada_con_duenyo_la_ve_su_duenyo_y_no_un_tercero(self):
         p = self._pagina(is_private=True, slug="conduenyo")
         p.owner = self.otro
         p.save()
-        self.assertIsNone(_check_page_visibility(p, self._peticion(self.otro)))
+        self.assertIsNone(check_page_visibility(p, self._peticion(self.otro)))
         tercero = User.objects.create_user(email="t@example.com", password="x123456789")
-        resp = _check_page_visibility(p, self._peticion(tercero))
+        resp = check_page_visibility(p, self._peticion(tercero))
         self.assertEqual(resp.status_code, 403)
 
     def test_una_pagina_normal_sigue_siendo_publica(self):
         """Anti-criterio: no hemos cerrado el sitio entero."""
         p = self._pagina(slug="publica")
-        self.assertIsNone(_check_page_visibility(p, self._peticion(self.otro)))
+        self.assertIsNone(check_page_visibility(p, self._peticion(self.otro)))
 
     def test_los_listados_esconden_la_privada_sin_duenyo(self):
         self._pagina(is_private=True, slug="huerfana3")
-        qs = _filter_visible_pages(BlogPage.objects.all(), self._peticion(self.otro))
+        qs = filter_visible_pages(ArticuloPage.objects.all(), self._peticion(self.otro))
         self.assertEqual(qs.count(), 0)
 
     def test_el_libro_privado_tapa_sus_capitulos(self):
@@ -90,7 +87,7 @@ class PrivacidadTest(TestCase):
         libro.save()
         libro.save_revision().publish()
         tercero = User.objects.create_user(email="t2@example.com", password="x123456789")
-        self.assertIsNotNone(_check_page_visibility(libro, self._peticion(tercero)))
+        self.assertIsNotNone(check_page_visibility(libro, self._peticion(tercero)))
 
 
 class VisibilidadAPITest(TestCase):
@@ -119,7 +116,7 @@ class VisibilidadAPITest(TestCase):
         self.assertEqual(r.json()["owner_id"], self.user.id)
 
     def test_marcar_privada_por_api_adopta_una_pagina_huerfana(self):
-        p = BlogPage(title="H", slug="h-api", date="2026-08-29", intro="x")
+        p = ArticuloPage(title="H", slug="h-api", date="2026-08-29", intro="x")
         self.index.add_child(instance=p)
         p.save_revision().publish()
         self.assertIsNone(p.owner)

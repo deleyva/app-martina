@@ -2653,33 +2653,33 @@ def test_el_libro_de_estudio_se_puede_crear_donde_viven_los_libros(db):
     assert LibroPage in permitidos
 
 
-def test_el_libro_usa_la_plantilla_de_la_app_fuera_del_blog(db, client):
-    """C74. El sitio tiene dos pieles y el libro solo traia la del blog, asi
-    que en apps.iesmartinabescos salia con la maqueta equivocada.
+def test_el_libro_usa_su_plantilla_y_ya_no_depende_del_host(db, client):
+    """C74 + fase 25. El libro se sirve con la piel de la app.
 
-    El falsador: sin `get_template`, Wagtail sirve la plantilla por defecto del
-    modelo —la del blog— en los dos dominios.
+    Antes esto comprobaba DOS plantillas: `libro_de_estudio_page_app.html` en
+    apps. y `libro_de_estudio_page_blog.html` con el host de blogs, porque
+    `get_template()` miraba `request.get_host()`. Al partir `cms` en `blogs` y
+    `musica`, `LibroDeEstudioPage` vive solo en la biblioteca musical y solo se
+    sirve en un dominio: la rama por host desaparece y con ella su gemela.
+
+    El falsador ahora es el contrario del de antes: que `get_template()` vuelva
+    a devolver algo distinto segun quien pregunte.
     """
     libro = _libro_por_referencia("Los 70", "los-70", [])
 
-    # Servida de verdad fuera del dominio de blogs: la piel de la app.
     respuesta = client.get(libro.url)
     plantillas = [t.name for t in respuesta.templates if t.name]
-    assert "cms/libro_de_estudio_page_app.html" in plantillas, plantillas
+    assert "musica/libro_de_estudio_page.html" in plantillas, plantillas
     assert "base.html" in plantillas, "la piel de la app hereda de base.html"
 
-    # Y con el host de blogs, la del blog. Se comprueba sobre `get_template`
-    # con un doble minimo: `_is_blog_request` solo llama a `get_host()`, y
-    # levantar el dominio de verdad chocaria con ALLOWED_HOSTS en los tests.
     class _PeticionDeBlog:
         def get_host(self):
             return "blogs.iesmartinabescos.es"
 
     assert (
         libro.get_template(_PeticionDeBlog())
-        == "cms/libro_de_estudio_page_blog.html"
-    )
-
+        == "musica/libro_de_estudio_page.html"
+    ), "la plantilla ya no puede depender del host"
 
 def test_el_pajarito_de_wagtail_esta_en_la_plantilla_de_la_app(db):
     """C75. Sin el userbar hay que ponerse botones de edicion a mano.

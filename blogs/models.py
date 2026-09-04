@@ -111,12 +111,11 @@ class BlogIndexPage(Page):
     subpage_types = ["blogs.BlogIndexPage", "blogs.ArticuloPage"]
 
     def get_template(self, request, *args, **kwargs):
-        # La portada (tiene departamentos colgando) y un departamento (tiene
-        # artículos) se pintan distinto. Es lo único que queda de aquel
-        # `get_template` que decidía por el hostname.
-        if BlogIndexPage.objects.child_of(self).exists():
-            return "blogs/portada.html"
-        return "blogs/departamento.html"
+        # Una sola plantilla: dentro decide con `is_hub` si pinta la portada
+        # (tiene departamentos colgando) o un departamento (tiene artículos).
+        # Esa rama es interna al sitio de blogs y siempre estuvo bien; la que
+        # sobraba era la que miraba el `Host` para servir la cara de libro.
+        return "blogs/indice.html"
 
     def get_context(self, request):
         context = super().get_context(request)

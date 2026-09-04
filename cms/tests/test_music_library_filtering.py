@@ -6,12 +6,13 @@ from django.utils import timezone
 from wagtail.models import Page
 from taggit.models import Tag
 
-    LibroPage,
-    RecursoPage,
+from musica.models import (
     DictadoPage,
+    LibroPage,
+    MusicCategory,
     MusicLibraryIndexPage,
+    RecursoPage,
     ScorePage,
-    MusicCategory
 )
 from wagtail.test.utils import WagtailPageTests
 
@@ -300,7 +301,7 @@ class MusicLibraryUnaccentSearchTest(WagtailPageTests):
         response = self.client.get(self.index_page.url, {"q": "educación"})
         self.assertIn(self.con_tilde, response.context["scores"])
 
-    @patch("cms.models._hay_unaccent", return_value=False)
+    @patch("musica.models._hay_unaccent", return_value=False)
     def test_sin_la_extension_el_buscador_degrada_pero_no_revienta(self, _):
         """Si `unaccent` no está en la base, se distinguen tildes; nunca un 500.
 

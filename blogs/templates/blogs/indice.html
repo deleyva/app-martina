@@ -1,4 +1,4 @@
-{% extends "cms/base_blog.html" %}
+{% extends "blogs/base.html" %}
 {% load wagtailcore_tags wagtailimages_tags %}
 {% load library_tags %}
 
@@ -143,10 +143,6 @@
                     <div class="flex items-center text-xs font-sans tracking-widest text-gray-500 uppercase mb-4">
                         {% if blog.date %}
                             <span>{{ blog.date|date:"j M, Y" }}</span>
-                        {% endif %}
-                        {% if blog.categories.all %}
-                            <span class="mx-2">•</span>
-                            <span>{{ blog.categories.first.name }}</span>
                         {% endif %}
                     </div>
 

@@ -177,7 +177,7 @@
     </tr>
     {% endfor %}
 
-{% elif lib_item.content_type.model == 'blogpage' %}
+{% elif lib_item.content_type.model == 'recursopage' %}
     {# BlogPage: Mostrar fila principal + elementos colapsables (mismo patrón que ScorePage) #}
     {# Resolvemos `elements` una sola vez para evitar re-parseo del StreamField #}
     {% with elements=lib_item.get_blogpage_elements %}

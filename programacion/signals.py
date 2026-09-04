@@ -20,7 +20,7 @@ def _recompute_for_item(item):
     if item.source_page_id and item.source_page:
         recompute_coverage(group, item.source_page)
     # El propio item puede ser una página completa
-    if item.content_type.model in ("blogpage", "scorepage", "dictadopage"):
+    if item.content_type.model in ("recursopage", "scorepage", "dictadopage"):
         obj = item.content_object
         if obj:
             recompute_coverage(group, obj)

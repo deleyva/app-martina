@@ -211,7 +211,15 @@ class AIPublishOut(Schema):
 def ai_publish_content(
     request,
     description: str = Form(..., description="Descripción en lenguaje natural del contenido"),
-    page_type: str = Form("scorepage", description="Tipo de página: 'scorepage', 'dictadopage' o 'blogpage'"),
+    page_type: str = Form(
+        "scorepage",
+        description=(
+            "Tipo de página: 'scorepage', 'dictadopage' o 'recursopage'. "
+            "'blogpage' se sigue aceptando como alias de 'recursopage': era el "
+            "nombre del modelo antes de partir `cms` en `blogs` y `musica`, y "
+            "hay clientes publicando con él."
+        ),
+    ),
     publish_immediately: bool = Form(False, description="Si True, publicar inmediatamente; si False, guardar como borrador"),
     parent_page_id: Optional[int] = Form(None, description="ID de la página padre (opcional)"),
     pdf_files: List[UploadedFile] = File(None, description="Archivos PDF de partituras"),
@@ -333,7 +341,7 @@ def ai_publish_content(
                     publish=publish_immediately,
                     parent_page=parent_page,
                 )
-            elif page_type == 'blogpage':
+            elif page_type in ('recursopage', 'blogpage'):
                 # Create BlogPage
                 page = publisher.create_blogpage_from_ai(
                     metadata=metadata,
@@ -376,8 +384,11 @@ def ai_publish_content(
     else:
         preview_url = f"/cms/pages/{page.id}/view_draft/"
     
-    page_type_names = {'dictadopage': 'DictadoPage', 'blogpage': 'BlogPage', 'scorepage': 'ScorePage'}
-    page_type_name = page_type_names.get(page_type, 'ScorePage')
+    page_type_names = {
+        'dictadopage': 'Dictado', 'recursopage': 'Recurso musical',
+        'blogpage': 'Recurso musical', 'scorepage': 'Partitura',
+    }
+    page_type_name = page_type_names.get(page_type, 'Partitura')
     message = (
         f"{page_type_name} creada como borrador. Revísala y publica cuando estés listo."
         if not publish_immediately
@@ -565,6 +576,235 @@ def _blog_page_out(page, request):
     `getattr` con defecto porque `ArticuloPage` no tiene ficha musical: el
     esquema de salida se mantiene estable para no romper a los clientes.
     """
+    edit_url = f"/cms/pages/{page.id}/edit/"
+    if page.live:
+        try:
+            preview_url = page.get_url(request) or f"/cms/pages/{page.id}/"
+        except Exception:
+            preview_url = f"/cms/pages/{page.id}/"
+    else:
+        preview_url = f"/cms/pages/{page.id}/view_draft/"
+
+    return BlogPageOut(
+        id=page.id,
+        title=page.title,
+        live=page.live,
+        edit_url=edit_url,
+        preview_url=preview_url,
+        is_protected=page.is_protected,
+        is_private=page.is_private,
+        owner_id=page.owner_id,
+        artist=getattr(page, "artist", ""),
+        reference=getattr(page, "reference", ""),
+        key_fifths=getattr(page, "key_fifths", None),
+        key_mode=getattr(page, "key_mode", ""),
+        time_signature_beats=getattr(page, "time_signature_beats", None),
+        time_signature_beat_type=getattr(page, "time_signature_beat_type", None),
+        tempo_bpm=getattr(page, "tempo_bpm", None),
+        duration_seconds=getattr(page, "duration_seconds", None),
+        songsterr_url=getattr(page, "songsterr_url", ""),
+        chordpro=getattr(page, "chordpro", ""),
+        key_display=getattr(page, "key_display", ""),
+        time_signature_display=getattr(page, "time_signature_display", ""),
+        duration_display=getattr(page, "duration_display", ""),
+    )
+
+
+def _buscar_pagina_de_contenido(page_id: int):
+    """Un artículo o un recurso, por id. 404 si no es ninguno de los dos."""
+    page = (
+        ArticuloPage.objects.filter(id=page_id).first()
+        or RecursoPage.objects.filter(id=page_id).first()
+    )
+    if page is None:
+        raise HttpError(404, f"La página con ID {page_id} no existe.")
+    return page
+
+
+@router.post("/blog-pages", response=BlogPageOut, tags=["Blog"])
+def create_blog_page(request, payload: BlogPageIn):
+    """Crear un artículo de departamento o un recurso musical.
+
+    Qué se crea lo decide el padre: bajo un `BlogIndexPage` sale un
+    `blogs.ArticuloPage`, y bajo un `LibroPage` o la biblioteca musical sale un
+    `musica.RecursoPage`. La ruta y el esquema no cambian; lo que cambia es que
+    los metadatos musicales dirigidos a un departamento ahora dan 400 en vez de
+    guardarse en una página que no debería tenerlos.
+
+    Raises:
+        HttpError 400: padre inválido, categorías inexistentes, o ficha musical
+            enviada a un artículo de departamento.
+    """
+    parent_page = _get_blog_parent_page(payload.parent_page_id)
+    modelo = _modelo_de_contenido(parent_page)
+    _validar_campos_musicales(payload, modelo)
+    featured_image = _get_image(payload.featured_image_id)
+
+    campos = dict(
+        title=payload.title,
+        date=payload.date,
+        intro=payload.intro,
+        body=payload.body or "",
+        is_featured=payload.is_featured,
+        # El owner es lo que hace efectiva `is_private`: la comprobación de
+        # visibilidad lo usa para decidir quién puede ver la página. Las
+        # creadas por API nacían sin él, así que marcarlas privadas no
+        # protegía nada (2026-08-29).
+        owner=request.user if request.user.is_authenticated else None,
+        is_protected=payload.is_protected,
+        is_private=payload.is_private,
+        # Wagtail hereda live=True del padre si está publicado; lo
+        # sobreescribimos para gestionar el estado desde la API.
+        live=payload.publish_immediately,
+    )
+    if modelo is RecursoPage:
+        campos.update(
+            artist=payload.artist or "",
+            reference=payload.reference or "",
+            key_fifths=payload.key_fifths,
+            key_mode=payload.key_mode or "",
+            time_signature_beats=payload.time_signature_beats,
+            time_signature_beat_type=payload.time_signature_beat_type,
+            tempo_bpm=payload.tempo_bpm,
+            duration_seconds=payload.duration_seconds,
+            songsterr_url=payload.songsterr_url or "",
+            chordpro=payload.chordpro or "",
+        )
+
+    with transaction.atomic():
+        page = modelo(**campos)
+        if featured_image:
+            page.featured_image = featured_image
+        if payload.attachment_ids:
+            page.attachments = _build_attachments(payload.attachment_ids)
+
+        parent_page.add_child(instance=page)
+
+        if payload.category_ids:
+            if modelo is not RecursoPage:
+                raise HttpError(
+                    400,
+                    "Un artículo de departamento no lleva categorías musicales.",
+                )
+            categories = list(
+                MusicCategory.objects.filter(id__in=payload.category_ids).distinct()
+            )
+            if len(categories) != len(set(payload.category_ids)):
+                raise HttpError(400, "Alguna categoría proporcionada no existe.")
+            page.categories.set(categories)
+
+        _validar_etiquetas(payload)
+        if payload.tags:
+            aplicar_etiquetas(page, payload.tags)
+
+        revision = page.save_revision()
+        if payload.publish_immediately:
+            revision.publish()
+            page.refresh_from_db()
+
+    return _blog_page_out(page, request)
+
+
+class BlogPageUpdateIn(Schema):
+    """Schema de entrada para actualizar una BlogPage (todos los campos opcionales)."""
+
+    title: Optional[str] = None
+    date: Optional[date] = None
+    intro: Optional[str] = None
+    body: Optional[str] = None
+    featured_image_id: Optional[int] = None
+    is_featured: Optional[bool] = None
+    category_ids: Optional[List[int]] = None
+    tags: Optional[List[str]] = None
+    # Retirado con `MusicTag` (C37b). Ver arriba.
+    tag_ids: Optional[List[int]] = None
+    publish_immediately: Optional[bool] = None
+    attachment_ids: Optional[List[int]] = None
+    # Metadatos musicales (2026-08-28). None = no tocar; "" = borrar.
+    is_protected: Optional[bool] = None
+    is_private: Optional[bool] = None
+    artist: Optional[str] = None
+    reference: Optional[str] = None
+    key_fifths: Optional[int] = None
+    key_mode: Optional[str] = None
+    time_signature_beats: Optional[int] = None
+    time_signature_beat_type: Optional[int] = None
+    tempo_bpm: Optional[int] = None
+    duration_seconds: Optional[int] = None
+    songsterr_url: Optional[str] = None
+    chordpro: Optional[str] = None
+
+@router.put("/blog-pages/{page_id}", response=BlogPageOut, tags=["Blog"])
+def update_blog_page(request, page_id: int, payload: BlogPageUpdateIn):
+    """Actualizar un artículo de departamento o un recurso musical.
+
+    Acepta campos parciales — sólo se actualizan los campos enviados.
+
+    Args:
+        request: Request object.
+        page_id: ID de la BlogPage a actualizar.
+        payload: Campos a actualizar.
+
+    Returns:
+        BlogPageOut con id, título, estado live y URLs de edición/preview.
+
+    Raises:
+        HttpError 404: Si la BlogPage no existe.
+        HttpError 400: Si los IDs de categorías/tags/imagen son inválidos.
+    """
+    page = _buscar_pagina_de_contenido(page_id)
+    _validar_campos_musicales(payload, type(page))
+
+    with transaction.atomic():
+        if payload.title is not None:
+            page.title = payload.title
+        if payload.date is not None:
+            page.date = payload.date
+        if payload.intro is not None:
+            page.intro = payload.intro
+        if payload.body is not None:
+            page.body = payload.body
+        if payload.featured_image_id is not None:
+            page.featured_image = _get_image(payload.featured_image_id)
+        if payload.is_featured is not None:
+            page.is_featured = payload.is_featured
+        if payload.attachment_ids is not None:
+            page.attachments = _build_attachments(payload.attachment_ids)
+        if payload.is_protected is not None:
+            page.is_protected = payload.is_protected
+        if payload.is_private is not None:
+            page.is_private = payload.is_private
+            # Hacer privada una pagina huerfana sin darle dueno la dejaria
+            # accesible por URL directa. Se adopta al vuelo.
+            if payload.is_private and page.owner is None and request.user.is_authenticated:
+                page.owner = request.user
+        if isinstance(page, RecursoPage):
+            for _campo in CAMPOS_MUSICALES:
+                _valor = getattr(payload, _campo)
+                if _valor is not None:
+                    setattr(page, _campo, _valor)
+
+        if payload.category_ids is not None:
+            if not isinstance(page, RecursoPage):
+                raise HttpError(
+                    400, "Un artículo de departamento no lleva categorías musicales."
+                )
+            categories = list(
+                MusicCategory.objects.filter(id__in=payload.category_ids).distinct()
+            )
+            if len(categories) != len(set(payload.category_ids)):
+                raise HttpError(400, "Alguna categoría proporcionada no existe.")
+            page.categories.set(categories)
+
+        _validar_etiquetas(payload)
+        if payload.tags is not None:
+            aplicar_etiquetas(page, payload.tags)
+
+        revision = page.save_revision()
+        if payload.publish_immediately:
+            revision.publish()
+            page.refresh_from_db()
+
     return _blog_page_out(page, request)
 
 
@@ -698,7 +938,10 @@ def upload_document(
 # canciones, eso no escala.
 # ---------------------------------------------------------------------------
 
-CAPITULO_TIPOS_VALIDOS = ("BlogPage", "ScorePage", "DictadoPage")
+# Nombres de clase, no de content type. `BlogPage` paso a ser `RecursoPage` al
+# partir `cms`; se deja el viejo fuera porque la clase ya no existe y dejarlo
+# solo serviria para que un fallo pasase desapercibido.
+CAPITULO_TIPOS_VALIDOS = ("RecursoPage", "ScorePage", "DictadoPage")
 
 
 class ChaptersIn(Schema):

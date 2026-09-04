@@ -78,7 +78,7 @@ def plan_detail(request, pk):
     # Contenido de la biblioteca del grupo que se puede programar
     programmable = GroupLibraryItem.objects.filter(
         group=plan.group,
-        content_type__model__in=["blogpage", "blogindexpage", "scorepage"],
+        content_type__model__in=["recursopage", "libropage", "scorepage"],
     ).select_related("content_type")
     # Excluir los ya programados
     existing = {(i.content_type_id, i.object_id) for i in plan.items.all()}

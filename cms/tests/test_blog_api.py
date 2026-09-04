@@ -6,19 +6,29 @@ from django.contrib.auth import get_user_model
 from django.test import RequestFactory, TestCase
 from wagtail.models import Page
 
-from musica.models import MusicCategory
-from blogs.models import BlogIndexPage
-# TODO fase 25: `BlogPage` ya no existe en cms.models
+from blogs.models import ArticuloPage, BlogIndexPage
+from musica.models import MusicCategory, MusicLibraryIndexPage, RecursoPage
 
 User = get_user_model()
 
 
 class BlogPageAPITest(TestCase):
-    """Tests para el endpoint POST /api/cms/blog-pages.
+    """POST /api/cms/blog-pages contra un blog de departamento.
 
-    Usa django_auth (sesión de Django) para autenticación,
-    siguiendo el patrón estándar del proyecto.
+    Usa django_auth (sesión de Django), siguiendo el patrón del proyecto.
+
+    Desde la fase 25 la ruta sirve a dos modelos y elige por el padre: bajo un
+    `BlogIndexPage` crea un `ArticuloPage`, bajo la biblioteca musical un
+    `RecursoPage`. Esta clase cubre el primer lado y `BlogPageMetadatosMusicales`
+    hereda sus casos para cubrir el segundo, cambiando solo `PADRE` y `MODELO`.
     """
+
+    MODELO = ArticuloPage
+
+    def _crear_padre(self):
+        padre = BlogIndexPage(title="Blog Test", slug="blog-test-api")
+        self.root_page.add_child(instance=padre)
+        return padre
 
     def setUp(self):
         # Usuario admin para autenticación
@@ -31,9 +41,8 @@ class BlogPageAPITest(TestCase):
         # Página raíz de Wagtail (depth=1)
         self.root_page = Page.objects.filter(depth=1).first()
 
-        # Crear BlogIndexPage como padre
-        self.blog_index = BlogIndexPage(title="Blog Test", slug="blog-test-api")
-        self.root_page.add_child(instance=self.blog_index)
+        # El padre decide qué modelo crea el endpoint.
+        self.blog_index = self._crear_padre()
         self.blog_index.save_revision().publish()
 
         # Snippets auxiliares
@@ -71,7 +80,7 @@ class BlogPageAPITest(TestCase):
         self.assertIn("/cms/pages/", data["edit_url"])
         self.assertIn("view_draft", data["preview_url"])
 
-        page = BlogPage.objects.get(id=data["id"])
+        page = self.MODELO.objects.get(id=data["id"])
         self.assertEqual(page.intro, "Este es un resumen del artículo.")
         self.assertFalse(page.live)
 
@@ -83,7 +92,10 @@ class BlogPageAPITest(TestCase):
                 "date": "2024-10-15",
                 "intro": "Resumen completo del artículo.",
                 "body": "<p>Cuerpo del artículo en <strong>HTML</strong>.</p>",
-                "category_ids": [self.cat.id],
+                # Las categorías son musicales, así que solo van cuando el padre
+                # es la biblioteca. En un departamento la respuesta es 400, y eso
+                # lo comprueba `test_las_categorias_musicales_no_valen_en_un_departamento`.
+                **({"category_ids": [self.cat.id]} if self.MODELO is RecursoPage else {}),
                 "tags": [self.etiqueta],
                 "parent_page_id": self.blog_index.id,
                 "publish_immediately": True,
@@ -93,9 +105,15 @@ class BlogPageAPITest(TestCase):
         data = response.json()
         self.assertTrue(data["live"])
 
-        page = BlogPage.objects.get(id=data["id"])
+        page = self.MODELO.objects.get(id=data["id"])
         self.assertEqual(page.body, "<p>Cuerpo del artículo en <strong>HTML</strong>.</p>")
-        self.assertIn(self.cat, page.categories.all())
+        if self.MODELO is RecursoPage:
+            self.assertIn(self.cat, page.categories.all())
+        else:
+            self.assertFalse(
+                hasattr(page, "categories"),
+                "un artículo de departamento no tiene categorías musicales",
+            )
         self.assertIn(self.etiqueta, [t.name for t in page.faceted_tags.all()])
 
     def test_sin_parent_usa_primer_blogindexpage(self):
@@ -108,7 +126,7 @@ class BlogPageAPITest(TestCase):
             }
         )
         self.assertEqual(response.status_code, 200)
-        page = BlogPage.objects.get(id=response.json()["id"])
+        page = self.MODELO.objects.get(id=response.json()["id"])
         self.assertEqual(page.get_parent().specific, self.blog_index)
 
     # ------------------------------------------------------------------
@@ -182,8 +200,47 @@ class BlogPageAPITest(TestCase):
             }
         )
         self.assertEqual(response.status_code, 200)
-        page = BlogPage.objects.get(id=response.json()["id"])
+        page = self.MODELO.objects.get(id=response.json()["id"])
         self.assertFalse(page.live)
+
+    def test_las_categorias_musicales_no_valen_en_un_departamento(self):
+        """La frontera de la fase 25, comprobada por su lado feo.
+
+        `MusicCategory` es un vocabulario de la biblioteca. Antes se le podía
+        colgar a un artículo de departamento porque los dos eran el mismo
+        modelo, y de hecho había una fila haciéndolo: la categoría «COFOTAP»
+        pegada a un artículo del blog de COFOTAP. Ahora se rechaza, y con un
+        mensaje que dice qué hacer.
+        """
+        if self.MODELO is RecursoPage:
+            self.skipTest("bajo la biblioteca musical las categorías sí valen")
+        resp = self._post({
+            "title": "Salida al Moncayo",
+            "date": "2026-09-04",
+            "intro": "Crónica de la excursión.",
+            "parent_page_id": self.blog_index.id,
+            "category_ids": [self.cat.id],
+        })
+        self.assertEqual(resp.status_code, 400, resp.content)
+        self.assertIn("categorías musicales", resp.json()["detail"])
+
+    def test_la_ficha_musical_no_vale_en_un_departamento(self):
+        """Lo que pidió Jesús, comprobado: nada de fichas en los blogs."""
+        if self.MODELO is RecursoPage:
+            self.skipTest("bajo la biblioteca musical la ficha sí vale")
+        resp = self._post({
+            "title": "Salida al Moncayo",
+            "date": "2026-09-04",
+            "intro": "Crónica de la excursión.",
+            "parent_page_id": self.blog_index.id,
+            "artist": "Fito & Fitipaldis",
+            "tempo_bpm": 151,
+        })
+        self.assertEqual(resp.status_code, 400, resp.content)
+        detalle = resp.json()["detail"]
+        self.assertIn("no tiene ficha musical", detalle)
+        self.assertIn("artist", detalle)
+        self.assertIn("tempo_bpm", detalle)
 
     def test_sin_autenticar_devuelve_401(self):
         """Sin sesión activa debe devolver 401 o 403."""
@@ -199,12 +256,25 @@ class BlogPageAPITest(TestCase):
 
 
 class BlogPageMetadatosMusicalesTest(BlogPageAPITest):
-    """Ficha musical en BlogPage, guardada como manda el estándar (2026-08-29).
+    """Ficha musical, guardada como manda el estándar (2026-08-29).
+
+    Cuelga de la biblioteca musical, no de un departamento: desde la fase 25 la
+    ficha musical solo existe en `RecursoPage`, y mandarla a un artículo de
+    departamento devuelve 400 a propósito. Al heredar de la clase de arriba,
+    estos mismos casos comprueban además que el endpoint elige bien el modelo
+    según el padre.
 
     Tonalidad como `fifths` + `mode` (MusicXML 4.0; el meta-evento MIDI FF 59
     guarda exactamente lo mismo en `sf`/`mi`). Compás como dos enteros
     (`beats`/`beat-type`, FF 58 `nn`/`dd`). Tempo numérico. Nada de texto.
     """
+
+    MODELO = RecursoPage
+
+    def _crear_padre(self):
+        padre = MusicLibraryIndexPage(title="Biblioteca", slug="biblioteca-api")
+        self.root_page.add_child(instance=padre)
+        return padre
 
     # Por la boca vive el pez, Fito & Fitipaldis: Si menor = 2 sostenidos.
     FICHA = {
@@ -227,7 +297,7 @@ class BlogPageMetadatosMusicalesTest(BlogPageAPITest):
             **self.FICHA,
         })
         self.assertEqual(resp.status_code, 200, resp.content)
-        page = BlogPage.objects.get(id=resp.json()["id"])
+        page = self.MODELO.objects.get(id=resp.json()["id"])
         for campo, esperado in self.FICHA.items():
             self.assertEqual(getattr(page, campo), esperado, f"campo {campo}")
 
@@ -248,7 +318,7 @@ class BlogPageMetadatosMusicalesTest(BlogPageAPITest):
 
     def test_circulo_de_quintas_en_los_dos_sentidos(self):
         """La conversión es la razón de ser del formato numérico."""
-        page = BlogPage(title="x", slug="x", date="2026-08-29", intro="x")
+        page = RecursoPage(title="x", slug="x", date="2026-08-29", intro="x")
         casos_mayor = {-7: "Cb", -4: "Ab", -1: "F", 0: "C", 2: "D", 5: "B", 7: "C#"}
         for fifths, esperado in casos_mayor.items():
             page.key_fifths, page.key_mode = fifths, "major"
@@ -260,12 +330,12 @@ class BlogPageMetadatosMusicalesTest(BlogPageAPITest):
 
     def test_modo_modal_no_inventa_tonica(self):
         """Con un modo que no es mayor ni menor, la tónica no se deduce sola."""
-        page = BlogPage(title="x", slug="x", date="2026-08-29", intro="x")
+        page = RecursoPage(title="x", slug="x", date="2026-08-29", intro="x")
         page.key_fifths, page.key_mode = 1, "mixolydian"
         self.assertIn("mixolidio", page.key_display)
 
     def test_sin_armadura_no_pinta_tonalidad(self):
-        page = BlogPage(title="x", slug="x", date="2026-08-29", intro="x")
+        page = RecursoPage(title="x", slug="x", date="2026-08-29", intro="x")
         self.assertEqual(page.key_display, "")
         self.assertEqual(page.time_signature_display, "")
         self.assertEqual(page.duration_display, "")
@@ -273,7 +343,7 @@ class BlogPageMetadatosMusicalesTest(BlogPageAPITest):
 
     def test_do_mayor_es_cero_no_vacio(self):
         """Trampa clásica: fifths=0 es Do mayor, no 'sin dato'."""
-        page = BlogPage(title="x", slug="x", date="2026-08-29", intro="x")
+        page = RecursoPage(title="x", slug="x", date="2026-08-29", intro="x")
         page.key_fifths, page.key_mode = 0, "major"
         self.assertEqual(page.key_display, "C")
         self.assertTrue(page.tiene_ficha_musical)
@@ -287,7 +357,7 @@ class BlogPageMetadatosMusicalesTest(BlogPageAPITest):
             "parent_page_id": self.blog_index.id,
         })
         self.assertEqual(resp.status_code, 200, resp.content)
-        page = BlogPage.objects.get(id=resp.json()["id"])
+        page = self.MODELO.objects.get(id=resp.json()["id"])
         self.assertIsNone(page.key_fifths)
         self.assertFalse(page.tiene_ficha_musical)
 
@@ -302,7 +372,7 @@ class BlogPageMetadatosMusicalesTest(BlogPageAPITest):
             **self.FICHA,
         })
         self.assertEqual(resp.status_code, 200, resp.content)
-        page = BlogPage.objects.get(id=resp.json()["id"])
+        page = self.MODELO.objects.get(id=resp.json()["id"])
         request = RequestFactory().get("/")
         request.user = self.user
         request.session = {}  # lo pide el context processor de impersonación

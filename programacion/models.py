@@ -163,8 +163,8 @@ class PlanItem(models.Model):
 
     def get_content_type_label(self):
         mapping = {
-            "blogpage": "Artículo",
-            "blogindexpage": "Libro",
+            "recursopage": "Artículo",
+            "libropage": "Libro",
             "scorepage": "Partitura",
             "dictadopage": "Dictado",
         }
@@ -172,8 +172,8 @@ class PlanItem(models.Model):
 
     def get_icon(self):
         icons = {
-            "blogpage": "📝",
-            "blogindexpage": "📚",
+            "recursopage": "📝",
+            "libropage": "📚",
             "scorepage": "🎼",
             "dictadopage": "🎧",
         }
@@ -181,7 +181,7 @@ class PlanItem(models.Model):
 
     @property
     def is_book(self):
-        return self.content_type.model == "blogindexpage"
+        return self.content_type.model == "libropage"
 
     def sync_chapters(self):
         """

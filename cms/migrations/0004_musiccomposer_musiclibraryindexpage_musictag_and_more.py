@@ -61,7 +61,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('page_ptr', models.OneToOneField(auto_created=True, on_delete=django.db.models.deletion.CASCADE, parent_link=True, primary_key=True, serialize=False, to='wagtailcore.page')),
                 ('description', wagtail.fields.RichTextField(blank=True, help_text='Descripción de este setlist')),
-                ('setlist_items', wagtail.fields.StreamField([('score_reference', 0), ('notes', 1), ('separator', 3)], blank=True, block_lookup={0: ('wagtail.blocks.PageChooserBlock', (), {'help_text': 'Seleccionar una partitura de tu biblioteca', 'page_type': ['cms.ScorePage']}), 1: ('wagtail.blocks.RichTextBlock', (), {'help_text': 'Notas para este elemento del setlist'}), 2: ('wagtail.blocks.CharBlock', (), {'help_text': "Título de sección (ej: 'Intermedio')", 'max_length': 100}), 3: ('wagtail.blocks.StructBlock', [[('title', 2)]], {'icon': 'horizontalrule'})})),
+                ('setlist_items', wagtail.fields.StreamField([('score_reference', 0), ('notes', 1), ('separator', 3)], blank=True, block_lookup={0: ('wagtail.blocks.PageChooserBlock', (), {'help_text': 'Seleccionar una partitura de tu biblioteca', 'page_type': ['musica.ScorePage']}), 1: ('wagtail.blocks.RichTextBlock', (), {'help_text': 'Notas para este elemento del setlist'}), 2: ('wagtail.blocks.CharBlock', (), {'help_text': "Título de sección (ej: 'Intermedio')", 'max_length': 100}), 3: ('wagtail.blocks.StructBlock', [[('title', 2)]], {'icon': 'horizontalrule'})})),
             ],
             options={
                 'verbose_name': 'Lista de Reproducción',

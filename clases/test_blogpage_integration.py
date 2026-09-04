@@ -24,7 +24,7 @@ def test_blogpage_content_type_allowed():
     assert blog_content_type.model != "scorepage"
 
     # Verificar que el modelo es blogpage
-    assert blog_content_type.model == "blogpage"
+    assert blog_content_type.model == "recursopage"
 
 
 @pytest.mark.django_db
