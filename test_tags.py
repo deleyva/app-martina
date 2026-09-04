@@ -2,7 +2,7 @@ import django, os
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.local")
 django.setup()
 from taggit.models import Tag
-from cms.models import MusicTag
+# TODO fase 25: `MusicTag` ya no existe en cms.models
 from wagtail.documents.models import Document
 print("Taggit tags:", list(Tag.objects.values_list('name', flat=True)))
 print("MusicTag tags:", list(MusicTag.objects.values_list('name', flat=True)))

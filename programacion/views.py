@@ -89,11 +89,11 @@ def plan_detail(request, pk):
         and gli.content_object is not None
     ]
 
-    # Libros disponibles (BlogIndexPage con capítulos) aunque no estén en la biblioteca
-    from cms.models import BlogIndexPage
+    # Libros disponibles (LibroPage con capítulos) aunque no estén en la biblioteca
+    from musica.models import LibroPage
 
-    books = BlogIndexPage.objects.live().order_by("title")
-    book_ct = ContentType.objects.get_for_model(BlogIndexPage)
+    books = LibroPage.objects.live().order_by("title")
+    book_ct = ContentType.objects.get_for_model(LibroPage)
     book_choices = [
         b for b in books if (book_ct.pk, b.pk) not in existing
     ]

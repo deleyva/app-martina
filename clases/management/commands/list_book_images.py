@@ -9,7 +9,7 @@ Usage:
 from django.core.management.base import BaseCommand
 
 from clases.services.card_codes import generate_codes_for_page
-from cms.models import BlogIndexPage, BlogPage
+from musica.models import LibroPage, RecursoPage
 
 
 class Command(BaseCommand):
@@ -27,7 +27,7 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        books = BlogIndexPage.objects.live()
+        books = LibroPage.objects.live()
 
         if options["book"]:
             books = books.filter(title__icontains=options["book"])
@@ -36,11 +36,11 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING("No books found"))
             return
 
-        all_books = list(BlogIndexPage.objects.live())
+        all_books = list(LibroPage.objects.live())
 
         for book in books:
             chapters = list(
-                book.get_children().type(BlogPage).specific().order_by("path")
+                book.get_children().type(RecursoPage).specific().order_by("path")
             )
 
             if not chapters:

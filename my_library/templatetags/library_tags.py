@@ -57,7 +57,7 @@ def library_button(context, content_object, source_page=None):
     RESTRICCIÓN: No se muestran botones para ScorePages completas en bibliotecas personales.
     Solo se pueden añadir elementos individuales (PDFs, audios, imágenes).
 
-    source_page: Página de origen (ScorePage/BlogPage) para registrar la asociación correcta.
+    source_page: Página de origen (ScorePage/RecursoPage) para registrar la asociación correcta.
     """
     from clases.models import Student, Enrollment, GroupLibraryItem
 
@@ -123,7 +123,7 @@ def library_button(context, content_object, source_page=None):
     if source_page and hasattr(source_page, "pk"):
         source_page_id = source_page.pk
     elif "page" in context and hasattr(context["page"], "pk"):
-        # Inferir de la variable 'page' del contexto del template (ScorePage/BlogPage actual)
+        # Inferir de la variable 'page' del contexto del template (ScorePage/RecursoPage actual)
         source_page_id = context["page"].pk
 
     return {

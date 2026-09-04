@@ -1429,14 +1429,14 @@ def _pagina(titulo, slug, modelo=None, **extra):
     """Una página real bajo la raíz, vacía de etiquetas.
 
     Wagtail no deja crear una página suelta: necesita padre en el árbol, y por
-    eso no vale con `Modelo.objects.create`. `BlogPage` además OBLIGA a `date` e
+    eso no vale con `Modelo.objects.create`. `RecursoPage` además OBLIGA a `date` e
     `intro` — es el dato que sostiene el argumento 3 del debate ScorePage →
-    BlogPage, y aquí se confirma solo.
+    RecursoPage, y aquí se confirma solo.
 
     Las etiquetas se ponen después con `faceted_tags`: desde C37c es el único
     vocabulario que tienen las páginas.
     """
-    from cms.models import ScorePage
+    from musica.models import ScorePage
     from wagtail.models import Page
 
     modelo = modelo or ScorePage
@@ -1622,7 +1622,7 @@ def test_el_api_pone_las_etiquetas_por_nombre(db):
     """El caso real: PublishIES publica por `POST /api/cms/blog-pages`. Los ids
     de `MusicTag` se retiraron con el modelo; ahora van nombres."""
     from cms.etiquetas import aplicar_etiquetas
-    from cms.models import ScorePage
+    from musica.models import ScorePage
 
     pagina = _pagina("Nueva", "c37b-1")
     aplicar_etiquetas(pagina, ["estilo:jazz", "instrumento:guitarra"])
@@ -1637,7 +1637,7 @@ def test_el_api_pone_las_etiquetas_por_nombre(db):
 
 def test_el_api_no_duplica_un_nombre_repetido(db):
     from cms.etiquetas import aplicar_etiquetas
-    from cms.models import ScorePage
+    from musica.models import ScorePage
 
     pagina = _pagina("Nueva", "c37b-2")
     aplicar_etiquetas(pagina, ["estilo:jazz", "Estilo:Jazz ", "estilo:jazz"])
@@ -1724,19 +1724,19 @@ def test_un_elemento_que_apunta_a_una_pagina_recibe_sus_etiquetas(db, user):
 
 
 def _libro_con_capitulos(titulo, slug, capitulos):
-    """Un libro real: `BlogIndexPage` con `BlogPage` debajo, en orden.
+    """Un libro real: `LibroPage` con `RecursoPage` debajo, en orden.
 
     `capitulos` es [(titulo, [imagenes])]. Las imágenes se incrustan en el
     cuerpo, que es como están en los libros de verdad: el capítulo 1 de Jens
     Larsen tiene cero bloques adjuntos y dieciséis imágenes dentro del texto.
     """
-    from cms.models import BlogIndexPage, BlogPage
+    from musica.models import LibroPage, RecursoPage
     from wagtail.images import get_image_model
     from wagtail.models import Page
 
     Image = get_image_model()
     raiz = Page.objects.get(id=2)
-    libro = BlogIndexPage(title=titulo, slug=slug)
+    libro = LibroPage(title=titulo, slug=slug)
     raiz.add_child(instance=libro)
 
     creados = []
@@ -1750,7 +1750,7 @@ def _libro_con_capitulos(titulo, slug, capitulos):
             f'<embed embedtype="image" id="{i.pk}" alt="{i.title}" format="fullwidth"/>'
             for i in imagenes
         )
-        cap = BlogPage(
+        cap = RecursoPage(
             title=titulo_cap,
             slug=f"{slug}-cap-{n}",
             date=timezone.now().date(),
@@ -2475,7 +2475,7 @@ def test_los_chips_de_objetivo_salen_en_la_pantalla_de_empezar(client, db, user)
 
 def _libro_por_referencia(titulo, slug, paginas):
     """Un `LibroDeEstudioPage` que apunta a paginas que ya viven en el arbol."""
-    from cms.models import LibroDeEstudioPage
+    from musica.models import LibroDeEstudioPage
     from wagtail.models import Page
 
     raiz = Page.objects.get(id=2)
@@ -2610,19 +2610,19 @@ def test_un_embed_del_cuerpo_es_material_de_estudio(db):
 
 
 def _pagina_blog_con_cuerpo(titulo, slug, cuerpo, imagen_adjunta):
-    """Una `BlogPage` con cuerpo y, si se pide, una imagen adjunta."""
-    from cms.models import BlogIndexPage, BlogPage
+    """Una `RecursoPage` con cuerpo y, si se pide, una imagen adjunta."""
+    from musica.models import LibroPage, RecursoPage
     from wagtail.models import Page
 
     raiz = Page.objects.get(id=2)
-    indice = BlogIndexPage(title=f"idx-{slug}", slug=f"idx-{slug}")
+    indice = LibroPage(title=f"idx-{slug}", slug=f"idx-{slug}")
     raiz.add_child(instance=indice)
 
     adjuntos = []
     if imagen_adjunta is not None:
         adjuntos.append(("image", {"image": imagen_adjunta, "caption": ""}))
 
-    pagina = BlogPage(
+    pagina = RecursoPage(
         title=titulo,
         slug=slug,
         date=timezone.now().date(),
@@ -2643,14 +2643,14 @@ def test_el_libro_de_estudio_se_puede_crear_donde_viven_los_libros(db):
     el principal fue a crear uno y no lo encontro. No lleva migracion: es un
     atributo de clase, no un campo.
     """
-    from cms.models import BlogIndexPage, LibroDeEstudioPage, MusicLibraryIndexPage
+    from musica.models import LibroDeEstudioPage, LibroPage, MusicLibraryIndexPage
 
     permitidos = LibroDeEstudioPage.allowed_parent_page_models()
 
     assert MusicLibraryIndexPage in permitidos, (
         "el indice de recursos musicales es donde el principal fue a buscarlo"
     )
-    assert BlogIndexPage in permitidos
+    assert LibroPage in permitidos
 
 
 def test_el_libro_usa_la_plantilla_de_la_app_fuera_del_blog(db, client):
@@ -2724,11 +2724,11 @@ def test_el_libro_de_estudio_tiene_las_propiedades_de_visibilidad(db, client):
     normal: "me gustaria que tuviera las propiedades que tienen los libros".
 
     No basta con anadir los campos: `_check_page_visibility` los tenia
-    cableados a `BlogPage` y `BlogIndexPage` en TRES sitios, asi que un libro
+    cableados a `RecursoPage` y `LibroPage` en TRES sitios, asi que un libro
     marcado como protegido se habria servido igual a cualquiera. El falsador
     es ese: la pagina protegida vista sin sesion tiene que redirigir al login.
     """
-    from cms.models import LibroDeEstudioPage
+    from musica.models import LibroDeEstudioPage
 
     libro = _libro_por_referencia("Los 70", "los-70", [])
 

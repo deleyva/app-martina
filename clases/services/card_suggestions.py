@@ -5,7 +5,7 @@ Analyzes pickup history and suggests next cards for students.
 """
 from collections import defaultdict
 
-from cms.models import BlogPage
+from musica.models import RecursoPage
 
 
 def get_suggestions_for_group(group, max_per_student=3):
@@ -39,7 +39,7 @@ def get_suggestions_for_group(group, max_per_student=3):
         student_suggestions = []
         seen_codes = set()
 
-        # Group pickups by book (source_page's parent BlogIndexPage)
+        # Group pickups by book (source_page's parent LibroPage)
         book_pickups = defaultdict(list)
         for pickup in pickups:
             source_page = pickup.card_item.source_page
@@ -88,7 +88,7 @@ def get_suggestions_for_group(group, max_per_student=3):
                     siblings = (
                         source_page.get_parent()
                         .get_children()
-                        .type(BlogPage)
+                        .type(RecursoPage)
                         .order_by("path")
                     )
                     found_current = False

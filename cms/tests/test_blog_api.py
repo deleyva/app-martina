@@ -6,7 +6,9 @@ from django.contrib.auth import get_user_model
 from django.test import RequestFactory, TestCase
 from wagtail.models import Page
 
-from cms.models import BlogIndexPage, BlogPage, MusicCategory
+from musica.models import MusicCategory
+from blogs.models import BlogIndexPage
+# TODO fase 25: `BlogPage` ya no existe en cms.models
 
 User = get_user_model()
 

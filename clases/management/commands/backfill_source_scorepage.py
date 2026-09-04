@@ -19,7 +19,7 @@ from django.core.management.base import BaseCommand
 from wagtail.models import Page
 
 from clases.models import ClassSessionItem
-from cms.models import ScorePage
+from musica.models import ScorePage
 
 
 def find_all_scorepages(item):

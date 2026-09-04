@@ -10,21 +10,21 @@ from django.core.management.base import BaseCommand, CommandError
 
 from clases.services.card_codes import generate_codes_for_page
 from clases.services.card_pdf import generate_cards_pdf
-from cms.models import BlogIndexPage, BlogPage
+from musica.models import LibroPage, RecursoPage
 
 
 class Command(BaseCommand):
     help = "Generate study card PDFs from book chapter images"
 
     def add_arguments(self, parser):
-        parser.add_argument("--book", type=str, help="Book title (BlogIndexPage)")
+        parser.add_argument("--book", type=str, help="Book title (LibroPage)")
         parser.add_argument(
             "--chapters", type=str, help="Comma-separated chapter numbers (1-based)"
         )
         parser.add_argument(
             "--all-chapters", action="store_true", help="Include all chapters"
         )
-        parser.add_argument("--page-id", type=int, help="Specific BlogPage ID")
+        parser.add_argument("--page-id", type=int, help="Specific RecursoPage ID")
         parser.add_argument(
             "--output", type=str, required=True, help="Output PDF path"
         )
@@ -40,20 +40,20 @@ class Command(BaseCommand):
 
         if options["page_id"]:
             try:
-                page = BlogPage.objects.get(pk=options["page_id"])
+                page = RecursoPage.objects.get(pk=options["page_id"])
                 pages = [page]
-            except BlogPage.DoesNotExist:
+            except RecursoPage.DoesNotExist:
                 raise CommandError(
-                    f"BlogPage with ID {options['page_id']} not found"
+                    f"RecursoPage with ID {options['page_id']} not found"
                 )
 
         elif options["book"]:
             try:
-                book = BlogIndexPage.objects.get(title__icontains=options["book"])
-            except BlogIndexPage.DoesNotExist:
+                book = LibroPage.objects.get(title__icontains=options["book"])
+            except LibroPage.DoesNotExist:
                 raise CommandError(f"Book '{options['book']}' not found")
-            except BlogIndexPage.MultipleObjectsReturned:
-                books = BlogIndexPage.objects.filter(
+            except LibroPage.MultipleObjectsReturned:
+                books = LibroPage.objects.filter(
                     title__icontains=options["book"]
                 )
                 raise CommandError(
@@ -62,7 +62,7 @@ class Command(BaseCommand):
                 )
 
             chapter_pages = list(
-                book.get_children().type(BlogPage).specific().order_by("path")
+                book.get_children().type(RecursoPage).specific().order_by("path")
             )
 
             if options["all_chapters"]:
@@ -91,7 +91,7 @@ class Command(BaseCommand):
             raise CommandError("No pages found to process")
 
         # Get all books for collision detection
-        all_books = list(BlogIndexPage.objects.live())
+        all_books = list(LibroPage.objects.live())
 
         # Generate codes for all pages
         all_items = []

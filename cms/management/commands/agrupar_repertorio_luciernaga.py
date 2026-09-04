@@ -6,7 +6,7 @@ nace publica salvo que alguien se acuerde de marcarla.
 
 `LibroDeEstudioPage` no sirve de padre a proposito: guarda referencias, no
 hijos, para que una cancion pueda estar en varios libros a la vez. Asi que el
-sitio donde viven es un `BlogIndexPage` privado, y el libro las sigue
+sitio donde viven es un `LibroPage` privado, y el libro las sigue
 referenciando por pk para estudiarlas. Las dos cosas conviven.
 
 Mover cambia la URL de las 31. Las redirecciones NO se crean aqui: Wagtail 7
@@ -19,7 +19,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from wagtail.models import Page
 
-from cms.models import BlogIndexPage, BlogPage
+from musica.models import LibroPage, RecursoPage
 
 SLUG_INDICE_MUSICAL = "indice-de-recursos-musicales"
 SLUG_DESTINO = "repertorio-luciernaga"
@@ -48,7 +48,7 @@ class Command(BaseCommand):
         # volver a lanzar el comando no arrastra nada.
         canciones = [
             p
-            for p in indice.get_children().type(BlogPage).specific().order_by("title")
+            for p in indice.get_children().type(RecursoPage).specific().order_by("title")
             if MARCA in (p.intro or "")
         ]
         self.stdout.write(f"Canciones a mover: {len(canciones)}")
@@ -57,7 +57,7 @@ class Command(BaseCommand):
             return
 
         destino = (
-            BlogIndexPage.objects.child_of(indice).filter(slug=SLUG_DESTINO).first()
+            LibroPage.objects.child_of(indice).filter(slug=SLUG_DESTINO).first()
         )
         if destino is None:
             self.stdout.write(f"Creando índice destino '{TITULO_DESTINO}'")
@@ -65,7 +65,7 @@ class Command(BaseCommand):
                 # El owner importa: `_check_page_visibility` trata una pagina
                 # privada SIN dueño como visible solo para superusuarios, asi
                 # que se hereda el de las canciones.
-                destino = BlogIndexPage(
+                destino = LibroPage(
                     title=TITULO_DESTINO,
                     slug=SLUG_DESTINO,
                     intro="Repertorio de El Grupo Luciérnaga.",

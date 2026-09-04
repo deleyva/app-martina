@@ -5,9 +5,9 @@ from django.test import TestCase, Client, RequestFactory
 from django.utils import timezone
 from wagtail.models import Page
 from taggit.models import Tag
-from cms.models import (
-    BlogIndexPage,
-    BlogPage,
+
+    LibroPage,
+    RecursoPage,
     DictadoPage,
     MusicLibraryIndexPage,
     ScorePage,
@@ -172,7 +172,7 @@ class MusicLibraryTypeFilterTest(WagtailPageTests):
         self.index_page.add_child(instance=self.dictado)
         self.dictado.save_revision().publish()
 
-        self.articulo = BlogPage(
+        self.articulo = RecursoPage(
             title="Armonia explicada",
             slug="armonia-explicada",
             date=datetime.date.today(),
@@ -181,7 +181,7 @@ class MusicLibraryTypeFilterTest(WagtailPageTests):
         self.index_page.add_child(instance=self.articulo)
         self.articulo.save_revision().publish()
 
-        self.libro = BlogIndexPage(
+        self.libro = LibroPage(
             title="Armonia el libro", slug="armonia-libro", intro="Libro de armonia"
         )
         self.index_page.add_child(instance=self.libro)

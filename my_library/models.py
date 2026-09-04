@@ -185,7 +185,7 @@ class LibraryItem(models.Model):
     object_id = models.PositiveIntegerField()
     content_object = GenericForeignKey("content_type", "object_id")
 
-    # Página de origen (ScorePage o BlogPage desde la que se añadió el elemento)
+    # Página de origen (ScorePage o RecursoPage desde la que se añadió el elemento)
     source_page = models.ForeignKey(
         "wagtailcore.Page",
         on_delete=models.SET_NULL,
@@ -468,7 +468,7 @@ class LibraryItem(models.Model):
     def songsterr_link(self):
         """Enlace a Songsterr de la pagina de la que salio este elemento.
 
-        Un documento .gp no sabe nada de Songsterr: el id vive en la BlogPage.
+        Un documento .gp no sabe nada de Songsterr: el id vive en la RecursoPage.
         Aqui si tenemos `source_page`, asi que no hace falta el rodeo por el
         `back` que usa el visor a pantalla completa.
         """
@@ -545,7 +545,7 @@ class LibraryItem(models.Model):
 
     def _search_scorepage_in_streamfields(self):
         """Buscar en StreamFields de ScorePages (fallback lento para items legacy)."""
-        from cms.models import ScorePage
+        from musica.models import ScorePage
 
         if not self.content_object or not hasattr(self.content_object, "pk"):
             return None
@@ -605,7 +605,7 @@ class LibraryItem(models.Model):
         return None
 
     def get_related_scorepage_media(self):
-        """Obtener audios y embeds del contenido relacionado (ScorePage, BlogPage, etc.)."""
+        """Obtener audios y embeds del contenido relacionado (ScorePage, RecursoPage, etc.)."""
         # Primero ver si el propio contenido tiene estos métodos
         if hasattr(self.content_object, "get_audios") or hasattr(self.content_object, "get_embeds"):
             return {

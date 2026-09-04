@@ -3,7 +3,7 @@ Programación didáctica: planificación de un trimestre/periodo por grupo.
 
 - CoursePlan: la programación de un periodo (p.ej. "2º Trimestre 2025-26") para un grupo.
 - PlanItem: cada recurso programado (artículo, libro, capítulo, partitura...).
-  Los libros (BlogIndexPage) generan hijos automáticamente, uno por capítulo.
+  Los libros (LibroPage) generan hijos automáticamente, uno por capítulo.
 - ContentCoverage: cuánto ha visto un grupo de cada página (calculado a partir
   de los ClassSessionItem, que guardan la página de origen de cada elemento).
 
@@ -123,7 +123,7 @@ class PlanItem(models.Model):
         help_text="Para capítulos de un libro",
     )
 
-    # Contenido programado (BlogPage, BlogIndexPage-libro, ScorePage...)
+    # Contenido programado (RecursoPage, LibroPage-libro, ScorePage...)
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
     object_id = models.PositiveIntegerField()
     content_object = GenericForeignKey("content_type", "object_id")
@@ -185,17 +185,17 @@ class PlanItem(models.Model):
 
     def sync_chapters(self):
         """
-        Si este item es un libro (BlogIndexPage), crear PlanItems hijos para
-        cada capítulo (BlogPage hijo publicado) que aún no esté en el plan.
+        Si este item es un libro (LibroPage), crear PlanItems hijos para
+        cada capítulo (RecursoPage hijo publicado) que aún no esté en el plan.
         """
         if not self.is_book or self.content_object is None:
             return []
-        from cms.models import BlogPage
+        from musica.models import RecursoPage
 
         chapters = (
-            BlogPage.objects.child_of(self.content_object).live().order_by("path")
+            RecursoPage.objects.child_of(self.content_object).live().order_by("path")
         )
-        ct = ContentType.objects.get_for_model(BlogPage)
+        ct = ContentType.objects.get_for_model(RecursoPage)
         created = []
         existing_ids = set(
             self.children.filter(content_type=ct).values_list("object_id", flat=True)

@@ -1,6 +1,6 @@
 """
 Management command to import a book chapter or a whole book as Wagtail
-BlogPages under a BlogIndexPage ("book") under a MusicLibraryIndexPage.
+BlogPages under a LibroPage ("book") under a MusicLibraryIndexPage.
 
 Two modes:
 
@@ -9,7 +9,7 @@ Two modes:
 
 2. **Whole-book mode** — pass --book-manifest (book-level manifest JSON)
    + --images-dir pointing at the extraction root. The command iterates
-   over every chapter in the manifest, creates a BlogPage for each one,
+   over every chapter in the manifest, creates a RecursoPage for each one,
    and shares the same set of tags across all of them.
 
 Chapter manifest shape:
@@ -58,22 +58,22 @@ from django.utils.text import slugify
 from wagtail.images import get_image_model
 
 from cms.etiquetas import facetas_desconocidas
-from cms.models import BlogIndexPage, BlogPage, MusicLibraryIndexPage
+from musica.models import LibroPage, MusicLibraryIndexPage, RecursoPage
 from cms.services.content_publisher import ContentPublisher
 from my_library import facets
 
 
 ImageModel = get_image_model()
 
-# StreamField block name for BlogPage.attachments — defined in cms/models.py:278.
+# StreamField block name for RecursoPage.attachments — defined in cms/models.py:278.
 # Keep in sync if the StreamField is renamed.
 ATTACHMENT_IMAGE_BLOCK = "image"
 
 
 class Command(BaseCommand):
     help = (
-        "Import a book chapter (BlogPage) with interleaved text and notation "
-        "images under a BlogIndexPage (book) under a MusicLibraryIndexPage."
+        "Import a book chapter (RecursoPage) with interleaved text and notation "
+        "images under a LibroPage (book) under a MusicLibraryIndexPage."
     )
 
     def add_arguments(self, parser):
@@ -93,7 +93,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--book-intro",
             default="",
-            help="Optional intro text for the book BlogIndexPage (used only on create).",
+            help="Optional intro text for the book LibroPage (used only on create).",
         )
         parser.add_argument(
             "--chapter-title",
@@ -103,7 +103,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--chapter-intro",
             default=None,
-            help="Short summary for BlogPage.intro (single-chapter mode only).",
+            help="Short summary for RecursoPage.intro (single-chapter mode only).",
         )
         parser.add_argument(
             "--manifest",
@@ -115,7 +115,7 @@ class Command(BaseCommand):
             default=None,
             help=(
                 "Path to a whole-book manifest JSON produced by the extractor. "
-                "Mutually exclusive with --manifest. Each chapter is imported as a BlogPage."
+                "Mutually exclusive with --manifest. Each chapter is imported as a RecursoPage."
             ),
         )
         parser.add_argument(
@@ -153,7 +153,7 @@ class Command(BaseCommand):
             "--with-attachment-cards",
             action="store_true",
             help=(
-                "Also mirror each image into the BlogPage attachments "
+                "Also mirror each image into the RecursoPage attachments "
                 "StreamField (renders extra 'Resources' cards at the bottom "
                 "of the page). Default off — inline embeds already carry "
                 "the add-to-library button via get_images()."
@@ -205,9 +205,9 @@ class Command(BaseCommand):
         book_title: str,
         book_intro: str,
         dry_run: bool,
-    ) -> BlogIndexPage | None:
+    ) -> LibroPage | None:
         existing = (
-            BlogIndexPage.objects.child_of(parent)
+            LibroPage.objects.child_of(parent)
             .filter(title=book_title)
             .first()
         )
@@ -220,7 +220,7 @@ class Command(BaseCommand):
             return None
 
         slug = publisher._generate_unique_slug(book_title, parent)
-        book = BlogIndexPage(title=book_title, slug=slug, intro=book_intro or "")
+        book = LibroPage(title=book_title, slug=slug, intro=book_intro or "")
         parent.add_child(instance=book)
         book.save_revision().publish()
         self.stdout.write(
@@ -295,7 +295,7 @@ class Command(BaseCommand):
         self.stdout.write("")
         self.stdout.write(self.style.NOTICE("Tag questionnaire"))
         self.stdout.write(
-            "Enter tags to apply to every BlogPage and every inline image in this run."
+            "Enter tags to apply to every RecursoPage and every inline image in this run."
         )
         self.stdout.write("Separate with commas. Press Enter to skip.")
         raw = input("Tags: ").strip()
@@ -495,7 +495,7 @@ class Command(BaseCommand):
     def _import_single_chapter(
         self,
         publisher: ContentPublisher,
-        book: BlogIndexPage,
+        book: LibroPage,
         owner,
         *,
         chapter_title: str,
@@ -505,17 +505,17 @@ class Command(BaseCommand):
         tags: list[str],
         with_attachment_cards: bool,
         collection=None,
-    ) -> "BlogPage":
-        """Create one BlogPage + its Images. Caller handles the book lookup.
+    ) -> "RecursoPage":
+        """Create one RecursoPage + its Images. Caller handles the book lookup.
 
         Creates Images OUTSIDE any atomic block and compensates on failure
         so a failed chapter never leaves orphan files behind.
         """
         chapter_slug = slugify(chapter_title) or "capitulo"
 
-        if BlogPage.objects.child_of(book).filter(slug=chapter_slug).exists():
+        if RecursoPage.objects.child_of(book).filter(slug=chapter_slug).exists():
             self._abort(
-                f"BlogPage with slug {chapter_slug!r} already exists under "
+                f"RecursoPage with slug {chapter_slug!r} already exists under "
                 f"{book.title!r}. Aborting."
             )
 
@@ -535,7 +535,7 @@ class Command(BaseCommand):
                     else []
                 )
 
-                blog_page = BlogPage(
+                blog_page = RecursoPage(
                     title=chapter_title,
                     slug=chapter_slug,
                     date=timezone.now().date(),
@@ -547,7 +547,7 @@ class Command(BaseCommand):
                 )
                 book.add_child(instance=blog_page)
 
-                # Apply tags to the BlogPage
+                # Apply tags to the RecursoPage
                 if tags:
                     tag_objects = [publisher._get_or_create_tag(t) for t in tags]
                     blog_page.faceted_tags.set(tag_objects)
@@ -556,7 +556,7 @@ class Command(BaseCommand):
 
                 self.stdout.write(
                     self.style.SUCCESS(
-                        f"  ✓ BlogPage pk={blog_page.pk} {blog_page.title!r}"
+                        f"  ✓ RecursoPage pk={blog_page.pk} {blog_page.title!r}"
                     )
                 )
                 return blog_page
@@ -696,7 +696,7 @@ class Command(BaseCommand):
         assert book is not None
 
         # --- import each chapter ------------------------------------------
-        created_pages: list[BlogPage] = []
+        created_pages: list[RecursoPage] = []
         for spec in chapter_specs:
             self.stdout.write("")
             self.stdout.write(
@@ -721,7 +721,7 @@ class Command(BaseCommand):
         self.stdout.write("")
         self.stdout.write(
             self.style.SUCCESS(
-                f"Import finished: {len(created_pages)} BlogPage(s) created under "
+                f"Import finished: {len(created_pages)} RecursoPage(s) created under "
                 f"{book.title!r} (pk={book.pk})"
             )
         )

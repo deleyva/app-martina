@@ -1,53 +1,28 @@
-import logging
+"""Hooks globales del CMS.
+
+Solo queda lo que aplica a CUALQUIER página, de la app que sea. La notificación
+al moderador de un departamento se fue a `blogs/wagtail_hooks.py`, que es donde
+vive ese concepto desde la fase 25.
+"""
 
 from wagtail import hooks
 
-from martina_bescos_app.utils.email import send_email
-
-from .models import BlogIndexPage
-from .models import BlogPage
-from .models import _check_page_visibility
-
-logger = logging.getLogger(__name__)
-
-
-@hooks.register("after_create_page")
-def notify_moderator_on_blog_submission(request, page):
-    """Notify the department moderator when a new BlogPage is created."""
-    if not isinstance(page, BlogPage):
-        return
-
-    parent = page.get_parent().specific
-    if not isinstance(parent, BlogIndexPage):
-        return
-
-    moderator = parent.moderator
-    if not moderator or not moderator.email:
-        return
-
-    try:
-        send_email(
-            subject=f"Nuevo artículo pendiente: {page.title}",
-            body=(
-                f"Se ha creado un nuevo artículo en el departamento «{parent.title}».\n\n"
-                f"Título: {page.title}\n"
-                f"Autor: {request.user.get_full_name() or request.user.username}\n\n"
-                f"Revísalo en el panel de administración de Wagtail."
-            ),
-            to=[moderator.email],
-        )
-    except Exception:
-        logger.exception("Failed to send moderator notification for page %s", page.title)
+from cms.visibilidad import check_page_visibility
 
 
 @hooks.register("before_serve_page")
-def check_page_visibility(page, request, serve_args, serve_kwargs):
-    """Enforce is_protected / is_private visibility on BlogPage and BlogIndexPage."""
-    return _check_page_visibility(page, request)
+def enforce_page_visibility(page, request, serve_args, serve_kwargs):
+    """Aplica `is_protected` / `is_private` a cualquier página que los declare.
+
+    Un solo punto de control para todo el árbol. Los modelos no lo repiten en su
+    `serve()`: al partir la app llegué a poner ambos y era el mismo cheque dos
+    veces, con dos sitios donde equivocarse.
+    """
+    return check_page_visibility(page, request)
 
 
 def _enforce_private_admin_only(request, page):
-    """Only superusers can mark a page as private. Reset if non-admin tries."""
+    """Solo un superusuario puede marcar una página como privada."""
     if hasattr(page, "is_private") and page.is_private and not request.user.is_superuser:
         type(page).objects.filter(pk=page.pk).update(is_private=False)
 

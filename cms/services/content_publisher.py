@@ -17,12 +17,12 @@ from wagtail.documents import get_document_model
 from wagtail.images import get_image_model
 from wagtail.models import Page
 
-from cms.models import (
-    BlogPage,
+from musica.models import (
     DictadoPage,
     MusicCategory,
     MusicComposer,
     MusicLibraryIndexPage,
+    RecursoPage,
     ScorePage,
 )
 
@@ -1087,13 +1087,13 @@ class ContentPublisher:
         midi_files: list[UploadedFile],
         publish: bool = False,
         parent_page: Page = None,
-    ) -> BlogPage:
+    ) -> RecursoPage:
         """
-        Create BlogPage from AI-extracted metadata and uploaded files.
+        Create RecursoPage from AI-extracted metadata and uploaded files.
 
         Uses description as intro, files as StreamField attachments.
         """
-        logger.info(f"Creating BlogPage from AI metadata: {metadata.get('title', 'N/A')}")
+        logger.info(f"Creating RecursoPage from AI metadata: {metadata.get('title', 'N/A')}")
 
         try:
             # Get parent page (always MusicLibraryIndexPage)
@@ -1153,7 +1153,7 @@ class ContentPublisher:
                     "caption": "",
                 }))
 
-            # Create BlogPage
+            # Create RecursoPage
             title = metadata.get("title", "Sin título")
             slug = self._generate_unique_slug(title, parent_page)
             intro = metadata.get("notes", "") or metadata.get("description", "") or title
@@ -1161,7 +1161,7 @@ class ContentPublisher:
             if len(intro) > 250:
                 intro = intro[:247] + "..."
 
-            blog_page = BlogPage(
+            blog_page = RecursoPage(
                 title=title,
                 slug=slug,
                 date=timezone.now().date(),
@@ -1187,13 +1187,13 @@ class ContentPublisher:
 
             if publish:
                 blog_page.save_revision().publish()
-                logger.info(f"Published BlogPage: {blog_page.title} (ID: {blog_page.id})")
+                logger.info(f"Published RecursoPage: {blog_page.title} (ID: {blog_page.id})")
             else:
                 blog_page.save_revision()
-                logger.info(f"Created draft BlogPage: {blog_page.title} (ID: {blog_page.id})")
+                logger.info(f"Created draft RecursoPage: {blog_page.title} (ID: {blog_page.id})")
 
             return blog_page
 
         except Exception as e:
-            logger.error(f"Failed to create BlogPage: {e}")
-            raise RuntimeError(f"Failed to create BlogPage: {e}") from e
+            logger.error(f"Failed to create RecursoPage: {e}")
+            raise RuntimeError(f"Failed to create RecursoPage: {e}") from e

@@ -15,7 +15,8 @@ def blog_navigation(request):
     """
     # Import local para evitar circular imports (cms.models importa de Wagtail
     # que a su vez puede cargar settings antes de que Django esté listo).
-    from cms.models import BlogIndexPage, _is_blog_request
+    from blogs.models import BlogIndexPage
+# TODO fase 25: `_is_blog_request` ya no existe en cms.models
 
     if not _is_blog_request(request):
         return {}

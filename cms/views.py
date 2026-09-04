@@ -2,7 +2,7 @@ from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from .models import ScorePage
+from musica.models import ScorePage
 
 from .models import HelpIndexPage, HelpVideoPage
 
@@ -236,7 +236,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
 import json
-from .models import MusicCategory, ScorePageCategory
+from musica.models import MusicCategory, ScorePageCategory
 
 
 @staff_member_required

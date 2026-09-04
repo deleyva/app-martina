@@ -18,7 +18,7 @@ from django.core.files import File
 from django.core.management.base import BaseCommand
 from wagtail.documents.models import Document
 
-from cms.models import BlogIndexPage, BlogPage
+from musica.models import LibroPage, RecursoPage
 
 EXTENSIONES = (".gp", ".gp3", ".gp4", ".gp5", ".gpx")
 
@@ -48,12 +48,12 @@ class Command(BaseCommand):
             self.stderr.write(f"No existe la carpeta {carpeta}")
             return
 
-        indice = BlogIndexPage.objects.filter(slug=options["indice"]).first()
+        indice = LibroPage.objects.filter(slug=options["indice"]).first()
         if indice is None:
             self.stderr.write(f"No encuentro el índice '{options['indice']}'")
             return
 
-        paginas = list(indice.get_children().type(BlogPage).specific())
+        paginas = list(indice.get_children().type(RecursoPage).specific())
         ficheros = sorted(f for f in carpeta.iterdir()
                           if f.suffix.lower() in EXTENSIONES)
         self.stdout.write(f"Ficheros: {len(ficheros)} | Canciones: {len(paginas)}")

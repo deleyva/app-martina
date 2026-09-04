@@ -12,11 +12,12 @@ from wagtail.images import get_image_model
 from wagtail.models import Collection, Page as WagtailPage
 
 from api_keys.auth import DatabaseApiKey
-from .models import (
-    BlogIndexPage,
-    BlogPage,
+from blogs.models import ArticuloPage, BlogIndexPage
+from musica.models import (
+    LibroPage,
     MusicCategory,
     MusicLibraryIndexPage,
+    RecursoPage,
     TestPage,
 )
 from my_library import facets
@@ -489,279 +490,82 @@ def _build_attachments(doc_ids: List[int]):
     return [("pdf_score", {"pdf_file": docs_by_id[did]}) for did in doc_ids]
 
 
+# Los campos que solo existen en `musica.RecursoPage`. Al partir `cms` en dos
+# apps (fase 25) dejaron de estar en el artículo de un departamento, así que el
+# API tiene que decir que no en vez de tragárselos en silencio.
+CAMPOS_MUSICALES = (
+    "artist", "reference", "key_fifths", "key_mode", "time_signature_beats",
+    "time_signature_beat_type", "tempo_bpm", "duration_seconds",
+    "songsterr_url", "chordpro",
+)
+
+
 def _get_blog_parent_page(parent_page_id: Optional[int]):
-    """Devuelve la página padre para una BlogPage.
+    """Devuelve la página padre para un artículo o un recurso.
 
-    Orden de búsqueda cuando no se especifica parent_page_id:
-    1. Primera BlogIndexPage disponible.
-    2. Primera MusicLibraryIndexPage disponible.
-    3. HttpError 400 si no existe ninguna.
+    Padres válidos: `blogs.BlogIndexPage` (un departamento), `musica.LibroPage`
+    (un libro) o `musica.MusicLibraryIndexPage` (la raíz de la biblioteca).
+
+    Sin `parent_page_id`, busca en ese mismo orden.
     """
-    if parent_page_id is not None:
-        # Buscar en los dos tipos de padre permitidos por BlogPage
-        parent = (
-            BlogIndexPage.objects.filter(id=parent_page_id).first()
-            or MusicLibraryIndexPage.objects.filter(id=parent_page_id).first()
-        )
-        if not parent:
-            raise HttpError(
-                400,
-                f"La página padre con ID {parent_page_id} no existe o no es válida "
-                "(debe ser BlogIndexPage o MusicLibraryIndexPage).",
-            )
-        return parent
+    tipos = (BlogIndexPage, LibroPage, MusicLibraryIndexPage)
 
-    # Búsqueda automática del padre
-    parent = BlogIndexPage.objects.first() or MusicLibraryIndexPage.objects.first()
-    if not parent:
+    if parent_page_id is not None:
+        for modelo in tipos:
+            parent = modelo.objects.filter(id=parent_page_id).first()
+            if parent:
+                return parent
         raise HttpError(
             400,
-            "No existe ninguna BlogIndexPage ni MusicLibraryIndexPage para alojar el artículo.",
+            f"La página padre con ID {parent_page_id} no existe o no es válida "
+            "(debe ser BlogIndexPage, LibroPage o MusicLibraryIndexPage).",
         )
-    return parent
 
-
-@router.post("/blog-pages", response=BlogPageOut, tags=["Blog"])
-def create_blog_page(request, payload: BlogPageIn):
-    """Crear una BlogPage en Wagtail.
-
-    Permite crear artículos de blog con todos sus campos: título, fecha,
-    resumen, cuerpo en RichText, imagen destacada, categorías, etiquetas
-    y página padre. Se puede publicar inmediatamente o guardar como borrador.
-
-    Args:
-        request: Request object.
-        payload: Datos del artículo de blog.
-
-    Returns:
-        BlogPageOut con id, título, estado live y URLs de edición/preview.
-
-    Raises:
-        HttpError 400: Si la página padre no existe o los IDs de categorías/tags son inválidos.
-    """
-    parent_page = _get_blog_parent_page(payload.parent_page_id)
-    featured_image = _get_image(payload.featured_image_id)
-
-    with transaction.atomic():
-        page = BlogPage(
-            title=payload.title,
-            date=payload.date,
-            intro=payload.intro,
-            body=payload.body or "",
-            is_featured=payload.is_featured,
-            # El owner es lo que hace efectiva `is_private`: la comprobacion de
-            # visibilidad lo usa para decidir quien puede ver la pagina. Las
-            # creadas por API nacian sin el, asi que marcarlas privadas no
-            # protegia nada (2026-08-29).
-            owner=request.user if request.user.is_authenticated else None,
-            is_protected=payload.is_protected,
-            is_private=payload.is_private,
-            artist=payload.artist or "",
-            reference=payload.reference or "",
-            key_fifths=payload.key_fifths,
-            key_mode=payload.key_mode or "",
-            time_signature_beats=payload.time_signature_beats,
-            time_signature_beat_type=payload.time_signature_beat_type,
-            tempo_bpm=payload.tempo_bpm,
-            duration_seconds=payload.duration_seconds,
-            songsterr_url=payload.songsterr_url or "",
-            chordpro=payload.chordpro or "",
-            # Wagtail hereda live=True del padre si está publicado;
-            # lo sobreescribimos explícitamente para gestionar el estado desde la API.
-            live=payload.publish_immediately,
-        )
-        if featured_image:
-            page.featured_image = featured_image
-        if payload.attachment_ids:
-            page.attachments = _build_attachments(payload.attachment_ids)
-
-        parent_page.add_child(instance=page)
-
-        if payload.category_ids:
-            categories = list(
-                MusicCategory.objects.filter(id__in=payload.category_ids).distinct()
-            )
-            if len(categories) != len(set(payload.category_ids)):
-                raise HttpError(400, "Alguna categoría proporcionada no existe.")
-            page.categories.set(categories)
-
-        _validar_etiquetas(payload)
-        if payload.tags:
-            aplicar_etiquetas(page, payload.tags)
-
-        revision = page.save_revision()
-        if payload.publish_immediately:
-            revision.publish()
-            # Refrescar desde DB para que page.live esté actualizado
-            page.refresh_from_db()
-
-    edit_url = f"/cms/pages/{page.id}/edit/"
-    if page.live:
-        try:
-            preview_url = page.get_url(request) or f"/cms/pages/{page.id}/"
-        except Exception:
-            preview_url = f"/cms/pages/{page.id}/"
-    else:
-        preview_url = f"/cms/pages/{page.id}/view_draft/"
-
-    return BlogPageOut(
-        id=page.id,
-        title=page.title,
-        live=page.live,
-        edit_url=edit_url,
-        preview_url=preview_url,
-        is_protected=page.is_protected,
-        is_private=page.is_private,
-        owner_id=page.owner_id,
-        artist=page.artist,
-        reference=page.reference,
-        key_fifths=page.key_fifths,
-        key_mode=page.key_mode,
-        time_signature_beats=page.time_signature_beats,
-        time_signature_beat_type=page.time_signature_beat_type,
-        tempo_bpm=page.tempo_bpm,
-        duration_seconds=page.duration_seconds,
-        songsterr_url=page.songsterr_url,
-        chordpro=page.chordpro,
-        key_display=page.key_display,
-        time_signature_display=page.time_signature_display,
-        duration_display=page.duration_display,
+    for modelo in tipos:
+        parent = modelo.objects.first()
+        if parent:
+            return parent
+    raise HttpError(
+        400,
+        "No hay ninguna página padre disponible: crea antes un blog de "
+        "departamento o la biblioteca musical.",
     )
 
 
-class BlogPageUpdateIn(Schema):
-    """Schema de entrada para actualizar una BlogPage (todos los campos opcionales)."""
+def _modelo_de_contenido(parent):
+    """Qué se crea bajo ese padre: un artículo de departamento o un recurso musical.
 
-    title: Optional[str] = None
-    date: Optional[date] = None
-    intro: Optional[str] = None
-    body: Optional[str] = None
-    featured_image_id: Optional[int] = None
-    is_featured: Optional[bool] = None
-    category_ids: Optional[List[int]] = None
-    tags: Optional[List[str]] = None
-    # Retirado con `MusicTag` (C37b). Ver arriba.
-    tag_ids: Optional[List[int]] = None
-    publish_immediately: Optional[bool] = None
-    attachment_ids: Optional[List[int]] = None
-    # Metadatos musicales (2026-08-28). None = no tocar; "" = borrar.
-    is_protected: Optional[bool] = None
-    is_private: Optional[bool] = None
-    artist: Optional[str] = None
-    reference: Optional[str] = None
-    key_fifths: Optional[int] = None
-    key_mode: Optional[str] = None
-    time_signature_beats: Optional[int] = None
-    time_signature_beat_type: Optional[int] = None
-    tempo_bpm: Optional[int] = None
-    duration_seconds: Optional[int] = None
-    songsterr_url: Optional[str] = None
-    chordpro: Optional[str] = None
-
-
-@router.put("/blog-pages/{page_id}", response=BlogPageOut, tags=["Blog"])
-def update_blog_page(request, page_id: int, payload: BlogPageUpdateIn):
-    """Actualizar una BlogPage existente en Wagtail.
-
-    Acepta campos parciales — sólo se actualizan los campos enviados.
-
-    Args:
-        request: Request object.
-        page_id: ID de la BlogPage a actualizar.
-        payload: Campos a actualizar.
-
-    Returns:
-        BlogPageOut con id, título, estado live y URLs de edición/preview.
-
-    Raises:
-        HttpError 404: Si la BlogPage no existe.
-        HttpError 400: Si los IDs de categorías/tags/imagen son inválidos.
+    Es la frontera de la fase 25 hecha código. Antes había un solo modelo,
+    `BlogPage`, y la ficha musical viajaba con él aunque el padre fuera el blog
+    de filosofía.
     """
-    try:
-        page = BlogPage.objects.get(id=page_id)
-    except BlogPage.DoesNotExist:
-        raise HttpError(404, f"La BlogPage con ID {page_id} no existe.")
+    return ArticuloPage if isinstance(parent, BlogIndexPage) else RecursoPage
 
-    with transaction.atomic():
-        if payload.title is not None:
-            page.title = payload.title
-        if payload.date is not None:
-            page.date = payload.date
-        if payload.intro is not None:
-            page.intro = payload.intro
-        if payload.body is not None:
-            page.body = payload.body
-        if payload.featured_image_id is not None:
-            page.featured_image = _get_image(payload.featured_image_id)
-        if payload.is_featured is not None:
-            page.is_featured = payload.is_featured
-        if payload.attachment_ids is not None:
-            page.attachments = _build_attachments(payload.attachment_ids)
-        if payload.is_protected is not None:
-            page.is_protected = payload.is_protected
-        if payload.is_private is not None:
-            page.is_private = payload.is_private
-            # Hacer privada una pagina huerfana sin darle dueno la dejaria
-            # accesible por URL directa. Se adopta al vuelo.
-            if payload.is_private and page.owner is None and request.user.is_authenticated:
-                page.owner = request.user
-        for _campo in ("artist", "reference", "key_fifths", "key_mode",
-                       "time_signature_beats", "time_signature_beat_type",
-                       "tempo_bpm", "duration_seconds",
-                       "songsterr_url", "chordpro"):
-            _valor = getattr(payload, _campo)
-            if _valor is not None:
-                setattr(page, _campo, _valor)
 
-        if payload.category_ids is not None:
-            categories = list(
-                MusicCategory.objects.filter(id__in=payload.category_ids).distinct()
-            )
-            if len(categories) != len(set(payload.category_ids)):
-                raise HttpError(400, "Alguna categoría proporcionada no existe.")
-            page.categories.set(categories)
+def _validar_campos_musicales(payload, modelo):
+    """Rechaza metadatos musicales dirigidos a un artículo de departamento."""
+    if modelo is not ArticuloPage:
+        return
+    enviados = [
+        c for c in CAMPOS_MUSICALES
+        if getattr(payload, c, None) not in (None, "")
+    ]
+    if enviados:
+        raise HttpError(
+            400,
+            "Un artículo de departamento no tiene ficha musical. Campos "
+            f"rechazados: {', '.join(sorted(enviados))}. Si es una canción o un "
+            "capítulo, publícalo bajo la biblioteca musical.",
+        )
 
-        _validar_etiquetas(payload)
-        if payload.tags is not None:
-            aplicar_etiquetas(page, payload.tags)
 
-        revision = page.save_revision()
-        if payload.publish_immediately:
-            revision.publish()
-            page.refresh_from_db()
+def _blog_page_out(page, request):
+    """Construye `BlogPageOut` para cualquiera de los dos modelos.
 
-    edit_url = f"/cms/pages/{page.id}/edit/"
-    if page.live:
-        try:
-            preview_url = page.get_url(request) or f"/cms/pages/{page.id}/"
-        except Exception:
-            preview_url = f"/cms/pages/{page.id}/"
-    else:
-        preview_url = f"/cms/pages/{page.id}/view_draft/"
-
-    return BlogPageOut(
-        id=page.id,
-        title=page.title,
-        live=page.live,
-        edit_url=edit_url,
-        preview_url=preview_url,
-        is_protected=page.is_protected,
-        is_private=page.is_private,
-        owner_id=page.owner_id,
-        artist=page.artist,
-        reference=page.reference,
-        key_fifths=page.key_fifths,
-        key_mode=page.key_mode,
-        time_signature_beats=page.time_signature_beats,
-        time_signature_beat_type=page.time_signature_beat_type,
-        tempo_bpm=page.tempo_bpm,
-        duration_seconds=page.duration_seconds,
-        songsterr_url=page.songsterr_url,
-        chordpro=page.chordpro,
-        key_display=page.key_display,
-        time_signature_display=page.time_signature_display,
-        duration_display=page.duration_display,
-    )
+    `getattr` con defecto porque `ArticuloPage` no tiene ficha musical: el
+    esquema de salida se mantiene estable para no romper a los clientes.
+    """
+    return _blog_page_out(page, request)
 
 
 class DeleteOut(Schema):
@@ -785,15 +589,14 @@ def delete_blog_page(request, page_id: int):
     Raises:
         HttpError 404: Si la BlogPage no existe.
     """
-    try:
-        page = BlogPage.objects.get(id=page_id)
-    except BlogPage.DoesNotExist:
-        raise HttpError(404, f"La BlogPage con ID {page_id} no existe.")
-
+    page = _buscar_pagina_de_contenido(page_id)
     title = page.title
+    tipo = page._meta.verbose_name
     page.delete()
 
-    return DeleteOut(success=True, message=f"BlogPage '{title}' (ID {page_id}) eliminada.")
+    return DeleteOut(
+        success=True, message=f"{tipo} '{title}' (ID {page_id}) eliminada."
+    )
 
 
 # Image Upload Endpoint
@@ -926,7 +729,7 @@ def add_study_book_chapters(request, page_id: int, payload: ChaptersIn):
     Las páginas que ya fueran capítulos se ignoran en vez de duplicarse, así
     que reintentar una llamada a medias es seguro.
     """
-    from .models import LibroDeEstudioPage
+    from musica.models import LibroDeEstudioPage
 
     try:
         libro = LibroDeEstudioPage.objects.get(id=page_id)
@@ -1013,7 +816,7 @@ def set_study_book_visibility(request, page_id: int, payload: LibroVisibilidadIn
     ejecutarse y el libro se serviría por URL directa. Si el libro no tiene
     dueño, lo adopta quien hace la llamada.
     """
-    from .models import LibroDeEstudioPage
+    from musica.models import LibroDeEstudioPage
 
     try:
         libro = LibroDeEstudioPage.objects.get(id=page_id)

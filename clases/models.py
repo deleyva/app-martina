@@ -296,7 +296,7 @@ class GroupLibraryItem(models.Model):
         verbose_name="Grupo",
     )
 
-    # Referencia genérica al contenido (ScorePage, Document, Image, BlogPage, etc.)
+    # Referencia genérica al contenido (ScorePage, Document, Image, RecursoPage, etc.)
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
     object_id = models.PositiveIntegerField()
     content_object = GenericForeignKey("content_type", "object_id")
@@ -417,7 +417,7 @@ class GroupLibraryItem(models.Model):
 
         # Para documentos, imágenes, embeds, buscar en ScorePages
         if self.content_type.model in ["document", "image", "embed"]:
-            from cms.models import ScorePage
+            from musica.models import ScorePage
 
             if not self.content_object or not hasattr(self.content_object, "pk"):
                 return None
@@ -479,7 +479,7 @@ class GroupLibraryItem(models.Model):
         return None
 
     def get_related_scorepage_media(self):
-        """Obtener audios y embeds del contenido relacionado (ScorePage, BlogPage, etc.)."""
+        """Obtener audios y embeds del contenido relacionado (ScorePage, RecursoPage, etc.)."""
         # Primero ver si el propio contenido tiene estos métodos
         if hasattr(self.content_object, "get_audios") or hasattr(self.content_object, "get_embeds"):
             return {
@@ -767,7 +767,7 @@ class GroupLibraryItem(models.Model):
 
     def get_blogpage_elements(self):
         """
-        Obtener todos los elementos importables de una BlogPage.
+        Obtener todos los elementos importables de una RecursoPage.
 
         Incluye:
         1. PDFs, audios e imágenes del StreamField `attachments`
@@ -779,19 +779,19 @@ class GroupLibraryItem(models.Model):
 
         Devuelve lista de dicts con la misma estructura que
         get_scorepage_elements(). Solo funciona si este GroupLibraryItem
-        apunta a una BlogPage.
+        apunta a una RecursoPage.
 
         Usa caché por instancia (`_blogpage_elements_cache`) para que
         múltiples llamadas dentro del mismo render de plantilla no repitan
         el trabajo. Para los attachments usa además la caché de
-        `BlogPage._parse_attachments()`.
+        `RecursoPage._parse_attachments()`.
         """
         if hasattr(self, "_blogpage_elements_cache"):
             return self._blogpage_elements_cache
 
         elements = []
 
-        # Solo procesar si es BlogPage
+        # Solo procesar si es RecursoPage
         if self.content_type.model != "blogpage":
             self._blogpage_elements_cache = elements
             return elements
@@ -809,7 +809,7 @@ class GroupLibraryItem(models.Model):
         image_ct = ContentType.objects.get_for_model(Image)
 
         # --- 1) Attachments StreamField ---
-        # Reutilizar la caché de BlogPage._parse_attachments() que ya
+        # Reutilizar la caché de RecursoPage._parse_attachments() que ya
         # deserializa el StreamField una sola vez por instancia.
         parsed = blogpage._parse_attachments()
 
@@ -1081,7 +1081,7 @@ class ClassSessionItem(models.Model):
     object_id = models.PositiveIntegerField()
     content_object = GenericForeignKey("content_type", "object_id")
 
-    # Página de origen (ScorePage o BlogPage desde la que se añadió el elemento)
+    # Página de origen (ScorePage o RecursoPage desde la que se añadió el elemento)
     source_page = models.ForeignKey(
         "wagtailcore.Page",
         on_delete=models.SET_NULL,
@@ -1194,7 +1194,7 @@ class ClassSessionItem(models.Model):
 
         # Fallback: para documentos, imágenes, buscar en ScorePages
         if self.content_type.model in ["document", "image", "embed"]:
-            from cms.models import ScorePage
+            from musica.models import ScorePage
 
             if not self.content_object or not hasattr(self.content_object, "pk"):
                 return None
@@ -1256,7 +1256,7 @@ class ClassSessionItem(models.Model):
         return None
 
     def get_related_scorepage_media(self):
-        """Obtener audios y embeds del contenido relacionado (ScorePage, BlogPage, etc.)."""
+        """Obtener audios y embeds del contenido relacionado (ScorePage, RecursoPage, etc.)."""
         # Primero ver si el propio contenido tiene estos métodos
         if hasattr(self.content_object, "get_audios") or hasattr(self.content_object, "get_embeds"):
             return {

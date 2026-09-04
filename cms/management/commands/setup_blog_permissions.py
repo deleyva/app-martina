@@ -7,7 +7,7 @@ from wagtail.models import Workflow
 from wagtail.models import WorkflowPage
 from wagtail.models import WorkflowTask
 
-from cms.models import BlogIndexPage
+from blogs.models import BlogIndexPage
 
 try:
     from wagtail.models import GroupApprovalTask

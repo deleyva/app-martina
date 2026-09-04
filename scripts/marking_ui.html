@@ -1,0 +1,164 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Marcador de libros escaneados</title>
+<style>
+  :root{--l:#16a34a;--c:#60a5fa;--t:#94a3b8;--x:#ef4444;--bg:#0f172a;--fg:#e2e8f0}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 system-ui,sans-serif;display:flex;height:100vh}
+  #panel{width:320px;flex:none;padding:16px;overflow-y:auto;border-right:1px solid #1e293b}
+  #stage{flex:1;overflow:auto;position:relative;background:#1e293b;display:flex;justify-content:center;align-items:flex-start;padding:16px}
+  #wrap{line-height:0}
+  #wrap{position:relative;flex:none}
+  #pg{display:block;height:calc(100vh - 32px);width:auto}
+  .band{position:absolute;left:0;right:0;border:2px solid transparent;cursor:pointer}
+  .band.L{background:rgba(22,163,74,.20);border-color:var(--l)}
+  .band.C{background:rgba(96,165,250,.16);border-color:var(--c)}
+  .band.T{background:rgba(148,163,184,.12);border-color:var(--t)}
+  .band.X{background:rgba(239,68,68,.14);border-color:var(--x)}
+  .band.focus{outline:3px solid #fbbf24;outline-offset:1px;z-index:5}
+  .tag{position:absolute;left:3px;top:-1px;font-weight:700;font-size:13px;background:#0f172a;padding:1px 5px;border-radius:4px}
+  h1{font-size:15px;margin:0 0 12px}
+  kbd{background:#1e293b;border:1px solid #334155;border-radius:4px;padding:1px 6px;font:12px monospace}
+  .row{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #1e293b}
+  button{background:#1e293b;color:var(--fg);border:1px solid #334155;border-radius:6px;padding:8px 12px;cursor:pointer;font:inherit;width:100%;margin-top:8px}
+  button:hover{background:#334155}
+  input{background:#1e293b;color:var(--fg);border:1px solid #334155;border-radius:4px;padding:4px 6px;width:70px;font:inherit}
+  #prog{height:6px;background:#1e293b;border-radius:3px;overflow:hidden;margin:8px 0}
+  #bar{height:100%;background:var(--l);width:0}
+  .muted{color:#94a3b8;font-size:12px}
+</style>
+<div id="panel">
+  <h1>Marcador de libros escaneados</h1>
+  <div id="pginfo" class="muted"></div>
+  <div id="prog"><div id="bar"></div></div>
+
+  <div class="row"><span><kbd>L</kbd> empieza lectura</span><span style="color:var(--l)">■</span></div>
+  <div class="row"><span><kbd>C</kbd> continúa la anterior</span><span style="color:var(--c)">■</span></div>
+  <div class="row"><span><kbd>T</kbd> texto</span><span style="color:var(--t)">■</span></div>
+  <div class="row"><span><kbd>X</kbd> ignorar</span><span style="color:var(--x)">■</span></div>
+  <p class="muted">Al pulsar, salta a la banda siguiente. <kbd>↑</kbd><kbd>↓</kbd> mueven entre bandas,
+  <kbd>←</kbd><kbd>→</kbd> entre páginas. <kbd>Espacio</kbd> repite el estado anterior.</p>
+
+  <div id="numbox" style="display:none">
+    <label class="muted">Nº en el libro<br><input id="num" type="text" placeholder="p. ej. 34"></label>
+  </div>
+
+  <p class="muted" id="ocr"></p>
+  <button id="save">Descargar marcado.json</button>
+  <p class="muted">Se guarda solo en el navegador según marcas. El botón exporta el fichero final.</p>
+</div>
+<div id="stage"><div id="wrap"><img id="pg"><div id="overlay"></div></div></div>
+
+<script>
+const KEYS = {l:'L', c:'C', t:'T', x:'X'};
+let data = null, pi = 0, bi = 0, last = 'C';
+
+const store = {
+  read(){ try { return JSON.parse(localStorage.getItem('marcado') || '{}'); } catch { return {}; } },
+  write(v){ try { localStorage.setItem('marcado', JSON.stringify(v)); } catch {} },
+};
+
+async function boot(){
+  data = await (await fetch('marking.json')).json();
+  const saved = store.read();
+  for (const p of data.pages){
+    const s = saved[p.page];
+    if (s && s.length === p.bands.length){
+      p.bands.forEach((b, i) => { b.state = s[i].state; b.num = s[i].num; });
+    }
+  }
+  render();
+}
+
+function persist(){
+  const out = {};
+  for (const p of data.pages) out[p.page] = p.bands.map(b => ({state: b.state, num: b.num || null}));
+  store.write(out);
+}
+
+function render(){
+  const p = data.pages[pi];
+  const img = document.getElementById('pg');
+  const want = 'pages/' + p.image;
+  if (!img.src.endsWith(want)){
+    img.src = want;
+    img.onload = () => render();   // redraw once the real height is known
+  }
+  const ov = document.getElementById('overlay');
+  ov.innerHTML = '';
+  // Band coordinates come in render-pixel space; the image is scaled to fit
+  // the window, so every box has to be scaled by the same factor or the
+  // overlay drifts away from the staves it is marking.
+  const scale = img.naturalHeight ? (img.clientHeight / img.naturalHeight) : 1;
+  p.bands.forEach((b, i) => {
+    const d = document.createElement('div');
+    d.className = 'band ' + b.state + (i === bi ? ' focus' : '');
+    d.style.top = (b.y0 * scale) + 'px';
+    d.style.height = ((b.y1 - b.y0) * scale) + 'px';
+    const t = document.createElement('span');
+    t.className = 'tag';
+    t.textContent = b.state + (b.num ? ':' + b.num : '');
+    d.appendChild(t);
+    d.onclick = () => { bi = i; render(); };
+    ov.appendChild(d);
+  });
+  const done = data.pages.filter(q => q.touched).length;
+  document.getElementById('bar').style.width = (100 * done / data.pages.length) + '%';
+  document.getElementById('pginfo').textContent =
+    `Página ${p.page + 1} de ${data.pages.length}  ·  banda ${bi + 1}/${p.bands.length}  ·  ${done} páginas marcadas`;
+  const cur = p.bands[bi];
+  document.getElementById('numbox').style.display = cur && cur.state === 'L' ? '' : 'none';
+  document.getElementById('num').value = (cur && cur.num) || '';
+  document.getElementById('ocr').textContent = cur && cur.text ? '“' + cur.text.slice(0, 120) + '”' : '';
+  const f = ov.querySelector('.focus');
+  if (f) f.scrollIntoView({block:'center', behavior:'smooth'});
+}
+
+function setState(s){
+  const p = data.pages[pi];
+  if (!p.bands.length) return;
+  p.bands[bi].state = s;
+  p.touched = true;
+  last = s;
+  if (bi < p.bands.length - 1) bi++;
+  else if (pi < data.pages.length - 1){ pi++; bi = 0; }
+  persist(); render();
+}
+
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT'){
+    if (e.key === 'Enter'){
+      data.pages[pi].bands[bi].num = e.target.value.trim() || null;
+      persist(); render(); e.target.blur();
+    }
+    return;
+  }
+  const k = e.key.toLowerCase();
+  if (KEYS[k]) { setState(KEYS[k]); e.preventDefault(); return; }
+  const p = data.pages[pi];
+  if (k === ' '){ setState(last); e.preventDefault(); return; }
+  if (e.key === 'ArrowDown'){ bi = Math.min(bi + 1, p.bands.length - 1); render(); e.preventDefault(); }
+  if (e.key === 'ArrowUp'){ bi = Math.max(bi - 1, 0); render(); e.preventDefault(); }
+  if (e.key === 'ArrowRight'){ pi = Math.min(pi + 1, data.pages.length - 1); bi = 0; render(); e.preventDefault(); }
+  if (e.key === 'ArrowLeft'){ pi = Math.max(pi - 1, 0); bi = 0; render(); e.preventDefault(); }
+});
+
+document.getElementById('num').addEventListener('change', e => {
+  data.pages[pi].bands[bi].num = e.target.value.trim() || null;
+  persist(); render();
+});
+
+document.getElementById('save').onclick = () => {
+  const out = {book: data.book, pages: data.pages.map(p => ({
+    page: p.page, image: p.image,
+    bands: p.bands.map(b => ({y0: b.y0, y1: b.y1, state: b.state, num: b.num || null, text: b.text || ''})),
+  }))};
+  const blob = new Blob([JSON.stringify(out, null, 2)], {type: 'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'marcado.json';
+  a.click();
+};
+
+boot();
+</script>

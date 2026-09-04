@@ -50,7 +50,7 @@ class Command(BaseCommand):
 
         # Import CMS models (may not exist in all environments)
         try:
-            from cms.models import MusicComposer, MusicCategory, ScorePage
+            from musica.models import MusicCategory, MusicComposer, ScorePage
             self.MusicComposer = MusicComposer
             self.MusicCategory = MusicCategory
             self.ScorePage = ScorePage

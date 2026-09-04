@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from wagtail.models import Page
 
-from cms.models import BlogIndexPage, BlogPage, LibroDeEstudioPage
+from musica.models import LibroDeEstudioPage, LibroPage, RecursoPage
 
 User = get_user_model()
 
@@ -19,7 +19,7 @@ class LibroCapitulosAPITest(TestCase):
         self.client.force_login(self.user)
         root = Page.objects.filter(depth=1).first()
 
-        self.blog_index = BlogIndexPage(title="Blog Cap", slug="blog-cap")
+        self.blog_index = LibroPage(title="Blog Cap", slug="blog-cap")
         root.add_child(instance=self.blog_index)
         self.blog_index.save_revision().publish()
 
@@ -29,7 +29,7 @@ class LibroCapitulosAPITest(TestCase):
 
         self.canciones = []
         for n in ("Uptown Funk", "Wonderwall", "Starman"):
-            p = BlogPage(title=n, slug=n.lower().replace(" ", "-"), date="2026-08-28", intro=n)
+            p = RecursoPage(title=n, slug=n.lower().replace(" ", "-"), date="2026-08-28", intro=n)
             self.blog_index.add_child(instance=p)
             p.save_revision().publish()
             self.canciones.append(p)
@@ -75,7 +75,7 @@ class LibroCapitulosAPITest(TestCase):
     def test_rechaza_un_tipo_de_pagina_no_admitido(self):
         resp = self._post(self.libro.id, {"page_ids": [self.blog_index.id]})
         self.assertEqual(resp.status_code, 400)
-        self.assertIn("BlogIndexPage", resp.json()["detail"])
+        self.assertIn("LibroPage", resp.json()["detail"])
 
     def test_rechaza_paginas_inexistentes(self):
         resp = self._post(self.libro.id, {"page_ids": [999999]})

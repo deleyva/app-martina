@@ -8,7 +8,7 @@ This script:
 """
 from django.core.management.base import BaseCommand
 from django.db import transaction
-from cms.models import ScorePage
+from musica.models import ScorePage
 from wagtail.models import Document
 
 

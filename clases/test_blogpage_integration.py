@@ -1,6 +1,6 @@
 import pytest
 from django.contrib.contenttypes.models import ContentType
-from cms.models import BlogPage
+from musica.models import RecursoPage
 from clases.models import (
     ClassSession,
     ClassSessionItem,
@@ -15,10 +15,10 @@ User = get_user_model()
 
 @pytest.mark.django_db
 def test_blogpage_content_type_allowed():
-    """Test que verifica que el ContentType de BlogPage está permitido en sesiones"""
+    """Test que verifica que el ContentType de RecursoPage está permitido en sesiones"""
 
-    # Obtener el ContentType para BlogPage
-    blog_content_type = ContentType.objects.get_for_model(BlogPage)
+    # Obtener el ContentType para RecursoPage
+    blog_content_type = ContentType.objects.get_for_model(RecursoPage)
 
     # Verificar que no es ScorePage (que está bloqueado)
     assert blog_content_type.model != "scorepage"
@@ -40,7 +40,7 @@ def test_group_library_supports_blogpage():
     group.teachers.add(teacher)
 
     # Verificar que el método get_icon funciona para BlogPages
-    blog_content_type = ContentType.objects.get_for_model(BlogPage)
+    blog_content_type = ContentType.objects.get_for_model(RecursoPage)
 
     # Crear un GroupLibraryItem simulado para probar el icono
     from clases.models import GroupLibraryItem
@@ -49,7 +49,7 @@ def test_group_library_supports_blogpage():
         group=group, content_type=blog_content_type, object_id=1  # ID simulado
     )
 
-    # Verificar que el icono para BlogPage es correcto
+    # Verificar que el icono para RecursoPage es correcto
     assert item.get_icon() == "📝"
     assert item.get_content_type_name() == "Artículo de Blog"
 
@@ -70,13 +70,13 @@ def test_add_to_session_method_accepts_blogpage():
         teacher=teacher, group=group, title="Sesión de prueba", date="2024-01-01"
     )
 
-    # Verificar que el ContentType de BlogPage no está bloqueado
-    blog_content_type = ContentType.objects.get_for_model(BlogPage)
+    # Verificar que el ContentType de RecursoPage no está bloqueado
+    blog_content_type = ContentType.objects.get_for_model(RecursoPage)
 
     # El método add_to_session solo debe bloquear ScorePages
     # BlogPages deben pasar la validación
     if blog_content_type.model == "scorepage":
-        pytest.fail("BlogPage no debería ser un scorepage")
+        pytest.fail("RecursoPage no debería ser un scorepage")
 
     # Verificar que no se lanza excepción para BlogPages
     try:

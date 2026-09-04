@@ -1,6 +1,6 @@
 """Meter un libro entero en la biblioteca de una vez.
 
-Un libro es una `BlogIndexPage` con capítulos `BlogPage` debajo. Lo que se
+Un libro es una `LibroPage` con capítulos `RecursoPage` debajo. Lo que se
 practica no es el capítulo: son los medios que lleva dentro — las imágenes de
 las partituras, los PDF, los audios. La convención ya existía y se ve en los
 datos: los 23 elementos del libro de Jens Larsen son las imágenes de sus
@@ -40,12 +40,12 @@ def capitulos_de(libro):
     a un tipo concreto de `cms`: cualquier página que sepa decir qué páginas
     referencia se comporta como un libro por referencia.
     """
-    from cms.models import BlogPage
+    from musica.models import RecursoPage
 
     referencias = getattr(libro, "paginas_referenciadas", None)
     if callable(referencias):
         return referencias()
-    return list(BlogPage.objects.child_of(libro).live().order_by("path"))
+    return list(RecursoPage.objects.child_of(libro).live().order_by("path"))
 
 
 def _incrustado_en_el_cuerpo(pagina):
@@ -97,7 +97,7 @@ def _de_los_adjuntos(pagina):
     """Los adjuntos del StreamField, por tipo y en el orden en que se pusieron.
 
     Se piden con `getattr` porque no todas las páginas referenciables tienen
-    los mismos accesores: `BlogPage` y `ScorePage` sí, `DictadoPage` no ninguno.
+    los mismos accesores: `RecursoPage` y `ScorePage` sí, `DictadoPage` no ninguno.
     """
     salida = []
 

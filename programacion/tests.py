@@ -15,7 +15,7 @@ from wagtail.documents.models import Document
 from wagtail.models import Page
 
 from clases.models import ClassSession, ClassSessionItem, Group, Subject
-from cms.models import BlogIndexPage, BlogPage
+from musica.models import LibroPage, RecursoPage
 from programacion.models import ContentCoverage, CoursePlan, PlanItem
 from programacion.services import (
     create_session_from_plan_item,
@@ -68,9 +68,9 @@ def _make_doc(name="doc.pdf"):
 
 @pytest.fixture
 def article(db, root_page):
-    """BlogPage con 2 adjuntos PDF."""
+    """RecursoPage con 2 adjuntos PDF."""
     doc1, doc2 = _make_doc("a.pdf"), _make_doc("b.pdf")
-    article = BlogPage(
+    article = RecursoPage(
         title="Cancion de prueba",
         slug="cancion-prueba",
         date="2026-01-01",
@@ -110,7 +110,7 @@ class TestCoverage:
         )
         coverage = ContentCoverage.objects.get(
             group=group,
-            content_type=ContentType.objects.get_for_model(BlogPage),
+            content_type=ContentType.objects.get_for_model(RecursoPage),
             object_id=page.pk,
         )
         assert coverage.elements_total == 2
@@ -150,7 +150,7 @@ class TestPlan:
         )
         item = PlanItem.objects.create(
             plan=plan,
-            content_type=ContentType.objects.get_for_model(BlogPage),
+            content_type=ContentType.objects.get_for_model(RecursoPage),
             object_id=page.pk,
         )
         assert plan.get_progress() == 0
@@ -177,9 +177,9 @@ class TestPlan:
         assert plan.get_next_step() is None
 
     def test_book_sync_chapters(self, root_page, group, teacher):
-        book = BlogIndexPage(title="Libro de flauta", slug="libro-flauta")
+        book = LibroPage(title="Libro de flauta", slug="libro-flauta")
         root_page.add_child(instance=book)
-        chapter = BlogPage(
+        chapter = RecursoPage(
             title="Capitulo 1", slug="cap-1", date="2026-01-01", intro="x"
         )
         book.add_child(instance=chapter)
@@ -187,7 +187,7 @@ class TestPlan:
         plan = CoursePlan.objects.create(teacher=teacher, group=group, name="Plan")
         item = PlanItem.objects.create(
             plan=plan,
-            content_type=ContentType.objects.get_for_model(BlogIndexPage),
+            content_type=ContentType.objects.get_for_model(LibroPage),
             object_id=book.pk,
         )
         created = item.sync_chapters()
@@ -201,7 +201,7 @@ class TestPlan:
         plan = CoursePlan.objects.create(teacher=teacher, group=group, name="Plan")
         item = PlanItem.objects.create(
             plan=plan,
-            content_type=ContentType.objects.get_for_model(BlogPage),
+            content_type=ContentType.objects.get_for_model(RecursoPage),
             object_id=page.pk,
         )
         session = create_session_from_plan_item(item, teacher, "2026-01-15")

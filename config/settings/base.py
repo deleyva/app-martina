@@ -104,7 +104,9 @@ LOCAL_APPS = [
     "api_keys",
     "songs_ranking",
     "explorer",
-    "cms",  # Incluye Music Pills integrado
+    "cms",  # Núcleo compartido: portada, página estándar, ayuda, enlaces externos
+    "blogs",  # Blogs de departamento — blogs.iesmartinabescos.es
+    "musica",  # Biblioteca musical — apps.iesmartinabescos.es
     "my_library",  # Biblioteca personal de usuario
     "incidencias",  # Sistema de incidencias informáticas
     "analytics",

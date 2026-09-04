@@ -16,7 +16,7 @@ from django.core.management.base import BaseCommand
 
 from wagtail.documents.models import Document
 
-from cms.models import BlogIndexPage, BlogPage
+from musica.models import LibroPage, RecursoPage
 
 
 # Manifest chapter numbers 1-24 map to video lesson_01-24.
@@ -113,13 +113,13 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         dry_run = options["dry_run"]
 
-        book = BlogIndexPage.objects.filter(title__icontains="Quick Lessons Pro").first()
+        book = LibroPage.objects.filter(title__icontains="Quick Lessons Pro").first()
         if not book:
             self.stderr.write("Book 'Quick Lessons Pro' not found.")
             return
 
         self.stdout.write(f"Book: {book.title} (pk={book.pk})")
-        pages = list(BlogPage.objects.child_of(book).order_by("path"))
+        pages = list(RecursoPage.objects.child_of(book).order_by("path"))
         self.stdout.write(f"Found {len(pages)} chapters")
 
         pdf_dir = Path("/backups/book_extraction/quick-lessons-pro/gp_files/QLP-all-supplementary-files/PDFs")

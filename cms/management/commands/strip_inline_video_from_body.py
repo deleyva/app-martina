@@ -1,4 +1,4 @@
-"""Saca el <video> crudo del RichTextField `body` de las BlogPage.
+"""Saca el <video> crudo del RichTextField `body` de las RecursoPage.
 
 `update_qlp_book` inyectaba en su dia un `<div><video><source ...></video></div>`
 dentro del body. Wagtail lo guarda y lo pinta sin quejarse, pero el editor
@@ -19,7 +19,7 @@ import re
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from cms.models import BlogPage
+from musica.models import RecursoPage
 
 # El div envoltorio tal cual lo escribia update_qlp_book, y por si acaso un
 # <video> suelto sin el div.
@@ -36,7 +36,7 @@ def strip_video(body: str) -> str:
 
 
 class Command(BaseCommand):
-    help = "Quita el <video> en HTML crudo del body de las BlogPage (arregla el 500 al editar)."
+    help = "Quita el <video> en HTML crudo del body de las RecursoPage (arregla el 500 al editar)."
 
     def add_arguments(self, parser):
         parser.add_argument("--dry-run", action="store_true")
@@ -46,7 +46,7 @@ class Command(BaseCommand):
         if dry_run:
             self.stdout.write(self.style.WARNING("DRY RUN — no se guarda nada"))
 
-        pages = BlogPage.objects.filter(body__contains="<video")
+        pages = RecursoPage.objects.filter(body__contains="<video")
         self.stdout.write(f"Paginas afectadas: {pages.count()}")
 
         changed = 0

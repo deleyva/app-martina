@@ -13,7 +13,7 @@ from django.contrib.auth import get_user_model
 from django.test import RequestFactory, TestCase
 from wagtail.models import Page
 
-from cms.models import (
+
     BlogIndexPage,
     BlogPage,
     LibroDeEstudioPage,

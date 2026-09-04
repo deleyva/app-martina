@@ -1,0 +1,7 @@
+from django.apps import AppConfig
+
+
+class MusicaConfig(AppConfig):
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "musica"
+    verbose_name = "Biblioteca musical"

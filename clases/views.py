@@ -619,7 +619,7 @@ def class_session_edit(request, pk):
 
     # Query base de biblioteca del grupo
     from django.db.models import Q
-    from cms.models import ScorePage, BlogPage, DictadoPage
+    from musica.models import DictadoPage, RecursoPage, ScorePage
 
     library_items = GroupLibraryItem.objects.filter(group=session.group)
 
@@ -630,7 +630,7 @@ def class_session_edit(request, pk):
         from wagtail.images.models import Image
         from wagtail.models import Page
 
-        # Buscar todas las Pages (ScorePage, BlogPage, DictadoPage) por título
+        # Buscar todas las Pages (ScorePage, RecursoPage, DictadoPage) por título
         matching_page_ids = set(
             Page.objects.filter(title__icontains=search)
             .values_list("pk", flat=True)
@@ -649,7 +649,7 @@ def class_session_edit(request, pk):
         # Content types de páginas
         page_cts = [
             ContentType.objects.get_for_model(ScorePage),
-            ContentType.objects.get_for_model(BlogPage),
+            ContentType.objects.get_for_model(RecursoPage),
             ContentType.objects.get_for_model(DictadoPage),
         ]
         document_ct = ContentType.objects.get_for_model(Document)
@@ -1133,7 +1133,7 @@ def group_library_item_viewer(request, group_id, pk):
                         elif not element_type:
                             documents["embeds"].append(embed_val)
     elif content_type == "blogpage":
-        # BlogPage: extraer PDFs, audios, imágenes del StreamField `attachments`.
+        # RecursoPage: extraer PDFs, audios, imágenes del StreamField `attachments`.
         # Solo se ejecuta cuando se ha pedido un element_type concreto,
         # porque si no hay element_type el flujo ya ha hecho redirect al
         # Wagtail URL del artículo.
@@ -1193,7 +1193,7 @@ def group_library_item_viewer(request, group_id, pk):
             except Embed.DoesNotExist:
                 pass
 
-    # Si el elemento no es ScorePage pero tiene get_embeds (como BlogPage), añadirlos
+    # Si el elemento no es ScorePage pero tiene get_embeds (como RecursoPage), añadirlos
     if not documents["embeds"] and hasattr(content, "get_embeds"):
         for embed_val in content.get_embeds():
             if element_type == "embed" and embed_url == embed_val.url:

@@ -6,12 +6,12 @@ Produces deterministic codes from CMS structure:
 
 Example: LM-3-07 = Libreta Musical, chapter 3, image 7
 """
-from cms.models import BlogPage, BlogIndexPage
+from musica.models import LibroPage, RecursoPage
 
 
 def _get_book_abbreviation(index_page):
     """
-    Generate abbreviation from BlogIndexPage title (max 3 chars).
+    Generate abbreviation from LibroPage title (max 3 chars).
     Uses uppercase initials of title words.
     Example: "Libreta Musical" -> "LM", "Guitar for Dummies" -> "GD"
     """
@@ -24,12 +24,12 @@ def _get_book_abbreviation(index_page):
 
 def _get_chapter_position(blog_page):
     """
-    Get 1-based position of a BlogPage among its siblings, ordered by Wagtail path.
+    Get 1-based position of a RecursoPage among its siblings, ordered by Wagtail path.
     """
     siblings = (
         blog_page.get_parent()
         .get_children()
-        .type(BlogPage)
+        .type(RecursoPage)
         .order_by("path")
     )
     for idx, sibling in enumerate(siblings, start=1):
@@ -40,16 +40,16 @@ def _get_chapter_position(blog_page):
 
 def find_book_index_page(blog_page):
     """
-    Navigate up the Wagtail page tree to find the nearest BlogIndexPage ancestor.
+    Navigate up the Wagtail page tree to find the nearest LibroPage ancestor.
     This is the "book" container.
     """
-    ancestors = blog_page.get_ancestors().type(BlogIndexPage).specific()
+    ancestors = blog_page.get_ancestors().type(LibroPage).specific()
     if ancestors.exists():
-        # Return the closest BlogIndexPage ancestor (last in the list = most specific)
+        # Return the closest LibroPage ancestor (last in the list = most specific)
         return ancestors.last()
-    # Fallback: use direct parent if it's a BlogIndexPage
+    # Fallback: use direct parent if it's a LibroPage
     parent = blog_page.get_parent().specific
-    if isinstance(parent, BlogIndexPage):
+    if isinstance(parent, LibroPage):
         return parent
     return None
 
@@ -59,9 +59,9 @@ def generate_code(blog_page, image_index, all_books=None):
     Generate a deterministic study card code.
 
     Args:
-        blog_page: A BlogPage instance (the chapter)
+        blog_page: A RecursoPage instance (the chapter)
         image_index: 1-based index of the image within get_images()
-        all_books: Optional list of all BlogIndexPage titles for collision detection
+        all_books: Optional list of all LibroPage titles for collision detection
 
     Returns:
         str: Code like "LM-3-07"
@@ -92,13 +92,13 @@ def generate_code(blog_page, image_index, all_books=None):
 
 def generate_codes_for_page(blog_page, all_books=None, tag=None):
     """
-    Generate codes for all images in a BlogPage.
+    Generate codes for all images in a RecursoPage.
 
     Computes book abbreviation and chapter position once, then applies to all images.
 
     Args:
-        blog_page: A BlogPage instance (the chapter)
-        all_books: Optional list of all BlogIndexPage titles for collision detection
+        blog_page: A RecursoPage instance (the chapter)
+        all_books: Optional list of all LibroPage titles for collision detection
         tag: Optional tag name to filter images (e.g. "imprimible")
 
     Returns:

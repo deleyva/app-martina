@@ -20,7 +20,7 @@ from clases.services.card_ocr import ocr_registration_sheet
 from clases.services.card_pdf import generate_cards_pdf, generate_registration_sheet
 from clases.services.card_suggestions import get_suggestions_for_group
 from clases.views import is_staff
-from cms.models import BlogIndexPage, BlogPage
+from musica.models import LibroPage, RecursoPage
 
 TAG_IMPRIMIBLE = "imprimible"
 
@@ -31,7 +31,7 @@ def _has_tag(image, tag_name):
 
 def _get_book_stats(book):
     """Get image stats for a book: total and imprimible counts."""
-    chapters = book.get_children().type(BlogPage).specific().order_by("path")
+    chapters = book.get_children().type(RecursoPage).specific().order_by("path")
     total = 0
     imprimible = 0
     for ch in chapters:
@@ -51,9 +51,9 @@ def _find_item_by_code(code, group):
         return item, None
 
     # Code not in any batch — find image from CMS and create batch + item
-    all_books = list(BlogIndexPage.objects.live())
+    all_books = list(LibroPage.objects.live())
     for book in all_books:
-        chapters = book.get_children().type(BlogPage).specific().order_by("path")
+        chapters = book.get_children().type(RecursoPage).specific().order_by("path")
         for chapter in chapters:
             codes = generate_codes_for_page(chapter, all_books=all_books)
             for img, generated_code in codes:
@@ -82,7 +82,7 @@ def _find_item_by_code(code, group):
 
 
 def _get_page_stats(page):
-    """Get image stats for a single BlogPage."""
+    """Get image stats for a single RecursoPage."""
     images = page.get_images()
     total = len(images)
     imprimible = sum(1 for img in images if _has_tag(img, TAG_IMPRIMIBLE))
@@ -92,7 +92,7 @@ def _get_page_stats(page):
 @login_required
 @user_passes_test(is_staff)
 def dashboard(request):
-    books = BlogIndexPage.objects.live().order_by("title")
+    books = LibroPage.objects.live().order_by("title")
     book_data = []
     book_child_ids = set()
     for book in books:
@@ -100,13 +100,13 @@ def dashboard(request):
         if stats["total"] > 0:
             book_data.append({"book": book, **stats})
         # Track which pages are already shown as book chapters
-        for ch in book.get_children().type(BlogPage):
+        for ch in book.get_children().type(RecursoPage):
             book_child_ids.add(ch.pk)
 
     # Individual BlogPages with images (not already shown as book chapters)
     # Note: can't pre-filter by body content alone — images may come from
     # StreamField attachments (get_images includes both body embeds + attachments)
-    all_pages = BlogPage.objects.live().exclude(
+    all_pages = RecursoPage.objects.live().exclude(
         pk__in=book_child_ids
     ).order_by("title")
     page_data = []
@@ -142,10 +142,10 @@ def dashboard(request):
 @login_required
 @user_passes_test(is_staff)
 def book_browser(request, book_id):
-    book = get_object_or_404(BlogIndexPage, pk=book_id)
-    chapters = list(book.get_children().type(BlogPage).specific().order_by("path"))
+    book = get_object_or_404(LibroPage, pk=book_id)
+    chapters = list(book.get_children().type(RecursoPage).specific().order_by("path"))
 
-    all_books = list(BlogIndexPage.objects.live())
+    all_books = list(LibroPage.objects.live())
 
     # Pre-load all labels for this book's chapters
     chapter_ids = [ch.pk for ch in chapters]
@@ -254,9 +254,9 @@ def save_description(request, image_id):
 @user_passes_test(is_staff)
 @require_http_methods(["POST"])
 def generate_pdf(request, book_id):
-    book = get_object_or_404(BlogIndexPage, pk=book_id)
-    chapters = list(book.get_children().type(BlogPage).specific().order_by("path"))
-    all_books = list(BlogIndexPage.objects.live())
+    book = get_object_or_404(LibroPage, pk=book_id)
+    chapters = list(book.get_children().type(RecursoPage).specific().order_by("path"))
+    all_books = list(LibroPage.objects.live())
 
     # Pre-load labels for all chapters
     chapter_ids = [ch.pk for ch in chapters]
@@ -305,15 +305,15 @@ def generate_pdf(request, book_id):
 
 
 # =============================================================================
-# PAGE BROWSER (single BlogPage)
+# PAGE BROWSER (single RecursoPage)
 # =============================================================================
 
 
 @login_required
 @user_passes_test(is_staff)
 def page_browser(request, page_id):
-    page = get_object_or_404(BlogPage, pk=page_id)
-    all_books = list(BlogIndexPage.objects.live())
+    page = get_object_or_404(RecursoPage, pk=page_id)
+    all_books = list(LibroPage.objects.live())
 
     labels = {
         (l.image_id, l.source_page_id): l.description
@@ -346,8 +346,8 @@ def page_browser(request, page_id):
 @user_passes_test(is_staff)
 @require_http_methods(["POST"])
 def generate_pdf_page(request, page_id):
-    page = get_object_or_404(BlogPage, pk=page_id)
-    all_books = list(BlogIndexPage.objects.live())
+    page = get_object_or_404(RecursoPage, pk=page_id)
+    all_books = list(LibroPage.objects.live())
 
     labels = {
         (l.image_id, l.source_page_id): l.description
