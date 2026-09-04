@@ -1,7 +1,7 @@
 ---
 slug: app-martina
-phase: build
-progress: true
+phase: complete
+progress: false
 iteration: 31
 principal_stated_goal: "Por favor, sepárame la app CMS en dos apps distintas, por lo menos, para empezar una para blogs y otra para apps.música.es, Martina Bescós o lo que sea. No quiero tener más líos de templates. Por ejemplo, no quiero que tengan fichas musicales los artículos en blogs. Ni tampoco quiero que una persona, a la hora de subir una imagen, tenga que elegir si lo hace en la app de música o en el departamento de filosofía."
 updated: 2026-09-04
@@ -1147,7 +1147,7 @@ Así que la fase trae tres cosas, y la del medio no se pidió:
 - ~~El atajo de doble D no está probado en producción~~ **Cerrado por el principal el 2026-08-29**, que era la única forma: probarlo yo habría descartado un elemento real suyo. Confirma que el aviso con «Deshacer» sale. La fase 24 queda entera.
 - **Deshacer solo dura mientras no cambies de elemento.** Al descartar se pasa al siguiente y el aviso sigue seis segundos; si se descarta otro antes, el primero ya no se puede deshacer desde ahí. Recuperarlo entonces exige el admin.
 
-## Fase 25 — Partir `cms` en `blogs` y `musica` · HECHA EN LOCAL, SIN DESPLEGAR
+## Fase 25 — Partir `cms` en `blogs` y `musica` · DESPLEGADA Y VERIFICADA (`cd475f6`)
 
 **Goal (literal de Jesús, 2026-09-04):** «Por favor, sepárame la app CMS en dos apps distintas, por lo menos, para empezar una para blogs y otra para apps.música.es, Martina Bescós o lo que sea. No quiero tener más líos de templates. Por ejemplo, no quiero que tengan fichas musicales los artículos en blogs. Ni tampoco quiero que una persona, a la hora de subir una imagen, tenga que elegir si lo hace en la app de música o en el departamento de filosofía.»
 
@@ -1331,12 +1331,61 @@ el 2) y que la migración no toca, porque nunca mira `wagtaildocs`.
 Suites de las apps dependientes: `my_library` 171, `clases` 19, `programacion` 8,
 `evaluations` 9. Todas verdes.
 
+### Despliegue a producción · 2026-09-04
+
+Desplegada en `cd475f6`. Los cinco servicios siguieron arriba y las tres
+migraciones entraron limpias.
+
+**Producción tenía más datos que la copia local**, y por eso ensayé antes: 292
+`BlogPage` frente a 255, 375 páginas frente a 336, 226 `ReviewLog` frente a 50.
+Toda la deriva era material de música; los 17 artículos y los 19 departamentos
+salieron idénticos. Restauré la copia de producción en una base aparte y corrí la
+migración entera contra ella antes de tocar nada. Sin ese ensayo habría
+desplegado a ciegas sobre un 15% más de contenido del que había probado.
+
+| | producción antes | después |
+|---|---|---|
+| `BlogPage` 292 | → | **275 `RecursoPage` + 17 `ArticuloPage`** |
+| `BlogIndexPage` 33 | → | **14 `LibroPage` + 19 `BlogIndexPage`** |
+| `ScorePage` | 44 | 44 |
+| `wagtailcore_page` | 375 | 375 |
+| `LibraryItem` / `ReviewLog` | 134 / 226 | 134 / 226 |
+| `GroupLibraryItem` | 175 | 168 (menos las 7 muertas) |
+| filas huérfanas en las 17 tablas con GFK | — | **0** |
+| tablas `cms_*` de contenido | 4 | **0** |
+
+Colecciones reordenadas a mano después (`reordenar_colecciones`): las 1.221
+imágenes siguen donde estaban, ahora bajo «Biblioteca musical», y los 14 permisos
+del departamento de música quedaron repuntados a «Blogs > Música».
+
+**Verificado en Chrome sobre el sitio en vivo:**
+
+- `blogs.iesmartinabescos.es` — portada con sus destacados y los 18 departamentos
+  en el menú; artículo de Filosofía sin un solo marcador de ficha musical.
+- `apps.iesmartinabescos.es/indice-de-recursos-musicales/` — Todo 94, Partituras
+  44, Dictados 1, Artículos 35, Libros 14, Tests 0.
+- **La biblioteca de Jesús: 81 elementos, etiquetas intactas, enlaces al origen
+  resueltos.** La pantalla de empezar ofrece los cuatro libros con sus cuentas
+  (Improvisar I 5, Caged 15, Modern Jazz 24, Luciérnaga 3), las facetas completas
+  y «64 elementos coinciden · sesión de 15».
+- **Sesión de estudio lanzada de verdad**: «1 de 15» con el visor renderizando el
+  Guitar Pro (Dm7 · G7 · Cmaj7, notación y tablatura).
+- Ficha musical viva en `bad-romance`: Lady Gaga · Ab · 4/4 · 124 BPM ·
+  «Versión: Halestorm».
+
+**Un dato que solo se pudo comprobar en producción:** allí hay **31 recursos con
+ficha musical rellena**. En mi copia local eran cero, así que hasta el despliegue
+no tuve prueba real de que la bifurcación del modelo conservara esos campos.
+La conserva.
+
+**Pendiente menor, inerte:** quedan 9 filas en `django_content_type` de los
+modelos viejos de `cms`. No apunta nada a ellas. Se limpian con
+`remove_stale_contenttypes` cuando apetezca; no corre prisa y ese comando borra
+en cascada, así que mejor mirando.
+
 ### Lo siguiente, cuando Jesús diga
 
-1. **Desplegar.** Nada de esto ha tocado producción. El orden es: copia de la base,
-   `git push`, `just deploy-production`, y después `manage.py reordenar_colecciones`
-   a mano (no es una migración a propósito: mueve permisos y quiero que se ejecute
-   mirando).
+1. ~~Desplegar.~~ **Hecho el 2026-09-04.**
 2. **Decidir sobre el desplegable de colección** para superusuario (ISC-25.7).
 3. **Encender o tirar la portada editorial** (`blogs/portada_editorial.py`).
 4. Pendientes anotados arriba en «Out of scope»: obligatoriedad de `date`/`intro`,
