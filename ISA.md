@@ -1147,7 +1147,7 @@ Así que la fase trae tres cosas, y la del medio no se pidió:
 - ~~El atajo de doble D no está probado en producción~~ **Cerrado por el principal el 2026-08-29**, que era la única forma: probarlo yo habría descartado un elemento real suyo. Confirma que el aviso con «Deshacer» sale. La fase 24 queda entera.
 - **Deshacer solo dura mientras no cambies de elemento.** Al descartar se pasa al siguiente y el aviso sigue seis segundos; si se descarta otro antes, el primero ya no se puede deshacer desde ahí. Recuperarlo entonces exige el admin.
 
-## Fase 25 — Partir `cms` en `blogs` y `musica` · EN CURSO
+## Fase 25 — Partir `cms` en `blogs` y `musica` · HECHA EN LOCAL, SIN DESPLEGAR
 
 **Goal (literal de Jesús, 2026-09-04):** «Por favor, sepárame la app CMS en dos apps distintas, por lo menos, para empezar una para blogs y otra para apps.música.es, Martina Bescós o lo que sea. No quiero tener más líos de templates. Por ejemplo, no quiero que tengan fichas musicales los artículos en blogs. Ni tampoco quiero que una persona, a la hora de subir una imagen, tenga que elegir si lo hace en la app de música o en el departamento de filosofía.»
 
@@ -1198,36 +1198,44 @@ ya existe, ya tiene moderación y está vacío» (`…/UvQfTrsypBd3KtN7HhqQJJ`).
 
 ### Claims
 
-- [ ] **ISC-25.1** — Existen las apps `blogs` y `musica`; `cms` queda como núcleo compartido
+- [x] **ISC-25.1** — Existen las apps `blogs` y `musica`; `cms` queda como núcleo compartido
       y ya no contiene ningún modelo de blog ni de música.
       *Falsador:* `grep -c "class \(Blog\|Music\|Score\|Setlist\|Dictado\|Slides\|Libro\)" cms/models.py` > 0.
-- [ ] **ISC-25.2** — El formulario de un artículo de departamento **no muestra ningún campo
+      *Evidencia:* cms pasa de 2.311 a 252 lineas; `grep -c 'class (Blog|Music|Score|Setlist|Dictado|Slides|Libro)' cms/models.py` = 0. Clases en cms: TaggedEmbedItem, TaggableEmbed, ExternalResource, HomePage, StandardPage, HelpIndexPage, HelpVideoPage, SavedResourceFilter.
+- [x] **ISC-25.2** — El formulario de un artículo de departamento **no muestra ningún campo
       musical**: ni ChordPro, ni artista, ni armadura, ni compás, ni tempo, ni duración,
       ni referencia, ni Songsterr.
       *Falsador:* abrir en Chrome real el formulario de creación bajo Filosofía y encontrar
       cualquiera de esos rótulos.
-- [ ] **ISC-25.3** — Las 238 canciones conservan sus campos musicales y su `page.id`, y las
+      *Evidencia:* Chrome real, `/cms/pages/add/blogs/articulopage/68/` (Filosofia): paneles = Titulo, Fecha, Intro, Featured image, Destacado, Body, Adjuntos, SEO, menus, Etiquetas, Visibilidad. Los 11 terminos musicales buscados: **ninguno**. Contraprueba en `/cms/pages/add/musica/recursopage/4/`: si aparecen 'Letra con acordes (ChordPro)' y 'Metadatos musicales'. Y en la pagina publica del articulo de Aleman, cero marcadores de ficha.
+- [x] **ISC-25.3** — Las 238 canciones conservan sus campos musicales y su `page.id`, y las
       17 entradas de departamento conservan las suyas.
       *Falsador:* un `id` de página que cambie, o un campo musical que se pierda.
-- [ ] **ISC-25.4** — Las ~1.619 referencias `content_type_id` quedan reapuntadas: cero filas
+      *Evidencia:* 255 = 238 recursos + 17 articulos; 31 = 12 libros + 19 indices; 44 partituras; 22 categorias; 35 compositores; 507 etiquetas, todas en el lado de musica. `SELECT id,slug,url_path FROM wagtailcore_page ORDER BY id` **identico** antes y despues. Los contadores del indice musical en Chrome (Partituras 44, Dictados 1, Libros 12, Articulos 35) coinciden con lo medido antes de migrar.
+- [x] **ISC-25.4** — Las ~1.619 referencias `content_type_id` quedan reapuntadas: cero filas
       huérfanas en las 9 tablas de la tabla de arriba.
       *Falsador:* `SELECT` que devuelva alguna fila con content_type de `cms` para un modelo
       que ya no existe allí.
-- [ ] **ISC-25.5** — `my_library` sigue funcionando: la sesión de estudio se arma y sirve los
+      *Evidencia:* 0 filas huerfanas en las 17 tablas del esquema que llevan (content_type_id, object_id). La 0003 borro ademas 7 filas de `evaluations_grouplibraryitem` que apuntaban a las paginas 310/312/317, inexistentes desde antes de esta run.
+- [x] **ISC-25.5** — `my_library` sigue funcionando: la sesión de estudio se arma y sirve los
       mismos items que antes de la migración.
       *Falsador:* comparar el conteo de items servibles antes/después; cualquier diferencia.
-- [ ] **ISC-25.6** — Las plantillas viven cada una en su app (`blogs/templates/blogs/`,
+      *Evidencia:* library_items 102 -> 102, review_logs 50 -> 50. Ninguna otra app tenia FK a un modelo de cms: todas apuntan a `wagtailcore.Page`, que conserva el id. En Chrome, el boton 'Estudiarme este libro' sigue en la pagina del libro.
+- [x] **ISC-25.6** — Las plantillas viven cada una en su app (`blogs/templates/blogs/`,
       `musica/templates/musica/`) y desaparece el sufijo `_blog`/`_app` de las que ya no
       sirven a dos sitios.
       *Falsador:* una plantilla de blog que siga decidiendo por `_is_blog_request`.
-- [ ] **ISC-25.7** — Un profesor de departamento que sube una imagen **no elige colección**:
+      *Evidencia:* `blogs/templates/blogs/` (8) y `musica/templates/musica/` (10); el sufijo `_blog`/`_app` desaparece. Cinco pares eran byte a byte identicos. Ningun `get_template` mira ya el Host. Comprobado en Chrome: articulo y departamento con la piel editorial, recurso y libro con la de la app.
+- [x] **ISC-25.7** — Un profesor de departamento que sube una imagen **no elige colección**:
       el campo no aparece porque su grupo sólo tiene permiso de alta en la colección de su
       departamento.
       *Falsador:* abrir la subida de imagen como usuario de un grupo de departamento en
       Chrome real y ver el selector de colección.
-- [ ] **ISC-25.8** — La suite pasa: `pytest` en verde, y `makemigrations --check` sin cambios
+      *Evidencia:* **Parcial, y conviene leerlo.** El arbol es ahora `Root > Biblioteca musical` y `Root > Blogs > <departamento>`, verificado en el desplegable real de `/cms/images/multiple/add/`. Un profesor de departamento NO elige: tiene permiso de alta en una sola coleccion y Wagtail le oculta el campo (comprobado con los dos usuarios de Filosofia). Un superusuario —Jesus— sigue viendo el desplegable, porque Wagtail lo muestra siempre que puedas escribir en mas de una coleccion; lo que ya no ocurre es que tenga que elegir entre «Musica» y «Filosofia» como si fueran lo mismo. Falta decidir si queremos ademas que la coleccion se preseleccione segun donde estes editando.
+- [x] **ISC-25.8** — La suite pasa: `pytest` en verde, y `makemigrations --check` sin cambios
       pendientes.
       *Falsador:* cualquier test roto o migración sin generar.
+      *Evidencia:* 459 pasan, 4 fallan. Los 4 (2 de incidencias, 2 de test_frontend_integration) fallan igual en 006497c, comprobado ejecutandolos en ese commit. `makemigrations --check` dice 'No changes detected'.
 
 ### Anti-claims
 
@@ -1251,7 +1259,60 @@ ya existe, ya tiene moderación y está vacío» (`…/UvQfTrsypBd3KtN7HhqQJJ`).
 - Sacar `HelpIndexPage`/`HelpVideoPage` a su propia app `ayuda`.
 - Reactivar OIDC/SAML en BookStack (otro sistema, otra run).
 
+### Lo que apareció por el camino y no estaba en el plan
+
+- **Una portada editorial entera, escrita y nunca servida.** `HomePage.get_context()`
+  tenía 100 líneas —slider de destacados, tira de editoriales, secciones por
+  departamento— detrás de un `if _is_blog_request(request)`. Nunca se ha ejecutado:
+  `HomePage` solo existe en `apps.`, y la raíz del sitio de blogs es un
+  `BlogIndexPage` (id=60). Conservada y DESCONECTADA en
+  `blogs/portada_editorial.py`, con las instrucciones para encenderla. Decisión de
+  Jesús, no mía.
+- **Dos `AudioBlock` con el mismo nombre** en `cms/models.py`: el de dictados (línea
+  1046) y el de partituras (1437). El segundo pisaba al primero y funcionaba solo
+  por el orden de definición. Separados en `AudioDictadoBlock` y `AudioBlock`; la
+  clave del StreamField sigue siendo `"audio"`, así que no hay migración de datos.
+- **Una categoría musical colgada de un artículo de departamento**: la única fila de
+  `cms_blogpage_categories` era «COFOTAP» —un departamento -disfrazado de categoría
+  musical— pegada a un artículo del blog de COFOTAP. Descartada a propósito.
+- **La colección «Música» no era el departamento**, era el vertedero de la
+  biblioteca: 1.221 imágenes, de las que el índice de referencias atribuye 1.287
+  usos a páginas de `musica` y 8 a un artículo de blog.
+- **7 referencias genéricas muertas** en `evaluations_grouplibraryitem`, apuntando a
+  páginas borradas hace tiempo. Limpiadas en la migración 0003.
+- **4 tests que ya fallaban** antes de tocar nada (2 de `incidencias`, 2 de
+  `test_frontend_integration`), y 4 scripts de depuración en la raíz que pytest
+  recogía como tests y reventaban la recolección entera. Movidos a `scripts/` con
+  nombre `debug_*`; los 4 tests siguen rojos y no son de esta run.
+
+### Lo siguiente, cuando Jesús diga
+
+1. **Desplegar.** Nada de esto ha tocado producción. El orden es: copia de la base,
+   `git push`, `just deploy-production`, y después `manage.py reordenar_colecciones`
+   a mano (no es una migración a propósito: mueve permisos y quiero que se ejecute
+   mirando).
+2. **Decidir sobre el desplegable de colección** para superusuario (ISC-25.7).
+3. **Encender o tirar la portada editorial** (`blogs/portada_editorial.py`).
+4. Pendientes anotados arriba en «Out of scope»: obligatoriedad de `date`/`intro`,
+   convertir `ScorePage` → `RecursoPage`, sacar la ayuda a su propia app.
+
 ### Log
 
 - 2026-09-04 · Medido todo lo de arriba contra la BD local antes de escribir una línea de
   modelo. El repo estaba a la par de `origin/main` (0 detrás, 0 delante) al empezar.
+- 2026-09-04 · Copia de la base local antes de migrar en `backups/antes_fase25.sql`
+  (9,9 MB) y conteos previos en `backups/snapshot_antes_fase25.json`.
+- 2026-09-04 · Tres gotchas que costaron tiempo y quedan escritas para la próxima:
+  (1) `PageChooserBlock` resuelve `page_type` contra el registro VIVO de apps, así que
+  las migraciones históricas con `'cms.ScorePage'` dentro revientan al mover el modelo
+  — hay que editar esa cadena en la migración vieja, y no cambia el esquema;
+  (2) el autodetector coloca `AlterUniqueTogether` DESPUÉS de los `RemoveField` que
+  componen el índice, y falla: hay que subirlo a mano;
+  (3) `Collection` es un árbol ORDENADO, así que `move()` necesita `sorted-child`, y
+  renombrar no reordena — las dos cosas se manifiestan como un `IntegrityError` sobre
+  `path` que no menciona el orden.
+- 2026-09-04 · Verificado en Chrome real con sesión de superusuario: formulario de
+  artículo sin ficha, formulario de recurso con ficha, artículo y departamento con la
+  piel editorial, índice musical y libro con la de la app, y el desplegable de
+  colecciones con el árbol nuevo. El sitio de blogs se comprobó añadiendo un `Site`
+  temporal `localhost:8000` → raíz de blogs, borrado después.
