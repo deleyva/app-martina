@@ -116,6 +116,18 @@
         <div class="flex space-x-6">
             <a href="/indice-de-recursos-musicales/" class="hover:underline">Librería Principal</a>
             <a href="https://iesmartinabescos.catedu.es/" target="_blank" class="hover:underline">Sitio Oficial</a>
+            {% comment %}
+              La cookie de sesión es host-only, así que estar logueado en
+              apps.iesmartinabescos.es no logueaba aquí: sin este enlace un
+              profesor no tenía por dónde entrar en el subdominio de blogs, y
+              el wagtailuserbar de abajo no pintaba nada porque nunca había
+              usuario que lo viera. Tests: cms/tests/test_blogs_login.py
+            {% endcomment %}
+            {% if request.user.is_authenticated %}
+              <a href="/cms/" class="hover:underline">CMS</a>
+            {% else %}
+              <a href="/accounts/login/?next={{ request.path|urlencode }}" class="hover:underline">Entrar</a>
+            {% endif %}
         </div>
       </div>
     </footer>
