@@ -1,7 +1,7 @@
 ---
 slug: app-martina
-phase: verify
-progress: true
+phase: complete
+progress: false
 iteration: 33
 principal_stated_goal: "Necesito desarrollar en apps.iesmartinabescos.es Otra app de Django como la que tenemos en /incidencias. Está sí que debe de requerir login con Google porque ya tenemos implementado. Básicamente, es una aplicación en la que quiero que vayan solicitando la clave Wi-Fi. Pero para ello deben logearse y enviar la MAC de su dispositivo WIFI, la privada (real) no la aleatoria."
 updated: 2026-09-06
@@ -1568,15 +1568,15 @@ Tres cosas que costaron tiempo y que aquí quedan escritas:
 
 **`deploy-production` hace `scp` del `.envs/.production/.django` LOCAL al servidor.** Cualquier variable escrita a mano en el servidor se pierde en el siguiente despliegue. Las variables de esta app hay que ponerlas en la copia local del fichero, que es la que manda. Comprobado antes de desplegar: `DJANGO_WIFI_SSID` y `DJANGO_WIFI_PASSWORD` estaban en la copia local, así que viajaron correctamente.
 
-## Fase 26·1 — El remitente en la página, y login y logout con piel propia
+## Fase 26·1 — El remitente en la página, y login y logout con piel propia · DESPLEGADA
 
 Tres peticiones del principal tras usar la app en producción.
 
 ### Claims
 
-- [ ] **C103 — La página dice de qué dirección sale el aviso**, tomada de `DEFAULT_FROM_EMAIL` y no escrita a mano, más una nota sobre el spam. El principal recibió el correo de `app.gestion.admin@iesmartinabescos.es` y el texto solo hablaba de su propia dirección. *Probe: test que fija `DEFAULT_FROM_EMAIL` con nombre para mostrar y comprueba que la página pinta solo la dirección; y navegador real.*
-- [ ] **C104 — Login y logout llevan la piel de wifi cuando se viene de la app.** *Probe: navegador real sobre `/accounts/logout/` y `/accounts/login/`.*
-- [ ] **C105 — Y NO la llevan cuando se viene de otro sitio.** Es el riesgo real de tocar middleware compartido. *Probe: tests desde la app principal y desde incidencias, más comprobación en navegador.*
+- [x] **C103 — La página dice de qué dirección sale el aviso.** *Cerrada con matiz. Test: con `DEFAULT_FROM_EMAIL = "Martina Bescós App <app.gestion.admin@iesmartinabescos.es>"` la página pinta la dirección sola, sin el nombre para mostrar. En Chrome real sobre local se vio renderizado el párrafo entero con el remitente que toca ahí (`webmaster@localhost`), que es la prueba de que el valor sale del ajuste y no de una constante. **Los píxeles de producción con `app.gestion.admin@…` NO se han visto**: ese párrafo solo existe para usuario identificado y la sesión de producción había caducado. La dirección está garantizada por el ajuste leído y por el correo que el principal recibió de esa cuenta.*
+- [x] **C104 — Login y logout llevan la piel de wifi cuando se viene de la app.** *Cerrada en Chrome real. Logout en local: cabecera y pie de wifi, «Vas a salir de las altas de WiFi», sin rastro de «Martina Bescós Music App» — que era exactamente la captura que trajo el principal. Login: verificado en local Y en producción (`apps.iesmartinabescos.es/accounts/login/?next=/wifi/`), con la cabecera de wifi y solo el botón de Google.*
+- [x] **C105 — Y NO la llevan cuando se viene de otro sitio.** *Cerrada. En Chrome real: tras visitar `/`, el login vuelve a la cabecera «Martina Bescós Music App» con su formulario de contraseña. Tests: `mode_for_path` sobre las cinco rutas, las compartidas devolviendo `None`, y el login sin contagio viniendo de la app principal y de incidencias. Suite completa en 551 pasando con los mismos 4 fallos preexistentes: el middleware compartido no rompió nada.*
 
 ### Decisions
 
