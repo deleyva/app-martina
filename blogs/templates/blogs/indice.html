@@ -1,6 +1,5 @@
 {% extends "blogs/base.html" %}
 {% load wagtailcore_tags wagtailimages_tags %}
-{% load library_tags %}
 
 {% block content %}
 <div class="container mx-auto px-4 py-8 max-w-6xl">
@@ -125,7 +124,6 @@
         {# ── Article Cards Grid (department-level view) ── #}
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
             {% for blog in blogpages %}
-            {% with item=blog %}
             <article class="group pb-8 border-b md:border-b-0 md:border-r border-gray-200 pr-0 md:pr-8 last:border-0 last:pr-0">
                 {% if blog.featured_image %}
                 <a href="{% pageurl blog %}" class="block overflow-hidden mb-6">
@@ -154,15 +152,9 @@
                         <a href="{% pageurl blog %}" class="text-xs font-sans uppercase tracking-widest font-bold hover:text-gray-500 transition-colors">
                             Leer Artículo
                         </a>
-                        {% if user.is_authenticated %}
-                        <div id="library-btn-blog-{{ item.pk }}" onclick="event.stopPropagation()">
-                            {% library_button item %}
-                        </div>
-                        {% endif %}
                     </div>
                 </div>
             </article>
-            {% endwith %}
             {% empty %}
             <p class="col-span-full text-gray-500 text-center py-16 italic text-xl">Aún no hay artículos publicados en esta sección.</p>
             {% endfor %}
