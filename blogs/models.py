@@ -194,6 +194,23 @@ class ArticuloPage(AdjuntosMixin, Page):
 
     attachments = adjuntos_field()
 
+    # De dónde vino, si vino de fuera. Lo escribe `import_blogspot` con el
+    # permalink original del post de Blogger, y es lo que hace que relanzar el
+    # importador no duplique nada: la identidad de un artículo importado es su
+    # URL de origen, no su título (que se repite: hay cinco «Criterios de
+    # evaluación» en departamentos distintos).
+    #
+    # `editable=False` a propósito: un profesor que abre este formulario para
+    # escribir un artículo no tiene por qué ver un campo de procedencia.
+    source_url = models.URLField(
+        blank=True,
+        default="",
+        editable=False,
+        max_length=500,
+        verbose_name="URL de origen",
+        help_text="Permalink del post original, si el artículo se importó.",
+    )
+
     # Sin `categories`: era un ParentalManyToManyField a `MusicCategory`, o sea
     # categorías musicales en un artículo de departamento. En toda la base había
     # UNA fila usándolo, y era justo el síntoma que motivó partir la app.

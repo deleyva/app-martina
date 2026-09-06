@@ -1,8 +1,8 @@
 ---
 slug: app-martina
-phase: complete
-progress: false
-iteration: 33
+phase: build
+progress: true
+iteration: 34
 principal_stated_goal: "Necesito desarrollar en apps.iesmartinabescos.es Otra app de Django como la que tenemos en /incidencias. Está sí que debe de requerir login con Google porque ya tenemos implementado. Básicamente, es una aplicación en la que quiero que vayan solicitando la clave Wi-Fi. Pero para ello deben logearse y enviar la MAC de su dispositivo WIFI, la privada (real) no la aleatoria."
 updated: 2026-09-06
 ---
@@ -1589,3 +1589,132 @@ Tres peticiones del principal tras usar la app en producción.
 - 2026-09-06 · La rama wifi del login enseña **solo** el botón de Google, sin formulario de contraseña: el personal entra siempre con la cuenta del centro, y ofrecer usuario/contraseña ahí solo genera intentos fallidos.
 - 2026-09-06 · Gotcha de test: la plantilla de login pinta `provider_login_url`, que revienta con `SocialApp.DoesNotExist` si no hay fila de Google en la BD. Hace falta fixture.
 - 2026-09-06 · Gotcha de verificación: el campo del formulario de allauth se llama `login`, no `email`. Rellenarlo por el nombre equivocado falla en silencio y parece un problema de credenciales.
+
+---
+
+## Fase 27 — Traer los 16 blogs de Blogspot a `blogs.iesmartinabescos.es` · EN CONSTRUCCIÓN
+
+Dieciséis blogs de departamento en Blogspot, algunos desde 2019, se mudan a su sitio
+propio. Con sus imágenes: las fotos dejan de vivir en los servidores de Google y pasan a
+ser ficheros del centro. Un comando de gestión, idempotente, que se puede volver a
+lanzar sin duplicar nada.
+
+### Goal
+
+> "Por favor ¿Podrías coger las noticias de estos blogs, con sus imágenes y todo, y meterlas blogs.iesmartinabescos.es en sus respectivos departamentos?" *(+ lista de los 16 hosts de blogspot)*
+
+Tres decisiones del principal, fijadas antes de construir (2026-09-06):
+
+1. **Publicados**, no borrador. Salen vivos al sitio.
+2. **Todo el histórico**, 2019→2026, con sus fechas originales.
+3. **Las 5 páginas estáticas de Francés entran como artículos** — es su único contenido.
+
+### Vision
+
+El problema real no es que el contenido esté en Blogspot: es que está en **dieciséis**
+sitios distintos, cada uno con su plantilla, su dominio y su cuenta de Google, y nadie
+tiene una vista del centro. Un padre que quiere saber qué hace el instituto tiene que
+conocer dieciséis URLs. Y las imágenes —569 de ellas— viven en `googleusercontent.com`:
+el día que alguien borre una cuenta de Blogger, los artículos se quedan con agujeros.
+
+Traerlas al servidor del IES es la mitad del trabajo que importa.
+
+### Lo que medí antes de tocar nada (feeds públicos, 2026-09-06)
+
+| Blog | Departamento destino | Posts | Imgs | YouTube | Tablas | Rango |
+|---|---|---:|---:|---:|---:|---|
+| `dplasticaiesmbescos` | educacion-plastica-y-visual | 79 | 246 | 12 | 3 | 2019→2023 |
+| `dmusicaiesmbescos` | musica | 32 | 7 | 4 | 0 | 2019→2023 |
+| `dorientacioniesmbescos` | orientacion | 29 | 32 | 4 | 0 | 2019→2022 |
+| `dmatematicasiesmbescos` | matematicas | 21 | 92 | 0 | 16 | 2019→2025 |
+| `dlenguaiesmbescos` | lengua-y-literatura | 16 | 32 | 0 | 0 | 2019→2026 |
+| `dalemaniesmbescos` | aleman | 12 | 84 | 2 | 7 | 2019→2026 |
+| `efiesmb` | educacion-fisica | 11 | 2 | 0 | 0 | 2021→2025 |
+| `naturalesmbescos` | biologia-y-geologia | 9 | 0 | 0 | 0 | 2021→2025 |
+| `filosofiambescos` | filosofia | 6 | 0 | 0 | 0 | 2023 |
+| `dfyqmbescos` | fisica-y-quimica | 4 | 84 | 0 | 0 | 2021→2025 |
+| `dptingiesmartinabescos` | ingles | 1 | 3 | 0 | 33 | 2025 |
+| `dtecnologiaiesmbescos` | tecnologia | 1 | 0 | 0 | 0 | 2024 |
+| `economiambescos` | economia | 1 | 0 | 0 | 0 | 2023 |
+| `culturaclasicambescos` | cultura-clasica | 1 | 0 | 0 | 0 | 2023 |
+| `dfrancesiesmbescos` | frances | **0** (+5 páginas) | 0 | 0 | 0 | — |
+| `dgeohistoriaiesmbescos` | geografia-e-historia | **0** | 0 | 0 | 0 | vacío |
+| **TOTAL** | | **223** (+5) | **582** | **22** | **59** | 2019→2026 |
+
+Cuatro hechos que decidieron el diseño:
+
+1. **Los feeds son públicos.** `?alt=json&max-results=500` da el cuerpo completo de cada
+   post sin credenciales de Google. No hace falta exportar nada a mano ni tocar
+   `blogger.com`.
+2. **569 de las 582 imágenes están en `blogger.googleusercontent.com`**, o sea
+   descargables. Las 13 restantes son enlaces externos (3 de ellas `file:///`, que ya
+   estaban rotas en Blogspot desde el día que se publicaron).
+3. **Los 22 iframes son todos de YouTube.** `articulo.html` ya lleva JS que envuelve
+   `iframe` para hacerlo responsive, así que el iframe se conserva tal cual en vez de
+   convertirlo a `embedtype="media"`, que obligaría a una llamada oEmbed en cada render.
+4. **El cuerpo viene pegado desde Google Docs.** 3.636 `<span>`, 1.670 `<div>`, 192
+   `<o:p>` de Word y `style=` en casi cada etiqueta. Sin limpieza, el artículo hereda
+   tipografías y márgenes que pelean con la maqueta editorial del sitio.
+
+### Out of Scope
+
+- **Comentarios de Blogspot.** No se traen.
+- **Cerrar o borrar los blogs de Blogspot.** Siguen en pie; esto es una copia, no una
+  mudanza destructiva. Decidir qué pasa con los originales es del principal.
+- **Redirecciones desde las URLs de blogspot.** No controlamos esos dominios.
+- **Reescribir, resumir o mejorar el contenido.** Entra lo que hay.
+- **La plantilla de Blogspot** (barra lateral, gadgets, archivo). Solo entra el cuerpo.
+
+### Anti-claims
+
+- **A27.1 — No se toca nada fuera de `blogs`.** Ni `musica`, ni `my_library`, ni `clases`,
+  ni la app de `apps.iesmartinabescos.es`. Son dos sitios de Wagtail en el mismo proyecto:
+  el importador escribe exclusivamente bajo el árbol de `blogs.iesmartinabescos.es`.
+- **A27.2 — No se modifica ni se borra ningún artículo existente.** Los 17 artículos
+  escritos a mano (filosofía 6, música 4, geohistoria 3, alemán 2, cofotap 2) siguen
+  exactamente igual después de importar. El importador solo crea.
+- **A27.3 — Ninguna imagen queda hotlinkeada a Google.** Si una descarga falla, el `<img>`
+  no se deja apuntando a `googleusercontent.com`: se elimina y el fallo sale en el informe.
+  Un enlace a Google que hoy funciona es una imagen rota mañana.
+- **A27.4 — Ningún fallo silencioso.** Cada imagen no descargada, cada post saltado y cada
+  etiqueta no mapeada aparece en el informe final con su motivo. Un import que dice "223 OK"
+  ocultando 40 imágenes perdidas es peor que uno que falla.
+- **A27.5 — El importador no inventa.** No resume con IA, no reescribe títulos, no genera
+  entradillas de la nada: la `intro` es literalmente las primeras palabras del artículo.
+- **A27.6 — El vocabulario facetado no se ensucia.** Las 10 etiquetas de Blogger entran
+  mapeadas a facetas que ya existen (`curso:`, `tema:`), nunca como términos sueltos.
+
+### Claims
+
+- [ ] **C106 — Los 16 feeds se leen sin credenciales y el inventario cuadra.** *Probe: el comando en `--dry-run` reporta por blog el mismo número de posts que la tabla de arriba.*
+- [ ] **C107 — Cada blog aterriza en su departamento.** El mapa de 16 se resuelve contra `BlogIndexPage.slug` reales; un slug que no exista aborta con error, no crea páginas huérfanas. *Probe: test que recorre el mapa y comprueba que los 16 destinos existen en la BD; test que un host desconocido levanta `CommandError`.*
+- [ ] **C108 — Las imágenes viven en el servidor del IES.** Después de importar, `ArticuloPage.body` no contiene ni una sola URL de `blogger.googleusercontent.com` ni de `bp.blogspot.com`. *Probe: `SELECT` sobre los cuerpos importados buscando esos dominios → 0 filas.*
+- [ ] **C109 — Se trae la máxima resolución.** Blogger sirve la misma foto en `/s320/`, `/w400-h300/` y `/s1600/`; el importador pide `/s0/` (original). *Probe: comparar el ancho del `wagtailimages.Image` creado contra el del `<img src>` original de la entrada — mayor o igual en todos los casos.*
+- [ ] **C110 — El cuerpo queda limpio.** Cero `style=`, cero `<span>`, cero `<div>`, cero `<o:p>`/`<v:*>` de Word, cero `class=` en los artículos importados. *Probe: grep sobre los cuerpos en BD.*
+- [ ] **C111 — Los 22 vídeos de YouTube se siguen viendo.** *Probe: navegador real sobre un artículo con vídeo; el reproductor carga.*
+- [ ] **C112 — Las 59 tablas sobreviven y se leen.** *Probe: navegador real sobre el post de Inglés (33 tablas) y uno de Matemáticas.*
+- [ ] **C113 — Las fechas originales se conservan.** `date` y `first_published_at` son los de Blogspot, no los del día del import. *Probe: comparar contra el feed, artículo a artículo.*
+- [ ] **C114 — Volver a lanzar el comando no duplica nada.** *Probe: ejecutar dos veces seguidas; la segunda reporta 0 creados, N saltados, y el total de `ArticuloPage` no cambia.*
+- [ ] **C115 — Las etiquetas de Blogger entran mapeadas.** `1ºESO`→`curso:1-eso`, `información`→`tema:informacion`, etc. *Probe: test de la función de mapeo sobre las 10 etiquetas medidas.*
+- [ ] **C116 — Francés deja de estar vacío.** Sus 5 páginas estáticas entran como artículos. *Probe: `/frances/` en navegador real lista 5 artículos.*
+- [ ] **C117 — La suite pasa** y los fallos preexistentes de otras apps son los mismos que antes de esta fase. *Probe: `just test`, comparado contra `git stash`.*
+- [ ] **C118 — Verificado en producción con navegador real:** portada, tres departamentos y un artículo con imagen, vídeo y tabla. *Probe: Chrome real sobre `blogs.iesmartinabescos.es`.*
+
+### Test Strategy
+
+`pytest` vía `just test`, tests en `blogs/tests/`. Las funciones puras del importador
+—limpieza de HTML, resolución de URL de imagen a máxima resolución, mapeo de etiquetas,
+derivación del slug— se prueban **sin red**, sobre HTML capturado de los feeds reales.
+
+Las afirmaciones que importan son universales, no ejemplos: C108 y C110 se comprueban
+recorriendo **todos** los cuerpos importados, no una muestra. Es la diferencia entre
+"miré tres y estaban bien" y "no queda ninguno".
+
+El import contra red se ensaya primero contra la **BD local**, nunca contra producción.
+
+### Log
+
+- 2026-09-06 · Inventario medido antes de escribir código: 223 posts, 582 imágenes, 22
+  iframes (todos YouTube), 59 tablas, 10 etiquetas. Dos blogs sin posts.
+- 2026-09-06 · Tres decisiones del principal (publicados / todo el histórico / páginas de
+  Francés sí) tomadas antes de construir, no asumidas.
