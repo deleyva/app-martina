@@ -448,3 +448,61 @@ class TestComentariosDeWord:
         salida = limpiar_cuerpo("<p>Uno</p><!-- nota para el editor --><p>Dos</p>")
         assert "nota para el editor" not in salida
         assert "Uno" in salida and "Dos" in salida
+
+
+class TestArchivosDeDrive:
+    """El profesorado no subía los PDF al blog: los subía a Drive y enlazaba."""
+
+    from blogs.blogspot import descarga_de_google, es_enlace_a_google_drive
+
+    @pytest.mark.parametrize(
+        "enlace,esperado_en_la_descarga",
+        [
+            ("https://drive.google.com/file/d/1j8BCiE9jhVAbESe6v3NepeLdRQ9yD9nw/view?usp=sharing",
+             "uc?export=download&id=1j8BCiE9jhVAbESe6v3NepeLdRQ9yD9nw"),
+            ("https://drive.google.com/open?id=1GbbQHc-E0LlVmUf7LL2ZmYmztVsGPoLu",
+             "uc?export=download&id=1GbbQHc-E0LlVmUf7LL2ZmYmztVsGPoLu"),
+            ("https://docs.google.com/document/d/1cMCi1y0v2csdImsp2s6mQe8f8W2685jH0e5G_cY0ZCQ/edit?usp=sharing",
+             "/document/d/1cMCi1y0v2csdImsp2s6mQe8f8W2685jH0e5G_cY0ZCQ/export?format=pdf"),
+            ("https://docs.google.com/presentation/d/1cMCi1y0v2csdImsp2s6mQe8f8W2685jH0e5G_cY0ZCQ/edit",
+             "/export/pdf"),
+        ],
+    )
+    def test_construye_la_url_de_descarga(self, enlace, esperado_en_la_descarga):
+        from blogs.blogspot import descarga_de_google
+
+        assert esperado_en_la_descarga in descarga_de_google(enlace)[0]
+
+    @pytest.mark.parametrize(
+        "enlace",
+        [
+            "https://drive.google.com/drive/folders/1AbOQAbmHeFAAKTjufnPCez7q52Cku8IU?usp=sharing",
+            "https://docs.google.com/forms/d/e/1FAIpQLSeIfUNer-ChXsfEcDdtzaZEsG7lQnl0_ktxTDhDoAkELwOT-g/viewform",
+        ],
+    )
+    def test_carpetas_y_formularios_se_quedan_como_enlace(self, enlace):
+        # Una carpeta no es un fichero y un formulario está vivo: bajarlos no
+        # tiene sentido, y convertirlos en PDF sería romperlos.
+        from blogs.blogspot import descarga_de_google
+
+        assert descarga_de_google(enlace) is None
+
+    def test_no_confunde_otros_enlaces(self):
+        from blogs.blogspot import descarga_de_google, es_enlace_a_google_drive
+
+        assert descarga_de_google("https://www.goethe.de/es/") is None
+        assert not es_enlace_a_google_drive("https://es.wikipedia.org/wiki/Bach")
+
+    def test_el_enlace_al_documento_de_wagtail_sobrevive_a_la_limpieza(self):
+        # Regresión: `_podar_vacios` desenvolvía todo `<a>` sin `href`, y un
+        # enlace a documento de Wagtail no lleva href — el PDF recién traído de
+        # Drive se quedaba en texto plano.
+        crudo = '<p><a linktype="document" id="7">Criterios de evaluación</a></p>'
+        salida = limpiar_cuerpo(crudo)
+        assert 'linktype="document"' in salida
+        assert 'id="7"' in salida
+        assert "Criterios de evaluación" in salida
+
+    def test_un_ancla_sin_destino_sigue_desapareciendo(self):
+        salida = limpiar_cuerpo('<p><a name="marcador">Texto</a></p>')
+        assert "<a" not in salida and "Texto" in salida

@@ -27,6 +27,7 @@ from datetime import datetime
 from io import BytesIO
 
 from bs4 import BeautifulSoup
+from django.core.files.base import ContentFile
 from django.core.files.images import ImageFile
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
@@ -34,11 +35,14 @@ from django.utils.dateparse import parse_datetime
 from wagtail.images import get_image_model
 from wagtail.models import Collection
 
+from wagtail.documents import get_document_model
 from wagtail.embeds.embeds import get_embed
 from wagtail.embeds.exceptions import EmbedException
 
 from blogs.blogspot import (
     BLOG_MAP,
+    descarga_de_google,
+    es_enlace_a_google_drive,
     derivar_intro,
     es_imagen_de_google,
     etiqueta_facetada,
@@ -52,6 +56,7 @@ from blogs.models import ArticuloPage, BlogIndexPage
 UA = "Mozilla/5.0 (compatible; IES Martina Bescos importador de blogs)"
 TIMEOUT = 45
 MAX_BYTES_IMAGEN = 25 * 1024 * 1024
+MAX_BYTES_ARCHIVO = 150 * 1024 * 1024
 
 
 @dataclass
@@ -62,6 +67,10 @@ class Informe:
     saltados: int = 0
     imagenes_ok: int = 0
     imagenes_fallidas: list[tuple[str, str]] = field(default_factory=list)
+    archivos_ok: int = 0
+    archivos_borrados: list[str] = field(default_factory=list)
+    archivos_restringidos: list[str] = field(default_factory=list)
+    archivos_no_traibles: list[str] = field(default_factory=list)
     videos_ok: int = 0
     videos_en_blogger: list[str] = field(default_factory=list)
     videos_fallidos: list[tuple[str, str]] = field(default_factory=list)
@@ -135,6 +144,16 @@ class Command(BaseCommand):
             help="Como mucho N artículos por blog. 0 = sin límite.",
         )
         parser.add_argument(
+            "--reintentar-archivos",
+            action="store_true",
+            dest="reintentar_archivos",
+            help=(
+                "No importa nada nuevo: recorre los artículos YA importados y vuelve a "
+                "intentar bajar los archivos de Drive que siguen enlazados. Para usarlo "
+                "después de abrir permisos en Drive."
+            ),
+        )
+        parser.add_argument(
             "--all-pages",
             action="store_true",
             help=(
@@ -144,6 +163,9 @@ class Command(BaseCommand):
         )
 
     # -- imágenes ---------------------------------------------------------
+
+    #: Documentos ya bajados en esta ejecución, por identificador de Drive.
+    _documentos_vistos: dict
 
     def _coleccion(self, nombre: str) -> Collection:
         raiz = Collection.get_first_root_node()
@@ -191,6 +213,132 @@ class Command(BaseCommand):
 
         informe.imagenes_fallidas.append((url, ultimo_error or "desconocido"))
         return None
+
+    def _sustituir_archivos(self, soup: BeautifulSoup, coleccion, informe: Informe) -> None:
+        """Los PDF que el profesorado dejó en Drive se traen al servidor.
+
+        El profesorado no subía los documentos al blog: los subía a Drive y
+        enlazaba. Un artículo importado que siga apuntando ahí no está
+        realmente traído — depende de una carpeta que alguien puede mover,
+        cerrar o vaciar mañana. Se baja el fichero, se guarda como documento de
+        Wagtail y el enlace del texto pasa a apuntar a nuestra copia, con el
+        mismo texto que escribió quien lo puso.
+
+        Tres cosas se quedan como enlace a propósito: las carpetas de Drive (no
+        son un fichero), los formularios (son formularios vivos) y todo lo que
+        no se pueda bajar sin credenciales. Para eso último NO se usa la cuenta
+        de Google de nadie: si un fichero está restringido al dominio del
+        centro, se dice y se deja el enlace.
+        """
+        for enlace in soup.find_all("a"):
+            destino = (enlace.get("href") or "").strip()
+            if not es_enlace_a_google_drive(destino):
+                continue
+
+            objetivo = descarga_de_google(destino)
+            if objetivo is None:
+                # Carpeta o formulario: el enlace es la forma correcta.
+                informe.archivos_no_traibles.append(destino)
+                continue
+
+            url_descarga, identificador, extension = objetivo
+
+            # El mismo PDF se enlaza desde varios articulos —las «Orientaciones
+            # para el alumnado» salen en nueve semanas seguidas—. Sin esta
+            # cache se bajaria y se guardaria una copia por enlace.
+            documento = self._documentos_vistos.get(identificador)
+            if documento is None:
+                documento = self._descargar_documento(
+                    url_descarga, identificador, extension,
+                    enlace.get_text(" ", strip=True), coleccion, informe, destino,
+                )
+                if documento is not None:
+                    self._documentos_vistos[identificador] = documento
+            if documento is None:
+                continue  # ya anotado; el enlace original se queda como estaba
+
+            # `linktype="document"` es la forma nativa de Wagtail: sobrevive a
+            # que el fichero se renombre y respeta los permisos de la colección.
+            enlace.attrs = {"linktype": "document", "id": str(documento.pk)}
+            informe.archivos_ok += 1
+
+    def _descargar_documento(
+        self, url, identificador, extension, texto, coleccion, informe, original
+    ):
+        """Baja un fichero de Drive. `None` si no se puede, siempre anotando por qué."""
+        try:
+            peticion = urllib.request.Request(url, headers={"User-Agent": UA})
+            with urllib.request.urlopen(peticion, timeout=TIMEOUT) as respuesta:
+                tipo = respuesta.headers.get("Content-Type", "")
+                disposicion = respuesta.headers.get("Content-Disposition", "")
+                datos = respuesta.read(MAX_BYTES_ARCHIVO + 1)
+        except urllib.error.HTTPError as exc:
+            # 404/410: el fichero ya no existe en Drive. Hoy, en el blog de
+            # Blogspot, ese enlace ya está roto: no se pierde nada al importar,
+            # pero conviene saber cuántos son.
+            (informe.archivos_borrados if exc.code in (404, 410) else informe.archivos_restringidos).append(
+                f"{original} (HTTP {exc.code})"
+            )
+            return None
+        except (urllib.error.URLError, OSError) as exc:
+            informe.archivos_restringidos.append(f"{original} ({type(exc).__name__})")
+            return None
+
+        if len(datos) > MAX_BYTES_ARCHIVO:
+            informe.archivos_restringidos.append(f"{original} (más de 150 MB)")
+            return None
+
+        if "text/html" in tipo:
+            # Drive contesta HTML en dos casos: pide iniciar sesión (fichero
+            # restringido al dominio del centro) o avisa de que no puede pasar
+            # el antivirus por tamaño. El segundo se puede confirmar.
+            texto_html = datos.decode("utf-8", errors="replace")
+            if "confirm=" in texto_html:
+                try:
+                    peticion = urllib.request.Request(
+                        url + "&confirm=t", headers={"User-Agent": UA}
+                    )
+                    with urllib.request.urlopen(peticion, timeout=TIMEOUT) as respuesta:
+                        disposicion = respuesta.headers.get("Content-Disposition", "")
+                        datos = respuesta.read(MAX_BYTES_ARCHIVO + 1)
+                except (urllib.error.URLError, urllib.error.HTTPError, OSError) as exc:
+                    informe.archivos_restringidos.append(f"{original} ({type(exc).__name__})")
+                    return None
+            else:
+                informe.archivos_restringidos.append(f"{original} (pide iniciar sesión)")
+                return None
+
+        nombre = self._nombre_de_fichero(disposicion) or f"{identificador}.{extension or 'pdf'}"
+        documento = get_document_model()(
+            title=(texto or nombre)[:255],
+            collection=coleccion,
+        )
+        try:
+            documento.file.save(nombre, ContentFile(datos), save=False)
+            documento.save()
+        except Exception as exc:
+            informe.archivos_restringidos.append(f"{original} (no se pudo guardar: {type(exc).__name__})")
+            return None
+        return documento
+
+    @staticmethod
+    def _nombre_de_fichero(disposicion: str) -> str:
+        """El nombre real que da Drive, con los acentos puestos.
+
+        Drive manda el nombre en UTF-8 dentro de una cabecera que Python
+        interpreta como latin-1: sin deshacer eso, «1º ESO» se guarda como
+        «1Â° ESO».
+        """
+        encontrado = re.search(r"filename\*?=(?:UTF-8\'\')?\"?([^\";]+)", disposicion or "")
+        if not encontrado:
+            return ""
+        nombre = urllib.parse.unquote(encontrado.group(1).strip())
+        try:
+            nombre = nombre.encode("latin-1").decode("utf-8")
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            pass
+        nombre = re.sub(r"[/\\\x00-\x1f]", "_", nombre).strip()
+        return nombre[:90]
 
     def _sustituir_videos(self, soup: BeautifulSoup, informe: Informe) -> None:
         """El `<iframe>` de Blogspot pasa a ser un embed nativo de Wagtail.
@@ -252,6 +400,7 @@ class Command(BaseCommand):
         """
         soup = BeautifulSoup(html or "", "html.parser")
         self._sustituir_videos(soup, informe)
+        self._sustituir_archivos(soup, coleccion, informe)
         primera = None
         primera_al_principio = False
 
@@ -416,6 +565,7 @@ class Command(BaseCommand):
     # -- orquestación -----------------------------------------------------
 
     def handle(self, *args, **opciones):
+        self._documentos_vistos = {}
         hosts = opciones["blogs"] or list(BLOG_MAP)
         desconocidos = [h for h in hosts if h not in BLOG_MAP]
         if desconocidos:
@@ -436,6 +586,9 @@ class Command(BaseCommand):
                     f"Créalo en Wagtail antes de importar."
                 )
             destinos[host] = pagina
+
+        if opciones["reintentar_archivos"]:
+            return self._reintentar_archivos(hosts, destinos)
 
         seco = opciones["dry_run"]
         publicar = not opciones["draft"]
@@ -498,6 +651,44 @@ class Command(BaseCommand):
 
         self._resumen(informe, seco)
 
+    def _reintentar_archivos(self, hosts, destinos) -> None:
+        """Segunda pasada solo para los archivos que la primera no pudo bajar.
+
+        Existe porque la razón más común de no poder bajar uno es que esté
+        restringido al dominio del centro, y eso se arregla en Drive con dos
+        clics. Sin esta pasada, la única forma de recoger el arreglo sería
+        borrar y reimportar el artículo, perdiendo lo que alguien haya editado.
+        """
+        informe = Informe()
+        self.stdout.write(
+            self.style.MIGRATE_HEADING("\nREINTENTANDO ARCHIVOS de artículos ya importados\n")
+        )
+        for host in hosts:
+            destino = destinos[host]
+            coleccion = self._coleccion(f"Blogspot — {destino.title}")
+            articulos = [
+                a
+                for a in ArticuloPage.objects.child_of(destino).specific()
+                if a.source_url and es_enlace_a_google_drive(a.body or "")
+            ]
+            if not articulos:
+                continue
+            self.stdout.write(self.style.HTTP_INFO(f"\n{host} → /{destino.slug}/ ({len(articulos)})"))
+            for articulo in articulos:
+                antes = informe.archivos_ok
+                soup = BeautifulSoup(articulo.body, "html.parser")
+                self._sustituir_archivos(soup, coleccion, informe)
+                if informe.archivos_ok == antes:
+                    continue
+                with transaction.atomic():
+                    articulo.body = limpiar_cuerpo(soup.decode())
+                    articulo.save()
+                    revision = articulo.save_revision()
+                    if articulo.live:
+                        revision.publish()
+                self.stdout.write(f"    + {informe.archivos_ok - antes} archivo(s) · {articulo.title[:55]}")
+        self._resumen(informe, seco=False)
+
     def _resumen(self, informe: Informe, seco: bool) -> None:
         self.stdout.write(self.style.MIGRATE_HEADING("\n\n── Resumen ──"))
         etiqueta = "se crearían" if seco else "creados"
@@ -508,6 +699,40 @@ class Command(BaseCommand):
 
         self.stdout.write(f"  Imágenes descargadas: {informe.imagenes_ok}")
         self.stdout.write(f"  Vídeos de YouTube incrustados: {informe.videos_ok}")
+        self.stdout.write(f"  Archivos traídos de Drive: {informe.archivos_ok}")
+
+        if informe.archivos_borrados:
+            self.stdout.write(
+                self.style.WARNING(
+                    f"\n  Archivos que YA NO EXISTEN en Drive: {len(informe.archivos_borrados)}"
+                )
+            )
+            self.stdout.write(
+                "    Estos enlaces ya están rotos hoy en el blog de Blogspot. No se pierde\n"
+                "    nada al importar: se perdieron cuando alguien borró el fichero."
+            )
+            for linea in informe.archivos_borrados:
+                self.stdout.write(f"    · {linea[:110]}")
+
+        if informe.archivos_restringidos:
+            self.stdout.write(
+                self.style.WARNING(
+                    f"\n  Archivos que piden iniciar sesión: {len(informe.archivos_restringidos)}"
+                )
+            )
+            self.stdout.write(
+                "    Están restringidos al dominio del centro. NO se ha usado la cuenta de\n"
+                "    Google de nadie para bajarlos. Si los abres a «cualquiera con el enlace»\n"
+                "    en Drive, `--reintentar-archivos` los trae sin tocar nada más."
+            )
+            for linea in informe.archivos_restringidos:
+                self.stdout.write(f"    · {linea[:110]}")
+
+        if informe.archivos_no_traibles:
+            self.stdout.write(
+                f"\n  Carpetas y formularios que se quedan como enlace (correcto):"
+                f" {len(informe.archivos_no_traibles)}"
+            )
 
         if informe.videos_en_blogger:
             self.stdout.write(

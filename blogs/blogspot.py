@@ -76,6 +76,63 @@ def url_de_ver_youtube(url_incrustada: str) -> str | None:
     return f"https://www.youtube.com/watch?v={identificador}" if identificador else None
 
 
+# ---------------------------------------------------------------------------
+# Archivos en Drive
+# ---------------------------------------------------------------------------
+
+# El profesorado no subia los PDF al blog: los subia a Drive y enlazaba. Son
+# 87 ficheros y 11 documentos, y sin traerlos el articulo importado sigue
+# dependiendo de una carpeta de Drive que alguien puede mover manana.
+_DRIVE_FICHERO = re.compile(
+    r"drive\.google\.com/(?:file/d/|open\?id=|uc\?[^#]*?id=)([A-Za-z0-9_-]{20,})"
+)
+_DOCS_EDITOR = re.compile(
+    r"docs\.google\.com/(document|presentation|spreadsheets|drawings)/d/(?!e/)([A-Za-z0-9_-]{20,})"
+)
+
+# Un editor de Google no es un fichero: hay que pedirle que se exporte.
+_EXPORTAR_COMO_PDF = {
+    "document": "/export?format=pdf",
+    "presentation": "/export/pdf",
+    "spreadsheets": "/export?format=pdf",
+    "drawings": "/export?format=pdf",
+}
+
+
+def descarga_de_google(url: str) -> tuple[str, str, str] | None:
+    """`(url_de_descarga, identificador, extension_esperada)`, o `None`.
+
+    Devuelve `None` a propósito para lo que NO es un fichero: carpetas de Drive
+    (no se pueden bajar como un archivo), formularios (son formularios vivos, no
+    documentos) y cualquier otro enlace. Esos se quedan como enlaces.
+    """
+    if "/drive/folders" in url or "/forms/" in url:
+        return None
+
+    encontrado = _DRIVE_FICHERO.search(url)
+    if encontrado:
+        identificador = encontrado.group(1)
+        return (
+            f"https://drive.google.com/uc?export=download&id={identificador}",
+            identificador,
+            "",  # la extensión la dice Drive en la cabecera
+        )
+
+    encontrado = _DOCS_EDITOR.search(url)
+    if encontrado:
+        tipo, identificador = encontrado.group(1), encontrado.group(2)
+        return (
+            f"https://docs.google.com/{tipo}/d/{identificador}{_EXPORTAR_COMO_PDF[tipo]}",
+            identificador,
+            "pdf",
+        )
+    return None
+
+
+def es_enlace_a_google_drive(url: str) -> bool:
+    return bool(re.search(r"(drive|docs)\.google\.com", url or ""))
+
+
 DOMINIOS_GOOGLE = (
     "blogger.googleusercontent.com",
     "bp.blogspot.com",
@@ -164,7 +221,9 @@ PERMITIDAS = {
 # `dir`, `role`, `aria-*`, `data-*`, `width`, `height`— se va entero: es lo que
 # hace que un artículo importado pelee con la maqueta editorial del sitio.
 ATRIBUTOS = {
-    "a": {"href", "target", "rel"},
+    # `linktype` e `id` son de Wagtail: asi se enlaza un documento suyo, y es
+    # lo que deja el importador al traerse un PDF de Drive.
+    "a": {"href", "target", "rel", "linktype", "id"},
     "img": {"src", "alt", "title"},
     "iframe": {"src", "allowfullscreen", "allow", "title"},
     "embed": {"embedtype", "id", "format", "alt", "url"},
@@ -357,7 +416,12 @@ def _podar_vacios(soup: BeautifulSoup) -> None:
     for enlace in soup.find_all("a"):
         if not _vivo(enlace):
             continue
-        if not enlace.get("href"):
+        # Un enlace a un documento de Wagtail (`linktype="document" id="N"`) NO
+        # lleva `href`: la URL la pone Wagtail al renderizar. Sin esta
+        # comprobacion se desenvolvia entero, y el PDF que acabamos de traer de
+        # Drive se quedaba en texto plano sin enlace.
+        tiene_destino = bool(enlace.get("href") or enlace.get("linktype"))
+        if not tiene_destino:
             enlace.unwrap()
         elif not enlace.get_text(strip=True) and not enlace.find(["embed", "img", "iframe"]):
             # Enlace con destino pero sin nada visible: no se puede pulsar.
