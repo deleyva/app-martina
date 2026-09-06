@@ -110,6 +110,32 @@ class BlogIndexPage(Page):
     parent_page_types = ["blogs.BlogIndexPage", "wagtailcore.Page"]
     subpage_types = ["blogs.BlogIndexPage", "blogs.ArticuloPage"]
 
+    @classmethod
+    def can_create_at(cls, parent):
+        """Un blog cuelga de la portada, nunca de otro blog.
+
+        `subpage_types` no puede expresar esto porque la portada y el
+        departamento son el MISMO modelo: la portada necesita admitir
+        `BlogIndexPage` para tener departamentos colgando, y el departamento se
+        encuentra esa misma declaración heredada. Los permisos de Wagtail
+        tampoco sirven — `add_page` autoriza el sitio, no el tipo de página.
+
+        Así que se corta por lo único que de verdad distingue a los dos: la
+        posición en el árbol. Si el abuelo ya es un `BlogIndexPage`, el padre es
+        un departamento y aquí solo van artículos.
+
+        No es cosmético. Un blog anidado bajo un departamento quedaría
+        publicado y huérfano: ni `context_processors.blog_navigation` ni
+        `portada_editorial` lo verían nunca, porque los dos miran solo los hijos
+        directos de la raíz del sitio.
+        """
+        if not super().can_create_at(parent):
+            return False
+        abuelo = parent.get_parent()
+        return abuelo is None or not isinstance(
+            abuelo.specific_deferred, BlogIndexPage
+        )
+
     def get_template(self, request, *args, **kwargs):
         # Una sola plantilla: dentro decide con `is_hub` si pinta la portada
         # (tiene departamentos colgando) o un departamento (tiene artículos).
