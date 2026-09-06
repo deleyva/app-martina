@@ -55,6 +55,26 @@ BLOG_MAP: dict[str, str] = {
 _SIZE_IN_PATH = re.compile(r"/(?:s\d+|w\d+-h\d+|h\d+-w\d+)(?:-[a-z-]+)?/")
 _SIZE_IN_SUFFIX = re.compile(r"=(?:s\d+|w\d+-h\d+|h\d+-w\d+)(?:-[a-z-]+)?$")
 
+# `https://www.youtube.com/embed/ID?feature=player_embedded` -> `ID`.
+# Los 22 iframes del archivo son todos de YouTube, en las dos formas que ha
+# usado Blogger a lo largo de los años (`/embed/` y `/v/`).
+_YOUTUBE_ID = re.compile(
+    r"(?:youtube(?:-nocookie)?\.com/(?:embed|v)/|youtu\.be/)([A-Za-z0-9_-]{6,})"
+)
+
+
+def id_de_youtube(url: str) -> str | None:
+    """El identificador del vídeo, o `None` si la URL no es de YouTube."""
+    encontrado = _YOUTUBE_ID.search(url or "")
+    return encontrado.group(1) if encontrado else None
+
+
+def url_de_ver_youtube(url_incrustada: str) -> str | None:
+    """De la URL de incrustar a la de ver, que es la que entiende Wagtail."""
+    identificador = id_de_youtube(url_incrustada)
+    return f"https://www.youtube.com/watch?v={identificador}" if identificador else None
+
+
 DOMINIOS_GOOGLE = (
     "blogger.googleusercontent.com",
     "bp.blogspot.com",

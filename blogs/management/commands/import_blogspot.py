@@ -34,6 +34,9 @@ from django.utils.dateparse import parse_datetime
 from wagtail.images import get_image_model
 from wagtail.models import Collection
 
+from wagtail.embeds.embeds import get_embed
+from wagtail.embeds.exceptions import EmbedException
+
 from blogs.blogspot import (
     BLOG_MAP,
     derivar_intro,
@@ -41,6 +44,7 @@ from blogs.blogspot import (
     etiqueta_facetada,
     limpiar_cuerpo,
     slug_desde_url,
+    url_de_ver_youtube,
     url_maxima_resolucion,
 )
 from blogs.models import ArticuloPage, BlogIndexPage
@@ -58,6 +62,8 @@ class Informe:
     saltados: int = 0
     imagenes_ok: int = 0
     imagenes_fallidas: list[tuple[str, str]] = field(default_factory=list)
+    videos_ok: int = 0
+    videos_fallidos: list[tuple[str, str]] = field(default_factory=list)
     etiquetas_descartadas: list[str] = field(default_factory=list)
     posts_sin_cuerpo: list[str] = field(default_factory=list)
     sin_entradilla: list[str] = field(default_factory=list)
@@ -185,6 +191,44 @@ class Command(BaseCommand):
         informe.imagenes_fallidas.append((url, ultimo_error or "desconocido"))
         return None
 
+    def _sustituir_videos(self, soup: BeautifulSoup, informe: Informe) -> None:
+        """El `<iframe>` de Blogspot pasa a ser un embed nativo de Wagtail.
+
+        Esto no es cosmética. `articulo.html` hace responsive los vídeos con
+        `.blog-embed-wrapper > div:first-child iframe`, un selector escrito para
+        la forma que produce Wagtail: `<div class="responsive-object"><iframe>`.
+        Un iframe pegado tal cual de Blogspot cuelga de un `<p>`, no casa con el
+        selector, se queda sin dimensiones y **el vídeo sale como un hueco en
+        blanco** — verificado en el navegador antes de arreglarlo. Pasando por
+        el embed nativo, un vídeo importado se comporta igual que uno que meta
+        un profesor desde el editor.
+
+        Se pide el embed aquí, en la importación, y no en cada visita: así queda
+        cacheado en la BD y, de paso, un vídeo borrado de YouTube se detecta hoy
+        y no dentro de un año.
+        """
+        for marco in soup.find_all("iframe"):
+            url_ver = url_de_ver_youtube(marco.get("src") or "")
+            if not url_ver:
+                continue
+            try:
+                get_embed(url_ver)
+            except (EmbedException, OSError) as exc:
+                # El vídeo ya no existe o YouTube no contesta: se deja un enlace
+                # en vez de un hueco, y se dice cuál (A27.4).
+                informe.videos_fallidos.append((url_ver, f"{type(exc).__name__}: {exc}"))
+                enlace = soup.new_tag("a", href=url_ver)
+                enlace.string = "Ver el vídeo en YouTube"
+                parrafo = soup.new_tag("p")
+                parrafo.append(enlace)
+                marco.replace_with(parrafo)
+                continue
+
+            embed = soup.new_tag("embed")
+            embed.attrs = {"embedtype": "media", "url": url_ver}
+            marco.replace_with(embed)
+            informe.videos_ok += 1
+
     def _sustituir_imagenes(self, html: str, titulo: str, coleccion: Collection, informe: Informe):
         """Cada `<img>` pasa a ser un `<embed>` de Wagtail apuntando a una imagen nuestra.
 
@@ -194,6 +238,7 @@ class Command(BaseCommand):
         artículo, se quita del cuerpo para no verla dos veces seguidas.
         """
         soup = BeautifulSoup(html or "", "html.parser")
+        self._sustituir_videos(soup, informe)
         primera = None
         primera_al_principio = False
 
@@ -449,6 +494,14 @@ class Command(BaseCommand):
             return
 
         self.stdout.write(f"  Imágenes descargadas: {informe.imagenes_ok}")
+        self.stdout.write(f"  Vídeos de YouTube incrustados: {informe.videos_ok}")
+
+        if informe.videos_fallidos:
+            self.stdout.write(
+                self.style.WARNING(f"\n  Vídeos que no se pudieron incrustar: {len(informe.videos_fallidos)}")
+            )
+            for url, motivo in informe.videos_fallidos:
+                self.stdout.write(f"    · {url}\n        {motivo[:140]}")
 
         if informe.fallidos:
             self.stdout.write(

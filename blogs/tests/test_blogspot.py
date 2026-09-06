@@ -378,3 +378,38 @@ class TestEtiquetasAnidadas:
     def test_basura_dentro_de_un_script_no_revienta(self):
         salida = limpiar_cuerpo("<script><o:p>x</o:p></script><p>Bien</p>")
         assert "Bien" in salida and "<script" not in salida
+
+
+class TestYoutube:
+    """C111. Los 22 iframes del archivo son todos de YouTube.
+
+    Se convierten al embed nativo de Wagtail porque `articulo.html` hace el
+    vídeo responsive con un selector escrito para la forma que produce Wagtail
+    (`div.responsive-object > iframe`). Un iframe pegado de Blogspot cuelga de
+    un `<p>`, no casa, y **el vídeo sale como un hueco en blanco** — visto en el
+    navegador antes de arreglarlo.
+    """
+
+    from blogs.blogspot import id_de_youtube, url_de_ver_youtube
+
+    @pytest.mark.parametrize(
+        "incrustada,identificador",
+        [
+            ("https://www.youtube.com/embed/nZHOJHP33Ps?feature=player_embedded", "nZHOJHP33Ps"),
+            ("https://www.youtube.com/embed/dQw4w9WgXcQ", "dQw4w9WgXcQ"),
+            ("https://www.youtube.com/v/dQw4w9WgXcQ", "dQw4w9WgXcQ"),
+            ("https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ", "dQw4w9WgXcQ"),
+            ("https://youtu.be/dQw4w9WgXcQ", "dQw4w9WgXcQ"),
+        ],
+    )
+    def test_saca_el_identificador_de_las_formas_que_ha_usado_blogger(self, incrustada, identificador):
+        from blogs.blogspot import id_de_youtube, url_de_ver_youtube
+
+        assert id_de_youtube(incrustada) == identificador
+        assert url_de_ver_youtube(incrustada) == f"https://www.youtube.com/watch?v={identificador}"
+
+    def test_un_iframe_que_no_sea_de_youtube_no_se_confunde(self):
+        from blogs.blogspot import id_de_youtube
+
+        assert id_de_youtube("https://docs.google.com/document/d/abc/preview") is None
+        assert id_de_youtube("") is None
