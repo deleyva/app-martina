@@ -15,9 +15,16 @@ from wagtail.images.blocks import ImageChooserBlock
 from wagtail.snippets.blocks import SnippetChooserBlock
 
 
-def adjuntos_field():
+def adjuntos_field(help_text="Archivos que se muestran como cards con descarga, visor y botón de librería"):
     """El StreamField de adjuntos. Función y no constante porque cada modelo
-    necesita su propia instancia del campo."""
+    necesita su propia instancia del campo.
+
+    `help_text` es parámetro porque los dos lados no enseñan lo mismo: la
+    biblioteca musical pinta cards con visor y botón de librería, y un blog de
+    departamento no tiene librería ninguna. Prometer en el editor algo que la
+    página no hace es lo que hizo que un profesor subiera un PDF y no lo viera
+    nunca.
+    """
     return StreamField(
         [
             ("pdf_score", StructBlock([
@@ -43,7 +50,7 @@ def adjuntos_field():
         blank=True,
         use_json_field=True,
         verbose_name="Archivos adjuntos",
-        help_text="Archivos que se muestran como cards con descarga, visor y botón de librería",
+        help_text=help_text,
     )
 
 

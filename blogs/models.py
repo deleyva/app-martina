@@ -65,15 +65,6 @@ class BlogIndexPage(Page):
         verbose_name="Encargado/a",
         help_text="Moderador del departamento que aprueba artículos",
     )
-    subject = models.ForeignKey(
-        "clases.Subject",
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="blog_indexes",
-        verbose_name="Asignatura",
-        help_text="Vincula este blog con una asignatura (hereda icono y color)",
-    )
     is_protected = models.BooleanField(
         default=False,
         verbose_name="Protegida",
@@ -91,7 +82,6 @@ class BlogIndexPage(Page):
         MultiFieldPanel(
             [
                 FieldPanel("moderator"),
-                FieldPanel("subject"),
             ],
             heading="Departamento",
         ),
@@ -218,7 +208,9 @@ class ArticuloPage(AdjuntosMixin, Page):
         help_text="Solo el creador de la página puede verla.",
     )
 
-    attachments = adjuntos_field()
+    attachments = adjuntos_field(
+        help_text="Archivos adjuntos al artículo. La página solo muestra los vídeos.",
+    )
 
     # De dónde vino, si vino de fuera. Lo escribe `import_blogspot` con el
     # permalink original del post de Blogger, y es lo que hace que relanzar el
