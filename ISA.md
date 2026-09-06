@@ -1,7 +1,7 @@
 ---
 slug: app-martina
-phase: build
-progress: true
+phase: complete
+progress: false
 iteration: 34
 principal_stated_goal: "Necesito desarrollar en apps.iesmartinabescos.es Otra app de Django como la que tenemos en /incidencias. Está sí que debe de requerir login con Google porque ya tenemos implementado. Básicamente, es una aplicación en la que quiero que vayan solicitando la clave Wi-Fi. Pero para ello deben logearse y enviar la MAC de su dispositivo WIFI, la privada (real) no la aleatoria."
 updated: 2026-09-06
@@ -1592,7 +1592,7 @@ Tres peticiones del principal tras usar la app en producción.
 
 ---
 
-## Fase 27 — Traer los 16 blogs de Blogspot a `blogs.iesmartinabescos.es` · EN CONSTRUCCIÓN
+## Fase 27 — Traer los 16 blogs de Blogspot a `blogs.iesmartinabescos.es` · DESPLEGADA Y VERIFICADA EN PRODUCCIÓN
 
 Dieciséis blogs de departamento en Blogspot, algunos desde 2019, se mudan a su sitio
 propio. Con sus imágenes: las fotos dejan de vivir en los servidores de Google y pasan a
@@ -1692,23 +1692,23 @@ Cuatro hechos que decidieron el diseño:
 
 ### Claims
 
-- [ ] **C106 — Los 16 feeds se leen sin credenciales y el inventario cuadra.** *Probe: el comando en `--dry-run` reporta por blog el mismo número de posts que la tabla de arriba.*
-- [ ] **C107 — Cada blog aterriza en su departamento.** El mapa de 16 se resuelve contra `BlogIndexPage.slug` reales; un slug que no exista aborta con error, no crea páginas huérfanas. *Probe: test que recorre el mapa y comprueba que los 16 destinos existen en la BD; test que un host desconocido levanta `CommandError`.*
-- [ ] **C108 — Las imágenes viven en el servidor del IES.** Después de importar, `ArticuloPage.body` no contiene ni una sola URL de `blogger.googleusercontent.com` ni de `bp.blogspot.com`. *Probe: `SELECT` sobre los cuerpos importados buscando esos dominios → 0 filas.*
-- [ ] **C109 — Se trae la máxima resolución.** Blogger sirve la misma foto en `/s320/`, `/w400-h300/` y `/s1600/`; el importador pide `/s0/` (original). *Probe: comparar el ancho del `wagtailimages.Image` creado contra el del `<img src>` original de la entrada — mayor o igual en todos los casos.*
-- [ ] **C110 — El cuerpo queda limpio.** Cero `style=`, cero `<span>`, cero `<div>`, cero `<o:p>`/`<v:*>` de Word, cero `class=` en los artículos importados. *Probe: grep sobre los cuerpos en BD.*
-- [ ] **C111 — Los 22 vídeos de YouTube se siguen viendo.** *Probe: navegador real sobre un artículo con vídeo; el reproductor carga.*
-- [ ] **C112 — Las 59 tablas sobreviven y se leen.** *Probe: navegador real sobre el post de Inglés (33 tablas) y uno de Matemáticas.*
-- [ ] **C113 — Las fechas originales se conservan.** `date` y `first_published_at` son los de Blogspot, no los del día del import. *Probe: comparar contra el feed, artículo a artículo.*
-- [ ] **C114 — Volver a lanzar el comando no duplica nada.** *Probe: ejecutar dos veces seguidas; la segunda reporta 0 creados, N saltados, y el total de `ArticuloPage` no cambia.*
-- [ ] **C115 — Las etiquetas de Blogger entran mapeadas.** `1ºESO`→`curso:1-eso`, `información`→`tema:informacion`, etc. *Probe: test de la función de mapeo sobre las 10 etiquetas medidas.*
-- [ ] **C116 — Francés deja de estar vacío.** Sus 5 páginas estáticas entran como artículos. *Probe: `/frances/` en navegador real lista 5 artículos.*
-- [ ] **C119 — Los archivos que el profesorado dejó en Drive se traen al servidor.** El enlace del texto pasa a apuntar a nuestra copia, con el mismo texto que escribió quien lo puso. *Probe: descargar la URL renderizada del artículo y comprobar que devuelve el fichero real, no una página de Google.*
-- [ ] **C120 — Lo que no se puede traer se dice, uno a uno, con su motivo.** Un fichero borrado de Drive (404), uno restringido al dominio del centro, una carpeta y un formulario son cuatro casos distintos y se informan por separado. *Probe: el informe del comando sobre los 16 blogs.*
-- [ ] **C121 — No se usa la cuenta de Google de nadie.** Lo que exige iniciar sesión se queda como enlace y se reporta; no se intenta ninguna credencial. *Probe: lectura del código — solo `urllib` sin cabeceras de autenticación.*
-- [ ] **C122 — El mismo fichero enlazado desde varios artículos se guarda una sola vez.** Las «Orientaciones para el alumnado» salen nueve semanas seguidas. *Probe: contar documentos frente a enlaces resueltos.*
-- [ ] **C117 — La suite pasa** y los fallos preexistentes de otras apps son los mismos que antes de esta fase. *Probe: `just test`, comparado contra `git stash`.*
-- [ ] **C118 — Verificado en producción con navegador real:** portada, tres departamentos y un artículo con imagen, vídeo y tabla. *Probe: Chrome real sobre `blogs.iesmartinabescos.es`.*
+- [x] **C106 — Los 16 feeds se leen sin credenciales y el inventario cuadra.** *Probe: el comando en `--dry-run` reporta por blog el mismo número de posts que la tabla de arriba.* *Cerrada: el `--dry-run` sobre los 16 dio 12/11/79/0+5/0/9/1/16/21/32/29/1/4/1/6/1 — idéntico a la tabla medida.*
+- [x] **C107 — Cada blog aterriza en su departamento.** El mapa de 16 se resuelve contra `BlogIndexPage.slug` reales; un slug que no exista aborta con error, no crea páginas huérfanas. *Probe: test que recorre el mapa y comprueba que los 16 destinos existen en la BD; test que un host desconocido levanta `CommandError`.* *Cerrada: los 16 destinos resolvieron; `test_un_blog_desconocido_falla_sin_escribir_nada` y `test_un_departamento_que_no_existe_aborta_antes_de_importar` comprueban que aborta sin crear nada.*
+- [x] **C108 — Las imágenes viven en el servidor del IES.** Después de importar, `ArticuloPage.body` no contiene ni una sola URL de `blogger.googleusercontent.com` ni de `bp.blogspot.com`. *Probe: `SELECT` sobre los cuerpos importados buscando esos dominios → 0 filas.* *Cerrada sobre los 228 cuerpos EN PRODUCCIÓN, no una muestra: `googleusercontent` 0, `bp.blogspot` 0. El defecto que lo puso a prueba —VML de Word dentro de un comentario HTML— solo apareció contando; en pantalla no se veía.*
+- [x] **C109 — Se trae la máxima resolución.** Blogger sirve la misma foto en `/s320/`, `/w400-h300/` y `/s1600/`; el importador pide `/s0/` (original). *Probe: comparar el ancho del `wagtailimages.Image` creado contra el del `<img src>` original de la entrada — mayor o igual en todos los casos.* *Cerrada: 576 imágenes en producción, ancho medio 1.884 px frente a los 320 px con que Blogger incrustaba 271 de ellas. Medido antes: 254x320 → 825x1040 pidiendo `/s0/`.*
+- [x] **C110 — El cuerpo queda limpio.** Cero `style=`, cero `<span>`, cero `<div>`, cero `<o:p>`/`<v:*>` de Word, cero `class=` en los artículos importados. *Probe: grep sobre los cuerpos en BD.* *Cerrada sobre los 228 cuerpos en producción: `style=` 0, `<span` 0, `<div` 0, `class=` 0, `<o:p` 0, `<!--` 0.*
+- [x] **C111 — Los 22 vídeos de YouTube se siguen viendo.** *Probe: navegador real sobre un artículo con vídeo; el reproductor carga.* *Cerrada en Chrome real: el reproductor de YouTube carga a todo ancho en «Tutoriales sistema diédrico». Antes salía como un hueco en blanco — el selector responsive de la plantilla estaba escrito solo para la forma de Wagtail. 22 vídeos en 16 artículos.*
+- [x] **C112 — Las 59 tablas sobreviven y se leen.** *Probe: navegador real sobre el post de Inglés (33 tablas) y uno de Matemáticas.* *Cerrada en Chrome real sobre el documento de criterios de Inglés: la tabla se lee con sus bordes y sus cuatro columnas. La plantilla no tenía NINGUNA regla de tabla y la capitular se colaba en cada celda; ambas cosas arregladas.*
+- [x] **C113 — Las fechas originales se conservan.** `date` y `first_published_at` son los de Blogspot, no los del día del import. *Probe: comparar contra el feed, artículo a artículo.* *Cerrada: 226 de 228 con fecha anterior a 2026 y la más antigua el 2019-02-11; `test_se_conserva_la_fecha_original_no_la_de_hoy` cubre que `publish()` no las repise.*
+- [x] **C114 — Volver a lanzar el comando no duplica nada.** *Probe: ejecutar dos veces seguidas; la segunda reporta 0 creados, N saltados, y el total de `ArticuloPage` no cambia.* *Cerrada por partida doble: en el ensayo, relanzar reportó «0 creados, N saltados»; y `test_relanzar_el_comando_no_duplica_nada` más `test_relanzar_tampoco_vuelve_a_bajar_las_imagenes`.*
+- [x] **C115 — Las etiquetas de Blogger entran mapeadas.** `1ºESO`→`curso:1-eso`, `información`→`tema:informacion`, etc. *Probe: test de la función de mapeo sobre las 10 etiquetas medidas.* *Cerrada: `test_las_diez_etiquetas_medidas` sobre las 10 reales, y en Chrome real la etiqueta `#curso:1-eso` al pie del artículo «Halloween».*
+- [x] **C116 — Francés deja de estar vacío.** Sus 5 páginas estáticas entran como artículos. *Probe: `/frances/` en navegador real lista 5 artículos.* *Cerrada en Chrome real sobre producción: `/frances/` lista sus 5 páginas con portada y entradilla. Antes tenía 0.*
+- [x] **C119 — Los archivos que el profesorado dejó en Drive se traen al servidor.** El enlace del texto pasa a apuntar a nuestra copia, con el mismo texto que escribió quien lo puso. *Probe: descargar la URL renderizada del artículo y comprobar que devuelve el fichero real, no una página de Google.* *Cerrada: 41 documentos y 31,2 MB en producción; la URL renderizada `/documents/234/Orientaciones_para_el_alumnado_de_1_ESO__Asignatura_alemán.pdf` devuelve un PDF real de 4 páginas y 1,1 MB, con los acentos intactos.*
+- [x] **C120 — Lo que no se puede traer se dice, uno a uno, con su motivo.** Un fichero borrado de Drive (404), uno restringido al dominio del centro, una carpeta y un formulario son cuatro casos distintos y se informan por separado. *Probe: el informe del comando sobre los 16 blogs.* *Cerrada: el informe del comando separa los cuatro casos — 36 traídos, 42 borrados en Drive (404), 24 que piden login, 12 carpetas y formularios que se quedan como enlace.*
+- [x] **C121 — No se usa la cuenta de Google de nadie.** Lo que exige iniciar sesión se queda como enlace y se reporta; no se intenta ninguna credencial. *Probe: lectura del código — solo `urllib` sin cabeceras de autenticación.* *Cerrada por lectura del código: `_descargar_documento` usa `urllib` con una sola cabecera, `User-Agent`. No hay ninguna credencial en ninguna ruta.*
+- [x] **C122 — El mismo fichero enlazado desde varios artículos se guarda una sola vez.** Las «Orientaciones para el alumnado» salen nueve semanas seguidas. *Probe: contar documentos frente a enlaces resueltos.* *Cerrada: `_documentos_vistos` cachea por identificador de Drive dentro de la ejecución. Se detectó porque «Criterios_Calificacion_2223_1_3ESO.pdf» apareció dos veces con sufijo aleatorio.*
+- [x] **C117 — La suite pasa** y los fallos preexistentes de otras apps son los mismos que antes de esta fase. *Probe: `just test`, comparado contra `git stash`.* *Cerrada: 650 pasan, 4 fallan — los mismos 4 preexistentes que documenta la fase 26 (2 de `cms`, 2 de `incidencias`).*
+- [x] **C118 — Verificado en producción con navegador real:** portada, tres departamentos y un artículo con imagen, vídeo y tabla. *Probe: Chrome real sobre `blogs.iesmartinabescos.es`.* *Cerrada en Chrome real sobre `blogs.iesmartinabescos.es`: portada, `/frances/`, y el recuento por departamento coincide con el inventario en los 18 (244 = 228 importados + 16 escritos a mano). Y el informe publicado en `docs.iesmartinabescos.es/books/gestion-informatica-del-ies-martina-bescos/page/blogs-del-ies`, revisión #3, verificado en navegador.*
 
 ### Test Strategy
 
@@ -1750,3 +1750,33 @@ El import contra red se ensaya primero contra la **BD local**, nunca contra prod
   enlaces de YouTube: son grabaciones de clase y trabajos del alumnado que no existen en
   ningún otro sitio. Su reproductor arranca YouTube desde JavaScript ofuscado. Se quedan
   como iframe, funcionan, y dependen de que la cuenta de Blogger siga existiendo.
+
+### Resultado en producción · 2026-09-06
+
+228 artículos, 576 imágenes (481 MB), 41 documentos (31 MB), 22 vídeos de YouTube. Cero
+fallos de importación. Los 17 artículos escritos a mano siguen intactos.
+
+Por departamento, contado sobre el sitio en vivo: Plástica 79, Música 35, Orientación 29,
+Matemáticas 21, Lengua 16, Alemán 14, Filosofía 12, Educación Física 11, Biología 9,
+Francés 5, Física y Química 4, Geografía e Historia 3, COFOTAP 2, y uno cada uno Inglés,
+Tecnología, Economía y Cultura Clásica. Total 244 = 228 importados + 16 a mano.
+
+Informe para el centro publicado en BookStack:
+`docs.iesmartinabescos.es/books/gestion-informatica-del-ies-martina-bescos/page/blogs-del-ies`
+
+### Lo que queda, y es del centro decidirlo
+
+1. **Los blogs de Blogspot siguen en pie.** Esto fue una copia, no una mudanza
+   destructiva. Cerrarlos se llevaría por delante los 11 vídeos alojados allí.
+2. **24 archivos restringidos al dominio del centro.** Si Jesús los abre en Drive a
+   «cualquiera con el enlace», `--reintentar-archivos` los recoge sin tocar nada más.
+3. **17 artículos sin entradilla propia** (se usó su título) y 2 sin cuerpo, todos
+   entradas que en Blogspot eran solo un cartel escaneado.
+4. **Nadie ha revisado el contenido.** Entró todo el histórico, incluidos criterios de
+   cursos que ya no existen y tareas de confinamiento de 2020.
+
+### Gotcha para quien edite estos artículos
+
+**El editor visual de Wagtail no sabe de tablas.** Sobreviven al guardarse por API y se
+ven bien, pero si alguien abre en el editor un artículo con tablas —los criterios de
+Inglés son 33— y le da a guardar, Draftail las descarta en silencio.
