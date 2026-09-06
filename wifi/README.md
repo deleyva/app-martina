@@ -52,3 +52,11 @@ que nadie ha pegado en ningún sitio.
 just test          # toda la suite
 docker compose run --rm django pytest wifi/    # solo esta app
 ```
+
+## Piel de las pantallas de sesión
+
+`/accounts/login/` y `/accounts/logout/` se sirven con la plantilla base de esta app
+cuando el visitante viene de `/wifi/`, para que no aparezca la cabecera de la Music App.
+El mecanismo es el que ya usaba `incidencias`: `AppModeMiddleware` guarda un `app_mode`
+en la sesión según la ruta, y `utils/context_processors.py` lo traduce a `base_template`.
+Las ramas concretas viven en `templates/account/login.html` y `logout.html`.

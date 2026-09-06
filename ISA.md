@@ -1,8 +1,8 @@
 ---
 slug: app-martina
-phase: complete
-progress: false
-iteration: 32
+phase: verify
+progress: true
+iteration: 33
 principal_stated_goal: "Necesito desarrollar en apps.iesmartinabescos.es Otra app de Django como la que tenemos en /incidencias. Está sí que debe de requerir login con Google porque ya tenemos implementado. Básicamente, es una aplicación en la que quiero que vayan solicitando la clave Wi-Fi. Pero para ello deben logearse y enviar la MAC de su dispositivo WIFI, la privada (real) no la aleatoria."
 updated: 2026-09-06
 ---
@@ -1567,3 +1567,25 @@ Tres cosas que costaron tiempo y que aquí quedan escritas:
 ### Gotcha de despliegue (fase 26)
 
 **`deploy-production` hace `scp` del `.envs/.production/.django` LOCAL al servidor.** Cualquier variable escrita a mano en el servidor se pierde en el siguiente despliegue. Las variables de esta app hay que ponerlas en la copia local del fichero, que es la que manda. Comprobado antes de desplegar: `DJANGO_WIFI_SSID` y `DJANGO_WIFI_PASSWORD` estaban en la copia local, así que viajaron correctamente.
+
+## Fase 26·1 — El remitente en la página, y login y logout con piel propia
+
+Tres peticiones del principal tras usar la app en producción.
+
+### Claims
+
+- [ ] **C103 — La página dice de qué dirección sale el aviso**, tomada de `DEFAULT_FROM_EMAIL` y no escrita a mano, más una nota sobre el spam. El principal recibió el correo de `app.gestion.admin@iesmartinabescos.es` y el texto solo hablaba de su propia dirección. *Probe: test que fija `DEFAULT_FROM_EMAIL` con nombre para mostrar y comprueba que la página pinta solo la dirección; y navegador real.*
+- [ ] **C104 — Login y logout llevan la piel de wifi cuando se viene de la app.** *Probe: navegador real sobre `/accounts/logout/` y `/accounts/login/`.*
+- [ ] **C105 — Y NO la llevan cuando se viene de otro sitio.** Es el riesgo real de tocar middleware compartido. *Probe: tests desde la app principal y desde incidencias, más comprobación en navegador.*
+
+### Decisions
+
+- **Se reutiliza `AppModeMiddleware`, no se inventa nada.** El mecanismo ya existía para `incidencias`: la ruta decide un `app_mode` en sesión, un context processor traduce eso a `base_template`, y las plantillas de allauth extienden esa variable. Añadir wifi es una línea en cada sitio.
+- **Ese middleware lleva un incidente escrito en su docstring** — escribir en la sesión en cada petición borraba el `socialaccount_states` de un login de Google en vuelo y lo mataba con «Codigo: unknown». Por eso solo se persisten los modos distintos del defecto, y `/accounts/` no decide modo. Se respetó esa forma al añadir wifi en vez de meter una rama nueva.
+- **El remitente sale de `DEFAULT_FROM_EMAIL`, no de una constante.** Escribir la dirección en la plantilla la deja mintiendo el día que se cambie la cuenta de envío.
+
+### Log
+
+- 2026-09-06 · La rama wifi del login enseña **solo** el botón de Google, sin formulario de contraseña: el personal entra siempre con la cuenta del centro, y ofrecer usuario/contraseña ahí solo genera intentos fallidos.
+- 2026-09-06 · Gotcha de test: la plantilla de login pinta `provider_login_url`, que revienta con `SocialApp.DoesNotExist` si no hay fila de Google en la BD. Hace falta fixture.
+- 2026-09-06 · Gotcha de verificación: el campo del formulario de allauth se llama `login`, no `email`. Rellenarlo por el nombre equivocado falla en silencio y parece un problema de credenciales.

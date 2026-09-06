@@ -131,9 +131,14 @@ class AccountAdapter(DefaultAccountAdapter):
         Retorna la URL de redirección después del logout.
         Si el usuario está en el modo 'incidencias', redirige a la landing de incidencias.
         """
-        if request.session.get('app_mode') == 'incidencias':
+        modo = request.session.get('app_mode')
+        destinos = {
+            'incidencias': 'incidencias:landing',
+            'wifi': 'wifi:solicitar',
+        }
+        if modo in destinos:
             from django.urls import reverse
-            return reverse('incidencias:landing')
+            return reverse(destinos[modo])
         return super().get_logout_redirect_url(request)
 
 

@@ -1,4 +1,5 @@
 import json
+from email.utils import parseaddr
 
 from django.conf import settings
 from django.contrib import messages
@@ -67,6 +68,10 @@ class SolicitarView(PersonalRequiredMixin, CreateView):
             usuario=self.request.user,
         ).order_by("-created_at")
         context["es_gestor"] = es_gestor(self.request.user)
+        # De qué dirección sale el aviso. Se saca de `DEFAULT_FROM_EMAIL` en vez
+        # de escribirla en la plantilla: si algún día cambia la cuenta de envío,
+        # la página no se queda mintiendo.
+        context["remitente"] = parseaddr(getattr(settings, "DEFAULT_FROM_EMAIL", ""))[1]
         return context
 
     def form_valid(self, form):

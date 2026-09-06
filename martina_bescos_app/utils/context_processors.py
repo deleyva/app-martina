@@ -9,6 +9,8 @@ def base_template_context(request):
         base_template = "blogs/base.html"
     elif request.session.get("app_mode") == "incidencias":
         base_template = "incidencias/base_incidencias.html"
+    elif request.session.get("app_mode") == "wifi":
+        base_template = "wifi/base_wifi.html"
     else:
         base_template = "base.html"
 

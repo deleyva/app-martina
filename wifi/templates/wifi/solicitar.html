@@ -8,8 +8,14 @@
     <p class="mt-2 text-base-content/80">
       Para dar de alta tu dispositivo necesitamos la dirección MAC <strong>real</strong> de su
       tarjeta WiFi — la de fábrica, no la aleatoria que ponen los móviles por defecto.
-      Cuando administración lo añada a la red, recibirás la clave por correo en
+    </p>
+    <p class="mt-3 text-base-content/80">
+      Cuando administración lo añada a la red, te llegará la clave a
       <span class="mac font-semibold">{{ request.user.email }}</span>.
+      {% if remitente %}
+        El correo lo envía <span class="mac font-semibold">{{ remitente }}</span>,
+        así que búscalo por ahí — y si no aparece, mira en la carpeta de spam.
+      {% endif %}
     </p>
   </div>
 

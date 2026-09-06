@@ -31,6 +31,29 @@
     </div>
 </div>
 
+{% elif base_template == "wifi/base_wifi.html" %}
+{# ── Altas de WiFi ── #}
+<div class="max-w-md mx-auto card bg-base-100 shadow-lg border border-base-300 mt-8">
+  <div class="card-body">
+    <h1 class="card-title text-2xl font-bold">Cerrar sesión</h1>
+    <p class="mb-6 text-base-content/80">
+      Vas a salir de las altas de WiFi. Tus dispositivos ya enviados siguen ahí:
+      vuelve a entrar con Google cuando quieras consultarlos.
+    </p>
+
+    <form method="post" action="{% url 'account_logout' %}">
+      {% csrf_token %}
+      {% if redirect_field_value %}
+      <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}"/>
+      {% endif %}
+      <div class="card-actions justify-end">
+        <button type="submit" class="btn btn-error text-white">Cerrar sesión</button>
+        <a href="{% url 'wifi:solicitar' %}" class="btn btn-ghost">Cancelar</a>
+      </div>
+    </form>
+  </div>
+</div>
+
 {% else %}
 {# ── Standard app aesthetic (DaisyUI) ── #}
 <div class="max-w-md mx-auto card bg-base-100 shadow-xl mt-8">

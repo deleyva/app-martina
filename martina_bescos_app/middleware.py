@@ -1,7 +1,7 @@
 
 class AppModeMiddleware:
     """
-    Decide el modo de aplicación (principal vs incidencias) a partir de la URL,
+    Decide el modo de aplicación (principal, incidencias o wifi) a partir de la URL,
     para servir la plantilla base correcta en vistas compartidas como auth y
     perfiles de usuario.
 
@@ -18,9 +18,10 @@ class AppModeMiddleware:
        llegaba a borrar el `socialaccount_states` de un login de Google en
        vuelo, y el callback moría con `Codigo: unknown` sin excepción.
 
-    Solo se persiste 'incidencias'. Los dos únicos consumidores del valor
-    (`utils/context_processors.py` y `users/adapters.py`) comparan contra esa
-    cadena y nada más, de modo que la ausencia de la clave ya significa "main".
+    Solo se persisten los modos distintos del defecto ('incidencias', 'wifi').
+    Los dos únicos consumidores del valor (`utils/context_processors.py` y
+    `users/adapters.py`) comparan contra esas cadenas y nada más, de modo que
+    la ausencia de la clave ya significa "main".
     """
 
     #: Rutas que no representan navegación del usuario y por tanto nunca deben
@@ -54,6 +55,8 @@ class AppModeMiddleware:
             return None
         if path.startswith("/incidencias/"):
             return "incidencias"
+        if path.startswith("/wifi/"):
+            return "wifi"
         return self.DEFAULT_MODE
 
     def _remember(self, session, mode):
@@ -61,7 +64,7 @@ class AppModeMiddleware:
         current = session.get(self.SESSION_KEY)
         if mode == self.DEFAULT_MODE:
             # El defecto no se guarda. Solo hay que limpiar si veníamos de
-            # incidencias, y esa sí es una transición real.
+            # otro modo, y esa sí es una transición real.
             if current is not None:
                 del session[self.SESSION_KEY]
         elif current != mode:
