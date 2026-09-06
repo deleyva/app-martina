@@ -1608,6 +1608,9 @@ Tres decisiones del principal, fijadas antes de construir (2026-09-06):
 1. **Publicados**, no borrador. Salen vivos al sitio.
 2. **Todo el histórico**, 2019→2026, con sus fechas originales.
 3. **Las 5 páginas estáticas de Francés entran como artículos** — es su único contenido.
+4. **Los archivos también** (2026-09-06, tras ver el primer informe): «¿Importarías todo de
+   los artículos? Imágenes y archivos? Querría que así fuera». Las imágenes ya entraban;
+   los documentos de Drive no.
 
 ### Vision
 
@@ -1679,6 +1682,9 @@ Cuatro hechos que decidieron el diseño:
 - **A27.4 — Ningún fallo silencioso.** Cada imagen no descargada, cada post saltado y cada
   etiqueta no mapeada aparece en el informe final con su motivo. Un import que dice "223 OK"
   ocultando 40 imágenes perdidas es peor que uno que falla.
+- **A27.7 — Ni un fichero se baja con credenciales.** Si algo en Drive está restringido al
+  dominio del centro, se queda como enlace y se dice. Usar la cuenta de Google de Jesús
+  para vaciar Drive en el servidor sería excederse: él decide qué se hace público.
 - **A27.5 — El importador no inventa.** No resume con IA, no reescribe títulos, no genera
   entradillas de la nada: la `intro` es literalmente las primeras palabras del artículo.
 - **A27.6 — El vocabulario facetado no se ensucia.** Las 10 etiquetas de Blogger entran
@@ -1697,6 +1703,10 @@ Cuatro hechos que decidieron el diseño:
 - [ ] **C114 — Volver a lanzar el comando no duplica nada.** *Probe: ejecutar dos veces seguidas; la segunda reporta 0 creados, N saltados, y el total de `ArticuloPage` no cambia.*
 - [ ] **C115 — Las etiquetas de Blogger entran mapeadas.** `1ºESO`→`curso:1-eso`, `información`→`tema:informacion`, etc. *Probe: test de la función de mapeo sobre las 10 etiquetas medidas.*
 - [ ] **C116 — Francés deja de estar vacío.** Sus 5 páginas estáticas entran como artículos. *Probe: `/frances/` en navegador real lista 5 artículos.*
+- [ ] **C119 — Los archivos que el profesorado dejó en Drive se traen al servidor.** El enlace del texto pasa a apuntar a nuestra copia, con el mismo texto que escribió quien lo puso. *Probe: descargar la URL renderizada del artículo y comprobar que devuelve el fichero real, no una página de Google.*
+- [ ] **C120 — Lo que no se puede traer se dice, uno a uno, con su motivo.** Un fichero borrado de Drive (404), uno restringido al dominio del centro, una carpeta y un formulario son cuatro casos distintos y se informan por separado. *Probe: el informe del comando sobre los 16 blogs.*
+- [ ] **C121 — No se usa la cuenta de Google de nadie.** Lo que exige iniciar sesión se queda como enlace y se reporta; no se intenta ninguna credencial. *Probe: lectura del código — solo `urllib` sin cabeceras de autenticación.*
+- [ ] **C122 — El mismo fichero enlazado desde varios artículos se guarda una sola vez.** Las «Orientaciones para el alumnado» salen nueve semanas seguidas. *Probe: contar documentos frente a enlaces resueltos.*
 - [ ] **C117 — La suite pasa** y los fallos preexistentes de otras apps son los mismos que antes de esta fase. *Probe: `just test`, comparado contra `git stash`.*
 - [ ] **C118 — Verificado en producción con navegador real:** portada, tres departamentos y un artículo con imagen, vídeo y tabla. *Probe: Chrome real sobre `blogs.iesmartinabescos.es`.*
 
@@ -1718,3 +1728,25 @@ El import contra red se ensaya primero contra la **BD local**, nunca contra prod
   iframes (todos YouTube), 59 tablas, 10 etiquetas. Dos blogs sin posts.
 - 2026-09-06 · Tres decisiones del principal (publicados / todo el histórico / páginas de
   Francés sí) tomadas antes de construir, no asumidas.
+- 2026-09-06 · **Cuatro defectos encontrados construyendo, tres invisibles en el HTML.**
+  (1) El vídeo importado salía como un hueco en blanco: el selector responsive de
+  `articulo.html` estaba escrito para la forma que produce Wagtail. (2) La capitular usaba
+  `:first-of-type` sin `>`, así que salía una letra gigante en cada celda de tabla — en el
+  documento de criterios de Inglés, con 33 tablas, ilegible. (3) La plantilla no tenía
+  NINGUNA regla para tablas. (4) Word pega su maquetación dentro de un comentario HTML,
+  donde `find_all` no entra: tres artículos de Matemáticas se veían perfectos y llevaban
+  dentro una imagen apuntando a Google. **El cuarto solo apareció contando sobre los 228
+  cuerpos**, no mirando páginas: en pantalla un comentario no se ve. Es el argumento
+  entero a favor de que C108 y C110 se comprueben sobre todos y no sobre una muestra.
+- 2026-09-06 · Un quinto defecto de la misma familia: `find_all` devuelve una lista
+  congelada, y once bucles de `blogspot.py` destruían etiquetas mientras la recorrían. Solo
+  se disparó en uno —hace falta anidamiento para provocarlo— y tumbó el ensayo en el
+  artículo 68 de 228. Barrido de clase: los once por el mismo guarda.
+- 2026-09-06 · **Los archivos, tras la pregunta del principal.** Medido: 87 ficheros de
+  Drive y 11 documentos enlazados. Se traen 34 (29,8 MB). 42 enlaces dan 404 —ya están
+  rotos hoy en Blogspot—, 23 piden login del dominio del centro, y las carpetas y el
+  formulario se quedan como enlace a propósito.
+- 2026-09-06 · **Los 11 vídeos subidos a Blogger son lo único que no se rescata.** No son
+  enlaces de YouTube: son grabaciones de clase y trabajos del alumnado que no existen en
+  ningún otro sitio. Su reproductor arranca YouTube desde JavaScript ofuscado. Se quedan
+  como iframe, funcionan, y dependen de que la cuenta de Blogger siga existiendo.
