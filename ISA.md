@@ -1412,7 +1412,7 @@ en cascada, así que mejor mirando.
   colecciones con el árbol nuevo. El sitio de blogs se comprobó añadiendo un `Site`
   temporal `localhost:8000` → raíz de blogs, borrado después.
 
-## Fase 26 — Alta de dispositivos en la WiFi del centro · CONSTRUIDA Y VERIFICADA EN LOCAL · SIN DESPLEGAR
+## Fase 26 — Alta de dispositivos en la WiFi del centro · DESPLEGADA · CORREO DE PRODUCCIÓN SIN VERIFICAR
 
 Una app nueva, `wifi`, hermana de `incidencias`: el profesorado se identifica con Google,
 manda la MAC **real** de su dispositivo, y los administrativos copian de una tacada las
@@ -1479,7 +1479,7 @@ Tres decisiones del principal fijadas antes de construir (2026-09-06):
 - [x] **C99 — Las bajas tienen su propia lista copiable** y su propio botón de marcar. *Probe: test de flujo activa → baja pendiente → dada de baja; y comprobación en navegador.* *Cerrada en Chrome real: «Dar de baja» mueve `A4:83:E7:1C:90:2B` a bajas pendientes (2), su bloque copiable da `3C-22-FB-01-02-03\nA4-83-E7-1C-90-2B`, y marcar cierra las dos sin generar ningún correo (Mailpit se queda en 4).*
 - [x] **C100 — Los tutoriales de iOS, Android, Windows, macOS y VitaLinux están en la página de solicitud**, plegados, cada uno con los pasos concretos de ese sistema. *Probe: navegador real — abrir los cinco desplegables y leerlos.* *Cerrada en Chrome real: los cinco desplegables presentes y abiertos; leído el de Windows (`ipconfig /all`) y el de VitaLinux (`ip link show`) con su numeración.*
 - [x] **C101 — La suite pasa** y los fallos preexistentes de otras apps siguen siendo los mismos que antes de esta fase. *Probe: `just test`, comparado contra el estado previo.* *Cerrada: 533 pasan, 4 fallan. Los 4 son idénticos con `git stash` sobre el estado previo (2 de `cms`, 2 de `incidencias`): preexistentes.*
-- [ ] **C102 — Verificado en producción con navegador real**: solicitar como profesor, gestionar como administrativo, y el correo recibido. *Probe: Interceptor sobre `apps.iesmartinabescos.es/wifi/`.*
+- [~] **C102 — Verificado en producción con navegador real.** *Parcial (2026-09-06): desplegado en `15a3df8`, migración `wifi.0001_initial` aplicada. En Chrome real sobre `apps.iesmartinabescos.es`: `/wifi/` renderiza con los cinco tutoriales y la numeración correcta (el CSS lo reconstruye el Dockerfile en el build, verificado `list-style-type: decimal`), y `/wifi/gestion/` carga **sin** el banner de clave ausente — que es la prueba directa de que `DJANGO_WIFI_PASSWORD` llegó al contenedor. **Falta la única pieza que producción no comparte con local: la entrega real por SMTP de Gmail.** Mailpit demostró la plantilla y el destinatario, no que Gmail acepte el envío. Pendiente de permiso del principal para una prueba de extremo a extremo.*
 
 ### Test Strategy
 
@@ -1561,8 +1561,10 @@ Tres cosas que costaron tiempo y que aquí quedan escritas:
 
 ### Lo que falta
 
-- **C102 — verificar en producción.** Bloqueado por dos cosas que dependen del principal:
-  1. `git push` a `origin/main` (repositorio público de GitHub: no se empuja sin permiso explícito), y luego `just deploy-production`.
-  2. Definir `DJANGO_WIFI_SSID` y `DJANGO_WIFI_PASSWORD` en `.envs/.production/.django` **antes** del despliegue. Sin la clave, la app da de alta pero no avisa a nadie — y ahora lo dice en pantalla en vez de fingir que sí.
+- **C102 — la entrega real por SMTP.** Desplegado y verificado en navegador el 2026-09-06, salvo el envío: producción usa Gmail SMTP (`app.gestion.admin@iesmartinabescos.es`) y local usaba Mailpit, así que lo único no probado es que Gmail acepte el correo. Requiere permiso del principal: implica enviar un correo de verdad y dejar un registro de prueba en la base de datos de producción.
 - **Crear el grupo «Gestión WiFi»** en `/admin` y meter a los administrativos. Sin eso, solo los superusuarios ven la pantalla de gestión.
 - **Revisar el patrón que separa personal de alumnado.** Por defecto, `^[a-z]` sobre la parte local del correo del dominio del centro. Si la convención real es otra, se cambia con `DJANGO_WIFI_PATRON_PERSONAL` sin tocar código; y el grupo «WiFi personal autorizado» cubre casos sueltos.
+
+### Gotcha de despliegue (fase 26)
+
+**`deploy-production` hace `scp` del `.envs/.production/.django` LOCAL al servidor.** Cualquier variable escrita a mano en el servidor se pierde en el siguiente despliegue. Las variables de esta app hay que ponerlas en la copia local del fichero, que es la que manda. Comprobado antes de desplegar: `DJANGO_WIFI_SSID` y `DJANGO_WIFI_PASSWORD` estaban en la copia local, así que viajaron correctamente.
