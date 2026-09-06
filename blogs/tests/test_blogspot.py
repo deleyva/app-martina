@@ -320,3 +320,61 @@ class TestMaquetacionDeBlogspot:
         salida = limpiar_cuerpo(crudo)
         assert 'href="https://www.goethe.de/es/"' in salida
         assert "Instituto Goethe" in salida
+
+
+class TestRastroDeGoogle:
+    """C108 no depende del orden en que se llamen los pasos.
+
+    El comando sustituye cada `<img>` por un `<embed>` a una imagen ya nuestra
+    ANTES de limpiar. Si por lo que sea uno se escapa, la limpieza lo quita
+    igual: una foto perdida es un fallo visible, un `<img>` a Google es un fallo
+    que aparece meses después, cuando ya nadie mira.
+    """
+
+    def test_una_imagen_de_google_que_llegue_a_la_limpieza_se_cae(self):
+        salida = limpiar_cuerpo(
+            '<p>Texto</p><img src="https://blogger.googleusercontent.com/img/b/x/s320/f.jpg"/>'
+        )
+        assert "googleusercontent" not in salida
+        assert "Texto" in salida
+
+    def test_una_imagen_de_otro_sitio_no_se_toca(self):
+        # El profesor enlazó una imagen de otra web: eso no es asunto nuestro.
+        crudo = '<p><img src="https://seminariomiacifema.catedu.es/cartel.png" alt="Cartel"/></p>'
+        assert "catedu.es/cartel.png" in limpiar_cuerpo(crudo)
+
+
+class TestEtiquetasAnidadas:
+    """Regresión del fallo que abortó el ensayo en el artículo 68 de 228.
+
+    `find_all` devuelve una lista congelada: al destruir una etiqueta que
+    contiene a otra, la interior sigue en la lista pero ya está muerta, y
+    `enlace.get("href")` revienta con AttributeError. No es un caso raro —
+    Blogger anida enlaces al meter una foto enlazada dentro de otro enlace.
+    """
+
+    def test_dos_enlaces_a_google_anidados_no_revientan(self):
+        crudo = (
+            '<a href="https://blogger.googleusercontent.com/img/b/x/s1600/a.jpg">'
+            '<a href="https://blogger.googleusercontent.com/img/b/x/s1600/b.jpg">'
+            '<img src="https://blogger.googleusercontent.com/img/b/x/s320/b.jpg"/>'
+            "</a></a>"
+        )
+        salida = limpiar_cuerpo(crudo)          # antes: AttributeError
+        assert "googleusercontent" not in salida
+
+    def test_un_parrafo_vacio_dentro_de_otro_no_revienta(self):
+        assert limpiar_cuerpo("<p><p></p></p>") is not None
+
+    def test_una_tabla_de_maquetacion_dentro_de_otra_no_revienta(self):
+        crudo = (
+            "<table><tbody><tr><td>"
+            "<table><tbody><tr><td>Anidada</td></tr></tbody></table>"
+            "</td></tr></tbody></table>"
+        )
+        salida = limpiar_cuerpo(crudo)
+        assert "Anidada" in salida
+
+    def test_basura_dentro_de_un_script_no_revienta(self):
+        salida = limpiar_cuerpo("<script><o:p>x</o:p></script><p>Bien</p>")
+        assert "Bien" in salida and "<script" not in salida

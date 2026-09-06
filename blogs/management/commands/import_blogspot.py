@@ -61,6 +61,7 @@ class Informe:
     etiquetas_descartadas: list[str] = field(default_factory=list)
     posts_sin_cuerpo: list[str] = field(default_factory=list)
     sin_entradilla: list[str] = field(default_factory=list)
+    fallidos: list[tuple[str, str]] = field(default_factory=list)
 
 
 def _get(url: str, binario: bool = False):
@@ -421,10 +422,21 @@ class Command(BaseCommand):
 
             coleccion = self._coleccion(f"Blogspot — {destino.title}")
             for entrada, es_pagina in entradas:
-                with transaction.atomic():
-                    self._crear_articulo(
-                        entrada, destino, coleccion, informe, publicar, es_pagina
+                # Un post con HTML que rompa la limpieza no puede llevarse por
+                # delante los otros 227. Se anota, se sigue, y sale en el
+                # informe (A27.4). Como cada artículo va en su transacción, el
+                # que falla no deja nada a medias, y al relanzar se reintenta.
+                try:
+                    with transaction.atomic():
+                        self._crear_articulo(
+                            entrada, destino, coleccion, informe, publicar, es_pagina
+                        )
+                except Exception as exc:
+                    titulo = (entrada.get("title", {}).get("$t") or "(sin título)").strip()
+                    informe.fallidos.append(
+                        (f"{titulo} — {_enlace_original(entrada)}", f"{type(exc).__name__}: {exc}")
                     )
+                    self.stderr.write(self.style.ERROR(f"    ! {titulo[:60]} — {type(exc).__name__}"))
 
         self._resumen(informe, seco)
 
@@ -437,6 +449,13 @@ class Command(BaseCommand):
             return
 
         self.stdout.write(f"  Imágenes descargadas: {informe.imagenes_ok}")
+
+        if informe.fallidos:
+            self.stdout.write(
+                self.style.ERROR(f"\n  Artículos que NO se pudieron importar: {len(informe.fallidos)}")
+            )
+            for linea, motivo in informe.fallidos:
+                self.stdout.write(f"    · {linea[:100]}\n        {motivo[:160]}")
 
         # A27.4: los fallos se cuentan uno a uno, no se resumen en «casi todo bien».
         if informe.imagenes_fallidas:

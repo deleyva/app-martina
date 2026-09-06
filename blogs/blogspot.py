@@ -165,31 +165,52 @@ INLINE = {
 }
 
 
+def _vivo(etiqueta) -> bool:
+    """¿Sigue esta etiqueta en el árbol?
+
+    `find_all` devuelve una lista congelada. Si al recorrerla se destruye una
+    etiqueta que contenía a otra, la interior sigue en la lista pero ya está
+    muerta: BeautifulSoup le pone `attrs` a `None` y cualquier `.get()` revienta
+    con `AttributeError: 'NoneType' object has no attribute 'get'`. Pasó de
+    verdad, en el artículo 68 de 228 del ensayo, con dos `<a>` anidados que
+    Blogger deja al enlazar una foto dentro de otro enlace.
+
+    Todos los bucles de este módulo que destruyen etiquetas pasan por aquí.
+    """
+    return not getattr(etiqueta, "decomposed", False) and etiqueta.attrs is not None
+
+
 def _quitar_basura(soup: BeautifulSoup) -> None:
     """Scripts, estilos y los restos de Word con espacio de nombres."""
     for etiqueta in soup.find_all(["script", "style", "noscript", "meta", "link"]):
-        etiqueta.decompose()
+        if _vivo(etiqueta):
+            etiqueta.decompose()
     # `<o:p>`, `<v:shape>`, `<w:sdt>`: Word los deja al pegar. BeautifulSoup los
     # ve como etiquetas con dos puntos en el nombre.
     for etiqueta in soup.find_all(lambda t: isinstance(t, Tag) and ":" in t.name):
-        etiqueta.unwrap()
+        if _vivo(etiqueta):
+            etiqueta.unwrap()
 
 
 def _normalizar_estructura(soup: BeautifulSoup) -> None:
     """`h1` pasa a `h2` (el `h1` de la página es el título) y fuera contenedores."""
     for etiqueta in soup.find_all("h1"):
-        etiqueta.name = "h2"
+        if _vivo(etiqueta):
+            etiqueta.name = "h2"
     for nombre in DESENVOLVER:
         for etiqueta in soup.find_all(nombre):
-            etiqueta.unwrap()
+            if _vivo(etiqueta):
+                etiqueta.unwrap()
     # Lo que quede fuera de la lista y no sea de tabla, se desenvuelve también.
     for etiqueta in soup.find_all(True):
-        if etiqueta.name not in PERMITIDAS:
+        if _vivo(etiqueta) and etiqueta.name not in PERMITIDAS:
             etiqueta.unwrap()
 
 
 def _limpiar_atributos(soup: BeautifulSoup) -> None:
     for etiqueta in soup.find_all(True):
+        if not _vivo(etiqueta):
+            continue
         permitidos = ATRIBUTOS.get(etiqueta.name, set())
         for attr in list(etiqueta.attrs):
             if attr not in permitidos:
@@ -243,6 +264,8 @@ def _desenvolver_tablas_de_maquetacion(soup: BeautifulSoup) -> None:
     columnas y no las toca esto.
     """
     for tabla in soup.find_all("table"):
+        if not _vivo(tabla):
+            continue
         filas = tabla.find_all("tr")
         if not filas or any(len(f.find_all(["td", "th"], recursive=False)) > 1 for f in filas):
             continue
@@ -255,15 +278,23 @@ def _desenvolver_tablas_de_maquetacion(soup: BeautifulSoup) -> None:
         tabla.decompose()
 
 
-def _limpiar_enlaces_a_google(soup: BeautifulSoup) -> None:
-    """Fuera el «pincha para verla grande» de Blogger.
+def _quitar_rastro_de_google(soup: BeautifulSoup) -> None:
+    """Ni un enlace ni una imagen apuntando a los servidores de Google.
 
-    Cada foto de Blogspot viene envuelta en un enlace a su propia versión
-    ampliada en `googleusercontent.com`. Una vez que la foto es nuestra, ese
-    enlace solo sirve para mandar al lector de vuelta a Google —y para romperse
-    el día que se cierre la cuenta de Blogger (A27.3).
+    Dos cosas distintas, el mismo motivo. Cada foto de Blogspot viene envuelta
+    en un enlace a su propia versión ampliada en `googleusercontent.com`; una
+    vez que la foto es nuestra, ese enlace solo sirve para mandar al lector de
+    vuelta a Google. Y si un `<img>` de Google llega hasta aquí, es que la
+    sustitución por `<embed>` no lo cogió: se va igual.
+
+    Ese segundo caso es un cinturón sobre los tirantes a propósito. C108 —«las
+    imágenes viven en el servidor del IES»— no debería depender de que dos
+    pasos se llamen en el orden correcto: un `<img>` a Google se ve bien hoy y
+    es un hueco gris el día que alguien cierre la cuenta de Blogger (A27.3).
     """
     for enlace in soup.find_all("a"):
+        if not _vivo(enlace):
+            continue
         destino = enlace.get("href") or ""
         if not any(dominio in destino for dominio in DOMINIOS_GOOGLE):
             continue
@@ -271,6 +302,10 @@ def _limpiar_enlaces_a_google(soup: BeautifulSoup) -> None:
             enlace.unwrap()   # tenía contenido: se queda el contenido, se va el enlace
         else:
             enlace.decompose()  # era solo el envoltorio de una foto ya traída
+
+    for imagen in soup.find_all("img"):
+        if _vivo(imagen) and any(d in (imagen.get("src") or "") for d in DOMINIOS_GOOGLE):
+            imagen.decompose()
 
 
 def _podar_vacios(soup: BeautifulSoup) -> None:
@@ -280,6 +315,8 @@ def _podar_vacios(soup: BeautifulSoup) -> None:
     un artículo importado aparece con agujeros de tres líneas en blanco.
     """
     for enlace in soup.find_all("a"):
+        if not _vivo(enlace):
+            continue
         if not enlace.get("href"):
             enlace.unwrap()
         elif not enlace.get_text(strip=True) and not enlace.find(["embed", "img", "iframe"]):
@@ -287,12 +324,16 @@ def _podar_vacios(soup: BeautifulSoup) -> None:
             enlace.decompose()
 
     for etiqueta in soup.find_all(["p", "li", "h2", "h3", "h4", "h5", "h6"]):
+        if not _vivo(etiqueta):
+            continue
         tiene_contenido = etiqueta.find(["img", "embed", "iframe", "table"]) is not None
         if not tiene_contenido and not etiqueta.get_text(strip=True):
             etiqueta.decompose()
 
     # `<br><br><br>` -> un solo salto.
     for salto in soup.find_all("br"):
+        if not _vivo(salto):
+            continue
         siguiente = salto.next_sibling
         while siguiente is not None:
             if isinstance(siguiente, NavigableString) and not siguiente.strip():
@@ -317,7 +358,7 @@ def limpiar_cuerpo(html: str) -> str:
     _quitar_basura(soup)
     _normalizar_estructura(soup)
     _limpiar_atributos(soup)
-    _limpiar_enlaces_a_google(soup)
+    _quitar_rastro_de_google(soup)
     _desenvolver_tablas_de_maquetacion(soup)
     _envolver_sueltos(soup)
     _podar_vacios(soup)
