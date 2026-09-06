@@ -24,7 +24,13 @@
         margin-bottom: 1.5rem;
     }
 
-    .article-content p:first-of-type::first-letter {
+    /* La capitular es del primer parrafo DEL ARTICULO. Sin el `>`,
+       `:first-of-type` casa con el primer <p> de cada grupo de hermanos a
+       cualquier profundidad, asi que la capitular salia tambien dentro de cada
+       celda de tabla y de cada <li>: en el documento de criterios de Ingles,
+       con 33 tablas, aparecian decenas de letras gigantes. Visto en navegador
+       al importar los blogs de departamento (2026-09-06). */
+    .article-content > p:first-of-type::first-letter {
         font-family: 'Playfair Display', serif;
         float: left;
         font-size: 5rem;
@@ -130,6 +136,44 @@
         clear: both;
     }
 
+    /* Tablas. La plantilla no tenia ninguna regla para ellas y los criterios
+       de evaluacion son casi todo tablas: 33 en Ingles, 16 en Matematicas.
+       Sin bordes no se leen como tabla, y una tabla ancha desbordaba el
+       articulo en el movil en vez de poder desplazarse. */
+    .article-content table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 2rem 0;
+        font-size: 0.9rem;
+        line-height: 1.45;
+    }
+
+    .article-content table th,
+    .article-content table td {
+        border: 1px solid #d4d4d4;
+        padding: 0.5rem 0.7rem;
+        text-align: left;
+        vertical-align: top;
+    }
+
+    .article-content table th {
+        background: #f5f5f5;
+        font-weight: 700;
+    }
+
+    /* Una tabla de criterios puede tener seis columnas: que se desplace ella,
+       no la pagina entera. */
+    .article-content .tabla-desbordable {
+        overflow-x: auto;
+        margin: 2rem 0;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .article-content .tabla-desbordable table {
+        margin: 0;
+        min-width: 34rem;
+    }
+
     /* Embeds fill the full container width with 16:9 aspect ratio */
     .article-content .blog-embed-wrapper {
         position: relative;
@@ -145,7 +189,12 @@
         overflow: hidden;
     }
 
-    .article-content .blog-embed-wrapper > div:first-child iframe {
+    /* Descendiente a cualquier profundidad, no `> div:first-child`. El selector
+       original solo casaba con la forma que produce Wagtail al expandir un
+       embed (`<div class="responsive-object"><iframe>`); un iframe traido de
+       Blogspot cuelga de un <p> y se quedaba sin dimensiones dentro de un
+       contenedor que recorta: el video salia como un hueco en blanco. */
+    .article-content .blog-embed-wrapper iframe {
         position: absolute;
         top: 0;
         left: 0;
@@ -268,6 +317,17 @@
     document.addEventListener('DOMContentLoaded', function() {
         var body = document.getElementById('article-content');
         if (!body) return;
+
+        // Cada tabla dentro de su propio contenedor desplazable: una tabla de
+        // criterios con seis columnas no cabe en un movil, y sin esto la que
+        // se desplazaba era la pagina entera.
+        body.querySelectorAll('table').forEach(function(tabla) {
+            if (tabla.parentNode.classList.contains('tabla-desbordable')) return;
+            var caja = document.createElement('div');
+            caja.className = 'tabla-desbordable';
+            tabla.parentNode.insertBefore(caja, tabla);
+            caja.appendChild(tabla);
+        });
 
         // Wagtail renders embeds as <div><iframe></div> — find iframe parent divs
         var iframes = body.querySelectorAll('iframe');

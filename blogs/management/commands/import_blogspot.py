@@ -63,6 +63,7 @@ class Informe:
     imagenes_ok: int = 0
     imagenes_fallidas: list[tuple[str, str]] = field(default_factory=list)
     videos_ok: int = 0
+    videos_en_blogger: list[str] = field(default_factory=list)
     videos_fallidos: list[tuple[str, str]] = field(default_factory=list)
     etiquetas_descartadas: list[str] = field(default_factory=list)
     posts_sin_cuerpo: list[str] = field(default_factory=list)
@@ -208,8 +209,20 @@ class Command(BaseCommand):
         y no dentro de un año.
         """
         for marco in soup.find_all("iframe"):
-            url_ver = url_de_ver_youtube(marco.get("src") or "")
+            fuente = marco.get("src") or ""
+            url_ver = url_de_ver_youtube(fuente)
             if not url_ver:
+                # 11 vídeos del archivo están SUBIDOS a Blogger, no enlazados de
+                # YouTube: `blogger.com/video.g?token=…`. Son grabaciones de
+                # clase y trabajos del alumnado, y no existen en ningún otro
+                # sitio. Su página de reproducción arranca el reproductor de
+                # YouTube desde JavaScript ofuscado, así que el fichero no se
+                # puede bajar sin adivinar cómo funciona por dentro un servicio
+                # de Google. Se deja el iframe, que sigue funcionando, y se
+                # anota: es lo ÚNICO que esta migración no trae al servidor del
+                # centro, y sigue dependiendo de la cuenta de Blogger.
+                if "blogger.com/video" in fuente:
+                    informe.videos_en_blogger.append(fuente.split("?")[0])
                 continue
             try:
                 get_embed(url_ver)
@@ -495,6 +508,18 @@ class Command(BaseCommand):
 
         self.stdout.write(f"  Imágenes descargadas: {informe.imagenes_ok}")
         self.stdout.write(f"  Vídeos de YouTube incrustados: {informe.videos_ok}")
+
+        if informe.videos_en_blogger:
+            self.stdout.write(
+                self.style.WARNING(
+                    f"\n  Vídeos que siguen alojados en Blogger, NO en el servidor del centro:"
+                    f" {len(informe.videos_en_blogger)}"
+                )
+            )
+            self.stdout.write(
+                "    Son grabaciones subidas a Blogger, no enlaces de YouTube. Se ven bien,\n"
+                "    pero dependen de que la cuenta de Blogger siga existiendo."
+            )
 
         if informe.videos_fallidos:
             self.stdout.write(

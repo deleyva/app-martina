@@ -413,3 +413,38 @@ class TestYoutube:
 
         assert id_de_youtube("https://docs.google.com/document/d/abc/preview") is None
         assert id_de_youtube("") is None
+
+
+class TestComentariosDeWord:
+    """Word pega su maquetación VML dentro de un comentario condicional.
+
+    BeautifulSoup lo trata como UN comentario, así que `find_all` no entra y
+    ningún limpiador lo tocaba: salía tal cual en el artículo. Se detectó
+    contando `style=` sobre los 228 cuerpos importados, no mirando páginas —
+    en pantalla un comentario no se ve.
+    """
+
+    VML_REAL = (
+        "<p>Fotos del concurso.</p>"
+        '<!--[if gte vml 1]><v:shapetype id="_x0000_t75" o:spt="75" '
+        'path="m@4@5l@4@11@9@11@9@5xe" filled="f" stroked="f">'
+        '<v:stroke joinstyle="miter"/><v:shape id="Imagen_x0020_1" '
+        'o:spid="_x0000_s1026" type="#_x0000_t75" '
+        'alt="https://lh4.googleusercontent.com/zRbow2OM9do_xT7"/></v:shapetype>'
+        "<![endif]-->"
+    )
+
+    def test_no_sobrevive_ni_style_ni_la_url_de_google(self):
+        salida = limpiar_cuerpo(self.VML_REAL)
+        assert "googleusercontent" not in salida
+        assert "style=" not in salida
+        assert "v:shape" not in salida
+        assert "_x0000_" not in salida
+
+    def test_el_texto_de_verdad_se_queda(self):
+        assert "Fotos del concurso." in limpiar_cuerpo(self.VML_REAL)
+
+    def test_un_comentario_normal_tampoco_sobrevive(self):
+        salida = limpiar_cuerpo("<p>Uno</p><!-- nota para el editor --><p>Dos</p>")
+        assert "nota para el editor" not in salida
+        assert "Uno" in salida and "Dos" in salida

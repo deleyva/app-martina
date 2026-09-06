@@ -17,6 +17,7 @@ import re
 import unicodedata
 
 from bs4 import BeautifulSoup, NavigableString, Tag
+from bs4.element import CData, Comment, Declaration, Doctype, ProcessingInstruction
 
 # ---------------------------------------------------------------------------
 # El mapa: qué blog va a qué departamento
@@ -200,8 +201,27 @@ def _vivo(etiqueta) -> bool:
     return not getattr(etiqueta, "decomposed", False) and etiqueta.attrs is not None
 
 
+# Nodos que no son ni etiquetas ni texto: comentarios, CDATA, doctypes.
+_NO_ES_CONTENIDO = (Comment, CData, ProcessingInstruction, Declaration, Doctype)
+
+
 def _quitar_basura(soup: BeautifulSoup) -> None:
-    """Scripts, estilos y los restos de Word con espacio de nombres."""
+    """Scripts, estilos, comentarios y los restos de Word con espacio de nombres."""
+    # Los comentarios primero, y este es el orden que importa. Word pega su
+    # maquetación VML dentro de un comentario condicional:
+    #
+    #     <!--[if gte vml 1]><v:shape ... alt="https://lh4.googleusercontent…">
+    #     <v:stroke joinstyle="miter"/> ... <![endif]-->
+    #
+    # BeautifulSoup lo ve como UN comentario, no como etiquetas: `find_all` no
+    # entra ahí, así que ni el desenvolvedor de `<v:…>` ni el limpiador de
+    # atributos lo tocaban y salía tal cual en el artículo publicado. Es como
+    # sobrevivían `style=` y una URL de Google en los tres artículos del
+    # concurso de fotografía matemática — invisible hasta que se cuenta sobre
+    # los 228 cuerpos, porque en pantalla un comentario no se ve.
+    for nodo in soup.find_all(string=lambda t: isinstance(t, _NO_ES_CONTENIDO)):
+        nodo.extract()
+
     for etiqueta in soup.find_all(["script", "style", "noscript", "meta", "link"]):
         if _vivo(etiqueta):
             etiqueta.decompose()
