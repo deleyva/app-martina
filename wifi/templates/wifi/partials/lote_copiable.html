@@ -1,0 +1,96 @@
+{% comment %}
+Un bloque «copiar → pegar fuera → marcar». Espera en contexto:
+  lote        el diccionario que arma `_lote()` en views.py
+  titulo      encabezado del bloque
+  accion      URL del POST que marca lo copiado
+  verbo       texto del botón de marcar
+  vacio       qué decir cuando no hay nada
+  con_baja    si cada fila lleva botón de dar de baja (solo en el bloque de altas)
+{% endcomment %}
+
+<div class="card bg-base-100 shadow-lg border border-base-300 mb-6"
+     x-data="loteCopiable({{ lote.macs_json }}, {{ lote.ids_json }})">
+  <div class="card-body">
+    <h2 class="card-title text-lg justify-between">
+      <span>{{ titulo }}</span>
+      <span class="badge badge-lg {% if lote.total %}badge-primary{% else %}badge-ghost{% endif %}">{{ lote.total }}</span>
+    </h2>
+
+    {% if lote.total %}
+      <div class="flex flex-wrap gap-4 items-end mt-2">
+        <div>
+          <label class="label py-1"><span class="label-text text-xs font-semibold">Separador</span></label>
+          <select class="select select-bordered select-sm" x-model="separador" @change="recordar()">
+            <option value="coma">Comas</option>
+            <option value="linea">Saltos de línea</option>
+          </select>
+        </div>
+        <div>
+          <label class="label py-1"><span class="label-text text-xs font-semibold">Formato</span></label>
+          <select class="select select-bordered select-sm" x-model="formato" @change="recordar()">
+            <option value="colon">AA:BB:CC:DD:EE:FF</option>
+            <option value="hyphen">AA-BB-CC-DD-EE-FF</option>
+            <option value="plain">AABBCCDDEEFF</option>
+            <option value="cisco">AABB.CCDD.EEFF</option>
+          </select>
+        </div>
+      </div>
+
+      <textarea class="textarea textarea-bordered w-full mt-3 mac text-sm"
+                rows="4" readonly x-ref="salida" x-text="texto"
+                @click="$refs.salida.select()">{{ lote.texto_por_defecto }}</textarea>
+
+      <div class="flex flex-wrap gap-2 items-center mt-3">
+        <button type="button" class="btn btn-primary" @click="copiar()">
+          <span x-show="!copiado">📋 Copiar {{ lote.total }} MAC{{ lote.total|pluralize:",s" }}</span>
+          <span x-show="copiado" x-cloak>✓ Copiado</span>
+        </button>
+
+        <form method="post" action="{{ accion }}" class="inline">
+          {% csrf_token %}
+          <input type="hidden" name="ids" :value="idsCopiados">
+          <button type="submit" class="btn" :class="copiado ? 'btn-success' : 'btn-disabled'"
+                  :disabled="!copiado">
+            ✅ {{ verbo }}
+          </button>
+        </form>
+
+        <span class="text-xs opacity-60" x-show="!copiado">
+          Copia primero: así se marca exactamente lo que has pegado en el otro programa,
+          y no lo que haya entrado mientras tanto.
+        </span>
+      </div>
+
+      <div class="overflow-x-auto mt-4">
+        <table class="table table-sm table-zebra">
+          <thead>
+            <tr>
+              <th>MAC</th><th>Solicitante</th><th>Dispositivo</th><th>Fecha</th>
+              {% if con_baja %}<th></th>{% endif %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for d in lote.filas %}
+              <tr>
+                <td class="mac font-semibold">{{ d.mac }}</td>
+                <td class="text-sm">{{ d.usuario.email }}</td>
+                <td class="text-sm">{{ d.descripcion|default:"—" }}</td>
+                <td class="text-sm opacity-70">{{ d.created_at|date:"d/m/Y H:i" }}</td>
+                {% if con_baja %}
+                  <td class="text-right">
+                    <form method="post" action="{% url 'wifi:marcar_para_baja' d.pk %}">
+                      {% csrf_token %}
+                      <button class="btn btn-ghost btn-xs">Dar de baja</button>
+                    </form>
+                  </td>
+                {% endif %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="text-base-content/60 mt-2">{{ vacio }}</p>
+    {% endif %}
+  </div>
+</div>

@@ -1,0 +1,9 @@
+Buenos días,
+
+Tu dispositivo ha sido dado de alta en la red.
+
+Puedes acceder a la red {{ ssid }} con la contraseña {{ clave }}
+
+Si no pudieras acceder porque no sabes quitar la MAC Aleatoria, lo resolvemos presencialmente.
+
+Un saludo.

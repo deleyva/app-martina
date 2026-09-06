@@ -26,6 +26,12 @@ PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 # https://docs.djangoproject.com/en/dev/ref/settings/#email-backend
 EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 
+# TAREAS
+# ------------------------------------------------------------------------------
+# Las tareas de huey se ejecutan en el acto, sin Redis: así un test puede
+# comprobar el correo que dispara una vista sin montar la cola.
+HUEY["immediate"] = True  # noqa: F405
+
 # DEBUGGING FOR TEMPLATES
 # ------------------------------------------------------------------------------
 TEMPLATES[0]["OPTIONS"]["debug"] = True  # type: ignore[index]

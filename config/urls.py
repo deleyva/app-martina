@@ -67,6 +67,8 @@ urlpatterns = [
     path("my-library/", include("my_library.urls", namespace="my_library")),
     # Incidencias informáticas
     path("incidencias/", include("incidencias.urls", namespace="incidencias")),
+    # Altas de dispositivos en la WiFi del centro
+    path("wifi/", include("wifi.urls", namespace="wifi")),
     # Content Hub - Sistema de gestión de contenido musical con grafo de conocimiento
     path("content/", include("content_hub.urls", namespace="content_hub")),
     # Programación didáctica - planes por trimestre, cobertura y recomendaciones

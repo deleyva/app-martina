@@ -1,0 +1,65 @@
+{% load static i18n %}<!DOCTYPE html>
+{% get_current_language as LANGUAGE_CODE %}
+<html lang="{{ LANGUAGE_CODE }}" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <title>{% block title %}Altas de WiFi — IES Martina Bescós{% endblock title %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Alta de dispositivos en la red WiFi del IES Martina Bescós" />
+    <meta name="referrer" content="origin" />
+    <link rel="icon" href="{% static 'images/favicons/favicon.ico' %}" sizes="32x32" />
+    <link rel="icon" href="{% static 'images/favicons/favicon.svg' %}" type="image/svg+xml" />
+    {% block css %}
+      <link href="{% static 'css/output.css' %}" rel="stylesheet" />
+      <link href="{% static 'css/project.css' %}" rel="stylesheet" />
+    {% endblock css %}
+    <style>
+      .mac { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.04em; }
+      .paso-tutorial { counter-reset: none; }
+      .paso-tutorial li { margin-bottom: 0.4rem; }
+    </style>
+    {% block extra_css %}{% endblock extra_css %}
+    <script defer src="https://unpkg.com/alpinejs@3.12.1/dist/cdn.min.js"></script>
+  </head>
+  <body class="min-h-screen bg-base-100">
+    <div class="navbar bg-base-100 shadow-lg sticky top-0 z-40">
+      <div class="flex-1">
+        <a class="btn btn-ghost text-lg lg:text-xl font-bold gap-2" href="{% url 'wifi:solicitar' %}">
+          📶 <span>WiFi</span> <span class="text-primary">IES Martina Bescós</span>
+        </a>
+      </div>
+      <div class="flex-none">
+        <ul class="menu menu-horizontal gap-1 px-1">
+          <li><a href="{% url 'wifi:solicitar' %}">➕ Solicitar</a></li>
+          {% if es_gestor or request.user.is_superuser %}
+            <li><a href="{% url 'wifi:gestion' %}">🗂️ Gestión</a></li>
+          {% endif %}
+          {% if request.user.is_authenticated %}
+            <li><a href="{% url 'account_logout' %}">Salir</a></li>
+          {% else %}
+            <li><a href="{% url 'account_login' %}">Iniciar sesión</a></li>
+          {% endif %}
+        </ul>
+      </div>
+    </div>
+
+    <div class="container mx-auto px-4 py-8 max-w-5xl">
+      {% if messages %}
+        {% for message in messages %}
+          <div class="alert {% if message.tags %}alert-{{ message.tags }}{% else %}alert-info{% endif %} mb-4">
+            <span>{{ message }}</span>
+            <button class="btn btn-sm btn-circle btn-ghost" onclick="this.parentElement.remove()">✕</button>
+          </div>
+        {% endfor %}
+      {% endif %}
+      {% block content %}{% endblock content %}
+    </div>
+
+    <footer class="mt-8 border-t border-base-300">
+      <div class="container mx-auto px-4 py-6 text-center text-sm text-base-content/70">
+        IES Martina Bescós — altas de dispositivos en la red WiFi
+      </div>
+    </footer>
+    {% block extra_js %}{% endblock extra_js %}
+  </body>
+</html>

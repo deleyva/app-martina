@@ -1,10 +1,10 @@
 ---
 slug: app-martina
-phase: complete
-progress: false
-iteration: 31
-principal_stated_goal: "Por favor, sepárame la app CMS en dos apps distintas, por lo menos, para empezar una para blogs y otra para apps.música.es, Martina Bescós o lo que sea. No quiero tener más líos de templates. Por ejemplo, no quiero que tengan fichas musicales los artículos en blogs. Ni tampoco quiero que una persona, a la hora de subir una imagen, tenga que elegir si lo hace en la app de música o en el departamento de filosofía."
-updated: 2026-09-04
+phase: verify
+progress: true
+iteration: 32
+principal_stated_goal: "Necesito desarrollar en apps.iesmartinabescos.es Otra app de Django como la que tenemos en /incidencias. Está sí que debe de requerir login con Google porque ya tenemos implementado. Básicamente, es una aplicación en la que quiero que vayan solicitando la clave Wi-Fi. Pero para ello deben logearse y enviar la MAC de su dispositivo WIFI, la privada (real) no la aleatoria."
+updated: 2026-09-06
 ---
 
 # ISA — app-martina · Sistema de estudio de la biblioteca
@@ -1411,3 +1411,158 @@ en cascada, así que mejor mirando.
   piel editorial, índice musical y libro con la de la app, y el desplegable de
   colecciones con el árbol nuevo. El sitio de blogs se comprobó añadiendo un `Site`
   temporal `localhost:8000` → raíz de blogs, borrado después.
+
+## Fase 26 — Alta de dispositivos en la WiFi del centro · CONSTRUIDA Y VERIFICADA EN LOCAL · SIN DESPLEGAR
+
+Una app nueva, `wifi`, hermana de `incidencias`: el profesorado se identifica con Google,
+manda la MAC **real** de su dispositivo, y los administrativos copian de una tacada las
+que faltan por dar de alta en el software de la red y las marcan como añadidas. Al
+marcarlas, el solicitante recibe el correo con la clave.
+
+### Goal
+
+> "Necesito desarrollar en apps.iesmartinabescos.es Otra app de Django como la que tenemos en /incidencias. Está sí que debe de requerir login con Google porque ya tenemos implementado. Básicamente, es una aplicación en la que quiero que vayan solicitando la clave Wi-Fi. Pero para ello deben logearse y enviar la MAC de su dispositivo WIFI, la privada (real) no la aleatoria. entonces, necesitaría que, una vez que se logeara, enviaran en un formulario ese dato. Si pudieras incluir algún pequeño tutorial como desplegable para iOS, Android, Windows, Mac y VitaLinux, sería la leche. Una vez que hayan enviado ese MAC, unos administrativos, en una pantalla de administración de esta misma aplicación, copiarán las MACs para introducirlas en otro software y, lo que esos administrativos puedan, marcarlas como añadidas. Así, la siguiente vez solo tendrán que volver a esta pantalla de administración y copiar las que no estén marcadas como añadidas para volver a pegarlas en el otro software. Quiero que este proceso de copiar las que no estén marcadas sea lo más fluido posible. Es decir, que haya un botón y no tengan que estar arrastrando para copiar solo las que no están marcadas y cosas así. El formato en el que quiero que sean las max todas seguidas por comas, separadas por comas o con salto de línea Es así como se pegan en los otros software. Quiero que, de manera automática, cuando se marque una Mac como añadida, les llegue un correo a la persona que lo ha solicitado."
+
+### Vision
+
+El cuello de botella no es el formulario: es el trasvase manual al software de la red.
+Hoy alguien pregunta por WhatsApp o en persona, un administrativo apunta la MAC en un
+papel, la teclea, y nadie sabe qué se dio de alta ni cuándo. La app existe para que ese
+trasvase sea **copiar, pegar, un clic**, y para que el aviso al solicitante salga solo.
+
+Tres decisiones del principal fijadas antes de construir (2026-09-06):
+
+1. **Solo profesorado / personal.** El alumnado no se autoservirá.
+2. **Los administrativos son un grupo de Django** («Gestión WiFi»), gestionable desde
+   `/admin` sin tocar código. Los superusuarios entran siempre.
+3. **Hay bajas.** Un dispositivo puede marcarse para quitar de la red, y sale en su
+   propia lista copiable, para que el censo no crezca para siempre.
+
+### Out of Scope
+
+- Integración con el software de la red. Este sistema **no** da de alta nada por API:
+  produce texto para pegar. Deliberado — no sabemos qué software es.
+- Autoservicio del alumnado.
+- Que el usuario borre sus propios dispositivos (opción descartada por el principal).
+- Cualquier promesa de seguridad. El filtrado por MAC es censo y gestión, no barrera:
+  una MAC se falsifica en segundos.
+
+### Anti-claims
+
+- **A26.1 — La contraseña de la WiFi NO aparece en el repositorio.** Ni en código, ni en
+  plantillas, ni en migraciones, ni en tests, ni en este ISA. `app-martina` es un GitHub
+  público: escribirla ahí la publica para siempre y con historial. Vive solo en
+  `DJANGO_WIFI_PASSWORD` del entorno de producción.
+- **A26.2 — No se toca `incidencias`.** La app nueva no importa de ella, no reutiliza sus
+  modelos y no modifica sus plantillas. Comparten estilo, no código.
+- **A26.3 — El correo no se envía dos veces.** Marcar como añadida algo ya añadido no
+  vuelve a escribir al solicitante.
+- **A26.4 — Marcar como añadidas no puede marcar de más.** La operación actúa sobre los
+  identificadores exactos que el administrativo copió, nunca sobre "todo lo pendiente
+  ahora mismo": entre copiar y marcar puede haber entrado una solicitud nueva que NO se
+  ha pegado en el otro software.
+
+### Claims
+
+- [x] **C87 — La app existe, arranca y cuelga de `/wifi/`.** *Probe: `manage.py check` sale 0; `reverse("wifi:solicitar")` devuelve `/wifi/`.* *Cerrada: `manage.py check` → «System check identified no issues (0 silenced)»; `reverse("wifi:solicitar") == "/wifi/"` en `TestRutas`.*
+- [x] **C88 — Una MAC se normaliza desde cualquier formato de entrada** (`AA:BB:CC:DD:EE:FF`, `aa-bb-cc-dd-ee-ff`, `aabb.ccdd.eeff`, `AABBCCDDEEFF`) a la forma canónica en mayúsculas con dos puntos. *Probe: test parametrizado sobre `normalizar_mac`.* *Cerrada: `TestNormalizar` — 7 formatos de entrada convergen en `A4:83:E7:1C:90:2B`.*
+- [x] **C89 — Una MAC aleatoria se rechaza con un mensaje que explica qué hacer.** El bit localmente administrado (bit 1 del primer octeto) las delata. *Probe: test con `02:...`, `06:...`, `0A:...`, `AE:...` → `ValidationError`; y con `00:...`, `AC:...`, `F8:...` → válidas.* *Cerrada por partida doble: `TestAleatorias` cubre los 16×4 primeros octetos con el bit puesto y los 16×8 sin él; y en Chrome real sobre `/wifi/`, enviar `02:11:22:33:44:55` devuelve el aviso rojo con los pasos.*
+- [x] **C90 — Basura, difusión y multicast se rechazan:** longitud incorrecta, caracteres no hexadecimales, `00:00:00:00:00:00`, `FF:FF:FF:FF:FF:FF` y cualquier MAC con el bit multicast puesto. *Probe: test parametrizado.* *Cerrada: `TestValidar` — nula, difusión, multicast y basura, todos rechazados.*
+- [x] **C91 — La misma MAC no se registra dos veces mientras siga activa**, pero sí se puede volver a registrar si se dio de baja. *Probe: `UniqueConstraint` condicional + test que crea, da de baja y vuelve a crear.* *Cerrada: `TestUnicidad` — `IntegrityError` con la MAC activa; alta correcta tras darla de baja. `UniqueConstraint` condicional en la migración `0001_initial`.*
+- [x] **C92 — Sin sesión no se ve nada.** `/wifi/` y `/wifi/gestion/` redirigen al login. *Probe: test con cliente anónimo → 302 a `account_login`.* *Cerrada: `test_sin_sesion_todo_redirige_al_login` — 302 a `/accounts/login/` en las dos URLs.*
+- [x] **C93 — El alumnado no puede solicitar.** Una cuenta cuya parte local empieza por dígito (`0125eromero`) recibe 403 con explicación; una de profesorado (`eromero`) entra. La regla es configurable por `DJANGO_WIFI_PATRON_PERSONAL` sin redesplegar. *Probe: tests de ambos casos.* *Cerrada: `0125eromero@…` → 403, `eromero@…` → 200, `alguien@gmail.com` → 403, y el grupo de excepciones → 200.*
+- [x] **C94 — Solo el grupo «Gestión WiFi» y los superusuarios ven la pantalla de gestión.** Un profesor normal recibe 403. *Probe: tres tests, uno por rol.* *Cerrada: profesor normal 403, grupo «Gestión WiFi» 200, superusuario 200.*
+- [x] **C95 — La pantalla de gestión da el texto listo para pegar en un solo clic**, con las MACs pendientes de alta, en el separador elegido (coma o salto de línea) y el formato elegido (`AA:BB`, `AA-BB`, `AABB`, cisco). *Probe: navegador real — copiar y comprobar el portapapeles contra las filas de la BD.* *Cerrada en Chrome real: cambiar a «Saltos de línea» + `AA-BB-…` reescribe el cuadro en vivo; «📋 Copiar 3 MACs» pasa a «✓ Copiado», selecciona el texto y habilita el botón verde.*
+- [x] **C96 — Marcar como añadidas actúa sobre los identificadores copiados, no sobre "lo pendiente ahora".** *Probe: test que inserta una solicitud nueva entre el render y el POST y comprueba que esa queda pendiente.* *Cerrada: `test_solo_se_marca_lo_copiado_aunque_entre_algo_nuevo` — la solicitud que entra entre copiar y marcar sigue `pendiente`, y salen 2 correos, no 3.*
+- [x] **C97 — Al marcar como añadida sale el correo al solicitante**, con el asunto, el SSID y la clave tomados del entorno, y `notificado_at` sellado. *Probe: test con `django.core.mail.outbox` — un correo, un destinatario, cuerpo con el texto literal del principal.* *Cerrada contra Mailpit, no solo contra un mock: tres correos entregados a `eromero@`, `mgarcia@` y `jlopez@`, asunto «Acceso a la red WiFi MARTINABESCOS», cuerpo idéntico al texto del principal con SSID y clave tomados del entorno.*
+- [x] **C98 — Marcar dos veces no manda dos correos.** *Probe: test que llama al endpoint dos veces con los mismos ids → `len(outbox) == 1`.* *Cerrada: `test_marcar_dos_veces_no_manda_dos_correos` y `test_no_reenvia_a_quien_ya_fue_avisado` — `len(outbox) == 1`. El guarda real es la máquina de estados, no el sello.*
+- [x] **C99 — Las bajas tienen su propia lista copiable** y su propio botón de marcar. *Probe: test de flujo activa → baja pendiente → dada de baja; y comprobación en navegador.* *Cerrada en Chrome real: «Dar de baja» mueve `A4:83:E7:1C:90:2B` a bajas pendientes (2), su bloque copiable da `3C-22-FB-01-02-03\nA4-83-E7-1C-90-2B`, y marcar cierra las dos sin generar ningún correo (Mailpit se queda en 4).*
+- [x] **C100 — Los tutoriales de iOS, Android, Windows, macOS y VitaLinux están en la página de solicitud**, plegados, cada uno con los pasos concretos de ese sistema. *Probe: navegador real — abrir los cinco desplegables y leerlos.* *Cerrada en Chrome real: los cinco desplegables presentes y abiertos; leído el de Windows (`ipconfig /all`) y el de VitaLinux (`ip link show`) con su numeración.*
+- [x] **C101 — La suite pasa** y los fallos preexistentes de otras apps siguen siendo los mismos que antes de esta fase. *Probe: `just test`, comparado contra el estado previo.* *Cerrada: 533 pasan, 4 fallan. Los 4 son idénticos con `git stash` sobre el estado previo (2 de `cms`, 2 de `incidencias`): preexistentes.*
+- [ ] **C102 — Verificado en producción con navegador real**: solicitar como profesor, gestionar como administrativo, y el correo recibido. *Probe: Interceptor sobre `apps.iesmartinabescos.es/wifi/`.*
+
+### Test Strategy
+
+`pytest` vía `just test`. Tests en `wifi/tests/`, con `UserFactory` local (el `conftest.py`
+de `martina_bescos_app` no alcanza a esta app — lección de la fase 1). El correo se
+comprueba con `django.core.mail.outbox`, que en `config.settings.test` usa el backend en
+memoria; las tareas de huey corren de forma síncrona en test (`immediate`), así que el
+`db_task` se ejecuta dentro del propio POST.
+
+La detección de MAC aleatoria es una afirmación **universal** sobre el bit localmente
+administrado, no una lista de ejemplos: el test la comprueba sobre los cuatro nibbles que
+lo activan (`2`, `6`, `A`, `E` en la segunda posición) y sobre los que no.
+
+### Decisions
+
+- **App nueva, no una vista dentro de `incidencias`.** Comparten look y patrón de
+  autenticación, nada más. Acoplarlas obligaría a que un técnico de incidencias sea
+  administrativo de WiFi, que es exactamente lo que el principal no pidió.
+- **Grupo de Django para los administrativos, no un modelo `Gestor`.** `incidencias` usa
+  un modelo `Tecnico` con su pantalla de gestión; aquí no hace falta: un grupo se
+  administra desde `/admin` sin escribir código y sin una pantalla más que mantener.
+- **Distinguir profesorado por patrón de correo, no por un rol en la BD.** El proyecto
+  **no tiene** ningún marcador de rol en `User` (comprobado: `users/models.py` solo
+  expone `es_tecnico`). La única señal existente es la convención de cuentas que asoma en
+  los `placeholder` de `incidencias/forms.py`: `eromero` (personal) frente a
+  `0125eromero` (alumnado, prefijo numérico de promoción). Se codifica como expresión
+  regular configurable y con un grupo de excepciones («WiFi personal autorizado»), porque
+  es una heurística y va a fallar en algún caso.
+- **La clave y el SSID, en variables de entorno.** No por elegancia: el repositorio es
+  público. Además así se puede rotar la clave sin desplegar código.
+- **Estado en cuatro valores, no un booleano `añadida`.** El principal pidió alta y luego
+  bajas; un booleano obliga a añadir un segundo booleano y a que existan combinaciones
+  imposibles. `pendiente → añadida → baja_pendiente → dada_de_baja` es una máquina de
+  estados que no admite estados absurdos.
+- **Copiar y marcar son dos clics, no uno.** Un botón único "copiar y marcar" sella como
+  añadido algo que quizá el otro software rechace al pegarlo. El flujo es: copiar (que
+  memoriza qué se copió), pegar fuera, y marcar exactamente eso.
+
+### Log
+
+- 2026-09-06 · Revisión crítica antes de construir, y tres cosas dichas al principal:
+  (1) la clave acabaría en un repo público si se escribe en código; (2) la MAC aleatoria
+  no es un ajuste que se pone una vez — iOS y Android la generan por red y algunos
+  Android la rotan solos, así que un dispositivo puede dejar de funcionar semanas
+  después; (3) el filtrado por MAC es censo, no seguridad.
+- 2026-09-06 · Tres preguntas contestadas antes de escribir una línea: audiencia (solo
+  personal), permisos (grupo de Django) y bajas (sí, con botón en gestión).
+- 2026-09-06 · `git fetch` antes de tocar el ISA: 0 detrás, 0 delante de `origin/main`.
+  Criterios numerados desde C87, que era el siguiente libre tras C86 (fase 24).
+
+### Lo que se aprendió construyendo (fase 26)
+
+Tres cosas que costaron tiempo y que aquí quedan escritas:
+
+1. **`navigator.clipboard.writeText()` puede devolver una promesa que no se
+   resuelve NI se rechaza jamás.** Medido en Chrome el 06/09/2026 sobre
+   `localhost` (contexto seguro, documento con foco, API presente): la promesa
+   se quedó `pendiente` para siempre. La primera versión colgaba de ese `then`
+   el estado «copiado», así que el botón de marcar se quedaba deshabilitado y
+   el administrativo atascado, sin error visible en ningún sitio. **Regla: el
+   estado de la interfaz nunca depende de una promesa del portapapeles.** Se
+   copia con `execCommand` de forma síncrona dentro del gesto, se lanza la API
+   moderna sin mirar el resultado, y el cuadro se queda seleccionado para el
+   Ctrl+C manual. Se detectó solo porque se comprobó en un navegador de verdad:
+   los tests de servidor no podían verlo.
+
+2. **`docker compose restart` NO relee `env_file`.** Añadir
+   `DJANGO_WIFI_PASSWORD` a `.envs/.local/.django` y reiniciar dejó
+   `settings.WIFI_PASSWORD` vacío, y el diagnóstico se fue por el camino
+   equivocado (se culpó al correo). Hace falta `up -d --force-recreate`.
+
+3. **El mensaje de éxito mentía.** Sin clave configurada, la app marcaba las
+   altas y decía «Se ha enviado el correo con la clave a cada solicitante»
+   cuando no había salido ninguno — porque el aviso se dispara en una tarea y
+   la vista no miraba si podía salir. Corregido: sin clave, aviso naranja
+   diciendo exactamente qué falta, y un banner permanente en la pantalla de
+   gestión. **Una vista que dispara una tarea asíncrona no puede afirmar lo que
+   esa tarea hará.**
+
+### Lo que falta
+
+- **C102 — verificar en producción.** Bloqueado por dos cosas que dependen del principal:
+  1. `git push` a `origin/main` (repositorio público de GitHub: no se empuja sin permiso explícito), y luego `just deploy-production`.
+  2. Definir `DJANGO_WIFI_SSID` y `DJANGO_WIFI_PASSWORD` en `.envs/.production/.django` **antes** del despliegue. Sin la clave, la app da de alta pero no avisa a nadie — y ahora lo dice en pantalla en vez de fingir que sí.
+- **Crear el grupo «Gestión WiFi»** en `/admin` y meter a los administrativos. Sin eso, solo los superusuarios ven la pantalla de gestión.
+- **Revisar el patrón que separa personal de alumnado.** Por defecto, `^[a-z]` sobre la parte local del correo del dominio del centro. Si la convención real es otra, se cambia con `DJANGO_WIFI_PATRON_PERSONAL` sin tocar código; y el grupo «WiFi personal autorizado» cubre casos sueltos.

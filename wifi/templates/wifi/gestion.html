@@ -1,0 +1,169 @@
+{% extends "wifi/base_wifi.html" %}
+
+{% block title %}Gestión de altas WiFi — IES Martina Bescós{% endblock title %}
+
+{% block extra_css %}<style>[x-cloak]{display:none!important}</style>{% endblock extra_css %}
+
+{% block content %}
+  <div class="mb-6">
+    <h1 class="text-2xl lg:text-3xl font-bold">Gestión de dispositivos</h1>
+    <p class="mt-2 text-base-content/80">
+      Copia las MACs pendientes, pégalas en el programa de la red y márcalas aquí.
+      Al marcarlas, cada solicitante recibe automáticamente el correo con la clave.
+    </p>
+  </div>
+
+  {% if falta_clave %}
+    <div class="alert alert-warning mb-6">
+      <span>
+        <strong>No hay clave de WiFi configurada.</strong> Puedes marcar altas, pero
+        nadie recibirá el correo hasta que se defina <code>DJANGO_WIFI_PASSWORD</code>
+        en el servidor. Las que marques quedarán con el aviso «sin enviar».
+      </span>
+    </div>
+  {% endif %}
+
+  <div class="stats stats-vertical sm:stats-horizontal shadow w-full mb-6">
+    <div class="stat">
+      <div class="stat-title">Pendientes de alta</div>
+      <div class="stat-value text-primary">{{ alta.total }}</div>
+    </div>
+    <div class="stat">
+      <div class="stat-title">Pendientes de baja</div>
+      <div class="stat-value text-warning">{{ baja.total }}</div>
+    </div>
+    <div class="stat">
+      <div class="stat-title">Activos en la red</div>
+      <div class="stat-value">{{ total_activas }}</div>
+    </div>
+  </div>
+
+  {% url 'wifi:marcar_anadidas' as url_alta %}
+  {% include "wifi/partials/lote_copiable.html" with lote=alta accion=url_alta titulo="Pendientes de dar de alta" verbo="Marcar esas como añadidas" vacio="Nada pendiente. Todo lo solicitado está ya dado de alta." con_baja=False %}
+
+  {% url 'wifi:marcar_bajas_hechas' as url_baja %}
+  {% include "wifi/partials/lote_copiable.html" with lote=baja accion=url_baja titulo="Pendientes de quitar de la red" verbo="Marcar esas como dadas de baja" vacio="No hay bajas pendientes." con_baja=False %}
+
+  <div class="card bg-base-100 shadow-lg border border-base-300">
+    <div class="card-body">
+      <h2 class="card-title text-lg justify-between">
+        <span>Dispositivos activos en la red</span>
+        <span class="badge badge-lg badge-ghost">{{ total_activas }}</span>
+      </h2>
+
+      <form method="get" class="flex gap-2 mt-2">
+        <input type="search" name="q" value="{{ buscar }}"
+               class="input input-bordered input-sm w-full max-w-xs"
+               placeholder="Buscar por MAC, correo o dispositivo…">
+        <button class="btn btn-sm">Buscar</button>
+        {% if buscar %}<a href="{% url 'wifi:gestion' %}" class="btn btn-ghost btn-sm">Limpiar</a>{% endif %}
+      </form>
+
+      {% if activas %}
+        <div class="overflow-x-auto mt-3">
+          <table class="table table-sm table-zebra">
+            <thead>
+              <tr><th>MAC</th><th>Solicitante</th><th>Dispositivo</th><th>Alta</th><th>Aviso</th><th></th></tr>
+            </thead>
+            <tbody>
+              {% for d in activas %}
+                <tr>
+                  <td class="mac font-semibold">{{ d.mac }}</td>
+                  <td class="text-sm">{{ d.usuario.email }}</td>
+                  <td class="text-sm">{{ d.descripcion|default:"—" }}</td>
+                  <td class="text-sm opacity-70">{{ d.anadida_at|date:"d/m/Y" }}</td>
+                  <td class="text-sm">
+                    {% if d.notificado_at %}
+                      <span class="badge badge-success badge-sm">enviado</span>
+                    {% else %}
+                      <span class="badge badge-error badge-sm" title="El correo no llegó a salir">sin enviar</span>
+                    {% endif %}
+                  </td>
+                  <td class="text-right">
+                    <form method="post" action="{% url 'wifi:marcar_para_baja' d.pk %}">
+                      {% csrf_token %}
+                      <button class="btn btn-ghost btn-xs">Dar de baja</button>
+                    </form>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="text-base-content/60 mt-2">
+          {% if buscar %}Ningún dispositivo activo coincide con «{{ buscar }}».
+          {% else %}Todavía no hay ningún dispositivo dado de alta.{% endif %}
+        </p>
+      {% endif %}
+    </div>
+  </div>
+{% endblock content %}
+
+{% block extra_js %}
+<script>
+  function loteCopiable(macs, ids) {
+    return {
+      macs: macs,
+      ids: ids,
+      formato: localStorage.getItem('wifi-formato') || 'colon',
+      separador: localStorage.getItem('wifi-separador') || 'coma',
+      copiado: false,
+      idsCopiados: '',
+
+      recordar() {
+        localStorage.setItem('wifi-formato', this.formato);
+        localStorage.setItem('wifi-separador', this.separador);
+        this.copiado = false;
+        this.idsCopiados = '';
+      },
+
+      formatear(mac) {
+        const plano = mac.replace(/:/g, '');
+        if (this.formato === 'plain') return plano;
+        if (this.formato === 'hyphen') return plano.match(/.{2}/g).join('-');
+        if (this.formato === 'cisco') return plano.match(/.{4}/g).join('.');
+        return mac;
+      },
+
+      get texto() {
+        const piezas = this.macs.map(m => this.formatear(m));
+        return this.separador === 'linea' ? piezas.join('\n') : piezas.join(', ');
+      },
+
+      // Todo el trabajo es SÍNCRONO, dentro del gesto del usuario, y el estado
+      // nunca depende de una promesa.
+      //
+      // Comprobado en Chrome el 06/09/2026: navigator.clipboard.writeText()
+      // puede devolver una promesa que NO se resuelve ni se rechaza jamás —
+      // permiso pendiente, documento sin foco, política del navegador. Colgar
+      // de ella el «copiado» dejaba el botón de marcar deshabilitado para
+      // siempre, y al administrativo atascado sin saber por qué.
+      //
+      // Así que primero copiamos con execCommand, que es síncrono y no pide
+      // permiso; luego lanzamos la API moderna sin mirar el resultado, por si
+      // acaso; y el cuadro se queda seleccionado para que un Ctrl+C manual
+      // funcione aunque fallen las dos.
+      copiar() {
+        const texto = this.texto;
+
+        try {
+          this.$refs.salida.select();
+          this.$refs.salida.setSelectionRange(0, texto.length);
+          document.execCommand('copy');
+        } catch (e) { /* queda el Ctrl+C manual */ }
+
+        if (navigator.clipboard && window.isSecureContext) {
+          try {
+            const p = navigator.clipboard.writeText(texto);
+            if (p && p.catch) p.catch(() => {});
+          } catch (e) { /* idem */ }
+        }
+
+        this.copiado = true;
+        this.idsCopiados = this.ids.join(',');
+      },
+    };
+  }
+</script>
+{% endblock extra_js %}

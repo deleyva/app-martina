@@ -109,6 +109,7 @@ LOCAL_APPS = [
     "musica",  # Biblioteca musical — apps.iesmartinabescos.es
     "my_library",  # Biblioteca personal de usuario
     "incidencias",  # Sistema de incidencias informáticas
+    "wifi",  # Altas de dispositivos en la WiFi del centro
     "analytics",
     "content_hub",  # Sistema flexible de gestión de contenido musical (grafo de conocimiento)
     "programacion",  # Programación didáctica: planes por trimestre, cobertura y recomendaciones
@@ -274,6 +275,20 @@ EMAIL_TIMEOUT = 5
 
 DEFAULT_USER_EMAIL_DOMAIN = env("DJANGO_DEFAULT_USER_EMAIL_DOMAIN", default="iesmartinabescos.es")
 INCIDENCIAS_SITE_URL = env("DJANGO_INCIDENCIAS_SITE_URL", default="https://apps.iesmartinabescos.es/incidencias")
+
+# WiFi — altas de dispositivos
+# ------------------------------------------------------------------------------
+# La clave NO tiene valor por defecto a propósito: este repositorio es público y
+# escribirla aquí la publicaría para siempre y con historial. Sin ella, la app
+# funciona pero no manda el correo, y lo deja escrito en el log.
+WIFI_SSID = env("DJANGO_WIFI_SSID", default="MARTINABESCOS")
+WIFI_PASSWORD = env("DJANGO_WIFI_PASSWORD", default="")
+WIFI_SITE_URL = env("DJANGO_WIFI_SITE_URL", default="https://apps.iesmartinabescos.es/wifi")
+# Separa personal de alumnado por la convención de cuentas del centro: el
+# alumnado lleva prefijo numérico de promoción (`0125eromero`), el personal no.
+# Es una heurística; el grupo «WiFi personal autorizado» cubre las excepciones.
+WIFI_PATRON_PERSONAL = env("DJANGO_WIFI_PATRON_PERSONAL", default=r"^[a-z]")
+WIFI_DOMINIOS_EXTRA = env.list("DJANGO_WIFI_DOMINIOS_EXTRA", default=[])
 
 # ADMIN
 # ------------------------------------------------------------------------------

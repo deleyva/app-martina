@@ -1,0 +1,107 @@
+<div class="space-y-2">
+
+  <details class="collapse collapse-arrow bg-base-200 border border-base-300">
+    <summary class="collapse-title font-semibold">📱 iPhone o iPad (iOS / iPadOS)</summary>
+    <div class="collapse-content text-sm">
+      <p class="font-semibold mb-1">Ver tu MAC real</p>
+      <ol class="list-decimal list-inside paso-tutorial ml-1">
+        <li><strong>Ajustes</strong> → <strong>General</strong> → <strong>Información</strong>.</li>
+        <li>Busca la línea <strong>Dirección Wi-Fi</strong>. Esa es la buena, la de fábrica.</li>
+      </ol>
+      <p class="font-semibold mt-3 mb-1">Quitar la dirección aleatoria en nuestra red</p>
+      <ol class="list-decimal list-inside paso-tutorial ml-1">
+        <li>Conéctate una vez a <strong>MARTINABESCOS</strong> (aunque no tengas acceso todavía).</li>
+        <li><strong>Ajustes</strong> → <strong>Wi-Fi</strong> → toca la <strong>ⓘ</strong> a la derecha de la red.</li>
+        <li>Desactiva <strong>Dirección Wi-Fi privada</strong>.</li>
+      </ol>
+      <p class="mt-2 text-xs opacity-70">En iOS 18 la opción se llama igual pero es un desplegable: elige <em>Desactivada</em>.</p>
+    </div>
+  </details>
+
+  <details class="collapse collapse-arrow bg-base-200 border border-base-300">
+    <summary class="collapse-title font-semibold">🤖 Android</summary>
+    <div class="collapse-content text-sm">
+      <p class="font-semibold mb-1">Ver tu MAC real</p>
+      <ol class="list-decimal list-inside paso-tutorial ml-1">
+        <li><strong>Ajustes</strong> → <strong>Acerca del teléfono</strong> → <strong>Estado</strong> (o <em>Información del software</em>).</li>
+        <li>Busca <strong>Dirección MAC de Wi-Fi del dispositivo</strong>. Ojo: si pone
+            <em>MAC aleatoria</em> o <em>MAC de Wi-Fi</em> a secas, esa no vale.</li>
+      </ol>
+      <p class="font-semibold mt-3 mb-1">Quitar la dirección aleatoria en nuestra red</p>
+      <ol class="list-decimal list-inside paso-tutorial ml-1">
+        <li><strong>Ajustes</strong> → <strong>Redes e Internet</strong> → <strong>Wi-Fi</strong>.</li>
+        <li>Conéctate o mantén pulsada <strong>MARTINABESCOS</strong> y entra en la <strong>⚙️</strong>.</li>
+        <li>Entra en <strong>Privacidad</strong> y elige <strong>Usar MAC del dispositivo</strong>.</li>
+      </ol>
+      <p class="mt-2 text-xs opacity-70">
+        Cada fabricante lo coloca en un sitio distinto (Samsung, Xiaomi y Huawei cambian los nombres).
+        Si no lo encuentras, busca «MAC» en el buscador de los ajustes.
+      </p>
+    </div>
+  </details>
+
+  <details class="collapse collapse-arrow bg-base-200 border border-base-300">
+    <summary class="collapse-title font-semibold">🪟 Windows 10 y 11</summary>
+    <div class="collapse-content text-sm">
+      <p class="font-semibold mb-1">Ver tu MAC real</p>
+      <ol class="list-decimal list-inside paso-tutorial ml-1">
+        <li>Pulsa <kbd class="kbd kbd-sm">⊞</kbd> + <kbd class="kbd kbd-sm">R</kbd>, escribe <code>cmd</code> y acepta.</li>
+        <li>Escribe <code class="bg-base-300 px-1 rounded">ipconfig /all</code> y pulsa Intro.</li>
+        <li>Busca el bloque <strong>Adaptador de LAN inalámbrica Wi-Fi</strong> y copia la
+            <strong>Dirección física</strong>.</li>
+      </ol>
+      <p class="font-semibold mt-3 mb-1">Quitar la dirección aleatoria</p>
+      <ol class="list-decimal list-inside paso-tutorial ml-1">
+        <li><strong>Configuración</strong> → <strong>Red e Internet</strong> → <strong>Wi-Fi</strong>.</li>
+        <li>Desactiva <strong>Direcciones de hardware aleatorias</strong>.</li>
+        <li>Si solo quieres hacerlo en nuestra red: entra en <strong>MARTINABESCOS</strong> →
+            <strong>Direcciones de hardware aleatorias</strong> → <em>Desactivado</em>.</li>
+      </ol>
+    </div>
+  </details>
+
+  <details class="collapse collapse-arrow bg-base-200 border border-base-300">
+    <summary class="collapse-title font-semibold">🍎 Mac (macOS)</summary>
+    <div class="collapse-content text-sm">
+      <p class="font-semibold mb-1">Ver tu MAC real</p>
+      <ol class="list-decimal list-inside paso-tutorial ml-1">
+        <li>Mantén pulsada la tecla <kbd class="kbd kbd-sm">⌥</kbd> y haz clic en el icono de
+            Wi-Fi de la barra de menús: la <strong>Dirección</strong> que aparece es la de fábrica.</li>
+        <li>O bien: <strong>Ajustes del Sistema</strong> → <strong>Wi-Fi</strong> →
+            <strong>Avanzado</strong> → abajo del todo, <strong>Dirección MAC de Wi-Fi</strong>.</li>
+      </ol>
+      <p class="font-semibold mt-3 mb-1">Quitar la dirección aleatoria en nuestra red</p>
+      <ol class="list-decimal list-inside paso-tutorial ml-1">
+        <li><strong>Ajustes del Sistema</strong> → <strong>Wi-Fi</strong>.</li>
+        <li>Pulsa <strong>Detalles…</strong> junto a <strong>MARTINABESCOS</strong>.</li>
+        <li>Pon <strong>Dirección Wi-Fi privada</strong> en <em>Desactivada</em>.</li>
+      </ol>
+      <p class="mt-2 text-xs opacity-70">En Terminal también vale: <code>ifconfig en0 | grep ether</code></p>
+    </div>
+  </details>
+
+  <details class="collapse collapse-arrow bg-base-200 border border-base-300">
+    <summary class="collapse-title font-semibold">🐧 VitaLinux</summary>
+    <div class="collapse-content text-sm">
+      <p class="font-semibold mb-1">Ver tu MAC real</p>
+      <ol class="list-decimal list-inside paso-tutorial ml-1">
+        <li>Abre una terminal (<kbd class="kbd kbd-sm">Ctrl</kbd>+<kbd class="kbd kbd-sm">Alt</kbd>+<kbd class="kbd kbd-sm">T</kbd>).</li>
+        <li>Escribe <code class="bg-base-300 px-1 rounded">ip link show</code>.</li>
+        <li>Busca la interfaz que empiece por <code>wl</code> (por ejemplo <code>wlp2s0</code>):
+            la MAC es lo que va detrás de <code>link/ether</code>.</li>
+      </ol>
+      <p class="font-semibold mt-3 mb-1">Sin terminal</p>
+      <ol class="list-decimal list-inside paso-tutorial ml-1">
+        <li>Menú → <strong>Preferencias</strong> → <strong>Conexiones de red</strong>.</li>
+        <li>Selecciona la red inalámbrica y pulsa <strong>Editar</strong>.</li>
+        <li>En la pestaña <strong>Wi-Fi</strong>, la <strong>Dirección MAC del dispositivo</strong>
+            es la real. Pon <strong>Dirección MAC clonada</strong> en <em>Permanente</em>.</li>
+      </ol>
+      <p class="mt-2 text-xs opacity-70">
+        Equivalente en terminal:
+        <code class="bg-base-300 px-1 rounded">nmcli connection modify MARTINABESCOS wifi.cloned-mac-address permanent</code>
+      </p>
+    </div>
+  </details>
+
+</div>

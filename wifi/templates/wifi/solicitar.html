@@ -1,0 +1,103 @@
+{% extends "wifi/base_wifi.html" %}
+
+{% block title %}Solicitar acceso a la WiFi — IES Martina Bescós{% endblock title %}
+
+{% block content %}
+  <div class="mb-6">
+    <h1 class="text-2xl lg:text-3xl font-bold">Acceso a la WiFi del centro</h1>
+    <p class="mt-2 text-base-content/80">
+      Para dar de alta tu dispositivo necesitamos la dirección MAC <strong>real</strong> de su
+      tarjeta WiFi — la de fábrica, no la aleatoria que ponen los móviles por defecto.
+      Cuando administración lo añada a la red, recibirás la clave por correo en
+      <span class="mac font-semibold">{{ request.user.email }}</span>.
+    </p>
+  </div>
+
+  <div class="card bg-base-100 shadow-lg border border-base-300 mb-8">
+    <div class="card-body">
+      <h2 class="card-title text-lg">Añadir un dispositivo</h2>
+      <form method="post" novalidate class="space-y-4">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+          <div class="alert alert-error"><span>{{ form.non_field_errors }}</span></div>
+        {% endif %}
+
+        <div>
+          <label class="label" for="{{ form.mac.id_for_label }}">
+            <span class="label-text font-semibold">{{ form.mac.label }}</span>
+          </label>
+          {{ form.mac }}
+          {% if form.mac.errors %}
+            <div class="alert alert-error mt-2 text-sm">
+              <span>{{ form.mac.errors.0 }}</span>
+            </div>
+          {% else %}
+            <p class="text-xs opacity-70 mt-1">
+              Doce dígitos hexadecimales. Da igual cómo la separes: con dos puntos,
+              con guiones o del tirón.
+            </p>
+          {% endif %}
+        </div>
+
+        <div>
+          <label class="label" for="{{ form.descripcion.id_for_label }}">
+            <span class="label-text font-semibold">{{ form.descripcion.label }}</span>
+            <span class="label-text-alt opacity-60">opcional</span>
+          </label>
+          {{ form.descripcion }}
+          {% if form.descripcion.errors %}
+            <p class="text-error text-sm mt-1">{{ form.descripcion.errors.0 }}</p>
+          {% endif %}
+        </div>
+
+        <button type="submit" class="btn btn-primary w-full sm:w-auto">Enviar solicitud</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="mb-8">
+    <h2 class="text-xl font-bold mb-3">¿Cómo encuentro mi MAC real?</h2>
+    <p class="text-sm text-base-content/80 mb-3">
+      iOS y Android inventan una MAC distinta para cada red, precisamente para que no
+      se les pueda seguir la pista. Es buena idea en general, pero aquí hay que
+      desactivarla en <strong>nuestra</strong> red o el alta no servirá de nada.
+    </p>
+    {% include "wifi/partials/tutoriales.html" %}
+  </div>
+
+  <div>
+    <h2 class="text-xl font-bold mb-3">Mis dispositivos</h2>
+    {% if mis_dispositivos %}
+      <div class="overflow-x-auto">
+        <table class="table table-zebra">
+          <thead>
+            <tr><th>MAC</th><th>Dispositivo</th><th>Estado</th><th>Solicitado</th></tr>
+          </thead>
+          <tbody>
+            {% for d in mis_dispositivos %}
+              <tr>
+                <td class="mac font-semibold">{{ d.mac }}</td>
+                <td>{{ d.descripcion|default:"—" }}</td>
+                <td>
+                  {% if d.estado == "anadida" %}
+                    <span class="badge badge-success badge-sm">Dado de alta</span>
+                  {% elif d.estado == "pendiente" %}
+                    <span class="badge badge-warning badge-sm">Pendiente</span>
+                  {% elif d.estado == "baja_pendiente" %}
+                    <span class="badge badge-info badge-sm">Baja en curso</span>
+                  {% else %}
+                    <span class="badge badge-ghost badge-sm">Dado de baja</span>
+                  {% endif %}
+                </td>
+                <td class="text-sm opacity-70">{{ d.created_at|date:"d/m/Y H:i" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="text-base-content/60">Todavía no has enviado ningún dispositivo.</p>
+    {% endif %}
+  </div>
+{% endblock content %}
