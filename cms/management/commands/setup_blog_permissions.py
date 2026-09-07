@@ -30,7 +30,20 @@ cercano, así que sin ese `WorkflowPage` los artículos caerían en el «Moderat
 approval» que Wagtail trae de fábrica colgado de la raíz, y el visto bueno se
 lo pediría al grupo Moderators en vez de al jefe.
 
-El comando es idempotente y NUNCA quita nada: solo añade lo que falte.
+Permisos de más
+---------------
+El comando no quita nada nunca, pero sí AVISA cuando un grupo tiene permisos
+de Django que él no reparte. Importa porque Wagtail construye el menú lateral
+a partir de los permisos: un `auth.add_group` suelto hace aparecer «Grupos» en
+Ajustes, y un `cms.add_externalresource` hace aparecer «Fragmentos». Los dos
+llevan a una pantalla que luego rechaza al usuario con un aviso rojo, porque
+para ver el listado hacen falta más permisos que para crear.
+
+Pasó en Filosofía: 17 de los 18 grupos de jefe tenían exactamente
+`wagtailadmin.access_admin`, y ese tenía dos permisos más de una prueba
+anterior. El resultado eran dos puertas pintadas en la pared del panel.
+
+El comando es idempotente y NUNCA quita nada: solo añade lo que falte y avisa.
 Ejecutar: `just manage setup_blog_permissions` (o con `--dry-run`).
 """
 
@@ -103,6 +116,8 @@ class Command(BaseCommand):
             cambios += self._dar_permisos_de_pagina(profes, dept, PERMISOS_PROFESOR)
             cambios += self._montar_revision(dept, jefes)
 
+        self._avisar_de_permisos_de_mas(departamentos)
+
         if self.seco:
             # En seco no se cuenta: montar una revisión son cinco objetos y
             # aquí se anuncia como una línea. Dar un número redondo sería
@@ -111,6 +126,40 @@ class Command(BaseCommand):
         else:
             final = "Nada que cambiar." if not cambios else f"{cambios} cambios."
         self.stdout.write(self.style.SUCCESS(f"\n{final}"))
+
+    def _avisar_de_permisos_de_mas(self, departamentos):
+        """Permisos de Django que este comando no reparte.
+
+        No se tocan: quitarlos podría cargarse algo que se dio a propósito. Lo
+        que hace falta es que se VEAN, porque desde el panel de grupos no se
+        distingue un grupo con un permiso de más de uno normal, y el síntoma
+        aparece muy lejos: una entrada de menú que rechaza a quien la pulsa.
+        """
+        esperado = {"wagtailadmin.access_admin"}
+        sobrantes = []
+        for dept in departamentos:
+            for plantilla in ("Jefe del departamento de {}", "Profesores de {}"):
+                nombre = plantilla.format(dept.title)
+                grupo = AuthGroup.objects.filter(name=nombre).first()
+                if not grupo:
+                    continue
+                extra = {
+                    f"{p.content_type.app_label}.{p.codename}"
+                    for p in grupo.permissions.all()
+                } - esperado
+                if extra:
+                    sobrantes.append((nombre, sorted(extra)))
+
+        if not sobrantes:
+            return
+        self.stdout.write(
+            self.style.WARNING(
+                "\nGrupos con permisos que este comando no reparte "
+                "(no se tocan; míralos por si pintan puertas de más en el menú):"
+            )
+        )
+        for nombre, extra in sobrantes:
+            self.stdout.write(self.style.WARNING(f"  {nombre}: {', '.join(extra)}"))
 
     # ── piezas ────────────────────────────────────────────────────────────
 

@@ -125,3 +125,24 @@ class SetupBlogPermissionsTest(TestCase):
         self.assertFalse(
             Group.objects.filter(name="Jefe del departamento de Música").exists()
         )
+
+    def test_avisa_de_los_permisos_que_el_no_reparte(self):
+        """El caso de Filosofía: un permiso suelto que pinta menú de más."""
+        from django.contrib.contenttypes.models import ContentType
+
+        self._ejecutar()
+        jefes = self._grupo("Jefe del departamento de Música")
+        jefes.permissions.add(
+            Permission.objects.get(
+                codename="add_group",
+                content_type=ContentType.objects.get_for_model(Group),
+            )
+        )
+
+        salida = self._ejecutar()
+
+        self.assertIn("auth.add_group", salida)
+        self.assertIn("Jefe del departamento de Música", salida)
+        # Avisa, pero no lo quita: quitar cosas no es su trabajo.
+        jefes.refresh_from_db()
+        self.assertIn("add_group", [p.codename for p in jefes.permissions.all()])
