@@ -115,11 +115,22 @@
           logo en vez de a la derecha. El despliegue no reconstruye el CSS.
         {% endcomment %}
         <div class="flex items-center gap-6 font-sans text-xs uppercase tracking-widest">
-          <span class="hidden md:inline text-gray-500 whitespace-nowrap">{% now "j \d\e F, Y" %}</span>
           {% if request.user.is_authenticated %}
+            {% comment %}
+              Quién eres, en el hueco donde el visitante ve la fecha. En un
+              ordenador compartido saber con qué cuenta estás entrado importa
+              más que la fecha, y así el grupo no se amontona.
+
+              `{# #}` es de UNA línea en Django: escrito en varias se imprime
+              tal cual en la página. Aquí pasó, y ningún test lo vio.
+            {% endcomment %}
+            <span class="hidden md:inline text-gray-500 whitespace-nowrap">{{ request.user.get_full_name|default:request.user.email }}</span>
             <a href="/cms/"
                class="inline-block border border-black px-6 py-2 font-bold text-black whitespace-nowrap transition-colors hover:bg-black hover:text-white">CMS</a>
+            <a href="{% url 'account_logout' %}"
+               class="font-bold text-black whitespace-nowrap hover:underline">Salir</a>
           {% else %}
+            <span class="hidden md:inline text-gray-500 whitespace-nowrap">{% now "j \d\e F, Y" %}</span>
             <a href="/accounts/login/?next={{ request.path|urlencode }}"
                class="inline-block border border-black px-6 py-2 font-bold text-black whitespace-nowrap transition-colors hover:bg-black hover:text-white">Entrar</a>
           {% endif %}

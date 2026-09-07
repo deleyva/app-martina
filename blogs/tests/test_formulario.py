@@ -61,3 +61,40 @@ class FormularioDeBlogTest(TestCase):
         self.assertContains(respuesta, "Archivos adjuntos")
         self.assertNotContains(respuesta, "botón de librería")
         self.assertNotContains(respuesta, "librería")
+
+
+class SalidaEnLaMenchetaTest(TestCase):
+    """Poder salir. Sin esto, quien entra en el subdominio de blogs se queda
+    dentro: la cookie es host-only y en `blogs.` no había ningún enlace de
+    logout, ni en el pie ni en ningún sitio.
+    """
+
+    def setUp(self):
+        from wagtail.models import Site
+
+        root = Site.objects.get(is_default_site=True).root_page
+        self.index = BlogIndexPage(title="Blogs", slug="blogs-salida")
+        root.add_child(instance=self.index)
+        self.index.save_revision().publish()
+
+        self.user = User.objects.create_user(
+            email="profe-salida@example.com", password="testpassword123"
+        )
+
+    def test_quien_tiene_sesion_ve_por_donde_salir(self):
+        self.client.force_login(self.user)
+        html = self.client.get(self.index.url).content.decode()
+        self.assertIn("/accounts/logout/", html)
+        self.assertIn("Salir", html)
+        # Y sigue viendo su acceso al panel, no el de entrar.
+        self.assertIn('href="/cms/"', html)
+
+    def test_el_anonimo_no_ve_salir_sino_entrar(self):
+        html = self.client.get(self.index.url).content.decode()
+        self.assertNotIn("/accounts/logout/", html)
+        self.assertIn("/accounts/login/", html)
+
+    def test_se_ve_con_que_cuenta_estas_dentro(self):
+        self.client.force_login(self.user)
+        html = self.client.get(self.index.url).content.decode()
+        self.assertIn("profe-salida@example.com", html)
