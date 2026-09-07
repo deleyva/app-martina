@@ -1,6 +1,43 @@
+"""Permisos y flujo de revisión de los blogs de departamento.
+
+Dos grupos por departamento, con los nombres que ya existen en el centro:
+
+    Jefe del departamento de <Departamento>   escribe y PUBLICA
+    Profesores de <Departamento>              escribe y ENVÍA A REVISIÓN
+
+El nombre sale del título de la página, así que «Música» da «Jefe del
+departamento de Música». Es la convención que ya estaba puesta a mano en
+producción; el comando la adopta en vez de inventar grupos nuevos.
+
+El permiso que se olvida siempre
+--------------------------------
+Los permisos de página NO abren el panel. Un grupo puede tener `add_page`,
+`change_page` y `publish_page` sobre su departamento y aun así estrellarse
+contra la puerta de `/cms/`, porque para entrar hace falta
+`wagtailadmin.access_admin`, que es un permiso de Django, no de página.
+
+Pasó de verdad el 2026-09-07: 32 de 36 grupos lo tenían todo menos eso. La
+jefa de Música no podía editar ni le salía el pajarito de Wagtail, y los dos
+síntomas eran el mismo fallo. Por eso este comando lo concede SIEMPRE, y por
+eso hay un test que lo comprueba.
+
+Quién aprueba
+-------------
+El jefe de departamento. Cada departamento recibe su propio workflow con una
+`GroupApprovalTask` cuyo grupo aprobador es el de jefes, enganchado a la página
+del departamento. Eso importa: Wagtail busca el workflow en el ancestro más
+cercano, así que sin ese `WorkflowPage` los artículos caerían en el «Moderators
+approval» que Wagtail trae de fábrica colgado de la raíz, y el visto bueno se
+lo pediría al grupo Moderators en vez de al jefe.
+
+El comando es idempotente y NUNCA quita nada: solo añade lo que falte.
+Ejecutar: `just manage setup_blog_permissions` (o con `--dry-run`).
+"""
+
 from django.contrib.auth.models import Group as AuthGroup
 from django.contrib.auth.models import Permission
 from django.core.management.base import BaseCommand
+from wagtail.models import GroupApprovalTask
 from wagtail.models import GroupPagePermission
 from wagtail.models import Page
 from wagtail.models import Workflow
@@ -9,141 +46,154 @@ from wagtail.models import WorkflowTask
 
 from blogs.models import BlogIndexPage
 
-try:
-    from wagtail.models import GroupApprovalTask
-except ImportError:
-    GroupApprovalTask = None
+# Quien manda en el departamento: escribe, publica y da el visto bueno.
+PERMISOS_JEFE = ["add_page", "change_page", "publish_page", "lock_page", "unlock_page"]
+
+# Quien escribe: sin `publish_page`, así que el botón dice «Enviar a revisión».
+PERMISOS_PROFESOR = ["add_page", "change_page"]
 
 
-def _get_permission(codename, app_label="wagtailcore"):
-    """Get a Permission object by codename (Wagtail 5.1+ uses Permission FK)."""
+def _permiso(codename, app_label="wagtailcore"):
     return Permission.objects.get(codename=codename, content_type__app_label=app_label)
 
 
 class Command(BaseCommand):
-    help = "Set up blog department groups, permissions, and workflows. Idempotent."
+    help = (
+        "Crea los grupos de jefe y profesores de cada departamento, les da "
+        "acceso al panel y monta el flujo de revisión. Idempotente."
+    )
+
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--dry-run",
+            action="store_true",
+            help="Enseña lo que haría sin tocar la base de datos.",
+        )
 
     def handle(self, *args, **options):
-        # Find the hub page (root BlogIndexPage that has BlogIndexPage children)
-        hub = None
-        for bip in BlogIndexPage.objects.all():
-            children = Page.objects.child_of(bip).type(BlogIndexPage)
-            if children.exists():
-                hub = bip
-                break
+        self.seco = options["dry_run"]
+        if self.seco:
+            self.stdout.write(self.style.WARNING("DRY-RUN: no se escribe nada.\n"))
 
-        if not hub:
-            self.stdout.write(self.style.WARNING("No hub BlogIndexPage found (one with department children)."))
+        portada = self._encontrar_portada()
+        if portada is None:
+            self.stdout.write(
+                self.style.ERROR(
+                    "No hay portada de blogs (un BlogIndexPage con departamentos colgando)."
+                )
+            )
             return
 
-        departments = BlogIndexPage.objects.child_of(hub).live()
-        self.stdout.write(f"Found hub: «{hub.title}» with {departments.count()} departments")
+        departamentos = BlogIndexPage.objects.child_of(portada).live()
+        self.stdout.write(
+            f"Portada «{portada.title}» con {departamentos.count()} departamentos\n"
+        )
 
-        # Permission required to even load the Wagtail admin (/cms/). Page
-        # permissions alone do NOT grant admin access.
-        admin_access_perm = _get_permission("access_admin", app_label="wagtailadmin")
+        self.acceso = _permiso("access_admin", app_label="wagtailadmin")
+        cambios = 0
 
-        for dept in departments:
-            slug = dept.slug
-            self.stdout.write(f"\n── {dept.title} (slug: {slug}) ──")
+        for dept in departamentos:
+            self.stdout.write(f"\n── {dept.title} ──")
+            jefes = self._grupo(f"Jefe del departamento de {dept.title}")
+            profes = self._grupo(f"Profesores de {dept.title}")
 
-            # 1. Create department group (add + change, no publish)
-            dept_group_name = f"blog_dept_{slug}"
-            dept_group, created = AuthGroup.objects.get_or_create(name=dept_group_name)
-            if created:
-                self.stdout.write(self.style.SUCCESS(f"  Created group: {dept_group_name}"))
-            else:
-                self.stdout.write(f"  Group exists: {dept_group_name}")
+            cambios += self._dar_acceso_al_panel(jefes)
+            cambios += self._dar_acceso_al_panel(profes)
+            cambios += self._dar_permisos_de_pagina(jefes, dept, PERMISOS_JEFE)
+            cambios += self._dar_permisos_de_pagina(profes, dept, PERMISOS_PROFESOR)
+            cambios += self._montar_revision(dept, jefes)
 
-            dept_group.permissions.add(admin_access_perm)
+        if self.seco:
+            # En seco no se cuenta: montar una revisión son cinco objetos y
+            # aquí se anuncia como una línea. Dar un número redondo sería
+            # inventárselo, así que se remite a la lista de arriba.
+            final = "Nada que cambiar." if not cambios else "Acciones listadas arriba."
+        else:
+            final = "Nada que cambiar." if not cambios else f"{cambios} cambios."
+        self.stdout.write(self.style.SUCCESS(f"\n{final}"))
 
-            # Assign add + change permissions on the department page
-            for codename in ["add_page", "change_page"]:
-                perm = _get_permission(codename)
-                _, perm_created = GroupPagePermission.objects.get_or_create(
-                    group=dept_group,
-                    page=dept,
-                    permission=perm,
-                )
-                if perm_created:
-                    self.stdout.write(self.style.SUCCESS(f"  Added permission: {codename}"))
+    # ── piezas ────────────────────────────────────────────────────────────
 
-            # 2. Create moderator group (publish permission)
-            mod_group_name = f"blog_mod_{slug}"
-            mod_group, created = AuthGroup.objects.get_or_create(name=mod_group_name)
-            if created:
-                self.stdout.write(self.style.SUCCESS(f"  Created group: {mod_group_name}"))
-            else:
-                self.stdout.write(f"  Group exists: {mod_group_name}")
+    def _encontrar_portada(self):
+        for bip in BlogIndexPage.objects.all():
+            if Page.objects.child_of(bip).type(BlogIndexPage).exists():
+                return bip
+        return None
 
-            mod_group.permissions.add(admin_access_perm)
+    def _grupo(self, nombre):
+        grupo = AuthGroup.objects.filter(name=nombre).first()
+        if grupo:
+            return grupo
+        if self.seco:
+            self.stdout.write(f"  crearía grupo: {nombre}")
+            return AuthGroup(name=nombre)
+        grupo = AuthGroup.objects.create(name=nombre)
+        self.stdout.write(self.style.SUCCESS(f"  grupo creado: {nombre}"))
+        return grupo
 
-            # Assign publish permission
-            publish_perm = _get_permission("publish_page")
-            _, perm_created = GroupPagePermission.objects.get_or_create(
-                group=mod_group,
-                page=dept,
-                permission=publish_perm,
-            )
-            if perm_created:
-                self.stdout.write(self.style.SUCCESS("  Added permission: publish_page"))
+    def _dar_acceso_al_panel(self, grupo):
+        """El permiso sin el cual los de página no sirven de nada."""
+        if grupo.pk and self.acceso in grupo.permissions.all():
+            return 0
+        if self.seco:
+            self.stdout.write(f"  daría acceso al panel: {grupo.name}")
+            return 1
+        grupo.permissions.add(self.acceso)
+        self.stdout.write(self.style.SUCCESS(f"  acceso al panel: {grupo.name}"))
+        return 1
 
-            # Also give moderators add + change
-            for codename in ["add_page", "change_page"]:
-                perm = _get_permission(codename)
-                GroupPagePermission.objects.get_or_create(
-                    group=mod_group,
-                    page=dept,
-                    permission=perm,
-                )
-
-            # Add moderator user to mod group if assigned
-            dept_specific = dept.specific
-            if dept_specific.moderator:
-                dept_specific.moderator.groups.add(mod_group)
-                self.stdout.write(
-                    self.style.SUCCESS(f"  Added moderator {dept_specific.moderator.username} to {mod_group_name}")
-                )
-
-            # 3. Create workflow with GroupApprovalTask
-            if GroupApprovalTask is None:
-                self.stdout.write(self.style.WARNING("  GroupApprovalTask not available — skipping workflow"))
+    def _dar_permisos_de_pagina(self, grupo, dept, codenames):
+        cambios = 0
+        for codename in codenames:
+            permiso = _permiso(codename)
+            if grupo.pk and GroupPagePermission.objects.filter(
+                group=grupo, page=dept, permission=permiso
+            ).exists():
                 continue
-
-            workflow_name = f"Revisión: {dept.title}"
-            workflow, wf_created = Workflow.objects.get_or_create(
-                name=workflow_name,
-                defaults={"active": True},
+            if self.seco:
+                self.stdout.write(f"  daría {codename} a {grupo.name}")
+                cambios += 1
+                continue
+            GroupPagePermission.objects.create(
+                group=grupo, page=dept, permission=permiso
             )
-            if wf_created:
-                self.stdout.write(self.style.SUCCESS(f"  Created workflow: {workflow_name}"))
-            else:
-                self.stdout.write(f"  Workflow exists: {workflow_name}")
+            self.stdout.write(self.style.SUCCESS(f"  {codename}: {grupo.name}"))
+            cambios += 1
+        return cambios
 
-            # Create approval task
-            task_name = f"Aprobación: {dept.title}"
-            task, task_created = GroupApprovalTask.objects.get_or_create(
-                name=task_name,
-                defaults={"active": True},
-            )
-            if task_created:
-                task.groups.add(mod_group)
-                self.stdout.write(self.style.SUCCESS(f"  Created task: {task_name}"))
-            else:
-                self.stdout.write(f"  Task exists: {task_name}")
+    def _montar_revision(self, dept, jefes):
+        """Un workflow por departamento, aprobado por su jefe."""
+        nombre_wf = f"Revisión: {dept.title}"
+        nombre_tarea = f"Aprobación: {dept.title}"
 
-            # Link task to workflow
-            WorkflowTask.objects.get_or_create(
-                workflow=workflow,
-                task=task,
-                defaults={"sort_order": 0},
-            )
+        if self.seco:
+            falta = not WorkflowPage.objects.filter(page=dept).exists()
+            if falta:
+                self.stdout.write(f"  montaría la revisión: {nombre_wf}")
+            return 1 if falta else 0
 
-            # Assign workflow to department page
-            WorkflowPage.objects.get_or_create(
-                workflow=workflow,
-                page=dept,
-            )
-            self.stdout.write(self.style.SUCCESS(f"  Workflow assigned to «{dept.title}»"))
+        cambios = 0
+        workflow, creado = Workflow.objects.get_or_create(
+            name=nombre_wf, defaults={"active": True}
+        )
+        cambios += int(creado)
 
-        self.stdout.write(self.style.SUCCESS("\nBlog permissions setup complete."))
+        tarea, creada = GroupApprovalTask.objects.get_or_create(
+            name=nombre_tarea, defaults={"active": True}
+        )
+        cambios += int(creada)
+        if jefes not in tarea.groups.all():
+            tarea.groups.add(jefes)
+            cambios += 1
+
+        _, enlazada = WorkflowTask.objects.get_or_create(
+            workflow=workflow, task=tarea, defaults={"sort_order": 0}
+        )
+        cambios += int(enlazada)
+
+        _, asignada = WorkflowPage.objects.get_or_create(workflow=workflow, page=dept)
+        cambios += int(asignada)
+
+        if cambios:
+            self.stdout.write(self.style.SUCCESS(f"  revisión: {nombre_wf}"))
+        return cambios
