@@ -90,12 +90,40 @@
   </head>
   <body class="min-h-screen flex flex-col antialiased">
     
-    <!-- Minimalist Header -->
+    <!-- Mancheta -->
     <header class="container mx-auto px-4 pt-8 pb-4">
-      <div class="blog-header flex justify-between items-end">
+      <div class="blog-header flex flex-wrap items-end justify-between gap-4">
         <a href="/" class="blog-header-logo text-3xl md:text-5xl hover:text-gray-600 transition-colors">
           IES Martina Bescós
         </a>
+
+        {% comment %}
+          El acceso vive en la mancheta, a la derecha, donde un periódico pone
+          su fecha y su enlace de suscripción. Antes estaba enterrado en el pie.
+
+          La cookie de sesión es host-only, así que estar logueado en
+          apps.iesmartinabescos.es no loguea aquí: sin este enlace un profesor
+          no tiene por dónde entrar en el subdominio de blogs, y el
+          wagtailuserbar no pinta nada porque nunca hay usuario que lo vea.
+          Tests: cms/tests/test_blogs_login.py
+        {% endcomment %}
+        {% comment %}
+          Solo clases que YA existen en `static/css/output.css`. Tailwind v4 se
+          compila a mano (`npm run build-css`) y el fichero compilado es lo que
+          va al servidor: `sm:justify-between` se escribió aquí primero y no
+          existía en el CSS, así que la mancheta salió con el botón pegado al
+          logo en vez de a la derecha. El despliegue no reconstruye el CSS.
+        {% endcomment %}
+        <div class="flex items-center gap-6 font-sans text-xs uppercase tracking-widest">
+          <span class="hidden md:inline text-gray-500 whitespace-nowrap">{% now "j \d\e F, Y" %}</span>
+          {% if request.user.is_authenticated %}
+            <a href="/cms/"
+               class="inline-block border border-black px-6 py-2 font-bold text-black whitespace-nowrap transition-colors hover:bg-black hover:text-white">CMS</a>
+          {% else %}
+            <a href="/accounts/login/?next={{ request.path|urlencode }}"
+               class="inline-block border border-black px-6 py-2 font-bold text-black whitespace-nowrap transition-colors hover:bg-black hover:text-white">Entrar</a>
+          {% endif %}
+        </div>
       </div>
     </header>
 
@@ -114,20 +142,7 @@
           <p class="text-gray-500">Publicaciones y recursos educativos.</p>
         </div>
         <div class="flex space-x-6">
-            <a href="/indice-de-recursos-musicales/" class="hover:underline">Librería Principal</a>
             <a href="https://iesmartinabescos.catedu.es/" target="_blank" class="hover:underline">Sitio Oficial</a>
-            {% comment %}
-              La cookie de sesión es host-only, así que estar logueado en
-              apps.iesmartinabescos.es no logueaba aquí: sin este enlace un
-              profesor no tenía por dónde entrar en el subdominio de blogs, y
-              el wagtailuserbar de abajo no pintaba nada porque nunca había
-              usuario que lo viera. Tests: cms/tests/test_blogs_login.py
-            {% endcomment %}
-            {% if request.user.is_authenticated %}
-              <a href="/cms/" class="hover:underline">CMS</a>
-            {% else %}
-              <a href="/accounts/login/?next={{ request.path|urlencode }}" class="hover:underline">Entrar</a>
-            {% endif %}
         </div>
       </div>
     </footer>
