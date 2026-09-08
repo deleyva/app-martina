@@ -70,6 +70,12 @@ JavaScript propio, que es lo que hace falta cuando esto se usa desde el iPad.
 Vive dentro de este partial porque el partial se carga entero por HTMX; si el
 modal estuviera en la página, la respuesta no lo traería.
 {% endcomment %}
+<style>
+  /* El modal ya pone el nombre en su barra; el que trae el visor sobraba.
+     Se oculta SOLO aquí dentro: en el visor a pantalla completa sí hace falta,
+     porque allí no hay barra que lo diga. */
+  #cuerpo-vistazo .titulo-del-visor { display: none; }
+</style>
 <dialog id="vistazo" class="modal">
   <div class="modal-box max-w-none w-[95vw] h-[92vh] p-0 flex flex-col">
     <div class="flex items-center justify-between gap-3 px-4 py-2 border-b border-base-300 shrink-0">

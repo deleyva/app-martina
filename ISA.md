@@ -1965,3 +1965,84 @@ Verificado con un PDF real dibujado en el modal, no con una página en blanco.
 Segundo tropiezo de camino: `{% load static %}` puesto ANTES de
 `{% extends %}` da `TemplateSyntaxError` — `extends` tiene que ser la primera
 etiqueta de la plantilla.
+
+## Fase 28·2 — El visor de clase (fase B) · CONSTRUIDA Y VERIFICADA EN LOCAL
+
+Lo pedido: *"El paso entre un ítem y otro quiero que sea como el paso de un ítem
+a otro que se ve en mi librería, pero sin la valoración (…). Todo esto debería
+funcionar tanto en táctil como en ordenador con teclas. Mayormente daré las
+clases usando iPad."*
+
+**La mitad ya estaba hecha** y no hacía falta escribirla: `present.html` ya tenía
+el visor a pantalla completa, la lista lateral con salto a cualquier elemento y
+prev/next. Lo nuevo se apoya en eso.
+
+### Claims
+
+- [x] **C130** · Tocar el 15% derecho de la pantalla pasa al siguiente elemento y
+  el 15% izquierdo al anterior, **sin capas encima del contenido**: la zona se
+  resuelve mirando dónde cayó el clic. Una capa en el borde se tragaría el scroll
+  del PDF y los controles del audio, que es lo que no puede pasar dando clase.
+  *Verificado en navegador:* toque derecho 1/3 → 2/3, toque izquierdo 2/3 → 1/3.
+- [x] **C131** · `←` y `→` hacen lo mismo con teclado, y `Escape` cierra de
+  dentro afuera: primero lo que tape la clase, luego el panel, y solo entonces
+  sale. *Verificado:* `→` pasó de figuras-1 a ritmo-b.
+- [x] **C132** · Botón flotante abajo a la izquierda que abre **la página entera**
+  del elemento a pantalla completa, con scroll y con X. Se apaga cuando el
+  elemento no viene de ninguna página, que es el caso de los extras sueltos.
+  *Verificado:* abrió «Las figuras» con su texto, sus medios y su sección de
+  recursos.
+- [x] **C133** · Segundo botón flotante con **las plantillas para escribir**,
+  sacadas de la página del sitio con `material_de` — el mismo recorrido que los
+  libros, así que lo que se ponga en esa página aparece sin tocar código. Rejilla
+  para elegir, grande para usar, y vuelta a la rejilla. *Verificado con una
+  página sembrada en local:* dos imágenes y un PDF.
+- [x] **C134** · **Dar por visto desde el visor**, reversible, y el elemento
+  aparece tachado en la lista lateral. Escribe lo mismo que el botón de la
+  pantalla de edición, así que el libro avanza igual desde los dos sitios.
+  *Verificado:* marcar dejó «✓ Visto — tocar para deshacer» y tachó figuras-1.
+
+### Anti-claims
+
+- **Sin valoración.** El principal lo dijo explícito: aquí no se puntúa nada. El
+  paso entre elementos es el de su biblioteca menos las estrellas.
+- **Las zonas de paso no pueden robar interacción.** Un clic en un botón, un
+  enlace, un control de formulario, el panel lateral o el modal nunca pasa de
+  elemento.
+- **Un solo modal para la página entera y para las plantillas.** Son el mismo
+  gesto —tapar la clase y volver— y dos modales darían dos sitios donde arreglar
+  el mismo fallo.
+
+### Tres defectos, y los tres solo se veían en el navegador
+
+1. **`csrfToken` ya existía como variable** en `present.html`, y declarar una
+   función con ese nombre la pisaba: `TypeError: csrfToken is not a function`. En
+   pantalla, el botón no hacía nada y no decía por qué.
+2. **La rejilla de plantillas no se ocultaba al elegir una.** `display: grid` gana
+   al `[hidden]` del navegador, así que salían la rejilla y la grande a la vez.
+   Arreglado con `.plantillas-rejilla[hidden] { display: none; }`. Barrido de
+   clase sobre los demás `hidden` de la plantilla: el otro elemento no fija
+   `display`, así que no le pasa.
+3. **`ContentType` sin importar** en la vista de plantillas — se me fue al quitar
+   un import duplicado. Página de error de Django dentro del modal.
+
+### Un gotcha del entorno local, que costó tres intentos
+
+**Los ajustes locales cachean las plantillas.** Un cambio en un `.html` no se ve
+recargando el navegador: hay que **reiniciar el servidor**. Se diagnosticó
+comparando el fichero en disco (0 apariciones de `csrfToken()`) con lo que el
+navegador seguía ejecutando.
+
+### Título duplicado del vistazo previo
+
+El modal ponía el nombre en su barra y el visor lo repetía debajo. Se oculta solo
+dentro del modal (`#cuerpo-vistazo .titulo-del-visor`): en el visor a pantalla
+completa ese título sí hace falta, porque allí no hay barra que lo diga. Por eso
+la regla es de ámbito y no un borrado.
+
+### Lo siguiente
+
+**Fase C:** que lo marcado con `a_casa` baje como `LibraryItem` a cada alumno
+matriculado, y el panel de progreso por grupo. Es además lo que devuelve la vía
+de mandar material a un alumno, que se perdió al quitar el botón de "añadir a
+bibliotecas" de la sesión.

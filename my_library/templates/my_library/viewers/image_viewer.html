@@ -61,7 +61,7 @@
     {% for image in images %}
     <div class="image-content {% if forloop.first %}active{% endif %}" id="image-content-{{ forloop.counter0 }}">
         {% if image.title %}
-        <div class="px-4 py-3 bg-gray-100 text-lg font-bold">{{ image.title }}</div>
+        <div class="px-4 py-3 bg-gray-100 text-lg font-bold titulo-del-visor">{{ image.title }}</div>
         {% endif %}
 
         {% if image.image %}

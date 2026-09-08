@@ -515,12 +515,21 @@ def class_session_present(request, pk):
     for item in items:
         if not item.content_object:
             continue
+        # `page_url` alimenta el botón de "ver la página entera": el elemento que
+        # se estudia es un medio suelto —una imagen, un PDF—, y a veces hace
+        # falta el texto que lo rodea. Se calcula aquí y no en el cliente porque
+        # la URL sale del árbol de Wagtail.
+        pagina = item.source_page
         playlist.append(
             {
                 "pk": item.pk,
                 "title": item.get_content_title(),
                 "icon": item.get_icon(),
                 "type": item.get_content_type_name(),
+                "seccion": item.get_seccion_display() if item.seccion else "",
+                "visto": item.visto,
+                "page_url": pagina.get_url() if pagina else "",
+                "page_title": pagina.title if pagina else "",
             }
         )
 

@@ -1,0 +1,39 @@
+{% comment %}
+Las plantillas de escritura dentro del visor de clase.
+
+Se pinta con estilos propios y no con DaisyUI porque el visor es una página
+independiente, con su fondo negro y sin la hoja de estilos del sitio.
+{% endcomment %}
+{% if medios %}
+<div class="plantillas-rejilla">
+  {% for medio in medios %}
+    <button type="button" class="plantilla" onclick="mostrarPlantilla('{{ medio.url|escapejs }}', '{{ medio.titulo|escapejs }}', '{{ medio.tipo|escapejs }}')">
+      {% if medio.tipo == 'Imagen' %}
+        <img src="{{ medio.url }}" alt="{{ medio.titulo }}" loading="lazy">
+      {% else %}
+        <span class="plantilla-icono" aria-hidden="true">{{ medio.icono }}</span>
+      {% endif %}
+      <span class="plantilla-nombre">{{ medio.titulo }}</span>
+    </button>
+  {% endfor %}
+</div>
+
+{# La plantilla elegida, a tamaño grande y encima de la rejilla. #}
+<div id="plantilla-grande" hidden>
+  <button type="button" class="plantilla-volver" onclick="volverALaRejilla()">← Todas las plantillas</button>
+  <div id="plantilla-grande-cuerpo"></div>
+</div>
+
+{% elif pagina %}
+{% comment %}
+Sin material dentro de la página: se enseña la página entera. Pasa cuando las
+plantillas están enlazadas en vez de adjuntas.
+{% endcomment %}
+<iframe src="{{ pagina.get_url }}" class="plantillas-iframe" title="Plantillas para escribir"></iframe>
+
+{% else %}
+<div class="plantillas-vacio">
+  <p><b>No encuentro la página de plantillas.</b></p>
+  <p>Debería estar publicada con la dirección <code>plantillas-para-escribir</code>.</p>
+</div>
+{% endif %}

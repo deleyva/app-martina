@@ -10,6 +10,7 @@ principal, 2026-09-08), así que cualquier profesor del grupo ve y toca lo mismo
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.contenttypes.models import ContentType
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods
 from wagtail.models import Page
@@ -324,7 +325,6 @@ def class_session_preview_content(request, pk):
     aquí es exactamente lo que se verá luego; con un renderizador aparte las dos
     vistas acabarían discrepando.
     """
-    from django.contrib.contenttypes.models import ContentType
 
     from clases.views import render_item_content
 
@@ -338,3 +338,61 @@ def class_session_preview_content(request, pk):
     if borrador.content_object is None:
         return render(request, "clases/class_sessions/partials/sin_contenido.html", {})
     return render_item_content(request, borrador)
+
+
+# =============================================================================
+# PLANTILLAS PARA ESCRIBIR
+# =============================================================================
+
+# La página del sitio que las guarda. Es una página de Wagtail normal, así que
+# las plantillas se editan desde el CMS y aquí no hay nada que tocar cuando se
+# añade una. Si algún día se mueve, esto es lo único que cambia.
+SLUG_PLANTILLAS = "plantillas-para-escribir"
+
+
+@login_required
+@user_passes_test(is_staff)
+def plantillas(request):
+    """Las plantillas de escritura, para abrirlas en mitad de una clase.
+
+    Salen de la página del sitio con `material_de`, el mismo recorrido que usan
+    los libros: lo que esté puesto en esa página aparece aquí sin tocar código.
+
+    **Con vuelta atrás a propósito.** Si esa página no da material practicable
+    —porque enlaza a otras páginas en vez de llevar los ficheros dentro—, se
+    enseña la página entera en un iframe. Prefiero eso a una rejilla vacía sin
+    explicación: el profesor está delante de la clase y necesita la plantilla,
+    no un diagnóstico.
+    """
+    from my_library.libros import material_de
+    from wagtail.models import Page
+
+    pagina = Page.objects.filter(slug=SLUG_PLANTILLAS).live().first()
+    if pagina is None:
+        return render(
+            request,
+            "clases/class_sessions/partials/plantillas.html",
+            {"pagina": None, "medios": []},
+        )
+
+    concreta = pagina.specific
+    medios = []
+    for objeto in material_de(concreta):
+        icono, titulo, tipo = libros_de_grupo.describir(objeto)
+        medios.append(
+            {
+                "icono": icono,
+                "titulo": titulo,
+                "tipo": tipo,
+                "tipo_pk": ContentType.objects.get_for_model(objeto).pk,
+                "pk": objeto.pk,
+                "url": getattr(getattr(objeto, "file", None), "url", "")
+                or getattr(objeto, "url", ""),
+            }
+        )
+
+    return render(
+        request,
+        "clases/class_sessions/partials/plantillas.html",
+        {"pagina": concreta, "medios": medios},
+    )

@@ -26,6 +26,156 @@
             overflow: hidden;
         }
 
+        /* ── Botones flotantes de la izquierda ── */
+        .fab-izq {
+            position: fixed;
+            left: 24px;
+            z-index: 10000;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(30, 30, 34, 0.85);
+            backdrop-filter: blur(10px);
+            color: #fff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            transition: transform 0.2s, background 0.2s;
+        }
+        .fab-izq:hover { transform: scale(1.1); background: rgba(60, 60, 68, 0.95); }
+        .fab-izq:disabled { opacity: 0.3; cursor: default; transform: none; }
+        #fab-pagina { bottom: 24px; }
+        #fab-plantillas { bottom: 84px; }
+
+        /* ── Modal a pantalla completa (página entera y plantillas) ── */
+        #lienzo {
+            position: fixed;
+            inset: 0;
+            z-index: 20000;
+            background: #111;
+            display: none;
+            flex-direction: column;
+        }
+        #lienzo.abierto { display: flex; }
+        #lienzo-barra {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 10px 16px;
+            background: #1b1b1f;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            flex-shrink: 0;
+        }
+        #lienzo-titulo {
+            font-size: 14px;
+            font-weight: 600;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        #lienzo-cerrar {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: #fff;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+        #lienzo-cerrar:hover { background: rgba(255, 255, 255, 0.2); }
+        /* El scroll vive aquí: es lo que permite recorrer la página entera. */
+        #lienzo-cuerpo { flex: 1; overflow: auto; -webkit-overflow-scrolling: touch; background: #fff; }
+        #lienzo-cuerpo iframe { width: 100%; height: 100%; border: none; display: block; }
+
+        /* `display: grid` gana al `[hidden]` del navegador, así que sin esta
+           línea la rejilla no se ocultaba al elegir una plantilla y la grande
+           salía debajo, con las dos a la vez en pantalla. */
+        .plantillas-rejilla[hidden] { display: none; }
+        .plantillas-rejilla {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 12px;
+            padding: 16px;
+        }
+        .plantilla {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            padding: 10px;
+            background: #f4f4f5;
+            border: 1px solid #d4d4d8;
+            border-radius: 6px;
+            cursor: pointer;
+            color: #18181b;
+            font: inherit;
+        }
+        .plantilla:hover { border-color: #8b5cf6; }
+        .plantilla img { width: 100%; height: 140px; object-fit: contain; background: #fff; }
+        .plantilla-icono { font-size: 40px; height: 140px; display: flex; align-items: center; }
+        .plantilla-nombre { font-size: 12px; text-align: center; word-break: break-word; }
+        .plantilla-volver {
+            display: block;
+            margin: 12px 16px;
+            padding: 8px 14px;
+            background: #27272a;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font: inherit;
+        }
+        #plantilla-grande-cuerpo { padding: 0 16px 24px; }
+        #plantilla-grande-cuerpo img { max-width: 100%; display: block; margin: 0 auto; }
+        #plantilla-grande-cuerpo iframe { width: 100%; height: 80vh; border: none; }
+        .plantillas-iframe { width: 100%; height: 100%; border: none; }
+        .plantillas-vacio { padding: 32px; color: #18181b; }
+
+        /* ── Zonas de paso, estilo forScore ──
+           No son elementos: son dos franjas imaginarias en los bordes que se
+           calculan al hacer clic. Si fueran capas encima del contenido se
+           tragarían el scroll del PDF y los controles del audio. */
+        #pista-lados {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 9000;
+            opacity: 0;
+            transition: opacity 0.25s;
+        }
+        #pista-lados.visible { opacity: 1; }
+        #pista-lados span {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 28px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+        #pista-lados .izq { left: 18px; }
+        #pista-lados .der { right: 18px; }
+
+        .flyout-syllabus-item.visto .item-name { text-decoration: line-through; opacity: 0.55; }
+
+        #flyout-visto {
+            margin: 8px 16px 0;
+            padding: 8px 12px;
+            width: calc(100% - 32px);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+            cursor: pointer;
+            font: inherit;
+            font-size: 13px;
+        }
+        #flyout-visto.si { background: rgba(34, 197, 94, 0.25); border-color: rgba(34, 197, 94, 0.6); }
+
         /* ── Floating Action Button ── */
         #study-fab {
             position: fixed;
@@ -314,6 +464,9 @@
             </a>
         </div>
         <!-- Syllabus -->
+        {% if is_teacher %}
+        <button id="flyout-visto" type="button" onclick="alternarVisto()"></button>
+        {% endif %}
         <div class="flyout-syllabus" id="flyout-syllabus"></div>
         <!-- Audio controls placeholder -->
         <div id="flyout-audio-section"></div>
@@ -321,6 +474,28 @@
 
     <!-- Content area (lazy-loaded via fetch) -->
     <div id="study-content"></div>
+
+    {# Pista visual de las zonas de paso, un instante al cambiar de elemento. #}
+    <div id="pista-lados"><span class="izq">‹</span><span class="der">›</span></div>
+
+    <button id="fab-plantillas" class="fab-izq" onclick="abrirPlantillas()" title="Plantillas para escribir (P)">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 5h16M4 12h16M4 19h10"/>
+        </svg>
+    </button>
+    <button id="fab-pagina" class="fab-izq" onclick="abrirPagina()" title="Ver la página entera (V)">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+    </button>
+
+    <div id="lienzo">
+        <div id="lienzo-barra">
+            <div id="lienzo-titulo"></div>
+            <button id="lienzo-cerrar" onclick="cerrarLienzo()" aria-label="Cerrar">✕</button>
+        </div>
+        <div id="lienzo-cuerpo"></div>
+    </div>
 
     <!-- Session complete overlay -->
     <div id="session-complete">
@@ -371,7 +546,7 @@
         var html = '';
         for (var i = 0; i < playlist.length; i++) {
             var item = playlist[i];
-            html += '<button class="flyout-syllabus-item' + (i === currentIndex ? ' active' : '') + '" data-index="' + i + '" onclick="goToItem(' + i + ')">';
+            html += '<button class="flyout-syllabus-item' + (i === currentIndex ? ' active' : '') + (playlist[i].visto ? ' visto' : '') + '" data-index="' + i + '" onclick="goToItem(' + i + ')">';
             html += '<span class="item-icon">' + item.icon + '</span>';
             html += '<span class="item-name">' + item.title + '</span>';
             html += '<span class="item-num">' + (i + 1) + '</span>';
@@ -404,6 +579,11 @@
         var nextBtn = document.getElementById('flyout-next-btn');
         if (prevBtn) prevBtn.style.opacity = currentIndex === 0 ? '0.3' : '1';
         if (nextBtn) nextBtn.style.opacity = currentIndex >= playlist.length - 1 ? '0.3' : '1';
+        // El botón de la página entera se apaga cuando el elemento no viene de
+        // ninguna: un extra suelto puede no tener página de origen.
+        var btnPagina = document.getElementById('fab-pagina');
+        if (btnPagina) btnPagina.disabled = !item.page_url;
+        pintarVisto();
         updateSyllabusActive();
     }
 
@@ -457,6 +637,7 @@
             moveMediaToFlyout();
             // Mark when item finished loading
             itemLoadedAt = Date.now();
+            asomarPista();
             // Unblock after a delay so viewer scripts initialize without triggering cascade
             var loadedVersion = myVersion;
             setTimeout(function() {
@@ -604,19 +785,153 @@
     }
     {% endif %}
 
+    // ── El lienzo: la página entera y las plantillas ──
+    //
+    // Un solo modal para las dos cosas. Son el mismo gesto —tapar la clase con
+    // algo a pantalla completa y volver— y dos modales separados solo darían
+    // dos sitios donde arreglar el mismo fallo.
+    function abrirLienzo(titulo, html) {
+        document.getElementById('lienzo-titulo').textContent = titulo;
+        document.getElementById('lienzo-cuerpo').innerHTML = html;
+        document.getElementById('lienzo').classList.add('abierto');
+    }
+
+    function cerrarLienzo() {
+        document.getElementById('lienzo').classList.remove('abierto');
+        // Se vacía al cerrar: si no, el iframe sigue vivo detrás y un audio de
+        // la página seguiría sonando encima de la clase.
+        document.getElementById('lienzo-cuerpo').innerHTML = '';
+    }
+
+    function lienzoAbierto() {
+        return document.getElementById('lienzo').classList.contains('abierto');
+    }
+
+    function abrirPagina() {
+        var item = playlist[currentIndex];
+        if (!item || !item.page_url) return;
+        abrirLienzo(item.page_title || 'Página completa',
+                    '<iframe src="' + item.page_url + '" title="Página completa"></iframe>');
+    }
+
+    function abrirPlantillas() {
+        abrirLienzo('Plantillas para escribir',
+                    '<div style="padding:24px;color:#71717a;">Cargando plantillas…</div>');
+        fetch('{% url "clases:plantillas" %}', { credentials: 'same-origin' })
+            .then(function(r) { return r.text(); })
+            .then(function(html) { document.getElementById('lienzo-cuerpo').innerHTML = html; })
+            .catch(function() {
+                document.getElementById('lienzo-cuerpo').innerHTML =
+                    '<div style="padding:24px;color:#b91c1c;">No he podido traer las plantillas.</div>';
+            });
+    }
+
+    function mostrarPlantilla(url, titulo, tipo) {
+        var rejilla = document.querySelector('.plantillas-rejilla');
+        var grande = document.getElementById('plantilla-grande');
+        if (!rejilla || !grande) return;
+        var cuerpo = document.getElementById('plantilla-grande-cuerpo');
+        cuerpo.innerHTML = (tipo === 'Imagen')
+            ? '<img src="' + url + '" alt="' + titulo + '">'
+            : '<iframe src="' + url + '" title="' + titulo + '"></iframe>';
+        rejilla.hidden = true;
+        grande.hidden = false;
+        document.getElementById('lienzo-titulo').textContent = titulo;
+    }
+
+    function volverALaRejilla() {
+        var rejilla = document.querySelector('.plantillas-rejilla');
+        var grande = document.getElementById('plantilla-grande');
+        if (rejilla) rejilla.hidden = false;
+        if (grande) grande.hidden = true;
+        document.getElementById('lienzo-titulo').textContent = 'Plantillas para escribir';
+    }
+
+    // ── Dar por visto ──
+    function pintarVisto() {
+        var btn = document.getElementById('flyout-visto');
+        if (!btn) return;
+        var item = playlist[currentIndex];
+        if (!item) return;
+        btn.textContent = item.visto ? '✓ Visto — tocar para deshacer' : 'Dar por visto';
+        btn.classList.toggle('si', !!item.visto);
+    }
+
+    function alternarVisto() {
+        var item = playlist[currentIndex];
+        if (!item) return;
+        var btn = document.getElementById('flyout-visto');
+        if (btn) btn.disabled = true;
+        fetch('/clases/sessions/items/' + item.pk + '/visto/', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'X-CSRFToken': csrfToken }
+        })
+        .then(function(r) {
+            if (!r.ok) throw new Error(r.status);
+            item.visto = !item.visto;
+            pintarVisto();
+            buildSyllabus();
+            updateSyllabusActive();
+        })
+        .catch(function() {
+            if (btn) btn.textContent = 'No se ha podido guardar';
+        })
+        .finally(function() { if (btn) btn.disabled = false; });
+    }
+
+    // ── Zonas de paso, estilo forScore ──
+    //
+    // Se resuelven mirando dónde cayó el clic, no con capas encima: una capa en
+    // el borde se tragaría el scroll del PDF y los controles del audio, que es
+    // justo lo que no puede pasar dando clase.
+    var ANCHO_ZONA = 0.15; // 15% de la pantalla a cada lado
+
+    function esControl(el) {
+        return !!(el && el.closest &&
+            el.closest('button, a, input, select, textarea, label, [role="button"], #study-flyout, #lienzo'));
+    }
+
+    document.addEventListener('click', function(e) {
+        if (lienzoAbierto() || flyoutOpen) return;
+        if (esControl(e.target)) return;
+        var margen = window.innerWidth * ANCHO_ZONA;
+        if (e.clientX <= margen) {
+            navigateItem(-1);
+        } else if (e.clientX >= window.innerWidth - margen) {
+            navigateItem(1);
+        }
+    });
+
+    function asomarPista() {
+        var pista = document.getElementById('pista-lados');
+        if (!pista) return;
+        pista.classList.add('visible');
+        setTimeout(function() { pista.classList.remove('visible'); }, 900);
+    }
+
     // Keyboard: Escape to exit, M to toggle menu
+
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
-            if (flyoutOpen) {
+            // De dentro afuera: primero lo que esté tapando la clase.
+            if (lienzoAbierto()) {
+                cerrarLienzo();
+            } else if (flyoutOpen) {
                 toggleFlyout(false);
             } else {
                 window.location.href = '{% url "clases:class_session_view" session.pk %}';
             }
+            return;
         }
-        if (e.key === 'm' || e.key === 'M') {
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-            toggleFlyout();
-        }
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        if (lienzoAbierto()) return;
+
+        if (e.key === 'ArrowRight') { navigateItem(1); return; }
+        if (e.key === 'ArrowLeft') { navigateItem(-1); return; }
+        if (e.key === 'm' || e.key === 'M') { toggleFlyout(); return; }
+        if (e.key === 'v' || e.key === 'V') { abrirPagina(); return; }
+        if (e.key === 'p' || e.key === 'P') { abrirPlantillas(); return; }
     }, true);
 
     // Start
