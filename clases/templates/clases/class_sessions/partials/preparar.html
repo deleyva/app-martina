@@ -19,16 +19,33 @@ cuanto uno de los dos cambiara.
         {% csrf_token %}
 
         {% for fila in propuesta %}
-          <label class="flex items-center gap-3 py-1.5 px-2 rounded hover:bg-base-300/40 cursor-pointer">
-            <input type="checkbox" name="secciones" value="{{ fila.group_book.seccion }}"
-                   class="checkbox checkbox-sm checkbox-primary" checked>
-            <span class="badge badge-outline badge-sm shrink-0">{{ fila.group_book.get_seccion_display }}</span>
-            <span class="text-lg shrink-0" aria-hidden="true">{{ fila.icono }}</span>
-            <span class="min-w-0 flex-1">
-              <span class="block truncate text-sm">{{ fila.titulo }}</span>
-              <span class="block truncate text-xs text-base-content/60">{{ fila.group_book.libro.title }}</span>
-            </span>
-          </label>
+          <div class="flex items-center gap-3 py-1.5 px-2 rounded hover:bg-base-300/40">
+            <label class="flex items-center gap-3 min-w-0 flex-1 cursor-pointer">
+              <input type="checkbox" name="secciones" value="{{ fila.group_book.seccion }}"
+                     class="checkbox checkbox-sm checkbox-primary" checked>
+              <span class="badge badge-outline badge-sm shrink-0">{{ fila.group_book.get_seccion_display }}</span>
+              <span class="text-lg shrink-0" aria-hidden="true">{{ fila.icono }}</span>
+              <span class="min-w-0 flex-1">
+                <span class="block truncate text-sm">{{ fila.titulo }}</span>
+                <span class="block truncate text-xs text-base-content/60">{{ fila.group_book.libro.title }}</span>
+              </span>
+            </label>
+
+            {# El ojo: verlo entero antes de decidir si entra en la clase. #}
+            <button type="button"
+                    class="btn btn-ghost btn-xs btn-square shrink-0"
+                    title="Ver «{{ fila.titulo }}» a pantalla completa"
+                    aria-label="Ver {{ fila.titulo }}"
+                    hx-get="{% url 'clases:class_session_preview_content' session.pk %}?content_type={{ fila.tipo.pk }}&object_id={{ fila.objeto.pk }}"
+                    hx-target="#cuerpo-vistazo"
+                    hx-swap="innerHTML"
+                    onclick="abrirVistazo('{{ fila.titulo|escapejs }}')">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+              </svg>
+            </button>
+          </div>
         {% endfor %}
 
         <button type="submit" class="btn btn-primary btn-sm self-start mt-1">
@@ -46,3 +63,37 @@ cuanto uno de los dos cambiara.
 
   </div>
 </div>
+
+{% comment %}
+El vistazo previo. Un <dialog> nativo: se cierra con Esc y con el fondo sin
+JavaScript propio, que es lo que hace falta cuando esto se usa desde el iPad.
+Vive dentro de este partial porque el partial se carga entero por HTMX; si el
+modal estuviera en la página, la respuesta no lo traería.
+{% endcomment %}
+<dialog id="vistazo" class="modal">
+  <div class="modal-box max-w-none w-[95vw] h-[92vh] p-0 flex flex-col">
+    <div class="flex items-center justify-between gap-3 px-4 py-2 border-b border-base-300 shrink-0">
+      <h3 id="titulo-vistazo" class="font-semibold truncate"></h3>
+      <form method="dialog">
+        <button class="btn btn-sm btn-circle btn-ghost" aria-label="Cerrar">✕</button>
+      </form>
+    </div>
+    <div id="cuerpo-vistazo" class="flex-1 overflow-auto">
+      <div class="flex h-full items-center justify-center">
+        <span class="loading loading-spinner loading-lg"></span>
+      </div>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button aria-label="Cerrar">cerrar</button></form>
+</dialog>
+
+<script>
+  function abrirVistazo(titulo) {
+    const dlg = document.getElementById('vistazo');
+    document.getElementById('titulo-vistazo').textContent = titulo;
+    // El contenido lo trae HTMX en este mismo clic; mientras llega se ve la rueda.
+    document.getElementById('cuerpo-vistazo').innerHTML =
+      '<div class="flex h-full items-center justify-center"><span class="loading loading-spinner loading-lg"></span></div>';
+    dlg.showModal();
+  }
+</script>

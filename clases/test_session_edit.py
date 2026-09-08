@@ -274,8 +274,12 @@ class TestHTMXPartialRendering:
 
         assert response.status_code == 200
         content = response.content.decode()
-        # Full page should contain HTML structure
-        assert "Biblioteca del Grupo" in content
+        # La página completa se reconoce por el contenido de la sesión.
+        # Antes se reconocía por "Biblioteca del Grupo", pero ese bloque salió de
+        # la pantalla el 2026-09-08: los elementos de la clase vienen ahora de
+        # los libros del grupo, no de una biblioteca que se llenaba a mano.
+        assert "Contenido de la Sesión" in content
+        assert "Biblioteca del Grupo" not in content
 
     def test_search_resets_offset(self, client, staff_user, session, library_items):
         """When searching, results should always start from offset 0,

@@ -309,3 +309,32 @@ def class_session_item_visto(request, pk):
         "clases/class_sessions/partials/visto.html",
         {"item": item},
     )
+
+
+@login_required
+@user_passes_test(is_staff)
+def class_session_preview_content(request, pk):
+    """Enseña un elemento ANTES de meterlo en la clase.
+
+    Es el ojo de la vista previa: sirve para decidir qué entra y qué no sin
+    tener que añadirlo primero y quitarlo después.
+
+    Se monta un `ClassSessionItem` **sin guardar** y se pinta con
+    `render_item_content`, el mismo camino que usa la clase. Así lo que se ve
+    aquí es exactamente lo que se verá luego; con un renderizador aparte las dos
+    vistas acabarían discrepando.
+    """
+    from django.contrib.contenttypes.models import ContentType
+
+    from clases.views import render_item_content
+
+    session = get_object_or_404(ClassSession, pk=pk, teacher=request.user)
+    tipo = get_object_or_404(ContentType, pk=request.GET.get("content_type"))
+    borrador = ClassSessionItem(
+        session=session,
+        content_type=tipo,
+        object_id=request.GET.get("object_id"),
+    )
+    if borrador.content_object is None:
+        return render(request, "clases/class_sessions/partials/sin_contenido.html", {})
+    return render_item_content(request, borrador)

@@ -556,6 +556,18 @@ def class_session_item_content(request, session_id, item_id):
             return HttpResponse("No autorizado", status=403)
 
     item = get_object_or_404(ClassSessionItem, pk=item_id, session=session)
+    return render_item_content(request, item)
+
+
+def render_item_content(request, item):
+    """Pinta el contenido de un elemento con el visor de `my_library`.
+
+    Separado de la vista para que la previsualización de «preparar» enseñe el
+    elemento por EL MISMO camino que lo enseñará la clase. `item` puede ser un
+    `ClassSessionItem` sin guardar: aquí solo se le piden `content_type` y
+    `content_object`, y las plantillas de Django resuelven a vacío lo que no
+    exista.
+    """
     content_type = item.content_type.model
     content = item.content_object
 

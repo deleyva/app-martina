@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Editar {{ session.title }}{% endblock %}
 
@@ -71,86 +72,11 @@
     </div>
 
     <div class="max-w-7xl mx-auto">
-        <!-- Biblioteca del grupo (con búsqueda, filtros y paginación) -->
-        <div class="card bg-base-100 shadow-md">
-            <div class="card-body">
-                <!-- Header con búsqueda y filtros -->
-                <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 mb-4">
-                    <div class="flex items-center gap-3">
-                        <h2 class="card-title">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"></path>
-                            </svg>
-                            Biblioteca del Grupo
-                        </h2>
-                        <!-- Botón para ver biblioteca completa -->
-                        <a href="{% url 'clases:group_library_index' session.group.pk %}" 
-                           class="btn btn-xs btn-outline btn-primary"
-                           title="Ver biblioteca completa del grupo">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
-                            </svg>
-                            Ver completa
-                        </a>
-                    </div>
-                    
-                    <!-- Filtros -->
-                    <div class="flex flex-wrap gap-2">
-                        <!-- Buscador -->
-                        <input type="text" 
-                               placeholder="🔍 Buscar por título..."
-                               class="input input-bordered input-sm w-full lg:w-64"
-                               name="search"
-                               value="{{ search }}"
-                               hx-get="{% url 'clases:class_session_edit' session.pk %}"
-                               hx-trigger="keyup changed delay:500ms"
-                               hx-target="#library-table-body"
-                               hx-include="[name='page_size']">
-                        
-                        <!-- Selector de filas por página -->
-                        <select name="page_size" 
-                                class="select select-bordered select-sm"
-                                hx-get="{% url 'clases:class_session_edit' session.pk %}"
-                                hx-trigger="change"
-                                hx-target="#library-table-body"
-                                hx-include="[name='search']">
-                            <option value="5" {% if page_size == 5 %}selected{% endif %}>5 filas</option>
-                            <option value="10" {% if page_size == 10 %}selected{% endif %}>10 filas</option>
-                            <option value="20" {% if page_size == 20 %}selected{% endif %}>20 filas</option>
-                            <option value="50" {% if page_size == 50 %}selected{% endif %}>50 filas</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <!-- Tabla a ancho completo -->
-                <div class="library-table-container">
-                    {% if library_items %}
-                    <table class="table table-zebra w-full">
-                        <thead>
-                            <tr>
-                                <th class="w-12"></th>
-                                <th>Título y detalles</th>
-                                <th class="text-right">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody id="library-table-body">
-                            {% include "clases/class_sessions/partials/library_rows.html" %}
-                        </tbody>
-                    </table>
-                    
-                    {% else %}
-                    <div class="text-center py-6 text-base-content/70 text-sm">
-                        <div class="text-3xl mb-2">📚</div>
-                        <p>La biblioteca del grupo está vacía.</p>
-                        <a href="{% url 'clases:group_library_index' session.group.pk %}" 
-                           class="link link-primary mt-2 inline-block">
-                            Añadir contenido
-                        </a>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
+        {% comment %}
+        La biblioteca del grupo sale de aquí: la sustituye el bloque de preparar,
+        que es de donde salen ahora los elementos de la clase. El modelo y sus
+        vistas siguen vivos por debajo hasta que se retiren del todo.
+        {% endcomment %}
         
         <!-- Contenido de la sesión (ordenable) -->
         <div class="card bg-base-100 shadow-md mb-6">
@@ -183,6 +109,20 @@
 {% endblock %}
 
 {% block extra_js %}
+{% comment %}
+Las librerías de los visores, cargadas de antemano.
+
+El vistazo previo mete el visor por HTMX, y sus scripts inline se ejecutan en
+cuanto llega el fragmento: si la librería no está ya en la página, el PDF sale en
+blanco con `Cannot read properties of undefined (reading 'GlobalWorkerOptions')`
+en la consola y ningún aviso en pantalla. Es exactamente lo que pasaba aquí, y
+es el mismo motivo por el que `my_library/study_viewer.html` las carga en su
+cabecera.
+{% endcomment %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://unpkg.com/wavesurfer.js@7"></script>
+<script src="{% static 'vendor/alphatab/alphaTab.min.js' %}"></script>
+
 <!-- SortableJS CDN -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script>

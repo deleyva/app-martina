@@ -1931,3 +1931,37 @@ con la página entera del elemento, modal de plantillas servido desde
 `/indice-de-recursos-musicales/plantillas-para-escribir/`, y marcar visto desde
 ahí. Sin desplegar nada de la fase A todavía: está construida y verificada en
 local, no en producción.
+
+### Fase 28·1 — La pantalla de edición se queda con lo que sirve (2026-09-08)
+
+Tres cambios pedidos tras ver la fase A funcionando:
+
+1. **Fuera la «Biblioteca del Grupo» de la pantalla de edición.** La sustituye el
+   bloque de preparar. El modelo y sus vistas siguen vivos; esto es solo la
+   plantilla. `test_non_htmx_returns_full_page` afirmaba que la página contuviera
+   «Biblioteca del Grupo» — se reescribió para reconocerla por «Contenido de la
+   Sesión», y ahora además comprueba que el bloque viejo NO está.
+2. **Un ojo en la vista previa** que abre el recurso a pantalla completa en un
+   `<dialog>` nativo, para decidir qué entra en la clase sin tener que añadirlo y
+   quitarlo después. Se pinta con `render_item_content`, extraído de
+   `class_session_item_content`: el mismo camino que usará la clase, sobre un
+   `ClassSessionItem` **sin guardar**. Con un renderizador aparte las dos vistas
+   acabarían discrepando.
+3. **Fuera el botón de «añadir a bibliotecas» de los elementos de la sesión.** Lo
+   que ofrecía era la biblioteca personal y la de grupo, que se está retirando.
+   Lo que llegue a las bibliotecas del alumnado tiene que salir de marcar visto.
+   **Aviso dado al principal:** ese bañado es la fase C y todavía no existe, así
+   que hasta entonces no hay vía de mandar algo a un alumno desde la sesión.
+
+**El navegador volvió a encontrar lo que los tests no:** el PDF salía en blanco
+dentro del modal, sin ningún aviso en pantalla. En consola,
+`Cannot read properties of undefined (reading 'GlobalWorkerOptions')`: los
+visores traen scripts inline que se ejecutan en cuanto HTMX inserta el fragmento,
+y `pdfjsLib` no estaba cargada en la pantalla de edición. Arreglado cargando
+pdf.js, wavesurfer y alphaTab por adelantado, que es lo que ya hacía
+`my_library/study_viewer.html` y por el mismo motivo, escrito en su comentario.
+Verificado con un PDF real dibujado en el modal, no con una página en blanco.
+
+Segundo tropiezo de camino: `{% load static %}` puesto ANTES de
+`{% extends %}` da `TemplateSyntaxError` — `extends` tiene que ser la primera
+etiqueta de la plantilla.

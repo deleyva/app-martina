@@ -119,6 +119,11 @@ urlpatterns = [
         name="class_session_prepare_preview",
     ),
     path(
+        "sessions/<int:pk>/preparar/contenido/",
+        views_libros.class_session_preview_content,
+        name="class_session_preview_content",
+    ),
+    path(
         "sessions/items/<int:pk>/visto/",
         views_libros.class_session_item_visto,
         name="class_session_item_visto",
