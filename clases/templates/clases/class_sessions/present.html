@@ -121,7 +121,10 @@
         .plantilla-icono { font-size: 40px; height: 140px; display: flex; align-items: center; }
         .plantilla-nombre { font-size: 12px; text-align: center; word-break: break-word; }
         .plantilla-volver {
-            display: block;
+            /* `align-self` porque el contenedor es flex: sin esto el botón se
+               estira a todo el ancho y parece la barra de salida, que es
+               justamente el clic que no queremos provocar. La salida es la X. */
+            align-self: flex-start;
             margin: 12px 16px;
             padding: 8px 14px;
             background: #27272a;
@@ -131,9 +134,13 @@
             cursor: pointer;
             font: inherit;
         }
-        #plantilla-grande-cuerpo { padding: 0 16px 24px; }
+        /* El visor de PDF se dimensiona respecto a su contenedor, así que este
+           necesita una altura de verdad; con la altura del contenido, el lienzo
+           se queda en blanco. */
+        #plantilla-grande { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+        #plantilla-grande[hidden] { display: none; }
+        #plantilla-grande-cuerpo { flex: 1; min-height: 0; height: 78vh; }
         #plantilla-grande-cuerpo img { max-width: 100%; display: block; margin: 0 auto; }
-        #plantilla-grande-cuerpo iframe { width: 100%; height: 80vh; border: none; }
         .plantillas-iframe { width: 100%; height: 100%; border: none; }
         .plantillas-vacio { padding: 32px; color: #18181b; }
 
@@ -622,17 +629,7 @@
         .then(function(r) { return r.text(); })
         .then(function(html) {
             container.innerHTML = html;
-            // Re-execute scripts in the loaded content
-            var scripts = container.querySelectorAll('script');
-            scripts.forEach(function(oldScript) {
-                var newScript = document.createElement('script');
-                if (oldScript.src) {
-                    newScript.src = oldScript.src;
-                } else {
-                    newScript.textContent = oldScript.textContent;
-                }
-                oldScript.parentNode.replaceChild(newScript, oldScript);
-            });
+            ejecutarScripts(container);
             // Move media panel into flyout if present
             moveMediaToFlyout();
             // Mark when item finished loading
@@ -785,6 +782,20 @@
     }
     {% endif %}
 
+    // Los visores llegan como HTML con <script> dentro, y el navegador NO
+    // ejecuta los scripts de un innerHTML. Hay que recrearlos.
+    function ejecutarScripts(contenedor) {
+        contenedor.querySelectorAll('script').forEach(function(viejo) {
+            var nuevo = document.createElement('script');
+            if (viejo.src) {
+                nuevo.src = viejo.src;
+            } else {
+                nuevo.textContent = viejo.textContent;
+            }
+            viejo.parentNode.replaceChild(nuevo, viejo);
+        });
+    }
+
     // ── El lienzo: la página entera y las plantillas ──
     //
     // Un solo modal para las dos cosas. Son el mismo gesto —tapar la clase con
@@ -826,17 +837,29 @@
             });
     }
 
-    function mostrarPlantilla(url, titulo, tipo) {
+    function mostrarPlantilla(tipoPk, objetoPk, titulo) {
         var rejilla = document.querySelector('.plantillas-rejilla');
         var grande = document.getElementById('plantilla-grande');
         if (!rejilla || !grande) return;
         var cuerpo = document.getElementById('plantilla-grande-cuerpo');
-        cuerpo.innerHTML = (tipo === 'Imagen')
-            ? '<img src="' + url + '" alt="' + titulo + '">'
-            : '<iframe src="' + url + '" title="' + titulo + '"></iframe>';
+        cuerpo.innerHTML = '<div style="padding:24px;color:#71717a;">Cargando…</div>';
         rejilla.hidden = true;
         grande.hidden = false;
         document.getElementById('lienzo-titulo').textContent = titulo;
+
+        // El MISMO visor que el resto de la clase, no el del navegador: dentro
+        // de un iframe el PDF se queda el teclado y Escape deja de funcionar.
+        var url = '{% url "clases:plantilla_contenido" %}' +
+                  '?content_type=' + tipoPk + '&object_id=' + objetoPk;
+        fetch(url, { credentials: 'same-origin' })
+            .then(function(r) { return r.text(); })
+            .then(function(html) {
+                cuerpo.innerHTML = html;
+                ejecutarScripts(cuerpo);
+            })
+            .catch(function() {
+                cuerpo.innerHTML = '<div style="padding:24px;color:#b91c1c;">No he podido abrir la plantilla.</div>';
+            });
     }
 
     function volverALaRejilla() {

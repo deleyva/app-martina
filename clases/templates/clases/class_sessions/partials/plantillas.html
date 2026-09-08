@@ -7,7 +7,7 @@ independiente, con su fondo negro y sin la hoja de estilos del sitio.
 {% if medios %}
 <div class="plantillas-rejilla">
   {% for medio in medios %}
-    <button type="button" class="plantilla" onclick="mostrarPlantilla('{{ medio.url|escapejs }}', '{{ medio.titulo|escapejs }}', '{{ medio.tipo|escapejs }}')">
+    <button type="button" class="plantilla" onclick="mostrarPlantilla({{ medio.tipo_pk }}, {{ medio.pk }}, '{{ medio.titulo|escapejs }}')">
       {% if medio.tipo == 'Imagen' %}
         <img src="{{ medio.url }}" alt="{{ medio.titulo }}" loading="lazy">
       {% else %}

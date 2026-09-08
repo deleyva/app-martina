@@ -129,6 +129,11 @@ urlpatterns = [
         name="plantillas",
     ),
     path(
+        "plantillas/contenido/",
+        views_libros.plantilla_contenido,
+        name="plantilla_contenido",
+    ),
+    path(
         "sessions/items/<int:pk>/visto/",
         views_libros.class_session_item_visto,
         name="class_session_item_visto",

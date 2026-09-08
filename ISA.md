@@ -2046,3 +2046,32 @@ la regla es de ámbito y no un borrado.
 matriculado, y el panel de progreso por grupo. Es además lo que devuelve la vía
 de mandar material a un alumno, que se perdió al quitar el botón de "añadir a
 bibliotecas" de la sesión.
+
+### Fase 28·2·1 — Las plantillas, con el visor de la clase (2026-09-08)
+
+Corregido tras probarlo el principal: al elegir una plantilla se abría en un
+`iframe` con el fichero, o sea con el visor de PDF del navegador.
+
+**Y no era solo estética.** Un PDF dentro de un `iframe` se queda el foco del
+teclado, así que `Escape` no llegaba a la página: el profesor se quedaba
+encerrado en la plantilla, salía por «← Todas las plantillas» y aterrizaba en la
+rejilla en vez de en la clase. Las dos quejas —el visor y la vuelta— eran el
+mismo defecto.
+
+- [x] **C135** · La plantilla elegida se pinta con `render_item_content`, el
+  mismo visor que el resto de la clase, sobre un `ClassSessionItem` sin guardar
+  y sin sesión. *Verificado en navegador:* el PDF sale con el visor propio,
+  su contador de páginas y sin barra del navegador; la imagen, con el visor de
+  imágenes.
+- [x] **C136** · `Escape` y la X cierran del todo y devuelven **al elemento de la
+  clase**, no a la rejilla. *Verificado:* desde la plantilla abierta, `Escape`
+  devolvió a figuras-1.
+
+Dos cosas de camino:
+
+- **El re-ejecutado de `<script>` estaba escrito dos veces.** `innerHTML` no
+  ejecuta los scripts que trae, y `loadItem` ya lo resolvía a mano; ahora es una
+  función, `ejecutarScripts`, que usan los dos sitios.
+- **El botón «← Todas las plantillas» se estiraba a todo el ancho** dentro del
+  contenedor flex y parecía la barra de salida, que es justo el clic que no
+  interesa provocar. La salida es la X.

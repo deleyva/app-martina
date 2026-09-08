@@ -396,3 +396,29 @@ def plantillas(request):
         "clases/class_sessions/partials/plantillas.html",
         {"pagina": concreta, "medios": medios},
     )
+
+
+@login_required
+@user_passes_test(is_staff)
+def plantilla_contenido(request):
+    """Una plantilla concreta, con el visor de la clase.
+
+    Va por `render_item_content` como todo lo demás, sobre un
+    `ClassSessionItem` sin guardar y sin sesión: aquí solo se le piden el tipo y
+    el objeto. Así la plantilla se ve con el mismo visor de PDF que el resto de
+    la clase, en vez de con el del navegador.
+
+    No es solo estética. Un PDF dentro de un `iframe` se queda con el foco del
+    teclado, y entonces `Escape` no llega a la página: el profesor se quedaba
+    encerrado en la plantilla sin poder volver a la clase.
+    """
+    from clases.views import render_item_content
+
+    tipo = get_object_or_404(ContentType, pk=request.GET.get("content_type"))
+    borrador = ClassSessionItem(
+        content_type=tipo,
+        object_id=request.GET.get("object_id"),
+    )
+    if borrador.content_object is None:
+        return render(request, "clases/class_sessions/partials/sin_contenido.html", {})
+    return render_item_content(request, borrador)
