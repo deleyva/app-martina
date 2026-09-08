@@ -2075,3 +2075,70 @@ Dos cosas de camino:
 - **El botón «← Todas las plantillas» se estiraba a todo el ancho** dentro del
   contenedor flex y parecía la barra de salida, que es justo el clic que no
   interesa provocar. La salida es la X.
+
+## Fase 28·3 — Que llegue a casa y se vea el avance (fase C) · CONSTRUIDA Y VERIFICADA EN LOCAL
+
+Lo pedido: *"a todo el alumnado, con los libros que están estudiando, se les
+vayan añadiendo los elementos estudiados en su librería (…). Me gustaría poder
+visualizar cómo va avanzando cada clase por esos libros o contenidos para poder
+decidir el siguiente paso."*
+
+### Claims
+
+- [x] **C137** · Dar por visto un elemento marcado `a_casa` lo copia como
+  `LibraryItem` a cada alumno matriculado y activo. Lo NO marcado no baja.
+  *Verificado en navegador con tres alumnos matriculados:* marcar cancion-a
+  puso una fila en las tres bibliotecas; cancion-b, que sigue pendiente, no.
+- [x] **C138** · Repetir el bañado no duplica. La unicidad es (usuario, tipo,
+  objeto) y se comprueba **contando**, no viendo que no revienta: un elemento
+  repetido saldría dos veces en la cola de estudio del alumno.
+- [x] **C139** · Deshacer el visto retira de las bibliotecas lo que está intacto.
+  Un toque mal dado en clase mete el elemento en treinta bibliotecas, y sin
+  vuelta atrás sería peor el remedio. *Verificado en navegador:* desmarcar dejó
+  las tres bibliotecas a cero.
+- [x] **C140** · **Pero respeta lo que el alumno ya practicó.** `ReviewLog`
+  cuelga del `LibraryItem` en cascada, así que borrar uno ya practicado
+  destruiría su historial. Se borra lo que tiene cero visitas y cero repasos, y
+  lo demás se queda. *Falsador:* test con dos alumnos, uno que lo practicó y
+  otro que no.
+- [x] **C141** · Un extra suelto (`group_book = None`) no llega nunca a ninguna
+  biblioteca: sin libro no hay `a_casa`.
+- [x] **C142** · Panel `/clases/progreso/` con cada grupo, cada libro, su avance
+  y **cuál es el siguiente**, que es la pregunta con la que se prepara una clase:
+  no "cuánto llevo" sino "qué toca". *Verificado en navegador.*
+
+### Anti-claims
+
+- **El bañado no es automático por ver el elemento en clase.** Solo baja lo que
+  el profesor marcó `a_casa` en la pantalla de selección. Los dictados y la
+  sensorialidad son de un solo uso y no tienen nada que hacer en la cola de
+  estudio de nadie.
+- **Deshacer no puede destruir historial ajeno.** El límite de la vuelta atrás
+  es que el alumno no lo haya tocado.
+
+### Dos decisiones que merecen quedar escritas
+
+- **El `orden` de lo bañado se queda a 0 a propósito.** En `my_library` lo nuevo
+  se ordena por `orden` y, empatados, por pk: con todos a cero, al alumno le
+  salen en el orden en que se dieron en clase, que es el que quieres. Calcular el
+  orden real obligaría a recorrer el libro entero —parseando el StreamField de
+  cada capítulo— en mitad de una clase.
+- **`bulk_create(ignore_conflicts=True)` en vez de un `get_or_create` por
+  alumno.** Treinta alumnos en una consulta y no en treinta, y la unicidad ya
+  impide duplicar.
+
+### Un reparto que sale gratis
+
+`enumerar` se partió en dos (`_enumerar_con`) para que el panel memorice el
+material de cada libro dentro de la petición. Un mismo libro suele estar en
+varios grupos del mismo nivel, y recorrerlo obliga a parsear el StreamField y el
+RichText de cada capítulo: sin la memoria, un libro en seis grupos se recorre
+seis veces en la misma pantalla.
+
+### Lo que queda
+
+**Fase D: retirar la biblioteca de grupo.** Ya no hay nada que dependa de ella en
+el flujo nuevo, pero antes hay que **contar filas en producción** —
+`GroupLibraryItem` tiene referencias en `clases`, `evaluations` y `programacion`,
+y `ClassSessionItem` la mapea como tipo de contenido, así que puede haber
+sesiones antiguas apuntando ahí.

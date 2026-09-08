@@ -23,7 +23,10 @@ from clases.models import (
     GroupBookItem,
     SECCIONES_CLASE,
 )
-from my_library.libros import material_del_libro
+# `_por_referencia` es privada a propósito, pero la regla que encierra —el
+# libro solo se guarda cuando agrupa por referencia— tiene que ser la MISMA
+# en los dos sitios. Copiarla aquí daría dos definiciones que se separan.
+from my_library.libros import _por_referencia, material_del_libro
 
 
 def _clave(objeto):
@@ -86,9 +89,18 @@ def enumerar(group_book):
     Así, recolocar unos pocos elementos no obliga a escribir una fila por cada
     uno de los que nadie ha tocado.
     """
+    return _enumerar_con(group_book, material_del_libro(group_book.libro))
+
+
+def _enumerar_con(group_book, material):
+    """`enumerar` con el material ya recorrido.
+
+    Partido en dos para que el panel de progreso pueda memorizar el material de
+    un libro y no recorrerlo una vez por cada grupo que lo estudia.
+    """
     excepciones = _excepciones(group_book)
     filas = []
-    for orden_libro, (capitulo, objeto) in enumerate(material_del_libro(group_book.libro)):
+    for orden_libro, (capitulo, objeto) in enumerate(material):
         tipo, pk = _clave(objeto)
         item = excepciones.get((tipo.pk, pk))
         icono, titulo, tipo_legible = describir(objeto)
@@ -282,7 +294,98 @@ def marcar_visto(session_item, visto=True):
         estado=GroupBookItem.VISTO if visto else GroupBookItem.PENDIENTE,
         visto_en=session_item.session if visto else None,
     )
+
+    # Y si el elemento está marcado para irse a casa, se va ahora: dar por visto
+    # es el único gesto que lo manda a las bibliotecas del alumnado.
+    if visto:
+        bajar_a_las_bibliotecas(session_item, item)
+    else:
+        subir_de_las_bibliotecas(session_item, item)
+
     return item
+
+
+def alumnado_de(group):
+    """Los usuarios matriculados y activos en el grupo."""
+    from clases.models import Enrollment
+
+    return [
+        m.user
+        for m in Enrollment.objects.filter(group=group, is_active=True).select_related("user")
+        if m.user_id
+    ]
+
+
+def bajar_a_las_bibliotecas(session_item, group_book_item):
+    """Copia el elemento a la biblioteca personal de cada alumno del grupo.
+
+    Solo lo marcado con `a_casa`. Bañarlas con TODO lo que se ve en clase las
+    convierte en un vertedero —unas 5.400 filas por grupo y curso, y la mitad
+    ejercicios de un solo uso—, que es el mismo problema que la creación
+    perezosa resolvió en la biblioteca del principal.
+
+    **El `orden` se queda a 0 a propósito.** En `my_library` lo nuevo se ordena
+    por `orden` y, empatados, por pk: con todos a cero, los elementos le salen al
+    alumno en el orden en que se dieron en clase, que es exactamente el que
+    quieres. Calcular el orden real del libro obligaría a recorrerlo entero
+    —parseando el StreamField de cada capítulo— en mitad de una clase.
+
+    Devuelve cuántas filas se han creado de verdad.
+    """
+    from my_library.models import LibraryItem
+
+    if not group_book_item.a_casa:
+        return 0
+
+    alumnos = alumnado_de(session_item.session.group)
+    if not alumnos:
+        return 0
+
+    group_book = group_book_item.group_book
+    libro = group_book.libro if group_book else None
+    filas = [
+        LibraryItem(
+            user=alumno,
+            content_type_id=session_item.content_type_id,
+            object_id=session_item.object_id,
+            source_page=session_item.source_page,
+            libro=libro if libro is not None and _por_referencia(libro) else None,
+        )
+        for alumno in alumnos
+    ]
+    # `ignore_conflicts` en vez de un get_or_create por alumno: la unicidad es
+    # (usuario, tipo, objeto), así que repetir el bañado no duplica nada y esto
+    # son 30 alumnos en una consulta y no en treinta.
+    creadas = LibraryItem.objects.bulk_create(filas, ignore_conflicts=True)
+    return sum(1 for f in creadas if f.pk)
+
+
+def subir_de_las_bibliotecas(session_item, group_book_item):
+    """Deshace el bañado, pero SOLO donde nadie lo ha tocado todavía.
+
+    En clase se dan toques por error, y un toque mal dado mete el elemento en
+    treinta bibliotecas. Pero borrar sin mirar sería peor: `ReviewLog` cuelga del
+    `LibraryItem` en cascada, así que llevarse uno ya practicado destruiría el
+    historial de ese alumno.
+
+    Así que se borra lo que está intacto —cero visitas y cero repasos— y lo
+    demás se queda. Deshacer justo después del error limpia; deshacer una semana
+    más tarde respeta a quien ya lo estudió.
+    """
+    from my_library.models import LibraryItem
+
+    if not group_book_item.a_casa:
+        return 0
+
+    intactos = LibraryItem.objects.filter(
+        user__in=alumnado_de(session_item.session.group),
+        content_type_id=session_item.content_type_id,
+        object_id=session_item.object_id,
+        times_viewed=0,
+        reviews__isnull=True,
+    )
+    borradas, _ = intactos.delete()
+    return borradas
 
 
 def progreso(group_book):
@@ -308,3 +411,57 @@ def libros_disponibles():
     por_arbol = list(LibroPage.objects.live().order_by("title"))
     por_referencia = list(LibroDeEstudioPage.objects.live().order_by("title"))
     return por_arbol + por_referencia
+
+
+def panel_de_progreso(user):
+    """Por dónde va cada uno de tus grupos, para decidir la siguiente clase.
+
+    Devuelve `[{group, ultima_sesion, libros: [...]}]`. Cada libro trae su
+    avance y **cuál es el siguiente**, que es la pregunta que se hace de verdad
+    al preparar una clase: no "cuánto llevo" sino "qué toca".
+
+    **Memoriza el material por libro dentro de la llamada.** Un mismo libro
+    suele estar asignado a varios grupos del mismo nivel, y enumerarlo obliga a
+    parsear el StreamField y el RichText de cada capítulo. Sin la memoria, un
+    libro en seis grupos se recorre seis veces en la misma pantalla.
+    """
+    from clases.models import ClassSession
+
+    memoria = {}
+
+    def material(libro):
+        if libro.pk not in memoria:
+            memoria[libro.pk] = material_del_libro(libro)
+        return memoria[libro.pk]
+
+    paneles = []
+    for group in user.teaching_groups.all().select_related("subject"):
+        libros = []
+        for group_book in libros_activos(group):
+            filas = _enumerar_con(group_book, material(group_book.libro))
+            vistos = sum(
+                1
+                for f in filas
+                if f["item"] is not None and f["item"].estado == GroupBookItem.VISTO
+            )
+            pendientes = [f for f in filas if f["item"] is None or f["item"].propuesto]
+            libros.append(
+                {
+                    "group_book": group_book,
+                    "vistos": vistos,
+                    "total": len(filas),
+                    "porcentaje": round(100 * vistos / len(filas)) if filas else 0,
+                    "siguiente": pendientes[0] if pendientes else None,
+                }
+            )
+
+        paneles.append(
+            {
+                "group": group,
+                "libros": libros,
+                "ultima_sesion": ClassSession.objects.filter(group=group)
+                .order_by("-date")
+                .first(),
+            }
+        )
+    return paneles

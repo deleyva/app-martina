@@ -338,3 +338,192 @@ def test_un_extra_no_mueve_la_progresion(db, profesor):
     assert extra.group_book_id is None
     assert GroupBookItem.objects.count() == 0
     assert libros_de_grupo.siguientes(group_book)[0]["titulo"] == "m1"
+
+
+# =============================================================================
+# C137-C140 · El bañado a las bibliotecas del alumnado
+# =============================================================================
+
+
+def _matricular(grupo, django_user_model, cuantos=2):
+    from clases.models import Enrollment
+
+    alumnos = []
+    for n in range(cuantos):
+        alumno = django_user_model.objects.create_user(
+            email=f"alumno{n}-{grupo.pk}@example.com", password="x"
+        )
+        Enrollment.objects.create(user=alumno, group=grupo, is_active=True)
+        alumnos.append(alumno)
+    return alumnos
+
+
+def _montar_clase(grupo, profesor, a_casa):
+    """Un libro de un elemento, puesto en una sesión, con `a_casa` a lo que se pida."""
+    libro, _ = _libro_con_capitulos(
+        f"Libro {a_casa}-{grupo.pk}", f"libro-casa-{a_casa}-{grupo.pk}", [("Cap", ["m1"])]
+    )
+    group_book = _asignar(grupo, libro, seccion="instrumento")
+    fila = libros_de_grupo.enumerar(group_book)[0]
+    libros_de_grupo.excepcion(
+        group_book, fila["objeto"], capitulo=fila["capitulo"], a_casa=a_casa
+    )
+    sesion = _sesion(grupo, profesor)
+    return group_book, libros_de_grupo.preparar_sesion(sesion)[0]
+
+
+def test_lo_marcado_para_casa_baja_a_cada_alumno(db, profesor, django_user_model):
+    """C137. Dar por visto es el único gesto que manda material a casa."""
+    from my_library.models import LibraryItem
+
+    grupo = _grupo()
+    grupo.teachers.add(profesor)
+    alumnos = _matricular(grupo, django_user_model)
+    _, item = _montar_clase(grupo, profesor, a_casa=True)
+
+    libros_de_grupo.marcar_visto(item)
+
+    assert LibraryItem.objects.filter(user__in=alumnos).count() == 2
+
+
+def test_lo_no_marcado_no_baja(db, profesor, django_user_model):
+    """C137. Y es la mitad del argumento: sin esto, la biblioteca del alumnado se
+    llena de dictados y ejercicios sensoriales de un solo uso."""
+    from my_library.models import LibraryItem
+
+    grupo = _grupo()
+    grupo.teachers.add(profesor)
+    alumnos = _matricular(grupo, django_user_model)
+    _, item = _montar_clase(grupo, profesor, a_casa=False)
+
+    libros_de_grupo.marcar_visto(item)
+
+    assert LibraryItem.objects.filter(user__in=alumnos).count() == 0
+
+
+def test_marcar_visto_dos_veces_no_duplica_en_la_biblioteca(db, profesor, django_user_model):
+    """C138. La unicidad es (usuario, tipo, objeto), y aquí se comprueba que de
+    verdad no duplica y no solo que no revienta: un elemento repetido saldría dos
+    veces en la cola de estudio del alumno."""
+    from my_library.models import LibraryItem
+
+    grupo = _grupo()
+    grupo.teachers.add(profesor)
+    alumnos = _matricular(grupo, django_user_model)
+    _, item = _montar_clase(grupo, profesor, a_casa=True)
+
+    libros_de_grupo.marcar_visto(item)
+    libros_de_grupo.bajar_a_las_bibliotecas(
+        item, GroupBookItem.objects.get(a_casa=True)
+    )
+
+    assert LibraryItem.objects.filter(user__in=alumnos).count() == 2
+
+
+def test_deshacer_retira_lo_intacto(db, profesor, django_user_model):
+    """C139. Un toque mal dado mete el elemento en treinta bibliotecas; deshacer
+    justo después tiene que limpiarlo."""
+    from my_library.models import LibraryItem
+
+    grupo = _grupo()
+    grupo.teachers.add(profesor)
+    alumnos = _matricular(grupo, django_user_model)
+    _, item = _montar_clase(grupo, profesor, a_casa=True)
+
+    libros_de_grupo.marcar_visto(item)
+    libros_de_grupo.marcar_visto(item, visto=False)
+
+    assert LibraryItem.objects.filter(user__in=alumnos).count() == 0
+
+
+def test_deshacer_respeta_lo_que_el_alumno_ya_practico(db, profesor, django_user_model):
+    """C140. El límite del deshacer, y no es un detalle: `ReviewLog` cuelga del
+    `LibraryItem` en cascada, así que llevarse uno ya practicado destruiría el
+    historial de ese alumno. Se borra lo intacto y se respeta lo demás."""
+    from my_library.models import LibraryItem, ReviewLog
+
+    grupo = _grupo()
+    grupo.teachers.add(profesor)
+    alumnos = _matricular(grupo, django_user_model)
+    _, item = _montar_clase(grupo, profesor, a_casa=True)
+
+    libros_de_grupo.marcar_visto(item)
+
+    # Un alumno lo practica; el otro no lo ha abierto.
+    practicado = LibraryItem.objects.get(user=alumnos[0])
+    ReviewLog.objects.create(user=alumnos[0], item=practicado)
+
+    libros_de_grupo.marcar_visto(item, visto=False)
+
+    assert LibraryItem.objects.filter(user=alumnos[0]).count() == 1
+    assert LibraryItem.objects.filter(user=alumnos[1]).count() == 0
+    assert ReviewLog.objects.filter(item=practicado).exists()
+
+
+def test_un_extra_suelto_nunca_baja(db, profesor, django_user_model):
+    """C141. Sin libro no hay `a_casa`, así que un extra añadido a mano se ve en
+    clase y no llega a ninguna biblioteca."""
+    from django.contrib.contenttypes.models import ContentType
+    from my_library.models import LibraryItem
+
+    grupo = _grupo()
+    grupo.teachers.add(profesor)
+    alumnos = _matricular(grupo, django_user_model)
+    _otro, capitulos = _libro_con_capitulos("Suelto", "suelto-casa", [("Cap", ["extra1"])])
+    imagen = capitulos[0][1][0]
+
+    sesion = _sesion(grupo, profesor)
+    extra = ClassSessionItem.objects.create(
+        session=sesion,
+        content_type=ContentType.objects.get_for_model(imagen),
+        object_id=imagen.pk,
+        order=0,
+    )
+    libros_de_grupo.marcar_visto(extra)
+
+    assert LibraryItem.objects.filter(user__in=alumnos).count() == 0
+
+
+# =============================================================================
+# C142 · El panel de avance
+# =============================================================================
+
+
+def test_el_panel_dice_que_toca_en_cada_grupo(db, profesor):
+    """C142. La pregunta al preparar una clase no es cuánto llevas sino qué toca."""
+    grupo = _grupo()
+    grupo.teachers.add(profesor)
+    libro, _ = _libro_con_capitulos("Método", "metodo-panel", [("Cap", ["m1", "m2"])])
+    group_book = _asignar(grupo, libro, seccion="ritmo_melodia")
+
+    fila = libros_de_grupo.enumerar(group_book)[0]
+    libros_de_grupo.excepcion(
+        group_book, fila["objeto"], capitulo=fila["capitulo"],
+        estado=GroupBookItem.VISTO,
+    )
+
+    panel = libros_de_grupo.panel_de_progreso(profesor)
+
+    assert len(panel) == 1
+    libros = panel[0]["libros"]
+    assert libros[0]["vistos"] == 1
+    assert libros[0]["total"] == 2
+    assert libros[0]["siguiente"]["titulo"] == "m2"
+
+
+def test_el_panel_avisa_de_un_libro_terminado(db, profesor):
+    """C142. Sin siguiente, el panel tiene que decirlo en vez de callarse."""
+    grupo = _grupo()
+    grupo.teachers.add(profesor)
+    libro, _ = _libro_con_capitulos("Corto", "corto-panel", [("Cap", ["unico"])])
+    group_book = _asignar(grupo, libro)
+
+    fila = libros_de_grupo.enumerar(group_book)[0]
+    libros_de_grupo.excepcion(
+        group_book, fila["objeto"], capitulo=fila["capitulo"],
+        estado=GroupBookItem.VISTO,
+    )
+
+    panel = libros_de_grupo.panel_de_progreso(profesor)
+
+    assert panel[0]["libros"][0]["siguiente"] is None

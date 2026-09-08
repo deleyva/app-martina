@@ -422,3 +422,24 @@ def plantilla_contenido(request):
     if borrador.content_object is None:
         return render(request, "clases/class_sessions/partials/sin_contenido.html", {})
     return render_item_content(request, borrador)
+
+
+# =============================================================================
+# PANEL DE AVANCE
+# =============================================================================
+
+
+@login_required
+@user_passes_test(is_staff)
+def progreso(request):
+    """Por dónde va cada grupo, en una pantalla.
+
+    Existe para responder a la pregunta con la que se prepara una clase: no
+    "cuánto llevamos" sino "qué toca ahora en cada sitio", y con varios grupos
+    del mismo nivel trabajando cosas distintas sin que eso sea un descontrol.
+    """
+    return render(
+        request,
+        "clases/group_books/progreso.html",
+        {"paneles": libros_de_grupo.panel_de_progreso(request.user)},
+    )

@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}Por dónde va cada clase{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-5xl">
+
+  <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
+    <div>
+      <h1 class="text-2xl sm:text-3xl font-bold">📈 Por dónde va cada clase</h1>
+      <p class="text-sm text-base-content/70 mt-1">
+        Lo que toca a continuación en cada grupo, para decidir la siguiente sesión.
+      </p>
+    </div>
+    <a href="{% url 'clases:class_session_list' %}" class="btn btn-ghost btn-sm">Sesiones</a>
+  </div>
+
+  <div class="flex flex-col gap-5">
+    {% for panel in paneles %}
+      <div class="card bg-base-100 border border-base-300">
+        <div class="card-body p-4 gap-3">
+
+          <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 class="card-title text-lg">{{ panel.group.name }}</h2>
+            <span class="text-xs text-base-content/60">
+              {% if panel.ultima_sesion %}
+                Última clase: {{ panel.ultima_sesion.date|date:"j M" }} · {{ panel.ultima_sesion.title }}
+              {% else %}
+                Todavía sin clases
+              {% endif %}
+            </span>
+          </div>
+
+          {% for fila in panel.libros %}
+            <div class="border-t border-base-200 pt-3 flex flex-col gap-1.5">
+
+              <div class="flex flex-wrap items-baseline gap-2">
+                <span class="badge badge-outline badge-sm">{{ fila.group_book.get_seccion_display }}</span>
+                <a href="{% url 'clases:group_book_items' fila.group_book.pk %}" class="font-medium link link-hover">
+                  {{ fila.group_book.libro.title }}
+                </a>
+                {% if fila.group_book.modo == 'en_curso' %}
+                  <span class="badge badge-warning badge-sm">en curso</span>
+                {% endif %}
+              </div>
+
+              <div class="flex items-center gap-3">
+                <progress class="progress progress-primary w-full max-w-xs" value="{{ fila.vistos }}" max="{{ fila.total }}"></progress>
+                <span class="text-xs text-base-content/60 whitespace-nowrap tabular-nums">
+                  {{ fila.vistos }} de {{ fila.total }}
+                </span>
+              </div>
+
+              {# La pregunta de verdad al preparar una clase no es cuánto llevas, sino qué toca. #}
+              <div class="text-sm">
+                {% if fila.siguiente %}
+                  <span class="text-base-content/60">Siguiente:</span>
+                  <span aria-hidden="true">{{ fila.siguiente.icono }}</span>
+                  {{ fila.siguiente.titulo }}
+                  {% if fila.siguiente.capitulo %}
+                    <span class="text-xs text-base-content/50">· {{ fila.siguiente.capitulo.title }}</span>
+                  {% endif %}
+                {% else %}
+                  <span class="text-success">Libro terminado con este grupo.</span>
+                {% endif %}
+              </div>
+
+            </div>
+          {% empty %}
+            <p class="text-sm text-base-content/70">
+              Este grupo no tiene libros activos.
+              <a href="{% url 'clases:group_books_index' panel.group.pk %}" class="link">Asignarle alguno</a>.
+            </p>
+          {% endfor %}
+
+        </div>
+      </div>
+    {% empty %}
+      <div class="alert">No das clase a ningún grupo todavía.</div>
+    {% endfor %}
+  </div>
+
+</div>
+{% endblock %}
