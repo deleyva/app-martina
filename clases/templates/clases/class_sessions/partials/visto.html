@@ -1,0 +1,15 @@
+{% comment %}
+El botón de dar por visto un elemento de la clase. Se devuelve solo en la
+respuesta HTMX, así que se reemplaza a sí mismo.
+
+Marcar es reversible a propósito: en clase se dan toques por error, y sin vuelta
+atrás el profesor deja de marcar por miedo y el motor no avanza.
+{% endcomment %}
+<button id="visto-{{ item.pk }}"
+        class="btn btn-xs {% if item.visto %}btn-success{% else %}btn-ghost{% endif %}"
+        title="{% if item.visto %}Devolver a la cola{% else %}Dar por visto{% endif %}"
+        hx-post="{% url 'clases:class_session_item_visto' item.pk %}"
+        hx-target="#visto-{{ item.pk }}"
+        hx-swap="outerHTML">
+  {% if item.visto %}✓ visto{% else %}dar por visto{% endif %}
+</button>

@@ -1,0 +1,9 @@
+{% comment %}
+El contador de avance. Se devuelve también en las respuestas HTMX de los
+toggles, con `hx-swap-oob`, porque si no la fila decía "visto" y el contador
+seguía en cero: dos números contradictorios en la misma pantalla.
+{% endcomment %}
+<div id="progreso-libro" class="flex items-center gap-3 my-5" {% if oob %}hx-swap-oob="true"{% endif %}>
+  <progress class="progress progress-primary w-full max-w-xs" value="{{ vistos }}" max="{{ total }}"></progress>
+  <span class="text-xs text-base-content/60 whitespace-nowrap">{{ vistos }} de {{ total }} vistos</span>
+</div>

@@ -2,9 +2,9 @@
 slug: app-martina
 phase: complete
 progress: false
-iteration: 34
+iteration: 35
 principal_stated_goal: "Necesito desarrollar en apps.iesmartinabescos.es Otra app de Django como la que tenemos en /incidencias. Está sí que debe de requerir login con Google porque ya tenemos implementado. Básicamente, es una aplicación en la que quiero que vayan solicitando la clave Wi-Fi. Pero para ello deben logearse y enviar la MAC de su dispositivo WIFI, la privada (real) no la aleatoria."
-updated: 2026-09-06
+updated: 2026-09-08
 ---
 
 # ISA — app-martina · Sistema de estudio de la biblioteca
@@ -1780,3 +1780,154 @@ Informe para el centro publicado en BookStack:
 **El editor visual de Wagtail no sabe de tablas.** Sobreviven al guardarse por API y se
 ven bien, pero si alguien abre en el editor un artículo con tablas —los criterios de
 Inglés son 33— y le da a guardar, Draftail las descarta en silencio.
+
+## Fase 28 — Libros que dan clase (fase A) · CONSTRUIDA Y VERIFICADA EN LOCAL
+
+El motor de estudio por libros que ya funciona en `my_library` (objetivos + creación
+perezosa), aplicado a los grupos. Sustituye el flujo actual de montar cada clase a mano
+eligiendo elementos página por página.
+
+**Lo que pidió el principal, en sus palabras:** *"Asigno libros a cada clase. De esos
+libros, cada profesor elige qué elementos quiere ver con sus clases (…) y luego elige los
+tres o cuatro libros que quieres trabajar. El orden de las clases siempre será el mismo."*
+
+### El orden de la clase, que es fijo
+
+Teoría → ritmo o melodía → dictado y reconocimiento → sensorialidad → instrumento →
+canciones. Por eso la sección va en la **asignación** (grupo + libro → sección) y no en la
+elección del día: montar la sesión es «qué secciones toco hoy», y el orden sale solo.
+
+### Tres decisiones cerradas con el principal antes de construir (2026-09-08)
+
+1. **La sección va en la asignación**, no en cada ítem.
+2. **La selección y el orden son por GRUPO, no por profesor.** `Group.teachers` es M2M: por
+   profesor, dos profesores del mismo grupo llevarían progresos distintos y el alumnado
+   recibiría el bañado dos veces.
+3. **Dos modos de libro.** `secuencial` avanza y no vuelve (teoría, ritmo, dictado,
+   sensorialidad, instrumento). `en_curso` mantiene el libro activo aunque se marquen
+   elementos vistos, porque una canción se trabaja durante semanas. Sin esta distinción, o
+   las canciones desaparecen en la segunda sesión, o se deja de marcar nada y el motor no
+   avanza.
+
+### Claims
+
+- [x] **C123** · Quitados los dos accesos a la biblioteca de grupo de `base.html` —el
+  desplegable de la barra superior y el del menú lateral—, sin tocar vistas ni modelos.
+  *Falsador:* `grep group_library_index base.html` devuelve algo, o el nav renderizado en
+  navegador real sigue enseñando el icono de grupos.
+- [x] **C124** · `GroupBook` asigna un libro a un grupo con sección, modo y activo, y sus
+  capítulos se enumeran con `my_library.libros.capitulos_de`, así que **los dos tipos de
+  libro valen**: por árbol (`LibroPage` con hijas) y por referencia (`LibroDeEstudioPage`).
+  *Falsador:* un test que asigne uno de cada tipo y obtenga material de los dos.
+- [x] **C125** · `GroupBookItem` es fila de EXCEPCIÓN, no copia: asignar un libro y
+  enumerarlo entero crea **cero** filas. Solo nace fila al excluir, reordenar, marcar visto
+  o marcar `a_casa`. *Falsador:* `GroupBookItem.objects.count() == 0` tras asignar un libro
+  y listar su material; un solo `> 0` refuta la afirmación entera.
+- [x] **C126** · La pantalla de selección de un libro para un grupo deja excluir elementos,
+  reordenarlos y marcar `a_casa`, **sin afectar al mismo libro en otro grupo**. *Falsador:*
+  un test con dos grupos sobre el mismo libro donde tocar uno cambia lo que ve el otro.
+- [x] **C127** · «Preparar sesión» mete, por cada sección con libro activo en el grupo, el
+  siguiente elemento pendiente, y los deja ordenados según el orden fijo de la clase.
+  *Falsador:* un test con libros en tres secciones que compruebe qué sale y en qué orden.
+- [x] **C128** · Un libro en modo `en_curso` sigue ofreciendo elementos después de marcar
+  uno visto; solo desaparece de la preparación cuando el libro se marca inactivo.
+  *Falsador:* test que marque visto y vuelva a preparar.
+- [x] **C129** · Un elemento añadido a mano a la sesión lleva `group_book = None` y NO
+  altera la progresión de ningún libro. *Falsador:* test que añada un extra, prepare otra
+  sesión y compruebe que el siguiente pendiente no se ha movido.
+
+### Anti-claims
+
+- **No se copia material por adelantado.** Nada de crear una fila por cada medio del libro
+  al asignarlo: *Ukulele Aerobics* tiene 283 medios y hay un grupo por clase. Es el mismo
+  argumento que ya está escrito en el docstring de `LibraryGoal`.
+- **La fase A no toca `GroupLibraryItem`**, ni sus vistas, ni sus URLs. Solo se ha cerrado
+  el acceso desde el nav (C123). Retirarlo es la fase D, y antes hay que contar filas en
+  producción.
+- **La fase A no baña las bibliotecas del alumnado.** El campo `a_casa` se guarda, pero
+  nadie lo lee todavía. Eso es la fase C.
+- **El visor de clase no se toca en esta fase.** Zonas táctiles, sidebar, modal de página
+  completa y modal de plantillas son la fase B.
+
+### Test Strategy
+
+`pytest` vía `just test`, tests en `clases/test_libros_de_grupo.py`. Las afirmaciones que
+importan son universales, no de ejemplo: C125 se comprueba contando **todas** las filas de
+`GroupBookItem`, no mirando una; C126 se comprueba con dos grupos sobre el mismo libro,
+que es el único montaje capaz de refutarla.
+
+### Log
+
+- 2026-09-08 · Pasada crítica antes de ayudar: tres cosas se rompían en el plan tal como
+  venía. (1) «Marcar visto y no vuelve» mata las canciones — arreglado con los dos modos.
+  (2) Bañar la biblioteca del alumnado con todo lo visto son ~5.400 filas por grupo y curso,
+  y la mitad de un solo uso — arreglado con `a_casa`. (3) Seis huecos fijos contra «elijo
+  tres o cuatro libros» — arreglado poniendo la sección en la asignación.
+- 2026-09-08 · `git fetch` antes de tocar el ISA: local a la par de `origin/main` (0/0), y
+  los IDs de claim se continúan desde el máximo remoto (C122).
+
+### Evidencia de cierre (2026-09-08)
+
+- **C123** — `grep group_library_index base.html` → 0. Y visto en navegador real
+  (Chrome, sesión propia, `127.0.0.1:8011`): la barra superior ya no tiene el
+  icono de grupos, y el menú lateral tampoco.
+- **C124 a C129** — 14 tests en `clases/test_libros_de_grupo.py`, en verde contra
+  Postgres y **con la cadena de migraciones real**, no con el esquema sacado de
+  los modelos. Suite completa: **686 pasan**, 4 fallan — los mismos 4 que fallan
+  con mis cambios guardados (`git stash`), o sea previos y ajenos.
+- **El flujo entero, en navegador:** asignar tres libros a 1º ESO A → la pantalla
+  de elementos con reordenar, excluir, 🏠 y ✓ → preparar la sesión, que mete
+  figuras-1, ritmo-b y cancion-a **en el orden de la clase** → dar por visto
+  cancion-a → el libro de canciones, que está `en_curso`, sigue ofreciendo
+  cancion-b. Comprobado además en la base: `GroupBookItem(estado=visto,
+  visto_en=1)` y `ClassSessionItem.visto=True`.
+
+### Lo que el navegador encontró y los tests no
+
+1. **Un comentario `{# #}` partido en dos líneas se pintaba en pantalla.** En
+   Django los `{# #}` son de UNA sola línea; partido, no es un comentario, es
+   texto. Salía a tamaño completo al lado del título de las sesiones. Barrido de
+   clase sobre los 8 ficheros de plantilla tocados: era el único.
+   **Es la tercera vez que este repo tropieza con un comentario visible** (fases
+   16 y 23). El patrón ya no es casualidad: comentario de plantilla que ocupe más
+   de una línea, `{% comment %}`.
+2. **El contador de avance no acompañaba a la fila.** Una fila decía «visto» y el
+   contador seguía en «0 de 3»: dos números contradictorios en la misma pantalla.
+   Arreglado devolviendo el contador con `hx-swap-oob` en la misma respuesta.
+3. **La vista previa prometía trabajo que el botón no hacía.** Enseñaba los
+   elementos que ya estaban en la sesión, y al pulsar no añadía nada. Ahora
+   descuenta lo puesto y ofrece los siguientes.
+
+### Un claim que cambió al construirlo
+
+`test_preparar_dos_veces_no_duplica` exigía que la segunda pulsación no hiciera
+nada. Al arreglar la vista previa (punto 3) eso dejó de ser lo correcto: si la
+previa enseña los siguientes, pulsar tiene que añadirlos. El invariante de verdad
+no era «no hace nada» sino **«un elemento no entra dos veces en la clase»**, y así
+está escrito ahora, con un segundo test para el libro agotado.
+
+### Deuda que apareció de paso, y no es de esta fase
+
+- **La cadena de migraciones no se podía construir desde cero.**
+  `musica/migrations/0002_traer_datos_desde_cms.py` insertaba en
+  `blogs_blogindexpage` las columnas `moderator_id` y `subject_id`, que el
+  refactor de blogs (`6a2fd61`) ya había quitado, y Django no garantiza que la
+  migración que las quita corra después. Cualquier base nueva —CI, un portátil
+  nuevo, un despliegue desde cero— reventaba ahí. Arreglado consultando
+  `information_schema` antes de nombrarlas, que es el mismo guarda que este repo
+  ya usa en otras migraciones. **En producción y en stage ya estaba aplicada, así
+  que allí no cambia absolutamente nada.**
+- **El fichero de tests no se recogía.** Se llamaba `tests_libros_de_grupo.py` y
+  pytest busca `test_*.py`: la suite completa daba 672 verdes sin ejecutar ni uno
+  de los nuevos. Renombrado; ahora son 686.
+- Los 4 fallos previos de `cms/tests/test_frontend_integration.py` y
+  `incidencias/tests/test_views.py` siguen ahí, sin tocar.
+
+### Lo siguiente
+
+**Fase B, el visor de clase:** zonas táctiles izquierda/derecha, flechas de
+teclado, sidebar desplegable con todos los elementos, modal a pantalla completa
+con la página entera del elemento, modal de plantillas servido desde
+`/indice-de-recursos-musicales/plantillas-para-escribir/`, y marcar visto desde
+ahí. Sin desplegar nada de la fase A todavía: está construida y verificada en
+local, no en producción.

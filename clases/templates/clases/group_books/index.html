@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}Libros de {{ group.name }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-4xl">
+
+  <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-2">
+    <div>
+      <h1 class="text-2xl sm:text-3xl font-bold">📚 Libros de {{ group.name }}</h1>
+      <p class="text-sm text-base-content/70 mt-1">
+        Cada libro ocupa un momento de la clase. El orden de abajo es el orden en que salen al preparar una sesión.
+      </p>
+    </div>
+    <a href="{% url 'clases:class_session_list' %}" class="btn btn-ghost btn-sm">Sesiones</a>
+  </div>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags|default:'info' }} my-3">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+
+  {# ---- Libros asignados, en el orden de la clase ---- #}
+  <div class="flex flex-col gap-3 my-6">
+    {% for fila in asignados %}
+      <div class="card bg-base-100 border border-base-300">
+        <div class="card-body p-4 gap-3">
+
+          <div class="flex flex-wrap items-baseline gap-2">
+            <span class="badge badge-outline badge-sm">{{ fila.group_book.get_seccion_display }}</span>
+            <a href="{% url 'clases:group_book_items' fila.group_book.pk %}" class="font-semibold link link-hover">
+              {{ fila.group_book.libro.title }}
+            </a>
+            {% if fila.group_book.modo == 'en_curso' %}
+              <span class="badge badge-warning badge-sm">en curso</span>
+            {% endif %}
+          </div>
+
+          <div class="flex items-center gap-3">
+            <progress class="progress progress-primary w-full max-w-xs" value="{{ fila.vistos }}" max="{{ fila.total }}"></progress>
+            <span class="text-xs text-base-content/60 whitespace-nowrap">
+              {{ fila.vistos }} de {{ fila.total }} vistos
+            </span>
+          </div>
+
+          <div class="card-actions justify-end">
+            <a href="{% url 'clases:group_book_items' fila.group_book.pk %}" class="btn btn-sm btn-primary">
+              Elegir elementos
+            </a>
+            <form method="post" action="{% url 'clases:group_book_update' fila.group_book.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="activo" value="0">
+              <button type="submit" class="btn btn-sm btn-ghost">Desactivar</button>
+            </form>
+          </div>
+
+        </div>
+      </div>
+    {% empty %}
+      <div class="alert">
+        Este grupo todavía no tiene libros. Asigna el primero abajo — asignar no copia nada,
+        solo dice qué se va a trabajar.
+      </div>
+    {% endfor %}
+  </div>
+
+  {# ---- Libros parados ---- #}
+  {% if inactivos %}
+    <details class="collapse collapse-arrow border border-base-300 mb-6">
+      <summary class="collapse-title font-medium">Libros parados ({{ inactivos|length }})</summary>
+      <div class="collapse-content flex flex-col gap-2">
+        {% for group_book in inactivos %}
+          <div class="flex items-center justify-between gap-2">
+            <span>{{ group_book.libro.title }}
+              <span class="text-xs text-base-content/60">· {{ group_book.get_seccion_display }}</span>
+            </span>
+            <form method="post" action="{% url 'clases:group_book_update' group_book.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="activo" value="1">
+              <button type="submit" class="btn btn-xs">Reactivar</button>
+            </form>
+          </div>
+        {% endfor %}
+      </div>
+    </details>
+  {% endif %}
+
+  {# ---- Asignar un libro nuevo ---- #}
+  <div class="card bg-base-200">
+    <div class="card-body p-4">
+      <h2 class="card-title text-base">Asignar un libro</h2>
+      {% if disponibles %}
+        <form method="post" action="{% url 'clases:group_book_add' group.pk %}" class="flex flex-col gap-3">
+          {% csrf_token %}
+
+          <label class="form-control">
+            <span class="label-text mb-1">Libro</span>
+            <select name="libro" class="select select-bordered" required>
+              {% for libro in disponibles %}
+                <option value="{{ libro.pk }}">{{ libro.title }}</option>
+              {% endfor %}
+            </select>
+          </label>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label class="form-control">
+              <span class="label-text mb-1">Momento de la clase</span>
+              <select name="seccion" class="select select-bordered" required>
+                {% for clave, nombre in secciones %}
+                  <option value="{{ clave }}">{{ nombre }}</option>
+                {% endfor %}
+              </select>
+            </label>
+
+            <label class="form-control">
+              <span class="label-text mb-1">Cómo avanza</span>
+              <select name="modo" class="select select-bordered">
+                {% for clave, nombre in modos %}
+                  <option value="{{ clave }}">{{ nombre }}</option>
+                {% endfor %}
+              </select>
+            </label>
+          </div>
+
+          <p class="text-xs text-base-content/60">
+            Un método va en <b>secuencial</b>: se avanza y no vuelve. Una canción va
+            <b>en curso</b>: sigue activa aunque marques elementos vistos, hasta que la desactives.
+          </p>
+
+          <button type="submit" class="btn btn-primary btn-sm self-start">Asignar</button>
+        </form>
+      {% else %}
+        <p class="text-sm text-base-content/70">
+          No queda ningún libro sin asignar a este grupo.
+        </p>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

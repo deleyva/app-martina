@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}{{ group_book.libro.title }} · {{ group.name }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-4xl">
+
+  <a href="{% url 'clases:group_books_index' group.pk %}" class="btn btn-ghost btn-sm mb-4">← Libros de {{ group.name }}</a>
+
+  <h1 class="text-2xl sm:text-3xl font-bold">{{ group_book.libro.title }}</h1>
+  <p class="text-sm text-base-content/70 mt-1">
+    {{ group.name }} · {{ group_book.get_seccion_display }} · {{ group_book.get_modo_display }}
+  </p>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags|default:'info' }} my-3">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+
+  {% include "clases/group_books/partials/progreso.html" %}
+
+  <div class="alert alert-info text-sm mb-5">
+    <div>
+      <p><b>Lo que tocas aquí vale solo para {{ group.name }}.</b> El libro no cambia, y otro grupo que lo estudie sigue viendo lo suyo.</p>
+      <p class="mt-1">
+        El interruptor incluye o excluye · <b>✓</b> da por visto y lo saca de la cola ·
+        <b>🏠</b> hace que baje a las bibliotecas del alumnado cuando se dé por visto ·
+        <b>↑↓</b> cambian el orden.
+      </p>
+    </div>
+  </div>
+
+  <div class="card bg-base-100 border border-base-300">
+    <div class="card-body p-2 sm:p-4">
+      {% for fila in filas %}
+        {% include "clases/group_books/partials/fila.html" %}
+      {% empty %}
+        <p class="p-4 text-sm text-base-content/70">
+          Este libro no tiene material practicable todavía: ni imágenes, ni PDF, ni audios, ni vídeos
+          en sus capítulos.
+        </p>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

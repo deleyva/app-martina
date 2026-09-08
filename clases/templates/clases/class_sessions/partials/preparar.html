@@ -1,0 +1,48 @@
+{% comment %}
+Vista previa de lo que el botón «preparar» va a meter en la sesión.
+
+Sale de `previsualizar_sesion`, que es la MISMA función que usa la preparación
+de verdad: con dos recorridos distintos la vista previa acabaría mintiendo en
+cuanto uno de los dos cambiara.
+{% endcomment %}
+<div class="card bg-base-200">
+  <div class="card-body p-4 gap-3">
+
+    <h2 class="card-title text-base">Preparar desde los libros del grupo</h2>
+
+    {% if propuesta %}
+      <p class="text-sm text-base-content/70">
+        Esto es lo siguiente que le toca a {{ session.group.name }}, en el orden de la clase:
+      </p>
+
+      <form method="post" action="{% url 'clases:class_session_prepare' session.pk %}" class="flex flex-col gap-2">
+        {% csrf_token %}
+
+        {% for fila in propuesta %}
+          <label class="flex items-center gap-3 py-1.5 px-2 rounded hover:bg-base-300/40 cursor-pointer">
+            <input type="checkbox" name="secciones" value="{{ fila.group_book.seccion }}"
+                   class="checkbox checkbox-sm checkbox-primary" checked>
+            <span class="badge badge-outline badge-sm shrink-0">{{ fila.group_book.get_seccion_display }}</span>
+            <span class="text-lg shrink-0" aria-hidden="true">{{ fila.icono }}</span>
+            <span class="min-w-0 flex-1">
+              <span class="block truncate text-sm">{{ fila.titulo }}</span>
+              <span class="block truncate text-xs text-base-content/60">{{ fila.group_book.libro.title }}</span>
+            </span>
+          </label>
+        {% endfor %}
+
+        <button type="submit" class="btn btn-primary btn-sm self-start mt-1">
+          Añadir a la sesión
+        </button>
+      </form>
+    {% else %}
+      <p class="text-sm text-base-content/70">
+        No hay nada pendiente que proponer. O el grupo no tiene libros asignados, o están todos al día.
+      </p>
+      <a href="{% url 'clases:group_books_index' session.group.pk %}" class="btn btn-sm self-start">
+        Ver los libros de {{ session.group.name }}
+      </a>
+    {% endif %}
+
+  </div>
+</div>

@@ -7,12 +7,30 @@
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
         <h1 class="text-2xl sm:text-3xl font-bold">📅 {% if is_teacher %}Mis Sesiones de Clase{% else %}Sesiones de Clase{% endif %}</h1>
         {% if is_teacher %}
-        <a href="{% url 'clases:class_session_create' %}" class="btn btn-primary">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-            </svg>
-            Nueva Sesión
-        </a>
+        <div class="flex flex-wrap gap-2">
+            {% comment %}
+            Entrada a los libros de cada grupo. Va aquí y no en el nav porque es
+            donde se monta la clase, que es cuando hacen falta. En Django los
+            comentarios {# #} son de UNA línea: partidos en dos se pintan en
+            pantalla, que es justo lo que pasó al verificar esto en navegador.
+            {% endcomment %}
+            {% if request.user.teaching_groups.exists %}
+            <div class="dropdown dropdown-end">
+                <div tabindex="0" role="button" class="btn btn-outline">📚 Libros del grupo</div>
+                <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box w-56 p-2 shadow-lg z-50">
+                    {% for group in request.user.teaching_groups.all %}
+                    <li><a href="{% url 'clases:group_books_index' group.pk %}">{{ group.name }}</a></li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+            <a href="{% url 'clases:class_session_create' %}" class="btn btn-primary">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                Nueva Sesión
+            </a>
+        </div>
         {% endif %}
     </div>
     

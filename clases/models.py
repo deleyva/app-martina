@@ -7,6 +7,22 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.urls import reverse
 from django.utils import timezone
 
+# El orden de la clase, y es fijo: teoría, ritmo o melodía, dictado y
+# reconocimiento, sensorialidad, instrumento, canciones.
+#
+# Vive aquí, a nivel de módulo, porque lo usan dos modelos que no pueden verse
+# entre ellos: `ClassSessionItem` se define antes que `GroupBook`. Y vive en UN
+# sitio porque el orden es una propiedad del sistema, no de cada asignación: si
+# algún día cambia, cambia aquí y ya.
+SECCIONES_CLASE = [
+    ("teoria", "Teoría"),
+    ("ritmo_melodia", "Ritmo o melodía"),
+    ("dictado", "Dictado y reconocimiento"),
+    ("sensorialidad", "Sensorialidad"),
+    ("instrumento", "Instrumento"),
+    ("cancion", "Canciones"),
+]
+
 # =============================================================================
 # ASIGNATURAS Y GESTIÓN DE GRUPOS
 # =============================================================================
@@ -1101,6 +1117,39 @@ class ClassSessionItem(models.Model):
     )
     added_at = models.DateTimeField(auto_now_add=True)
 
+    # De qué libro del grupo salió este elemento.
+    #
+    # **Que sea nullable es la pieza que hace todo lo demás posible.** Un
+    # elemento que el profesor añade suelto para hoy lleva `group_book = None`:
+    # entra en la clase, se ve, y no mueve la progresión de ningún libro. Es
+    # justo lo que pidió el principal — "poder añadir algún ítem extra a una
+    # clase sin tener que ensuciar los libros".
+    group_book = models.ForeignKey(
+        "clases.GroupBook",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="session_items",
+        verbose_name="Libro del grupo",
+    )
+
+    # Se copia al preparar la sesión en vez de leerse de `group_book`, porque
+    # los extras no tienen libro y aun así ocupan un sitio en el orden de la
+    # clase. Vacío = extra suelto, va al final.
+    seccion = models.CharField(
+        max_length=20,
+        blank=True,
+        choices=SECCIONES_CLASE,
+        verbose_name="Sección de la clase",
+    )
+
+    # Lo que pasó con este elemento EN ESTA CLASE.
+    #
+    # No duplica `GroupBookItem.estado`: responden a preguntas distintas. Este
+    # dice "hoy llegamos a verlo"; aquel dice "el grupo ya no necesita que se lo
+    # vuelvan a proponer". Un extra suelto solo puede tener el primero.
+    visto = models.BooleanField(default=False, verbose_name="Visto en clase")
+
     class Meta:
         db_table = "evaluations_classsessionitem"  # Mantener tabla existente
         ordering = ["order"]
@@ -1461,3 +1510,223 @@ class StudyCardLabel(models.Model):
 
     def __str__(self):
         return f"{self.description} ({self.image.title})"
+
+
+# =============================================================================
+# LIBROS QUE DAN CLASE
+#
+# El motor de `my_library` (objetivo por libro + creación perezosa) aplicado a
+# los grupos. `GroupBook` es a un grupo lo que `LibraryGoal` es a un usuario:
+# guarda la INTENCIÓN de trabajar un libro, no su material.
+# =============================================================================
+
+
+class GroupBook(models.Model):
+    """Un libro asignado a un grupo, con su sitio en el orden de la clase.
+
+    **La sección va aquí y no en cada elemento** (decisión del principal,
+    2026-09-08). El orden de la clase es fijo —teoría, ritmo, dictado,
+    sensorialidad, instrumento, canciones—, así que montar una sesión no es
+    elegir libros sino elegir qué secciones se tocan hoy: el orden sale solo y
+    no hay que recolocarlo nunca.
+
+    **Es por GRUPO, no por profesor.** `Group.teachers` es M2M; con la
+    selección atada al profesor, dos profesores del mismo grupo llevarían
+    progresos distintos sobre el mismo libro y el alumnado recibiría dos veces
+    lo que baje a sus bibliotecas.
+
+    Sirven los DOS tipos de libro, y no por casualidad: los capítulos se piden
+    a `my_library.libros.capitulos_de`, que distingue por capacidad y no por
+    tipo. Un `LibroPage` con páginas hijas se recorre por el árbol; un
+    `LibroDeEstudioPage` se recorre por sus referencias. El segundo es el que
+    hace falta para las canciones, porque en Wagtail una página tiene un solo
+    padre: agrupar por árbol obligaría a que cada canción viviera en un único
+    libro para siempre.
+    """
+
+    # El orden de la clase vive en `SECCIONES_CLASE`, arriba del módulo. Aquí
+    # solo se expone con el nombre corto para que se lea bien en el modelo.
+    SECCIONES = SECCIONES_CLASE
+
+    # Modo de avance. La distinción existe porque un método y una canción no se
+    # estudian igual: el ejercicio 14 de un método se hace y se pasa al 15, pero
+    # una canción se trabaja durante semanas. Con un solo comportamiento, o las
+    # canciones desaparecen en la segunda sesión, o se deja de marcar nada por
+    # miedo y el motor no avanza.
+    SECUENCIAL = "secuencial"
+    EN_CURSO = "en_curso"
+    MODOS = [
+        (SECUENCIAL, "Secuencial — avanza y no vuelve"),
+        (EN_CURSO, "En curso — sigue activo hasta que lo cierres"),
+    ]
+
+    group = models.ForeignKey(
+        Group,
+        on_delete=models.CASCADE,
+        related_name="books",
+        verbose_name="Grupo",
+    )
+    libro = models.ForeignKey(
+        "wagtailcore.Page",
+        on_delete=models.CASCADE,
+        related_name="group_books",
+        verbose_name="Libro",
+    )
+    seccion = models.CharField(
+        max_length=20,
+        choices=SECCIONES,
+        verbose_name="Sección de la clase",
+        help_text="En qué momento de la clase entra este libro",
+    )
+    modo = models.CharField(
+        max_length=12,
+        choices=MODOS,
+        default=SECUENCIAL,
+        verbose_name="Modo de avance",
+    )
+    activo = models.BooleanField(
+        default=True,
+        verbose_name="Activo",
+        help_text="Un libro inactivo deja de proponer elementos, sin perder el avance",
+    )
+    added_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Asignado por",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["group", "seccion", "created_at"]
+        unique_together = ["group", "libro"]
+        verbose_name = "Libro del grupo"
+        verbose_name_plural = "Libros del grupo"
+        indexes = [
+            models.Index(fields=["group", "activo"]),
+        ]
+
+    def __str__(self):
+        return f"{self.group.name} · {self.libro.title} ({self.get_seccion_display()})"
+
+    @property
+    def orden_de_seccion(self):
+        """Posición de su sección en el orden fijo de la clase.
+
+        Se calcula sobre `SECCIONES` en vez de guardarse, porque el orden de la
+        clase es una propiedad del sistema y no de cada asignación: si un día
+        cambia, cambia en un sitio.
+        """
+        claves = [clave for clave, _ in self.SECCIONES]
+        return claves.index(self.seccion) if self.seccion in claves else len(claves)
+
+
+class GroupBookItem(models.Model):
+    """Lo que el grupo ha hecho con UN elemento de un libro. Fila de excepción.
+
+    **No es una copia del material, y esa es toda la idea.** Un libro recién
+    asignado son CERO filas aquí: el material se enumera al vuelo desde la
+    página con `my_library.libros.material_del_libro`, y el orden por defecto es
+    el del libro. Solo nace fila cuando el profesor se sale de ese defecto:
+    excluye un elemento, lo recoloca, lo da por visto o marca que baja a las
+    bibliotecas del alumnado.
+
+    El motivo está medido y es el mismo que llevó a la creación perezosa en
+    `my_library`: *Ukulele Aerobics* tiene 283 medios practicables. Copiarlos
+    por adelantado para cada grupo que estudie el libro llena la tabla de
+    material que nadie ha mirado todavía, y obliga a resincronizar cada vez que
+    se edita la página del libro.
+    """
+
+    PENDIENTE = "pendiente"
+    VISTO = "visto"
+    REPETIR = "repetir"
+    ESTADOS = [
+        (PENDIENTE, "Pendiente"),
+        (VISTO, "Visto — no volver a proponerlo"),
+        (REPETIR, "Visto, pero repetirlo"),
+    ]
+
+    group_book = models.ForeignKey(
+        GroupBook,
+        on_delete=models.CASCADE,
+        related_name="items",
+        verbose_name="Libro del grupo",
+    )
+
+    # Referencia genérica al medio: Image, Document, Embed…
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField()
+    content_object = GenericForeignKey("content_type", "object_id")
+
+    source_page = models.ForeignKey(
+        "wagtailcore.Page",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="group_book_items_from",
+        verbose_name="Capítulo de origen",
+    )
+
+    # Posición dentro del libro PARA ESTE GRUPO. `None` significa "donde diga el
+    # libro": así, reordenar unos pocos elementos no obliga a escribir una fila
+    # por cada uno de los que no se han tocado.
+    orden = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Orden en el grupo",
+        help_text="Vacío = el orden del libro",
+    )
+
+    incluido = models.BooleanField(
+        default=True,
+        verbose_name="Incluido",
+        help_text="Desmarcado: no se propone nunca a este grupo",
+    )
+
+    # Si baja a las bibliotecas personales del alumnado cuando se da por visto.
+    #
+    # Existe porque bañarlas con TODO lo visto en clase las convierte en un
+    # vertedero: son unas 5.400 filas por grupo y curso, y la mitad son
+    # ejercicios de un solo uso (dictado, sensorialidad) que nadie va a repasar
+    # en casa. Lo lee la fase C; en la A solo se guarda.
+    a_casa = models.BooleanField(
+        default=False,
+        verbose_name="Baja a las bibliotecas del alumnado",
+    )
+
+    estado = models.CharField(
+        max_length=12,
+        choices=ESTADOS,
+        default=PENDIENTE,
+        verbose_name="Estado",
+    )
+    visto_en = models.ForeignKey(
+        "clases.ClassSession",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="items_marcados",
+        verbose_name="Visto en la sesión",
+    )
+    notes = models.TextField(blank=True, verbose_name="Notas")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["group_book", "orden"]
+        unique_together = ["group_book", "content_type", "object_id"]
+        verbose_name = "Elemento de libro del grupo"
+        verbose_name_plural = "Elementos de libros del grupo"
+        indexes = [
+            models.Index(fields=["group_book", "estado"]),
+            models.Index(fields=["content_type", "object_id"]),
+        ]
+
+    def __str__(self):
+        return f"{self.group_book} · {self.content_type.model}#{self.object_id}"
+
+    @property
+    def propuesto(self):
+        """Si el motor debe volver a ofrecer este elemento."""
+        return self.incluido and self.estado != self.VISTO

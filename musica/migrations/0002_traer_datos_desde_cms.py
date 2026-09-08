@@ -76,11 +76,18 @@ def traer(apps, schema_editor):
                   WHERE ({es_musica}) AND (b.moderator_id IS NOT NULL OR b.subject_id IS NOT NULL)""")
     informe.append(f"{c.fetchone()[0]:6d}  libros con moderator/subject DESCARTADOS a propósito")
 
-    ejecuta(f"""INSERT INTO blogs_blogindexpage
-                  (page_ptr_id, intro, is_protected, is_private, cover_image_id,
-                   moderator_id, subject_id)
-                SELECT b.page_ptr_id, b.intro, b.is_protected, b.is_private,
-                       b.cover_image_id, b.moderator_id, b.subject_id
+    # `moderator` y `subject` se copian SOLO si la tabla destino todavía los
+    # tiene. Un refactor posterior de `blogs` los quitó, y Django no garantiza
+    # que su migración corra después de esta: en una base construida desde cero
+    # la quita antes, y entonces este INSERT nombraba dos columnas inexistentes
+    # y reventaba. En producción ya estaba aplicada, así que allí no cambia nada.
+    c.execute("""SELECT column_name FROM information_schema.columns
+                 WHERE table_name = 'blogs_blogindexpage'
+                   AND column_name IN ('moderator_id', 'subject_id')""")
+    heredadas = [r[0] for r in c.fetchall()]
+    columnas = ["page_ptr_id", "intro", "is_protected", "is_private", "cover_image_id"] + heredadas
+    ejecuta(f"""INSERT INTO blogs_blogindexpage ({', '.join(columnas)})
+                SELECT {', '.join('b.' + x for x in columnas)}
                 FROM cms_blogindexpage b JOIN wagtailcore_page p ON p.id = b.page_ptr_id
                 WHERE NOT ({es_musica})""", "BlogIndexPage -> blogs.BlogIndexPage")
 

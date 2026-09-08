@@ -60,6 +60,16 @@
         </div>
     </div>
     
+    <div class="max-w-7xl mx-auto mb-6">
+        <!-- Preparar desde los libros del grupo.
+             Se carga aparte para no tocar la vista de edición, que ya funciona. -->
+        <div hx-get="{% url 'clases:class_session_prepare_preview' session.pk %}"
+             hx-trigger="load"
+             hx-swap="outerHTML">
+            <div class="skeleton h-24 w-full"></div>
+        </div>
+    </div>
+
     <div class="max-w-7xl mx-auto">
         <!-- Biblioteca del grupo (con búsqueda, filtros y paginación) -->
         <div class="card bg-base-100 shadow-md">

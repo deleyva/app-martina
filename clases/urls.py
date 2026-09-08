@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from . import views_libros
 from . import views_study_cards
 
 app_name = "clases"
@@ -47,6 +48,44 @@ urlpatterns = [
         name="group_library_update_proficiency",
     ),
     # =============================================================================
+    # LIBROS QUE DAN CLASE
+    # =============================================================================
+    path(
+        "groups/<int:group_id>/libros/",
+        views_libros.group_books_index,
+        name="group_books_index",
+    ),
+    path(
+        "groups/<int:group_id>/libros/add/",
+        views_libros.group_book_add,
+        name="group_book_add",
+    ),
+    path(
+        "libros/<int:pk>/update/",
+        views_libros.group_book_update,
+        name="group_book_update",
+    ),
+    path(
+        "libros/<int:pk>/remove/",
+        views_libros.group_book_remove,
+        name="group_book_remove",
+    ),
+    path(
+        "libros/<int:pk>/elementos/",
+        views_libros.group_book_items,
+        name="group_book_items",
+    ),
+    path(
+        "libros/<int:pk>/elementos/toggle/",
+        views_libros.group_book_item_toggle,
+        name="group_book_item_toggle",
+    ),
+    path(
+        "libros/<int:pk>/elementos/mover/",
+        views_libros.group_book_item_move,
+        name="group_book_item_move",
+    ),
+    # =============================================================================
     # SESIONES DE CLASE
     # =============================================================================
     path(
@@ -68,6 +107,21 @@ urlpatterns = [
         "sessions/<int:pk>/present/",
         views.class_session_present,
         name="class_session_present",
+    ),
+    path(
+        "sessions/<int:pk>/preparar/",
+        views_libros.class_session_prepare,
+        name="class_session_prepare",
+    ),
+    path(
+        "sessions/<int:pk>/preparar/preview/",
+        views_libros.class_session_prepare_preview,
+        name="class_session_prepare_preview",
+    ),
+    path(
+        "sessions/items/<int:pk>/visto/",
+        views_libros.class_session_item_visto,
+        name="class_session_item_visto",
     ),
     path(
         "sessions/<int:pk>/close/",

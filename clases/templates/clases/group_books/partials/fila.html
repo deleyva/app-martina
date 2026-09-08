@@ -1,0 +1,70 @@
+{% comment %}
+Una fila de la pantalla de elementos. Se devuelve sola en las respuestas HTMX de
+`group_book_item_toggle`, así que todo lo que cambia al pulsar tiene que estar
+dentro de este fichero y no en la página que lo contiene.
+{% endcomment %}
+{% if fila %}
+<div id="fila-{{ fila.tipo.pk }}-{{ fila.objeto.pk }}"
+     class="flex items-center gap-3 py-2 px-2 border-b border-base-200 {% if fila.item and not fila.item.incluido %}opacity-40{% endif %}">
+
+  <span class="text-lg shrink-0" aria-hidden="true">{{ fila.icono }}</span>
+
+  <div class="min-w-0 flex-1">
+    <div class="truncate text-sm font-medium">{{ fila.titulo }}</div>
+    <div class="truncate text-xs text-base-content/60">
+      {{ fila.tipo_legible }}{% if fila.capitulo %} · {{ fila.capitulo.title }}{% endif %}
+    </div>
+  </div>
+
+  {% if fila.item and fila.item.estado == 'visto' %}
+    <span class="badge badge-success badge-sm shrink-0">visto</span>
+  {% endif %}
+
+  <div class="flex items-center gap-1 shrink-0">
+
+    {# Mover: botones y no arrastrar, porque la clase se da con el iPad #}
+    <form method="post" action="{% url 'clases:group_book_item_move' group_book.pk %}">
+      {% csrf_token %}
+      <input type="hidden" name="content_type" value="{{ fila.tipo.pk }}">
+      <input type="hidden" name="object_id" value="{{ fila.objeto.pk }}">
+      <input type="hidden" name="hacia" value="arriba">
+      <button type="submit" class="btn btn-ghost btn-xs" title="Subir" aria-label="Subir">↑</button>
+    </form>
+    <form method="post" action="{% url 'clases:group_book_item_move' group_book.pk %}">
+      {% csrf_token %}
+      <input type="hidden" name="content_type" value="{{ fila.tipo.pk }}">
+      <input type="hidden" name="object_id" value="{{ fila.objeto.pk }}">
+      <input type="hidden" name="hacia" value="abajo">
+      <button type="submit" class="btn btn-ghost btn-xs" title="Bajar" aria-label="Bajar">↓</button>
+    </form>
+
+    <button class="btn btn-ghost btn-xs {% if fila.item.a_casa %}text-primary{% endif %}"
+            title="{% if fila.item.a_casa %}Deja de bajar a las bibliotecas del alumnado{% else %}Baja a las bibliotecas del alumnado{% endif %}"
+            hx-post="{% url 'clases:group_book_item_toggle' group_book.pk %}"
+            hx-vals='{"content_type": "{{ fila.tipo.pk }}", "object_id": "{{ fila.objeto.pk }}", "campo": "a_casa"}'
+            hx-target="#fila-{{ fila.tipo.pk }}-{{ fila.objeto.pk }}"
+            hx-swap="outerHTML">
+      {% if fila.item.a_casa %}🏠{% else %}🏚️{% endif %}
+    </button>
+
+    <button class="btn btn-ghost btn-xs"
+            title="{% if fila.item and fila.item.estado == 'visto' %}Devolver a la cola{% else %}Dar por visto{% endif %}"
+            hx-post="{% url 'clases:group_book_item_toggle' group_book.pk %}"
+            hx-vals='{"content_type": "{{ fila.tipo.pk }}", "object_id": "{{ fila.objeto.pk }}", "campo": "visto"}'
+            hx-target="#fila-{{ fila.tipo.pk }}-{{ fila.objeto.pk }}"
+            hx-swap="outerHTML">
+      {% if fila.item and fila.item.estado == 'visto' %}↺{% else %}✓{% endif %}
+    </button>
+
+    <input type="checkbox" class="toggle toggle-sm toggle-primary"
+           {% if fila.item is None or fila.item.incluido %}checked{% endif %}
+           title="Incluir en las clases de este grupo"
+           hx-post="{% url 'clases:group_book_item_toggle' group_book.pk %}"
+           hx-vals='{"content_type": "{{ fila.tipo.pk }}", "object_id": "{{ fila.objeto.pk }}", "campo": "incluido"}'
+           hx-target="#fila-{{ fila.tipo.pk }}-{{ fila.objeto.pk }}"
+           hx-swap="outerHTML">
+  </div>
+
+</div>
+{% endif %}
+{% if oob %}{% include "clases/group_books/partials/progreso.html" %}{% endif %}
