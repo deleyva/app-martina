@@ -20,13 +20,12 @@ sigue siendo lo correcto al crear, y esto se pasa cuando un libro ha cambiado.
 Sin `--aplicar` no escribe nada: enseña qué cambiaría y se va.
 """
 
-from collections import Counter, defaultdict
+from collections import defaultdict
 
-from django.contrib.contenttypes.models import ContentType
 from django.core.management.base import BaseCommand
 
-from my_library.libros import material_del_libro
 from my_library.models import LibraryItem
+from my_library.orden import libro_de, recolocar
 
 
 class Command(BaseCommand):
@@ -52,7 +51,7 @@ class Command(BaseCommand):
         # `session._libro_de` para decidir de qué libro es un elemento.
         grupos = defaultdict(list)
         for item in items:
-            libro = self._libro_de(item)
+            libro = libro_de(item)
             if libro is not None:
                 grupos[(item.user_id, libro.pk)].append((libro, item))
 
@@ -76,42 +75,11 @@ class Command(BaseCommand):
         if not opciones["aplicar"] and total_cambios:
             self.stdout.write("Vuelve a lanzarlo con --aplicar para escribirlo.")
 
-    def _libro_de(self, item):
-        """El libro al que pertenece un elemento, o `None` si es material suelto."""
-        if item.libro_id:  # libro por referencia: lo lleva escrito
-            return item.libro.specific
-        if item.source_page_id:  # libro por árbol: es el padre del capítulo
-            padre = item.source_page.get_parent()
-            return padre.specific if padre else None
-        return None
-
     def _recolocar(self, libro, items, aplicar):
-        """Asigna a cada elemento su índice en el material actual del libro."""
-        posiciones = {}
-        for indice, (_capitulo, objeto) in enumerate(material_del_libro(libro)):
-            tipo = ContentType.objects.get_for_model(objeto)
-            posiciones[(tipo.pk, objeto.pk)] = indice
-
-        antes = Counter(it.orden for it in items)
-        repetidos_antes = sum(1 for n in antes.values() if n > 1)
-
-        cambios = huerfanos = 0
-        for item in items:
-            nuevo = posiciones.get((item.content_type_id, item.object_id))
-            if nuevo is None:
-                # Estaba en el libro cuando se creó y ya no está. No se toca: su
-                # historial de práctica sigue siendo válido y borrarlo o moverlo
-                # sería peor que dejarlo donde está.
-                huerfanos += 1
-                continue
-            if item.orden != nuevo:
-                cambios += 1
-                if aplicar:
-                    LibraryItem.objects.filter(pk=item.pk).update(orden=nuevo)
-
-        etiqueta = libro.title[:44]
+        """Delega en `my_library.orden`, que es donde vive la única versión."""
+        cambios, huerfanos, repetidos_antes = recolocar(libro, items, aplicar=aplicar)
         self.stdout.write(
-            f"  {etiqueta:46} {len(items):3} items · "
+            f"  {libro.title[:44]:46} {len(items):3} items · "
             f"{repetidos_antes} ordinales repetidos antes · "
             f"{cambios} a cambiar · {huerfanos} fuera del libro"
         )

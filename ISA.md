@@ -2396,3 +2396,38 @@ Después de reordenar o ampliar un libro que ya se está estudiando. No es
 automático a propósito: recalcular obliga a recorrer el libro entero parseando el
 StreamField de cada capítulo, y hacerlo en cada sesión sería pagarlo siempre para
 un caso que ocurre de vez en cuando.
+
+### Fase 30·2 — El orden se recoloca solo (2026-09-09)
+
+Propuesta del principal: *"¿No se puede usar un django signal para que cada vez
+que cambie el orden de un item o crezca el libro, regenere la ordenación?"* Sí, y
+es mejor que acordarse de pasar el comando.
+
+- [x] **C154** · `page_published` **y** `post_page_move` recolocan el libro.
+  **Las dos, no una**: arrastrar un capítulo en el explorador cambia su `path`
+  **sin publicar nada**, así que con solo la señal de publicación el gesto más
+  obvio de "he reordenado el libro" seguiría dejando los ordinales pisados.
+- [x] **C155** · Un manejador que revienta **no puede tumbar la publicación**.
+  Editar en Wagtail no puede fallar porque a la biblioteca le pase algo.
+
+**En segundo plano, no en la señal.** Recalcular obliga a recorrer el libro entero
+parseando el StreamField y el RichText de cada capítulo, y CAGED tiene 302
+medios: hacerlo dentro de la petición congelaría el editor justo al pulsar
+«Publicar». La señal solo encola una tarea de Huey, que ya corría en producción.
+
+**Una sola implementación.** `my_library/orden.py` es donde vive el recálculo, y
+lo usan la tarea y el comando. Dos copias acabarían discrepando, y la
+discrepancia sería exactamente el defecto que esto arregla.
+
+**El comando NO se retira.** Las señales no se disparan en un `queryset.update()`,
+ni en una migración, ni en un script, y el daño de hoy llegó por uno de esos
+caminos. La señal cubre lo que venga; el comando repara lo que ya pasó.
+
+#### El test de mover se comprobó saboteándolo
+
+Un test que no puede fallar es peor que ninguno. Se desactivó el manejador de
+`post_page_move` y el test **falló**; restaurado, pasó. Sin esa comprobación,
+habría sido un aserto verde sin nada detrás.
+
+Y de paso: en la primera versión de ese test quedó un `... or True` que lo hacía
+incapaz de fallar. Sustituido por una comparación contra `material_del_libro`.

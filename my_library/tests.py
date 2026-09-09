@@ -3265,3 +3265,108 @@ def test_llenar_la_sesion_manda_sobre_la_variedad(db):
     sesion = construir_sesion(list(LibraryItem.objects.filter(user=user)), tamano=5)
 
     assert len(sesion) == 5, "la sesión se ha quedado corta por respetar el tope"
+
+
+# === Fase 30·2: el orden se recoloca solo cuando el libro cambia ===
+
+
+def test_publicar_un_capitulo_recoloca_el_libro(db):
+    """C154. El caso obvio: añades material y los ordinales se rehacen.
+
+    Se comprueba el efecto sobre los datos y no que "se llamó a algo": una
+    señal que se dispara y no arregla nada no sirve de nada.
+    """
+    from my_library.libros import meter_libro
+    from my_library.models import LibraryGoal
+
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    user = User.objects.create_user(email="senal@example.com", password="x")
+    libro, caps = _libro_con_capitulos(
+        "Libro con señal", "libro-senal", [("Cap 1", ["a1", "a2"])]
+    )
+    LibraryGoal.objects.create(user=user, libro=libro)
+    meter_libro(user, libro)
+
+    # Se estropea a mano, como estaba en producción.
+    items = list(LibraryItem.objects.filter(user=user).order_by("pk"))
+    LibraryItem.objects.filter(pk__in=[i.pk for i in items]).update(orden=0)
+    assert _ordinales_repetidos(user), "el montaje no reproduce el daño"
+
+    # Publicar un capítulo del libro dispara la señal.
+    capitulo = caps[0][0]
+    capitulo.save_revision().publish()
+
+    assert _ordinales_repetidos(user) == {}, "la señal no recolocó nada"
+
+
+def test_mover_una_pagina_tambien_recoloca(db):
+    """C154. **El caso que `page_published` no cubre.**
+
+    Arrastrar un capítulo en el explorador cambia su `path` sin publicar nada.
+    Con solo la señal de publicación, reordenar un libro —el gesto más obvio de
+    "he cambiado el orden"— seguiría dejando los ordinales pisados.
+    """
+    from my_library.libros import meter_libro
+    from my_library.models import LibraryGoal
+
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    user = User.objects.create_user(email="mover@example.com", password="x")
+    libro, caps = _libro_con_capitulos(
+        "Libro que se mueve", "libro-mueve",
+        [("Primero", ["p1", "p2"]), ("Segundo", ["s1", "s2"])],
+    )
+    LibraryGoal.objects.create(user=user, libro=libro)
+    meter_libro(user, libro)
+
+    orden_antes = [
+        (it.content_type_id, it.object_id)
+        for it in LibraryItem.objects.filter(user=user).order_by("orden")
+    ]
+
+    # Se mueve el segundo capítulo delante del primero, que es lo que hace el
+    # explorador al arrastrar.
+    primero, segundo = caps[0][0], caps[1][0]
+    segundo.move(primero, pos="left")
+
+    orden_despues = [
+        (it.content_type_id, it.object_id)
+        for it in LibraryItem.objects.filter(user=user).order_by("orden")
+    ]
+
+    assert orden_despues != orden_antes, "mover no recolocó nada"
+    assert _ordinales_repetidos(user) == {}
+
+    # El orden nuevo tiene que ser el del libro tras el movimiento: primero el
+    # capítulo que ahora va delante. Comprobarlo contra `material_del_libro` y
+    # no contra una lista escrita a mano es lo que hace que el aserto pueda
+    # fallar de verdad si la señal recoloca mal.
+    from my_library.libros import material_del_libro
+
+    libro.refresh_from_db()
+    esperado = [
+        (ContentType.objects.get_for_model(objeto).pk, objeto.pk)
+        for _cap, objeto in material_del_libro(libro.specific)
+    ]
+    assert orden_despues == esperado
+
+
+def test_una_senal_que_falla_no_tumba_la_publicacion(db):
+    """C155. Editar en Wagtail no puede fallar porque a la biblioteca le pase
+    algo. El manejador traga su propia excepción y deja pasar la publicación."""
+    from unittest.mock import patch
+
+    libro, caps = _libro_con_capitulos("Frágil", "libro-fragil", [("Cap", ["f1"])])
+    capitulo = caps[0][0]
+
+    with patch(
+        "my_library.orden.recolocar_libro_para_todos",
+        side_effect=RuntimeError("boom"),
+    ):
+        capitulo.save_revision().publish()  # no debe propagar
+
+    capitulo.refresh_from_db()
+    assert capitulo.live
