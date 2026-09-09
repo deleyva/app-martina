@@ -3022,3 +3022,93 @@ def test_el_visor_ensena_el_progreso_y_el_atajo_de_descarte(client, library_item
     assert "' de ' + playlist.length" in html, "y decir cuantos van de cuantos"
     assert "VENTANA_DOBLE_D" in html, "el atajo de doble D"
     assert 'id="descarte-aviso"' in html, "y su aviso con deshacer"
+
+
+# === Fase 30: el turno de novedad rota, y ningún objetivo se queda fuera ===
+
+
+def test_el_cuarto_objetivo_deja_de_quedarse_fuera(db):
+    """C150. El defecto medido en producción el 2026-09-09.
+
+    Con tres huecos de novedad y cuatro objetivos, el orden estable dejaba al
+    cuarto fuera de TODAS las sesiones: los tres primeros reponían su reserva y
+    nunca liberaban sitio. CAGED llevaba 27 de sus 302 medios en la biblioteca y
+    `crearía=0` sesión tras sesión. No era mala suerte, era determinismo.
+
+    El falsador es directo: si el cuarto libro no aparece en ninguna de varias
+    sesiones seguidas, el arreglo no sirve.
+    """
+    from django.utils import timezone
+
+    from my_library.models import LibraryGoal
+    from my_library.session import _repartir_por_libro
+
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    user = User.objects.create_user(email="turno@example.com", password="x")
+
+    libros = []
+    for n in range(4):
+        libro, _caps = _libro_con_capitulos(f"Libro {n}", f"libro-turno-{n}", [("Cap", [f"m{n}a", f"m{n}b"])])
+        libros.append(libro)
+        LibraryGoal.objects.create(user=user, libro=libro)
+
+    # Todos con material sin tocar, que es el estado en el que se produjo.
+    from my_library.libros import meter_libro
+    for libro in libros:
+        meter_libro(user, libro)
+
+    items = list(LibraryItem.objects.filter(user=user))
+    orden_inicial = [_titulo_de_libro(u) for u in _repartir_por_libro(items)]
+
+    # El cuarto libro tiene que aparecer entre los tres primeros de ALGUNA ronda.
+    # Con el orden viejo nunca lo hacía: era siempre el último.
+    cuarto = "Libro 3"
+    assert cuarto in orden_inicial, "el cuarto libro ni siquiera entra en el reparto"
+
+    # Y al sellar que los tres primeros ya aportaron, el cuarto pasa a abrir.
+    ahora = timezone.now()
+    LibraryGoal.objects.filter(user=user, libro__in=libros[:3]).update(ultima_novedad=ahora)
+
+    orden_despues = [_titulo_de_libro(u) for u in _repartir_por_libro(items)]
+    assert orden_despues[0] == cuarto, (
+        f"el objetivo que nunca ha aportado debe abrir la ronda, y abrió {orden_despues[0]}"
+    )
+
+
+def _titulo_de_libro(unidad):
+    """El libro del que viene una unidad, por su página de origen."""
+    item = getattr(unidad, "item", None) or unidad
+    pagina = item.source_page
+    return pagina.get_parent().title if pagina else "(suelto)"
+
+
+def test_sellar_novedad_solo_cuenta_lo_no_visto(db):
+    """C150. Sellar con material ya visto movería el turno sin que el objetivo
+    haya aportado nada, y el reparto volvería a favorecer siempre a los mismos."""
+    from my_library.models import LibraryGoal
+    from my_library.session import sellar_novedad
+
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    user = User.objects.create_user(email="sello@example.com", password="x")
+    libro, _caps = _libro_con_capitulos("Sellado", "libro-sello", [("Cap", ["s1", "s2"])])
+    LibraryGoal.objects.create(user=user, libro=libro)
+
+    from my_library.libros import meter_libro
+    meter_libro(user, libro)
+    items = list(LibraryItem.objects.filter(user=user))
+
+    # Todos vistos ya: no hay novedad que sellar.
+    LibraryItem.objects.filter(user=user).update(times_viewed=3)
+    items_vistos = list(LibraryItem.objects.filter(user=user))
+    assert sellar_novedad(user, items_vistos) == 0
+    assert LibraryGoal.objects.get(user=user).ultima_novedad is None
+
+    # Uno sin ver: ahí sí.
+    primero = items[0]
+    LibraryItem.objects.filter(pk=primero.pk).update(times_viewed=0)
+    assert sellar_novedad(user, list(LibraryItem.objects.filter(user=user))) == 1
+    assert LibraryGoal.objects.get(user=user).ultima_novedad is not None

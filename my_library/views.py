@@ -23,6 +23,7 @@ from .session import (
     construir_sesion,
     desambiguar_homonimos,
     filtrar_por_libros,
+    sellar_novedad,
     facetas_disponibles,
     filtrar_por_facetas,
 )
@@ -1000,6 +1001,11 @@ def session_launch(request):
     tamano_raw = request.GET.get("size", "")
     tamano = int(tamano_raw) if tamano_raw.isdigit() else TAMANO_SESION_POR_DEFECTO
     sesion = construir_sesion(coincidencias, tamano=tamano)
+
+    # Se anota qué objetivos han aportado novedad, que es lo que hace rotar el
+    # turno. Al LANZAR y no al previsualizar: mirar la vista previa no es haber
+    # estudiado, y si contara, abrir la pantalla movería el turno sin más.
+    sellar_novedad(request.user, sesion)
 
     return redirect(
         f"{reverse('my_library:study_session')}?items={_tokens_de_sesion(sesion)}"

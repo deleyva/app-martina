@@ -118,6 +118,22 @@ def _de_los_adjuntos(pagina):
     return salida
 
 
+def _enlaces_externos(pagina):
+    """Los enlaces a material con licencia que vive fuera, en su orden.
+
+    Existen para los libros de Blink Learning: el centro tiene licencia de
+    lectura, no de copia, así que el material se queda en su plataforma y aquí
+    solo se guarda el puntero. Son medios de pleno derecho —tienen pk y por
+    tanto pueden ser el contenido de un `LibraryItem` o de un
+    `ClassSessionItem`— y por eso el motor de libros no necesita saber que el
+    contenido está fuera.
+    """
+    enlaces = getattr(pagina, "enlaces_externos", None)
+    if enlaces is None:
+        return []
+    return list(enlaces.all())
+
+
 def material_de(capitulo):
     """Los medios practicables de un capítulo, en orden de aparición.
 
@@ -136,7 +152,15 @@ def material_de(capitulo):
     equivocado.
     """
     objetos, vistos = [], set()
-    for objeto in list(_incrustado_en_el_cuerpo(capitulo)) + list(_de_los_adjuntos(capitulo)):
+    fuentes = (
+        list(_incrustado_en_el_cuerpo(capitulo))
+        + list(_de_los_adjuntos(capitulo))
+        # Al final y no al principio: en un capítulo propio el enlace es
+        # material extra que se consulta después de la partitura. En un
+        # capítulo de Blink es lo único que hay, así que el sitio da igual.
+        + list(_enlaces_externos(capitulo))
+    )
+    for objeto in fuentes:
         if objeto is None:
             continue
         clave = (objeto.__class__.__name__, objeto.pk)

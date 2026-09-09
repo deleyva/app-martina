@@ -1,0 +1,54 @@
+{
+  "_comentario": [
+    "Índice de los dos libros de Blink Learning 'A World of Sounds A' (Tabarca Llibres).",
+    "Cosechado el 2026-09-09 de la API de Blink (/api/v/1/book/<id>/user/<uid>/data),",
+    "con la licencia del centro activa. NO contiene material del libro: solo los",
+    "identificadores necesarios para construir el enlace profundo.",
+    "",
+    "Forma del enlace: <base>#activity/<libro>/<unidad>/<actividad>",
+    "Un identificador inválido NO da error: Blink te deja en #content/mybooks.",
+    "Los ids NO son deducibles: el workbook salta en la unidad 8 y el Appendix",
+    "vuelve a otra serie. Si Tabarca reedita, hay que volver a cosechar.",
+    "",
+    "La licencia de los cuatro ejemplares caduca el 02/11/2027."
+  ],
+  "base": "https://www.blinklearning.com/v/1787227176/theme_tmpux/launch.php?theme=tmpux",
+  "libros": [
+    {
+      "clave": "awos-a-student",
+      "titulo": "A World of Sounds A — Student Book (Blink)",
+      "book_id": "7460955",
+      "unidades": [
+        {"n":  1, "unidad": "65076202", "actividad": "420820854", "titulo": "Índex"},
+        {"n":  2, "unidad": "65076206", "actividad": "420820858", "titulo": "1. Sound"},
+        {"n":  3, "unidad": "65076210", "actividad": "420820862", "titulo": "2. Pitch and melody"},
+        {"n":  4, "unidad": "65076214", "actividad": "420820866", "titulo": "3. Intensity"},
+        {"n":  5, "unidad": "65076218", "actividad": "420820870", "titulo": "4. Timbre"},
+        {"n":  6, "unidad": "65076222", "actividad": "420820874", "titulo": "5. Duration"},
+        {"n":  7, "unidad": "65076226", "actividad": "420820878", "titulo": "6. The qualities of sound"},
+        {"n":  8, "unidad": "65076230", "actividad": "420820882", "titulo": "7. Rhythm"},
+        {"n":  9, "unidad": "65076234", "actividad": "420820886", "titulo": "8. Texture and harmony"},
+        {"n": 10, "unidad": "65076238", "actividad": "420820890", "titulo": "9. Listening"},
+        {"n": 11, "unidad": "65076242", "actividad": "420820894", "titulo": "Appendix"}
+      ]
+    },
+    {
+      "clave": "awos-a-workbook",
+      "titulo": "A World of Sounds A — Workbook (Blink)",
+      "book_id": "7460935",
+      "unidades": [
+        {"n":  1, "unidad": "65076246", "actividad": "420820898", "titulo": "Índex"},
+        {"n":  2, "unidad": "65132306", "actividad": "421303486", "titulo": "1. Sound"},
+        {"n":  3, "unidad": "65132310", "actividad": "421303490", "titulo": "2. Pitch and melody"},
+        {"n":  4, "unidad": "65132314", "actividad": "421303494", "titulo": "3. Intensity"},
+        {"n":  5, "unidad": "65132318", "actividad": "421303498", "titulo": "4. Timbre"},
+        {"n":  6, "unidad": "65132322", "actividad": "421303506", "titulo": "5. Duration"},
+        {"n":  7, "unidad": "65132326", "actividad": "421303510", "titulo": "6. The qualities of sound"},
+        {"n":  8, "unidad": "65132330", "actividad": "421303518", "titulo": "7. Rhythm"},
+        {"n":  9, "unidad": "65132334", "actividad": "421303522", "titulo": "8. Texture and harmony"},
+        {"n": 10, "unidad": "65132338", "actividad": "421303526", "titulo": "9. Listening"},
+        {"n": 11, "unidad": "65076286", "actividad": "420820938", "titulo": "Appendix"}
+      ]
+    }
+  ]
+}

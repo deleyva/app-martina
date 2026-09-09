@@ -158,6 +158,25 @@ class LibraryGoal(models.Model):
     activo = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # Cuándo aportó este objetivo un elemento nuevo por última vez.
+    #
+    # Existe para que ningún libro se quede fuera para siempre. Los huecos de
+    # novedad son tres y los objetivos pueden ser más; si el turno se decide por
+    # un orden estable —el pk del primer pendiente—, el cuarto objetivo **nunca**
+    # entra, y no es mala suerte sino determinismo. Medido en producción el
+    # 2026-09-09: CAGED llevaba 27 de sus 302 medios en la biblioteca y
+    # `crearía=0` en cada sesión, con los otros tres objetivos reponiendo su
+    # reserva y tapándolo.
+    #
+    # Ordenar por esto —el que más tiempo lleva sin aportar, primero— no
+    # necesita puntero global, se recoloca solo cuando añades o quitas un
+    # objetivo, y un objetivo que nunca ha aportado (`NULL`) se va a la cabeza.
+    ultima_novedad = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Última vez que aportó novedad",
+    )
+
     class Meta:
         ordering = ["-created_at"]
         unique_together = ["user", "libro"]

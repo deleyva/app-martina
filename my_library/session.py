@@ -282,7 +282,10 @@ def _libro_de(unidad):
 
 
 def _paths_con_objetivo(unidades):
-    """Paths de los libros que este usuario ha declarado como objetivo.
+    """`{path: ultima_novedad}` de los libros declarados como objetivo.
+
+    Devuelve la fecha además del path porque el turno se decide con ella: el
+    objetivo que más tiempo lleva sin aportar abre la ronda.
 
     Una sola consulta para toda la sesión: el usuario sale de la primera unidad
     porque `construir_sesion` recibe elementos de un único usuario.
@@ -293,9 +296,9 @@ def _paths_con_objetivo(unidades):
         return set()
     primera = unidades[0]
     item = getattr(primera, "item", None) or primera
-    return set(
+    return dict(
         LibraryGoal.objects.filter(user=item.user, activo=True).values_list(
-            "libro__path", flat=True
+            "libro__path", "ultima_novedad"
         )
     )
 
@@ -344,7 +347,20 @@ def _repartir_por_libro(nuevos):
         grupos.setdefault(_libro_de(unidad), []).append(unidad)
 
     con_objetivo = _paths_con_objetivo(nuevos)
-    orden = [c for c in grupos if c is not None and c in con_objetivo]
+
+    # **Y entre los objetivos manda el turno, no el pk.** Con tres huecos y
+    # cuatro objetivos, un orden estable deja al cuarto fuera de TODAS las
+    # sesiones: los tres primeros reponen su reserva y nunca liberan sitio.
+    # Medido en producción el 2026-09-09 con CAGED, que llevaba 27 de sus 302
+    # medios en la biblioteca y `crearía=0` sesión tras sesión.
+    #
+    # `datetime.min` para los que nunca han aportado: a la cabeza, que es donde
+    # tiene que ir un libro recién empezado.
+    from datetime import datetime, timezone as tz
+
+    NUNCA = datetime.min.replace(tzinfo=tz.utc)
+    objetivos = [c for c in grupos if c is not None and c in con_objetivo]
+    orden = sorted(objetivos, key=lambda c: con_objetivo[c] or NUNCA)
     orden += [c for c in grupos if c is not None and c not in con_objetivo]
     if None in grupos:
         orden.append(None)
@@ -511,3 +527,38 @@ def construir_sesion(items, tamano=TAMANO_SESION_POR_DEFECTO):
         ]
 
     return agrupar_por_tematica(elegidos)
+
+
+def sellar_novedad(user, sesion):
+    """Anota qué objetivos han aportado novedad en esta sesión.
+
+    Sin esto el orden por antigüedad no se movería nunca: todos los objetivos se
+    quedarían en `NULL` y el desempate volvería a ser el de siempre. Se llama al
+    LANZAR, no al previsualizar, porque previsualizar no es haber estudiado.
+
+    Una consulta por objetivo que aporta, y como mucho hay un puñado.
+    """
+    from django.utils import timezone
+
+    from my_library.models import LibraryGoal
+
+    paths = set()
+    for unidad in sesion:
+        item = getattr(unidad, "item", None) or unidad
+        if getattr(item, "times_viewed", 0):
+            continue  # ya lo había visto: no cuenta como novedad
+        libro = _libro_de(unidad)
+        if libro:
+            paths.add(libro)
+
+    if not paths:
+        return 0
+
+    ahora = timezone.now()
+    total = 0
+    for objetivo in LibraryGoal.objects.filter(user=user, activo=True).select_related("libro"):
+        if objetivo.libro.path in paths:
+            objetivo.ultima_novedad = ahora
+            objetivo.save(update_fields=["ultima_novedad"])
+            total += 1
+    return total

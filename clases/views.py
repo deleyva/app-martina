@@ -1337,6 +1337,7 @@ def class_session_item_viewer(request, session_id, item_id):
         "images": [],
         "audios": [],
         "embeds": [],
+        "enlaces": [],
     }
 
     # Clasificar según tipo (similar a my_library)
@@ -1354,6 +1355,11 @@ def class_session_item_viewer(request, session_id, item_id):
     elif content_type == "embed":
         # Wagtail Embed model
         documents["embeds"].append(content)
+    elif content_type == "enlaceexterno":
+        # Material con licencia que vive fuera (Blink Learning). No se incrusta:
+        # su cookie de sesión no viaja en un iframe de otro sitio, así que el
+        # visor ofrece un botón que lo abre en una ventana con nombre fijo.
+        documents["enlaces"].append(content)
         
     # Extraer embeds de ScorePage (que fueron importados como items en la sesion?)
     # Wait, en ClassSession, a content_object can also be a PDF/image inside a ScorePage...

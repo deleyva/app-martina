@@ -1,0 +1,69 @@
+{% comment %}
+Visor de material que vive fuera (Blink Learning).
+
+**Es un botón y no un iframe, y hay una medición detrás.** El 2026-09-09 se
+probó embeber Blink: el marco carga (el evento `load` salta y leer su
+`location` lanza `SecurityError`, o sea que hay documento real dentro), pero se
+pinta en blanco. El mismo `#activity/...` embebido en una página del PROPIO
+Blink se ve perfecto. La única variable que cambia es el origen de la página
+contenedora, así que la causa es la cookie de sesión, que no viaja en contexto
+de terceros. No hay nada que arreglar desde aquí: los atributos de esa cookie
+los pone Blink.
+
+La ventana lleva NOMBRE FIJO (`blink`). Es lo que hace que la clase fluya: la
+segunda vez que pulsas, el navegador reutiliza esa misma ventana en vez de
+abrir otra, y como entre unidad y unidad solo cambia el fragmento `#`, Blink
+reenruta al vuelo sin recargar (comprobado: el marcador de `window` sobrevive y
+salta `hashchange`). Dejas Blink en la otra pantalla y el visor lo va
+conduciendo.
+{% endcomment %}
+
+<div class="flex flex-col items-center justify-center gap-6 px-6"
+     style="min-height: 100vh; padding-top: 48px;">
+
+  <div class="text-6xl">🔗</div>
+
+  <div class="text-center">
+    <h1 class="text-2xl font-bold">{{ enlace.titulo }}</h1>
+    <p class="text-base-content/60 mt-1">{{ enlace.get_proveedor_display }}</p>
+  </div>
+
+  <button type="button"
+          id="abrir-enlace-externo"
+          data-url="{{ enlace.url }}"
+          class="btn btn-primary btn-lg gap-2">
+    Abrir en {{ enlace.get_proveedor_display }}
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+    </svg>
+  </button>
+
+  <p class="text-xs text-base-content/50 text-center max-w-md">
+    Se abre en una ventana aparte que se reutiliza en cada unidad. Necesita la
+    sesión de {{ enlace.get_proveedor_display }} ya iniciada en este navegador.
+  </p>
+
+  <details class="text-xs text-base-content/40 max-w-md">
+    <summary class="cursor-pointer">¿No se abre?</summary>
+    <p class="mt-2">
+      Si el navegador bloquea la ventana emergente, permítela para este sitio.
+      El enlace directo es:
+      <a href="{{ enlace.url }}" target="blink" class="link link-primary break-all">{{ enlace.url }}</a>
+    </p>
+  </details>
+</div>
+
+<script>
+(function () {
+  var boton = document.getElementById('abrir-enlace-externo');
+  if (!boton) return;
+  boton.addEventListener('click', function () {
+    // Nombre fijo: reutiliza la ventana en vez de acumular pestañas.
+    // La URL viaja en un data-* para que Django la escape como atributo y no
+    // haya que meter contenido de base de datos dentro de un literal de JS.
+    var v = window.open(boton.dataset.url, 'blink');
+    if (v) { try { v.focus(); } catch (e) {} }
+  });
+})();
+</script>

@@ -67,6 +67,11 @@ def describir(objeto):
             return "📄", titulo, "PDF"
         return "📎", titulo, "Documento"
 
+    if nombre == "enlaceexterno":
+        # El proveedor va en el tipo legible porque en clase importa saber a
+        # dónde te manda el botón antes de pulsarlo.
+        return "🔗", titulo, objeto.get_proveedor_display()
+
     iconos = {
         "image": ("🖼️", "Imagen"),
         "embed": ("▶️", "Vídeo"),

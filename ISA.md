@@ -2295,3 +2295,63 @@ se resolvió solo. Si vuelve a salir un 502 con los contenedores arriba, mirar
 
 `production_backup_2026_09_09T09_18_26.sql.gz`, en `~/app-martina-production/backups/`.
 La receta es `just production-backup-db` y conserva las dos más recientes.
+
+## Fase 30 — El turno de novedad rota (2026-09-09)
+
+**Reportado por el principal**: *"dice que mete cosas nuevas en mi sesión de
+estudio, pero yo creo que no, que está rotando por las mismas. Me pasa con el
+libro del sistema CAGED."* Tenía razón.
+
+### Lo medido en producción, antes de tocar código
+
+```
+4. The Caged System and 100 Licks…   2 sin tocar · ¿entra? no ← objetivo
+→ 3 grupo(s) se quedan fuera de TODAS las sesiones: hay 6 grupos y solo 3 huecos.
+```
+
+Cuatro objetivos activos y tres huecos de novedad. `_repartir_por_libro` ordenaba
+los grupos por el pk de su primer pendiente, que es **estable entre sesiones**, y
+la cuota cortaba en el tercero. CAGED, cuarto, no entraba nunca.
+
+Y lo que lo cerraba del todo: cada objetivo mantiene **una reserva** de material
+sin tocar, así que los tres primeros la reponían y no liberaban sitio jamás.
+CAGED: `material=302`, `en_biblioteca=27`, `descartados=17`, `crearía=0`. Diez
+elementos vivos de un libro de trescientos, en bucle.
+
+**Estaba predicho en este mismo ISA**, punto 3 de «lo siguiente»: *"Con cuatro
+objetivos, uno se quedará fuera de todas las sesiones (…) y siempre le tocará al
+mismo."* Llegó el cuarto objetivo y pasó.
+
+### Claims
+
+- [x] **C150** · `LibraryGoal.ultima_novedad`, y `_repartir_por_libro` ordena los
+  objetivos por ella: **el que más tiempo lleva sin aportar abre la ronda**, y el
+  que nunca ha aportado (`NULL`) va el primero. Sin puntero global, se recoloca
+  solo al añadir o quitar un objetivo, y no hay inanición aunque haya seis.
+  *Falsador:* con cuatro objetivos, sellar los tres primeros deja al cuarto
+  abriendo la ronda siguiente.
+- [x] **C151** · `sellar_novedad` solo cuenta lo que **no** se había visto, y se
+  llama al LANZAR, no al previsualizar. Si contara la vista previa, abrir la
+  pantalla movería el turno sin haber estudiado nada.
+
+### Por qué no un puntero rotatorio
+
+El ISA proponía «rotar quién abre la ronda», que pide guardar un índice global.
+Ordenar por «hace cuánto que aportó» hace lo mismo sin estado compartido, y
+además se comporta bien cuando el conjunto de objetivos cambia: un libro recién
+puesto entra por delante en vez de esperar su turno en una cola que no conocía.
+
+### El caso filtrado, que NO era un defecto
+
+El principal lo detectó filtrando por un libro. Reproducido en producción con sus
+datos: filtrando solo por CAGED, `reparto_del_relleno` da `[(CAGED, 1)]`, crea
+`Example 3.1a`, y la sesión sale con **3 elementos sin practicar**, los tres de
+CAGED. O sea, el camino filtrado ya hacía lo que se le pedía.
+
+Lo que sí se ve en esa sesión filtrada es que los otros 12 elementos son repasos
+de un puñado de páginas con **títulos repetidos** (`Example 3.1a` tres veces,
+`Chapter Two…` cuatro), que es lo que da la sensación de estar dando vueltas. Son
+homónimos legítimos —`estado_estudio` los cuenta: 7 casos de mismo título y
+contenido distinto, 0 de contenido repetido— y `desambiguar_homonimos` los separa
+en pantalla desde la fase 23. **Queda por confirmar con el principal** si lo que
+vio fue esto o la sesión sin filtrar.

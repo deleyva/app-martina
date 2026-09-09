@@ -1638,3 +1638,75 @@ class RecursoPage(AdjuntosMixin, Page):
     class Meta:
         verbose_name = "Recurso musical"
         verbose_name_plural = "Recursos musicales"
+
+
+# =============================================================================
+# MATERIAL QUE VIVE FUERA
+# =============================================================================
+
+
+class EnlaceExterno(models.Model):
+    """Un enlace profundo a material con licencia que vive en otra plataforma.
+
+    Nace para los dos libros de Blink Learning de 1º de ESO (2026-09-09). El
+    centro tiene licencia de lectura, que **no** es licencia de copia: el
+    material se queda en Blink y aquí solo vive el puntero. Por eso esto es un
+    modelo de enlaces y no un importador.
+
+    **Es material, no capítulo.** Se engancha a una `RecursoPage` igual que una
+    imagen o un PDF, de modo que `my_library.libros.material_de` lo devuelva y
+    todo el motor de libros —enumerar, ordenar, excluir, marcar visto— funcione
+    sin enterarse de que el contenido está fuera. Ese era el requisito: llevar
+    el MISMO seguimiento que con los libros propios.
+
+    **No se puede incrustar en un iframe, y no es cosa nuestra.** Medido el
+    2026-09-09: Blink no manda `X-Frame-Options` ni `CSP`, y el marco carga,
+    pero su cookie de sesión no viaja en contexto de terceros (`SameSite`), así
+    que la aplicación arranca sin autenticar y pinta en blanco. Embebido en una
+    página del propio Blink se ve perfecto. La consecuencia de diseño es que el
+    visor ABRE el enlace en una ventana con nombre fijo en vez de embeberlo.
+    """
+
+    BLINK = "blink"
+    PROVEEDORES = [
+        (BLINK, "Blink Learning"),
+    ]
+
+    source_page = models.ForeignKey(
+        "wagtailcore.Page",
+        on_delete=models.CASCADE,
+        related_name="enlaces_externos",
+        verbose_name="Capítulo",
+    )
+    titulo = models.CharField(max_length=200, verbose_name="Título")
+    url = models.URLField(max_length=500, verbose_name="URL")
+    proveedor = models.CharField(
+        max_length=20,
+        choices=PROVEEDORES,
+        default=BLINK,
+        verbose_name="Proveedor",
+    )
+    # El orden es explícito y no se deduce del pk: un libro se puede volver a
+    # cosechar, y al reescribir sus filas el pk cambia pero el orden no debe.
+    orden = models.PositiveIntegerField(default=0, verbose_name="Orden")
+
+    class Meta:
+        ordering = ["source_page", "orden", "pk"]
+        # Un mismo capítulo no apunta dos veces al mismo sitio. Hace que volver
+        # a cosechar sea idempotente de verdad y no solo "casi".
+        unique_together = ["source_page", "url"]
+        verbose_name = "Enlace externo"
+        verbose_name_plural = "Enlaces externos"
+
+    def __str__(self):
+        return f"{self.titulo} ({self.get_proveedor_display()})"
+
+    @property
+    def title(self):
+        """Alias de `titulo`.
+
+        El motor de libros pide `.title` a cualquier medio (`describir`,
+        `ClassSessionItem.get_content_title`). Darlo aquí evita tener que meter
+        un caso especial en cada uno de esos sitios.
+        """
+        return self.titulo

@@ -166,7 +166,10 @@
     </div>
     
     <div style="width: 100%; min-height: 100vh;">
-        {% if documents.pdfs %}
+        {% if documents.enlaces %}
+            <!-- Material que vive fuera: se abre, no se incrusta -->
+            {% include "my_library/viewers/enlace_viewer.html" with enlace=documents.enlaces.0 %}
+        {% elif documents.pdfs %}
             <!-- Visor PDF -->
             <div style="height: 100vh; overflow: hidden;">
                 {% include "my_library/viewers/pdf_viewer.html" with pdfs=documents.pdfs %}
