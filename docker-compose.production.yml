@@ -2,6 +2,16 @@ volumes:
   production_postgres_data: {}
   production_django_media: {}
 
+# `restart: unless-stopped` en todos los servicios.
+#
+# El 2026-09-09 el VPS se reinició y este stack se quedó abajo: los contenedores
+# no fallaron —sus registros llegan sanos hasta el apagón— sino que nadie los
+# volvió a levantar, porque la política era `no`. El resto de stacks del servidor
+# (BookStack, Vaultwarden, el proxy) volvieron solos porque sí la tenían, así que
+# apps. y blogs. estuvieron caídos hasta que alguien lo miró a mano.
+#
+# `unless-stopped` y no `always`: si algún día se para un servicio a propósito,
+# un reinicio de la máquina no debe resucitarlo.
 services:
   django: &django-base
     build:
@@ -10,6 +20,7 @@ services:
 
     image: martina_bescos_app_production_django
     container_name: martina_bescos_app_production_django
+    restart: unless-stopped
     volumes:
       - production_django_media:/app/martina_bescos_app/media
       - ./backups:/backups
@@ -31,6 +42,7 @@ services:
       dockerfile: ./compose/production/postgres/Dockerfile
     image: martina_bescos_app_production_postgres
     container_name: martina_bescos_app_production_postgres
+    restart: unless-stopped
     volumes:
       - production_postgres_data:/var/lib/postgresql/data
       - ./backups:/backups
@@ -44,6 +56,7 @@ services:
   redis:
     image: docker.io/redis:6
     container_name: martina_bescos_app_production_redis
+    restart: unless-stopped
     networks:
       - app-martina-production-network
 
@@ -63,6 +76,7 @@ services:
       dockerfile: ./compose/production/nginx/Dockerfile
     image: martina_bescos_app_production_nginx
     container_name: martina_bescos_app_production_nginx
+    restart: unless-stopped
     depends_on:
       - django
     volumes:
