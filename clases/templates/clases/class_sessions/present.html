@@ -183,6 +183,21 @@
         }
         #flyout-visto.si { background: rgba(34, 197, 94, 0.25); border-color: rgba(34, 197, 94, 0.6); }
 
+        #flyout-casa {
+            margin: 6px 16px 0;
+            padding: 8px 12px;
+            width: calc(100% - 32px);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+            cursor: pointer;
+            font: inherit;
+            font-size: 13px;
+        }
+        #flyout-casa.si { background: rgba(139, 92, 246, 0.3); border-color: rgba(139, 92, 246, 0.7); }
+        #flyout-casa:disabled { opacity: 0.35; cursor: default; }
+
         /* ── Floating Action Button ── */
         #study-fab {
             position: fixed;
@@ -473,6 +488,7 @@
         <!-- Syllabus -->
         {% if is_teacher %}
         <button id="flyout-visto" type="button" onclick="alternarVisto()"></button>
+        <button id="flyout-casa" type="button" onclick="alternarACasa()"></button>
         {% endif %}
         <div class="flyout-syllabus" id="flyout-syllabus"></div>
         <!-- Audio controls placeholder -->
@@ -591,6 +607,7 @@
         var btnPagina = document.getElementById('fab-pagina');
         if (btnPagina) btnPagina.disabled = !item.page_url;
         pintarVisto();
+        pintarACasa();
         updateSyllabusActive();
     }
 
@@ -901,6 +918,45 @@
             if (btn) btn.textContent = 'No se ha podido guardar';
         })
         .finally(function() { if (btn) btn.disabled = false; });
+    }
+
+    // ── Enviar a casa ──
+    function pintarACasa() {
+        var btn = document.getElementById('flyout-casa');
+        if (!btn) return;
+        var item = playlist[currentIndex];
+        if (!item) return;
+        // Un extra suelto no tiene libro donde apuntar la decisión.
+        btn.disabled = !item.tiene_libro;
+        btn.classList.toggle('si', !!item.a_casa);
+        btn.textContent = !item.tiene_libro
+            ? 'Suelto: no se lo pueden llevar'
+            : (item.a_casa ? '🏠 Se lo llevan a casa' : '🏚️ No se lo llevan');
+    }
+
+    function alternarACasa() {
+        var item = playlist[currentIndex];
+        if (!item || !item.tiene_libro) return;
+        var btn = document.getElementById('flyout-casa');
+        if (btn) btn.disabled = true;
+        fetch('/clases/sessions/items/' + item.pk + '/a-casa/', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'X-CSRFToken': csrfToken }
+        })
+        .then(function(r) {
+            if (!r.ok) throw new Error(r.status);
+            return r.json();
+        })
+        .then(function(datos) {
+            item.a_casa = datos.a_casa;
+            item.tiene_libro = datos.aplicable;
+            pintarACasa();
+        })
+        .catch(function() {
+            if (btn) btn.textContent = 'No se ha podido guardar';
+        })
+        .finally(function() { if (btn) btn.disabled = !item.tiene_libro; });
     }
 
     // ── Zonas de paso, estilo forScore ──

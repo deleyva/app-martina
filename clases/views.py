@@ -511,6 +511,23 @@ def class_session_present(request, pk):
             raise PermissionDenied("No tienes permiso para ver esta sesión.")
 
     items = session.get_items_ordered()
+
+    # Qué elementos de la clase están marcados para irse a casa. En una consulta
+    # para toda la sesión: preguntarlo por elemento daría una consulta por fila.
+    from clases.models import GroupBookItem
+
+    marcados = set(
+        GroupBookItem.objects.filter(
+            group_book__in=[i.group_book_id for i in items if i.group_book_id],
+            a_casa=True,
+        ).values_list("group_book_id", "content_type_id", "object_id")
+    )
+    con_casita = {
+        item.pk
+        for item in items
+        if (item.group_book_id, item.content_type_id, item.object_id) in marcados
+    }
+
     playlist = []
     for item in items:
         if not item.content_object:
@@ -528,6 +545,8 @@ def class_session_present(request, pk):
                 "type": item.get_content_type_name(),
                 "seccion": item.get_seccion_display() if item.seccion else "",
                 "visto": item.visto,
+                "tiene_libro": item.group_book_id is not None,
+                "a_casa": item.pk in con_casita,
                 "page_url": pagina.get_url() if pagina else "",
                 "page_title": pagina.title if pagina else "",
             }

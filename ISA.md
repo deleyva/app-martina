@@ -2142,3 +2142,32 @@ el flujo nuevo, pero antes hay que **contar filas en producción** —
 `GroupLibraryItem` tiene referencias en `clases`, `evaluations` y `programacion`,
 y `ClassSessionItem` la mapea como tipo de contenido, así que puede haber
 sesiones antiguas apuntando ahí.
+
+### Fase 28·3·1 — La casita, también en el visor (2026-09-09)
+
+Pedido tras usarlo: marcar «a casa» solo se podía en la pantalla de preparación,
+y en clase pasa que ves cómo responde el grupo y decides ahí que eso sí se lo
+tienen que llevar.
+
+- [x] **C143** · Botón en el panel del visor que alterna si el elemento se lo
+  llevan a casa. **Si el elemento ya está dado por visto, el bañado ocurre en
+  ese momento**, en los dos sentidos. Sin eso, marcar la casita después del
+  visto no haría nada hasta desmarcar y volver a marcar el visto, que es
+  exactamente la fricción que el botón viene a quitar. *Verificado en navegador:*
+  pulsarlo sobre figuras-1, ya visto, lo puso en las tres bibliotecas.
+- [x] **C144** · Sobre un extra suelto el botón sale apagado y dice «Suelto: no
+  se lo pueden llevar», en vez de fingir que se ha guardado algo. *Verificado en
+  navegador* con un extra sembrado en la sesión.
+
+**Un defecto encontrado escribiéndolo, y no lo habría visto sin el segundo test.**
+`subir_de_las_bibliotecas` decidía si tocaba retirar mirando
+`group_book_item.a_casa`. Funcionaba desde `marcar_visto`, pero al desmarcar la
+casita ese campo **ya vale `False` cuando se llega ahí**, así que no habría
+retirado nunca nada. La decisión se ha movido a quien llama, que es quien conoce
+el estado anterior.
+
+El guarda que SÍ se queda es el de `bajar_a_las_bibliotecas`: no bañar lo que no
+está marcado. Y no es simetría rota — quitarlo de la retirada tiene un coste
+conocido, ya escrito en su docstring: si un alumno se había añadido ese mismo
+contenido por su cuenta y no lo ha abierto, la retirada se lo lleva. Distinguirlo
+exigiría guardar de dónde vino cada fila.

@@ -443,3 +443,33 @@ def progreso(request):
         "clases/group_books/progreso.html",
         {"paneles": libros_de_grupo.panel_de_progreso(request.user)},
     )
+
+
+@login_required
+@user_passes_test(is_staff)
+@require_http_methods(["POST"])
+def class_session_item_a_casa(request, pk):
+    """Alterna, desde el visor, si el elemento se lo llevan a casa.
+
+    Devuelve JSON y no HTML porque quien lo usa es el visor, que lleva su propio
+    estado en la playlist y solo necesita saber cómo quedó.
+    """
+    from django.http import JsonResponse
+
+    item = get_object_or_404(
+        ClassSessionItem.objects.select_related("session"),
+        pk=pk,
+        session__teacher=request.user,
+    )
+    actual = GroupBookItem.objects.filter(
+        group_book=item.group_book_id,
+        content_type=item.content_type_id,
+        object_id=item.object_id,
+    ).first()
+    nuevo = not (actual.a_casa if actual else False)
+
+    fila = libros_de_grupo.marcar_a_casa(item, nuevo)
+    if fila is None:
+        # Un extra suelto no tiene libro donde apuntar la decisión.
+        return JsonResponse({"a_casa": False, "aplicable": False})
+    return JsonResponse({"a_casa": fila.a_casa, "aplicable": True})

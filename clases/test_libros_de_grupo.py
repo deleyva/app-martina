@@ -527,3 +527,88 @@ def test_el_panel_avisa_de_un_libro_terminado(db, profesor):
     panel = libros_de_grupo.panel_de_progreso(profesor)
 
     assert panel[0]["libros"][0]["siguiente"] is None
+
+
+# =============================================================================
+# C143 · Marcar «a casa» en mitad de la clase
+# =============================================================================
+
+
+def test_marcar_a_casa_con_el_elemento_ya_visto_baja_en_ese_momento(
+    db, profesor, django_user_model
+):
+    """C143. La razón de ser del botón en el visor.
+
+    Sin esto, marcar la casita después de haberlo dado por visto no haría nada
+    hasta desmarcar y volver a marcar el visto, que es justo la fricción que el
+    botón existe para quitar.
+    """
+    from my_library.models import LibraryItem
+
+    grupo = _grupo()
+    grupo.teachers.add(profesor)
+    alumnos = _matricular(grupo, django_user_model)
+    _, item = _montar_clase(grupo, profesor, a_casa=False)
+
+    libros_de_grupo.marcar_visto(item)
+    assert LibraryItem.objects.filter(user__in=alumnos).count() == 0
+
+    libros_de_grupo.marcar_a_casa(item, True)
+
+    assert LibraryItem.objects.filter(user__in=alumnos).count() == 2
+
+
+def test_desmarcar_a_casa_con_el_elemento_ya_visto_lo_retira(
+    db, profesor, django_user_model
+):
+    """C143. Y en el otro sentido, que es donde estaba el defecto: al desmarcar,
+    `a_casa` ya vale False, así que si la retirada se lo preguntara al modelo no
+    retiraría nunca nada."""
+    from my_library.models import LibraryItem
+
+    grupo = _grupo()
+    grupo.teachers.add(profesor)
+    alumnos = _matricular(grupo, django_user_model)
+    _, item = _montar_clase(grupo, profesor, a_casa=True)
+
+    libros_de_grupo.marcar_visto(item)
+    assert LibraryItem.objects.filter(user__in=alumnos).count() == 2
+
+    libros_de_grupo.marcar_a_casa(item, False)
+
+    assert LibraryItem.objects.filter(user__in=alumnos).count() == 0
+
+
+def test_marcar_a_casa_sin_verlo_no_baja_nada_todavia(db, profesor, django_user_model):
+    """C143. La casita sola no manda nada: lo que manda es darlo por visto."""
+    from my_library.models import LibraryItem
+
+    grupo = _grupo()
+    grupo.teachers.add(profesor)
+    alumnos = _matricular(grupo, django_user_model)
+    _, item = _montar_clase(grupo, profesor, a_casa=False)
+
+    libros_de_grupo.marcar_a_casa(item, True)
+
+    assert LibraryItem.objects.filter(user__in=alumnos).count() == 0
+
+
+def test_un_extra_suelto_no_admite_casita(db, profesor):
+    """C143. Sin libro no hay dónde apuntar la decisión, y el visor lo dice en
+    vez de fingir que se ha guardado."""
+    from django.contrib.contenttypes.models import ContentType
+
+    grupo = _grupo()
+    grupo.teachers.add(profesor)
+    _otro, capitulos = _libro_con_capitulos("Suelto", "suelto-casita", [("Cap", ["x1"])])
+    imagen = capitulos[0][1][0]
+
+    extra = ClassSessionItem.objects.create(
+        session=_sesion(grupo, profesor),
+        content_type=ContentType.objects.get_for_model(imagen),
+        object_id=imagen.pk,
+        order=0,
+    )
+
+    assert libros_de_grupo.marcar_a_casa(extra, True) is None
+    assert GroupBookItem.objects.count() == 0

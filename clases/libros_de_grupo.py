@@ -297,10 +297,11 @@ def marcar_visto(session_item, visto=True):
 
     # Y si el elemento está marcado para irse a casa, se va ahora: dar por visto
     # es el único gesto que lo manda a las bibliotecas del alumnado.
-    if visto:
-        bajar_a_las_bibliotecas(session_item, item)
-    else:
-        subir_de_las_bibliotecas(session_item, item)
+    if item.a_casa:
+        if visto:
+            bajar_a_las_bibliotecas(session_item, item)
+        else:
+            subir_de_las_bibliotecas(session_item, item)
 
     return item
 
@@ -371,11 +372,16 @@ def subir_de_las_bibliotecas(session_item, group_book_item):
     Así que se borra lo que está intacto —cero visitas y cero repasos— y lo
     demás se queda. Deshacer justo después del error limpia; deshacer una semana
     más tarde respeta a quien ya lo estudió.
+
+    **Quién decide que toca deshacer es el que llama**, y no esta función
+    mirando `a_casa`: al desmarcar la casita el campo ya vale `False` cuando se
+    llega aquí, así que preguntárselo al modelo daría siempre que no.
+
+    Límite conocido: si un alumno se había añadido ese mismo contenido por su
+    cuenta y no lo ha abierto, esto se lo lleva. Distinguirlo exigiría guardar de
+    dónde vino cada fila; el coste real es que se lo vuelva a añadir.
     """
     from my_library.models import LibraryItem
-
-    if not group_book_item.a_casa:
-        return 0
 
     intactos = LibraryItem.objects.filter(
         user__in=alumnado_de(session_item.session.group),
@@ -386,6 +392,39 @@ def subir_de_las_bibliotecas(session_item, group_book_item):
     )
     borradas, _ = intactos.delete()
     return borradas
+
+
+def marcar_a_casa(session_item, a_casa):
+    """Decide, en mitad de la clase, si este elemento se lo llevan a casa.
+
+    Lo normal es marcarlo al preparar el libro, pero en clase pasa: ves cómo
+    responde el grupo y decides ahí que eso sí se lo tienen que llevar.
+
+    **Si el elemento ya está dado por visto, el bañado ocurre ahora.** Sin esto,
+    marcar la casita después de haberlo dado por visto no haría nada hasta
+    desmarcar y volver a marcar el visto, que es exactamente la friccion que
+    esta función existe para evitar.
+
+    Devuelve la fila de excepción, o `None` si el elemento es un extra suelto:
+    sin libro no hay a dónde apuntar la decisión.
+    """
+    if session_item.group_book_id is None or session_item.content_object is None:
+        return None
+
+    item, _ = excepcion(
+        session_item.group_book,
+        session_item.content_object,
+        capitulo=session_item.source_page,
+        a_casa=a_casa,
+    )
+
+    if item.estado == GroupBookItem.VISTO:
+        if a_casa:
+            bajar_a_las_bibliotecas(session_item, item)
+        else:
+            subir_de_las_bibliotecas(session_item, item)
+
+    return item
 
 
 def progreso(group_book):
