@@ -99,6 +99,23 @@ class Group(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # Fuera del día a día, pero no borrado.
+    #
+    # **No se deduce del curso académico a propósito.** El caso que lo demuestra
+    # es `familia-jesus`: es de 2024-2025 y se queda activo. Qué grupos estorban
+    # hoy lo sabe el profesor, no el calendario.
+    #
+    # Las sesiones NO llevan su propio interruptor: una sesión pertenece a un
+    # grupo, y no hay ningún caso en que quieras la sesión de un grupo archivado
+    # en la lista diaria. Además cada curso es una fila distinta de `Group` —el
+    # año forma parte de la clave única—, así que archivar por grupo ya separa
+    # los años solo.
+    archivado = models.BooleanField(
+        default=False,
+        verbose_name="Archivado",
+        help_text="Fuera de las listas del día a día. No borra nada y se puede deshacer",
+    )
+
     class Meta:
         db_table = "evaluations_group"  # Mantener tabla existente
         ordering = ["name", "subject"]
@@ -109,6 +126,26 @@ class Group(models.Model):
     @property
     def active_enrollment_count(self):
         return self.enrollments.filter(is_active=True).count()
+
+    @staticmethod
+    def del_profesor(user, incluir_archivados=False):
+        """Los grupos de un profesor para el día a día.
+
+        **Un solo sitio que decide.** Cuatro pantallas preguntan por los grupos
+        —la lista de sesiones, el desplegable de libros, el panel de avance y el
+        formulario de crear sesión— y si cada una filtra por su cuenta, el
+        filtro se olvida en la quinta que añadamos.
+        """
+        grupos = user.teaching_groups.all()
+        return grupos if incluir_archivados else grupos.filter(archivado=False)
+
+    @staticmethod
+    def matriculados_de(user, incluir_archivados=False):
+        """Igual, para el alumnado: un grupo archivado desaparece también para ellos."""
+        grupos = Group.objects.filter(
+            enrollments__user=user, enrollments__is_active=True
+        ).distinct()
+        return grupos if incluir_archivados else grupos.filter(archivado=False)
 
     def __str__(self):
         return f"{self.name} - {self.subject.name} ({self.academic_year})"

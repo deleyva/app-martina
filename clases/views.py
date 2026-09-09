@@ -283,18 +283,29 @@ def class_session_list(request):
     user = request.user
     is_teacher = user.is_staff and hasattr(user, "teaching_groups")
 
+    # `?archivadas=1` enseña justamente lo contrario: lo que está fuera del día a
+    # día. No es un "ver todo": si mezclara, la vista archivada no serviría para
+    # revisar un curso cerrado sin el ruido del actual.
+    viendo_archivadas = request.GET.get("archivadas") == "1"
+
     if is_teacher:
-        # Profesor: ver todas sus sesiones
-        groups = user.teaching_groups.all()
-        sessions = ClassSession.objects.filter(teacher=user).select_related("group")
+        grupos_dia_a_dia = Group.del_profesor(user)
+        grupos_archivados = Group.del_profesor(user, incluir_archivados=True).filter(
+            archivado=True
+        )
+        groups = grupos_archivados if viendo_archivadas else grupos_dia_a_dia
+        sessions = (
+            ClassSession.objects.filter(teacher=user, group__in=groups)
+            .select_related("group")
+        )
     else:
-        # Estudiante: ver sesiones de todos sus grupos activos
-        enrolled_groups = Group.objects.filter(
-            enrollments__user=user, enrollments__is_active=True
-        ).distinct()
-        groups = list(enrolled_groups)
+        grupos_dia_a_dia = Group.matriculados_de(user)
+        grupos_archivados = Group.matriculados_de(user, incluir_archivados=True).filter(
+            archivado=True
+        )
+        groups = grupos_archivados if viendo_archivadas else grupos_dia_a_dia
         sessions = ClassSession.objects.filter(
-            group__in=enrolled_groups
+            group__in=groups
         ).select_related("group", "teacher")
 
     return render(
@@ -303,6 +314,8 @@ def class_session_list(request):
         {
             "sessions": sessions,
             "groups": groups,
+            "viendo_archivadas": viendo_archivadas,
+            "n_archivados": grupos_archivados.count(),
             "is_teacher": is_teacher,
         },
     )
@@ -330,6 +343,16 @@ def class_session_create(request):
             )
             return redirect("clases:class_session_list")
 
+        # Y que el grupo siga vivo. Esconderlo del selector no basta: un
+        # formulario guardado o un POST a mano crearía una clase en un curso ya
+        # cerrado, y nadie la vería nunca porque su grupo está archivado.
+        if group.archivado:
+            messages.error(
+                request,
+                f"«{group.name}» está archivado. Desarchívalo si quieres darle clase otra vez.",
+            )
+            return redirect("clases:class_session_list")
+
         # Crear sesión
         session = ClassSession.objects.create(
             teacher=request.user, group=group, date=date, title=title, notes=notes
@@ -339,7 +362,7 @@ def class_session_create(request):
         return redirect("clases:class_session_edit", pk=session.pk)
 
     # GET: Mostrar formulario
-    groups = request.user.teaching_groups.all()
+    groups = Group.del_profesor(request.user)
     return render(
         request,
         "clases/class_sessions/create.html",

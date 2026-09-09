@@ -474,7 +474,9 @@ def panel_de_progreso(user):
         return memoria[libro.pk]
 
     paneles = []
-    for group in user.teaching_groups.all().select_related("subject"):
+    from clases.models import Group
+
+    for group in Group.del_profesor(user).select_related("subject"):
         libros = []
         for group_book in libros_activos(group):
             filas = _enumerar_con(group_book, material(group_book.libro))

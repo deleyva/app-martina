@@ -2171,3 +2171,53 @@ está marcado. Y no es simetría rota — quitarlo de la retirada tiene un coste
 conocido, ya escrito en su docstring: si un alumno se había añadido ese mismo
 contenido por su cuenta y no lo ha abierto, la retirada se lo lleva. Distinguirlo
 exigiría guardar de dónde vino cada fila.
+
+## Fase 29 — Archivar clases sin borrarlas (2026-09-09)
+
+Al empezar 2026-2027, la lista diaria arrastraba diez grupos de cursos cerrados.
+
+**La decisión de diseño, y el dato que la fija:** el archivado es un campo del
+grupo, NO se deduce del curso académico. Lo demuestra `familia-jesus`, que es de
+2024-2025 y se queda activo. Qué estorba hoy lo sabe el profesor, no el
+calendario.
+
+**Las sesiones no llevan interruptor propio.** Una sesión pertenece a un grupo, y
+no hay caso en que quieras la sesión de un grupo archivado en la lista diaria.
+Además cada curso es una fila distinta de `Group` —el año está en la clave
+única—, así que archivar por grupo ya separa los años solo.
+
+### Claims
+
+- [x] **C145** · `Group.archivado`, y `Group.del_profesor()` /
+  `Group.matriculados_de()` como **único sitio que decide** quién entra en el día
+  a día. Cuatro pantallas preguntan por los grupos; con el filtro repartido, se
+  olvidaría en la quinta que añadamos. *Falsador:* un test que comprueba las
+  cuatro puertas, incluido el panel de avance, que va por su propio camino.
+- [x] **C146** · Archivar no borra nada: sesiones, libros y avance siguen ahí, y
+  desarchivar lo devuelve tal cual. Por eso no pide confirmación.
+- [x] **C147** · **Crear una sesión en un grupo archivado es imposible, no solo
+  invisible.** Esconderlo del selector no basta: un formulario guardado o un POST
+  a mano crearía una clase en un curso cerrado que nadie volvería a ver.
+- [x] **C148** · Misma regla para el alumnado: un grupo archivado desaparece
+  también de su lista.
+- [x] **C149** · Se sigue visitando en `?archivadas=1`, con su propia cabecera y
+  con botones para devolver un grupo al día a día.
+
+### Anti-claim
+
+- **No hay borrado en ninguna parte.** 111 sesiones son el registro de un curso
+  entero.
+
+### Datos del centro al hacerlo
+
+| Curso | Grupos | Sesiones |
+|---|---|---|
+| 2024-2025 | A, B, C, D, F, H, familia-jesus | 0 |
+| 2025-2026 | 4AG, 4BCD, Coro | 46, 41, 24 |
+| 2026-2027 | 3-FH, 3-EG-BIL, 4-AC-BIL, 3-C-BIL, 1-G-BIL | recién creados |
+
+Los cinco grupos de 2026-2027 se crearon con asignatura **Música** y
+`jlopez@iesmartinabescos.es` como profesor.
+
+**El estado vacío del archivo lo encontró el navegador:** invitaba a «Crear
+Primera Sesión» desde una vista a la que se viene a consultar, no a crear.

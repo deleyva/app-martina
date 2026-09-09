@@ -473,3 +473,31 @@ def class_session_item_a_casa(request, pk):
         # Un extra suelto no tiene libro donde apuntar la decisión.
         return JsonResponse({"a_casa": False, "aplicable": False})
     return JsonResponse({"a_casa": fila.a_casa, "aplicable": True})
+
+
+# =============================================================================
+# ARCHIVAR GRUPOS
+# =============================================================================
+
+
+@login_required
+@user_passes_test(is_staff)
+@require_http_methods(["POST"])
+def group_archivar(request, group_id):
+    """Saca un grupo del día a día, o lo devuelve.
+
+    No borra nada: las sesiones, los libros y su avance se quedan donde estaban,
+    y desarchivar lo devuelve todo tal cual. Por eso no pide confirmación.
+    """
+    grupo = _grupo_del_profesor(request, group_id)
+    grupo.archivado = not grupo.archivado
+    grupo.save(update_fields=["archivado"])
+
+    if grupo.archivado:
+        messages.success(
+            request,
+            f"«{grupo.name}» archivado. Sigue estando en «Ver clases archivadas».",
+        )
+    else:
+        messages.success(request, f"«{grupo.name}» vuelve al día a día.")
+    return redirect(request.POST.get("volver_a") or "clases:class_session_list")

@@ -612,3 +612,91 @@ def test_un_extra_suelto_no_admite_casita(db, profesor):
 
     assert libros_de_grupo.marcar_a_casa(extra, True) is None
     assert GroupBookItem.objects.count() == 0
+
+
+# =============================================================================
+# C145 · Archivar grupos
+# =============================================================================
+
+
+def test_un_grupo_archivado_sale_del_dia_a_dia(db, profesor):
+    """C145. Y se comprueba en las CUATRO puertas, no en una.
+
+    El riesgo real de este cambio no es que el filtro esté mal, sino que se
+    olvide en una de las pantallas y el grupo archivado siga asomando por ahí.
+    """
+    vivo = _grupo("1-G-BIL")
+    viejo = _grupo("4AG")
+    for g in (vivo, viejo):
+        g.teachers.add(profesor)
+    viejo.archivado = True
+    viejo.save()
+
+    from clases.models import Group
+
+    activos = list(Group.del_profesor(profesor))
+    assert activos == [vivo]
+
+    # El panel de avance es la cuarta puerta y va por su propio camino.
+    panel = libros_de_grupo.panel_de_progreso(profesor)
+    assert [p["group"].name for p in panel] == ["1-G-BIL"]
+
+
+def test_archivar_no_borra_nada(db, profesor):
+    """C145. Ni sesiones, ni libros, ni el avance. Es lo que hace que archivar
+    no dé miedo y no tenga que pedir confirmación."""
+    grupo = _grupo()
+    grupo.teachers.add(profesor)
+    libro, _ = _libro_con_capitulos("Método", "metodo-arch", [("Cap", ["m1", "m2"])])
+    group_book = _asignar(grupo, libro)
+    sesion = _sesion(grupo, profesor)
+    libros_de_grupo.preparar_sesion(sesion)
+
+    grupo.archivado = True
+    grupo.save()
+
+    assert ClassSession.objects.filter(group=grupo).count() == 1
+    assert sesion.items.count() == 1
+    assert GroupBook.objects.filter(group=grupo).count() == 1
+    # Y al volver, todo sigue donde estaba.
+    grupo.archivado = False
+    grupo.save()
+    assert libros_de_grupo.panel_de_progreso(profesor)[0]["libros"][0]["group_book"] == group_book
+
+
+def test_el_alumnado_tampoco_ve_un_grupo_archivado(db, profesor, django_user_model):
+    """C145. Misma regla para ellos: un grupo de hace dos cursos no debe seguir
+    apareciéndoles en la lista."""
+    from clases.models import Group
+
+    grupo = _grupo()
+    grupo.teachers.add(profesor)
+    alumno = _matricular(grupo, django_user_model, cuantos=1)[0]
+
+    assert list(Group.matriculados_de(alumno)) == [grupo]
+
+    grupo.archivado = True
+    grupo.save()
+
+    assert list(Group.matriculados_de(alumno)) == []
+    assert list(Group.matriculados_de(alumno, incluir_archivados=True)) == [grupo]
+
+
+def test_no_se_puede_crear_una_sesion_en_un_grupo_archivado(db, profesor, client):
+    """C145. Esconderlo del selector no basta: un formulario guardado o un POST a
+    mano crearía una clase en un curso cerrado que nadie volvería a ver."""
+    from django.urls import reverse
+
+    grupo = _grupo()
+    grupo.teachers.add(profesor)
+    grupo.archivado = True
+    grupo.save()
+
+    client.force_login(profesor)
+    respuesta = client.post(
+        reverse("clases:class_session_create"),
+        {"group": grupo.pk, "date": "2026-09-09", "title": "No debería existir"},
+    )
+
+    assert respuesta.status_code == 302
+    assert ClassSession.objects.filter(group=grupo).count() == 0

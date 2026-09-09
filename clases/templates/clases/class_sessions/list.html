@@ -5,7 +5,14 @@
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
-        <h1 class="text-2xl sm:text-3xl font-bold">📅 {% if is_teacher %}Mis Sesiones de Clase{% else %}Sesiones de Clase{% endif %}</h1>
+        <div>
+            <h1 class="text-2xl sm:text-3xl font-bold">
+                {% if viendo_archivadas %}🗄️ Clases archivadas{% else %}📅 {% if is_teacher %}Mis Sesiones de Clase{% else %}Sesiones de Clase{% endif %}{% endif %}
+            </h1>
+            {% if viendo_archivadas %}
+            <a href="{% url 'clases:class_session_list' %}" class="text-sm link link-hover">← Volver al día a día</a>
+            {% endif %}
+        </div>
         {% if is_teacher %}
         <div class="flex flex-wrap gap-2">
             {% comment %}
@@ -14,11 +21,11 @@
             comentarios {# #} son de UNA línea: partidos en dos se pintan en
             pantalla, que es justo lo que pasó al verificar esto en navegador.
             {% endcomment %}
-            {% if request.user.teaching_groups.exists %}
+            {% if groups %}
             <div class="dropdown dropdown-end">
                 <div tabindex="0" role="button" class="btn btn-outline">📚 Libros del grupo</div>
                 <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box w-56 p-2 shadow-lg z-50">
-                    {% for group in request.user.teaching_groups.all %}
+                    {% for group in groups %}
                     <li><a href="{% url 'clases:group_books_index' group.pk %}">{{ group.name }}</a></li>
                     {% endfor %}
                 </ul>
@@ -108,7 +115,13 @@
     <!-- Empty State -->
     <div class="text-center py-12 bg-base-100 rounded-box shadow">
         <div class="text-6xl mb-4">📅</div>
-        {% if is_teacher %}
+        {% if viendo_archivadas %}
+        {# En el archivo no se invita a crear nada: se viene a consultar. #}
+        <h2 class="text-2xl font-bold mb-2">Sin sesiones guardadas</h2>
+        <p class="text-base-content/70">
+            Estos grupos están archivados y no tienen ninguna sesión.
+        </p>
+        {% elif is_teacher %}
         <h2 class="text-2xl font-bold mb-2">No tienes sesiones de clase</h2>
         <p class="text-base-content/70 mb-6">
             Crea tu primera sesión para organizar el contenido de tus clases.
@@ -125,6 +138,54 @@
             Cuando tu profesor cree sesiones, aparecerán aquí.
         </p>
         {% endif %}
+    </div>
+    {% endif %}
+
+    {% if is_teacher %}
+    <div class="mt-10 pt-5 border-t border-base-300 flex flex-col gap-3">
+
+        {% if viendo_archivadas %}
+            {# Desde el archivo se puede devolver un grupo al día a día. #}
+            <p class="text-sm text-base-content/70">Grupos archivados:</p>
+            <div class="flex flex-wrap gap-2">
+                {% for group in groups %}
+                <form method="post" action="{% url 'clases:group_archivar' group.pk %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="volver_a" value="{{ request.get_full_path }}">
+                    <button class="btn btn-xs btn-outline" title="Devolver «{{ group.name }}» al día a día">
+                        ↩︎ {{ group.name }}
+                    </button>
+                </form>
+                {% endfor %}
+            </div>
+        {% else %}
+            <details class="collapse collapse-arrow border border-base-300">
+                <summary class="collapse-title text-sm font-medium">Archivar grupos</summary>
+                <div class="collapse-content flex flex-col gap-2">
+                    <p class="text-xs text-base-content/60">
+                        Archivar saca el grupo y sus sesiones del día a día. No borra nada y se deshace cuando quieras.
+                    </p>
+                    <div class="flex flex-wrap gap-2">
+                        {% for group in groups %}
+                        <form method="post" action="{% url 'clases:group_archivar' group.pk %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="volver_a" value="{{ request.get_full_path }}">
+                            <button class="btn btn-xs btn-ghost" title="Archivar «{{ group.name }}»">
+                                🗄️ {{ group.name }}
+                            </button>
+                        </form>
+                        {% endfor %}
+                    </div>
+                </div>
+            </details>
+
+            {% if n_archivados %}
+            <a href="{% url 'clases:class_session_list' %}?archivadas=1" class="text-sm link link-hover self-start">
+                🗄️ Ver clases archivadas ({{ n_archivados }} grupo{{ n_archivados|pluralize:"s" }})
+            </a>
+            {% endif %}
+        {% endif %}
+
     </div>
     {% endif %}
 </div>

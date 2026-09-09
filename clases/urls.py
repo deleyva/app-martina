@@ -51,6 +51,11 @@ urlpatterns = [
     # LIBROS QUE DAN CLASE
     # =============================================================================
     path(
+        "groups/<int:group_id>/archivar/",
+        views_libros.group_archivar,
+        name="group_archivar",
+    ),
+    path(
         "progreso/",
         views_libros.progreso,
         name="progreso",
