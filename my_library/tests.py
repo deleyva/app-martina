@@ -3112,3 +3112,156 @@ def test_sellar_novedad_solo_cuenta_lo_no_visto(db):
     LibraryItem.objects.filter(pk=primero.pk).update(times_viewed=0)
     assert sellar_novedad(user, list(LibraryItem.objects.filter(user=user))) == 1
     assert LibraryGoal.objects.get(user=user).ultima_novedad is not None
+
+
+# === Fase 30·1: el orden del libro deja de estar pisado ===
+
+
+def test_recalcular_orden_deshace_los_ordinales_repetidos(db):
+    """C152. El defecto medido en producción el 2026-09-09.
+
+    `orden` es una foto del momento de crear. Si el libro crece entre
+    creaciones, los elementos viejos llevan índices de un libro más corto: en
+    CAGED había 10 ordinales repetidos sobre 45 elementos, y el material dejaba
+    de servirse en el orden del libro.
+
+    El falsador: tras recalcular, no puede quedar ni un ordinal repetido, y el
+    orden tiene que coincidir con el del libro.
+    """
+    from django.core.management import call_command
+
+    from my_library.libros import material_del_libro, meter_libro
+    from my_library.models import LibraryGoal
+
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    user = User.objects.create_user(email="orden@example.com", password="x")
+    libro, _caps = _libro_con_capitulos(
+        "Libro que crece", "libro-crece",
+        [("Cap 1", ["a1", "a2"]), ("Cap 2", ["b1", "b2"])],
+    )
+    LibraryGoal.objects.create(user=user, libro=libro)
+    meter_libro(user, libro)
+
+    # Se simula el daño: dos elementos con el mismo ordinal y uno a cero, que es
+    # el estado real de los elementos anteriores a que existiera el campo.
+    items = list(LibraryItem.objects.filter(user=user).order_by("pk"))
+    LibraryItem.objects.filter(pk=items[0].pk).update(orden=7)
+    LibraryItem.objects.filter(pk=items[1].pk).update(orden=7)
+    LibraryItem.objects.filter(pk=items[2].pk).update(orden=0)
+
+    repetidos = _ordinales_repetidos(user)
+    assert repetidos, "el montaje no ha producido el daño que se quiere arreglar"
+
+    call_command("recalcular_orden", "--email", user.email, "--aplicar")
+
+    assert _ordinales_repetidos(user) == {}, "siguen quedando ordinales pisados"
+
+    # Y el orden es el del libro, no uno cualquiera sin repeticiones.
+    esperado = [
+        (ContentType.objects.get_for_model(objeto).pk, objeto.pk)
+        for _cap, objeto in material_del_libro(libro)
+    ]
+    real = [
+        (it.content_type_id, it.object_id)
+        for it in LibraryItem.objects.filter(user=user).order_by("orden")
+    ]
+    assert real == esperado
+
+
+def test_recalcular_orden_no_escribe_sin_aplicar(db):
+    """C152. El modo por defecto informa y no toca nada: es lo que hace que se
+    pueda lanzar contra producción sin miedo antes de decidir."""
+    from django.core.management import call_command
+
+    from my_library.libros import meter_libro
+    from my_library.models import LibraryGoal
+
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    user = User.objects.create_user(email="seco@example.com", password="x")
+    libro, _caps = _libro_con_capitulos("Seco", "libro-seco", [("Cap", ["s1", "s2"])])
+    LibraryGoal.objects.create(user=user, libro=libro)
+    meter_libro(user, libro)
+
+    items = list(LibraryItem.objects.filter(user=user).order_by("pk"))
+    LibraryItem.objects.filter(pk=items[0].pk).update(orden=99)
+
+    call_command("recalcular_orden", "--email", user.email)
+
+    assert LibraryItem.objects.get(pk=items[0].pk).orden == 99
+
+
+def _ordinales_repetidos(user):
+    from collections import Counter
+
+    cuenta = Counter(
+        LibraryItem.objects.filter(user=user).values_list("orden", flat=True)
+    )
+    return {o: n for o, n in cuenta.items() if n > 1}
+
+
+def test_una_sesion_no_se_llena_con_un_solo_capitulo(db):
+    """C153. Medido en producción el 2026-09-09: filtrando por CAGED, quince
+    huecos se llenaban con cinco páginas — `Chapter Two` ocupaba cuatro.
+
+    El tope es por capítulo y no por título, porque el título no identifica
+    nada: la unicidad es usuario+tipo+objeto, y dos ejercicios distintos pueden
+    llamarse igual.
+    """
+    from my_library.libros import meter_libro
+    from my_library.session import TOPE_POR_CAPITULO, construir_sesion, _capitulo_de
+
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    user = User.objects.create_user(email="variedad@example.com", password="x")
+    libro, _caps = _libro_con_capitulos(
+        "Libro desigual", "libro-desigual",
+        [("Cap gordo", [f"g{n}" for n in range(8)]), ("Cap flaco", ["f1", "f2"])],
+    )
+    meter_libro(user, libro)
+
+    # Todos practicados: así compiten por los huecos de REPASO, que es donde
+    # estaba el problema. Lo que decide "conocido" es tener un `ReviewLog`, no
+    # `times_viewed`: `_dias_sin_practicar` mira el historial de repasos.
+    from my_library.models import ReviewLog
+
+    for it in LibraryItem.objects.filter(user=user):
+        ReviewLog.objects.create(user=user, item=it)
+    items = list(LibraryItem.objects.filter(user=user))
+
+    sesion = construir_sesion(items, tamano=4)
+
+    from collections import Counter
+    por_cap = Counter(
+        (_capitulo_de(u).pk if _capitulo_de(u) else None) for u in sesion
+    )
+    assert max(por_cap.values()) <= TOPE_POR_CAPITULO, f"un capítulo copó la sesión: {por_cap}"
+    assert len(por_cap) == 2, "los dos capítulos tienen que estar representados"
+
+
+def test_llenar_la_sesion_manda_sobre_la_variedad(db):
+    """C153. Con un libro de un solo capítulo, el tope no puede dejar la sesión a
+    medias: se completa con lo que quedó fuera."""
+    from my_library.libros import meter_libro
+    from my_library.session import construir_sesion
+
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    user = User.objects.create_user(email="lleno@example.com", password="x")
+    libro, _caps = _libro_con_capitulos(
+        "Un solo capítulo", "libro-uno", [("Único", [f"u{n}" for n in range(6)])]
+    )
+    meter_libro(user, libro)
+    from my_library.models import ReviewLog
+
+    for it in LibraryItem.objects.filter(user=user):
+        ReviewLog.objects.create(user=user, item=it)
+
+    sesion = construir_sesion(list(LibraryItem.objects.filter(user=user)), tamano=5)
+
+    assert len(sesion) == 5, "la sesión se ha quedado corta por respetar el tope"

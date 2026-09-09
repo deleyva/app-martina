@@ -28,7 +28,7 @@ trabajar, no tanta como para que la sesión sea un bloque único.
 """
 
 import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 from . import facets
 
@@ -481,6 +481,49 @@ def desambiguar_homonimos(unidades):
     return unidades
 
 
+# Cuántas unidades del mismo capítulo entran de repaso en una sesión.
+#
+# Sin tope, estudiar UN libro llenaba quince huecos con cinco páginas. Medido en
+# producción el 2026-09-09 con CAGED filtrado: `Chapter Two` ocupaba cuatro
+# huecos, `Example 3.1c` tres y `Example 3.1a` tres. Son medios DISTINTOS —el
+# informe cuenta cero contenidos repetidos— pero el libro los nombra igual, así
+# que en pantalla la sesión parecía dar vueltas sobre lo mismo.
+#
+# El tope es por CAPÍTULO y no por título: el título no identifica nada (la
+# unicidad es usuario+tipo+objeto) y agrupar por él castigaría a dos ejercicios
+# distintos que compartan nombre.
+TOPE_POR_CAPITULO = 2
+
+
+def _variar_capitulos(conocidos, cuantos):
+    """Reparte los huecos de repaso sin que un capítulo se los quede todos.
+
+    Dos pasadas: primero respetando el tope, y si aún falta para llenar la
+    sesión, se completa con lo que quedó fuera. **Llenar la sesión manda sobre
+    la variedad**: con un libro de pocos capítulos, un tope estricto dejaría la
+    sesión a medias, que es peor que repetir capítulo.
+
+    Se conserva el orden de entrada, que ya viene por vencimiento.
+    """
+    if cuantos <= 0:
+        return []
+
+    por_capitulo = Counter()
+    elegidos, sobrantes = [], []
+    for unidad in conocidos:
+        capitulo = _capitulo_de(unidad)
+        clave = capitulo.pk if capitulo else None
+        if len(elegidos) < cuantos and por_capitulo[clave] < TOPE_POR_CAPITULO:
+            por_capitulo[clave] += 1
+            elegidos.append(unidad)
+        else:
+            sobrantes.append(unidad)
+
+    if len(elegidos) < cuantos:
+        elegidos += sobrantes[: cuantos - len(elegidos)]
+    return elegidos
+
+
 def construir_sesion(items, tamano=TAMANO_SESION_POR_DEFECTO):
     """Devuelve los elementos de una sesión, acotados y ordenados.
 
@@ -515,7 +558,7 @@ def construir_sesion(items, tamano=TAMANO_SESION_POR_DEFECTO):
     cuota = min(len(nuevos), max(1, round(tamano * PROPORCION_NOVEDAD))) if nuevos else 0
 
     elegidos = nuevos[:cuota]
-    elegidos += conocidos[: tamano - len(elegidos)]
+    elegidos += _variar_capitulos(conocidos, tamano - len(elegidos))
 
     # Si no hay bastante repaso para llenar la sesión, entra más material nuevo.
     # Lo contrario —dejar la sesión a medias habiendo cosas sin tocar— sería
