@@ -1,55 +1,103 @@
 {% comment %}
 Visor de material que vive fuera (Blink Learning).
 
-**Es un botón y no un iframe, y hay una medición detrás.** El 2026-09-09 se
-probó embeber Blink: el marco carga (el evento `load` salta y leer su
-`location` lanza `SecurityError`, o sea que hay documento real dentro), pero se
-pinta en blanco. El mismo `#activity/...` embebido en una página del PROPIO
-Blink se ve perfecto. La única variable que cambia es el origen de la página
-contenedora, así que la causa es la cookie de sesión, que no viaja en contexto
-de terceros. No hay nada que arreglar desde aquí: los atributos de esa cookie
-los pone Blink.
+**Estilo en línea, no Tailwind.** `my_library/viewer.html` es un documento
+suelto con su propio `<style>` y fondo negro: no carga ni Tailwind ni DaisyUI.
+La primera versión de esta plantilla usaba `btn btn-primary` y `w-5 h-5`, y en
+pantalla salía el SVG a tamaño natural tapando la página entera. El resto de
+visores de esta carpeta ya usan `<style>` propio; este hace lo mismo.
 
-La ventana lleva NOMBRE FIJO (`blink`). Es lo que hace que la clase fluya: la
-segunda vez que pulsas, el navegador reutiliza esa misma ventana en vez de
-abrir otra, y como entre unidad y unidad solo cambia el fragmento `#`, Blink
-reenruta al vuelo sin recargar (comprobado: el marcador de `window` sobrevive y
-salta `hashchange`). Dejas Blink en la otra pantalla y el visor lo va
-conduciendo.
+**Es un botón y no un iframe, y hay una medición detrás.** El 2026-09-09 se
+probó embeber Blink: el marco carga (salta `load` y leer su `location` lanza
+`SecurityError`, o sea que hay documento real dentro), pero se pinta en blanco.
+El mismo `#activity/...` embebido en una página del PROPIO Blink se ve perfecto.
+La única variable que cambia es el origen de la página contenedora, así que la
+causa es la cookie de sesión, que no viaja en contexto de terceros.
+
+La ventana lleva NOMBRE FIJO (`blink`): la segunda vez que pulsas, el navegador
+reutiliza esa misma ventana en vez de abrir otra, y como entre unidad y unidad
+solo cambia el fragmento `#`, Blink reenruta al vuelo sin recargar (comprobado:
+el marcador de `window` sobrevive y salta `hashchange`).
 {% endcomment %}
 
-<div class="flex flex-col items-center justify-center gap-6 px-6"
-     style="min-height: 100vh; padding-top: 48px;">
+<style>
+    #enlace-externo {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 22px;
+        padding: 64px 24px 40px;
+        text-align: center;
+        color: #f5f5f5;
+    }
+    #enlace-externo .ee-icono { font-size: 56px; line-height: 1; }
+    #enlace-externo h1 {
+        font-size: 26px;
+        font-weight: 700;
+        margin: 0;
+        color: #fff;
+    }
+    #enlace-externo .ee-proveedor {
+        font-size: 14px;
+        color: #9aa0a6;
+        margin-top: 4px;
+    }
+    #enlace-externo .ee-boton {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 26px;
+        font-size: 17px;
+        font-weight: 600;
+        color: #fff;
+        background: #4f46e5;
+        border: 0;
+        border-radius: 10px;
+        cursor: pointer;
+    }
+    #enlace-externo .ee-boton:hover { background: #4338ca; }
+    #enlace-externo .ee-boton svg { width: 20px; height: 20px; flex: none; }
+    #enlace-externo .ee-nota {
+        font-size: 13px;
+        color: #9aa0a6;
+        max-width: 420px;
+        line-height: 1.5;
+    }
+    #enlace-externo details { font-size: 12px; color: #7a7f85; max-width: 420px; }
+    #enlace-externo summary { cursor: pointer; }
+    #enlace-externo details a { color: #8ab4f8; word-break: break-all; }
+</style>
 
-  <div class="text-6xl">🔗</div>
+<div id="enlace-externo">
+  <div class="ee-icono">🔗</div>
 
-  <div class="text-center">
-    <h1 class="text-2xl font-bold">{{ enlace.titulo }}</h1>
-    <p class="text-base-content/60 mt-1">{{ enlace.get_proveedor_display }}</p>
+  <div>
+    <h1>{{ enlace.titulo }}</h1>
+    <div class="ee-proveedor">{{ enlace.get_proveedor_display }}</div>
   </div>
 
-  <button type="button"
-          id="abrir-enlace-externo"
-          data-url="{{ enlace.url }}"
-          class="btn btn-primary btn-lg gap-2">
+  <button type="button" id="abrir-enlace-externo"
+          class="ee-boton" data-url="{{ enlace.url }}">
     Abrir en {{ enlace.get_proveedor_display }}
-    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
             d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
     </svg>
   </button>
 
-  <p class="text-xs text-base-content/50 text-center max-w-md">
+  <p class="ee-nota">
     Se abre en una ventana aparte que se reutiliza en cada unidad. Necesita la
     sesión de {{ enlace.get_proveedor_display }} ya iniciada en este navegador.
   </p>
 
-  <details class="text-xs text-base-content/40 max-w-md">
-    <summary class="cursor-pointer">¿No se abre?</summary>
-    <p class="mt-2">
+  <details>
+    <summary>¿No se abre?</summary>
+    <p style="margin-top:8px">
       Si el navegador bloquea la ventana emergente, permítela para este sitio.
-      El enlace directo es:
-      <a href="{{ enlace.url }}" target="blink" class="link link-primary break-all">{{ enlace.url }}</a>
+      Enlace directo:
+      <a href="{{ enlace.url }}" target="blink">{{ enlace.url }}</a>
     </p>
   </details>
 </div>
@@ -59,9 +107,9 @@ conduciendo.
   var boton = document.getElementById('abrir-enlace-externo');
   if (!boton) return;
   boton.addEventListener('click', function () {
-    // Nombre fijo: reutiliza la ventana en vez de acumular pestañas.
-    // La URL viaja en un data-* para que Django la escape como atributo y no
-    // haya que meter contenido de base de datos dentro de un literal de JS.
+    // Nombre fijo: reutiliza la ventana en vez de acumular pestañas. La URL
+    // viaja en un data-* para que Django la escape como atributo y no haya que
+    // meter contenido de base de datos dentro de un literal de JS.
     var v = window.open(boton.dataset.url, 'blink');
     if (v) { try { v.focus(); } catch (e) {} }
   });

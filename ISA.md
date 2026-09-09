@@ -2355,3 +2355,44 @@ homónimos legítimos —`estado_estudio` los cuenta: 7 casos de mismo título y
 contenido distinto, 0 de contenido repetido— y `desambiguar_homonimos` los separa
 en pantalla desde la fase 23. **Queda por confirmar con el principal** si lo que
 vio fue esto o la sesión sin filtrar.
+
+### Fase 30·1 — El orden del libro estaba pisado (2026-09-09)
+
+**Alcance medido antes de tocar nada**, sobre los 26 grupos de la biblioteca:
+
+| Grupo | Elementos | Ordinales repetidos |
+|---|---|---|
+| The Caged System… | 45 | 10 |
+| Modern Jazz Guitar Concepts | 30 | 3 |
+| Índice de recursos musicales | 16 | 2 |
+| Repertorio Luciérnaga | 8 | 1 |
+
+Todos del mismo usuario, y ninguno de otro. La causa está documentada en
+`siguiente_del_objetivo`: el ordinal es **una foto del momento de crear**, y si el
+libro crece entre creaciones los elementos viejos llevan índices de un libro más
+corto. Algunos a 0 por ser anteriores a que el campo existiera (fase 21).
+
+- [x] **C152** · `recalcular_orden` reasigna el ordinal desde el orden actual del
+  libro. Sin `--aplicar` no escribe. *Resultado en producción:* 43 ordinales
+  cambiados, y una segunda medida da **0 grupos con ordinales pisados**.
+- [x] **C153** · `TOPE_POR_CAPITULO = 2` en los huecos de repaso. **Por capítulo y
+  no por título**: el título no identifica nada, la unicidad es
+  usuario+tipo+objeto, y agrupar por él castigaría a dos ejercicios distintos que
+  se llamen igual. Llenar la sesión manda sobre la variedad: si con el tope no se
+  llena, se completa con lo que quedó fuera.
+
+**Lo que el tope da y lo que no.** La sesión filtrada de CAGED pasó de **5
+títulos distintos a 8**, pero sigue repitiendo porque la biblioteca solo cubre
+unos pocos capítulos del libro y la segunda pasada rellena con ellos. La cura de
+fondo es la fase 30: ahora que CAGED recibe turno, irá entrando material de
+capítulos nuevos y la variedad crece sola.
+
+**De paso:** el despliegue aplicó también `musica.0004_enlaceexterno`, que llevaba
+pendiente en producción sin que nadie lo hubiera notado.
+
+### Cuándo volver a pasar `recalcular_orden`
+
+Después de reordenar o ampliar un libro que ya se está estudiando. No es
+automático a propósito: recalcular obliga a recorrer el libro entero parseando el
+StreamField de cada capítulo, y hacerlo en cada sesión sería pagarlo siempre para
+un caso que ocurre de vez en cuando.
