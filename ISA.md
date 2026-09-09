@@ -2,9 +2,9 @@
 slug: app-martina
 phase: complete
 progress: false
-iteration: 35
+iteration: 36
 principal_stated_goal: "Necesito desarrollar en apps.iesmartinabescos.es Otra app de Django como la que tenemos en /incidencias. Está sí que debe de requerir login con Google porque ya tenemos implementado. Básicamente, es una aplicación en la que quiero que vayan solicitando la clave Wi-Fi. Pero para ello deben logearse y enviar la MAC de su dispositivo WIFI, la privada (real) no la aleatoria."
-updated: 2026-09-08
+updated: 2026-09-09
 ---
 
 # ISA — app-martina · Sistema de estudio de la biblioteca
@@ -51,6 +51,44 @@ updated: 2026-09-08
 | 22 | **La vista previa enseña la sesión que se va a servir** (C78, C79) | `5be6f63` |
 | 23 | **Descartar funcionaba; eran homónimos** (C81-C84) y el menú se desplaza | `77a3818`, `ef7c71f`, `456e66f` |
 | 24 | **Contador de sesión arriba y descartar con doble D** (C85, C86) | `dec6b7b` |
+| 25-27 | Partir `cms`, alta de WiFi, traer los 16 blogs de Blogspot | ver abajo |
+| 28 | **Libros que dan clase, fase A** — asignar libros a un grupo, elegir y ordenar sus elementos, preparar la sesión (C123-C129) | `c108dab`, `c41e40e` |
+| 28·2 | **El visor de clase, fase B** — zonas táctiles, teclado, página entera, plantillas, dar por visto (C130-C134) | `bf05518`, `06eab54` |
+| 28·3 | **Que llegue a casa, fase C** — bañado a las bibliotecas del alumnado y panel de avance (C137-C144) | `a6fd287`, `d1e6b58` |
+| 29 | **Archivar clases sin borrarlas** (C145-C149) | `39c185b` |
+| — | El stack de producción vuelve solo tras un reinicio | `d6aa740` |
+| — | La migración 0014 vuelve a caber en el Wagtail de producción | `644bf9d` |
+
+### Dónde estamos (2026-09-09)
+
+**Las fases A, B y C de «libros que dan clase» están desplegadas en producción, y
+el curso 2026-2027 ya está montado.** El día a día de `jlopez` son seis grupos:
+`3-FH`, `3-EG-BIL`, `4-AC-BIL`, `3-C-BIL`, `1-G-BIL` y `familia-jesus`. Los nueve
+de cursos anteriores están archivados, con sus 111 sesiones intactas.
+
+**Lo único que falta de este bloque es la fase D:** retirar `GroupLibraryItem`.
+Ya no hay nada del flujo nuevo que dependa de ella y sus dos accesos están
+cerrados, pero **antes hay que contar filas en producción**, porque
+`ClassSessionItem` la mapea como tipo de contenido y puede haber sesiones
+antiguas apuntando ahí.
+
+**Y lo que no ha probado nadie todavía:** las pantallas nuevas en producción con
+datos reales. Están verificadas en local y responden en producción, pero
+recorrerlas con la cuenta del principal está pendiente. Ese es el siguiente paso
+natural: asignar libros a uno de los cinco grupos nuevos y montar una sesión.
+
+### ⚠️ Antes de generar una migración en este repo
+
+**Comprueba que tu venv coincide con `requirements/base.txt`.** Producción va con
+`wagtail==7.3.1`. Si el entorno local va por delante, `makemigrations` ancla la
+migración a una migración de `wagtailcore` que producción no tiene y el
+despliegue muere con `NodeNotFoundError`.
+
+**Ha pasado dos veces**: fase 11·1 (2026-08) y otra vez el 2026-09-09. La segunda
+con el venv en 7.3.3 mientras el pin decía 7.3.1. El arreglo es alinear el venv y
+**regenerar** la migración, no editarle la dependencia a mano.
+
+    uv pip install --python .venv-test/bin/python "wagtail==7.3.1"
 
 ### Lo siguiente, por orden
 
@@ -2221,3 +2259,39 @@ Los cinco grupos de 2026-2027 se crearon con asignatura **Música** y
 
 **El estado vacío del archivo lo encontró el navegador:** invitaba a «Crear
 Primera Sesión» desde una vista a la que se viene a consultar, no a crear.
+
+## Incidencia 2026-09-09 — El servidor entero, caído
+
+**Síntoma:** `apps.`, `blogs.` y `docs.` sin responder. Ni 80, ni 443, ni 22, ni
+un solo paquete de ICMP de vuelta. DNS resolviendo bien.
+
+**Lo primero que hay que hacer, y ahorra media hora:** comprobar si caen TODOS
+los puertos a la vez. Si es así, **descarta de entrada cualquier hipótesis sobre
+un servicio concreto**: no es la app ni un contenedor, es la máquina o su red.
+Aquí lo confirmó que BookStack, que es otro stack, también estaba caído.
+
+**Es un VPS de IONOS**, no una máquina del centro. Lo que hay que mirar está en
+su panel, no en el instituto: estado del servidor, **consola remota** (distingue
+en diez segundos «parada» de «arrancada pero colgada»), cortafuegos del panel, y
+contrato. La IP siguió asignada a IONOS todo el rato, lo que descartaba que
+hubieran desmontado el contrato.
+
+**Causa de la caída del VPS: sin determinar.** El principal lo reinició desde el
+panel y volvió. Disco al 32%, inodos al 7%, memoria de sobra, sin OOM. Los
+contenedores no dejaron rastro porque murieron con la máquina.
+
+**Causa de que la app NO volviera sola, esa sí:** los cinco contenedores tenían
+`Restart=no`. No fallaron —sus registros llegan sanos hasta el apagón, con
+Postgres haciendo checkpoints— sino que nadie los levantó. El resto de stacks del
+servidor sí tenían política de reinicio y volvieron solos. **Arreglado en
+`d6aa740`**: `restart: unless-stopped` en los cinco servicios.
+
+**Y luego, el 502.** El proxy (openresty, o sea nginx-proxy-manager) apunta a
+`nginx_production` por NOMBRE, no por IP, así que en cuanto el contenedor existió
+se resolvió solo. Si vuelve a salir un 502 con los contenedores arriba, mirar
+`/data/nginx/proxy_host/*.conf` dentro del contenedor del proxy.
+
+### Copia de seguridad tomada antes de migrar
+
+`production_backup_2026_09_09T09_18_26.sql.gz`, en `~/app-martina-production/backups/`.
+La receta es `just production-backup-db` y conserva las dos más recientes.
