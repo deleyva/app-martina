@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}{{ group_book.libro.title }} · {{ group.name }}{% endblock %}
 
@@ -45,4 +46,49 @@
   </div>
 
 </div>
+
+{% comment %}
+El vistazo a tamaño completo. `<dialog>` nativo: se cierra con Esc y con el fondo
+sin JavaScript propio, que es lo que hace falta usándolo desde el iPad.
+{% endcomment %}
+<style>
+  /* El visor trae su propio título; el modal ya lo pone en la barra. */
+  #cuerpo-vistazo-libro .titulo-del-visor { display: none; }
+</style>
+<dialog id="vistazo-libro" class="modal">
+  <div class="modal-box max-w-none w-[95vw] h-[92vh] p-0 flex flex-col">
+    <div class="flex items-center justify-between gap-3 px-4 py-2 border-b border-base-300 shrink-0">
+      <h3 id="titulo-vistazo-libro" class="font-semibold truncate"></h3>
+      <form method="dialog">
+        <button class="btn btn-sm btn-circle btn-ghost" aria-label="Cerrar">✕</button>
+      </form>
+    </div>
+    <div id="cuerpo-vistazo-libro" class="flex-1 overflow-auto"></div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button aria-label="Cerrar">cerrar</button></form>
+</dialog>
+
+<script>
+  function abrirVistazoLibro(titulo) {
+    document.getElementById('titulo-vistazo-libro').textContent = titulo;
+    document.getElementById('cuerpo-vistazo-libro').innerHTML =
+      '<div class="flex h-full items-center justify-center"><span class="loading loading-spinner loading-lg"></span></div>';
+    document.getElementById('vistazo-libro').showModal();
+  }
+</script>
+{% endblock %}
+
+{% block extra_js %}
+{% comment %}
+Las librerías de los visores, cargadas de antemano.
+
+El vistazo mete el visor por HTMX y sus scripts inline se ejecutan en cuanto
+llega el fragmento: si la librería no está ya en la página, el PDF sale en blanco
+con `Cannot read properties of undefined (reading 'GlobalWorkerOptions')` en la
+consola y ni un aviso en pantalla. Pasó exactamente así el 2026-09-08 en la
+pantalla de edición de sesión.
+{% endcomment %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://unpkg.com/wavesurfer.js@7"></script>
+<script src="{% static 'vendor/alphatab/alphaTab.min.js' %}"></script>
 {% endblock %}

@@ -866,7 +866,7 @@
 
         // El MISMO visor que el resto de la clase, no el del navegador: dentro
         // de un iframe el PDF se queda el teclado y Escape deja de funcionar.
-        var url = '{% url "clases:plantilla_contenido" %}' +
+        var url = '{% url "clases:contenido_de_medio" %}' +
                   '?content_type=' + tipoPk + '&object_id=' + objetoPk;
         fetch(url, { credentials: 'same-origin' })
             .then(function(r) { return r.text(); })

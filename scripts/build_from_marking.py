@@ -101,6 +101,15 @@ def main() -> None:
             x0, y0, x1, y1, w, h = useful_box(doc, page_num)
             bands = marked["bands"]
 
+            # The black-edge detector reads a wide staff sitting in the bottom
+            # 12% of the page as the scanner bed, and clips it. The human has
+            # already said which bands are music, so let them widen the box:
+            # the last reading of a page kept losing its bottom line otherwise.
+            music = [b for b in bands if b["state"] in ("L", "C")]
+            if music:
+                y0 = max(0, min(y0, min(b["y0"] for b in music) - PAD_Y))
+                y1 = min(h - 1, max(y1, max(b["y1"] for b in music) + PAD_Y))
+
             if not any(b["state"] == "L" for b in bands):
                 name = f"pagina-{page_num:03d}.png"
                 crop(doc, page_num, (x0, y0, x1, y1), ch_dir / name, w, h)

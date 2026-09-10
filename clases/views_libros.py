@@ -399,8 +399,12 @@ def plantillas(request):
 
 @login_required
 @user_passes_test(es_profesor)
-def plantilla_contenido(request):
-    """Una plantilla concreta, con el visor de la clase.
+def contenido_de_medio(request):
+    """Un medio cualquiera, con el visor de la clase.
+
+    Lo usan la rejilla de plantillas y la pantalla de elegir elementos de un
+    libro: las dos preguntan lo mismo —«enséñame esto a tamaño grande»— y tener
+    dos vistas para eso acabaría en dos comportamientos distintos.
 
     Va por `render_item_content` como todo lo demás, sobre un
     `ClassSessionItem` sin guardar y sin sesión: aquí solo se le piden el tipo y

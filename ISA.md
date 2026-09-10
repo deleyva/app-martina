@@ -2527,3 +2527,44 @@ nueva hasta que existan las fases 2-5, así que no hay prisa por subirlo.
 - **Editar los libros.** Las páginas de Wagtail son comunes. La selección y el
   avance son por grupo, así que dos profesores no se pisan, pero **poder editar
   la página** es otro permiso y va por Wagtail.
+
+### Fase 31·1 — Ver qué es cada elemento antes de decidir (2026-09-10)
+
+Pedido por el principal sobre la pantalla de elegir elementos de un libro:
+*"solo me faltaría poder ver una previsualización de cuáles son esos elementos"*.
+
+- [x] **C159** · Cada fila enseña la **miniatura real** en vez de un emoji, y al
+  clicarla se abre a tamaño completo con el visor de la clase. Es lo único que
+  permite distinguir cinco imágenes tituladas «Chapter Two…»: el título no
+  identifica nada, la unicidad es usuario+tipo+objeto.
+- [x] **C160** · Se abre al **clicar**, no al pasar por encima. Esto se prepara
+  desde el iPad, donde no hay hover.
+
+**Un endpoint, no tres.** `plantilla_contenido` pasa a llamarse
+`contenido_de_medio` y lo usan la rejilla de plantillas y esta pantalla: las dos
+preguntan lo mismo, y con dos vistas acabarían comportándose distinto.
+
+**Y las librerías cargadas de antemano**, que es el fallo que ya me comí el
+2026-09-08 en la pantalla de edición: los visores traen scripts inline que se
+ejecutan en cuanto llega el fragmento por HTMX, y sin pdf.js en la página el PDF
+sale en blanco sin decir nada en pantalla.
+
+### Decisiones del principal sobre el acceso de otros profesores
+
+- **Asignaturas:** el profesor invitado puede crear la suya desde el formulario
+  de crear grupo. Son globales, así que se deduplicará por nombre.
+- **Wagtail:** puede editar, pero **solo lo que cuelga de «Índice de Recursos
+  Musicales»**. Nada del resto del árbol, y en particular nada de los 16 blogs de
+  departamento. Los grupos que trae Wagtail (`Editors`, `Moderators`) tienen
+  permiso sobre `Root`, o sea sobre todo el sitio, así que **no sirven**: hay que
+  crear el grupo «Profesorado» con `GroupPagePermission` acotado a esa página.
+- **Consecuencia asumida:** dentro de ese índice, un compañero puede editar tus
+  libros, y con la señal de la fase 30·2 eso recoloca el material de tus alumnos.
+  Si molesta, se acota a una carpeta por profesor sin rehacer nada.
+
+### Lo siguiente en esta línea
+
+**Marcado en bloque en la pantalla de elementos.** Con un libro de sesenta
+lecturas y un 3º que se salta cuarenta, apagarlas de una en una es inviable:
+apagar o encender un capítulo entero, «empezar desde aquí» (apaga todo lo
+anterior) y selección por rango.

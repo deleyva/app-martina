@@ -1,3 +1,4 @@
+{% load wagtailimages_tags %}
 {% comment %}
 Una fila de la pantalla de elementos. Se devuelve sola en las respuestas HTMX de
 `group_book_item_toggle`, así que todo lo que cambia al pulsar tiene que estar
@@ -7,7 +8,28 @@ dentro de este fichero y no en la página que lo contiene.
 <div id="fila-{{ fila.tipo.pk }}-{{ fila.objeto.pk }}"
      class="flex items-center gap-3 py-2 px-2 border-b border-base-200 {% if fila.item and not fila.item.incluido %}opacity-40{% endif %}">
 
-  <span class="text-lg shrink-0" aria-hidden="true">{{ fila.icono }}</span>
+  {% comment %}
+  La miniatura, no el emoji. Cinco imágenes tituladas "Chapter Two…" son
+  indistinguibles por el nombre —el título no identifica nada, la unicidad es
+  usuario+tipo+objeto—, así que lo único que te dice cuál es cuál es verla.
+
+  Y se abre al CLICAR, no al pasar por encima: esto se usa desde el iPad, donde
+  no hay hover.
+  {% endcomment %}
+  <button type="button"
+          class="shrink-0 w-14 h-10 flex items-center justify-center overflow-hidden rounded border border-base-300 bg-base-200 hover:border-primary"
+          title="Ver «{{ fila.titulo }}» a tamaño completo"
+          aria-label="Ver {{ fila.titulo }}"
+          hx-get="{% url 'clases:contenido_de_medio' %}?content_type={{ fila.tipo.pk }}&object_id={{ fila.objeto.pk }}"
+          hx-target="#cuerpo-vistazo-libro"
+          hx-swap="innerHTML"
+          onclick="abrirVistazoLibro('{{ fila.titulo|escapejs }}')">
+    {% if fila.tipo_legible == "Imagen" %}
+      {% image fila.objeto fill-112x80 class="w-full h-full object-cover" %}
+    {% else %}
+      <span class="text-lg" aria-hidden="true">{{ fila.icono }}</span>
+    {% endif %}
+  </button>
 
   <div class="min-w-0 flex-1">
     <div class="truncate text-sm font-medium">{{ fila.titulo }}</div>
