@@ -235,6 +235,7 @@ def _songsterr_link_desde_back(request, back_url):
     return getattr(resultado.page, "songsterr_link", None)
 
 
+@login_required
 def view_content_object(request, content_type_id, object_id):
     content_type = get_object_or_404(ContentType, pk=content_type_id)
     model_class = content_type.model_class()

@@ -1,0 +1,33 @@
+# apps.iesmartinabescos.es — reglas para rastreadores
+#
+# Las secciones dinámicas (biblioteca personal, cuentas, panel, API...) no
+# aportan nada a un índice y además obligan a la app a resolver vistas con
+# sesión para peticiones anónimas. Fuera de límites para todos los bots.
+
+User-agent: *
+Disallow: /my-library/
+Disallow: /accounts/
+Disallow: /users/
+Disallow: /admin/
+Disallow: /cms/
+Disallow: /api/
+Disallow: /api-keys/
+Disallow: /explorer/
+Disallow: /analytics/
+Disallow: /incidencias/
+Disallow: /evaluations/
+Disallow: /wifi/
+Disallow: /programacion/
+Disallow: /songs/
+Crawl-delay: 10
+
+# Para echar por completo a un rastreador de IA del sitio, descomenta su bloque:
+#
+# User-agent: ClaudeBot
+# Disallow: /
+#
+# User-agent: GPTBot
+# Disallow: /
+#
+# User-agent: CCBot
+# Disallow: /

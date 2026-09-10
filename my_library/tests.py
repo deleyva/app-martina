@@ -3370,3 +3370,39 @@ def test_una_senal_que_falla_no_tumba_la_publicacion(db):
 
     capitulo.refresh_from_db()
     assert capitulo.live
+
+
+# === view_content_object: el visor exige sesión (regresión: ClaudeBot -> 500) ===
+
+
+@pytest.fixture
+def recurso_externo(db):
+    return ExternalResource.objects.create(
+        url="https://example.org/acordes-cejilla",
+        title="Acordes con cejilla",
+    )
+
+
+def _url_view_content(obj):
+    return reverse(
+        "my_library:view_content_object",
+        args=[ContentType.objects.get_for_model(obj).pk, obj.pk],
+    )
+
+
+def test_view_content_object_anonimo_redirige_al_login(client, recurso_externo):
+    """Una petición sin sesión (crawler, alumno deslogueado) se iba a construir
+    un LibraryItem con AnonymousUser y reventaba con ValueError -> HTTP 500 ->
+    correo a ADMINS. Ahora tiene que redirigir al login, sin error."""
+    response = client.get(_url_view_content(recurso_externo))
+
+    assert response.status_code == 302
+    assert "/accounts/login/" in response["Location"]
+
+
+def test_view_content_object_con_sesion_responde_200(client, recurso_externo, user):
+    client.force_login(user)
+
+    response = client.get(_url_view_content(recurso_externo))
+
+    assert response.status_code == 200
