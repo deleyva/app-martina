@@ -464,6 +464,39 @@
     </div>
     {% endif %}
 
+    {% comment %}
+    Material con licencia que vive fuera (Blink Learning). Va ANTES del cuerpo
+    porque en un capitulo de Blink es lo unico que hay: sin esto la pagina se
+    queda en el titulo y un boton de volver, que es como estaba el 2026-09-10.
+
+    Esta plantilla si carga Tailwind/DaisyUI, al contrario que el visor a
+    pantalla completa de my_library, que necesita estilo en linea.
+
+    Y va con {% templatetag openblock %} comment {% templatetag closeblock %} y no
+    con llave-almohadilla: ese solo comenta UNA linea, y en varias se imprime tal
+    cual en la pagina. Pasó aquí mismo.
+    {% endcomment %}
+    {% if page.enlaces_externos.exists %}
+    <div class="mb-12 flex flex-col gap-3">
+        {% for enlace in page.enlaces_externos.all %}
+        <a href="{{ enlace.url }}" target="blink" rel="noopener"
+           class="btn btn-primary btn-lg justify-start gap-3 normal-case">
+            <span class="text-xl">🔗</span>
+            <span class="flex flex-col items-start leading-tight">
+                <span>{{ enlace.titulo }}</span>
+                <span class="text-xs font-normal opacity-70">
+                    Abrir en {{ enlace.get_proveedor_display }}
+                </span>
+            </span>
+        </a>
+        {% endfor %}
+        <p class="text-sm text-base-content/60">
+            Se abre en una ventana aparte. Necesita la sesion de la plataforma ya
+            iniciada en este navegador.
+        </p>
+    </div>
+    {% endif %}
+
     {% if page.body %}
     <div id="richtext-body" class="richtext-body text-base leading-relaxed mb-12">
         {{ page.body|richtext }}

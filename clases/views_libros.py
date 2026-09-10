@@ -17,17 +17,16 @@ from wagtail.models import Page
 
 from clases import libros_de_grupo
 from clases.models import ClassSession, ClassSessionItem, Group, GroupBook, GroupBookItem
-from clases.views import is_staff
+from martina_bescos_app.users.permisos import es_profesor, grupo_del_profesor
 
 
 def _grupo_del_profesor(request, group_id):
-    """El grupo, si quien pregunta le da clase. Si no, 404."""
-    grupo = get_object_or_404(Group, pk=group_id)
-    if not grupo.teachers.filter(pk=request.user.pk).exists():
-        from django.http import Http404
+    """Delega en `users.permisos`, que es donde vive la única comprobación.
 
-        raise Http404("No das clase a este grupo.")
-    return grupo
+    Se conserva el nombre local porque lo usan quince vistas de este fichero y
+    porque toma `request`, que es lo cómodo aquí.
+    """
+    return grupo_del_profesor(request.user, group_id)
 
 
 def _libro_del_profesor(request, pk):
@@ -42,7 +41,7 @@ def _libro_del_profesor(request, pk):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def group_books_index(request, group_id):
     """Los libros del grupo, por secciones, con su avance."""
     grupo = _grupo_del_profesor(request, group_id)
@@ -80,7 +79,7 @@ def group_books_index(request, group_id):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 @require_http_methods(["POST"])
 def group_book_add(request, group_id):
     """Asigna un libro al grupo. No crea ni una fila de material."""
@@ -106,7 +105,7 @@ def group_book_add(request, group_id):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 @require_http_methods(["POST"])
 def group_book_update(request, pk):
     """Cambia sección, modo o si sigue activo."""
@@ -127,7 +126,7 @@ def group_book_update(request, pk):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 @require_http_methods(["POST"])
 def group_book_remove(request, pk):
     """Quita el libro del grupo. Se lleva su avance, y por eso se avisa antes."""
@@ -144,7 +143,7 @@ def group_book_remove(request, pk):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def group_book_items(request, pk):
     """Qué elementos del libro se ven con este grupo, y en qué orden."""
     group_book = _libro_del_profesor(request, pk)
@@ -174,7 +173,7 @@ def _fila_de(group_book, tipo_id, objeto_id):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 @require_http_methods(["POST"])
 def group_book_item_toggle(request, pk):
     """Cambia una propiedad de un elemento para este grupo. Devuelve su fila.
@@ -227,7 +226,7 @@ def group_book_item_toggle(request, pk):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 @require_http_methods(["POST"])
 def group_book_item_move(request, pk):
     """Sube o baja un elemento en el orden de ESTE grupo.
@@ -258,7 +257,7 @@ def group_book_item_move(request, pk):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 @require_http_methods(["POST"])
 def class_session_prepare(request, pk):
     """Mete en la sesión el siguiente pendiente de cada sección elegida."""
@@ -281,7 +280,7 @@ def class_session_prepare(request, pk):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def class_session_prepare_preview(request, pk):
     """Qué metería el botón de preparar, antes de pulsarlo."""
     session = get_object_or_404(ClassSession, pk=pk, teacher=request.user)
@@ -297,7 +296,7 @@ def class_session_prepare_preview(request, pk):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 @require_http_methods(["POST"])
 def class_session_item_visto(request, pk):
     """Da por visto un elemento de la clase, y avanza el libro del que salió."""
@@ -313,7 +312,7 @@ def class_session_item_visto(request, pk):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def class_session_preview_content(request, pk):
     """Enseña un elemento ANTES de meterlo en la clase.
 
@@ -351,7 +350,7 @@ SLUG_PLANTILLAS = "plantillas-para-escribir"
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def plantillas(request):
     """Las plantillas de escritura, para abrirlas en mitad de una clase.
 
@@ -399,7 +398,7 @@ def plantillas(request):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def plantilla_contenido(request):
     """Una plantilla concreta, con el visor de la clase.
 
@@ -430,7 +429,7 @@ def plantilla_contenido(request):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def progreso(request):
     """Por dónde va cada grupo, en una pantalla.
 
@@ -446,7 +445,7 @@ def progreso(request):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 @require_http_methods(["POST"])
 def class_session_item_a_casa(request, pk):
     """Alterna, desde el visor, si el elemento se lo llevan a casa.
@@ -481,7 +480,7 @@ def class_session_item_a_casa(request, pk):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 @require_http_methods(["POST"])
 def group_archivar(request, group_id):
     """Saca un grupo del día a día, o lo devuelve.

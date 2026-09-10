@@ -7,6 +7,8 @@ from django.views.decorators.http import require_http_methods
 from django.contrib.contenttypes.models import ContentType
 import json
 
+from martina_bescos_app.users.permisos import es_profesor, grupo_del_profesor
+
 from .models import (
     Group,
     GroupLibraryItem,
@@ -73,14 +75,14 @@ def group_join_by_invitation(request, token):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def group_library_index(request, group_id):
     """
     Vista principal de la biblioteca del grupo.
     TINY VIEW: solo orquesta y renderiza.
     Solo profesores del grupo pueden acceder.
     """
-    group = get_object_or_404(Group, pk=group_id)
+    group = grupo_del_profesor(request.user, group_id)
 
     # Verificar que el profesor pertenece a este grupo
     if not group.teachers.filter(pk=request.user.pk).exists():
@@ -110,14 +112,14 @@ def group_library_index(request, group_id):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def group_library_add(request, group_id):
     """
     Endpoint HTMX para añadir item a biblioteca de grupo.
     TINY VIEW: lógica en el modelo (FAT MODEL).
     """
     if request.method == "POST":
-        group = get_object_or_404(Group, pk=group_id)
+        group = grupo_del_profesor(request.user, group_id)
 
         # Verificar que el profesor pertenece a este grupo
         if not group.teachers.filter(pk=request.user.pk).exists():
@@ -154,7 +156,7 @@ def group_library_add(request, group_id):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def group_library_update_proficiency(request, group_id, pk):
     """Actualizar nivel de conocimiento del grupo para un item de biblioteca (via HTMX).
 
@@ -164,7 +166,7 @@ def group_library_update_proficiency(request, group_id, pk):
     if request.method != "POST":
         return HttpResponse(status=405)
 
-    group = get_object_or_404(Group, pk=group_id)
+    group = grupo_del_profesor(request.user, group_id)
 
     # Verificar que el profesor pertenece a este grupo
     if not group.teachers.filter(pk=request.user.pk).exists():
@@ -185,7 +187,7 @@ def group_library_update_proficiency(request, group_id, pk):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 @require_http_methods(["POST", "DELETE"])
 def group_library_remove(request, group_id, pk):
     """
@@ -196,7 +198,7 @@ def group_library_remove(request, group_id, pk):
     devuelve respuesta vacía para eliminar el elemento.
     Si viene de otro lugar, devuelve el botón actualizado.
     """
-    group = get_object_or_404(Group, pk=group_id)
+    group = grupo_del_profesor(request.user, group_id)
 
     # Verificar que el profesor pertenece a este grupo
     if not group.teachers.filter(pk=request.user.pk).exists():
@@ -226,14 +228,14 @@ def group_library_remove(request, group_id, pk):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def group_library_remove_by_content(request, group_id):
     """
     Endpoint HTMX para quitar item de biblioteca de grupo por content_type y object_id.
     TINY VIEW: solo elimina y renderiza.
     """
     if request.method in ["POST", "DELETE"]:
-        group = get_object_or_404(Group, pk=group_id)
+        group = grupo_del_profesor(request.user, group_id)
 
         # Verificar que el profesor pertenece a este grupo
         if not group.teachers.filter(pk=request.user.pk).exists():
@@ -322,7 +324,7 @@ def class_session_list(request):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def class_session_create(request):
     """
     Crear nueva sesión de clase.
@@ -334,7 +336,7 @@ def class_session_create(request):
         title = request.POST.get("title")
         notes = request.POST.get("notes", "")
 
-        group = get_object_or_404(Group, pk=group_id)
+        group = grupo_del_profesor(request.user, group_id)
 
         # Verificar que el profesor pertenece a este grupo
         if not group.teachers.filter(pk=request.user.pk).exists():
@@ -371,7 +373,7 @@ def class_session_create(request):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def class_session_edit_details(request, pk):
     """
     Editar detalles de sesión (grupo, fecha, título, notas).
@@ -385,7 +387,7 @@ def class_session_edit_details(request, pk):
         title = request.POST.get("title")
         notes = request.POST.get("notes", "")
 
-        group = get_object_or_404(Group, pk=group_id)
+        group = grupo_del_profesor(request.user, group_id)
 
         # Verificar que el profesor pertenece a este grupo
         if not group.teachers.filter(pk=request.user.pk).exists():
@@ -417,7 +419,7 @@ def class_session_edit_details(request, pk):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 @require_http_methods(["POST"])
 def class_session_close(request, pk):
     """
@@ -460,7 +462,7 @@ def class_session_close(request, pk):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 @require_http_methods(["POST"])
 def class_session_reopen(request, pk):
     """Reabrir una sesión cerrada."""
@@ -665,7 +667,7 @@ def render_item_content(request, item):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def class_session_edit(request, pk):
     """
     Editar sesión de clase con drag & drop.
@@ -789,7 +791,7 @@ def class_session_edit(request, pk):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def class_session_add_item(request, session_id):
     """
     Endpoint HTMX para añadir item a sesión.
@@ -835,7 +837,7 @@ def class_session_add_item(request, session_id):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def class_session_remove_item(request, session_id, item_id):
     """
     Endpoint HTMX para quitar item de sesión.
@@ -849,19 +851,20 @@ def class_session_remove_item(request, session_id, item_id):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def get_item_session_count(request, group_id):
     """
     Endpoint HTMX para obtener el contador actualizado de sesiones de un item.
     Devuelve solo el número para innerHTML swap.
     """
+    grupo_del_profesor(request.user, group_id)
     from django.contrib.contenttypes.models import ContentType
 
     content_type_id = request.GET.get("content_type_id")
     object_id = request.GET.get("object_id")
 
     # Verificar que el usuario tiene acceso al grupo
-    group = get_object_or_404(Group, pk=group_id)
+    group = grupo_del_profesor(request.user, group_id)
     if request.user not in group.teachers.all() and not request.user.is_staff:
         return HttpResponse("0")
 
@@ -875,17 +878,18 @@ def get_item_session_count(request, group_id):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def get_scorepage_total_count(request, group_id):
     """
     Endpoint HTMX para obtener el contador sumatorio de una ScorePage.
     Suma todos los elementos (PDFs, audios, imágenes, embeds) añadidos a sesiones.
     Devuelve solo el número para innerHTML swap.
     """
+    grupo_del_profesor(request.user, group_id)
     library_item_id = request.GET.get("library_item_id")
 
     # Verificar que el usuario tiene acceso al grupo
-    group = get_object_or_404(Group, pk=group_id)
+    group = grupo_del_profesor(request.user, group_id)
     if request.user not in group.teachers.all() and not request.user.is_staff:
         return HttpResponse("0")
 
@@ -897,7 +901,7 @@ def get_scorepage_total_count(request, group_id):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def class_session_reorder_items(request, session_id):
     """
     Endpoint HTMX para reordenar items con drag & drop.
@@ -920,7 +924,7 @@ def class_session_reorder_items(request, session_id):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def class_session_duplicate(request, pk):
     """
     Duplicar sesión de clase incluyendo todos sus items.
@@ -958,7 +962,7 @@ def class_session_duplicate(request, pk):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def class_session_delete(request, pk):
     """
     Eliminar sesión de clase.
@@ -979,7 +983,7 @@ def class_session_delete(request, pk):
 
 @require_http_methods(["POST"])
 @login_required
-@user_passes_test(is_staff, login_url="/accounts/login/", redirect_field_name=None)
+@user_passes_test(es_profesor, login_url="/accounts/login/", redirect_field_name=None)
 def add_to_multiple_libraries(request):
     """
     Añade un recurso a múltiples bibliotecas (personal, grupos y/o estudiantes).
@@ -1023,7 +1027,7 @@ def add_to_multiple_libraries(request):
 
     # Añadir a bibliotecas de grupo
     for group_id in group_ids:
-        group = get_object_or_404(Group, pk=group_id)
+        group = grupo_del_profesor(request.user, group_id)
 
         # Verificar que el profesor pertenece al grupo
         if not group.teachers.filter(pk=request.user.pk).exists():
@@ -1089,14 +1093,14 @@ def add_to_multiple_libraries(request):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def group_library_item_viewer(request, group_id, pk):
     """
     Visor fullscreen para items de biblioteca de grupo.
     TINY VIEW: Similar a my_library viewer.
     Soporta visualización de elementos específicos dentro de ScorePages.
     """
-    group = get_object_or_404(Group, pk=group_id)
+    group = grupo_del_profesor(request.user, group_id)
 
     # Verificar que el profesor pertenece a este grupo
     if not group.teachers.filter(pk=request.user.pk).exists():
@@ -1400,13 +1404,13 @@ def class_session_item_viewer(request, session_id, item_id):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def show_assign_to_students_modal(request, group_id):
     """
     Vista HTMX que devuelve el modal con selector múltiple de estudiantes.
     TINY VIEW: solo renderiza el modal con los estudiantes del grupo.
     """
-    group = get_object_or_404(Group, pk=group_id)
+    group = grupo_del_profesor(request.user, group_id)
 
     # Verificar que el profesor pertenece a este grupo
     if not group.teachers.filter(pk=request.user.pk).exists():
@@ -1444,7 +1448,7 @@ def show_assign_to_students_modal(request, group_id):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 @require_http_methods(["POST"])
 def assign_to_students(request, group_id):
     """
@@ -1453,7 +1457,7 @@ def assign_to_students(request, group_id):
     """
     from my_library.models import LibraryItem
 
-    group = get_object_or_404(Group, pk=group_id)
+    group = grupo_del_profesor(request.user, group_id)
 
     # Verificar que el profesor pertenece a este grupo
     if not group.teachers.filter(pk=request.user.pk).exists():

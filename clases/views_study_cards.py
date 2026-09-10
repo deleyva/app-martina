@@ -20,6 +20,7 @@ from clases.services.card_ocr import ocr_registration_sheet
 from clases.services.card_pdf import generate_cards_pdf, generate_registration_sheet
 from clases.services.card_suggestions import get_suggestions_for_group
 from clases.views import is_staff
+from martina_bescos_app.users.permisos import es_profesor, grupo_del_profesor
 from musica.models import LibroPage, RecursoPage
 
 TAG_IMPRIMIBLE = "imprimible"
@@ -90,7 +91,7 @@ def _get_page_stats(page):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def dashboard(request):
     books = LibroPage.objects.live().order_by("title")
     book_data = []
@@ -140,7 +141,7 @@ def dashboard(request):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def book_browser(request, book_id):
     book = get_object_or_404(LibroPage, pk=book_id)
     chapters = list(book.get_children().type(RecursoPage).specific().order_by("path"))
@@ -187,7 +188,7 @@ def book_browser(request, book_id):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 @require_http_methods(["POST"])
 def toggle_tag(request, image_id):
     Image = get_image_model()
@@ -224,7 +225,7 @@ def toggle_tag(request, image_id):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 @require_http_methods(["POST"])
 def save_description(request, image_id):
     """Save or update the description label for a study card image."""
@@ -251,7 +252,7 @@ def save_description(request, image_id):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 @require_http_methods(["POST"])
 def generate_pdf(request, book_id):
     book = get_object_or_404(LibroPage, pk=book_id)
@@ -310,7 +311,7 @@ def generate_pdf(request, book_id):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def page_browser(request, page_id):
     page = get_object_or_404(RecursoPage, pk=page_id)
     all_books = list(LibroPage.objects.live())
@@ -343,7 +344,7 @@ def page_browser(request, page_id):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 @require_http_methods(["POST"])
 def generate_pdf_page(request, page_id):
     page = get_object_or_404(RecursoPage, pk=page_id)
@@ -389,9 +390,9 @@ def generate_pdf_page(request, page_id):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def group_tracking(request, group_id):
-    group = get_object_or_404(Group, pk=group_id)
+    group = grupo_del_profesor(request.user, group_id)
 
     students = (
         Enrollment.objects.filter(group=group, is_active=True)
@@ -417,10 +418,10 @@ def group_tracking(request, group_id):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 @require_http_methods(["POST"])
 def registration_sheet_pdf(request, group_id):
-    group = get_object_or_404(Group, pk=group_id)
+    group = grupo_del_profesor(request.user, group_id)
 
     students = (
         Enrollment.objects.filter(group=group, is_active=True)
@@ -447,10 +448,10 @@ def registration_sheet_pdf(request, group_id):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 @require_http_methods(["POST"])
 def add_pickup(request, group_id):
-    group = get_object_or_404(Group, pk=group_id)
+    group = grupo_del_profesor(request.user, group_id)
 
     student_id = request.POST.get("student_id")
     code = request.POST.get("code", "").strip().upper()
@@ -509,10 +510,14 @@ def add_pickup(request, group_id):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 @require_http_methods(["POST"])
 def delete_pickup(request, pickup_id):
-    pickup = get_object_or_404(StudyCardPickup, pk=pickup_id)
+    pickup = get_object_or_404(
+        StudyCardPickup.objects.select_related("student__group"), pk=pickup_id
+    )
+    # Borrar la recogida de un alumno ajeno era posible solo con su id.
+    grupo_del_profesor(request.user, pickup.student.group_id)
     pickup.delete()
     return HttpResponse("")
 
@@ -531,11 +536,11 @@ ALLOWED_IMAGE_TYPES = {
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 @require_http_methods(["POST"])
 def ocr_upload(request, group_id):
     """Upload a registration sheet photo → OCR → return confirmation table."""
-    group = get_object_or_404(Group, pk=group_id)
+    group = grupo_del_profesor(request.user, group_id)
 
     photo = request.FILES.get("photo")
     if not photo:
@@ -613,11 +618,11 @@ def ocr_upload(request, group_id):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 @require_http_methods(["POST"])
 def ocr_confirm(request, group_id):
     """Confirm OCR results and batch-create pickups."""
-    group = get_object_or_404(Group, pk=group_id)
+    group = grupo_del_profesor(request.user, group_id)
     pickup_date = request.POST.get("date", date.today().isoformat())
 
     # Parse confirmed entries from form: entries like "entry_0_student_id", "entry_0_code_0"

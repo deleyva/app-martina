@@ -6,6 +6,12 @@ from django.http import HttpResponse
 from django.template.loader import render_to_string
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.decorators import login_required, user_passes_test
+
+from martina_bescos_app.users.permisos import (
+    alumno_del_profesor,
+    es_profesor,
+    grupo_del_profesor,
+)
 from django.contrib.auth.mixins import UserPassesTestMixin, LoginRequiredMixin
 import random
 from django.db.models import F, Q
@@ -66,7 +72,7 @@ class EvaluationItemListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
 
 @require_http_methods(["GET"])
 @login_required
-@user_passes_test(is_staff, login_url="/accounts/login/", redirect_field_name=None)
+@user_passes_test(es_profesor, login_url="/accounts/login/", redirect_field_name=None)
 def select_students(request, item_id):
     """Selecciona aleatoriamente estudiantes para una evaluación"""
     item = get_object_or_404(EvaluationItem, id=item_id)
@@ -402,7 +408,7 @@ class PendingEvaluationsView(LoginRequiredMixin, UserPassesTestMixin, ListView):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def teacher_view_student_dashboard(request, student_id):
     """
     Dashboard view for teachers to see a specific student's dashboard.
@@ -412,6 +418,10 @@ def teacher_view_student_dashboard(request, student_id):
     except Student.DoesNotExist:
         messages.error(request, "El estudiante solicitado no existe.")
         return redirect('pending_evaluations')
+
+    # Que sea alumno TUYO. Sin esto, cualquier profesor veía el expediente
+    # completo de cualquier alumno del centro con solo cambiar el id.
+    alumno_del_profesor(request.user, student)
 
     # Get all evaluations for this student
     evaluations = Evaluation.objects.filter(student=student).select_related('evaluation_item')
@@ -444,9 +454,12 @@ def teacher_view_student_dashboard(request, student_id):
 
 @require_http_methods(["POST"])
 @login_required
-@user_passes_test(is_staff, login_url="/accounts/login/", redirect_field_name=None)
+@user_passes_test(es_profesor, login_url="/accounts/login/", redirect_field_name=None)
 def save_evaluation(request, student_id):
     student = get_object_or_404(Student, id=student_id)
+    # Escribir una nota es más grave que leerla: aquí la comprobación no es
+    # higiene, es lo único que impide calificar al alumno de otro.
+    alumno_del_profesor(request.user, student)
     evaluation_item_id = request.POST.get("evaluation_item_id") or request.GET.get("evaluation_item_id")
 
     if not evaluation_item_id:
@@ -661,10 +674,11 @@ def save_evaluation(request, student_id):
 
 @require_http_methods(["POST"])
 @login_required
-@user_passes_test(is_staff, login_url="/accounts/login/", redirect_field_name=None)
+@user_passes_test(es_profesor, login_url="/accounts/login/", redirect_field_name=None)
 def toggle_classroom_submission(request, student_id):
     """Actualiza el estado de classroom_submission para un estudiante pendiente de evaluación"""
     student = get_object_or_404(Student, id=student_id)
+    alumno_del_profesor(request.user, student)
 
     # Try to get evaluation_item_id from POST data or from JSON body
     try:
@@ -735,7 +749,7 @@ def toggle_classroom_submission(request, student_id):
 
 @require_http_methods(["GET"])
 @login_required
-@user_passes_test(is_staff, login_url="/accounts/login/", redirect_field_name=None)
+@user_passes_test(es_profesor, login_url="/accounts/login/", redirect_field_name=None)
 def search_students(request):
     """Busca estudiantes por nombre o apellido"""
     query = request.GET.get("query", "").strip()
@@ -746,12 +760,22 @@ def search_students(request):
             "Se requieren al menos 3 caracteres para la búsqueda", status=400
         )
 
-    # Buscar estudiantes por nombre o apellido
+    # Buscar estudiantes por nombre o apellido, SOLO entre los tuyos.
+    #
+    # Sin acotar, tres letras devolvían alumnado de todo el centro. Con un solo
+    # profesor eso daba igual; con varios es una fuga de la misma familia que
+    # las que tapó la auditoría del 2026-09-10.
     students = Student.objects.filter(Q(user__name__icontains=query)).select_related(
         "user"
-    )[
-        :25
-    ]  # Limitar a 25 resultados
+    )
+    if not request.user.is_staff:
+        mis_grupos = request.user.teaching_groups.values_list("pk", flat=True)
+        students = students.filter(
+            Q(group_id__in=mis_grupos)
+            | Q(user__enrollments__group_id__in=mis_grupos,
+                user__enrollments__is_active=True)
+        ).distinct()
+    students = students[:25]  # Limitar a 25 resultados
 
     # Pasar el contexto a la plantilla con el ID del ítem
     context = {"students": students, "item_id": item_id}
@@ -767,7 +791,7 @@ def search_students(request):
 
 @require_http_methods(["POST"])
 @login_required
-@user_passes_test(is_staff, login_url="/accounts/login/", redirect_field_name=None)
+@user_passes_test(es_profesor, login_url="/accounts/login/", redirect_field_name=None)
 def add_student_to_pending(request):
     """Añade un estudiante específico a una evaluación pendiente"""
     student_id = request.POST.get("student_id")
@@ -828,7 +852,7 @@ def add_student_to_pending(request):
 
 @require_http_methods(["POST"])
 @login_required
-@user_passes_test(is_staff, login_url="/accounts/login/", redirect_field_name=None)
+@user_passes_test(es_profesor, login_url="/accounts/login/", redirect_field_name=None)
 def process_feedback_with_ai(request):
     """Procesa un texto de retroalimentación con IA y devuelve el resultado"""
     # Obtener el texto y datos de identificación
@@ -969,7 +993,7 @@ def process_feedback_with_ai(request):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def group_library_index(request, group_id):
     """
     Vista principal de la biblioteca del grupo.
@@ -997,7 +1021,7 @@ def group_library_index(request, group_id):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def group_library_add(request, group_id):
     """
     Endpoint HTMX para añadir item a biblioteca de grupo.
@@ -1041,7 +1065,7 @@ def group_library_add(request, group_id):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def group_library_remove(request, group_id, pk):
     """
     Endpoint HTMX para quitar item de biblioteca de grupo por ID.
@@ -1072,7 +1096,7 @@ def group_library_remove(request, group_id, pk):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def group_library_remove_by_content(request, group_id):
     """
     Endpoint HTMX para quitar item de biblioteca de grupo por content_type y object_id.
@@ -1119,7 +1143,7 @@ def group_library_remove_by_content(request, group_id):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def class_session_list(request):
     """
     Lista de sesiones de clase del profesor.
@@ -1142,7 +1166,7 @@ def class_session_list(request):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def class_session_create(request):
     """
     Crear nueva sesión de clase.
@@ -1183,7 +1207,7 @@ def class_session_create(request):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def class_session_edit(request, pk):
     """
     Editar sesión de clase con drag & drop.
@@ -1207,7 +1231,7 @@ def class_session_edit(request, pk):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def class_session_add_item(request, session_id):
     """
     Endpoint HTMX para añadir item a sesión.
@@ -1244,7 +1268,7 @@ def class_session_add_item(request, session_id):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def class_session_remove_item(request, session_id, item_id):
     """
     Endpoint HTMX para quitar item de sesión.
@@ -1258,7 +1282,7 @@ def class_session_remove_item(request, session_id, item_id):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def class_session_reorder_items(request, session_id):
     """
     Endpoint HTMX para reordenar items con drag & drop.
@@ -1280,7 +1304,7 @@ def class_session_reorder_items(request, session_id):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def class_session_delete(request, pk):
     """
     Eliminar sesión de clase.
@@ -1300,7 +1324,7 @@ def class_session_delete(request, pk):
 
 @require_http_methods(["POST"])
 @login_required
-@user_passes_test(is_staff, login_url="/accounts/login/", redirect_field_name=None)
+@user_passes_test(es_profesor, login_url="/accounts/login/", redirect_field_name=None)
 def add_to_multiple_libraries(request):
     """
     Añade un recurso a múltiples bibliotecas (personal y/o grupos).

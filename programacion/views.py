@@ -15,6 +15,7 @@ from clases.models import Group, GroupLibraryItem
 
 from .models import CoursePlan, PlanItem
 from .services import create_session_from_plan_item, recompute_coverage
+from martina_bescos_app.users.permisos import es_profesor
 
 
 def is_staff(user):
@@ -31,7 +32,7 @@ def _get_plan(request, pk):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def plan_list(request):
     """Listado de programaciones del profesor, agrupadas por grupo."""
     plans = CoursePlan.objects.filter(teacher=request.user).select_related(
@@ -46,7 +47,7 @@ def plan_list(request):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 @require_http_methods(["POST"])
 def plan_create(request):
     group = get_object_or_404(Group, pk=request.POST.get("group"))
@@ -66,7 +67,7 @@ def plan_create(request):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def plan_detail(request, pk):
     """
     Vista principal: timeline del plan con progreso por item,
@@ -118,7 +119,7 @@ def plan_detail(request, pk):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 @require_http_methods(["POST"])
 def plan_delete(request, pk):
     plan = _get_plan(request, pk)
@@ -134,7 +135,7 @@ def plan_delete(request, pk):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 @require_http_methods(["POST"])
 def plan_item_add(request, pk):
     """Añadir un recurso al plan. Espera content_type_id + object_id."""
@@ -162,7 +163,7 @@ def plan_item_add(request, pk):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 @require_http_methods(["POST"])
 def plan_item_remove(request, pk, item_id):
     plan = _get_plan(request, pk)
@@ -172,7 +173,7 @@ def plan_item_remove(request, pk, item_id):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 @require_http_methods(["POST"])
 def plan_item_status(request, pk, item_id):
     """Cambiar estado manual: auto / skipped / done."""
@@ -186,7 +187,7 @@ def plan_item_status(request, pk, item_id):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 @require_http_methods(["POST"])
 def plan_reorder(request, pk):
     plan = _get_plan(request, pk)
@@ -201,7 +202,7 @@ def plan_reorder(request, pk):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 @require_http_methods(["POST"])
 def plan_item_sync_chapters(request, pk, item_id):
     """Re-sincronizar capítulos de un libro (nuevos capítulos publicados)."""
@@ -216,7 +217,7 @@ def plan_item_sync_chapters(request, pk, item_id):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 @require_http_methods(["POST"])
 def plan_item_refresh_coverage(request, pk, item_id):
     """Recalcular cobertura de un item (y sus capítulos) bajo demanda."""
@@ -235,7 +236,7 @@ def plan_item_refresh_coverage(request, pk, item_id):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 @require_http_methods(["POST"])
 def create_session_from_item(request, pk, item_id):
     """Crear una ClassSession prellenada con los elementos pendientes del item."""
@@ -261,7 +262,7 @@ def create_session_from_item(request, pk, item_id):
 
 
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(es_profesor)
 def overview(request):
     """
     Vista comparativa: para cada grupo del profesor, sus planes activos

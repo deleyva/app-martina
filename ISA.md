@@ -2,7 +2,7 @@
 slug: app-martina
 phase: complete
 progress: false
-iteration: 37
+iteration: 38
 principal_stated_goal: "Necesito desarrollar en apps.iesmartinabescos.es Otra app de Django como la que tenemos en /incidencias. Está sí que debe de requerir login con Google porque ya tenemos implementado. Básicamente, es una aplicación en la que quiero que vayan solicitando la clave Wi-Fi. Pero para ello deben logearse y enviar la MAC de su dispositivo WIFI, la privada (real) no la aleatoria."
 updated: 2026-09-10
 ---
@@ -2455,3 +2455,75 @@ habría sido un aserto verde sin nada detrás.
 
 Y de paso: en la primera versión de ese test quedó un `... or True` que lo hacía
 incapaz de fallar. Sustituido por una comparación contra `material_del_libro`.
+
+## Fase 31 — Un «profesor» que no sea llave del admin (2026-09-10)
+
+**El bloqueo, dicho en una línea:** hasta hoy «ser profesor» era `is_staff`, y
+`is_staff` es exactamente lo que abre el admin de Django. No se podía dar acceso
+de profesor a un compañero sin darle también el admin.
+
+### Claims
+
+- [x] **C156** · `martina_bescos_app/users/permisos.py` con `es_profesor(user)`:
+  vale `is_staff`, **o** estar en el grupo de permisos «Profesorado», **o** tener
+  algún grupo donde figuras como profesor. Ese tercer camino no es un adorno: sin
+  él, los profesores que ya existían dejarían de entrar el día del cambio y la
+  mejora sería una caída.
+- [x] **C157** · Las **74 puertas** cambiadas de `is_staff` a `es_profesor`, en
+  cinco ficheros. Cero quedan. *Ojo al contarlas:* siete usaban la forma larga
+  `user_passes_test(is_staff, login_url=…)` y el primer recuento se las saltó.
+- [x] **C158** · `grupo_del_profesor` y `alumno_del_profesor` como **única**
+  comprobación de pertenencia. Devuelven 404 y no 403 a propósito: un 403
+  confirma que el recurso existe, y eso ya es información que un profesor no
+  tiene por qué sacarle a otro.
+
+### La auditoría, que es la mitad del trabajo
+
+Con un solo profesor, que una vista no mirara de quién es el grupo daba igual.
+Abrir la puerta convierte eso en una fuga. Enumeradas las 74 vistas y leídas las
+sospechosas, **estas estaban abiertas de par en par**:
+
+| Dónde | Qué se podía hacer con solo cambiar un id |
+|---|---|
+| `teacher_view_student_dashboard` | ver el expediente completo de cualquier alumno |
+| `save_evaluation` | **poner una nota** a cualquier alumno |
+| `toggle_classroom_submission` | marcar entregas de cualquier alumno |
+| `search_students` | buscar alumnado de todo el centro con tres letras |
+| `group_tracking`, `add_pickup`, `ocr_upload`, `ocr_confirm`, `registration_sheet_pdf` | operar sobre el grupo de otro |
+| `delete_pickup` | borrar la recogida de un alumno ajeno |
+| `get_item_session_count`, `get_scorepage_total_count` | contar sobre grupo ajeno |
+| **los 13 `group_library_*` de `clases/views.py`** | entrar en la biblioteca de otro grupo |
+
+**`programacion` era un falso positivo**: `_get_plan` filtra por `teacher`. Y
+`views_libros.py` salió limpio entero, porque se escribió con
+`_grupo_del_profesor` desde el principio.
+
+#### El grep no bastó, y conviene que quede escrito
+
+`group_library_index` **no** apareció en el triaje automático y sin embargo era
+un agujero. Lo cazó el test, no la búsqueda. Por eso la auditoría se cierra con
+**9 tests que prueban por HTTP**, no llamando a la función: el agujero estaba en
+la puerta, y llamar directamente se salta justo la puerta.
+
+Y su contrapunto obligatorio: `test_su_propio_grupo_si_se_abre`. Sin él, los
+otros ocho pasarían con la aplicación entera rota.
+
+### Lo que queda de este bloque (fases 2 a 5 de lo acordado)
+
+2. **Invitación de profesorado** — un `rol` en `GroupInvitation` o un modelo
+   hermano; al aceptarla, entra en el grupo de permisos. Reutiliza la caducidad y
+   el tope de usos que ya existen.
+3. **Pantalla de crear grupo** desde el frontend.
+4. **Pantalla de invitaciones del grupo**: generar, ver usos, revocar.
+5. **Panel mínimo** para ver quién es profesor y revocarle el acceso.
+
+**Sin desplegar.** Cambia 74 puertas de permisos y no aporta ninguna capacidad
+nueva hasta que existan las fases 2-5, así que no hay prisa por subirlo.
+
+### Dos decisiones pendientes con el principal
+
+- **La asignatura.** `Group.subject` es obligatoria y solo hay Música y Coro.
+  ¿El profesor invitado elige entre las que hay o crea la suya?
+- **Editar los libros.** Las páginas de Wagtail son comunes. La selección y el
+  avance son por grupo, así que dos profesores no se pisan, pero **poder editar
+  la página** es otro permiso y va por Wagtail.
