@@ -2,9 +2,9 @@
 slug: app-martina
 phase: complete
 progress: false
-iteration: 36
+iteration: 37
 principal_stated_goal: "Necesito desarrollar en apps.iesmartinabescos.es Otra app de Django como la que tenemos en /incidencias. Está sí que debe de requerir login con Google porque ya tenemos implementado. Básicamente, es una aplicación en la que quiero que vayan solicitando la clave Wi-Fi. Pero para ello deben logearse y enviar la MAC de su dispositivo WIFI, la privada (real) no la aleatoria."
-updated: 2026-09-09
+updated: 2026-09-10
 ---
 
 # ISA — app-martina · Sistema de estudio de la biblioteca
@@ -56,26 +56,44 @@ updated: 2026-09-09
 | 28·2 | **El visor de clase, fase B** — zonas táctiles, teclado, página entera, plantillas, dar por visto (C130-C134) | `bf05518`, `06eab54` |
 | 28·3 | **Que llegue a casa, fase C** — bañado a las bibliotecas del alumnado y panel de avance (C137-C144) | `a6fd287`, `d1e6b58` |
 | 29 | **Archivar clases sin borrarlas** (C145-C149) | `39c185b` |
+| 30 | **El turno de novedad rota** — ningún objetivo se queda fuera (C150, C151) | `879f6cc` |
+| 30·1 | **El orden del libro estaba pisado** — `recalcular_orden` y tope por capítulo (C152, C153) | `75cc6b3`, `7cb0778` |
+| 30·2 | **El orden se recoloca solo** — señales + Huey (C154, C155) | `472bb20` |
 | — | El stack de producción vuelve solo tras un reinicio | `d6aa740` |
 | — | La migración 0014 vuelve a caber en el Wagtail de producción | `644bf9d` |
 
-### Dónde estamos (2026-09-09)
+### Dónde estamos (2026-09-10)
 
-**Las fases A, B y C de «libros que dan clase» están desplegadas en producción, y
-el curso 2026-2027 ya está montado.** El día a día de `jlopez` son seis grupos:
-`3-FH`, `3-EG-BIL`, `4-AC-BIL`, `3-C-BIL`, `1-G-BIL` y `familia-jesus`. Los nueve
-de cursos anteriores están archivados, con sus 111 sesiones intactas.
+Dos bloques, los dos desplegados en producción.
 
-**Lo único que falta de este bloque es la fase D:** retirar `GroupLibraryItem`.
-Ya no hay nada del flujo nuevo que dependa de ella y sus dos accesos están
-cerrados, pero **antes hay que contar filas en producción**, porque
-`ClassSessionItem` la mapea como tipo de contenido y puede haber sesiones
-antiguas apuntando ahí.
+**«Libros que dan clase» (fases A, B, C) está en pie y el curso 2026-2027 montado.**
+El día a día de `jlopez` son seis grupos: `3-FH`, `3-EG-BIL`, `4-AC-BIL`,
+`3-C-BIL`, `1-G-BIL` y `familia-jesus`. Los nueve de cursos anteriores,
+archivados con sus 111 sesiones intactas.
 
-**Y lo que no ha probado nadie todavía:** las pantallas nuevas en producción con
-datos reales. Están verificadas en local y responden en producción, pero
-recorrerlas con la cuenta del principal está pendiente. Ese es el siguiente paso
-natural: asignar libros a uno de los cinco grupos nuevos y montar una sesión.
+**La biblioteca personal, reparada** tras un defecto que el principal detectó
+usándola: con cuatro objetivos y tres huecos de novedad, CAGED no entraba en
+NINGUNA sesión. Arreglado el turno (fase 30), el orden pisado (30·1) y puesto
+que se recoloque solo cuando un libro cambia (30·2).
+
+#### Lo siguiente, por orden
+
+1. **Probar las pantallas de clase en producción con la cuenta del principal.**
+   Es lo único de A, B y C que no ha visto nadie con datos reales: están
+   verificadas en local y responden en producción, pero recorrerlas está
+   pendiente. Camino: asignar libros a uno de los cinco grupos nuevos, montar
+   una sesión y darla desde el visor.
+
+2. **Fase D: retirar `GroupLibraryItem`.** Ya no hay nada del flujo nuevo que
+   dependa de ella y sus dos accesos están cerrados, pero **antes hay que contar
+   filas en producción**: `ClassSessionItem` la mapea como tipo de contenido y
+   puede haber sesiones antiguas apuntando ahí.
+
+3. **Mirar si el tope por capítulo basta.** La sesión filtrada de CAGED pasó de 5
+   títulos distintos a 8, pero sigue repitiendo capítulo porque la biblioteca
+   solo cubre unos pocos. Debería curarse solo ahora que CAGED recibe turno y
+   entra material de capítulos nuevos; conviene volver a medirlo con
+   `estado_estudio` después de una semana de uso.
 
 ### ⚠️ Antes de generar una migración en este repo
 
@@ -98,7 +116,13 @@ con el venv en 7.3.3 mientras el pin decía 7.3.1. El arreglo es alinear el venv
 
 2. **`autor` y `obra` no se pueden filtrar.** Existen como facetas pero no están en `FACETAS_DE_FILTRO`, así que **un libro sin objetivo no se puede acotar de ninguna manera**. Los chips de la fase 19 resuelven los libros con objetivo y solo esos. Es un cambio de una línea más su interfaz; se descartó el 26/08 para no ampliar el alcance, no porque sea mala idea.
 
-3. **Con cuatro objetivos, uno se quedará fuera de todas las sesiones.** Hoy no pasa: tres objetivos y tres huecos encajan justos, y eso lo arregló el paso a 15 de la fase 17. Con un cuarto objetivo vuelve, y siempre le tocará al mismo. La solución es rotar quién abre la ronda en `_repartir_por_libro`, y pide guardar estado. **Se decide con el presupuesto en minutos**: con presupuesto por tiempo la cuota deja de ser "3 huecos" y el problema cambia de forma.
+3. ~~**Con cuatro objetivos, uno se quedará fuera de todas las sesiones.**~~
+   **PASÓ, y está arreglado (fase 30, 2026-09-09.)** La predicción se cumplió
+   entera: llegó el cuarto objetivo, le tocó siempre a CAGED, y el principal lo
+   notó como *"está rotando por las mismas"*. La solución no fue la que se
+   apuntaba aquí —un puntero rotatorio con estado global— sino ordenar los
+   objetivos por **cuándo aportaron novedad por última vez**, que hace lo mismo
+   sin estado compartido y se recoloca solo al añadir o quitar objetivos.
 
 4. **Elegir un libro apaga el repaso de los demás ese día.** Decisión consciente del principal (fase 19), no un defecto. Merece mirarse después de una semana de uso real: si se acumula vencido en los libros que no se eligen, la respuesta es probablemente reservar algún hueco de repaso fuera del filtro.
 
