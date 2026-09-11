@@ -2,9 +2,9 @@
 slug: app-martina
 phase: complete
 progress: false
-iteration: 38
+iteration: 39
 principal_stated_goal: "Necesito desarrollar en apps.iesmartinabescos.es Otra app de Django como la que tenemos en /incidencias. Está sí que debe de requerir login con Google porque ya tenemos implementado. Básicamente, es una aplicación en la que quiero que vayan solicitando la clave Wi-Fi. Pero para ello deben logearse y enviar la MAC de su dispositivo WIFI, la privada (real) no la aleatoria."
-updated: 2026-09-10
+updated: 2026-09-11
 ---
 
 # ISA — app-martina · Sistema de estudio de la biblioteca
@@ -2605,3 +2605,47 @@ sería peor que la nota que ya teníamos.
 Los ajustes locales cachean las plantillas: el arreglo no se veía recargando, hubo
 que **reiniciar el servidor**. Ya estaba escrito en la fase 28·2 y aun así costó
 una vuelta.
+
+### Fase 31·3 — La invitación de profesorado y crear grupos (2026-09-11)
+
+Fases 2 y 3 de lo acordado para que otro profesor pueda usar la aplicación.
+
+- [x] **C164** · `GroupInvitation` gana `rol` y su `group` pasa a ser opcional.
+  **Un solo modelo para los dos casos**: la maquinaria que importa —caducidad,
+  tope de usos, contador, revocación— es la misma, y duplicarla daría dos sitios
+  donde arreglar la próxima fuga.
+- [x] **C165** · Aceptar una invitación de profesorado mete al usuario en el
+  grupo de permisos y **no toca `is_staff`**. *Falsador:* el test comprueba
+  `es_profesor(u)` y `not u.is_staff` a la vez; si alguien "arreglara" esto
+  poniendo `is_staff=True`, el test cae.
+- [x] **C166** · Con grupo, la invitación además le hace profesor de ese grupo.
+  Sin grupo solo habilita y él se crea los suyos.
+- [x] **C167** · Pantalla de crear grupo en el frontend. Quien lo crea queda como
+  profesor. Puede escribir una asignatura nueva, **deduplicada sin distinguir
+  mayúsculas**: son globales y las ve todo el profesorado, así que sin eso
+  convivirían «Lenguaje musical» y «Lenguaje Musical».
+
+**Los contrapuntos, que son la mitad del valor:** que la invitación de alumnado
+sigue matriculando, que matricularse NO te hace profesor, y que una invitación
+caducada no habilita. Sin ellos, los tests de arriba pasarían con el modelo roto.
+
+De paso: las etiquetas del formulario salían en línea porque `form-control` no
+apila en la versión de DaisyUI de este proyecto. Puestas con flex explícito.
+
+### Lo que queda del bloque de acceso
+
+4. **Pantalla de invitaciones**: generar el enlace, ver usos, revocar.
+5. **Panel para ver quién es profesor** y poder quitarle el acceso.
+6. **El permiso de Wagtail acotado a «Índice de Recursos Musicales»**, con un
+   grupo «Profesorado» y `GroupPagePermission` sobre esa página. Los grupos que
+   trae Wagtail (`Editors`, `Moderators`) tienen permiso sobre `Root`, o sea
+   sobre el sitio entero, y por eso **no sirven**.
+
+### Nota de coordinación entre sesiones (2026-09-11)
+
+Apareció un `scripts/build_from_marking.py` modificado que no era de esta sesión:
+era otra sesión de Claude del principal trabajando **en el mismo clon**. Se dejó
+intacto y lo commiteó ella (`a740f41`). Lección para la próxima: cuando aparezca
+un cambio que no es tuyo, **mirarlo y no tocarlo**, y sobre todo no meterlo en un
+`git add -A` propio. Y no escribir el ISA hasta saber si otra sesión lo está
+tocando, que es un fichero de estado acumulado.
