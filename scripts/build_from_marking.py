@@ -27,6 +27,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
+import subprocess
 from pathlib import Path
 
 import numpy as np
@@ -36,6 +38,42 @@ SEG_DPI = 150     # the marking coordinates are in this space
 OUT_DPI = 300
 INK = 180
 PAD_Y = 10
+
+# The reading number is printed above and to the left of its first system, in
+# a band of its own that the marking UI shows as text. OCR of the whole page
+# misses it — it is tiny next to a full page — so each number is read from a
+# small strip blown up to NUM_DPI, where Vision returns it at confidence 1.0.
+NUM_DPI = 600
+NUM_ABOVE = 75    # how far above the system the number sits, in SEG_DPI px
+NUM_BELOW = 20
+NUM_X0, NUM_X1 = 0.05, 0.42     # fraction of page width to search
+NUMBER = re.compile(r"^\s*(\d{1,3})\s*[.,·]?\s*$")
+
+
+def ensure_ocr(script_dir: Path) -> Path:
+    """Same Vision helper prepare_marking.py uses, compiled on demand."""
+    binary = script_dir / ".vision_ocr"
+    source = script_dir / "vision_ocr.swift"
+    if binary.exists() and binary.stat().st_mtime >= source.stat().st_mtime:
+        return binary
+    subprocess.run(["swiftc", "-O", "-o", str(binary), str(source)], check=True)
+    return binary
+
+
+def read_number(ocr_bin: Path, page, band_y0: int, tmp: Path) -> str | None:
+    """The printed number of the reading starting at band_y0, or None."""
+    f = 72 / SEG_DPI
+    clip = pymupdf.Rect(NUM_X0 * page.rect.width, max(0, band_y0 - NUM_ABOVE) * f,
+                        NUM_X1 * page.rect.width, (band_y0 + NUM_BELOW) * f)
+    page.get_pixmap(dpi=NUM_DPI, clip=clip, colorspace=pymupdf.csGRAY).save(str(tmp))
+    proc = subprocess.run([str(ocr_bin), str(tmp)], capture_output=True, text=True)
+    for line in proc.stdout.strip().split("\n"):
+        parts = line.split("\t")
+        if len(parts) >= 5 and float(parts[3]) >= 0.5:
+            hit = NUMBER.match(parts[4].strip())
+            if hit:
+                return hit.group(1)
+    return None
 
 
 def useful_box(doc, page_num: int) -> tuple[int, int, int, int, int, int]:
@@ -66,6 +104,37 @@ def crop(doc, page_num, box, out_path: Path, seg_w: int, seg_h: int) -> None:
     page.get_pixmap(dpi=OUT_DPI, colorspace=pymupdf.csGRAY, clip=clip).save(str(out_path))
 
 
+def resolve_numbers(readings: list[dict]) -> None:
+    """Keep only the numbers that belong to the book's own series.
+
+    OCR also reads the numbers of the theory exercises ("1)", "3.") on the
+    pages before the readings start, which would caption a reading with a
+    number the page never printed. The real series is the long descending
+    chain that ends at the last reading, so walk backwards from there and
+    accept a number only while it keeps stepping down; anything else is a
+    stray. A single unnumbered reading between n and n+2 is n+1 — the number
+    is on the page, OCR just missed it.
+    """
+    accepted: dict[int, str] = {}
+    expected = None
+    for i in range(len(readings) - 1, -1, -1):
+        raw = readings[i]["_num"]
+        if raw is None:
+            continue
+        n = int(raw)
+        if expected is None or (n < expected and expected - n <= 3):
+            accepted[i] = str(n)
+            expected = n
+
+    known = sorted(accepted)
+    for a, b in zip(known, known[1:]):
+        if b - a == 2 and int(accepted[b]) - int(accepted[a]) == 2:
+            accepted[a + 1] = str(int(accepted[a]) + 1)
+
+    for i, item in enumerate(readings):
+        item["_num"] = accepted.get(i)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--pdf-path", required=True)
@@ -74,6 +143,7 @@ def main() -> None:
     ap.add_argument("--output-dir", required=True)
     args = ap.parse_args()
 
+    ocr_bin = ensure_ocr(Path(__file__).resolve().parent)
     doc = pymupdf.open(args.pdf_path)
     marking = json.loads(Path(args.marking).read_text(encoding="utf-8"))
     by_page = {p["page"]: p for p in marking["pages"]}
@@ -81,8 +151,10 @@ def main() -> None:
 
     out_root = Path(args.output_dir)
     out_root.mkdir(parents=True, exist_ok=True)
+    num_tmp = out_root / "_num.png"
 
     chapters_out = []
+    readings: list[dict] = []
     seq = 0
     unmarked = []
 
@@ -130,14 +202,17 @@ def main() -> None:
                     return
                 start, end, num = open_reading
                 seq += 1
-                label = num or str(seq)
                 name = f"lectura-{seq:03d}.png"
                 crop(doc, page_num,
                      (x0, max(y0, start - PAD_Y), x1, min(y1, end + PAD_Y)),
                      ch_dir / name, w, h)
-                items.append({"type": "image",
-                              "file": f"ch{chapter['number']:02d}/{name}",
-                              "caption": f"Lectura {label} — {short}"})
+                item = {"type": "image",
+                        "file": f"ch{chapter['number']:02d}/{name}",
+                        "caption": short,
+                        "_num": num or read_number(ocr_bin, doc[page_num], start, num_tmp),
+                        "_short": short}
+                items.append(item)
+                readings.append(item)
                 open_reading = None
 
             for b in bands:
@@ -160,6 +235,17 @@ def main() -> None:
         chapters_out.append({"number": chapter["number"], "title": chapter["title"],
                              "intro": chapter.get("intro", ""), "items": items})
         print(f"ch{chapter['number']:02d}: {len(items)} items")
+
+    num_tmp.unlink(missing_ok=True)
+
+    # An unnumbered system — an exercise, a worked example, a heading with a
+    # symbol in it — gets the section for a caption. Inventing a number would
+    # clash with the numbers printed on the page.
+    resolve_numbers(readings)
+    for item in readings:
+        label = item.pop("_num")
+        short = item.pop("_short")
+        item["caption"] = f"Lectura {label} — {short}" if label else short
 
     if unmarked:
         print(f"\nAVISO: sin marcar, saltadas: {unmarked}")

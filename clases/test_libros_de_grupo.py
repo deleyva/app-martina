@@ -700,3 +700,91 @@ def test_no_se_puede_crear_una_sesion_en_un_grupo_archivado(db, profesor, client
 
     assert respuesta.status_code == 302
     assert ClassSession.objects.filter(group=grupo).count() == 0
+
+
+# =============================================================================
+# C161 · Marcado en bloque
+# =============================================================================
+
+
+def _libro_de_dos_capitulos(grupo):
+    libro, caps = _libro_con_capitulos(
+        f"Lecturas {grupo.pk}", f"lecturas-{grupo.pk}",
+        [("Cap 1", ["a1", "a2", "a3"]), ("Cap 2", ["b1", "b2"])],
+    )
+    return _asignar(grupo, libro, seccion="ritmo_melodia"), caps
+
+
+def test_apagar_un_capitulo_no_toca_el_otro(db):
+    """C161. Un 3.º que se salta el primer capítulo entero."""
+    grupo = _grupo()
+    gb, caps = _libro_de_dos_capitulos(grupo)
+
+    cambiados = libros_de_grupo.marcar_en_bloque(gb, "capitulo_off", caps[0][0].pk)
+
+    assert cambiados == 3
+    encendidos = [f["titulo"] for f in libros_de_grupo.enumerar(gb)
+                  if f["item"] is None or f["item"].incluido]
+    assert encendidos == ["b1", "b2"]
+
+
+def test_empezar_desde_aqui_apaga_lo_anterior_y_enciende_el_resto(db):
+    """C161. El gesto que resuelve «este grupo arranca por la mitad», en un clic.
+
+    No es solo apagar hacia atrás: también **enciende** lo que viene después, por
+    si venía apagado de una decisión anterior. Si solo apagara, marcar el inicio
+    dos veces dejaría el libro en un estado que depende del orden de los clics.
+    """
+    grupo = _grupo()
+    gb, _caps = _libro_de_dos_capitulos(grupo)
+
+    # Se apaga todo primero, para que «encender el resto» tenga algo que hacer.
+    libros_de_grupo.marcar_en_bloque(gb, "todo_off")
+    filas = libros_de_grupo.enumerar(gb)
+    tercero = filas[2]
+
+    libros_de_grupo.marcar_en_bloque(
+        gb, "desde_aqui", (tercero["tipo"].pk, tercero["objeto"].pk)
+    )
+
+    encendidos = [f["titulo"] for f in libros_de_grupo.enumerar(gb)
+                  if f["item"] is None or f["item"].incluido]
+    assert encendidos == ["a3", "b1", "b2"]
+
+
+def test_el_marcado_en_bloque_no_escribe_filas_de_mas(db):
+    """C161. El invariante de la fase A sigue en pie: solo hay fila si hace falta.
+
+    Apagar un capítulo de un libro recién asignado escribe las filas de ESE
+    capítulo y ni una más. Si escribiera todas, un libro de 302 medios pasaría a
+    302 filas por grupo en cuanto tocaras un capítulo.
+    """
+    grupo = _grupo()
+    gb, caps = _libro_de_dos_capitulos(grupo)
+    assert GroupBookItem.objects.count() == 0
+
+    libros_de_grupo.marcar_en_bloque(gb, "capitulo_off", caps[0][0].pk)
+
+    assert GroupBookItem.objects.count() == 3
+
+
+def test_repetir_la_misma_accion_no_cambia_nada(db):
+    """C161. El contador dice la verdad: la segunda vez no hay nada que cambiar."""
+    grupo = _grupo()
+    gb, caps = _libro_de_dos_capitulos(grupo)
+
+    primera = libros_de_grupo.marcar_en_bloque(gb, "capitulo_off", caps[0][0].pk)
+    segunda = libros_de_grupo.marcar_en_bloque(gb, "capitulo_off", caps[0][0].pk)
+
+    assert primera == 3
+    assert segunda == 0
+
+
+def test_lo_apagado_en_bloque_no_se_propone(db):
+    """C161. Y lo que importa de verdad: que el motor lo respete."""
+    grupo = _grupo()
+    gb, caps = _libro_de_dos_capitulos(grupo)
+
+    libros_de_grupo.marcar_en_bloque(gb, "capitulo_off", caps[0][0].pk)
+
+    assert libros_de_grupo.siguientes(gb)[0]["titulo"] == "b1"

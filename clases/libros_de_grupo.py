@@ -166,6 +166,66 @@ def excepcion(group_book, objeto, capitulo=None, **campos):
     return item, creado
 
 
+def marcar_en_bloque(group_book, accion, clave=None):
+    """Enciende o apaga muchos elementos de una vez.
+
+    Existe porque el caso real no es marcar uno: es un libro de sesenta lecturas
+    y un grupo de 3.º que se salta las cuarenta primeras. De una en una eso no lo
+    hace nadie, y la pantalla se queda sin usar.
+
+    `accion`:
+
+    - `todo_on` / `todo_off` — el libro entero.
+    - `capitulo_on` / `capitulo_off` — solo el capítulo de `clave`, que aquí es
+      el pk de la página del capítulo.
+    - `desde_aqui` — **apaga todo lo anterior y enciende lo demás**. Es el gesto
+      de "este grupo empieza por aquí", y resuelve el caso de los cuarenta
+      saltados en un clic. `clave` es `(content_type_id, object_id)`.
+
+    Devuelve cuántos elementos han cambiado de estado.
+    """
+    filas = enumerar(group_book)
+    cambiados = 0
+
+    if accion == "desde_aqui":
+        alcanzado = False
+        for fila in filas:
+            if (fila["tipo"].pk, fila["objeto"].pk) == clave:
+                alcanzado = True
+            quiero = alcanzado
+            if _aplicar_incluido(group_book, fila, quiero):
+                cambiados += 1
+        return cambiados
+
+    if accion in ("todo_on", "todo_off"):
+        quiero = accion == "todo_on"
+        objetivo = filas
+    elif accion in ("capitulo_on", "capitulo_off"):
+        quiero = accion == "capitulo_on"
+        objetivo = [f for f in filas if f["capitulo"] and f["capitulo"].pk == clave]
+    else:
+        return 0
+
+    for fila in objetivo:
+        if _aplicar_incluido(group_book, fila, quiero):
+            cambiados += 1
+    return cambiados
+
+
+def _aplicar_incluido(group_book, fila, quiero):
+    """Escribe `incluido` solo si de verdad cambia.
+
+    Lo que ya está como toca no genera fila de excepción: el invariante de que un
+    libro sin tocar son cero filas se sostiene justo así. Apagar un capítulo de
+    un libro recién asignado escribe las filas de ese capítulo y ni una más.
+    """
+    actual = fila["item"].incluido if fila["item"] else True
+    if actual == quiero:
+        return False
+    excepcion(group_book, fila["objeto"], capitulo=fila["capitulo"], incluido=quiero)
+    return True
+
+
 def recolocar(group_book, claves_ordenadas):
     """Fija el orden de este libro PARA ESTE GRUPO.
 

@@ -2568,3 +2568,40 @@ sale en blanco sin decir nada en pantalla.
 lecturas y un 3º que se salta cuarenta, apagarlas de una en una es inviable:
 apagar o encender un capítulo entero, «empezar desde aquí» (apaga todo lo
 anterior) y selección por rango.
+
+### Fase 31·2 — Marcado en bloque y la imagen mandando (2026-09-11)
+
+- [x] **C161** · Encender y apagar **el libro entero, un capítulo entero**, y
+  **«empezar aquí»**, que apaga todo lo anterior y enciende el resto. Ese último
+  es el que resuelve el caso real: sesenta lecturas y un 3.º que se salta las
+  cuarenta primeras, en un clic.
+- [x] **C162** · **El marcado en bloque no escribe filas de más.** Apagar un
+  capítulo de un libro recién asignado escribe las filas de ESE capítulo y ni
+  una más; si escribiera todas, un libro de 302 medios pasaría a 302 filas por
+  grupo en cuanto tocaras algo. *Falsador:* contar `GroupBookItem` después.
+- [x] **C163** · La fila se rediseña: nombre y controles en una línea fina, y el
+  resto de la banda para **la imagen a todo el ancho**. Se usa en pantalla grande
+  al preparar clases, y la decisión se toma mirando la partitura. `width-` y no
+  `fill-`: recortar se come compases.
+
+**«Empezar aquí» también enciende**, no solo apaga hacia atrás. Si solo apagara,
+pulsarlo dos veces en sitios distintos dejaría el libro en un estado que depende
+del orden de los clics.
+
+### El comentario que se pinta, por CUARTA vez
+
+Volvió a pasar, y esta vez fui yo otra vez: dos `{# #}` de dos líneas en
+`fila.html`, saliendo a tamaño completo donde debía ir el título. Fases 16, 23,
+el 2026-09-08 y hoy.
+
+**Escribirlo en el ISA no bastó** para evitar la cuarta, así que ahora hay un
+guarda en la suite: `clases/test_plantillas.py` recorre TODAS las plantillas del
+repo y falla nombrando fichero y línea. **Comprobado saboteándolo**: con un
+comentario partido a propósito, falla; sin él, pasa. Un test que no puede fallar
+sería peor que la nota que ya teníamos.
+
+### Y el gotcha de siempre, que volvió a morder
+
+Los ajustes locales cachean las plantillas: el arreglo no se veía recargando, hubo
+que **reiniciar el servidor**. Ya estaba escrito en la fase 28·2 y aun así costó
+una vuelta.

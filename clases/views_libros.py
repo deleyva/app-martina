@@ -150,6 +150,22 @@ def group_book_items(request, pk):
     filas = libros_de_grupo.enumerar(group_book)
     vistos, total = libros_de_grupo.progreso(group_book)
 
+    # Agrupado por capítulo para poder encender y apagar capítulos enteros.
+    # Se hace aquí y no con `{% regroup %}` porque ese exige que la lista venga
+    # ordenada por la clave, y tras recolocar a mano los capítulos pueden quedar
+    # entrelazados; agrupar en la vista respeta el orden y no pierde ninguno.
+    bloques, indice = [], {}
+    for fila in filas:
+        capitulo = fila["capitulo"]
+        clave = capitulo.pk if capitulo else None
+        if clave not in indice:
+            indice[clave] = len(bloques)
+            bloques.append({"capitulo": capitulo, "filas": [], "encendidos": 0})
+        bloque = bloques[indice[clave]]
+        bloque["filas"].append(fila)
+        if fila["item"] is None or fila["item"].incluido:
+            bloque["encendidos"] += 1
+
     return render(
         request,
         "clases/group_books/items.html",
@@ -157,9 +173,12 @@ def group_book_items(request, pk):
             "group": group_book.group,
             "group_book": group_book,
             "filas": filas,
+            "bloques": bloques,
+            "encendidos": sum(
+                1 for f in filas if f["item"] is None or f["item"].incluido
+            ),
             "vistos": vistos,
             "total": total,
-            "ultima": len(filas) - 1,
         },
     )
 
@@ -223,6 +242,38 @@ def group_book_item_toggle(request, pk):
             "total": total,
         },
     )
+
+
+@login_required
+@user_passes_test(es_profesor)
+@require_http_methods(["POST"])
+def group_book_bulk(request, pk):
+    """Encender o apagar muchos elementos de una vez.
+
+    Recarga la página entera en vez de devolver fragmentos: un «apagar capítulo»
+    cambia veinte filas, y coserlas una a una por HTMX es más código y más sitios
+    donde quedarse a medias que volver a pintar la lista.
+    """
+    group_book = _libro_del_profesor(request, pk)
+    accion = request.POST.get("accion", "")
+
+    clave = None
+    if accion == "desde_aqui":
+        clave = (int(request.POST["content_type"]), int(request.POST["object_id"]))
+    elif accion.startswith("capitulo_"):
+        clave = int(request.POST["capitulo"])
+
+    cambiados = libros_de_grupo.marcar_en_bloque(group_book, accion, clave)
+
+    if cambiados:
+        messages.success(
+            request,
+            f"{cambiados} elemento{'s' if cambiados != 1 else ''} "
+            f"cambiado{'s' if cambiados != 1 else ''}.",
+        )
+    else:
+        messages.info(request, "No había nada que cambiar: ya estaba así.")
+    return redirect("clases:group_book_items", pk=group_book.pk)
 
 
 @login_required

@@ -4,7 +4,7 @@
 {% block title %}{{ group_book.libro.title }} · {{ group.name }}{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8 max-w-4xl">
+<div class="container mx-auto px-4 py-8 max-w-6xl">
 
   <a href="{% url 'clases:group_books_index' group.pk %}" class="btn btn-ghost btn-sm mb-4">← Libros de {{ group.name }}</a>
 
@@ -27,22 +27,76 @@
       <p class="mt-1">
         El interruptor incluye o excluye · <b>✓</b> da por visto y lo saca de la cola ·
         <b>🏠</b> hace que baje a las bibliotecas del alumnado cuando se dé por visto ·
-        <b>↑↓</b> cambian el orden.
+        <b>↑↓</b> cambian el orden · <b>⇤</b> empieza aquí, apagando todo lo anterior.
       </p>
     </div>
   </div>
 
-  <div class="card bg-base-100 border border-base-300">
-    <div class="card-body p-2 sm:p-4">
-      {% for fila in filas %}
-        {% include "clases/group_books/partials/fila.html" %}
-      {% empty %}
+  {% comment %}
+  El marcado en bloque. El caso real no es marcar uno: es un libro de sesenta
+  lecturas y un grupo de 3.º que se salta las cuarenta primeras. De una en una
+  eso no lo hace nadie y la pantalla se queda sin usar.
+  {% endcomment %}
+  <div class="flex flex-wrap items-center gap-2 mb-4">
+    <span class="text-sm text-base-content/70">
+      {{ encendidos }} de {{ total }} encendidos
+    </span>
+    <div class="flex-1"></div>
+    <form method="post" action="{% url 'clases:group_book_bulk' group_book.pk %}">
+      {% csrf_token %}
+      <input type="hidden" name="accion" value="todo_on">
+      <button class="btn btn-xs btn-outline">Encender todo</button>
+    </form>
+    <form method="post" action="{% url 'clases:group_book_bulk' group_book.pk %}">
+      {% csrf_token %}
+      <input type="hidden" name="accion" value="todo_off">
+      <button class="btn btn-xs btn-outline">Apagar todo</button>
+    </form>
+  </div>
+
+  <div class="flex flex-col gap-5">
+    {% for bloque in bloques %}
+      <div class="card bg-base-100 border border-base-300">
+        <div class="card-body p-2 sm:p-4 gap-2">
+
+          <div class="flex flex-wrap items-center gap-2 border-b border-base-300 pb-2">
+            <h2 class="font-semibold text-sm">
+              {% if bloque.capitulo %}{{ bloque.capitulo.title }}{% else %}Sin capítulo{% endif %}
+            </h2>
+            <span class="text-xs text-base-content/50">
+              {{ bloque.encendidos }} de {{ bloque.filas|length }} encendidos
+            </span>
+            <div class="flex-1"></div>
+            {% if bloque.capitulo %}
+            <form method="post" action="{% url 'clases:group_book_bulk' group_book.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="accion" value="capitulo_on">
+              <input type="hidden" name="capitulo" value="{{ bloque.capitulo.pk }}">
+              <button class="btn btn-ghost btn-xs" title="Encender el capítulo entero">Encender capítulo</button>
+            </form>
+            <form method="post" action="{% url 'clases:group_book_bulk' group_book.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="accion" value="capitulo_off">
+              <input type="hidden" name="capitulo" value="{{ bloque.capitulo.pk }}">
+              <button class="btn btn-ghost btn-xs" title="Apagar el capítulo entero">Apagar capítulo</button>
+            </form>
+            {% endif %}
+          </div>
+
+          {% for fila in bloque.filas %}
+            {% include "clases/group_books/partials/fila.html" %}
+          {% endfor %}
+
+        </div>
+      </div>
+    {% empty %}
+      <div class="card bg-base-100 border border-base-300">
         <p class="p-4 text-sm text-base-content/70">
           Este libro no tiene material practicable todavía: ni imágenes, ni PDF, ni audios, ni vídeos
           en sus capítulos.
         </p>
-      {% endfor %}
-    </div>
+      </div>
+    {% endfor %}
   </div>
 
 </div>

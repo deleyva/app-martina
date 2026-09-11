@@ -3,89 +3,105 @@
 Una fila de la pantalla de elementos. Se devuelve sola en las respuestas HTMX de
 `group_book_item_toggle`, así que todo lo que cambia al pulsar tiene que estar
 dentro de este fichero y no en la página que lo contiene.
+
+**Manda la imagen, no el texto.** Aquí se decide qué entra en las clases de un
+grupo, y esa decisión se toma mirando la partitura: cinco imágenes tituladas
+«Chapter Two…» son indistinguibles por el nombre, porque el título no identifica
+nada. El nombre y los controles van en una línea fina arriba, y el resto de la
+banda es para el medio.
 {% endcomment %}
 {% if fila %}
 <div id="fila-{{ fila.tipo.pk }}-{{ fila.objeto.pk }}"
-     class="flex items-center gap-3 py-2 px-2 border-b border-base-200 {% if fila.item and not fila.item.incluido %}opacity-40{% endif %}">
+     class="border-b border-base-200 py-2 {% if fila.item and not fila.item.incluido %}opacity-40{% endif %}">
 
-  {% comment %}
-  La miniatura, no el emoji. Cinco imágenes tituladas "Chapter Two…" son
-  indistinguibles por el nombre —el título no identifica nada, la unicidad es
-  usuario+tipo+objeto—, así que lo único que te dice cuál es cuál es verla.
+  <div class="flex items-center gap-3 px-2 mb-1">
+    <span class="text-sm shrink-0" aria-hidden="true">{{ fila.icono }}</span>
 
-  Y se abre al CLICAR, no al pasar por encima: esto se usa desde el iPad, donde
-  no hay hover.
-  {% endcomment %}
+    <div class="min-w-0 flex-1 truncate">
+      <span class="text-sm font-medium">{{ fila.titulo }}</span>
+      <span class="text-xs text-base-content/50 ml-2">{{ fila.tipo_legible }}</span>
+    </div>
+
+    {% if fila.item and fila.item.estado == 'visto' %}
+      <span class="badge badge-success badge-sm shrink-0">visto</span>
+    {% endif %}
+
+    <div class="flex items-center gap-1 shrink-0">
+
+      {% comment %}
+      «Empezar aquí»: apaga todo lo anterior y enciende el resto. Es el caso de
+      un grupo que arranca por la mitad del libro, resuelto en un clic.
+      {% endcomment %}
+      <form method="post" action="{% url 'clases:group_book_bulk' group_book.pk %}">
+        {% csrf_token %}
+        <input type="hidden" name="accion" value="desde_aqui">
+        <input type="hidden" name="content_type" value="{{ fila.tipo.pk }}">
+        <input type="hidden" name="object_id" value="{{ fila.objeto.pk }}">
+        <button type="submit" class="btn btn-ghost btn-xs"
+                title="Empezar aquí: apaga todo lo anterior y enciende el resto">⇤</button>
+      </form>
+
+      {# Mover: botones y no arrastrar, porque esto se prepara con el iPad #}
+      <form method="post" action="{% url 'clases:group_book_item_move' group_book.pk %}">
+        {% csrf_token %}
+        <input type="hidden" name="content_type" value="{{ fila.tipo.pk }}">
+        <input type="hidden" name="object_id" value="{{ fila.objeto.pk }}">
+        <input type="hidden" name="hacia" value="arriba">
+        <button type="submit" class="btn btn-ghost btn-xs" title="Subir" aria-label="Subir">↑</button>
+      </form>
+      <form method="post" action="{% url 'clases:group_book_item_move' group_book.pk %}">
+        {% csrf_token %}
+        <input type="hidden" name="content_type" value="{{ fila.tipo.pk }}">
+        <input type="hidden" name="object_id" value="{{ fila.objeto.pk }}">
+        <input type="hidden" name="hacia" value="abajo">
+        <button type="submit" class="btn btn-ghost btn-xs" title="Bajar" aria-label="Bajar">↓</button>
+      </form>
+
+      <button class="btn btn-ghost btn-xs {% if fila.item.a_casa %}text-primary{% endif %}"
+              title="{% if fila.item.a_casa %}Deja de bajar a las bibliotecas del alumnado{% else %}Baja a las bibliotecas del alumnado{% endif %}"
+              hx-post="{% url 'clases:group_book_item_toggle' group_book.pk %}"
+              hx-vals='{"content_type": "{{ fila.tipo.pk }}", "object_id": "{{ fila.objeto.pk }}", "campo": "a_casa"}'
+              hx-target="#fila-{{ fila.tipo.pk }}-{{ fila.objeto.pk }}"
+              hx-swap="outerHTML">
+        {% if fila.item.a_casa %}🏠{% else %}🏚️{% endif %}
+      </button>
+
+      <button class="btn btn-ghost btn-xs"
+              title="{% if fila.item and fila.item.estado == 'visto' %}Devolver a la cola{% else %}Dar por visto{% endif %}"
+              hx-post="{% url 'clases:group_book_item_toggle' group_book.pk %}"
+              hx-vals='{"content_type": "{{ fila.tipo.pk }}", "object_id": "{{ fila.objeto.pk }}", "campo": "visto"}'
+              hx-target="#fila-{{ fila.tipo.pk }}-{{ fila.objeto.pk }}"
+              hx-swap="outerHTML">
+        {% if fila.item and fila.item.estado == 'visto' %}↺{% else %}✓{% endif %}
+      </button>
+
+      <input type="checkbox" class="toggle toggle-sm toggle-primary"
+             {% if fila.item is None or fila.item.incluido %}checked{% endif %}
+             title="Incluir en las clases de este grupo"
+             hx-post="{% url 'clases:group_book_item_toggle' group_book.pk %}"
+             hx-vals='{"content_type": "{{ fila.tipo.pk }}", "object_id": "{{ fila.objeto.pk }}", "campo": "incluido"}'
+             hx-target="#fila-{{ fila.tipo.pk }}-{{ fila.objeto.pk }}"
+             hx-swap="outerHTML">
+    </div>
+  </div>
+
+  {# La banda del medio: a todo el ancho, que es para lo que se mira. #}
+  {% if fila.tipo_legible == "Imagen" %}
   <button type="button"
-          class="shrink-0 w-14 h-10 flex items-center justify-center overflow-hidden rounded border border-base-300 bg-base-200 hover:border-primary"
+          class="block w-full bg-base-200 rounded overflow-hidden hover:ring-2 hover:ring-primary"
           title="Ver «{{ fila.titulo }}» a tamaño completo"
           aria-label="Ver {{ fila.titulo }}"
           hx-get="{% url 'clases:contenido_de_medio' %}?content_type={{ fila.tipo.pk }}&object_id={{ fila.objeto.pk }}"
           hx-target="#cuerpo-vistazo-libro"
           hx-swap="innerHTML"
           onclick="abrirVistazoLibro('{{ fila.titulo|escapejs }}')">
-    {% if fila.tipo_legible == "Imagen" %}
-      {% image fila.objeto fill-112x80 class="w-full h-full object-cover" %}
-    {% else %}
-      <span class="text-lg" aria-hidden="true">{{ fila.icono }}</span>
-    {% endif %}
+    {% comment %}
+    `width-` y no `fill-`: recortar una partitura se come compases, y lo que
+    hace falta aquí es leerla entera de un vistazo.
+    {% endcomment %}
+    {% image fila.objeto width-1400 class="w-full h-auto max-h-72 object-contain mx-auto" %}
   </button>
-
-  <div class="min-w-0 flex-1">
-    <div class="truncate text-sm font-medium">{{ fila.titulo }}</div>
-    <div class="truncate text-xs text-base-content/60">
-      {{ fila.tipo_legible }}{% if fila.capitulo %} · {{ fila.capitulo.title }}{% endif %}
-    </div>
-  </div>
-
-  {% if fila.item and fila.item.estado == 'visto' %}
-    <span class="badge badge-success badge-sm shrink-0">visto</span>
   {% endif %}
-
-  <div class="flex items-center gap-1 shrink-0">
-
-    {# Mover: botones y no arrastrar, porque la clase se da con el iPad #}
-    <form method="post" action="{% url 'clases:group_book_item_move' group_book.pk %}">
-      {% csrf_token %}
-      <input type="hidden" name="content_type" value="{{ fila.tipo.pk }}">
-      <input type="hidden" name="object_id" value="{{ fila.objeto.pk }}">
-      <input type="hidden" name="hacia" value="arriba">
-      <button type="submit" class="btn btn-ghost btn-xs" title="Subir" aria-label="Subir">↑</button>
-    </form>
-    <form method="post" action="{% url 'clases:group_book_item_move' group_book.pk %}">
-      {% csrf_token %}
-      <input type="hidden" name="content_type" value="{{ fila.tipo.pk }}">
-      <input type="hidden" name="object_id" value="{{ fila.objeto.pk }}">
-      <input type="hidden" name="hacia" value="abajo">
-      <button type="submit" class="btn btn-ghost btn-xs" title="Bajar" aria-label="Bajar">↓</button>
-    </form>
-
-    <button class="btn btn-ghost btn-xs {% if fila.item.a_casa %}text-primary{% endif %}"
-            title="{% if fila.item.a_casa %}Deja de bajar a las bibliotecas del alumnado{% else %}Baja a las bibliotecas del alumnado{% endif %}"
-            hx-post="{% url 'clases:group_book_item_toggle' group_book.pk %}"
-            hx-vals='{"content_type": "{{ fila.tipo.pk }}", "object_id": "{{ fila.objeto.pk }}", "campo": "a_casa"}'
-            hx-target="#fila-{{ fila.tipo.pk }}-{{ fila.objeto.pk }}"
-            hx-swap="outerHTML">
-      {% if fila.item.a_casa %}🏠{% else %}🏚️{% endif %}
-    </button>
-
-    <button class="btn btn-ghost btn-xs"
-            title="{% if fila.item and fila.item.estado == 'visto' %}Devolver a la cola{% else %}Dar por visto{% endif %}"
-            hx-post="{% url 'clases:group_book_item_toggle' group_book.pk %}"
-            hx-vals='{"content_type": "{{ fila.tipo.pk }}", "object_id": "{{ fila.objeto.pk }}", "campo": "visto"}'
-            hx-target="#fila-{{ fila.tipo.pk }}-{{ fila.objeto.pk }}"
-            hx-swap="outerHTML">
-      {% if fila.item and fila.item.estado == 'visto' %}↺{% else %}✓{% endif %}
-    </button>
-
-    <input type="checkbox" class="toggle toggle-sm toggle-primary"
-           {% if fila.item is None or fila.item.incluido %}checked{% endif %}
-           title="Incluir en las clases de este grupo"
-           hx-post="{% url 'clases:group_book_item_toggle' group_book.pk %}"
-           hx-vals='{"content_type": "{{ fila.tipo.pk }}", "object_id": "{{ fila.objeto.pk }}", "campo": "incluido"}'
-           hx-target="#fila-{{ fila.tipo.pk }}-{{ fila.objeto.pk }}"
-           hx-swap="outerHTML">
-  </div>
 
 </div>
 {% endif %}

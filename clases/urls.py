@@ -91,6 +91,11 @@ urlpatterns = [
         name="group_book_item_toggle",
     ),
     path(
+        "libros/<int:pk>/elementos/en-bloque/",
+        views_libros.group_book_bulk,
+        name="group_book_bulk",
+    ),
+    path(
         "libros/<int:pk>/elementos/mover/",
         views_libros.group_book_item_move,
         name="group_book_item_move",
