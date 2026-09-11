@@ -189,8 +189,9 @@ def main() -> None:
                               "file": f"ch{chapter['number']:02d}/{name}",
                               "caption": f"{short} (pág. {page_num + 1})"})
                 for b in bands:
-                    if b["state"] == "T" and b.get("text", "").strip():
-                        items.append({"type": "text", "text": b["text"].strip()})
+                    text = b.get("text", "").strip()
+                    if b["state"] == "T" and text and not NUMBER.match(text):
+                        items.append({"type": "text", "text": text})
                 continue
 
             # Sliced page: walk the bands and fold every C into the open L.
@@ -227,8 +228,12 @@ def main() -> None:
                         open_reading[1] = b["y1"]
                 elif state == "T":
                     flush()
-                    if b.get("text", "").strip():
-                        items.append({"type": "text", "text": b["text"].strip()})
+                    text = b.get("text", "").strip()
+                    # A band holding nothing but "13." is the reading's number,
+                    # which read_number already puts in the caption. Emitted as
+                    # text it becomes a stray paragraph above its own image.
+                    if text and not NUMBER.match(text):
+                        items.append({"type": "text", "text": text})
                 # X falls through, contributing nothing
             flush()
 
