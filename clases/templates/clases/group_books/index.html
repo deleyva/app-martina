@@ -12,7 +12,10 @@
         Cada libro ocupa un momento de la clase. El orden de abajo es el orden en que salen al preparar una sesión.
       </p>
     </div>
-    <a href="{% url 'clases:class_session_list' %}" class="btn btn-ghost btn-sm">Sesiones</a>
+    <div class="flex gap-2">
+      <a href="{% url 'clases:group_invitations' group.pk %}" class="btn btn-outline btn-sm">✉️ Invitar alumnado</a>
+      <a href="{% url 'clases:class_session_list' %}" class="btn btn-ghost btn-sm">Sesiones</a>
+    </div>
   </div>
 
   {% if messages %}

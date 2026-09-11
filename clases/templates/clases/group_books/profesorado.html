@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block title %}Profesorado{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-3xl">
+
+  <a href="{% url 'clases:class_session_list' %}" class="btn btn-ghost btn-sm mb-4">← Sesiones</a>
+
+  <h1 class="text-2xl sm:text-3xl font-bold">Profesorado</h1>
+  <p class="text-sm text-base-content/70 mt-1">
+    Quién puede usar la aplicación como profesor. Las invitaciones de profesorado
+    solo las creas tú: si pudiera invitar cualquiera, el acceso se propagaría solo.
+  </p>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags|default:'info' }} my-4">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+
+  <h2 class="font-semibold mt-8 mb-2">Quién tiene acceso</h2>
+  <div class="flex flex-col gap-2">
+    {% for fila in gente %}
+      <div class="flex flex-wrap items-center gap-3 p-3 rounded border border-base-300">
+        <span class="font-medium">{{ fila.user.email }}</span>
+        <span class="text-xs text-base-content/60">
+          vía: {{ fila.vias|join:" · " }}
+        </span>
+        <div class="flex-1"></div>
+        {% if fila.por_invitacion %}
+        <form method="post" action="{% url 'clases:profesorado_revocar' fila.user.pk %}">
+          {% csrf_token %}
+          <button class="btn btn-xs btn-outline"
+                  title="Le quita el grupo de permisos. No borra la cuenta ni sus grupos.">
+            Quitar acceso
+          </button>
+        </form>
+        {% endif %}
+      </div>
+    {% empty %}
+      <div class="alert">Todavía no hay nadie.</div>
+    {% endfor %}
+  </div>
+
+  <h2 class="font-semibold mt-8 mb-2">Invitar a un profesor</h2>
+  <form method="post" class="flex flex-wrap items-end gap-3 mb-6">
+    {% csrf_token %}
+    <label class="flex flex-col gap-1">
+      <span class="text-sm font-medium">Tope de usos</span>
+      <input type="number" name="max_uses" min="1" value="1" class="input input-bordered w-40">
+      <span class="text-xs text-base-content/60">Uno por persona es lo sensato.</span>
+    </label>
+    <button type="submit" class="btn btn-primary">Crear enlace</button>
+  </form>
+
+  <div class="flex flex-col gap-3">
+    {% for inv in invitaciones %}
+      <div class="card bg-base-100 border border-base-300">
+        <div class="card-body p-4 gap-2">
+          <div class="flex flex-wrap items-center gap-2">
+            {% if inv.is_valid %}
+              <span class="badge badge-success badge-sm">activo</span>
+            {% else %}
+              <span class="badge badge-ghost badge-sm">caducado o revocado</span>
+            {% endif %}
+            <span class="text-xs text-base-content/60">
+              {{ inv.uses }} uso{{ inv.uses|pluralize:"s" }}{% if inv.max_uses %} de {{ inv.max_uses }}{% endif %}
+              {% if inv.group %} · para {{ inv.group.name }}{% endif %}
+              · creado el {{ inv.created_at|date:"j M" }}
+            </span>
+          </div>
+          <input type="text" readonly
+                 class="input input-bordered input-sm w-full font-mono text-xs"
+                 value="{{ request.scheme }}://{{ request.get_host }}{{ inv.get_join_path }}"
+                 onclick="this.select()">
+          {% if inv.is_active %}
+          <form method="post" action="{% url 'clases:invitation_revoke' inv.pk %}" class="self-end">
+            {% csrf_token %}
+            <input type="hidden" name="volver_a" value="{{ request.get_full_path }}">
+            <button class="btn btn-xs btn-ghost">Revocar</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+    {% empty %}
+      <div class="alert">Ningún enlace de profesorado creado todavía.</div>
+    {% endfor %}
+  </div>
+
+</div>
+{% endblock %}

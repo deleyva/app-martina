@@ -32,6 +32,9 @@
             </div>
             {% endif %}
             <a href="{% url 'clases:group_create' %}" class="btn btn-outline">➕ Nuevo grupo</a>
+            {% if request.user.is_staff %}
+              <a href="{% url 'clases:profesorado' %}" class="btn btn-outline">👥 Profesorado</a>
+            {% endif %}
             <a href="{% url 'clases:progreso' %}" class="btn btn-outline">📈 Por dónde va cada clase</a>
             <a href="{% url 'clases:class_session_create' %}" class="btn btn-primary">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

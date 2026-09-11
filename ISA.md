@@ -2,7 +2,7 @@
 slug: app-martina
 phase: complete
 progress: false
-iteration: 39
+iteration: 40
 principal_stated_goal: "Necesito desarrollar en apps.iesmartinabescos.es Otra app de Django como la que tenemos en /incidencias. Está sí que debe de requerir login con Google porque ya tenemos implementado. Básicamente, es una aplicación en la que quiero que vayan solicitando la clave Wi-Fi. Pero para ello deben logearse y enviar la MAC de su dispositivo WIFI, la privada (real) no la aleatoria."
 updated: 2026-09-11
 ---
@@ -2649,3 +2649,44 @@ intacto y lo commiteó ella (`a740f41`). Lección para la próxima: cuando apare
 un cambio que no es tuyo, **mirarlo y no tocarlo**, y sobre todo no meterlo en un
 `git add -A` propio. Y no escribir el ISA hasta saber si otra sesión lo está
 tocando, que es un fichero de estado acumulado.
+
+### Fase 31·4 — Repartir y retirar el acceso (2026-09-11)
+
+Fases 4, 5 y 6: con esto el bloque de acceso queda cerrado.
+
+- [x] **C168** · Pantalla de invitaciones por grupo: generar enlace con tope de
+  usos, ver cuántos lleva, revocar. Revocar **desactiva, no borra**: el contador
+  de usos es historia y borrarlo sería perderla.
+- [x] **C169** · Panel `/clases/profesorado/`, **solo para `is_staff`**. Enseña
+  quién tiene acceso y **por qué vía** (administrador / invitación / N grupos).
+  Esa columna no es adorno: quitarle el grupo de permisos a quien además da
+  clase no le quita nada, y sin decirlo parecería que sí.
+- [x] **C170** · **Las invitaciones de profesorado solo las crea el
+  administrador.** Si pudiera invitar cualquier profesor, bastaría un enlace
+  reenviado para que entrara medio claustro. *Falsador:* un profesor corriente
+  recibe 302/403 en esa pantalla, y el administrador un 200.
+- [x] **C171** · `preparar_profesorado` crea el grupo de permisos y le da Wagtail
+  **solo sobre «Índice de Recursos Musicales»**. Idempotente.
+
+#### Por qué no sirven los grupos que trae Wagtail
+
+`Editors` y `Moderators` tienen `GroupPagePermission` sobre **`Root`**. Meter ahí
+a un profesor no le da «editar los libros»: le da editar el sitio entero,
+incluidos los 228 artículos importados de los 16 departamentos. El test lo
+comprueba mirando **dónde caen los permisos**, y se verificó saboteando el
+comando para que apuntara a la raíz: falla con «tiene permiso sobre la RAÍZ».
+
+#### El defecto que solo se vio en pantalla
+
+El panel listaba a **tres alumnos como profesorado**, con la casilla «vía» vacía.
+Causa: con el grupo «Profesorado» aún sin crear, `Q(groups=permisos)` con
+`permisos=None` se traduce a `groups IS NULL` y arrastra a **todo usuario sin
+grupos de permisos**. El filtro se arma ahora por trozos, y hay test del caso.
+
+### Lo que falta para usarlo de verdad
+
+1. **Desplegar** todo lo de estos días, que sigue sin subir a producción.
+2. **Pasar `preparar_profesorado` en producción**, que es lo que crea el grupo y
+   acota el permiso de Wagtail.
+3. Probar el circuito completo con una cuenta real: invitar, aceptar, crear
+   grupo, asignar libros.

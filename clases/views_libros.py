@@ -11,6 +11,7 @@ principal, 2026-09-08), así que cualquier profesor del grupo ve y toca lo mismo
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.contenttypes.models import ContentType
+from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods
 from wagtail.models import Page
@@ -625,3 +626,185 @@ def _asignatura_elegida(request):
 
     pk = request.POST.get("subject")
     return Subject.objects.filter(pk=pk).first() if pk else None
+
+
+# =============================================================================
+# INVITACIONES
+# =============================================================================
+
+
+def _es_administrador(user):
+    """Quien puede repartir acceso de profesorado.
+
+    **Solo `is_staff`, y no cualquier profesor.** Si un invitado pudiera invitar,
+    el acceso se propagaría solo: bastaría un enlace reenviado para que entrara
+    medio claustro. Repartir el rol es una decisión del administrador.
+    """
+    return bool(getattr(user, "is_authenticated", False) and user.is_staff)
+
+
+@login_required
+@user_passes_test(es_profesor)
+def group_invitations(request, group_id):
+    """Los enlaces para que el alumnado entre en un grupo."""
+    from clases.models import GroupInvitation
+
+    grupo = _grupo_del_profesor(request, group_id)
+
+    if request.method == "POST":
+        GroupInvitation.objects.create(
+            group=grupo,
+            rol=GroupInvitation.ALUMNADO,
+            created_by=request.user,
+            max_uses=_entero(request.POST.get("max_uses")),
+        )
+        messages.success(request, "Enlace creado. Cópialo y pásaselo a tu alumnado.")
+        return redirect("clases:group_invitations", group_id=grupo.pk)
+
+    return render(
+        request,
+        "clases/group_books/invitaciones.html",
+        {
+            "group": grupo,
+            "invitaciones": grupo.invitations.filter(
+                rol=GroupInvitation.ALUMNADO
+            ).order_by("-created_at"),
+        },
+    )
+
+
+@login_required
+@user_passes_test(es_profesor)
+@require_http_methods(["POST"])
+def invitation_revoke(request, pk):
+    """Desactiva un enlace. No se borra: el contador de usos es historia."""
+    from clases.models import GroupInvitation
+
+    invitacion = get_object_or_404(GroupInvitation, pk=pk)
+    if invitacion.group_id:
+        _grupo_del_profesor(request, invitacion.group_id)
+    elif not _es_administrador(request.user):
+        from django.http import Http404
+
+        raise Http404("Esa invitación no es tuya.")
+
+    invitacion.is_active = False
+    invitacion.save(update_fields=["is_active"])
+    messages.success(request, "Enlace revocado: deja de funcionar ahora mismo.")
+    return redirect(request.POST.get("volver_a") or "clases:profesorado")
+
+
+def _entero(valor):
+    try:
+        n = int(valor)
+    except (TypeError, ValueError):
+        return None
+    return n if n > 0 else None
+
+
+# =============================================================================
+# PANEL DE PROFESORADO
+# =============================================================================
+
+
+@login_required
+@user_passes_test(_es_administrador)
+def profesorado(request):
+    """Quién puede usar la aplicación como profesor, y por qué vía.
+
+    Enseñar **de dónde le viene el acceso** a cada uno no es un adorno: quitarle
+    el grupo de permisos a quien además da clase en un grupo no le quita nada, y
+    sin decirlo parecería que sí.
+    """
+    from django.contrib.auth.models import Group as GrupoDePermisos
+
+    from clases.models import GroupInvitation
+    from martina_bescos_app.users.permisos import GRUPO_PROFESORADO
+
+    User = request.user.__class__
+
+    if request.method == "POST":
+        GroupInvitation.objects.create(
+            rol=GroupInvitation.PROFESORADO,
+            created_by=request.user,
+            max_uses=_entero(request.POST.get("max_uses")),
+        )
+        messages.success(request, "Enlace de profesorado creado.")
+        return redirect("clases:profesorado")
+
+    permisos = GrupoDePermisos.objects.filter(name=GRUPO_PROFESORADO).first()
+
+    # El filtro se arma por trozos a propósito. Con `Q(groups=permisos)` y
+    # `permisos` a `None`, Django traduce a `groups IS NULL` y se cuela **todo
+    # usuario sin grupos de permisos**, o sea el alumnado entero. Visto en
+    # pantalla el 2026-09-11, con tres alumnos listados como profesorado.
+    criterio = Q(is_staff=True) | Q(teaching_groups__isnull=False)
+    if permisos is not None:
+        criterio |= Q(groups=permisos)
+
+    candidatos = (
+        User.objects.filter(criterio)
+        .distinct()
+        .prefetch_related("teaching_groups", "groups")
+    )
+
+    gente = []
+    for u in candidatos:
+        vias = []
+        if u.is_staff:
+            vias.append("administrador")
+        if permisos and permisos in u.groups.all():
+            vias.append("invitación")
+        n_grupos = u.teaching_groups.count()
+        if n_grupos:
+            vias.append(f"{n_grupos} grupo{'s' if n_grupos != 1 else ''}")
+        gente.append(
+            {
+                "user": u,
+                "vias": vias,
+                "por_invitacion": bool(permisos and permisos in u.groups.all()),
+                "n_grupos": n_grupos,
+            }
+        )
+
+    return render(
+        request,
+        "clases/group_books/profesorado.html",
+        {
+            "gente": sorted(gente, key=lambda g: g["user"].email),
+            "invitaciones": GroupInvitation.objects.filter(
+                rol=GroupInvitation.PROFESORADO
+            ).order_by("-created_at"),
+        },
+    )
+
+
+@login_required
+@user_passes_test(_es_administrador)
+@require_http_methods(["POST"])
+def profesorado_revocar(request, user_id):
+    """Le quita el grupo de permisos. Ni borra la cuenta ni toca sus grupos.
+
+    Si además da clase en algún grupo, sigue siendo profesor por esa vía y la
+    pantalla lo dice: quitarle los grupos es otra decisión, y se toma mirando a
+    quién se quedan esas clases.
+    """
+    from django.contrib.auth.models import Group as GrupoDePermisos
+
+    from martina_bescos_app.users.permisos import GRUPO_PROFESORADO, es_profesor
+
+    User = request.user.__class__
+    persona = get_object_or_404(User, pk=user_id)
+    permisos = GrupoDePermisos.objects.filter(name=GRUPO_PROFESORADO).first()
+    if permisos:
+        persona.groups.remove(permisos)
+
+    if es_profesor(persona):
+        messages.warning(
+            request,
+            f"{persona.email} sigue teniendo acceso: da clase en "
+            f"{persona.teaching_groups.count()} grupo(s) o es administrador.",
+        )
+    else:
+        messages.success(request, f"{persona.email} ya no puede entrar como profesor.")
+    return redirect("clases:profesorado")

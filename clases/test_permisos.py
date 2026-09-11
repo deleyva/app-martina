@@ -257,3 +257,198 @@ def test_crear_un_grupo_con_asignatura_nueva_no_duplica(
         )
 
     assert Subject.objects.filter(name__iexact="lenguaje musical").count() == 1
+
+
+# =============================================================================
+# Repartir y retirar el acceso
+# =============================================================================
+
+
+def test_un_profesor_corriente_no_puede_repartir_acceso(
+    db, client, django_user_model, asignatura
+):
+    """El guarda que impide que el acceso se propague solo.
+
+    Si cualquier profesor pudiera invitar, bastaría un enlace reenviado para que
+    entrara medio claustro sin que el administrador se enterara.
+    """
+    ana, _grupo = _profesor(django_user_model, "ana20@x.es", asignatura, "20-A")
+    client.force_login(ana)
+
+    assert client.get(reverse("clases:profesorado")).status_code in (302, 403)
+    assert client.post(reverse("clases:profesorado"), {"max_uses": "1"}).status_code in (302, 403)
+
+
+def test_el_administrador_si_puede(db, client, django_user_model):
+    """El contrapunto: si esto no pasara, el test de arriba pasaría con la
+    pantalla rota para todo el mundo."""
+    from clases.models import GroupInvitation
+
+    jefe = django_user_model.objects.create_user(
+        email="jefe20@x.es", password="x", is_staff=True
+    )
+    client.force_login(jefe)
+
+    assert client.get(reverse("clases:profesorado")).status_code == 200
+
+    client.post(reverse("clases:profesorado"), {"max_uses": "1"})
+    assert GroupInvitation.objects.filter(rol=GroupInvitation.PROFESORADO).count() == 1
+
+
+def test_revocar_quita_el_acceso_de_quien_solo_lo_tenia_por_invitacion(
+    db, client, django_user_model
+):
+    from clases.models import GroupInvitation
+
+    jefe = django_user_model.objects.create_user(
+        email="jefe21@x.es", password="x", is_staff=True
+    )
+    invitado = django_user_model.objects.create_user(email="inv21@x.es", password="x")
+    GroupInvitation.objects.create(rol=GroupInvitation.PROFESORADO).accept_for_user(invitado)
+    assert es_profesor(invitado)
+
+    client.force_login(jefe)
+    client.post(reverse("clases:profesorado_revocar", args=[invitado.pk]))
+
+    invitado.refresh_from_db()
+    assert not es_profesor(invitado)
+
+
+def test_revocar_no_engana_a_quien_sigue_dando_clase(
+    db, client, django_user_model, asignatura
+):
+    """El límite honesto de «quitar acceso».
+
+    A quien da clase en un grupo, quitarle el grupo de permisos no le quita nada:
+    sigue siendo profesor por esa vía. La pantalla avisa en vez de fingir que ha
+    hecho algo.
+    """
+    from clases.models import GroupInvitation
+
+    jefe = django_user_model.objects.create_user(
+        email="jefe22@x.es", password="x", is_staff=True
+    )
+    ana, _grupo = _profesor(django_user_model, "ana22@x.es", asignatura, "22-A")
+    GroupInvitation.objects.create(rol=GroupInvitation.PROFESORADO).accept_for_user(ana)
+
+    client.force_login(jefe)
+    respuesta = client.post(
+        reverse("clases:profesorado_revocar", args=[ana.pk]), follow=True
+    )
+
+    ana.refresh_from_db()
+    assert es_profesor(ana), "sigue dando clase, así que sigue siendo profesor"
+    textos = [m.message for m in respuesta.context["messages"]]
+    assert any("sigue teniendo acceso" in t for t in textos), (
+        "la pantalla tiene que decirlo, no fingir que lo ha quitado"
+    )
+
+
+def test_revocar_un_enlace_lo_deja_inservible(db, client, django_user_model, asignatura):
+    from clases.models import GroupInvitation
+
+    ana, grupo = _profesor(django_user_model, "ana23@x.es", asignatura, "23-A")
+    inv = GroupInvitation.objects.create(group=grupo, created_by=ana)
+    alumno = django_user_model.objects.create_user(email="alu23@x.es", password="x")
+
+    client.force_login(ana)
+    client.post(reverse("clases:invitation_revoke", args=[inv.pk]))
+
+    inv.refresh_from_db()
+    _obj, estado = inv.accept_for_user(alumno)
+    assert estado == "invalid"
+
+
+def test_no_se_revoca_el_enlace_de_otro_profesor(db, client, django_user_model, asignatura):
+    """Aislamiento también aquí: los enlaces son del grupo de quien los hizo."""
+    from clases.models import GroupInvitation
+
+    ana, grupo_de_ana = _profesor(django_user_model, "ana24@x.es", asignatura, "24-A")
+    beto, _suyo = _profesor(django_user_model, "beto24@x.es", asignatura, "24-B")
+    inv = GroupInvitation.objects.create(group=grupo_de_ana, created_by=ana)
+
+    client.force_login(beto)
+    respuesta = client.post(reverse("clases:invitation_revoke", args=[inv.pk]))
+
+    inv.refresh_from_db()
+    assert respuesta.status_code == 404
+    assert inv.is_active, "el enlace de otra profesora sigue vivo"
+
+
+def test_el_grupo_de_wagtail_no_toca_la_raiz_del_arbol(db):
+    """C168. La decisión del principal: solo lo que cuelga del índice musical.
+
+    Es lo que separa «editar los libros» de «editar el sitio entero». Los grupos
+    que trae Wagtail (`Editors`, `Moderators`) tienen permiso sobre `Root`, así
+    que meter ahí a un profesor le daría también los 16 blogs de departamento.
+
+    El falsador mira dónde caen los permisos, no que el comando no reviente.
+    """
+    from django.contrib.auth.models import Group as GrupoPermisos
+    from django.core.management import call_command
+    from wagtail.models import GroupPagePermission, Page
+
+    raiz = Page.objects.get(depth=1)
+    indice = Page(title="Índice de recursos musicales", slug="indice-musical")
+    Page.objects.get(id=2).add_child(instance=indice)
+
+    call_command("preparar_profesorado", "--pagina", "Índice de recursos musicales")
+
+    grupo = GrupoPermisos.objects.get(name=GRUPO_PROFESORADO)
+    permisos = GroupPagePermission.objects.filter(group=grupo)
+
+    assert permisos.exists(), "no ha dado ningún permiso"
+    assert not permisos.filter(page=raiz).exists(), "tiene permiso sobre la RAÍZ"
+    assert set(permisos.values_list("page__title", flat=True)) == {
+        "Índice de recursos musicales"
+    }
+
+
+def test_preparar_profesorado_se_puede_repetir(db):
+    """C168. Se va a lanzar en producción más de una vez; no puede duplicar."""
+    from django.contrib.auth.models import Group as GrupoPermisos
+    from django.core.management import call_command
+    from wagtail.models import GroupPagePermission
+
+    indice = Page_indice()
+    call_command("preparar_profesorado", "--pagina", indice.title)
+    call_command("preparar_profesorado", "--pagina", indice.title)
+
+    grupo = GrupoPermisos.objects.get(name=GRUPO_PROFESORADO)
+    assert GroupPagePermission.objects.filter(group=grupo).count() == 3
+
+
+def Page_indice():
+    from wagtail.models import Page
+
+    indice = Page(title="Índice de recursos musicales", slug="indice-musical-2")
+    Page.objects.get(id=2).add_child(instance=indice)
+    return indice
+
+
+def test_el_panel_no_lista_al_alumnado_cuando_aun_no_hay_grupo_de_permisos(
+    db, client, django_user_model, asignatura
+):
+    """C169. El defecto que se vio en pantalla el 2026-09-11.
+
+    Con el grupo «Profesorado» todavía sin crear, `Q(groups=None)` se traduce a
+    `groups IS NULL` y arrastra a todo usuario sin grupos de permisos: el
+    alumnado entero aparecía como profesorado, con la casilla «vía» vacía.
+    """
+    from django.contrib.auth.models import Group as GrupoPermisos
+
+    GrupoPermisos.objects.filter(name=GRUPO_PROFESORADO).delete()
+
+    jefe = django_user_model.objects.create_user(
+        email="jefe30@x.es", password="x", is_staff=True
+    )
+    ana, grupo = _profesor(django_user_model, "ana30@x.es", asignatura, "30-A")
+    alumno = django_user_model.objects.create_user(email="alu30@x.es", password="x")
+    Enrollment.objects.create(user=alumno, group=grupo, is_active=True)
+
+    client.force_login(jefe)
+    respuesta = client.get(reverse("clases:profesorado"))
+
+    correos = [f["user"].email for f in respuesta.context["gente"]]
+    assert "alu30@x.es" not in correos, "el alumnado no es profesorado"
+    assert {"jefe30@x.es", "ana30@x.es"} <= set(correos)

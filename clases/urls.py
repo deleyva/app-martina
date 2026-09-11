@@ -61,6 +61,26 @@ urlpatterns = [
         name="progreso",
     ),
     path(
+        "profesorado/",
+        views_libros.profesorado,
+        name="profesorado",
+    ),
+    path(
+        "profesorado/<int:user_id>/revocar/",
+        views_libros.profesorado_revocar,
+        name="profesorado_revocar",
+    ),
+    path(
+        "groups/<int:group_id>/invitaciones/",
+        views_libros.group_invitations,
+        name="group_invitations",
+    ),
+    path(
+        "invitaciones/<int:pk>/revocar/",
+        views_libros.invitation_revoke,
+        name="invitation_revoke",
+    ),
+    path(
         "groups/crear/",
         views_libros.group_create,
         name="group_create",
