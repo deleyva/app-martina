@@ -61,6 +61,11 @@ urlpatterns = [
         name="progreso",
     ),
     path(
+        "groups/crear/",
+        views_libros.group_create,
+        name="group_create",
+    ),
+    path(
         "groups/<int:group_id>/libros/",
         views_libros.group_books_index,
         name="group_books_index",

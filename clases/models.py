@@ -224,13 +224,37 @@ class Enrollment(models.Model):
 
 
 class GroupInvitation(models.Model):
-    """Enlace de invitación para que usuarios se unan a un grupo concreto."""
+    """Enlace de invitación: para entrar en un grupo, o para ser profesor.
 
+    Un solo modelo para los dos casos porque la maquinaria que importa es la
+    misma —caducidad, tope de usos, contador, revocación— y duplicarla daría dos
+    sitios donde arreglar la próxima fuga.
+    """
+
+    ALUMNADO = "alumnado"
+    PROFESORADO = "profesorado"
+    ROLES = [
+        (ALUMNADO, "Alumnado — se matricula en el grupo"),
+        (PROFESORADO, "Profesorado — puede usar la aplicación"),
+    ]
+
+    rol = models.CharField(
+        max_length=12,
+        choices=ROLES,
+        default=ALUMNADO,
+        verbose_name="Para quién",
+    )
+
+    # Sin grupo cuando la invitación es de profesorado y solo habilita el
+    # acceso. Con grupo, además le hace profesor de ese grupo: sirve para
+    # invitar a un compañero a dar clase contigo en uno concreto.
     group = models.ForeignKey(
         Group,
         on_delete=models.CASCADE,
         related_name="invitations",
         verbose_name="Grupo",
+        null=True,
+        blank=True,
     )
     token = models.UUIDField(
         default=uuid.uuid4,
@@ -283,7 +307,8 @@ class GroupInvitation(models.Model):
         verbose_name_plural = "Invitaciones a grupos"
 
     def __str__(self):
-        return f"Invitación a {self.group} ({self.token})"
+        destino = self.group or "la aplicación"
+        return f"Invitación de {self.get_rol_display()} a {destino} ({self.token})"
 
     def is_valid(self):
         """Comprobar si la invitación sigue siendo válida."""
@@ -302,14 +327,20 @@ class GroupInvitation(models.Model):
     def accept_for_user(self, user):
         """Aceptar la invitación para un usuario autenticado.
 
-        Retorna (enrollment, status) donde status es:
-        - "joined": se ha creado el Enrollment y unido al grupo
-        - "already_in_group": el usuario ya está matriculado en este grupo
-        - "invalid": la invitación no es válida
+        Retorna `(objeto, estado)`, con estado uno de:
+
+        - `joined` — matriculado en el grupo
+        - `already_in_group` — ya estaba matriculado
+        - `habilitado` — ya puede usar la aplicación como profesor
+        - `ya_era_profesor` — ya podía
+        - `invalid` — la invitación no vale
         """
 
         if not self.is_valid():
             return None, "invalid"
+
+        if self.rol == self.PROFESORADO:
+            return self._habilitar_profesor(user)
 
         # Verificar si ya existe matrícula activa para este grupo
         existing = Enrollment.objects.filter(
@@ -322,11 +353,36 @@ class GroupInvitation(models.Model):
         # Crear nueva matrícula
         enrollment = Enrollment.objects.create(user=user, group=self.group)
 
+        self._anotar_uso()
+        return enrollment, "joined"
+
+    def _habilitar_profesor(self, user):
+        """Mete al usuario en el grupo de permisos, y nada más.
+
+        **No toca `is_staff`**, que es justo el punto: `is_staff` abre el admin de
+        Django, y un profesor invitado no tiene por qué entrar ahí.
+
+        Si la invitación lleva grupo, además le hace profesor de ese grupo. Sin
+        grupo solo habilita el acceso, y él se crea los suyos.
+        """
+        from django.contrib.auth.models import Group as GrupoDePermisos
+
+        from martina_bescos_app.users.permisos import GRUPO_PROFESORADO, es_profesor
+
+        ya_podia = es_profesor(user)
+
+        permisos, _ = GrupoDePermisos.objects.get_or_create(name=GRUPO_PROFESORADO)
+        user.groups.add(permisos)
+        if self.group_id:
+            self.group.teachers.add(user)
+
+        self._anotar_uso()
+        return self.group, ("ya_era_profesor" if ya_podia else "habilitado")
+
+    def _anotar_uso(self):
         self.uses += 1
         self.last_used_at = timezone.now()
         self.save(update_fields=["uses", "last_used_at"])
-
-        return enrollment, "joined"
 
 
 # =============================================================================

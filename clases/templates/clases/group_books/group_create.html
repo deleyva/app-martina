@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Crear un grupo{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-xl">
+
+  <a href="{% url 'clases:class_session_list' %}" class="btn btn-ghost btn-sm mb-4">← Sesiones</a>
+
+  <h1 class="text-2xl sm:text-3xl font-bold">Crear un grupo</h1>
+  <p class="text-sm text-base-content/70 mt-1">
+    Quedarás como profesor del grupo. Después le asignas libros y ya puedes preparar clases.
+  </p>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags|default:'info' }} my-4">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+
+  <form method="post" class="flex flex-col gap-4 mt-6">
+    {% csrf_token %}
+
+    <label class="flex flex-col gap-1">
+      <span class="text-sm font-medium">Nombre del grupo</span>
+      <input type="text" name="name" class="input input-bordered" required
+             placeholder="3-EG-BIL" autofocus>
+      <span class="text-xs text-base-content/60">
+        Como lo llames aquí es como lo verás en todas las pantallas.
+      </span>
+    </label>
+
+    <label class="flex flex-col gap-1">
+      <span class="text-sm font-medium">Curso académico</span>
+      <input type="text" name="academic_year" class="input input-bordered"
+             value="{{ curso }}" required>
+    </label>
+
+    <div class="divider my-1">Asignatura</div>
+
+    <label class="flex flex-col gap-1">
+      <span class="text-sm font-medium">Elige una</span>
+      <select name="subject" class="select select-bordered">
+        <option value="">—</option>
+        {% for a in asignaturas %}
+          <option value="{{ a.pk }}">{{ a.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label class="flex flex-col gap-1">
+      <span class="text-sm font-medium">O escribe una nueva</span>
+      <input type="text" name="asignatura_nueva" class="input input-bordered"
+             placeholder="Lenguaje musical">
+      <span class="text-xs text-base-content/60">
+        Si escribes una que ya existe, se reutiliza en vez de duplicarla.
+      </span>
+    </label>
+
+    <button type="submit" class="btn btn-primary self-start">Crear grupo</button>
+  </form>
+
+</div>
+{% endblock %}

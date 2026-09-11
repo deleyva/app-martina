@@ -138,3 +138,122 @@ def test_no_se_puede_calificar_a_un_alumno_ajeno(
     )
 
     assert respuesta.status_code == 404
+
+
+# =============================================================================
+# La invitación de profesorado
+# =============================================================================
+
+
+def test_aceptar_una_invitacion_de_profesorado_habilita_sin_dar_el_admin(
+    db, django_user_model, asignatura
+):
+    """La razón de ser de todo el bloque: profesor sí, admin de Django no."""
+    from clases.models import GroupInvitation
+
+    anfitrion = django_user_model.objects.create_user(email="jefe@x.es", password="x", is_staff=True)
+    invitado = django_user_model.objects.create_user(email="nuevo@x.es", password="x")
+    assert not es_profesor(invitado)
+
+    inv = GroupInvitation.objects.create(
+        rol=GroupInvitation.PROFESORADO, created_by=anfitrion
+    )
+    _objeto, estado = inv.accept_for_user(invitado)
+
+    invitado.refresh_from_db()
+    assert estado == "habilitado"
+    assert es_profesor(invitado)
+    assert not invitado.is_staff, "una invitación no puede abrir el admin de Django"
+
+
+def test_una_invitacion_de_profesorado_con_grupo_le_hace_profesor_de_ese_grupo(
+    db, django_user_model, asignatura
+):
+    """El otro caso: invitar a un compañero a dar clase contigo en un grupo."""
+    from clases.models import GroupInvitation
+
+    ana, grupo = _profesor(django_user_model, "ana9@x.es", asignatura, "9-A")
+    beto = django_user_model.objects.create_user(email="beto9@x.es", password="x")
+
+    inv = GroupInvitation.objects.create(
+        rol=GroupInvitation.PROFESORADO, group=grupo, created_by=ana
+    )
+    inv.accept_for_user(beto)
+
+    assert grupo.teachers.filter(pk=beto.pk).exists()
+    assert es_profesor(beto)
+
+
+def test_la_invitacion_de_alumnado_sigue_matriculando(db, django_user_model, asignatura):
+    """El contrapunto: lo que ya funcionaba no puede haberse roto al añadir el rol."""
+    from clases.models import Enrollment, GroupInvitation
+
+    ana, grupo = _profesor(django_user_model, "ana10@x.es", asignatura, "10-A")
+    alumno = django_user_model.objects.create_user(email="alu10@x.es", password="x")
+
+    inv = GroupInvitation.objects.create(group=grupo, created_by=ana)
+    _obj, estado = inv.accept_for_user(alumno)
+
+    assert estado == "joined"
+    assert Enrollment.objects.filter(user=alumno, group=grupo, is_active=True).exists()
+    assert not es_profesor(alumno), "matricularse no puede hacerte profesor"
+
+
+def test_una_invitacion_caducada_no_habilita(db, django_user_model):
+    """La maquinaria de validez que ya existía tiene que seguir valiendo para el
+    rol nuevo: si no, una invitación de profesorado revocada seguiría dando
+    acceso para siempre."""
+    from django.utils import timezone
+    from datetime import timedelta
+
+    from clases.models import GroupInvitation
+
+    invitado = django_user_model.objects.create_user(email="tarde@x.es", password="x")
+    inv = GroupInvitation.objects.create(
+        rol=GroupInvitation.PROFESORADO,
+        expires_at=timezone.now() - timedelta(days=1),
+    )
+
+    _obj, estado = inv.accept_for_user(invitado)
+
+    assert estado == "invalid"
+    assert not es_profesor(invitado)
+
+
+def test_un_profesor_puede_crear_su_grupo_desde_el_frontend(
+    db, client, django_user_model, asignatura
+):
+    """Fase 3: sin esto, un profesor invitado no puede empezar."""
+    from clases.models import Group
+
+    ana, _grupo = _profesor(django_user_model, "ana11@x.es", asignatura, "11-A")
+    client.force_login(ana)
+
+    respuesta = client.post(
+        reverse("clases:group_create"),
+        {"name": "2-D-BIL", "academic_year": "2026-2027", "subject": asignatura.pk},
+    )
+
+    assert respuesta.status_code == 302
+    nuevo = Group.objects.get(name="2-D-BIL")
+    assert nuevo.teachers.filter(pk=ana.pk).exists(), "quien lo crea queda como profesor"
+
+
+def test_crear_un_grupo_con_asignatura_nueva_no_duplica(
+    db, client, django_user_model, asignatura
+):
+    """Las asignaturas son globales y las ve todo el profesorado: sin deduplicar
+    acabarían conviviendo «Lenguaje musical» y «Lenguaje Musical»."""
+    from clases.models import Subject
+
+    ana, _grupo = _profesor(django_user_model, "ana12@x.es", asignatura, "12-A")
+    client.force_login(ana)
+
+    for nombre in ["Lenguaje musical", "LENGUAJE MUSICAL"]:
+        client.post(
+            reverse("clases:group_create"),
+            {"name": f"G-{nombre[:3]}", "academic_year": "2026-2027",
+             "asignatura_nueva": nombre},
+        )
+
+    assert Subject.objects.filter(name__iexact="lenguaje musical").count() == 1

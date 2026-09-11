@@ -555,3 +555,73 @@ def group_archivar(request, group_id):
     else:
         messages.success(request, f"«{grupo.name}» vuelve al día a día.")
     return redirect(request.POST.get("volver_a") or "clases:class_session_list")
+
+
+# =============================================================================
+# CREAR GRUPOS Y REPARTIR INVITACIONES
+# =============================================================================
+
+CURSO_POR_DEFECTO = "2026-2027"
+
+
+@login_required
+@user_passes_test(es_profesor)
+def group_create(request):
+    """Crear un grupo desde el frontend, sin pasar por el admin de Django.
+
+    Es lo que faltaba para que un profesor invitado pueda usar esto solo: hasta
+    hoy los grupos únicamente nacían en el admin, y dar acceso al admin era
+    justamente lo que no se quería.
+    """
+    from clases.models import Subject
+
+    if request.method == "POST":
+        nombre = (request.POST.get("name") or "").strip()
+        curso = (request.POST.get("academic_year") or CURSO_POR_DEFECTO).strip()
+        asignatura = _asignatura_elegida(request)
+
+        if not nombre:
+            messages.error(request, "El grupo necesita un nombre.")
+        elif asignatura is None:
+            messages.error(request, "Elige una asignatura o escribe una nueva.")
+        else:
+            grupo, creado = Group.objects.get_or_create(
+                name=nombre, subject=asignatura, academic_year=curso
+            )
+            grupo.teachers.add(request.user)
+            if creado:
+                messages.success(request, f"Grupo «{grupo.name}» creado.")
+            else:
+                messages.info(
+                    request, f"«{grupo.name}» ya existía; ahora también das clase ahí."
+                )
+            return redirect("clases:group_books_index", group_id=grupo.pk)
+
+    return render(
+        request,
+        "clases/group_books/group_create.html",
+        {
+            "asignaturas": Subject.objects.order_by("name"),
+            "curso": CURSO_POR_DEFECTO,
+        },
+    )
+
+
+def _asignatura_elegida(request):
+    """La asignatura del formulario: una existente o una nueva.
+
+    **Se deduplica por nombre sin distinguir mayúsculas.** Las asignaturas son
+    globales y las ve todo el profesorado en el desplegable: sin esto acabarían
+    conviviendo «Lenguaje musical», «Lenguaje Musical» y «lenguaje musical».
+    """
+    from clases.models import Subject
+
+    nueva = (request.POST.get("asignatura_nueva") or "").strip()
+    if nueva:
+        existente = Subject.objects.filter(name__iexact=nueva).first()
+        if existente:
+            return existente
+        return Subject.objects.create(name=nueva, code=nueva[:10].upper())
+
+    pk = request.POST.get("subject")
+    return Subject.objects.filter(pk=pk).first() if pk else None

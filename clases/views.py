@@ -60,6 +60,14 @@ def group_join_by_invitation(request, token):
         )
     elif status == "joined":
         messages.success(request, f"Te has unido al grupo {invitation.group}.")
+    elif status == "habilitado":
+        messages.success(
+            request,
+            "Ya puedes usar la aplicación como profesor. "
+            "Empieza creando un grupo y asignándole libros.",
+        )
+    elif status == "ya_era_profesor":
+        messages.info(request, "Ya tenías acceso como profesor.")
     else:
         messages.error(
             request,
