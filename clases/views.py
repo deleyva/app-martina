@@ -20,11 +20,6 @@ from .models import (
 )
 
 
-# Helper function to check if user is staff
-def is_staff(user):
-    return user.is_staff
-
-
 # =============================================================================
 # INVITACIONES A GRUPOS
 # =============================================================================
@@ -291,7 +286,7 @@ def class_session_list(request):
     TINY VIEW: solo orquesta y renderiza.
     """
     user = request.user
-    is_teacher = user.is_staff and hasattr(user, "teaching_groups")
+    is_teacher = es_profesor(user)
 
     # `?archivadas=1` enseña justamente lo contrario: lo que está fuera del día a
     # día. No es un "ver todo": si mezclara, la vista archivada no serviría para
@@ -489,7 +484,7 @@ def class_session_view(request, pk):
     TINY VIEW: solo renderiza.
     """
     user = request.user
-    is_teacher = user.is_staff and hasattr(user, "teaching_groups")
+    is_teacher = es_profesor(user)
 
     if is_teacher:
         # Profesor: ver su propia sesión
@@ -529,7 +524,7 @@ def class_session_present(request, pk):
     Usa fetch item-by-item con los mismos viewers (PDF, imagen, audio, embed).
     """
     user = request.user
-    is_teacher = user.is_staff and hasattr(user, "teaching_groups")
+    is_teacher = es_profesor(user)
 
     if is_teacher:
         session = get_object_or_404(ClassSession, pk=pk, teacher=user)
@@ -603,7 +598,7 @@ def class_session_item_content(request, session_id, item_id):
     Análogo a my_library:study_item_content pero para ClassSessionItem.
     """
     user = request.user
-    is_teacher = user.is_staff and hasattr(user, "teaching_groups")
+    is_teacher = es_profesor(user)
 
     session = get_object_or_404(ClassSession, pk=session_id)
     if is_teacher:
@@ -1299,7 +1294,7 @@ def class_session_item_viewer(request, session_id, item_id):
     Soporta parámetro 'from' para volver a la vista correcta (view o edit).
     """
     user = request.user
-    is_teacher = user.is_staff and hasattr(user, "teaching_groups")
+    is_teacher = es_profesor(user)
 
     session = get_object_or_404(ClassSession, pk=session_id)
 

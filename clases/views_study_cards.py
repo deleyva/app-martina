@@ -19,7 +19,6 @@ from clases.services.card_codes import generate_codes_for_page
 from clases.services.card_ocr import ocr_registration_sheet
 from clases.services.card_pdf import generate_cards_pdf, generate_registration_sheet
 from clases.services.card_suggestions import get_suggestions_for_group
-from clases.views import is_staff
 from martina_bescos_app.users.permisos import es_profesor, grupo_del_profesor
 from musica.models import LibroPage, RecursoPage
 

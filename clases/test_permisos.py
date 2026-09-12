@@ -483,3 +483,77 @@ def test_la_redireccion_de_la_raiz_no_es_permanente(db, client):
     respuesta = client.get(reverse("clases:index"))
 
     assert respuesta.status_code == 302, "una permanente sería un 301"
+
+
+# =============================================================================
+# El rol dentro de las sesiones
+# =============================================================================
+#
+# El bloque de acceso abrió la puerta, pero dentro de las vistas de sesión el
+# reparto de rol seguía siendo `user.is_staff`. O sea: un profesor invitado
+# entraba, creaba su grupo, y a partir de ahí se le trataba como alumno. El
+# `hasattr(user, "teaching_groups")` que lo acompañaba no comprobaba nada —
+# es una relación inversa y existe siempre.
+
+
+@pytest.fixture
+def sesion_de_un_profesor_invitado(db, django_user_model, asignatura):
+    """Un profesor SIN `is_staff`, con su grupo y una sesión suya."""
+    from datetime import date
+
+    from clases.models import ClassSession
+
+    user, grupo = _profesor(
+        django_user_model, "invitada@x.es", asignatura, "2-B-rol"
+    )
+    sesion = ClassSession.objects.create(
+        teacher=user, group=grupo, date=date.today(), title="Clase del martes"
+    )
+    return user, grupo, sesion
+
+
+def test_un_profesor_sin_is_staff_ve_sus_sesiones(
+    client, sesion_de_un_profesor_invitado
+):
+    """Con el criterio viejo caía en la rama de alumno, que solo enseña las
+    sesiones de los grupos donde está *matriculado* — y no lo está en ninguno,
+    porque es el profesor. Resultado: su propia clase no le salía."""
+    user, _grupo, sesion = sesion_de_un_profesor_invitado
+    assert not user.is_staff
+    client.force_login(user)
+
+    respuesta = client.get(reverse("clases:class_session_list"))
+
+    assert respuesta.status_code == 200
+    assert respuesta.context["is_teacher"] is True
+    assert sesion in respuesta.context["sessions"]
+
+
+def test_un_profesor_sin_is_staff_abre_su_sesion(
+    client, sesion_de_un_profesor_invitado
+):
+    """La rama de alumno exige matrícula y devuelve 403 al no encontrarla: el
+    profesor se quedaba fuera de su propia clase."""
+    user, _grupo, sesion = sesion_de_un_profesor_invitado
+    client.force_login(user)
+
+    respuesta = client.get(reverse("clases:class_session_view", args=[sesion.pk]))
+
+    assert respuesta.status_code == 200
+
+
+def test_el_alumnado_sigue_sin_pasar_por_la_rama_de_profesor(
+    client, db, django_user_model, sesion_de_un_profesor_invitado
+):
+    """El falsador del cambio: ensanchar quién es profesor no puede colar a un
+    alumno en la rama que enseña las sesiones como propias."""
+    _user, grupo, sesion = sesion_de_un_profesor_invitado
+    alumno = django_user_model.objects.create_user(email="alumna@x.es", password="x")
+    Enrollment.objects.create(user=alumno, group=grupo, is_active=True)
+    client.force_login(alumno)
+
+    respuesta = client.get(reverse("clases:class_session_list"))
+
+    assert respuesta.status_code == 200
+    assert respuesta.context["is_teacher"] is False
+    assert sesion in respuesta.context["sessions"], "la ve, pero como alumna"

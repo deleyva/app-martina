@@ -2,7 +2,7 @@
 slug: app-martina
 phase: complete
 progress: false
-iteration: 40
+iteration: 41
 principal_stated_goal: "Necesito desarrollar en apps.iesmartinabescos.es Otra app de Django como la que tenemos en /incidencias. Está sí que debe de requerir login con Google porque ya tenemos implementado. Básicamente, es una aplicación en la que quiero que vayan solicitando la clave Wi-Fi. Pero para ello deben logearse y enviar la MAC de su dispositivo WIFI, la privada (real) no la aleatoria."
 updated: 2026-09-11
 ---
@@ -2690,3 +2690,31 @@ grupos de permisos**. El filtro se arma ahora por trozos, y hay test del caso.
    acota el permiso de Wagtail.
 3. Probar el circuito completo con una cuenta real: invitar, aceptar, crear
    grupo, asignar libros.
+
+### Fase 31·5 — El rol dentro de las sesiones (2026-09-12)
+
+- [x] **C172** · `/clases/` deja de dar 404 y lleva a la lista de sesiones, que
+  ya reparte sola por rol. Redirección **temporal**: un 301 se le queda grabado
+  al navegador y el día que haya portada propia no habría cómo despegarlo.
+- [x] **C173** · Las cinco vistas de sesión reparten el rol con `es_profesor()`,
+  no con `is_staff`. *Falsador:* un profesor sin `is_staff`, con grupo y sesión
+  propia, ve su clase en la lista y la abre con 200. Verificado al revés: con el
+  criterio viejo, `assert False is True` y `assert 403 == 200`.
+- [x] **C174** · El alumnado sigue fuera de la rama de profesor. Este es el
+  falsador del ensanchamiento, y sin él C173 se podría cerrar rompiendo el otro
+  lado.
+
+#### Lo que estaba pasando
+
+El bloque de acceso (fase 31·4) abrió la puerta, pero **dentro** de las vistas de
+sesión el rol seguía siendo `user.is_staff and hasattr(user, "teaching_groups")`.
+Un profesor invitado entraba, creaba su grupo, y a partir de ahí caía en la rama
+de alumno: esa rama exige matrícula, y él no está matriculado en ningún sitio
+porque es el profesor. Su propia clase no le salía, y abrirla daba 403.
+
+El `hasattr` no comprobaba nada: `teaching_groups` es una relación inversa y
+existe en todo usuario. Parecía una segunda condición y era un adorno.
+
+Se fue también el ayudante `is_staff()` de `clases/views.py` y su import huérfano
+en `views_study_cards.py`. Dejarlo puesto es dejar la trampa cargada para quien
+decore la próxima vista.
