@@ -1,4 +1,5 @@
 from django.urls import path
+from django.views.generic import RedirectView
 from . import views
 from . import views_libros
 from . import views_study_cards
@@ -6,6 +7,21 @@ from . import views_study_cards
 app_name = "clases"
 
 urlpatterns = [
+    # =============================================================================
+    # LA RAÍZ
+    # =============================================================================
+    # `/clases/` es lo que se escribe de memoria y lo que queda en un marcador,
+    # y hasta ahora daba 404. Va a la lista de sesiones, que ya reparte sola:
+    # el profesorado ve las suyas y el alumnado las de sus grupos.
+    #
+    # Redirección temporal a propósito. Una permanente se le queda grabada al
+    # navegador para siempre, y el día que `/clases/` tenga portada propia
+    # habría que ir cliente por cliente a despegarla.
+    path(
+        "",
+        RedirectView.as_view(pattern_name="clases:class_session_list"),
+        name="index",
+    ),
     # =============================================================================
     # INVITACIONES A GRUPOS
     # =============================================================================

@@ -452,3 +452,34 @@ def test_el_panel_no_lista_al_alumnado_cuando_aun_no_hay_grupo_de_permisos(
     correos = [f["user"].email for f in respuesta.context["gente"]]
     assert "alu30@x.es" not in correos, "el alumnado no es profesorado"
     assert {"jefe30@x.es", "ana30@x.es"} <= set(correos)
+
+
+# =============================================================================
+# La raíz de la aplicación
+# =============================================================================
+
+
+def test_la_raiz_de_clases_lleva_a_las_sesiones(db, client, django_user_model):
+    """`/clases/` daba 404: la URL que uno escribe de memoria no llevaba a
+    ninguna parte. Se comprueba a dónde apunta, no solo que no sea 404, porque
+    un 302 hacia el login también dejaría pasar el test."""
+    user, _grupo = _profesor(
+        django_user_model,
+        "raiz@x.es",
+        Subject.objects.get_or_create(name="Música", defaults={"code": "MUS"})[0],
+        "9-Z",
+    )
+    client.force_login(user)
+
+    respuesta = client.get(reverse("clases:index"))
+
+    assert respuesta.status_code == 302
+    assert respuesta["Location"] == reverse("clases:class_session_list")
+
+
+def test_la_redireccion_de_la_raiz_no_es_permanente(db, client):
+    """Un 301 se le queda grabado al navegador y no hay forma de despegarlo
+    desde el servidor el día que `/clases/` tenga portada propia."""
+    respuesta = client.get(reverse("clases:index"))
+
+    assert respuesta.status_code == 302, "una permanente sería un 301"
