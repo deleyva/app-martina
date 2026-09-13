@@ -788,3 +788,98 @@ def test_lo_apagado_en_bloque_no_se_propone(db):
     libros_de_grupo.marcar_en_bloque(gb, "capitulo_off", caps[0][0].pk)
 
     assert libros_de_grupo.siguientes(gb)[0]["titulo"] == "b1"
+
+
+# =============================================================================
+# C175 · El momento y el modo se corrigen sin perder el avance
+# =============================================================================
+#
+# La vista aceptaba `seccion` y `modo` desde el primer día, pero la pantalla no
+# los ofrecía: una vez asignado un libro, la única forma de corregirlo era
+# quitarlo y volverlo a asignar — y eso se lleva su avance por delante. Los
+# tests van por HTTP porque el agujero estaba en la puerta, no en el modelo.
+
+
+def _profesor_con_libro(django_user_model, seccion="teoria", modo=GroupBook.SECUENCIAL):
+    profe = django_user_model.objects.create_user(
+        email="corrige@example.com", password="x", is_staff=True
+    )
+    grupo = _grupo("3-C-BIL")
+    grupo.teachers.add(profe)
+    libro, _ = _libro_con_capitulos(
+        "Lecturas rítmicas", "lecturas-corrige", [("Cap 1", ["m1", "m2", "m3"])]
+    )
+    return profe, _asignar(grupo, libro, seccion=seccion, modo=modo)
+
+
+def test_cambiar_el_modo_por_http(db, client, django_user_model):
+    profe, group_book = _profesor_con_libro(django_user_model)
+    client.force_login(profe)
+
+    from django.urls import reverse
+
+    respuesta = client.post(
+        reverse("clases:group_book_update", args=[group_book.pk]),
+        {"modo": GroupBook.EN_CURSO},
+    )
+
+    group_book.refresh_from_db()
+    assert respuesta.status_code == 302
+    assert group_book.modo == GroupBook.EN_CURSO
+
+
+def test_cambiar_la_seccion_por_http(db, client, django_user_model):
+    profe, group_book = _profesor_con_libro(django_user_model, seccion="teoria")
+    client.force_login(profe)
+
+    from django.urls import reverse
+
+    client.post(
+        reverse("clases:group_book_update", args=[group_book.pk]),
+        {"seccion": "cancion"},
+    )
+
+    group_book.refresh_from_db()
+    assert group_book.seccion == "cancion"
+
+
+def test_corregir_el_modo_no_se_lleva_el_avance(db, client, django_user_model):
+    """El falsador de por qué esto no se arregla quitando y volviendo a asignar:
+    quitar borra las filas de excepción, y con ellas lo que ya estaba visto."""
+    profe, group_book = _profesor_con_libro(django_user_model)
+    primera = libros_de_grupo.enumerar(group_book)[0]
+    libros_de_grupo.excepcion(group_book, primera["objeto"], estado="visto")
+    vistos_antes, total_antes = libros_de_grupo.progreso(group_book)
+    assert vistos_antes == 1
+
+    client.force_login(profe)
+    from django.urls import reverse
+
+    client.post(
+        reverse("clases:group_book_update", args=[group_book.pk]),
+        {"modo": GroupBook.EN_CURSO, "seccion": "cancion"},
+    )
+
+    group_book.refresh_from_db()
+    assert (vistos_antes, total_antes) == libros_de_grupo.progreso(group_book)
+
+
+def test_un_profesor_no_corrige_el_libro_de_otro(db, client, django_user_model):
+    """Ensanchar lo que se puede editar ensancha lo que se puede editar *de
+    otro*. Este es el falsador de que no."""
+    _profe, group_book = _profesor_con_libro(django_user_model)
+    intruso = django_user_model.objects.create_user(email="intruso@x.es", password="x")
+    grupo_propio = _grupo("otro")
+    grupo_propio.teachers.add(intruso)
+    client.force_login(intruso)
+
+    from django.urls import reverse
+
+    respuesta = client.post(
+        reverse("clases:group_book_update", args=[group_book.pk]),
+        {"modo": GroupBook.EN_CURSO},
+    )
+
+    group_book.refresh_from_db()
+    assert respuesta.status_code == 404
+    assert group_book.modo == GroupBook.SECUENCIAL

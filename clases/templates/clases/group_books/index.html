@@ -30,15 +30,41 @@
       <div class="card bg-base-100 border border-base-300">
         <div class="card-body p-4 gap-3">
 
-          <div class="flex flex-wrap items-baseline gap-2">
-            <span class="badge badge-outline badge-sm">{{ fila.group_book.get_seccion_display }}</span>
+          {% comment %}
+          El momento de la clase y el modo se deciden al asignar, pero se
+          aciertan usándolos: un libro que parecía un método resulta que se
+          trabaja en curso, o cambia de sitio en la clase. Por eso se editan
+          aquí mismo, en el sitio donde se leen, en vez de obligar a quitar el
+          libro y volverlo a asignar — que además se llevaría su avance por
+          delante.
+          {% endcomment %}
+          <form method="post" action="{% url 'clases:group_book_update' fila.group_book.pk %}"
+                class="flex flex-wrap items-center gap-2">
+            {% csrf_token %}
+
+            <select name="seccion" class="select select-bordered select-xs"
+                    title="Momento de la clase" aria-label="Momento de la clase"
+                    onchange="this.form.submit()">
+              {% for clave, nombre in secciones %}
+                <option value="{{ clave }}" {% if clave == fila.group_book.seccion %}selected{% endif %}>{{ nombre }}</option>
+              {% endfor %}
+            </select>
+
             <a href="{% url 'clases:group_book_items' fila.group_book.pk %}" class="font-semibold link link-hover">
               {{ fila.group_book.libro.title }}
             </a>
-            {% if fila.group_book.modo == 'en_curso' %}
-              <span class="badge badge-warning badge-sm">en curso</span>
-            {% endif %}
-          </div>
+
+            <select name="modo" class="select select-bordered select-xs"
+                    title="Cómo avanza" aria-label="Cómo avanza"
+                    onchange="this.form.submit()">
+              {% for clave, nombre in modos %}
+                <option value="{{ clave }}" {% if clave == fila.group_book.modo %}selected{% endif %}>{{ nombre }}</option>
+              {% endfor %}
+            </select>
+
+            {# Sin JavaScript los selects no se envían solos. #}
+            <noscript><button type="submit" class="btn btn-xs">Guardar</button></noscript>
+          </form>
 
           <div class="flex items-center gap-3">
             <progress class="progress progress-primary w-full max-w-xs" value="{{ fila.vistos }}" max="{{ fila.total }}"></progress>
