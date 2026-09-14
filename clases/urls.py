@@ -96,6 +96,17 @@ urlpatterns = [
         views_libros.invitation_revoke,
         name="invitation_revoke",
     ),
+    # =============================================================================
+    # PLANTILLAS DE NIVEL
+    # =============================================================================
+    # `niveles` y no `plantillas`: `clases:plantillas` ya existe y son las
+    # plantillas para escribir del modo presentación. Dos cosas distintas con el
+    # mismo nombre en el mismo espacio de nombres es confusión garantizada.
+    path(
+        "niveles/",
+        views_libros.niveles,
+        name="niveles",
+    ),
     path(
         "groups/crear/",
         views_libros.group_create,

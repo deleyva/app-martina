@@ -37,10 +37,16 @@ def es_profesor(user):
         return True
     if user.groups.filter(name=GRUPO_PROFESORADO).exists():
         return True
-    return user.teaching_groups.exists()
+    # `Group.todos` y no `user.teaching_groups`: el gestor por defecto esconde
+    # las plantillas de nivel, y tener una plantilla también es dar clase. Sin
+    # esto, alguien cuyos grupos fueran todos plantillas dejaría de ser profesor
+    # de golpe, y el sitio donde se notaría sería una redirección al login.
+    from clases.models import Group
+
+    return Group.todos.filter(teachers=user).exists()
 
 
-def grupo_del_profesor(user, group_id):
+def grupo_del_profesor(user, group_id, incluir_plantillas=False):
     """El grupo, si este profesor le da clase. Si no, 404.
 
     404 y no 403 a propósito: un 403 confirma que el grupo existe, y eso ya es
@@ -48,10 +54,16 @@ def grupo_del_profesor(user, group_id):
 
     El administrador (`is_staff`) pasa por encima: es quien tiene que poder
     mirar cualquier grupo cuando algo va mal.
+
+    **Las plantillas de nivel quedan fuera salvo que se pidan.** Son grupos sin
+    alumnos, y quince vistas llaman aquí esperando una clase de verdad: crear
+    una sesión en una plantilla o invitar alumnado a ella no significa nada. Las
+    tres pantallas de plantillas piden `incluir_plantillas=True`, a la vista.
     """
     from clases.models import Group
 
-    grupo = Group.objects.filter(pk=group_id).first()
+    gestor = Group.todos if incluir_plantillas else Group.objects
+    grupo = gestor.filter(pk=group_id).first()
     if grupo is None:
         raise Http404("No existe ese grupo.")
     if user.is_staff or grupo.teachers.filter(pk=user.pk).exists():

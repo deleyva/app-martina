@@ -2,7 +2,7 @@
 slug: app-martina
 phase: complete
 progress: false
-iteration: 41
+iteration: 42
 principal_stated_goal: "Necesito desarrollar en apps.iesmartinabescos.es Otra app de Django como la que tenemos en /incidencias. Está sí que debe de requerir login con Google porque ya tenemos implementado. Básicamente, es una aplicación en la que quiero que vayan solicitando la clave Wi-Fi. Pero para ello deben logearse y enviar la MAC de su dispositivo WIFI, la privada (real) no la aleatoria."
 updated: 2026-09-11
 ---
@@ -2718,3 +2718,71 @@ existe en todo usuario. Parecía una segunda condición y era un adorno.
 Se fue también el ayudante `is_staff()` de `clases/views.py` y su import huérfano
 en `views_study_cards.py`. Dejarlo puesto es dejar la trampa cargada para quien
 decore la próxima vista.
+
+## Fase 32 — Plantillas de nivel (2026-09-14)
+
+Montar «lo que se da en tercero» una vez y mandarlo a los grupos que elijas, en
+vez de repetir la misma faena en cada uno.
+
+**Copia, no acoplamiento.** Se valoró que el nivel fuera una regla viva (cambias
+en 3.º y cambia en los cuatro grupos). El principal eligió copia: la plantilla se
+envía, y a partir de ahí cada grupo va por su cuenta. Lo que hace que la copia
+funcione —y que un simple «copiar de otro grupo» no funcionara— es que **la
+plantilla se queda**: un libro nuevo en marzo se configura una vez y se envía.
+
+**No hay campo «nivel».** Se descartó a propósito: como los grupos se eligen con
+casillas, la plantilla no necesita saber de qué nivel es. Además, deducirlo del
+nombre convertiría la convención de nombres en esquema, y renombrar un grupo le
+borraría el nivel en silencio.
+
+### Lo nuevo dentro de un libro: conjunto, no fecha
+
+Primera propuesta: guardar una fecha de última revisión y marcar lo posterior.
+El principal la rechazó por el falso positivo, y tenía razón de raíz: **una fecha
+responde a cuándo cambió el capítulo, no a qué elementos hay que no estuvieran**.
+
+Lo que se guarda es el conjunto de claves (`imagen:1234`) que había la última vez.
+Es exacto en los dos sentidos que fallaban: republicar por una errata marca cero,
+y meter en un capítulo una imagen de 2019 marca exactamente una.
+
+### Criterios
+
+- [x] **C176** · Una plantilla no aparece en ninguna pantalla donde aparezcan
+  clases. *Falsador:* recorrer las pantallas por HTTP, no el ORM.
+- [x] **C177** · Ni alumnado ni sesiones dentro de una plantilla.
+- [ ] **C178** · Enviar lleva qué elementos entran, su orden, el momento y el modo.
+- [ ] **C179** · Enviar nunca toca el avance.
+- [ ] **C180** · Enviar un libro no toca los demás libros de ese grupo.
+- [ ] **C181** · Un elemento que no estaba sale marcado; uno que estaba, no.
+  *Falsadores:* republicar sin añadir marca cero; una imagen vieja marca una.
+- [ ] **C182** · Lo nuevo no bloquea la clase: `preparar_sesion` lo propone igual.
+- [x] **C183** · Una plantilla es de quien la hizo.
+
+### Fase A, cerrada
+
+**Una plantilla es un `Group` con `es_plantilla=True`.** Por eso `GroupBook`,
+`GroupBookItem` y las dos pantallas de libros y elementos funcionan sin tocar una
+línea: comprobado en navegador, asignar un libro a una plantilla lleva a «Elegir
+elementos» igual que en una clase.
+
+**El filtro vive en el gestor por defecto, no en cada consulta.** Se midió antes
+de decidir: hay **nueve** sitios que preguntan por `teaching_groups` fuera del
+embudo de `del_profesor` —la navegación, evaluaciones, programación, fichas de
+estudio—. Parchearlos uno a uno deja sin parchear el décimo. Django construye los
+gestores inversos a partir del gestor por defecto, así que `GrupoManager` los
+tapa los nueve de golpe; `base_manager_name = "todos"` deja que las relaciones
+hacia dentro sigan resolviendo una plantilla. Filtrar en el gestor por defecto es
+un arma cargada, así que **tiene test propio**: si una versión de Django cambia
+ese comportamiento, cae ese test y no una pantalla.
+
+#### El defecto que salió del propio cambio
+
+Esconder las plantillas de `teaching_groups` dejó a `es_profesor()` diciendo que
+no a quien solo tuviera plantillas: se veía como una redirección al login, no
+como un error de permisos. Ahora `es_profesor` pregunta por `Group.todos`.
+
+#### Un test que medía otra cosa
+
+`test_las_plantillas_de_otro_no_salen_en_tu_lista` usaba «3.º ESO», que es el
+`placeholder` del formulario de crear. El texto estaba en la página siempre.
+Ahora usa un nombre que solo puede venir de la base de datos.

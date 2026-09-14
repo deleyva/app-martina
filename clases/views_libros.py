@@ -21,18 +21,24 @@ from clases.models import ClassSession, ClassSessionItem, Group, GroupBook, Grou
 from martina_bescos_app.users.permisos import es_profesor, grupo_del_profesor
 
 
-def _grupo_del_profesor(request, group_id):
+def _grupo_del_profesor(request, group_id, incluir_plantillas=False):
     """Delega en `users.permisos`, que es donde vive la única comprobación.
 
     Se conserva el nombre local porque lo usan quince vistas de este fichero y
     porque toma `request`, que es lo cómodo aquí.
     """
-    return grupo_del_profesor(request.user, group_id)
+    return grupo_del_profesor(request.user, group_id, incluir_plantillas)
 
 
 def _libro_del_profesor(request, pk):
+    """Vale igual para un libro de una clase y para uno de una plantilla.
+
+    Es lo que permite que «Asignar un libro» y «Elegir elementos» sirvan para
+    las dos cosas sin duplicar una sola línea: si el libro cuelga de algo tuyo,
+    lo editas, sea clase o plantilla.
+    """
     group_book = get_object_or_404(GroupBook.objects.select_related("group", "libro"), pk=pk)
-    _grupo_del_profesor(request, group_book.group_id)
+    _grupo_del_profesor(request, group_book.group_id, incluir_plantillas=True)
     return group_book
 
 
@@ -44,8 +50,12 @@ def _libro_del_profesor(request, pk):
 @login_required
 @user_passes_test(es_profesor)
 def group_books_index(request, group_id):
-    """Los libros del grupo, por secciones, con su avance."""
-    grupo = _grupo_del_profesor(request, group_id)
+    """Los libros del grupo, por secciones, con su avance.
+
+    La misma pantalla sirve para una plantilla de nivel: montar «lo que se da en
+    tercero» es exactamente asignar libros y elegir elementos.
+    """
+    grupo = _grupo_del_profesor(request, group_id, incluir_plantillas=True)
 
     asignados = []
     for group_book in libros_de_grupo.libros_activos(grupo):
@@ -84,7 +94,7 @@ def group_books_index(request, group_id):
 @require_http_methods(["POST"])
 def group_book_add(request, group_id):
     """Asigna un libro al grupo. No crea ni una fila de material."""
-    grupo = _grupo_del_profesor(request, group_id)
+    grupo = _grupo_del_profesor(request, group_id, incluir_plantillas=True)
     libro = get_object_or_404(Page, pk=request.POST.get("libro"))
     seccion = request.POST.get("seccion")
     modo = request.POST.get("modo", GroupBook.SECUENCIAL)
@@ -604,6 +614,70 @@ def group_create(request):
         {
             "asignaturas": Subject.objects.order_by("name"),
             "curso": CURSO_POR_DEFECTO,
+        },
+    )
+
+
+# =============================================================================
+# PLANTILLAS DE NIVEL
+# =============================================================================
+
+
+@login_required
+@user_passes_test(es_profesor)
+def niveles(request):
+    """Las plantillas de nivel de este profesor, y el formulario para crear una.
+
+    **Una plantilla es tuya, no del centro.** Si mañana otro profesor da tercero,
+    tiene su propio tercero y nadie se pisa el de nadie: «lo que se da en
+    tercero» es una decisión de quien da la clase, no del claustro.
+    """
+    from clases.models import Subject
+
+    if request.method == "POST":
+        nombre = (request.POST.get("name") or "").strip()
+        asignatura = _asignatura_elegida(request)
+
+        if not nombre:
+            messages.error(request, "La plantilla necesita un nombre.")
+        elif asignatura is None:
+            messages.error(request, "Elige una asignatura o escribe una nueva.")
+        else:
+            plantilla, creada = Group.todos.get_or_create(
+                name=nombre,
+                subject=asignatura,
+                academic_year=CURSO_POR_DEFECTO,
+                defaults={"es_plantilla": True},
+            )
+            if not plantilla.es_plantilla:
+                # Ya existía como CLASE con ese mismo nombre, asignatura y curso
+                # —la clave única es esa terna—. Convertirla se llevaría por
+                # delante a su alumnado, así que no se toca y se dice por qué.
+                messages.error(
+                    request,
+                    f"Ya tienes una clase llamada «{nombre}». Ponle otro nombre a la "
+                    "plantilla, por ejemplo «3.º ESO (plantilla)».",
+                )
+                return redirect("clases:niveles")
+            plantilla.teachers.add(request.user)
+            if creada:
+                messages.success(request, f"Plantilla «{plantilla.name}» creada.")
+            return redirect("clases:group_books_index", group_id=plantilla.pk)
+
+    mias = (
+        Group.todos.filter(es_plantilla=True, teachers=request.user)
+        .select_related("subject")
+        .order_by("name")
+    )
+    return render(
+        request,
+        "clases/group_books/niveles.html",
+        {
+            "plantillas": [
+                {"grupo": p, "n_libros": p.books.filter(activo=True).count()}
+                for p in mias
+            ],
+            "asignaturas": Subject.objects.order_by("name"),
         },
     )
 

@@ -73,6 +73,19 @@ class Subject(models.Model):
         return self.name
 
 
+class GrupoManager(models.Manager):
+    """El gestor por defecto de `Group`: las plantillas no salen.
+
+    Filtrar en el gestor por defecto es un arma cargada y Django avisa de ello,
+    así que aquí queda dicho lo que hace: `Group.objects` son los grupos con
+    alumnos, y `Group.todos` es todo, plantillas incluidas. Las pantallas de
+    plantillas usan `todos` a propósito y a la vista.
+    """
+
+    def get_queryset(self):
+        return super().get_queryset().filter(es_plantilla=False)
+
+
 class Group(models.Model):
     """Grupo de estudiantes (ej: 1º ESO A, 2º Bachillerato B)"""
 
@@ -116,10 +129,38 @@ class Group(models.Model):
         help_text="Fuera de las listas del día a día. No borra nada y se puede deshacer",
     )
 
+    # Una plantilla de nivel: un grupo sin alumnos, que existe solo para montar
+    # en él «lo que se da en tercero» y después mandarlo a los grupos de verdad.
+    #
+    # **Es un `Group` y no un modelo aparte** porque así el motor entero
+    # —`GroupBook`, `GroupBookItem`, las dos pantallas de libros y elementos—
+    # funciona sin tocar una línea. El precio es que una plantilla podría
+    # colarse en cualquier pantalla que liste grupos, y de eso se encarga el
+    # gestor de abajo.
+    es_plantilla = models.BooleanField(
+        default=False,
+        verbose_name="Plantilla de nivel",
+        help_text="No tiene alumnado ni sesiones. Se usa para preparar y enviar a los grupos",
+    )
+
+    # El filtro va en el gestor por defecto, no en cada consulta, y la razón es
+    # una medición: hay NUEVE sitios que preguntan por `teaching_groups` fuera
+    # del embudo de `del_profesor` —la navegación, las evaluaciones, la
+    # programación, las fichas de estudio—. Parchearlos uno a uno deja el
+    # décimo sin parchear el día que alguien añada una pantalla.
+    #
+    # Django construye los gestores inversos (`user.teaching_groups`) a partir
+    # del gestor por defecto, así que filtrar aquí filtra los nueve de golpe.
+    # `base_manager_name` deja que las relaciones internas sigan resolviendo una
+    # plantilla, que si no `group_book.group` reventaría en las suyas propias.
+    objects = GrupoManager()
+    todos = models.Manager()
+
     class Meta:
         db_table = "evaluations_group"  # Mantener tabla existente
         ordering = ["name", "subject"]
         unique_together = ["name", "subject", "academic_year"]
+        base_manager_name = "todos"
         verbose_name = "Grupo"
         verbose_name_plural = "Grupos"
 

@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Plantillas de nivel{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-3xl">
+
+  <a href="{% url 'clases:class_session_list' %}" class="btn btn-ghost btn-sm mb-4">← Sesiones</a>
+
+  <h1 class="text-2xl sm:text-3xl font-bold">🧩 Plantillas de nivel</h1>
+  <p class="text-sm text-base-content/70 mt-1">
+    Monta aquí lo que se da en un nivel y luego lo envías a los grupos que quieras.
+    Una plantilla no tiene alumnado ni sesiones: solo libros y elementos elegidos.
+  </p>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags|default:'info' }} my-4">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+
+  <div class="flex flex-col gap-3 my-6">
+    {% for fila in plantillas %}
+      <div class="card bg-base-100 border border-base-300">
+        <div class="card-body p-4 flex-row items-center justify-between gap-3">
+          <div class="min-w-0">
+            <a href="{% url 'clases:group_books_index' fila.grupo.pk %}" class="font-semibold link link-hover">
+              {{ fila.grupo.name }}
+            </a>
+            <div class="text-xs text-base-content/60">
+              {{ fila.grupo.subject.name }} ·
+              {{ fila.n_libros }} libro{{ fila.n_libros|pluralize:"s" }}
+            </div>
+          </div>
+          <a href="{% url 'clases:group_books_index' fila.grupo.pk %}" class="btn btn-sm btn-primary">
+            Abrir
+          </a>
+        </div>
+      </div>
+    {% empty %}
+      <div class="alert">
+        Todavía no tienes ninguna plantilla. Crea la primera abajo, por ejemplo «3.º ESO».
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="card bg-base-200">
+    <div class="card-body p-4">
+      <h2 class="card-title text-base">Crear una plantilla</h2>
+      <form method="post" class="flex flex-col gap-3">
+        {% csrf_token %}
+
+        <label class="flex flex-col gap-1">
+          <span class="text-sm font-medium">Nombre</span>
+          <input type="text" name="name" class="input input-bordered" required
+                 placeholder="3.º ESO" autofocus>
+          <span class="text-xs text-base-content/60">
+            El nivel tal y como lo llames tú. No hace falta que coincida con el nombre de ningún grupo.
+          </span>
+        </label>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label class="flex flex-col gap-1">
+            <span class="text-sm font-medium">Asignatura</span>
+            <select name="subject" class="select select-bordered">
+              <option value="">—</option>
+              {% for a in asignaturas %}
+                <option value="{{ a.pk }}">{{ a.name }}</option>
+              {% endfor %}
+            </select>
+          </label>
+
+          <label class="flex flex-col gap-1">
+            <span class="text-sm font-medium">O una nueva</span>
+            <input type="text" name="asignatura_nueva" class="input input-bordered"
+                   placeholder="Lenguaje musical">
+          </label>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-sm self-start">Crear plantilla</button>
+      </form>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
