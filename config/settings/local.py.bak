@@ -87,12 +87,7 @@ WAGTAILADMIN_BASE_URL = "http://localhost:8000"
 SECURE_CONTENT_TYPE_NOSNIFF = False
 SECURE_BROWSER_XSS_FILTER = False
 SECURE_SSL_REDIRECT = False
-# Igual que producción, a propósito. Aquí ponía `ALLOWALL` «para Google OAuth»,
-# y esa divergencia es lo que escondió el fallo del 2026-09-14: el modal de
-# «página completa» funcionaba en local y en producción salía el error del
-# navegador, porque el ajuste que lo rompía solo existía en producción. OAuth va
-# por redirecciones y no por marcos, así que no necesitaba esto.
-X_FRAME_OPTIONS = "SAMEORIGIN"
+X_FRAME_OPTIONS = "ALLOWALL"  # Permitir todos los frames para desarrollo
 
 # Deshabilitar completamente CSP en desarrollo
 SECURE_CROSS_ORIGIN_OPENER_POLICY = None

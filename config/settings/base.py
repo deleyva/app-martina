@@ -261,7 +261,18 @@ SESSION_COOKIE_HTTPONLY = True
 # https://docs.djangoproject.com/en/dev/ref/settings/#csrf-cookie-httponly
 CSRF_COOKIE_HTTPONLY = True
 # https://docs.djangoproject.com/en/dev/ref/settings/#x-frame-options
-X_FRAME_OPTIONS = "DENY"
+#
+# SAMEORIGIN y no DENY: la app se enmarca a sí misma en tres sitios —el botón de
+# «ver la página completa» del modo presentación, el modal de plantillas y las
+# previsualizaciones del panel de Wagtail—, y `DENY` bloquea eso aunque el marco
+# y la página vengan del mismo dominio. En producción eso salía como un error
+# del navegador dentro del modal, y en local no se veía porque `local.py` pone
+# `ALLOWALL`: el fallo solo existía donde nadie lo probaba.
+#
+# La protección contra clickjacking sigue en pie. Para enmarcar la app haría
+# falta servir la página contenedora desde este mismo origen, y quien pueda
+# hacer eso ya tiene bastante más que un marco.
+X_FRAME_OPTIONS = "SAMEORIGIN"
 
 # EMAIL
 # ------------------------------------------------------------------------------
