@@ -115,9 +115,13 @@ deploy-production:
 	# Create necessary directories if they don't exist
 	ssh $SSH_MARTINA_USER_AND_IP "mkdir -p app-martina-production/.envs/.production"
 	
-	# Copy environment files that are not in version control
-	scp ./.envs/.production/.django $SSH_MARTINA_USER_AND_IP:app-martina-production/.envs/.production/
-	scp ./.envs/.production/.postgres $SSH_MARTINA_USER_AND_IP:app-martina-production/.envs/.production/
+	# Copy environment files that are not in version control.
+	# Estan en .gitignore, asi que un clon recien hecho NO los tiene y el scp
+	# mataba el despliegue entero antes de empezar. El servidor ya los guarda
+	# de despliegues anteriores: si aqui no estan, se avisa y se sigue. Ojo,
+	# que eso implica que una variable de entorno NUEVA no llega sola.
+	if [ -f ./.envs/.production/.django ]; then scp ./.envs/.production/.django $SSH_MARTINA_USER_AND_IP:app-martina-production/.envs/.production/; else echo "AVISO: no hay .envs/.production/.django aqui; se usa el que ya tiene el servidor"; fi
+	if [ -f ./.envs/.production/.postgres ]; then scp ./.envs/.production/.postgres $SSH_MARTINA_USER_AND_IP:app-martina-production/.envs/.production/; else echo "AVISO: no hay .envs/.production/.postgres aqui; se usa el que ya tiene el servidor"; fi
 	
 	# Deploy the application
 	ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-production && \
