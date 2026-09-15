@@ -2989,6 +2989,31 @@ Verificado en Chrome real sobre `apps.iesmartinabescos.es`: el artículo se sirv
 igual que antes y sin selector, y `?lang=es` sobre una ficha ya marcada `en`
 devuelve 200 con el aviso de respaldo y el texto original.
 
+### Los tres primeros artículos (2026-09-15)
+
+*Rise*, *La flaca* y *With or Without You*, escritos en las dos lenguas contra
+la plantilla nueva y metidos con `importar_articulo_cancion`. Están **en
+borrador** en producción, ids 859, 860 y 861: llevan el minutaje de la Escucha
+guiada sin comprobar, y publicar `⟨?:??⟩` en una página pública sería peor que
+no tener la página. Comprobado que dan 404 al público.
+
+Tres cosas que enseñó escribirlos:
+
+**La plantilla aguanta, y el cuello de botella es escuchar.** Los datos duros
+salen de fuente (Wikipedia, Hooktheory, la propia partitura del cancionero),
+pero el minutaje no: de las tres, solo *With or Without You* lo tiene cerrado,
+porque Wikipedia describe el corte entrada por entrada. Las otras dos esperan
+una escucha.
+
+**El cancionero de Notion solo tiene una de las tres.** *La flaca* y *With or
+Without You* no están, así que no hay partitura de la que colgar el embed ni
+`ScorePage` que crear a partir de nada.
+
+**Las etiquetas de un borrador viven en la revisión, no en la fila.** Se
+escriben después de `save()`, así que `page.faceted_tags.all()` sale vacío
+hasta publicar. Comprobado leyendo `tagged_items` de la revisión, que sí las
+lleva. No es un fallo, pero engaña al mirarlo por el ORM.
+
 ### Fuera de alcance
 
 El índice de recursos sigue enseñando la entradilla base; traducir la interfaz
