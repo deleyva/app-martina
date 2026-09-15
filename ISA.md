@@ -2895,6 +2895,14 @@ Zaragoza todos los navegadores dicen `es`.
   sobre `paseo-estopa-2005?lang=es` con la ficha marcada `en` y sin traducir:
   200, aviso «Esta ficha todavía no está escrita en esa lengua» y el texto
   original debajo. Y `test_sin_traduccion_cae_al_texto_base_y_lo_dice`.
+
+  **Refutación, encontrada pensando en el día después de `--aplicar`:** avisar
+  siempre que hay respaldo pone el cartel en las 147 fichas inglesas para todo
+  el alumnado ordinario, que no ha pedido nada. Un cartel permanente se aprende
+  a no leer, y de paso tapa el caso en que sí importa. **Criterio ahora:** solo
+  se avisa a quien pidió la lengua por la URL; cuando la lengua sale del grupo
+  se sirve lo que hay, en silencio. *Falsador:*
+  `test_el_aviso_de_respaldo_solo_sale_si_la_lengua_se_pidio`.
 - [x] **C188** · El alumno de la bilingüe abre el artículo en inglés sin tocar
   nada, y el de un grupo ordinario en castellano, con la misma URL.
   *Evidencia:* `test_el_alumno_de_la_bilingue_lee_en_ingles_sin_tocar_nada` y
@@ -2928,7 +2936,7 @@ Zaragoza todos los navegadores dicen `es`.
   artículos de referencia (Viva la Vida es=3/en=82, Billie Jean es=1/en=89).
   Nada escrito. Y dos tests sobre `clasificar`.
 - [x] **C194** · La suite pasa y `makemigrations --check` no pide nada.
-  *Evidencia:* `pytest` → 794 pasan, 20 de ellos nuevos; los 4 fallos
+  *Evidencia:* `pytest` → 794 pasan, 21 de ellos nuevos; los 4 fallos
   (`test_frontend_integration` ×2, `incidencias/test_views` ×2) ya fallaban con
   el árbol limpio, comprobado con `git stash`. `makemigrations --check
   --dry-run` → «No changes detected».

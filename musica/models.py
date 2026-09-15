@@ -1712,7 +1712,13 @@ class RecursoPage(AdjuntosMixin, Page):
 
     def get_context(self, request, *args, **kwargs):
         context = super().get_context(request, *args, **kwargs)
-        context["texto"] = self.texto(self.idioma_para(request))
+        texto = self.texto(self.idioma_para(request))
+        # El aviso de respaldo solo tiene sentido si la lengua la pidió alguien.
+        # Cuando sale del grupo, el alumno no ha pedido nada: decirle que «esto
+        # no está en tu lengua» en los 147 artículos que hoy están en inglés
+        # sería un cartel permanente que se aprende a no leer.
+        texto["aviso"] = texto["es_respaldo"] and bool(request.GET.get("lang"))
+        context["texto"] = texto
         context["idiomas_disponibles"] = self.idiomas_disponibles
         from_session = request.GET.get("from_session")
         if from_session:

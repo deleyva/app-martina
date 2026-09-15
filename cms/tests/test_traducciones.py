@@ -130,6 +130,27 @@ class VistaTraduccionTest(TraduccionesBase):
         self.assertIn("Estopa in 2005", en)
         self.assertIn('aria-label="Lengua del artículo"', en)
 
+    def test_el_aviso_de_respaldo_solo_sale_si_la_lengua_se_pidio(self):
+        """Un cartel permanente se aprende a no leer.
+
+        Con los 147 artículos que hoy están en inglés etiquetados como tales,
+        avisar por defecto pondría el aviso en todas las páginas del alumnado
+        ordinario. Solo se avisa a quien pidió la lengua por la URL.
+        """
+        page = self._recurso(slug="aviso", idioma="en", intro="Coldplay in 2008")
+        alumno = User.objects.create_user(
+            email="alumno4@example.com", password="testpassword123"
+        )
+        Enrollment.objects.create(user=alumno, group=self._grupo("3D", "es"))
+        self.client.force_login(alumno)
+
+        sin_pedir = self.client.get(page.url).content.decode()
+        self.assertNotIn("todavía no está escrita", sin_pedir)
+        self.assertIn("Coldplay in 2008", sin_pedir)
+
+        pidiendo = self.client.get(page.url + "?lang=es").content.decode()
+        self.assertIn("todavía no está escrita", pidiendo)
+
     def test_una_lengua_inventada_no_rompe_la_pagina(self):
         page = self._recurso(slug="lengua-rara")
         resp = self.client.get(page.url + "?lang=klingon")
