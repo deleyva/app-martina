@@ -55,6 +55,13 @@ from wagtail.snippets.models import register_snippet
 from cms.adjuntos import AdjuntosMixin, adjuntos_field
 from cms.visibilidad import filter_visible_pages
 
+# Las dos lenguas en que se imparte la materia. No es una tabla ni un ajuste:
+# son dos, las sabe el código, y añadir una tercera es cambiar esta lista.
+IDIOMAS_RECURSO = [
+    ("es", "Español"),
+    ("en", "English"),
+]
+
 
 class ScorePageTag(TaggedItemBase):
     content_object = ParentalKey(
@@ -1370,6 +1377,17 @@ class RecursoPage(AdjuntosMixin, Page):
     date = models.DateField("Fecha de publicación")
     intro = models.CharField(max_length=250, help_text="Resumen del artículo")
     body = RichTextField(blank=True)
+    # En qué lengua están la entradilla y el cuerpo de arriba (2026-09-15).
+    # Se guarda en vez de suponerse: los 34 artículos que había estaban escritos
+    # en inglés, y darlos por castellanos haría que el selector mintiera. El
+    # comando `detectar_idioma_recursos` lo mide antes de escribir nada.
+    idioma = models.CharField(
+        max_length=5,
+        choices=IDIOMAS_RECURSO,
+        default="es",
+        verbose_name="Lengua del texto",
+        help_text="En qué lengua están la entradilla y el cuerpo de esta ficha.",
+    )
     featured_image = models.ForeignKey(
         "wagtailimages.Image",
         null=True,
@@ -1511,9 +1529,19 @@ class RecursoPage(AdjuntosMixin, Page):
     content_panels = Page.content_panels + [
         FieldPanel("date"),
         FieldPanel("intro"),
+        FieldPanel("idioma"),
         FieldPanel("featured_image"),
         FieldPanel("is_featured"),
         FieldPanel("body"),
+        InlinePanel(
+            "traducciones",
+            heading="La misma ficha en otra lengua",
+            label="Traducción",
+            help_text=(
+                "Solo la prosa cambia de lengua. La ficha musical, los "
+                "recursos y los adjuntos son los mismos para todas."
+            ),
+        ),
         FieldPanel("chordpro", heading="Letra con acordes (ChordPro)"),
         MultiFieldPanel(
             [
@@ -1617,11 +1645,75 @@ class RecursoPage(AdjuntosMixin, Page):
             "exacto": False,
         }
 
+    # --- La misma ficha en dos lenguas (fase 33) ---
+    # Lo que cambia con la lengua es la prosa; la ficha musical, los recursos y
+    # los adjuntos son los mismos. Por eso una traducción es una fila hija y no
+    # otra página.
+
+    @cached_property
+    def _textos(self):
+        """`{lengua: {intro, body}}` — el texto base más cada traducción.
+
+        El base gana si alguien guardó una traducción en la misma lengua: es un
+        estado que la base de datos ya prohíbe, pero pintar dos veces la misma
+        lengua sería peor que ignorarla.
+        """
+        textos = {self.idioma: {"intro": self.intro, "body": self.body}}
+        for traduccion in self.traducciones.all():
+            textos.setdefault(
+                traduccion.idioma,
+                {"intro": traduccion.intro, "body": traduccion.body},
+            )
+        return textos
+
+    @property
+    def idiomas_disponibles(self):
+        """`[(código, nombre)]` en el orden fijo de `IDIOMAS_RECURSO`."""
+        return [(c, n) for c, n in IDIOMAS_RECURSO if c in self._textos]
+
+    def texto(self, idioma=None):
+        """La prosa en la lengua pedida, o la base si esa lengua no está escrita.
+
+        Nunca devuelve vacío y nunca levanta: una lengua que falta es un
+        respaldo anunciado, no un 404.
+        """
+        pedido = idioma or self.idioma
+        elegido = pedido if pedido in self._textos else self.idioma
+        return {
+            "idioma": elegido,
+            "pedido": pedido,
+            "intro": self._textos[elegido]["intro"],
+            "body": self._textos[elegido]["body"],
+            "es_respaldo": elegido != pedido,
+        }
+
+    def idioma_para(self, request):
+        """Qué lengua sirve esta petición.
+
+        Orden: lo que pide la URL, después la lengua en que el alumno da la
+        materia, y por último la del texto base. El `Accept-Language` del
+        navegador no entra: en un aula de Zaragoza todos dicen `es`, incluidos
+        los de la bilingüe.
+        """
+        pedido = (request.GET.get("lang") or "").strip().lower()
+        if pedido in dict(IDIOMAS_RECURSO):
+            return pedido
+        # Con una sola lengua escrita no hay nada que decidir, y así la página
+        # de siempre no paga una consulta de más.
+        if len(self._textos) == 1:
+            return self.idioma
+        # Import diferido: `musica` no depende de `clases` a nivel de módulo.
+        from clases.models import idioma_del_alumno
+
+        return idioma_del_alumno(getattr(request, "user", None)) or self.idioma
+
     def get_template(self, request, *args, **kwargs):
         return "musica/recurso.html"
 
     def get_context(self, request, *args, **kwargs):
         context = super().get_context(request, *args, **kwargs)
+        context["texto"] = self.texto(self.idioma_para(request))
+        context["idiomas_disponibles"] = self.idiomas_disponibles
         from_session = request.GET.get("from_session")
         if from_session:
             from_edit = request.GET.get("from") == "edit"
@@ -1638,6 +1730,54 @@ class RecursoPage(AdjuntosMixin, Page):
     class Meta:
         verbose_name = "Recurso musical"
         verbose_name_plural = "Recursos musicales"
+
+
+class RecursoTraduccion(Orderable):
+    """La misma canción contada en otra lengua.
+
+    Es una fila hija y no otra página a propósito (fase 33). Un artículo en
+    castellano sobre Estopa no es la traducción del inglés —cambia el gancho y
+    cambian las curiosidades—, pero la tonalidad, el videoclip, la partitura y
+    los adjuntos sí son los mismos. Duplicar la página duplicaría también esas
+    dos terceras partes que no cambian, y un minutaje mal puesto habría que
+    corregirlo dos veces.
+    """
+
+    page = ParentalKey(
+        "musica.RecursoPage",
+        on_delete=models.CASCADE,
+        related_name="traducciones",
+    )
+    idioma = models.CharField(
+        max_length=5,
+        choices=IDIOMAS_RECURSO,
+        verbose_name="Lengua",
+    )
+    intro = models.CharField(
+        max_length=250,
+        verbose_name="Entradilla",
+        help_text="Resumen del artículo en esta lengua. Es lo que se lee bajo el título.",
+    )
+    body = RichTextField(blank=True, verbose_name="Cuerpo")
+
+    panels = [
+        FieldPanel("idioma"),
+        FieldPanel("intro"),
+        FieldPanel("body"),
+    ]
+
+    class Meta(Orderable.Meta):
+        verbose_name = "Traducción"
+        verbose_name_plural = "Traducciones"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["page", "idioma"],
+                name="musica_recurso_una_traduccion_por_lengua",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.page_id} · {self.get_idioma_display()}"
 
 
 # =============================================================================

@@ -4,7 +4,7 @@ phase: complete
 progress: false
 iteration: 43
 principal_stated_goal: "Necesito desarrollar en apps.iesmartinabescos.es Otra app de Django como la que tenemos en /incidencias. Está sí que debe de requerir login con Google porque ya tenemos implementado. Básicamente, es una aplicación en la que quiero que vayan solicitando la clave Wi-Fi. Pero para ello deben logearse y enviar la MAC de su dispositivo WIFI, la privada (real) no la aleatoria."
-updated: 2026-09-11
+updated: 2026-09-15
 ---
 
 # ISA — app-martina · Sistema de estudio de la biblioteca
@@ -61,6 +61,7 @@ updated: 2026-09-11
 | 30·2 | **El orden se recoloca solo** — señales + Huey (C154, C155) | `472bb20` |
 | — | El stack de producción vuelve solo tras un reinicio | `d6aa740` |
 | — | La migración 0014 vuelve a caber en el Wagtail de producción | `644bf9d` |
+| 33 | **Cada canción en dos lenguas, una sola página** (C184-C194) | `9afd4b1` |
 
 ### Dónde estamos (2026-09-10)
 
@@ -2821,3 +2822,135 @@ que es la forma más silenciosa de que un aviso deje de servir.
 Ni barra de avance ni «invitar alumnado». Enseñar «0 de 74 vistos» en una
 plantilla invita a marcar cosas por vistas donde marcar no significa nada, y ese
 estado no viaja a ningún grupo.
+
+## Fase 33 — Cada canción en dos lenguas, una sola página (2026-09-15) · CONSTRUIDA Y VERIFICADA EN LOCAL
+
+Los artículos del Índice de recursos musicales tienen que existir en castellano
+y en inglés: el inglés es para la bilingüe. La pregunta real no era «cómo se
+traduce» sino **qué se duplica**.
+
+### Por qué no la i18n nativa de Wagtail
+
+Se valoró `WAGTAIL_I18N_ENABLED` con dos locales y árbol por idioma. Se descarta
+por tres motivos medidos, no por gusto:
+
+- **Duplica el árbol entero, no los artículos.** El índice, las 45 partituras,
+  los 9 libros y los dictados necesitarían gemelo en el otro locale o
+  desaparecen de ese árbol. El coste no guarda proporción con lo pedido.
+- **Aquí no se traduce, se escribe dos veces.** Un buen artículo en castellano
+  sobre Estopa no es la traducción del inglés: cambia el gancho y cambian las
+  curiosidades. La maquinaria de i18n está optimizada para paridad de
+  traducción.
+- **Cambiaría todas las URLs** a `/es/…` y `/en/…`, y los enlaces ya metidos en
+  las sesiones de clase se quedarían colgando.
+
+Cuándo cambiaría la decisión: audiencia pública real con SEO multilingüe, u
+otros departamentos pidiendo lo mismo.
+
+### La separación que decide el diseño
+
+La página tiene dos capas y solo una cambia con la lengua. **Neutra**: artista,
+tonalidad, BPM, compás, etiquetas, videoclip, tutoriales, partitura, adjuntos —
+más de media página, y el trozo caro de mantener. **Prosa**: entradilla y
+cuerpo. Solo se duplica la prosa.
+
+Un `RecursoPage` por canción; las otras lenguas viven en filas hijas
+(`RecursoTraduccion`). Una URL, una entrada en el índice, una ficha musical. Un
+minutaje mal puesto se corrige una vez.
+
+### El idioma del texto base se guarda, no se supone
+
+`RecursoPage.idioma` dice en qué lengua están la entradilla y el cuerpo de
+arriba. Sin ese campo, los 34 artículos que hoy están en inglés quedarían
+etiquetados como castellano por omisión y el selector mentiría. El valor no se
+adivina en una migración: hay un comando que **mide** (recuento de palabras
+vacías, es/en) y enseña la lista antes de escribir nada.
+
+### El defecto sale del grupo, no del navegador
+
+`Group.idioma` marca la bilingüe. Un alumno matriculado en ella abre el artículo
+en inglés sin tocar nada; `?lang=` gana siempre, para el profesor que quiere ver
+la otra versión. El `Accept-Language` del navegador no pinta nada: en un aula de
+Zaragoza todos los navegadores dicen `es`.
+
+### Criterios
+
+- [x] **C184** · Un recurso sin traducciones se ve hoy exactamente igual que
+  ayer: misma URL, misma entradilla, mismo cuerpo, sin selector de idioma.
+  *Evidencia:* Chrome real sobre `/indice-de-recursos-musicales/viva-la-vida-coldplay-2/`
+  antes de tocar dato alguno — entradilla inglesa intacta, cero selector. Y
+  `test_una_pagina_sin_traducciones_se_ve_igual_que_siempre`.
+- [x] **C185** · Una traducción es una fila hija, no otra página: el recurso
+  sigue teniendo un solo registro en `wagtailcore_page` y una sola ficha
+  musical. *Evidencia:* `test_una_traduccion_no_crea_otra_pagina`
+  (`Page.objects.filter(slug=…).count() == 1` con la traducción creada).
+- [x] **C186** · El mismo recurso responde en las dos lenguas: `?lang=en` da el
+  texto inglés y `?lang=es` el castellano, con el resto de la página idéntico.
+  *Evidencia:* Chrome real sobre Viva la Vida con una traducción castellana de
+  prueba: `?lang=es` pinta el texto castellano con «Español» activo, y pulsar
+  «English» devuelve el inglés — mismo título, misma fecha, misma imagen.
+  Además `test_la_misma_url_responde_en_las_dos_lenguas`.
+- [x] **C187** · Sin traducción en la lengua pedida, la página sirve el texto
+  base y lo dice; nunca un 404 ni un cuerpo vacío. *Evidencia:* Chrome real
+  sobre `paseo-estopa-2005?lang=es` con la ficha marcada `en` y sin traducir:
+  200, aviso «Esta ficha todavía no está escrita en esa lengua» y el texto
+  original debajo. Y `test_sin_traduccion_cae_al_texto_base_y_lo_dice`.
+- [x] **C188** · El alumno de la bilingüe abre el artículo en inglés sin tocar
+  nada, y el de un grupo ordinario en castellano, con la misma URL.
+  *Evidencia:* `test_el_alumno_de_la_bilingue_lee_en_ingles_sin_tocar_nada` y
+  `test_el_alumno_de_un_grupo_ordinario_lee_en_castellano`, dos usuarios
+  matriculados en dos grupos con `idioma` distinto y la misma URL sin
+  parámetros.
+- [x] **C189** · Una lengua no se puede duplicar dentro de un recurso: la
+  segunda traducción en la misma lengua es rechazada en base de datos y con 400
+  en el API. *Evidencia:* `test_la_base_de_datos_prohibe_dos_veces_la_misma_lengua`
+  levanta `IntegrityError` contra la restricción
+  `musica_recurso_una_traduccion_por_lengua`; el 400 en
+  `test_dos_traducciones_en_la_misma_lengua_dan_400`.
+- [x] **C190** · El pipeline deja las dos versiones en una sola pasada: un
+  `POST /blog-pages` con `traducciones` publica la página con las dos lenguas.
+  *Evidencia:* `test_una_llamada_publica_las_dos_lenguas` — una llamada, `200`,
+  `texto("en")` y `texto("es")` distintos y un solo registro de página.
+- [x] **C191** · `traducciones` dirigido a un artículo de departamento da 400,
+  igual que la ficha musical. *Evidencia:*
+  `test_un_articulo_de_departamento_no_lleva_traducciones` (400, y cero páginas
+  creadas).
+- [x] **C192** · La plantilla del artículo exige vocabulario fundamental: como
+  mucho cinco términos, antes de Recursos; en castellano con definición, en
+  inglés con traducción. *Evidencia:* `docs/PLANTILLA_ARTICULO_CANCION.md`
+  §2 (fila en el esqueleto), §3 (la sección con sus reglas y ejemplos), §5 (el
+  prompt) y §6 (la casilla de la lista de comprobación).
+- [x] **C193** · En qué lengua está cada recurso es una medida, no una
+  suposición: el comando lista los recursos con su recuento antes de escribir
+  nada, y `--aplicar` es un paso aparte. *Evidencia:* `detectar_idioma_recursos`
+  sobre la copia local: 260 analizados, 40 ya correctos, 73 sin texto
+  suficiente, **147 que habría que pasar a `en`** — entre ellos los cuatro
+  artículos de referencia (Viva la Vida es=3/en=82, Billie Jean es=1/en=89).
+  Nada escrito. Y dos tests sobre `clasificar`.
+- [x] **C194** · La suite pasa y `makemigrations --check` no pide nada.
+  *Evidencia:* `pytest` → 794 pasan, 20 de ellos nuevos; los 4 fallos
+  (`test_frontend_integration` ×2, `incidencias/test_views` ×2) ya fallaban con
+  el árbol limpio, comprobado con `git stash`. `makemigrations --check
+  --dry-run` → «No changes detected».
+
+🧹 CLASS-SWEEP: superficies que pintan la prosa de un `RecursoPage` — 4 vía
+`grep -rn "\.body\|\.intro" --include="*.html"`. Arreglada la única que sirve
+el artículo (`musica/templates/musica/recurso.html`). Dos son listados
+(`music_library_index_page.html`, y la lista de capítulos de `libro.html`), que
+se quedan en la lengua base por decisión y están declarados fuera de alcance.
+La cuarta, `clases/templates/clases/viewers/blog_viewer.html`, es código muerto:
+ninguna vista la renderiza (`grep` en todo el árbol `.py`), así que se deja como
+está en vez de tocarla de paso.
+
+### Anti-claims
+
+- **No** se activa `WAGTAIL_I18N_ENABLED` ni se duplica el árbol de páginas.
+- **Ninguna URL existente cambia**: nada de prefijos `/es/` ni `/en/`.
+- **No se toca el texto de los 34 artículos publicados**: se etiquetan, no se
+  reescriben.
+- El selector no se ve en una página que solo tiene una lengua.
+
+### Fuera de alcance
+
+El índice de recursos sigue enseñando la entradilla base; traducir la interfaz
+de la aplicación; SEO multilingüe.

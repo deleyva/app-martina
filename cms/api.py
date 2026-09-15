@@ -14,10 +14,12 @@ from wagtail.models import Collection, Page as WagtailPage
 from api_keys.auth import DatabaseApiKey
 from blogs.models import ArticuloPage, BlogIndexPage
 from musica.models import (
+    IDIOMAS_RECURSO,
     LibroPage,
     MusicCategory,
     MusicLibraryIndexPage,
     RecursoPage,
+    RecursoTraduccion,
     TestPage,
 )
 from my_library import facets
@@ -410,6 +412,20 @@ def ai_publish_content(
 # ------------------------------------------------------------------------------
 
 
+class TraduccionIn(Schema):
+    """La misma ficha en otra lengua: solo la prosa."""
+
+    idioma: str
+    intro: str
+    body: Optional[str] = ""
+
+
+class TraduccionOut(Schema):
+    idioma: str
+    intro: str
+    body: str
+
+
 class BlogPageIn(Schema):
     """Schema de entrada para crear una BlogPage."""
 
@@ -447,6 +463,12 @@ class BlogPageIn(Schema):
     # .gp, asi que el cliente que sube la tablatura tiene que poder mandarlo.
     songsterr_url: Optional[str] = ""
     chordpro: Optional[str] = ""
+    # Dos lenguas en una pasada (2026-09-15, fase 33). `idioma` dice en cuál
+    # están `intro` y `body`; `traducciones` trae las demás. Que el pipeline
+    # publique las dos de una vez es lo que hace sostenible mantenerlas: un
+    # departamento de una persona no escribe 68 artículos a mano.
+    idioma: Optional[str] = ""
+    traducciones: List[TraduccionIn] = []
 
 
 class BlogPageOut(Schema):
@@ -474,6 +496,8 @@ class BlogPageOut(Schema):
     key_display: str = ""
     time_signature_display: str = ""
     duration_display: str = ""
+    idioma: str = ""
+    traducciones: List[TraduccionOut] = []
 
 
 def _parse_tags(tags: str) -> List[str]:
@@ -509,6 +533,10 @@ CAMPOS_MUSICALES = (
     "time_signature_beat_type", "tempo_bpm", "duration_seconds",
     "songsterr_url", "chordpro",
 )
+
+# La lengua que se supone cuando el cliente no dice nada. Sale del modelo para
+# que no haya dos sitios que puedan discrepar.
+IDIOMA_POR_DEFECTO = RecursoPage._meta.get_field("idioma").default
 
 
 def _get_blog_parent_page(parent_page_id: Optional[int]):
@@ -570,6 +598,70 @@ def _validar_campos_musicales(payload, modelo):
         )
 
 
+def _validar_idiomas(payload, modelo, base_actual=None):
+    """Comprueba lengua base y traducciones antes de tocar la base de datos.
+
+    Falla alto en los cuatro casos que producirían una página en silencio mal:
+    una lengua que no existe, traducciones en un artículo de departamento, dos
+    filas en la misma lengua, y una traducción que repite la lengua base.
+    """
+    codigos = dict(IDIOMAS_RECURSO)
+    validas = ", ".join(codigos)
+
+    idioma_base = getattr(payload, "idioma", None)
+    if idioma_base and idioma_base not in codigos:
+        raise HttpError(400, f"Lengua desconocida: «{idioma_base}». Válidas: {validas}.")
+    if idioma_base and modelo is not RecursoPage:
+        raise HttpError(
+            400,
+            "Un artículo de departamento no declara lengua: `idioma` solo "
+            "existe en los recursos de la biblioteca musical.",
+        )
+
+    traducciones = getattr(payload, "traducciones", None)
+    if not traducciones:
+        return
+
+    if modelo is not RecursoPage:
+        raise HttpError(
+            400,
+            "Un artículo de departamento no lleva traducciones. Si es una "
+            "canción o un capítulo, publícalo bajo la biblioteca musical.",
+        )
+
+    vistas = set()
+    for traduccion in traducciones:
+        if traduccion.idioma not in codigos:
+            raise HttpError(
+                400, f"Lengua desconocida: «{traduccion.idioma}». Válidas: {validas}."
+            )
+        if traduccion.idioma in vistas:
+            raise HttpError(
+                400, f"Dos traducciones en la misma lengua: «{traduccion.idioma}»."
+            )
+        vistas.add(traduccion.idioma)
+
+    base = idioma_base or base_actual or IDIOMA_POR_DEFECTO
+    if base in vistas:
+        raise HttpError(
+            400,
+            f"«{base}» es la lengua del texto principal: esa versión va en "
+            "`intro`/`body`, no en `traducciones`.",
+        )
+
+
+def _aplicar_traducciones(page, traducciones):
+    """Reemplaza el juego completo de traducciones de un recurso."""
+    page.traducciones = [
+        RecursoTraduccion(
+            idioma=t.idioma,
+            intro=t.intro,
+            body=t.body or "",
+        )
+        for t in traducciones
+    ]
+
+
 def _blog_page_out(page, request):
     """Construye `BlogPageOut` para cualquiera de los dos modelos.
 
@@ -607,6 +699,13 @@ def _blog_page_out(page, request):
         key_display=getattr(page, "key_display", ""),
         time_signature_display=getattr(page, "time_signature_display", ""),
         duration_display=getattr(page, "duration_display", ""),
+        idioma=getattr(page, "idioma", ""),
+        traducciones=[
+            TraduccionOut(idioma=t.idioma, intro=t.intro, body=t.body)
+            for t in (
+                page.traducciones.all() if isinstance(page, RecursoPage) else []
+            )
+        ],
     )
 
 
@@ -638,6 +737,7 @@ def create_blog_page(request, payload: BlogPageIn):
     parent_page = _get_blog_parent_page(payload.parent_page_id)
     modelo = _modelo_de_contenido(parent_page)
     _validar_campos_musicales(payload, modelo)
+    _validar_idiomas(payload, modelo)
     featured_image = _get_image(payload.featured_image_id)
 
     campos = dict(
@@ -669,6 +769,7 @@ def create_blog_page(request, payload: BlogPageIn):
             duration_seconds=payload.duration_seconds,
             songsterr_url=payload.songsterr_url or "",
             chordpro=payload.chordpro or "",
+            idioma=payload.idioma or IDIOMA_POR_DEFECTO,
         )
 
     with transaction.atomic():
@@ -677,6 +778,8 @@ def create_blog_page(request, payload: BlogPageIn):
             page.featured_image = featured_image
         if payload.attachment_ids:
             page.attachments = _build_attachments(payload.attachment_ids)
+        if payload.traducciones:
+            _aplicar_traducciones(page, payload.traducciones)
 
         parent_page.add_child(instance=page)
 
@@ -733,6 +836,11 @@ class BlogPageUpdateIn(Schema):
     duration_seconds: Optional[int] = None
     songsterr_url: Optional[str] = None
     chordpro: Optional[str] = None
+    # None = no tocar. Una lista, aunque sea vacía, reemplaza el juego entero:
+    # así se puede borrar una traducción sin inventar una ruta nueva.
+    idioma: Optional[str] = None
+    traducciones: Optional[List[TraduccionIn]] = None
+
 
 @router.put("/blog-pages/{page_id}", response=BlogPageOut, tags=["Blog"])
 def update_blog_page(request, page_id: int, payload: BlogPageUpdateIn):
@@ -754,6 +862,7 @@ def update_blog_page(request, page_id: int, payload: BlogPageUpdateIn):
     """
     page = _buscar_pagina_de_contenido(page_id)
     _validar_campos_musicales(payload, type(page))
+    _validar_idiomas(payload, type(page), base_actual=getattr(page, "idioma", None))
 
     with transaction.atomic():
         if payload.title is not None:
@@ -783,6 +892,10 @@ def update_blog_page(request, page_id: int, payload: BlogPageUpdateIn):
                 _valor = getattr(payload, _campo)
                 if _valor is not None:
                     setattr(page, _campo, _valor)
+            if payload.idioma is not None:
+                page.idioma = payload.idioma
+            if payload.traducciones is not None:
+                _aplicar_traducciones(page, payload.traducciones)
 
         if payload.category_ids is not None:
             if not isinstance(page, RecursoPage):

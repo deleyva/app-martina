@@ -143,6 +143,20 @@ class Group(models.Model):
         help_text="No tiene alumnado ni sesiones. Se usa para preparar y enviar a los grupos",
     )
 
+    # En qué lengua se da la materia en este grupo (2026-09-15, fase 33).
+    #
+    # **Va en el grupo y no se deduce del nombre.** Deducir «bilingüe» del
+    # nombre del grupo convertiría la convención de nombres en esquema, y
+    # renombrar un grupo le borraría la lengua en silencio — el mismo error que
+    # ya se descartó con el nivel en la fase 32.
+    idioma = models.CharField(
+        max_length=5,
+        choices=[("es", "Español"), ("en", "English")],
+        default="es",
+        verbose_name="Lengua de la materia",
+        help_text="En la bilingüe, English: sus artículos se abren en inglés",
+    )
+
     # El filtro va en el gestor por defecto, no en cada consulta, y la razón es
     # una medición: hay NUEVE sitios que preguntan por `teaching_groups` fuera
     # del embudo de `del_profesor` —la navegación, las evaluaciones, la
@@ -190,6 +204,22 @@ class Group(models.Model):
 
     def __str__(self):
         return f"{self.name} - {self.subject.name} ({self.academic_year})"
+
+
+def idioma_del_alumno(user):
+    """La lengua en que este alumno da la materia, o `None` si no consta.
+
+    `None` no es un fallo: un profesor, o alguien que llega sin estar
+    matriculado, ve el texto en la lengua en que está escrito. La regla para
+    quien está en varios grupos es «si alguno es en inglés, inglés», porque la
+    bilingüe es la excepción y es la que manda sobre el resto.
+    """
+    if not getattr(user, "is_authenticated", False):
+        return None
+    idiomas = set(Group.matriculados_de(user).values_list("idioma", flat=True))
+    if not idiomas:
+        return None
+    return "en" if "en" in idiomas else "es"
 
 
 class Student(models.Model):

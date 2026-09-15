@@ -352,8 +352,32 @@
 
         <h1 class="text-2xl md:text-4xl font-bold mb-4">{{ page.title }}</h1>
 
-        {% if page.intro %}
-        <p class="text-lg text-base-content/70 mb-4">{{ page.intro }}</p>
+        {% comment %}
+        Selector de lengua (2026-09-15, fase 33). Solo asoma cuando la ficha
+        está escrita en más de una: en una página con una sola lengua no hay
+        nada que elegir y un botón muerto solo estorba.
+        {% endcomment %}
+        {% if idiomas_disponibles|length > 1 %}
+        <div class="join mb-4" role="group" aria-label="Lengua del artículo">
+            {% for codigo, nombre in idiomas_disponibles %}
+            <a class="btn btn-sm join-item {% if codigo == texto.idioma %}btn-active btn-primary{% endif %}"
+               href="?lang={{ codigo }}{% if request.GET.from_session %}&from_session={{ request.GET.from_session }}{% endif %}{% if request.GET.from %}&from={{ request.GET.from }}{% endif %}"
+               {% if codigo == texto.idioma %}aria-current="true"{% endif %}>
+                {{ nombre }}
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if texto.es_respaldo %}
+        <p class="text-sm text-base-content/60 mb-4">
+            Esta ficha todavía no está escrita en esa lengua. Se muestra la
+            versión original.
+        </p>
+        {% endif %}
+
+        {% if texto.intro %}
+        <p class="text-lg text-base-content/70 mb-4">{{ texto.intro }}</p>
         {% endif %}
 
         <div class="flex items-center justify-between flex-wrap gap-3 text-sm text-base-content/60 border-b border-base-200 pb-4 mb-6">
@@ -497,9 +521,9 @@
     </div>
     {% endif %}
 
-    {% if page.body %}
-    <div id="richtext-body" class="richtext-body text-base leading-relaxed mb-12">
-        {{ page.body|richtext }}
+    {% if texto.body %}
+    <div id="richtext-body" class="richtext-body text-base leading-relaxed mb-12" lang="{{ texto.idioma }}">
+        {{ texto.body|richtext }}
     </div>
 
     {# Pre-rendered library buttons for each embed (hidden, moved by JS) #}

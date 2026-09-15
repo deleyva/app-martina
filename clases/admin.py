@@ -39,13 +39,13 @@ class GroupAdmin(admin.ModelAdmin):
         "get_students_count",
         "created_at",
     )
-    list_filter = ("subject", "academic_year", "created_at")
+    list_filter = ("subject", "academic_year", "idioma", "created_at")
     search_fields = ("name", "teachers__name")
     filter_horizontal = ("teachers",)
     readonly_fields = ("created_at",)
 
     fieldsets = (
-        (None, {"fields": ("name", "subject", "academic_year")}),
+        (None, {"fields": ("name", "subject", "academic_year", "idioma")}),
         ("Profesores", {"fields": ("teachers",)}),
         ("Información", {"fields": ("created_at",)}),
     )
