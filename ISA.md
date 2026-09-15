@@ -61,7 +61,7 @@ updated: 2026-09-15
 | 30·2 | **El orden se recoloca solo** — señales + Huey (C154, C155) | `472bb20` |
 | — | El stack de producción vuelve solo tras un reinicio | `d6aa740` |
 | — | La migración 0014 vuelve a caber en el Wagtail de producción | `644bf9d` |
-| 33 | **Cada canción en dos lenguas, una sola página** (C184-C194) | `eb2c3be` |
+| 33 | **Cada canción en dos lenguas, una sola página** (C184-C194) | `eb2c3be`, `e79e3d0`, `62527fa`, `6343a65` |
 
 ### Dónde estamos (2026-09-10)
 
@@ -2823,7 +2823,7 @@ Ni barra de avance ni «invitar alumnado». Enseñar «0 de 74 vistos» en una
 plantilla invita a marcar cosas por vistas donde marcar no significa nada, y ese
 estado no viaja a ningún grupo.
 
-## Fase 33 — Cada canción en dos lenguas, una sola página (2026-09-15) · CONSTRUIDA Y VERIFICADA EN LOCAL
+## Fase 33 — Cada canción en dos lenguas, una sola página (2026-09-15) · DESPLEGADA Y VERIFICADA EN PRODUCCIÓN
 
 Los artículos del Índice de recursos musicales tienen que existir en castellano
 y en inglés: el inglés es para la bilingüe. La pregunta real no era «cómo se
@@ -2957,6 +2957,37 @@ está en vez de tocarla de paso.
 - **No se toca el texto de los 34 artículos publicados**: se etiquetan, no se
   reescriben.
 - El selector no se ve en una página que solo tiene una lengua.
+
+### El despliegue (2026-09-15)
+
+`clases.0018` y `musica.0005` aplicadas; ninguna otra estaba pendiente.
+
+**El `scp` del despliegue mataba la receta antes de empezar.** Los dos ficheros
+de `.envs/.production/` están en `.gitignore`, así que este clon no los tiene y
+`just deploy-production` moría en la primera línea que toca el servidor. Se
+copian ahora solo si están, con aviso en pantalla si no (`6343a65`). El aviso
+no es decorado: por esa vía una variable de entorno **nueva** no llegaría sola,
+y esta fase no añade ninguna.
+
+**Etiquetado de lo publicado:** 340 recursos en producción —más que los 260 de
+la copia local, que va por detrás—. 152 pasados a `en`, 113 sin texto
+suficiente (intactos), y al repetir la medida quedan 0 pendientes. Ninguno
+tenía borrador sin publicar, así que ningún cambio se va a deshacer solo.
+Listado completo guardado fuera del repo el día del despliegue.
+
+**Grupos de la bilingüe:** `1-G-BIL`, `3-C-BIL`, `3-EG-BIL` y `4-AC-BIL`
+marcados en inglés. Tres de los cuatro tienen **cero matrículas activas** a día
+de hoy, así que la lengua del grupo no le cambia nada a nadie hasta que el
+alumnado entre por invitación.
+
+**Lo que ve hoy un alumno: exactamente lo mismo que ayer.** Con cero
+traducciones escritas, la resolución siempre acaba en el texto base. La función
+no se nota hasta el primer artículo que tenga su segunda versión, y eso la hace
+una entrega sin riesgo: lo desplegado es capacidad, no cambio.
+
+Verificado en Chrome real sobre `apps.iesmartinabescos.es`: el artículo se sirve
+igual que antes y sin selector, y `?lang=es` sobre una ficha ya marcada `en`
+devuelve 200 con el aviso de respaldo y el texto original.
 
 ### Fuera de alcance
 
