@@ -220,3 +220,202 @@ def test_las_plantillas_de_otro_no_salen_en_tu_lista(client, profe, django_user_
     cuerpo = client.get(reverse("clases:niveles")).content.decode()
 
     assert "Nivel de otro profesor" not in cuerpo
+
+
+# =============================================================================
+# C178, C179, C180 · Enviar
+# =============================================================================
+
+
+@pytest.fixture
+def montaje(db, django_user_model):
+    """Una plantilla con un libro elegido, y una clase con ese mismo libro."""
+    from my_library.tests import _libro_con_capitulos
+    from clases import libros_de_grupo
+    from clases.models import GroupBook
+
+    profe = django_user_model.objects.create_user(email="envia@x.es", password="x")
+    plantilla = _plantilla(profe, "3.º ESO enviar")
+    clase = _clase(profe, "3-C-BIL enviar")
+
+    libro, _ = _libro_con_capitulos(
+        "Lecturas", "lecturas-enviar", [("Cap", ["m1", "m2", "m3", "m4"])]
+    )
+    de_plantilla = GroupBook.objects.create(
+        group=plantilla, libro=libro, seccion="teoria", modo=GroupBook.SECUENCIAL
+    )
+    return {
+        "profe": profe,
+        "plantilla": plantilla,
+        "clase": clase,
+        "libro": libro,
+        "de_plantilla": de_plantilla,
+        "filas": libros_de_grupo.enumerar(de_plantilla),
+    }
+
+
+def test_enviar_lleva_los_elementos_elegidos_y_el_momento(montaje):
+    """C178."""
+    from clases import libros_de_grupo
+    from clases.models import GroupBook
+
+    de_plantilla = montaje["de_plantilla"]
+    de_plantilla.seccion = "cancion"
+    de_plantilla.modo = GroupBook.EN_CURSO
+    de_plantilla.save()
+    fuera = montaje["filas"][1]["objeto"]
+    libros_de_grupo.excepcion(de_plantilla, fuera, incluido=False)
+
+    libros_de_grupo.enviar(de_plantilla, [montaje["clase"]])
+
+    destino = GroupBook.objects.get(group=montaje["clase"], libro=montaje["libro"])
+    assert (destino.seccion, destino.modo) == ("cancion", GroupBook.EN_CURSO)
+    excluidos = [f for f in libros_de_grupo.enumerar(destino) if f["item"] and not f["item"].incluido]
+    assert len(excluidos) == 1
+    assert excluidos[0]["objeto"].pk == fuera.pk
+
+
+def test_enviar_no_toca_el_avance(montaje):
+    """C179. El falsador que hace que esto se pueda usar en enero sin miedo: si
+    enviar reseteara lo visto, un libro nuevo en marzo borraría el trimestre.
+
+    **La plantilla tiene fila sobre los MISMOS elementos que el grupo ya trabajó,
+    y sin eso este test no vale.** La primera versión dejaba la plantilla sin
+    ninguna fila, así que el envío entraba por la rama de «lo que la plantilla no
+    menciona» y la rama que de verdad escribe encima no se ejecutaba nunca. Se
+    descubrió saboteando el motor para que copiara `estado`: el test pasaba
+    igual. Un test que no puede fallar no está probando nada.
+    """
+    from clases import libros_de_grupo
+    from clases.models import GroupBook, GroupBookItem
+
+    clase, libro = montaje["clase"], montaje["libro"]
+    de_plantilla = montaje["de_plantilla"]
+    de_la_plantilla = montaje["filas"]
+
+    # La plantilla opina sobre los dos elementos que el grupo ya ha trabajado.
+    libros_de_grupo.excepcion(de_plantilla, de_la_plantilla[0]["objeto"], orden=3)
+    libros_de_grupo.excepcion(de_plantilla, de_la_plantilla[2]["objeto"], incluido=False)
+
+    en_clase = GroupBook.objects.create(group=clase, libro=libro, seccion="teoria")
+    filas = libros_de_grupo.enumerar(en_clase)
+    libros_de_grupo.excepcion(en_clase, filas[0]["objeto"], estado=GroupBookItem.VISTO)
+    libros_de_grupo.excepcion(en_clase, filas[2]["objeto"], a_casa=True)
+
+    libros_de_grupo.enviar(de_plantilla, [clase])
+
+    de_vuelta = {
+        (f["tipo"].pk, f["objeto"].pk): f["item"]
+        for f in libros_de_grupo.enumerar(en_clase)
+    }
+    visto = de_vuelta[(filas[0]["tipo"].pk, filas[0]["objeto"].pk)]
+    en_casa = de_vuelta[(filas[2]["tipo"].pk, filas[2]["objeto"].pk)]
+
+    assert visto.estado == GroupBookItem.VISTO, "se ha borrado lo visto"
+    assert visto.orden == 3, "no ha llegado el orden de la plantilla"
+    assert en_casa.a_casa is True, "se ha borrado lo enviado a casa"
+    assert en_casa.incluido is False, "no ha llegado la exclusión de la plantilla"
+
+
+def test_enviar_un_libro_no_toca_los_demas(montaje):
+    """C180."""
+    from my_library.tests import _libro_con_capitulos
+    from clases import libros_de_grupo
+    from clases.models import GroupBook
+
+    otro, _ = _libro_con_capitulos("Otro", "otro-enviar", [("Cap", ["x1", "x2"])])
+    intacto = GroupBook.objects.create(
+        group=montaje["clase"], libro=otro, seccion="ritmo_melodia", modo=GroupBook.EN_CURSO
+    )
+    fuera = libros_de_grupo.enumerar(intacto)[0]["objeto"]
+    libros_de_grupo.excepcion(intacto, fuera, incluido=False)
+
+    libros_de_grupo.enviar(montaje["de_plantilla"], [montaje["clase"]])
+
+    intacto.refresh_from_db()
+    assert (intacto.seccion, intacto.modo) == ("ritmo_melodia", GroupBook.EN_CURSO)
+    fuera_ahora = [f for f in libros_de_grupo.enumerar(intacto) if f["item"] and not f["item"].incluido]
+    assert len(fuera_ahora) == 1, "el envío de un libro ha tocado otro libro"
+
+
+def test_el_aviso_cuenta_los_retoques_que_va_a_pisar(montaje):
+    """El aviso de la pantalla. Si contara de más, el profesor deja de fiarse y
+    lo ignora; si contara de menos, pierde trabajo sin avisar."""
+    from clases import libros_de_grupo
+    from clases.models import GroupBook, GroupBookItem
+
+    clase, libro = montaje["clase"], montaje["libro"]
+    en_clase = GroupBook.objects.create(group=clase, libro=libro, seccion="teoria")
+    filas = libros_de_grupo.enumerar(en_clase)
+
+    assert libros_de_grupo.retoques_que_pisa(montaje["de_plantilla"], en_clase) == 0
+
+    # Un elemento excluido a mano en el grupo, que la plantilla no excluye.
+    libros_de_grupo.excepcion(en_clase, filas[0]["objeto"], incluido=False)
+    # Y uno dado por visto, que NO es un retoque: el avance no se pisa.
+    libros_de_grupo.excepcion(en_clase, filas[1]["objeto"], estado=GroupBookItem.VISTO)
+
+    assert libros_de_grupo.retoques_que_pisa(montaje["de_plantilla"], en_clase) == 1
+
+
+def test_no_se_envia_desde_una_clase(client, montaje):
+    """Enviar es un gesto de plantilla. Desde una clase no existe, y probarlo por
+    HTTP es lo único que lo cierra: la plantilla no enseña el botón, pero la URL
+    se puede escribir."""
+    from django.urls import reverse
+    from clases.models import GroupBook
+
+    en_clase = GroupBook.objects.create(
+        group=montaje["clase"], libro=montaje["libro"], seccion="teoria"
+    )
+    client.force_login(montaje["profe"])
+
+    respuesta = client.get(reverse("clases:nivel_enviar", args=[en_clase.pk]))
+
+    assert respuesta.status_code == 404
+
+
+def test_no_se_envia_a_los_grupos_de_otro(client, montaje, django_user_model):
+    from django.urls import reverse
+    from clases.models import GroupBook
+
+    ajeno = django_user_model.objects.create_user(email="ajeno@x.es", password="x")
+    suyo = _clase(ajeno, "1-G-ajeno")
+    client.force_login(montaje["profe"])
+
+    client.post(
+        reverse("clases:nivel_enviar", args=[montaje["de_plantilla"].pk]),
+        {"grupos": [str(suyo.pk)]},
+    )
+
+    assert not GroupBook.objects.filter(group=suyo).exists()
+
+
+def test_el_avance_no_cuenta_como_retoque(montaje):
+    """Salió en pantalla, no en un test: un grupo que solo tenía cosas vistas y
+    mandadas a casa —sin un solo retoque de inclusión ni de orden— avisaba de
+    «pisa 2 retoques». Ninguna de esas dos cosas viaja ni se pisa.
+
+    Un aviso que exagera se acaba ignorando, y entonces ya no avisa del caso real.
+    """
+    from clases import libros_de_grupo
+    from clases.models import GroupBook, GroupBookItem
+
+    de_plantilla = montaje["de_plantilla"]
+    de_la_plantilla = montaje["filas"]
+    libros_de_grupo.excepcion(de_plantilla, de_la_plantilla[0]["objeto"], incluido=False)
+    libros_de_grupo.excepcion(de_plantilla, de_la_plantilla[1]["objeto"], orden=7)
+
+    en_clase = GroupBook.objects.create(
+        group=montaje["clase"], libro=montaje["libro"], seccion="teoria"
+    )
+    filas = libros_de_grupo.enumerar(en_clase)
+    libros_de_grupo.excepcion(en_clase, filas[0]["objeto"], estado=GroupBookItem.VISTO)
+    libros_de_grupo.excepcion(en_clase, filas[1]["objeto"], a_casa=True)
+
+    assert libros_de_grupo.retoques_que_pisa(de_plantilla, en_clase) == 0
+
+    # Y ahora sí: una decisión de inclusión que la plantilla contradice.
+    libros_de_grupo.excepcion(en_clase, filas[2]["objeto"], incluido=False)
+
+    assert libros_de_grupo.retoques_que_pisa(de_plantilla, en_clase) == 1

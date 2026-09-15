@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Enviar {{ group_book.libro.title }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-2xl">
+
+  <a href="{% url 'clases:group_books_index' group_book.group_id %}" class="btn btn-ghost btn-sm mb-4">
+    ← {{ group_book.group.name }}
+  </a>
+
+  <h1 class="text-2xl sm:text-3xl font-bold">Enviar «{{ group_book.libro.title }}»</h1>
+  <p class="text-sm text-base-content/70 mt-1">
+    Va lo que has elegido en la plantilla: qué elementos entran, su orden, el momento de la
+    clase y cómo avanza. <b>No va el avance</b> de cada grupo, ni lo que hayas enviado a casa.
+  </p>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags|default:'info' }} my-4">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+
+  <form method="post" class="flex flex-col gap-3 mt-6">
+    {% csrf_token %}
+
+    {% for fila in filas %}
+      <label class="flex items-start gap-3 p-3 border border-base-300 rounded cursor-pointer hover:bg-base-200">
+        <input type="checkbox" name="grupos" value="{{ fila.grupo.pk }}" class="checkbox checkbox-sm mt-0.5">
+        <span class="min-w-0">
+          <span class="font-medium">{{ fila.grupo.name }}</span>
+          <span class="text-xs text-base-content/60">· {{ fila.grupo.subject.name }}</span>
+
+          {% if fila.retoques %}
+            {% comment %}
+            El aviso es el punto entero de esta pantalla. Enviar pisa los
+            retoques de ese libro a propósito, y una pérdida a propósito hay que
+            verla venir antes de confirmarla, no leerla después en un mensaje.
+            {% endcomment %}
+            <span class="block text-xs text-warning mt-0.5">
+              ⚠️ pisa {{ fila.retoques }} retoque{{ fila.retoques|pluralize:"s" }} de este grupo
+            </span>
+          {% elif fila.ya_lo_tiene %}
+            <span class="block text-xs text-base-content/50 mt-0.5">ya tiene este libro</span>
+          {% endif %}
+        </span>
+      </label>
+    {% empty %}
+      <div class="alert">Todavía no tienes ningún grupo al que enviar.</div>
+    {% endfor %}
+
+    {% if filas %}
+      <button type="submit" class="btn btn-primary self-start mt-2">Enviar</button>
+    {% endif %}
+  </form>
+
+</div>
+{% endblock %}

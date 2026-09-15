@@ -571,3 +571,127 @@ def panel_de_progreso(user):
             }
         )
     return paneles
+
+
+# =============================================================================
+# ENVIAR UNA PLANTILLA DE NIVEL A LOS GRUPOS
+# =============================================================================
+#
+# **Copia, no acoplamiento.** La plantilla no manda sobre el grupo: le deja una
+# copia y se retira. Lo que hace que esto sirva —y que un simple «copiar de otro
+# grupo» no sirviera— es que la plantilla se queda: un libro nuevo en marzo se
+# configura una vez y se envía otra vez, a los grupos que quieras.
+#
+# **Lo que NO viaja es tan importante como lo que viaja.** El avance (`estado`,
+# `visto_en`) y lo enviado a casa (`a_casa`) se quedan en el grupo, porque son
+# hechos de esa clase y no decisiones de programación. Enviar a un grupo con 12
+# de 74 vistos lo deja con 12 de 74 vistos.
+
+
+def _plano(group_book):
+    """Las decisiones guardadas de un libro, por elemento."""
+    return {(it.content_type_id, it.object_id): it for it in group_book.items.all()}
+
+
+def _lo_que_dice_para(plano, clave):
+    """Qué dice un libro sobre un elemento, tenga fila o no.
+
+    Sin fila el libro dice el defecto, que es exactamente lo que significa no
+    tener fila. Mezclar «no tiene fila» con «no dice nada» es lo que haría que
+    enviar dejara al grupo a medio camino entre la plantilla y lo que tenía.
+    """
+    fila = plano.get(clave)
+    return (fila.incluido, fila.orden) if fila else (True, None)
+
+
+# Lo que dice un libro sobre un elemento del que no guarda nada.
+DEFECTO = (True, None)
+
+
+def retoques_que_pisa(plantilla_book, destino_book):
+    """Cuántas DECISIONES de ese grupo se perderían al enviar.
+
+    Se enseña ANTES de confirmar. Enviar pisa los retoques de ese libro a
+    propósito —fusionar dejaría a nadie sabiendo qué tiene cada grupo—, y una
+    pérdida a propósito hay que verla venir.
+
+    **Tener fila no es haber decidido.** Una fila nace también al dar algo por
+    visto o al mandarlo a casa, y esas dos cosas no viajan ni se pisan. Contar
+    filas en vez de decisiones avisaba de pérdidas que no existen, y un aviso que
+    exagera se acaba ignorando, que es la manera más silenciosa de que un aviso
+    deje de servir. Se vio en pantalla: un grupo sin un solo retoque salía con
+    «pisa 2 retoques».
+    """
+    if destino_book is None:
+        return 0
+    de_plantilla = _plano(plantilla_book)
+    n = 0
+    for clave, fila in _plano(destino_book).items():
+        suyo = (fila.incluido, fila.orden)
+        if suyo == DEFECTO:
+            continue
+        if suyo != _lo_que_dice_para(de_plantilla, clave):
+            n += 1
+    return n
+
+
+def enviar(plantilla_book, grupos, autor=None):
+    """Deja en cada grupo una copia de lo que dice la plantilla sobre ESE libro.
+
+    Devuelve una lista de `(grupo, creado)` para poder contarlo por pantalla.
+    """
+    from django.db import transaction
+
+    resultado = []
+    for grupo in grupos:
+        with transaction.atomic():
+            destino, creado = GroupBook.objects.get_or_create(
+                group=grupo,
+                libro=plantilla_book.libro,
+                defaults={
+                    "seccion": plantilla_book.seccion,
+                    "modo": plantilla_book.modo,
+                    "added_by": autor,
+                },
+            )
+            if not creado:
+                destino.seccion = plantilla_book.seccion
+                destino.modo = plantilla_book.modo
+                destino.activo = True
+                destino.save(update_fields=["seccion", "modo", "activo"])
+
+            _copiar_elementos(plantilla_book, destino)
+            resultado.append((grupo, creado))
+    return resultado
+
+
+def _copiar_elementos(plantilla_book, destino):
+    de_plantilla = _plano(plantilla_book)
+    existentes = _plano(destino)
+
+    for clave, modelo in de_plantilla.items():
+        fila = existentes.get(clave)
+        if fila is None:
+            fila = GroupBookItem(
+                group_book=destino,
+                content_type_id=clave[0],
+                object_id=clave[1],
+                source_page=modelo.source_page,
+            )
+        fila.incluido = modelo.incluido
+        fila.orden = modelo.orden
+        fila.save()
+
+    # Lo que el grupo había tocado y la plantilla no menciona vuelve al defecto.
+    # Si esa fila no guardaba nada más, se BORRA en vez de quedarse diciendo el
+    # defecto: es lo que mantiene en pie el invariante del que vive el motor, que
+    # un libro sin tocar son cero filas.
+    for clave, fila in existentes.items():
+        if clave in de_plantilla:
+            continue
+        if fila.estado == GroupBookItem.PENDIENTE and not fila.a_casa:
+            fila.delete()
+        else:
+            fila.incluido = True
+            fila.orden = None
+            fila.save(update_fields=["incluido", "orden"])

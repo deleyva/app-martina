@@ -108,6 +108,11 @@ urlpatterns = [
         name="niveles",
     ),
     path(
+        "niveles/libro/<int:pk>/enviar/",
+        views_libros.nivel_enviar,
+        name="nivel_enviar",
+    ),
+    path(
         "groups/crear/",
         views_libros.group_create,
         name="group_create",

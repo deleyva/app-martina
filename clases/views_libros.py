@@ -12,6 +12,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods
 from wagtail.models import Page
@@ -679,6 +680,62 @@ def niveles(request):
             ],
             "asignaturas": Subject.objects.order_by("name"),
         },
+    )
+
+
+@login_required
+@user_passes_test(es_profesor)
+def nivel_enviar(request, pk):
+    """Manda un libro de una plantilla a los grupos que elijas.
+
+    **Se envía UN libro, no la plantilla entera.** Es lo que hace que un libro
+    nuevo en marzo no toque nada de lo que esos grupos ya llevaban: mandar la
+    plantilla completa arrastraría los otros cinco libros y sus retoques, que es
+    justo lo que nadie quiere en mitad de un trimestre.
+    """
+    group_book = _libro_del_profesor(request, pk)
+    if not group_book.group.es_plantilla:
+        raise Http404("Ese libro no es de una plantilla.")
+
+    destinos = Group.del_profesor(request.user).select_related("subject")
+
+    if request.method == "POST":
+        elegidos = set(request.POST.getlist("grupos"))
+        grupos = [g for g in destinos if str(g.pk) in elegidos]
+        if not grupos:
+            messages.error(request, "Elige al menos un grupo.")
+            return redirect("clases:nivel_enviar", pk=pk)
+
+        enviados = libros_de_grupo.enviar(group_book, grupos, autor=request.user)
+        nombres = ", ".join(g.name for g, _ in enviados)
+        messages.success(
+            request,
+            f"«{group_book.libro.title}» enviado a {nombres}. "
+            "El avance de cada grupo se ha quedado como estaba.",
+        )
+        return redirect("clases:group_books_index", group_id=group_book.group_id)
+
+    ya_asignados = {
+        gb.group_id: gb
+        for gb in GroupBook.objects.filter(
+            group__in=destinos, libro=group_book.libro
+        )
+    }
+    filas = [
+        {
+            "grupo": grupo,
+            "ya_lo_tiene": grupo.pk in ya_asignados,
+            "retoques": libros_de_grupo.retoques_que_pisa(
+                group_book, ya_asignados.get(grupo.pk)
+            ),
+        }
+        for grupo in destinos
+    ]
+
+    return render(
+        request,
+        "clases/group_books/enviar.html",
+        {"group_book": group_book, "filas": filas},
     )
 
 

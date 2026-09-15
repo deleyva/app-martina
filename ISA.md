@@ -2,7 +2,7 @@
 slug: app-martina
 phase: complete
 progress: false
-iteration: 42
+iteration: 43
 principal_stated_goal: "Necesito desarrollar en apps.iesmartinabescos.es Otra app de Django como la que tenemos en /incidencias. Está sí que debe de requerir login con Google porque ya tenemos implementado. Básicamente, es una aplicación en la que quiero que vayan solicitando la clave Wi-Fi. Pero para ello deben logearse y enviar la MAC de su dispositivo WIFI, la privada (real) no la aleatoria."
 updated: 2026-09-11
 ---
@@ -2750,9 +2750,9 @@ y meter en un capítulo una imagen de 2019 marca exactamente una.
 - [x] **C176** · Una plantilla no aparece en ninguna pantalla donde aparezcan
   clases. *Falsador:* recorrer las pantallas por HTTP, no el ORM.
 - [x] **C177** · Ni alumnado ni sesiones dentro de una plantilla.
-- [ ] **C178** · Enviar lleva qué elementos entran, su orden, el momento y el modo.
-- [ ] **C179** · Enviar nunca toca el avance.
-- [ ] **C180** · Enviar un libro no toca los demás libros de ese grupo.
+- [x] **C178** · Enviar lleva qué elementos entran, su orden, el momento y el modo.
+- [x] **C179** · Enviar nunca toca el avance.
+- [x] **C180** · Enviar un libro no toca los demás libros de ese grupo.
 - [ ] **C181** · Un elemento que no estaba sale marcado; uno que estaba, no.
   *Falsadores:* republicar sin añadir marca cero; una imagen vieja marca una.
 - [ ] **C182** · Lo nuevo no bloquea la clase: `preparar_sesion` lo propone igual.
@@ -2786,3 +2786,38 @@ como un error de permisos. Ahora `es_profesor` pregunta por `Group.todos`.
 `test_las_plantillas_de_otro_no_salen_en_tu_lista` usaba «3.º ESO», que es el
 `placeholder` del formulario de crear. El texto estaba en la página siempre.
 Ahora usa un nombre que solo puede venir de la base de datos.
+
+### Fase B, cerrada — enviar a los grupos
+
+**Se envía UN libro, no la plantilla entera.** Es lo que hace que un libro nuevo
+en marzo no toque nada de lo que esos grupos ya llevaban: mandar la plantilla
+completa arrastraría los otros cinco libros y sus retoques en mitad del curso.
+
+Viaja `incluido`, `orden`, `seccion` y `modo`. **No viaja `a_casa`**: mandar algo
+a casa es un acto de esa clase, atado al día en que se dio, no una decisión de
+programación. Tampoco `estado` ni `visto_en`.
+
+Lo que el grupo tocó y la plantilla no menciona vuelve al defecto, y la fila se
+**borra** si no guardaba nada más. Es lo que mantiene en pie el invariante del
+motor: un libro sin tocar son cero filas.
+
+#### Dos defectos, y ninguno lo encontró un test a la primera
+
+**1. Un test que no podía fallar.** `test_enviar_no_toca_el_avance` dejaba la
+plantilla sin filas, así que el envío entraba siempre por la rama de «lo que la
+plantilla no menciona» y la rama que de verdad escribe encima no se ejecutaba.
+Se descubrió saboteando el motor para que copiara `estado`: el test pasaba igual.
+Ahora la plantilla opina sobre los mismos elementos que el grupo ya trabajó, y el
+mismo sabotaje lo tumba con `assert 'pendiente' == 'visto'`.
+
+**2. El aviso exageraba, y eso se vio en pantalla, no en un test.** Un grupo sin
+un solo retoque salía con «pisa 2 retoques», porque se contaban filas en vez de
+decisiones: una fila nace también al dar algo por visto o al mandarlo a casa, y
+esas dos cosas ni viajan ni se pisan. Un aviso que exagera se acaba ignorando,
+que es la forma más silenciosa de que un aviso deje de servir.
+
+#### Lo que la pantalla de la plantilla NO enseña
+
+Ni barra de avance ni «invitar alumnado». Enseñar «0 de 74 vistos» en una
+plantilla invita a marcar cosas por vistas donde marcar no significa nada, y ese
+estado no viaja a ningún grupo.

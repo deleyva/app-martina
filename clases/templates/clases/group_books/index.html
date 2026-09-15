@@ -13,7 +13,11 @@
       </p>
     </div>
     <div class="flex gap-2">
-      <a href="{% url 'clases:group_invitations' group.pk %}" class="btn btn-outline btn-sm">✉️ Invitar alumnado</a>
+      {% if not group.es_plantilla %}
+        <a href="{% url 'clases:group_invitations' group.pk %}" class="btn btn-outline btn-sm">✉️ Invitar alumnado</a>
+      {% else %}
+        <a href="{% url 'clases:niveles' %}" class="btn btn-ghost btn-sm">🧩 Plantillas</a>
+      {% endif %}
       <a href="{% url 'clases:class_session_list' %}" class="btn btn-ghost btn-sm">Sesiones</a>
     </div>
   </div>
@@ -66,14 +70,28 @@
             <noscript><button type="submit" class="btn btn-xs">Guardar</button></noscript>
           </form>
 
+          {% comment %}
+          En una plantilla no hay avance: nadie da clase ahí. Enseñar «0 de 74
+          vistos» invita a marcar cosas por vistas en el sitio donde marcar no
+          significa nada, y ese estado no viaja a ningún grupo.
+          {% endcomment %}
+          {% if group.es_plantilla %}
+            <div class="text-xs text-base-content/60">{{ fila.total }} elemento{{ fila.total|pluralize:"s" }} en el libro</div>
+          {% else %}
           <div class="flex items-center gap-3">
             <progress class="progress progress-primary w-full max-w-xs" value="{{ fila.vistos }}" max="{{ fila.total }}"></progress>
             <span class="text-xs text-base-content/60 whitespace-nowrap">
               {{ fila.vistos }} de {{ fila.total }} vistos
             </span>
           </div>
+          {% endif %}
 
           <div class="card-actions justify-end">
+            {% if group.es_plantilla %}
+              <a href="{% url 'clases:nivel_enviar' fila.group_book.pk %}" class="btn btn-sm btn-secondary">
+                📨 Enviar a los grupos
+              </a>
+            {% endif %}
             <a href="{% url 'clases:group_book_items' fila.group_book.pk %}" class="btn btn-sm btn-primary">
               Elegir elementos
             </a>
