@@ -2993,3 +2993,87 @@ devuelve 200 con el aviso de respaldo y el texto original.
 
 El índice de recursos sigue enseñando la entradilla base; traducir la interfaz
 de la aplicación; SEO multilingüe.
+
+## Fase 34 — Solo repaso: la casilla de elementos nuevos (2026-09-15)
+
+Petición del principal, literal: «a veces incluye elementos nuevos y no me da
+tiempo a ir a ese ritmo de novedad. Repasar más veces sin elementos nuevos».
+
+El ritmo de novedad no era un accidente: `PROPORCION_NOVEDAD = 0.2` reserva tres
+de los quince huecos para material sin practicar, y la creación perezosa fabrica
+ese material desde los libros con objetivo. La reserva está bien de media y mal
+en la semana concreta en la que uno no da abasto. Lo que faltaba no era otro
+número, era **poder apagarla ese día sin tocar la configuración**.
+
+### La novedad entra por tres sitios, no por uno
+
+Es el detalle que decide la implementación. Apagar solo la cuota habría dejado
+dos puertas abiertas:
+
+1. **La cuota** de `construir_sesion`: `round(tamano × 0.2)` huecos para lo
+   nunca practicado.
+2. **El relleno del final** de `construir_sesion`: si no hay bastante repaso
+   para llenar la sesión, entra más material nuevo. Es una rama distinta y se
+   dispara justo en el caso del principal.
+3. **La creación perezosa** (`rellenar_para_sesion`): fabrica elementos del
+   libro ANTES de armar la sesión. Dejarla viva con la cuota a cero habría
+   dejado material en la biblioteca que nadie pidió.
+
+La casilla apaga las tres. Con la novedad apagada la sesión puede salir **más
+corta** que quince —diez, si es todo el repaso que hay— y eso es correcto: el
+tamaño es un techo, no una cuota que haya que llenar como sea.
+
+### El `hidden` con `0` no es un adorno
+
+Una casilla desmarcada no manda nada, así que sin el `<input type="hidden"
+name="nuevos" value="0">` delante no hay forma de distinguir «la he apagado» de
+«acabo de entrar en la pantalla». Y el valor por defecto tiene que ser
+incluirlos: entrar en la pantalla no puede cambiar el comportamiento de siempre.
+Marcada llegan los dos valores y la vista se queda con el último. Sigue siendo
+una URL guardable en marcadores, que es el motivo por el que el selector es GET.
+
+### Criterios
+
+- [x] **C195** · Con la casilla apagada, ninguna unidad sin practicar entra en
+  la sesión, ni por la cuota ni por el relleno del final. *Evidencia:*
+  `test_apagar_los_nuevos_deja_la_sesion_solo_de_repaso` y
+  `test_apagar_los_nuevos_no_rellena_el_hueco_que_falta` (este último con diez
+  sin tocar y UN repasado: la sesión sale de uno, no de quince). Y Chrome real
+  sobre `localhost:8000/my-library/empezar/`: al desmarcar, la lista pasa de
+  quince —cinco con «sin tocar»— a diez, todas con «hace N d».
+- [x] **C196** · Apagarla no crea material del libro. *Evidencia:*
+  `test_apagar_los_nuevos_no_crea_material_del_libro` (cuenta de `LibraryItem`
+  igual antes y después de lanzar) y la comprobación en la base local tras
+  lanzar desde Chrome: 20 elementos antes, 20 después.
+- [x] **C197** · El valor por defecto es el de siempre: entrar en la pantalla
+  monta la misma sesión que ayer. *Evidencia:*
+  `test_con_los_nuevos_encendidos_nada_cambia`,
+  `test_la_casilla_sale_marcada_al_entrar`, los 190 tests de `my_library` en
+  verde, y Chrome real con la carga exacta del formulario marcado
+  (`?nuevos=0&nuevos=1`): sesión de quince con novedad dentro.
+- [x] **C198** · La vista previa no promete lo que el lanzamiento no va a
+  servir. Es el invariante de C78 aplicado al caso nuevo: con la novedad
+  apagada, `por_crear` es cero y ninguna fila lleva la insignia «nuevo del
+  libro». *Evidencia:*
+  `test_la_previa_con_los_nuevos_apagados_no_promete_novedad`.
+- [x] **C199** · Si todo lo que casa está sin tocar y la novedad está apagada,
+  la pantalla lo dice en vez de mentir. Antes decía «nada casa con esa
+  combinación» —falso: casan, pero ninguno ha entrado nunca en rotación— y
+  mandaba a quitar facetas en vez de a marcar la casilla. Lanzar en ese estado
+  vuelve al selector con el aviso, en vez de abrir un visor de cero elementos.
+  *Evidencia:*
+  `test_todo_sin_tocar_y_la_novedad_apagada_lo_dice_en_vez_de_mentir` y
+  `test_lanzar_sin_nada_que_repasar_vuelve_al_selector`.
+
+### Anti-claims
+
+No se ha tocado `PROPORCION_NOVEDAD`: el ritmo por defecto sigue siendo tres de
+quince. Esto es un interruptor por sesión, no una preferencia guardada — si el
+principal quiere que la biblioteca RECUERDE que va en modo repaso, eso es otra
+fase y otro modelo. Los mazos (`deck_study`) no llevan casilla: ahí el conjunto
+lo decide el mazo y el caso no se ha planteado.
+
+### Pendiente
+
+Sin desplegar. Verificado en local sobre Chrome real; falta el `git push` y el
+`just deploy-production`, que necesitan luz verde del principal.

@@ -2798,6 +2798,138 @@ def test_la_vista_previa_no_crea_nada(client, db, user):
     )
 
 
+# ── Solo repaso: la casilla de elementos nuevos (2026-09-15) ──────────────────
+#
+# Peticion del principal: "a veces incluye elementos nuevos y no me da tiempo a
+# ir a ese ritmo de novedad. Repasar mas veces sin elementos nuevos."
+
+
+def test_apagar_los_nuevos_deja_la_sesion_solo_de_repaso(db, user):
+    """El falsador directo: con la novedad apagada, ninguna unidad sin
+    practicar puede aparecer en la sesion."""
+    sin_tocar = [_item(user, f"nuevo-{n}") for n in range(5)]
+    repasados = [_item(user, f"viejo-{n}") for n in range(5)]
+    for item in repasados:
+        _practicado_hace(item, dias=30)
+
+    sesion = construir_sesion(sin_tocar + repasados, tamano=8, incluir_nuevos=False)
+
+    titulos = {u.get_content_title() for u in sesion}
+    assert titulos, "con cinco elementos repasados la sesion no puede salir vacia"
+    assert not any(t.startswith("nuevo-") for t in titulos), (
+        f"con la novedad apagada no entra nada sin practicar: {sorted(titulos)}"
+    )
+
+
+def test_apagar_los_nuevos_no_rellena_el_hueco_que_falta(db, user):
+    """El segundo camino por el que entra novedad no es la cuota, es el relleno
+    del final de `construir_sesion`: si no hay bastante repaso para llenar la
+    sesion, mete material nuevo. Apagado tiene que callarse tambien ese."""
+    sin_tocar = [_item(user, f"nuevo-{n}") for n in range(10)]
+    unico = _item(user, "el-unico-repasado")
+    _practicado_hace(unico, dias=30)
+
+    sesion = construir_sesion(sin_tocar + [unico], tamano=15, incluir_nuevos=False)
+
+    assert [u.get_content_title() for u in sesion] == ["el-unico-repasado"], (
+        "la sesion se queda corta antes que colar novedad"
+    )
+
+
+def test_con_los_nuevos_encendidos_nada_cambia(db, user):
+    """El control: el valor por defecto sigue siendo el de siempre."""
+    sin_tocar = [_item(user, f"nuevo-{n}") for n in range(5)]
+    repasados = [_item(user, f"viejo-{n}") for n in range(10)]
+    for item in repasados:
+        _practicado_hace(item, dias=30)
+
+    sesion = construir_sesion(sin_tocar + repasados, tamano=15)
+
+    titulos = {u.get_content_title() for u in sesion}
+    assert any(t.startswith("nuevo-") for t in titulos), (
+        f"por defecto la cuota de novedad sigue viva: {sorted(titulos)}"
+    )
+
+
+def test_apagar_los_nuevos_no_crea_material_del_libro(client, db, user):
+    """La creacion perezosa existe para alimentar la cuota de novedad. Con la
+    cuota a cero, lanzar una sesion no puede dejar material nuevo en la
+    biblioteca: seria material que nadie ha pedido."""
+    _con_objetivo(user, "Caged", "libro-caged", ["c1", "c2", "c3", "c4", "c5"], 2)
+    for item in LibraryItem.objects.filter(user=user):
+        _practicado_hace(item, dias=30)
+    antes = LibraryItem.objects.filter(user=user).count()
+
+    client.force_login(user)
+    client.get(reverse("my_library:session_launch"), {"nuevos": ["0"]})
+
+    assert LibraryItem.objects.filter(user=user).count() == antes, (
+        "con la novedad apagada el libro no avanza"
+    )
+
+
+def test_la_previa_con_los_nuevos_apagados_no_promete_novedad(client, db, user):
+    """Lo mismo por el lado de la vista previa: ni cuenta ni ensena elementos
+    por crear. Es el invariante de C78 —promesa y entrega iguales— aplicado al
+    caso nuevo."""
+    _con_objetivo(user, "Caged", "libro-caged", ["c1", "c2", "c3", "c4", "c5"], 2)
+    for item in LibraryItem.objects.filter(user=user):
+        _practicado_hace(item, dias=30)
+
+    client.force_login(user)
+    respuesta = client.get(reverse("my_library:session_count"), {"nuevos": ["0"]})
+
+    assert respuesta.context["incluir_nuevos"] is False
+    assert respuesta.context["por_crear"] == 0, "no se promete nada por crear"
+    assert not any(getattr(u, "es_nuevo", False) for u in respuesta.context["sesion"])
+
+
+def test_la_casilla_sale_marcada_al_entrar(client, db, user):
+    """El valor por defecto es incluirlos: entrar en la pantalla no puede
+    cambiar el comportamiento de siempre. Y el `hidden` con 0 tiene que estar,
+    porque sin el una casilla desmarcada no manda nada."""
+    _con_objetivo(user, "Caged", "libro-caged", ["c1", "c2"], 2)
+
+    client.force_login(user)
+    respuesta = client.get(reverse("my_library:session_start"))
+    html = respuesta.content.decode()
+
+    assert respuesta.context["incluir_nuevos"] is True
+    assert "Incluir elementos nuevos" in html
+    assert 'type="hidden" name="nuevos" value="0"' in html, (
+        "sin el hidden, desmarcar la casilla es indistinguible de entrar"
+    )
+
+
+def test_todo_sin_tocar_y_la_novedad_apagada_lo_dice_en_vez_de_mentir(client, db, user):
+    """El caso incomodo: elementos que SI casan con el filtro, pero ninguno
+    practicado nunca. La sesion sale vacia, y la pantalla decia "nada casa con
+    esa combinacion", que es falso y manda a quitar facetas en vez de a marcar
+    la casilla."""
+    for n in range(3):
+        _item(user, f"nuevo-{n}")
+
+    client.force_login(user)
+    respuesta = client.get(reverse("my_library:session_count"), {"nuevos": ["0"]})
+
+    assert respuesta.context["todo_sin_tocar"] is True
+    assert respuesta.context["coincidencias"] == 3, "casan: lo que pasa es otra cosa"
+    assert "Todo lo que casa está sin tocar" in respuesta.content.decode()
+
+
+def test_lanzar_sin_nada_que_repasar_vuelve_al_selector(client, db, user):
+    """Y el mismo caso al lanzar: sin esto la sesion se abria con cero
+    elementos, que es una pantalla rota."""
+    for n in range(3):
+        _item(user, f"nuevo-{n}")
+
+    client.force_login(user)
+    respuesta = client.get(reverse("my_library:session_launch"), {"nuevos": ["0"]})
+
+    assert respuesta.status_code == 302
+    assert reverse("my_library:session_start") in respuesta.url, respuesta.url
+
+
 def test_estado_estudio_resume_la_practica_de_hoy(db, user, capsys):
     """C80. "Que he practicado hoy" es la pregunta que motivo `ReviewLog` en la
     fase 1, y hasta ahora no habia forma de responderla sin abrir el admin y

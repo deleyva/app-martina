@@ -99,6 +99,29 @@
 
         <div class="divider my-6"></div>
 
+        {% comment %}
+           El `hidden` con 0 va DELANTE de la casilla a proposito: una casilla
+           desmarcada no manda nada, asi que sin el no habria forma de
+           distinguir "la he apagado" de "acabo de entrar en la pagina", y el
+           valor por defecto tiene que ser incluirlos. Marcada llegan los dos
+           valores y la vista se queda con el ultimo.
+        {% endcomment %}
+        <label class="label cursor-pointer justify-start gap-3 mb-4 p-0">
+            <input type="hidden" name="nuevos" value="0">
+            <input type="checkbox"
+                   name="nuevos"
+                   value="1"
+                   class="checkbox checkbox-sm checkbox-primary"
+                   {% if incluir_nuevos %}checked{% endif %}>
+            <span class="flex flex-col">
+                <span class="text-sm">Incluir elementos nuevos</span>
+                <span class="text-xs opacity-60">
+                    Apagado, la sesión es solo repaso: nada que no hayas
+                    practicado ya, y no se añade material de tus libros.
+                </span>
+            </span>
+        </label>
+
         <div class="flex items-start justify-between gap-4 flex-wrap">
             <div id="recuento" class="flex-1 min-w-[16rem]">
                 {% include "my_library/partials/session_count.html" %}

@@ -524,11 +524,19 @@ def _variar_capitulos(conocidos, cuantos):
     return elegidos
 
 
-def construir_sesion(items, tamano=TAMANO_SESION_POR_DEFECTO):
+def construir_sesion(items, tamano=TAMANO_SESION_POR_DEFECTO, incluir_nuevos=True):
     """Devuelve los elementos de una sesión, acotados y ordenados.
 
     `items` es cualquier iterable de LibraryItem (el mazo, la biblioteca entera,
     un filtro de etiquetas). El resultado nunca excede `tamano`.
+
+    Con `incluir_nuevos=False` la sesión es SOLO repaso: nada que no se haya
+    practicado nunca entra, ni por la cuota de novedad ni por el relleno del
+    final. Es la petición del principal (2026-09-15): el ritmo de novedad por
+    defecto —tres elementos de quince— va más rápido de lo que da tiempo a
+    asentar, y a veces lo que hace falta es pasar otra vez por lo de siempre.
+    La sesión puede salir vacía si todo lo que casa está sin tocar; eso es
+    información honesta, y la pantalla lo dice.
     """
     unidades = unidades_de_practica(items)
     if not unidades:
@@ -537,7 +545,7 @@ def construir_sesion(items, tamano=TAMANO_SESION_POR_DEFECTO):
     tamano = max(1, min(int(tamano), TAMANO_SESION_MAXIMO))
     dias = _dias_sin_practicar(unidades)
 
-    nuevos = [u for u in unidades if dias[_clave(u)] is None]
+    nuevos = [u for u in unidades if dias[_clave(u)] is None] if incluir_nuevos else []
     conocidos = [u for u in unidades if dias[_clave(u)] is not None]
 
     # Lo nuevo, por orden de alta. Para secciones, `orden` las mantiene en el

@@ -25,6 +25,11 @@ el lanzamiento servía otra cosa: se prometía "1 nuevo" y llegaban 3.
         <div class="text-xs uppercase tracking-wide opacity-50 mb-2">
             Hoy te tocaría esto
         </div>
+        {% if not incluir_nuevos %}
+        <p class="text-xs opacity-60 mb-2">
+            Solo repaso: nada sin practicar entra en esta sesión.
+        </p>
+        {% endif %}
         {% if por_crear %}
         <p class="text-xs opacity-60 mb-2">
             {{ por_crear }} {% if por_crear == 1 %}elemento nuevo{% else %}elementos nuevos{% endif %}
@@ -60,6 +65,11 @@ el lanzamiento servía otra cosa: se prometía "1 nuevo" y llegaban 3.
             {% endfor %}
         </ol>
     </div>
+    {% elif todo_sin_tocar %}
+    <p class="text-sm opacity-60">
+        Todo lo que casa está sin tocar, y has apagado los elementos nuevos.
+        Marca «incluir elementos nuevos» o elige otra combinación.
+    </p>
     {% elif hay_seleccion %}
     <p class="text-sm opacity-60">
         Nada casa con esa combinación. Quita alguna faceta.

@@ -869,6 +869,20 @@ def _claves_elegidas(request):
     return [clave_de_libro(o.libro) for o in _objetivos_de(request)]
 
 
+def _incluir_nuevos(request):
+    """¿Entra material sin practicar en la sesión? Por defecto sí: `?nuevos=0`
+    lo apaga.
+
+    El formulario manda un `hidden` con `0` delante de la casilla, así que
+    marcada llegan los dos valores y manda el último. Sin el `hidden`, una
+    casilla desmarcada no manda NADA y sería indistinguible de entrar a la
+    pantalla por primera vez, que es justo el caso donde el valor por defecto
+    tiene que ser "sí".
+    """
+    valores = request.GET.getlist("nuevos")
+    return valores[-1] != "0" if valores else True
+
+
 @login_required
 def session_start(request):
     """Selector para arrancar una sesión: instrumento, concepto, estilo…
@@ -912,12 +926,15 @@ def session_start(request):
                 _claves_elegidas(request),
                 user=request.user,
                 solo_libros=[o.libro_id for o in _objetivos_de(request)],
+                incluir_nuevos=_incluir_nuevos(request),
             ),
         },
     )
 
 
-def _resumen_seleccion(items, seleccion, claves=None, user=None, solo_libros=None):
+def _resumen_seleccion(
+    items, seleccion, claves=None, user=None, solo_libros=None, incluir_nuevos=True
+):
     """La sesión que se va a servir de verdad, no la que hay ahora.
 
     El libro estrecha primero y las facetas después: es Y entre los dos.
@@ -930,7 +947,7 @@ def _resumen_seleccion(items, seleccion, claves=None, user=None, solo_libros=Non
     en vez de una aproximación.
     """
     pendientes = []
-    if user is not None:
+    if user is not None and incluir_nuevos:
         pendientes = previsualizar_relleno(
             user,
             round(TAMANO_SESION_POR_DEFECTO * PROPORCION_NOVEDAD),
@@ -941,13 +958,23 @@ def _resumen_seleccion(items, seleccion, claves=None, user=None, solo_libros=Non
     coincidencias = filtrar_por_libros(list(items) + pendientes, claves)
     coincidencias = filtrar_por_facetas(coincidencias, seleccion)
     sesion = desambiguar_homonimos(
-        construir_sesion(coincidencias, tamano=TAMANO_SESION_POR_DEFECTO)
+        construir_sesion(
+            coincidencias,
+            tamano=TAMANO_SESION_POR_DEFECTO,
+            incluir_nuevos=incluir_nuevos,
+        )
     )
     return {
         "coincidencias": len(coincidencias),
         "sesion": sesion,
         "por_crear": len(pendientes),
         "hay_seleccion": bool(seleccion) or bool(claves),
+        "incluir_nuevos": incluir_nuevos,
+        # Solo repaso y aun así nada que repasar: todo lo que casa está sin
+        # tocar. Sin esto la pantalla decía "nada casa con esa combinación",
+        # que es falso —casan, pero ninguno ha entrado nunca en rotación— y
+        # mandaba a quitar facetas en vez de a marcar la casilla.
+        "todo_sin_tocar": bool(coincidencias) and not sesion and not incluir_nuevos,
     }
 
 
@@ -966,6 +993,7 @@ def session_count(request):
                 _claves_elegidas(request),
                 user=request.user,
                 solo_libros=[o.libro_id for o in _objetivos_de(request)],
+                incluir_nuevos=_incluir_nuevos(request),
             ),
         },
     )
@@ -982,12 +1010,17 @@ def session_launch(request):
     # que hoy no se están estudiando.
     seleccion = _seleccion_de(request)
     objetivos = _objetivos_de(request)
-    rellenar_para_sesion(
-        request.user,
-        round(TAMANO_SESION_POR_DEFECTO * PROPORCION_NOVEDAD),
-        seleccion=seleccion,
-        solo_libros=[o.libro_id for o in objetivos],
-    )
+    incluir_nuevos = _incluir_nuevos(request)
+    # Con la novedad apagada no se crea nada: la creación perezosa existe para
+    # alimentar la cuota de novedad, y si esa cuota es cero, crear material
+    # sería dejarlo en la biblioteca sin que nadie lo haya pedido.
+    if incluir_nuevos:
+        rellenar_para_sesion(
+            request.user,
+            round(TAMANO_SESION_POR_DEFECTO * PROPORCION_NOVEDAD),
+            seleccion=seleccion,
+            solo_libros=[o.libro_id for o in objetivos],
+        )
 
     items = list(_items_del_usuario(request.user))
 
@@ -1001,7 +1034,16 @@ def session_launch(request):
 
     tamano_raw = request.GET.get("size", "")
     tamano = int(tamano_raw) if tamano_raw.isdigit() else TAMANO_SESION_POR_DEFECTO
-    sesion = construir_sesion(coincidencias, tamano=tamano)
+    sesion = construir_sesion(
+        coincidencias, tamano=tamano, incluir_nuevos=incluir_nuevos
+    )
+    if not sesion:
+        messages.warning(
+            request,
+            "Todo lo que casa con esa selección está sin tocar. Marca "
+            "«incluir elementos nuevos» para empezar con ello.",
+        )
+        return redirect(f"{reverse('my_library:session_start')}?{request.GET.urlencode()}")
 
     # Se anota qué objetivos han aportado novedad, que es lo que hace rotar el
     # turno. Al LANZAR y no al previsualizar: mirar la vista previa no es haber
