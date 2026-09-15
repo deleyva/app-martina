@@ -61,7 +61,7 @@ updated: 2026-09-15
 | 30·2 | **El orden se recoloca solo** — señales + Huey (C154, C155) | `472bb20` |
 | — | El stack de producción vuelve solo tras un reinicio | `d6aa740` |
 | — | La migración 0014 vuelve a caber en el Wagtail de producción | `644bf9d` |
-| 33 | **Cada canción en dos lenguas, una sola página** (C184-C194) | `9afd4b1` |
+| 33 | **Cada canción en dos lenguas, una sola página** (C184-C194) | `eb2c3be` |
 
 ### Dónde estamos (2026-09-10)
 
