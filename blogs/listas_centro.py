@@ -9,7 +9,8 @@ Dos cosas que no son obvias y que costaron medirlas (2026-09-16):
 - **El profesor se casa con su cuenta por Id, no por nombre.**
   `DepartamentosProfesorado.IdProfesorado` es `CuentasGoogle.Id` en 107 de 107
   filas; por nombre solo casan 104, porque la misma persona aparece como
-  «M. ROSA LOPEZ» en una tabla y «María Rosa López» en la otra.
+  «M. ROSA LOPEZ» en una tabla y «María Rosa López» en la otra
+  (ejemplo inventado; el caso real tiene esta misma forma).
 - **El jefe solo viene por nombre** (`DepartamentosInstituto.JefeDpto`), así que
   ahí no queda otra que comparar nombres normalizados, y exigir que casen con
   UNA cuenta. Si casan con dos, no se elige: se avisa.
@@ -93,6 +94,8 @@ def leer_tabla(texto, tabla):
                 continue
 
             if ch == "'" and fila is not None:
+                # Lo que hubiera antes de la comilla es el espacio tras la coma.
+                valor = []
                 en_comillas = citado = True
             elif ch == "(" and fila is None:
                 fila, valor, citado = [], [], False

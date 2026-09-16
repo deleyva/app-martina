@@ -183,7 +183,8 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
         """
         # Verificar si ya existe un usuario con el mismo correo electrónico
         if sociallogin.is_existing:
-            return  # Si la cuenta ya está vinculada, no hacemos nada
+            self._nombre_de_google(sociallogin)
+            return
         
         # Obtener el email de la cuenta social
         email = sociallogin.account.extra_data.get('email')
@@ -194,10 +195,11 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
         try:
             from django.contrib.auth import get_user_model
             User = get_user_model()
-            user = User.objects.get(email=email)
+            user = User.objects.get(email__iexact=email)
             
             # Vincular la cuenta existente con la cuenta social
             sociallogin.connect(request, user)
+            self._nombre_de_google(sociallogin)
             
         except User.DoesNotExist:
             # No existe un usuario con ese email, se creará uno nuevo
@@ -206,8 +208,41 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
             # Log del error para debugging
             import logging
             logger = logging.getLogger(__name__)
-            logger.error(f"Error en pre_social_login: {e}")
+            logger.exception("Error en pre_social_login: %r", e)
             pass
+
+    def _nombre_de_google(self, sociallogin):
+        """El nombre y los apellidos de Google mandan sobre los de la base.
+
+        Al profesorado se le precrea el usuario desde las listas del centro
+        (`cargar_equipos_blogs`), y ahí los nombres vienen como los escribió
+        la gestión: «M. ROSA LOPEZ» donde Google dice «María Rosa López»
+        (ejemplo inventado). Decisión de Jesús (2026-09-16): en cada
+        entrada con Google se sobrescriben con los de Google. La identidad es
+        el correo; el nombre es solo lo que se ve.
+
+        Solo pisa lo que Google trae: un campo vacío en Google no borra nada.
+        """
+        user = sociallogin.user
+        if not user or not user.pk:
+            return
+        datos = sociallogin.account.extra_data or {}
+        nombre = (datos.get("given_name") or "").strip()
+        apellidos = (datos.get("family_name") or "").strip()
+        completo = (datos.get("name") or "").strip() or f"{nombre} {apellidos}".strip()
+
+        cambios = {}
+        for campo, valor in (
+            ("first_name", nombre),
+            ("last_name", apellidos),
+            ("name", completo),
+        ):
+            if valor and getattr(user, campo) != valor:
+                cambios[campo] = valor
+        if cambios:
+            for campo, valor in cambios.items():
+                setattr(user, campo, valor)
+            user.save(update_fields=list(cambios))
 
     def populate_user(
         self,
