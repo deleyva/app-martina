@@ -289,3 +289,28 @@ class CargarEquiposBlogsTest(TestCase):
         usuario.refresh_from_db()
         self.assertEqual(usuario.name, "Eva Mora Sánchez")
         self.assertEqual(usuario.last_name, "Mora Sánchez")
+
+    def test_el_aviso_llega_al_jefe_y_no_a_los_superusuarios(self):
+        """El aviso de «enviado a revisión» va al jefe y a nadie más."""
+        from datetime import date
+
+        from django.core import mail
+
+        from blogs.models import ArticuloPage
+
+        self._cargar()
+        User.objects.create_superuser(email="admin@iesmartinabescos.es", password="x")
+        profe = User.objects.get(email="poneill@iesmartinabescos.es")
+
+        articulo = ArticuloPage(
+            title="Enviado", slug="enviado", date=date(2026, 9, 16), intro="x", owner=profe
+        )
+        self.filosofia.add_child(instance=articulo)
+        articulo.save_revision(user=profe)
+        mail.outbox.clear()
+
+        articulo.get_workflow().start(articulo, profe)
+
+        destinatarios = {d for m in mail.outbox for d in m.to}
+        self.assertIn("aperez@iesmartinabescos.es", destinatarios)
+        self.assertNotIn("admin@iesmartinabescos.es", destinatarios)
