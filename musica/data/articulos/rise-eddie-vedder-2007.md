@@ -11,6 +11,7 @@ etiquetas: artista:eddie-vedder, estilo:folk-rock, estilo:bso, curso:3-eso, conc
 idioma: es
 imagen: rise-denali.webp
 imagen_titulo: Cruzando la cordillera camino del autobús 142, parque nacional de Denali (Alaska). Foto: Paxson Woelber, CC BY 2.0, vía Wikimedia Commons
+page_id: 860
 ---
 # Rise — Eddie Vedder (2007)
 

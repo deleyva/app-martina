@@ -11,6 +11,7 @@ etiquetas: artista:u2, estilo:rock, estilo:anos-80, curso:4-eso, concepto:acorde
 idioma: es
 imagen: with-or-without-you-joshua-tree.webp
 imagen_titulo: Tormenta acercándose en el parque nacional Joshua Tree (California). Foto: Tuxyso, CC BY-SA 3.0, vía Wikimedia Commons
+page_id: 861
 ---
 # With or Without You — U2 (1987)
 

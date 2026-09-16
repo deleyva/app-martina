@@ -8,6 +8,7 @@ etiquetas: artista:jarabe-de-palo, estilo:rumba-catalana, estilo:rock-espanol, c
 idioma: es
 imagen: la-flaca-malecon-habana.webp
 imagen_titulo: El Malecón de La Habana de noche. Foto: Horacio Fernández, CC BY 3.0, vía Wikimedia Commons
+page_id: 859
 ---
 # La flaca — Jarabe de Palo (1996)
 

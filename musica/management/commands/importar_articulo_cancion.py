@@ -18,8 +18,6 @@ de escucha guiada), y el destino es un `RichTextField`, que no admite `<pre>`
 ni `<table>`. Traer una dependencia para seis construcciones sería pagar de más.
 """
 
-import html
-import re
 from pathlib import Path
 
 from django.core.files.images import ImageFile
@@ -28,150 +26,18 @@ from django.db import transaction
 from wagtail.images import get_image_model
 
 from cms.etiquetas import aplicar_etiquetas
+from musica.articulos import (
+    CABECERA_EN,
+    CABECERA_ES,
+    _frontmatter,
+    _seccion,
+    partir_lengua,
+)
 from musica.models import MusicLibraryIndexPage, RecursoPage, RecursoTraduccion
 
 # Relativo a este fichero, no a `settings`: `APPS_DIR` de cookiecutter apunta al
 # paquete interno, y ahí no vive `musica/`.
 DIRECTORIO = Path(__file__).resolve().parents[3] / "musica" / "data" / "articulos"
-
-CABECERA_ES = "## Versión en castellano"
-CABECERA_EN = "## English version"
-# Dentro de cada lengua, la entradilla es el primer apartado y va al campo
-# `intro`; el cuerpo empieza en el siguiente.
-APARTADO_ENTRADILLA = ("Entradilla", "Intro line")
-
-
-def _frontmatter(texto):
-    """`---\\nclave: valor\\n---` al principio del fichero."""
-    m = re.match(r"^---\n(.*?)\n---\n", texto, re.S)
-    if not m:
-        raise ValueError("El borrador no empieza por un bloque `---` de datos")
-    datos = {}
-    for linea in m.group(1).splitlines():
-        if ":" in linea:
-            clave, valor = linea.split(":", 1)
-            datos[clave.strip()] = valor.strip()
-    return datos, texto[m.end():]
-
-
-def _seccion(texto, cabecera, siguiente=None):
-    """El trozo entre una cabecera `##` y la siguiente."""
-    inicio = texto.find(cabecera)
-    if inicio == -1:
-        return ""
-    inicio += len(cabecera)
-    fin = texto.find(siguiente, inicio) if siguiente else -1
-    return texto[inicio:fin if fin != -1 else len(texto)].strip()
-
-
-def _en_linea(texto):
-    """Negrita, cursiva y escapado. El orden importa: primero se escapa."""
-    texto = html.escape(texto, quote=False)
-    texto = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", texto)
-    texto = re.sub(r"(?<![\*\w])\*([^*\n]+?)\*(?!\*)", r"<i>\1</i>", texto)
-    texto = re.sub(r"`([^`\n]+?)`", r"\1", texto)
-    return texto
-
-
-def _bloque_escucha(lineas):
-    """El bloque cercado de la Escucha guiada, a lista.
-
-    Una línea nueva empieza entrada nueva; las sangradas continúan la anterior,
-    porque en el Markdown están partidas para que quepan a 79 columnas.
-    """
-    entradas = []
-    for linea in lineas:
-        if not linea.strip():
-            continue
-        if linea.startswith((" ", "\t")) and entradas:
-            entradas[-1] += " " + linea.strip()
-        else:
-            entradas.append(linea.strip())
-    items = []
-    for entrada in entradas:
-        m = re.match(r"^(⟨\?:\?\?⟩|\d+:\d\d)\s+(.*)$", entrada)
-        if m:
-            items.append(f"<li><b>{_en_linea(m.group(1))}</b> {_en_linea(m.group(2))}</li>")
-        else:
-            items.append(f"<li>{_en_linea(entrada)}</li>")
-    return "<ul>" + "".join(items) + "</ul>"
-
-
-def markdown_a_richtext(texto):
-    """El subconjunto que usa la plantilla. `###` pasa a `<h2>`: en el artículo
-    esos apartados son los de primer nivel; el `##` es la lengua, que no se
-    pinta."""
-    salida = []
-    parrafo = []
-    lista = []
-    cercado = None
-
-    def cerrar_parrafo():
-        if parrafo:
-            salida.append(f"<p>{_en_linea(' '.join(parrafo).strip())}</p>")
-            parrafo.clear()
-
-    def cerrar_lista():
-        if lista:
-            salida.append("<ul>" + "".join(f"<li>{_en_linea(x)}</li>" for x in lista) + "</ul>")
-            lista.clear()
-
-    for linea in texto.splitlines():
-        if linea.startswith("```"):
-            if cercado is None:
-                cerrar_parrafo()
-                cerrar_lista()
-                cercado = []
-            else:
-                salida.append(_bloque_escucha(cercado))
-                cercado = None
-            continue
-        if cercado is not None:
-            cercado.append(linea)
-            continue
-
-        if not linea.strip():
-            cerrar_parrafo()
-            cerrar_lista()
-            continue
-        if linea.startswith("### "):
-            cerrar_parrafo()
-            cerrar_lista()
-            salida.append(f"<h2>{_en_linea(linea[4:].strip())}</h2>")
-            continue
-        if linea.startswith("> "):
-            continue  # notas para el profesor, no van a la página
-        if re.match(r"^\d+\.\s", linea):
-            cerrar_parrafo()
-            lista.append(re.sub(r"^\d+\.\s", "", linea).strip())
-            continue
-        if linea.startswith("- "):
-            cerrar_parrafo()
-            lista.append(linea[2:].strip())
-            continue
-        if linea.startswith("|") or linea.startswith("---"):
-            continue  # la tabla de la ficha es para ti, no para el alumnado
-        parrafo.append(linea.strip())
-
-    cerrar_parrafo()
-    cerrar_lista()
-    return "".join(salida)
-
-
-def partir_lengua(bloque):
-    """(entradilla, cuerpo) de un bloque de una sola lengua."""
-    apartados = re.split(r"(?m)^### ", bloque)
-    entradilla, cuerpo = "", []
-    for apartado in apartados:
-        if not apartado.strip():
-            continue
-        titulo, _, resto = apartado.partition("\n")
-        if titulo.strip() in APARTADO_ENTRADILLA:
-            entradilla = " ".join(l.strip() for l in resto.strip().splitlines() if l.strip())
-        else:
-            cuerpo.append("### " + apartado.rstrip())
-    return entradilla, markdown_a_richtext("\n".join(cuerpo))
-
 
 def imagen_de_portada(datos):
     """Crea (o encuentra) la imagen de portada del artículo.
@@ -203,6 +69,27 @@ def imagen_de_portada(datos):
     return imagen
 
 
+def resolver_imagen_desde_disco(url, alt, fuente):
+    """Las imágenes del borrador, subidas desde `imagenes/` del propio repo.
+
+    En el borrador se escriben con la ruta del fichero, no con una URL remota:
+    importar no puede depender de que un servidor de fotos conteste, y lo que
+    se publica tiene que ser exactamente lo que se revisó.
+    """
+    Imagen = get_image_model()
+    titulo = fuente or alt or url
+    existente = Imagen.objects.filter(title=titulo).first()
+    if existente:
+        return existente.id
+    ruta = DIRECTORIO / "imagenes" / url
+    if not ruta.exists():
+        raise FileNotFoundError(f"No está la imagen {ruta}")
+    with ruta.open("rb") as fichero:
+        imagen = Imagen(title=titulo, file=ImageFile(fichero, name=url))
+        imagen.save()
+    return imagen.id
+
+
 class Command(BaseCommand):
     help = "Importa borradores de artículo como RecursoPage en borrador, con sus dos lenguas."
 
@@ -230,8 +117,8 @@ class Command(BaseCommand):
             datos, cuerpo = _frontmatter(ruta.read_text(encoding="utf-8"))
             bloque_es = _seccion(cuerpo, CABECERA_ES, CABECERA_EN)
             bloque_en = _seccion(cuerpo, CABECERA_EN)
-            intro_es, body_es = partir_lengua(bloque_es)
-            intro_en, body_en = partir_lengua(bloque_en)
+            intro_es, body_es = partir_lengua(bloque_es, resolver_imagen_desde_disco)
+            intro_en, body_en = partir_lengua(bloque_en, resolver_imagen_desde_disco)
 
             self.stdout.write(f"\n{datos['titulo']}  ({datos['slug']})")
             self.stdout.write(f"  castellano: entradilla {len(intro_es)} car., cuerpo {len(body_es)} car.")
