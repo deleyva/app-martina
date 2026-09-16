@@ -1,6 +1,6 @@
 ---
 slug: app-martina
-phase: build
+phase: verify
 progress: true
 iteration: 44
 principal_stated_goal: "Necesito desarrollar en apps.iesmartinabescos.es Otra app de Django como la que tenemos en /incidencias. Está sí que debe de requerir login con Google porque ya tenemos implementado. Básicamente, es una aplicación en la que quiero que vayan solicitando la clave Wi-Fi. Pero para ello deben logearse y enviar la MAC de su dispositivo WIFI, la privada (real) no la aleatoria."
@@ -3238,7 +3238,7 @@ Listas: exportaciones phpMyAdmin de la aplicación de gestión del centro —
   departamentos con los dos grupos vacíos.
 - `DepartamentosProfesorado.IdProfesorado` = `CuentasGoogle.Id` en **107/107**. Por
   nombre solo casan 104: tres personas figuran con otro nombre («M. ROSA» frente
-  a «María Rosa»). La clave buena es el Id, no el nombre.
+  a «María Rosa», por poner un ejemplo inventado). La clave buena es el Id, no el nombre.
 - Los jefes vienen por NOMBRE, sin Id. Los 17 casan con exactamente una cuenta.
 - Los nombres de SIGAD no son los títulos de los blogs: LATÍN → «Cultura clásica»,
   CIENCIAS NATURALES → «Biología y Geología», ARTES PLÁSTICAS → «Educación Plástica y
@@ -3249,23 +3249,30 @@ Listas: exportaciones phpMyAdmin de la aplicación de gestión del centro —
 
 ### Claims
 
-- [ ] **ISC-35.1** — Cada profesor de la lista queda en «Profesores de <su departamento>»
+- [x] **ISC-35.1** — Cada profesor de la lista queda en «Profesores de <su departamento>»
       y cada jefe en «Jefe del departamento de <su departamento>», con el mapeo SIGAD →
       blog explícito. *Falsador:* conteo por grupo tras cargar ≠ conteo de la lista.
-- [ ] **ISC-35.2** — Un profesor que aún no ha entrado nunca queda precreado (correo del
+      *Evidencia (local):* 17 jefes + 85 profesores = 102 personas. Cuadra con la lista: 107 filas menos 5 personas con dos fichas y un solo correo, menos los 17 jefes, que también figuran como profesores de su departamento. 101 altas en grupo (una ya estaba).
+- [x] **ISC-35.2** — Un profesor que aún no ha entrado nunca queda precreado (correo del
       dominio, sin contraseña usable) y, al entrar con Google, cae en ESA cuenta con sus
       grupos, sin duplicado. *Falsador:* test que simule el `pre_social_login` y encuentre
       otro usuario o la cuenta sin grupos.
-- [ ] **ISC-35.3** — Un profesor NO puede publicar: en su formulario el botón es «Enviar a
+      *Evidencia:* 96 usuarios precreados en local. El test `test_al_entrar_con_google_cae_en_el_usuario_precreado` pasa por `pre_social_login` con `connect()` real: mismo pk, un solo usuario con ese correo y los grupos puestos. **Ampliada a petición de Jesús a mitad de run:** en cada entrada con Google, el nombre y los apellidos de Google sobrescriben los de la base (`_nombre_de_google`), también en entradas posteriores. El test falló antes de que la sincronización funcionara, así que no es un test que pase siempre.
+- [x] **ISC-35.3** — Un profesor NO puede publicar: en su formulario el botón es «Enviar a
       revisión» y no hay «Publicar». *Falsador:* Chrome real como profesor y ver «Publicar».
-- [ ] **ISC-35.4** — El jefe SÍ publica y aprueba lo enviado por sus profesores.
+      *Evidencia:* Chrome real, sesión de un profesor de Filosofía precreado (local): las acciones son «Guardar borrador» y «Enviar para ser moderado» al crear, y «Enviar a Revisión: Filosofía» al editar. No aparece «Publicar» en ninguno de los dos. Tras enviar: «ha sido enviada para moderación», y en BD el workflow queda como `Revisión: Filosofía`, en curso, en la tarea `Aprobación: Filosofía`.
+- [x] **ISC-35.4** — El jefe SÍ publica y aprueba lo enviado por sus profesores.
       *Falsador:* Chrome real como jefe; el artículo enviado no aparece para aprobar.
-- [ ] **ISC-35.5** — Un profesor no puede escribir en otro departamento.
+      *Evidencia:* Chrome real, sesión del jefe de Filosofía: en el panel aparece «Esperando tu revisión» con el artículo; en la edición salen «Aprobar y Publicar», «Solicitar cambios» y «Publicar». Al aprobar, en BD queda `live=True` y el workflow en `approved`. Mailpit: los avisos de envío llegan al jefe.
+- [x] **ISC-35.5** — Un profesor no puede escribir en otro departamento.
       *Falsador:* `permissions_for_user` sobre otro departamento con `can_add_subpage()` cierto.
-- [ ] **ISC-35.6** — INSTALACIONES ELECTROTÉCNICAS tiene blog, colección de imágenes y los
+      *Evidencia:* el profesor de Filosofía que abre `/cms/pages/add/blogs/articulopage/61/` (Música) en Chrome acaba redirigido a `/cms/`. Un test comprueba además que `can_add_subpage()` es False en otro departamento y en la portada.
+- [x] **ISC-35.6** — INSTALACIONES ELECTROTÉCNICAS tiene blog, colección de imágenes y los
       mismos permisos que los demás. *Falsador:* profesor de ese departamento sin sitio donde escribir.
-- [ ] **ISC-35.7** — La carga es idempotente: dos pasadas seguidas, la segunda no cambia nada.
+      *Evidencia (local):* blog creado y publicado; `setup_blog_permissions` le crea ahora la colección `Blogs > Instalaciones Electrotécnicas` con sus permisos (test `test_crea_el_blog_que_falta_completo`). **Hallazgo de paso:** COFOTAP tenía blog pero ningún permiso sobre su colección; la misma ampliación lo arregla.
+- [x] **ISC-35.7** — La carga es idempotente: dos pasadas seguidas, la segunda no cambia nada.
       *Falsador:* la segunda pasada informa cambios.
+      *Evidencia:* la segunda pasada contra la BD local dice «se cambió 0 cosa(s)», y hay test que lo comprueba.
 
 ### Anti-claims
 
@@ -3276,3 +3283,28 @@ Listas: exportaciones phpMyAdmin de la aplicación de gestión del centro —
   carga usa.
 - **Producción no se toca sin el visto bueno de Jesús** (push al repo público + deploy +
   comando).
+
+### Lo que apareció por el camino
+
+- **Otra sesión commiteó y empujó este trabajo a medio hacer.** `e3e4018` (las tablaturas
+  de Songsterr) arrastró el ISA, `setup_blog_permissions`, `cargar_equipos_blogs` y el
+  parser antes de que estuvieran probados. Iba en ellos el nombre real de una profesora,
+  puesto como ejemplo; se ha cambiado por uno inventado, pero **en la historia del remoto
+  público sigue estando**.
+- **Wagtail avisa a TODOS los superusuarios de cada envío**, con dos correos por artículo.
+  En local, 6 superusuarios además del jefe. Lo controla `WAGTAILADMIN_NOTIFICATION_INCLUDE_SUPERUSERS`
+  (por defecto True). Decide Jesús.
+- **Autoguardado y envío a la vez dan un 500.** Si se pulsa «Enviar para ser moderado»
+  mientras el autoguardado de Wagtail 7.3 crea la página, el POST intenta crearla otra
+  vez y choca con el slug. La página queda como borrador y se envía bien desde su
+  edición. Es comportamiento de Wagtail, no de esta fase; anotado por si un profesor lo ve.
+- La suite completa da 837 pasan y 4 fallan, y los mismos 4 fallan sin estos cambios
+  (2 de `test_frontend_integration`, 2 de `incidencias`).
+
+### Pendiente — producción (necesita el visto bueno de Jesús)
+
+1. `git push` y `just deploy-production`.
+2. Subir las listas recortadas (`~/Downloads/listas-blogs-recortadas/`: solo Id, nombre,
+   departamento y correo), ejecutar `cargar_equipos_blogs --dry-run`, mirar los avisos,
+   ejecutar de verdad y borrar las listas del servidor.
+3. Decidir lo de avisar a los superusuarios.
