@@ -433,6 +433,11 @@ EXPLORER_PUBLIC_QUERY_MODE = True  # Permitir compartir queries públicamente
 
 # Wagtail
 WAGTAIL_SITE_NAME = "IES Blog"
+# Los avisos de moderación van al jefe del departamento, no a todos los
+# superusuarios. Con el valor por defecto (True), cada artículo enviado a
+# revisión en cualquiera de los 17 departamentos mandaba dos correos a cada
+# superusuario. Decisión de Jesús, 2026-09-16.
+WAGTAILADMIN_NOTIFICATION_INCLUDE_SUPERUSERS = False
 WAGTAILDOCS_EXTENSIONS = [
     "csv",
     "docx",
