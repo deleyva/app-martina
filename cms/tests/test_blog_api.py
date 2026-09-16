@@ -411,3 +411,84 @@ class FechaEnLosEsquemasTest(TestCase):
                 (anotacion, *getattr(anotacion, "__args__", ())),
                 f"{esquema.__name__}.date quedó como {anotacion}",
             )
+
+
+class ActualizarYPublicarTest(BlogPageMetadatosMusicalesTest):
+    """Qué le hace un `PUT` al estado de publicación (2026-09-16).
+
+    Escrito tras una lectura equivocada de un log de producción: vi un artículo
+    vivo después de mi `PUT` y di por hecho que el API lo había publicado. No
+    era eso. El `wagtail.publish` del log lo había hecho una persona desde el
+    administrador una hora antes; el `PUT` solo escribió encima. Las acciones
+    de línea de comandos quedan con `user_id` nulo y las de HTTP con el usuario
+    de la clave del API, que es el mismo id que el de la persona: el log **no
+    distingue** quién de los dos actuó, y por eso engaña.
+
+    Los dos tests de abajo fijan el comportamiento real, que es el que importa
+    para el flujo: un borrador sigue en borrador, y una página ya publicada se
+    actualiza en vivo sin pedir permiso. Esto segundo es deseable —así se
+    corrige una errata en algo ya publicado— pero conviene tenerlo escrito.
+    """
+
+    def test_un_put_sin_publicar_deja_la_pagina_en_borrador(self):
+        creada = self._post(
+            {
+                "title": "Borrador que debe seguir siéndolo",
+                "date": "2026-09-16",
+                "intro": "Con el minutaje todavía sin comprobar.",
+                "body": "<p>Cuerpo.</p>",
+                "parent_page_id": self.blog_index.id,
+                "publish_immediately": False,
+            }
+        ).json()
+        page = self.MODELO.objects.get(id=creada["id"])
+        self.assertFalse(page.live, "la página nació publicada")
+
+        respuesta = self.client.put(
+            f"{self.url}/{page.id}",
+            data=json.dumps({"intro": "otra entradilla", "publish_immediately": False}),
+            content_type="application/json",
+        )
+        self.assertEqual(respuesta.status_code, 200, respuesta.content)
+        page.refresh_from_db()
+        self.assertFalse(page.live, "actualizar publicó un borrador")
+        self.assertFalse(respuesta.json()["live"], "la respuesta dice que está viva")
+
+    def test_un_put_sobre_una_pagina_viva_deja_el_cambio_invisible(self):
+        """El filo del flujo, medido y no supuesto.
+
+        Un `PUT` sin `publish_immediately` sobre una página **ya publicada**
+        guarda una revisión y no la publica: la página sigue viva con el texto
+        viejo, y el cambio queda en un borrador pendiente que nadie ve. Por eso
+        `scripts/publicar_cancion.py` avisa en pantalla cuando esto ocurre —
+        corregir una errata y que no se note es la peor de las dos opciones.
+        """
+        creada = self._post(
+            {
+                "title": "Ya publicada",
+                "date": "2026-09-16",
+                "intro": "Entradilla original.",
+                "body": "<p>Cuerpo.</p>",
+                "parent_page_id": self.blog_index.id,
+                "publish_immediately": True,
+            }
+        ).json()
+        page = self.MODELO.objects.get(id=creada["id"])
+        self.assertTrue(page.live)
+
+        self.client.put(
+            f"{self.url}/{page.id}",
+            data=json.dumps({"intro": "Entradilla corregida.", "publish_immediately": False}),
+            content_type="application/json",
+        )
+        page.refresh_from_db()
+        self.assertTrue(page.live, "despublicó una página que estaba viva")
+        self.assertEqual(
+            page.intro,
+            "Entradilla original.",
+            "el cambio llegó al público sin pedir publicación",
+        )
+        self.assertTrue(
+            page.has_unpublished_changes,
+            "el cambio no quedó ni publicado ni pendiente: se perdió",
+        )

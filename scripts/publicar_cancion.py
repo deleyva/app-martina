@@ -196,6 +196,16 @@ def publicar(nombre, publicar_ya=False):
     if page_id:
         salida = _peticion(f"/api/cms/blog-pages/{page_id}", payload, metodo="PUT")
         print(f"  Actualizada id {salida['id']} — /cms/pages/{salida['id']}/edit/")
+        # Un PUT sobre una página YA publicada guarda la revisión y no la
+        # publica: el público se queda con el texto viejo y el cambio duerme en
+        # un borrador que nadie mira. Corregir una errata y que no se note es
+        # peor que no corregirla, así que aquí se dice en voz alta.
+        if salida["live"] and not publicar_ya:
+            print(
+                "  ⚠ La página está publicada y este cambio NO se ve todavía:\n"
+                "    queda como borrador pendiente. Repite con --publicar, o\n"
+                f"    publica desde /cms/pages/{salida['id']}/edit/"
+            )
     else:
         payload["parent_page_id"] = int(datos.get("padre", PADRE_POR_DEFECTO))
         salida = _peticion("/api/cms/blog-pages", payload, metodo="POST")

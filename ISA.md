@@ -3073,6 +3073,47 @@ episodios, que es justo la navegación que le faltaba; y en una página sin
 encabezados el índice se esconde (`display: none`) y el texto ocupa el ancho
 completo, sin columna vacía.
 
+### Un solo publicador (2026-09-16)
+
+Había **dos** caminos para publicar una canción y cada uno hacía la mitad: la
+skill `PublishIES`, que subía imágenes y armaba el cuerpo con curl a mano, y el
+comando de gestión de anoche, que creaba las dos lenguas sin imágenes ni
+vídeos. Por eso las tres primeras canciones salieron sin una sola imagen dentro
+del texto y sin el videoclip: usé el camino que no los tenía.
+
+El conversor pasa a `musica/articulos.py`, sin Django, y lo comparten el comando
+(respaldo sin red) y `scripts/publicar_cancion.py` (por API, el que se usa). El
+borrador ya sabe decir imagen con crédito, vídeo de YouTube que se convierte en
+reproductor, `songsterr_url` y `tablatura`. Los binarios con copyright se suben
+por API y **nunca** al repo, que es un GitHub público.
+
+#### Dos defectos, y el segundo lo causé yo
+
+**1. `date: Optional[date] = None` se anulaba a sí mismo.** Pydantic evalúa la
+anotación con el valor ya asignado, así que el campo acababa siendo de tipo
+`NoneType`: el `PUT` devolvía 422 **pidiendo que la fecha fuera None**, y
+actualizar la fecha de un artículo era imposible desde que se escribió el API.
+Un barrido por la clase entera encontró el mismo patrón en `TestPageIn`, y
+ninguno más. Fijado con un test que comprueba los tres esquemas.
+
+**2. Despubliqué un artículo que el principal había publicado.** Vi la página
+viva después de mi `PUT`, deduje que el API la había publicado sola, y la
+despubliqué "para arreglarlo". El `wagtail.publish` del log era suyo, de una
+hora antes, desde el administrador. **El log no distingue quién actuó**: las
+acciones de línea de comandos quedan con usuario nulo, pero las del API llevan
+el mismo id de usuario que las de la persona. Republicada en cuanto lo vi.
+
+La lección operativa no es "mira mejor el log": es que **deducir una causa de
+un rastro ambiguo y actuar encima, sin reproducir, es lo que rompe cosas**. El
+test que escribí con la hipótesis falsa pasó a la primera, que era justo la
+señal de que la hipótesis no valía.
+
+**3. Lo que el test sí encontró:** un `PUT` sobre una página **ya publicada**
+guarda la revisión y no la publica. El público se queda con el texto viejo y la
+corrección duerme en un borrador que nadie mira. Corregir una errata y que no
+se note es peor que no corregirla, así que el publicador ahora avisa en
+pantalla y `--publicar` lo cierra.
+
 ### Fuera de alcance
 
 El índice de recursos sigue enseñando la entradilla base; traducir la interfaz
