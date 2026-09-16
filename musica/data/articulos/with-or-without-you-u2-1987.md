@@ -126,9 +126,28 @@ Minutaje sobre el corte del disco. El vídeo oficial dura tres segundos menos; c
 
 ### Recursos
 
-1. **Videoclip oficial** — `https://www.youtube.com/watch?v=ujNeHIo7oTE`
-2. **Análisis armónico** — `https://www.hooktheory.com/theorytab/view/u2/with-or-without-you`
-3. **Partitura** — no hay; habría que hacerla
+**Videoclip oficial**
+
+https://www.youtube.com/watch?v=ujNeHIo7oTE
+
+**Tutorial de guitarra** — Marty Music. Explica también cómo se consigue ese eco.
+
+https://www.youtube.com/watch?v=cEzsP2Sp_6s
+
+**Tutorial de bajo** — florainbass, con la tablatura en pantalla. Es la línea que sostiene la canción entera.
+
+https://www.youtube.com/watch?v=zONE-7ImMxY
+
+**Tutorial de piano** — PHianonize, versión fácil.
+
+https://www.youtube.com/watch?v=e3GmrWK4zvw
+
+**Batería** — Chris Whitehouse. Poco vista, pero es una lección completa y gratuita, no un adelanto de pago.
+
+https://www.youtube.com/watch?v=eBNhsI0Pa9A
+
+- **Análisis armónico** — `https://www.hooktheory.com/theorytab/view/u2/with-or-without-you`
+- **Tablatura** — adjunta abajo; el botón la abre en Songsterr
 4. **Imagen de portada** — Tormenta acercándose en el parque nacional Joshua Tree (California). Foto: Tuxyso, CC BY-SA 3.0, vía Wikimedia Commons
 ---
 
@@ -211,7 +230,26 @@ Timings are for the album track. The official video is three seconds shorter; ch
 
 ### Resources
 
-1. **Official video** — `https://www.youtube.com/watch?v=ujNeHIo7oTE`
-2. **Harmonic analysis** — `https://www.hooktheory.com/theorytab/view/u2/with-or-without-you`
-3. **Score** — none yet; it would have to be made
+**Official video**
+
+https://www.youtube.com/watch?v=ujNeHIo7oTE
+
+**Guitar tutorial** — Marty Music. He also explains how that delay is set up.
+
+https://www.youtube.com/watch?v=cEzsP2Sp_6s
+
+**Bass tutorial** — florainbass, with the tab on screen. This is the line the whole song leans on.
+
+https://www.youtube.com/watch?v=zONE-7ImMxY
+
+**Piano tutorial** — PHianonize, easy version.
+
+https://www.youtube.com/watch?v=e3GmrWK4zvw
+
+**Drums** — Chris Whitehouse. Few views, but a complete free lesson rather than a paid preview.
+
+https://www.youtube.com/watch?v=eBNhsI0Pa9A
+
+- **Harmonic analysis** — `https://www.hooktheory.com/theorytab/view/u2/with-or-without-you`
+- **Tab** — attached below; the button opens it in Songsterr
 4. **Cover image** — Tormenta acercándose en el parque nacional Joshua Tree (California). Foto: Tuxyso, CC BY-SA 3.0, vía Wikimedia Commons

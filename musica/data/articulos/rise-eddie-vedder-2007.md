@@ -20,8 +20,9 @@ time_signature_beat_type: 4
 # Rise — Eddie Vedder (2007)
 
 > Borrador para el Índice de recursos musicales. Sigue `docs/PLANTILLA_ARTICULO_CANCION.md`.
-> **Lo único que falta: el minutaje de la Escucha guiada.** Va marcado `⟨?:??⟩`.
-> Una escucha con el vídeo delante y queda cerrado.
+> **Publicada sin minutaje** (2026-09-16, decisión del principal). La Escucha
+> guiada dice qué buscar, en orden, sin minutos. Cuando los tengas, se añaden y
+> se republica con `scripts/publicar_cancion.py <slug>.md --publicar`.
 
 ## Ficha musical (campos del formulario)
 
@@ -84,16 +85,16 @@ Datos duros: **Sol mayor**, **3/4**, **173 BPM** según la partitura que usamos 
 
 ### Escucha guiada
 
-```
-⟨?:??⟩  Entra la mandolina sola. Fíjate en que el sonido tiembla sin que nadie
-        mueva el dedo: son las cuerdas dobles, no un efecto.
-⟨?:??⟩  Entra la voz. La armonía no ha cambiado nada: sigue el mismo Sol.
-⟨?:??⟩  «Gonna rise up». Es lo más alto que va a llegar la canción, y llega
-        con los mismos tres acordes de antes.
-⟨?:??⟩  Puente. Aquí los acordes van más seguidos; es el único sitio donde la
-        armonía se mueve de verdad.
-⟨?:??⟩  Final. No hay gran acorde de cierre: se acaba y ya.
-```
+Cinco cosas que buscar, en el orden en que llegan:
+
+- **La mandolina sola, al principio.** Fíjate en que el sonido tiembla sin que
+  nadie mueva el dedo: son las cuerdas dobles, no un efecto.
+- **La entrada de la voz.** La armonía no ha cambiado nada: sigue el mismo Sol.
+- **Cuenta el pulso mientras suena.** Sale uno-dos-tres, no uno-dos-tres-cuatro.
+- **«Gonna rise up».** Es lo más alto que llega la canción, y llega con los
+  mismos tres acordes de antes.
+- **El puente.** Aquí los acordes van más seguidos; es el único sitio donde la
+  armonía se mueve de verdad.
 
 ### Para hacer en clase
 
@@ -115,9 +116,24 @@ Datos duros: **Sol mayor**, **3/4**, **173 BPM** según la partitura que usamos 
 
 ### Recursos
 
-1. **Videoclip oficial** — `https://www.youtube.com/watch?v=kjDxxKMDf0Y`
-2. **Acordes** — `https://tabs.ultimate-guitar.com/tab/eddie-vedder/rise-chords-626436`
-3. **Partitura** — pendiente de crear la `ScorePage` con el PDF del cancionero
+**Canción completa** (canal oficial de Eddie Vedder)
+
+https://www.youtube.com/watch?v=GXQSRuLeSEM
+
+**Tutorial de ukelele** — The Ukulele Teacher. El más claro para empezar: tres acordes y a tocar.
+
+https://www.youtube.com/watch?v=XHlgXO9rtd8
+
+**Tutorial de guitarra acústica** — Billsounds, con los acordes en pantalla.
+
+https://www.youtube.com/watch?v=7z30F0dM2No
+
+**Tutorial de mandolina** — rjtaweel. El instrumento del disco, para quien quiera el sonido original.
+
+https://www.youtube.com/watch?v=QqY0M7ToUy0
+
+- **Tablatura** — está adjunta abajo, y el botón la abre en Songsterr para tocarla con reproducción
+- **Acordes** — `https://tabs.ultimate-guitar.com/tab/eddie-vedder/rise-chords-626436`
 4. **Imagen de portada** — Cruzando la cordillera camino del autobús 142, parque nacional de Denali (Alaska). Foto: Paxson Woelber, CC BY 2.0, vía Wikimedia Commons
 ---
 
@@ -163,16 +179,16 @@ Hard facts: **G major**, **3/4**, **173 BPM** according to the chart we use in c
 
 ### Guided listening
 
-```
-⟨?:??⟩  The mandolin comes in alone. Notice the sound shivering while nobody
-        moves a finger: that is the double strings, not an effect.
-⟨?:??⟩  The voice enters. The harmony has not changed at all: still G.
-⟨?:??⟩  "Gonna rise up". This is as high as the song will go, and it gets
-        there on the same three chords as before.
-⟨?:??⟩  Bridge. The chords come faster here; it is the only place where the
-        harmony really moves.
-⟨?:??⟩  Ending. No big final chord: it just stops.
-```
+Five things to listen for, in the order they arrive:
+
+- **The mandolin alone, at the start.** Notice the sound shivering while nobody
+  moves a finger: that is the double strings, not an effect.
+- **The voice coming in.** The harmony has not changed at all: still G.
+- **Count the beat while it plays.** You get one-two-three, not one-two-three-four.
+- **"Gonna rise up".** This is as high as the song goes, and it gets there on
+  the same three chords as before.
+- **The bridge.** The chords come faster here; it is the only place where the
+  harmony really moves.
 
 ### Classroom activities
 
@@ -194,7 +210,22 @@ Hard facts: **G major**, **3/4**, **173 BPM** according to the chart we use in c
 
 ### Resources
 
-1. **Official video** — `https://www.youtube.com/watch?v=kjDxxKMDf0Y`
-2. **Chords** — `https://tabs.ultimate-guitar.com/tab/eddie-vedder/rise-chords-626436`
-3. **Score** — the `ScorePage` still needs creating from the songbook PDF
+**Full song** (Eddie Vedder's official channel)
+
+https://www.youtube.com/watch?v=GXQSRuLeSEM
+
+**Ukulele tutorial** — The Ukulele Teacher. The clearest way in: three chords and go.
+
+https://www.youtube.com/watch?v=XHlgXO9rtd8
+
+**Acoustic guitar tutorial** — Billsounds, with the chords on screen.
+
+https://www.youtube.com/watch?v=7z30F0dM2No
+
+**Mandolin tutorial** — rjtaweel. The instrument on the record, for the original sound.
+
+https://www.youtube.com/watch?v=QqY0M7ToUy0
+
+- **Tab** — attached below; the button opens it in Songsterr with playback
+- **Chords** — `https://tabs.ultimate-guitar.com/tab/eddie-vedder/rise-chords-626436`
 4. **Cover image** — Cruzando la cordillera camino del autobús 142, parque nacional de Denali (Alaska). Foto: Paxson Woelber, CC BY 2.0, vía Wikimedia Commons

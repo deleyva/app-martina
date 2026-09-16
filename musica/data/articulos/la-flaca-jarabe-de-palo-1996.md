@@ -18,10 +18,9 @@ tempo_bpm: 103
 # La flaca — Jarabe de Palo (1996)
 
 > Borrador para el Índice de recursos musicales. Sigue `docs/PLANTILLA_ARTICULO_CANCION.md`.
-> **Dos cosas te tocan a ti, y las dos necesitan oído, no búsqueda:**
-> el minutaje de la Escucha guiada (marcado `⟨?:??⟩`) y confirmar la tonalidad.
-> Los cifrados que circulan dicen La menor; no he encontrado partitura oficial,
-> y la sección «Cómo suena» está escrita sin afirmar nada que no esté en fuente.
+> **Publicada sin minutaje** (2026-09-16, decisión del principal). Queda por
+> confirmar la tonalidad: los cifrados dicen La menor y no hay partitura
+> oficial. Tempo y compás ya vienen de la tablatura de Songsterr.
 
 ## Ficha musical (campos del formulario)
 
@@ -87,14 +86,14 @@ Datos duros: **4/4** y **103 BPM**, según la tablatura de Songsterr. La tonalid
 
 ### Escucha guiada
 
-```
-⟨?:??⟩  La introducción. Fíjate solo en el sonido más grave: va bajando de
-        escalón en escalón mientras los acordes cambian por encima.
-⟨?:??⟩  Entra la voz. La vuelta de acordes es la misma que acabas de oír.
-⟨?:??⟩  El estribillo. Cuenta cuántos acordes distintos hay: son los mismos.
-⟨?:??⟩  Aquí cambia la instrumentación. Anota qué entra y qué se calla.
-⟨?:??⟩  Final. ¿Se acaba o se va apagando?
-```
+Cinco cosas que buscar, en el orden en que llegan:
+
+- **La introducción.** Fíjate solo en el sonido más grave: va bajando de escalón
+  en escalón mientras los acordes cambian por encima.
+- **La entrada de la voz.** La vuelta de acordes es la misma que acabas de oír.
+- **El estribillo.** Cuenta cuántos acordes distintos hay: son los mismos.
+- **El momento en que cambia la instrumentación.** Anota qué entra y qué se calla.
+- **El final.** ¿Se acaba o se va apagando?
 
 ### Para hacer en clase
 
@@ -116,9 +115,27 @@ Datos duros: **4/4** y **103 BPM**, según la tablatura de Songsterr. La tonalid
 
 ### Recursos
 
-1. **Videoclip oficial** — `https://www.youtube.com/watch?v=r2g0pM3PMNQ`
-2. **Partitura** — no existe; es la que más falta hace de las tres
-3. **Backing track** — opcional, por buscar
+**Videoclip oficial**
+
+https://www.youtube.com/watch?v=r2g0pM3PMNQ
+
+**Tutorial de guitarra** — ChordHouse. Es el de referencia en castellano para esta canción.
+
+https://www.youtube.com/watch?v=bflRZEZPdQg
+
+**Tutorial de piano** — Piano click 2, versión fácil.
+
+https://www.youtube.com/watch?v=SBBfqQ_Hbyg
+
+**Tutorial de bajo** — Joel Zelaz, con la tablatura en pantalla.
+
+https://www.youtube.com/watch?v=6XjY0mRqMj8
+
+**Batería** — Hectors Drums Studio. No es una lección: es la batería tocada entera, que para copiar el patrón va mejor.
+
+https://www.youtube.com/watch?v=KBzWBk4ny0Q
+
+- **Tablatura** — adjunta abajo; el botón la abre en Songsterr
 4. **Imagen de portada** — El Malecón de La Habana de noche. Foto: Horacio Fernández, CC BY 3.0, vía Wikimedia Commons
 ---
 
@@ -166,15 +183,15 @@ Hard facts: **4/4** and **103 BPM**, from the Songsterr tab. The key is still un
 
 ### Guided listening
 
-```
-⟨?:??⟩  The introduction. Listen only to the lowest sound: it steps downwards
-        while the chords change above it.
-⟨?:??⟩  The voice enters. The chord turn is the one you have just heard.
-⟨?:??⟩  The chorus. Count how many different chords there are: the same ones.
-⟨?:??⟩  The instrumentation changes here. Write down what comes in and what
-        goes quiet.
-⟨?:??⟩  Ending. Does it stop, or does it fade?
-```
+Five things to listen for, in the order they arrive:
+
+- **The introduction.** Listen only to the lowest sound: it steps downwards
+  while the chords change above it.
+- **The voice coming in.** The chord turn is the one you have just heard.
+- **The chorus.** Count how many different chords there are: the same ones.
+- **The moment the instrumentation changes.** Write down what comes in and what
+  goes quiet.
+- **The ending.** Does it stop, or does it fade?
 
 ### Classroom activities
 
@@ -196,7 +213,25 @@ Hard facts: **4/4** and **103 BPM**, from the Songsterr tab. The key is still un
 
 ### Resources
 
-1. **Official video** — `https://www.youtube.com/watch?v=r2g0pM3PMNQ`
-2. **Score** — none; this is the one most worth making
-3. **Backing track** — optional, still to find
+**Official video**
+
+https://www.youtube.com/watch?v=r2g0pM3PMNQ
+
+**Guitar tutorial** — ChordHouse, the reference one in Spanish for this song.
+
+https://www.youtube.com/watch?v=bflRZEZPdQg
+
+**Piano tutorial** — Piano click 2, easy version.
+
+https://www.youtube.com/watch?v=SBBfqQ_Hbyg
+
+**Bass tutorial** — Joel Zelaz, with the tab on screen.
+
+https://www.youtube.com/watch?v=6XjY0mRqMj8
+
+**Drums** — Hectors Drums Studio. Not a lesson: the drum part played through, which works better for copying the groove.
+
+https://www.youtube.com/watch?v=KBzWBk4ny0Q
+
+- **Tab** — attached below; the button opens it in Songsterr
 4. **Cover image** — El Malecón de La Habana de noche. Foto: Horacio Fernández, CC BY 3.0, vía Wikimedia Commons
