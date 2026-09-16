@@ -1,4 +1,10 @@
 from datetime import date
+# Alias para anotar un campo que se llama igual que su tipo. `date:
+# Optional[date] = None` se resuelve a sí mismo: pydantic evalúa la anotación
+# con el valor ya asignado, `None`, y el campo acaba siendo de tipo `NoneType`.
+# El API aceptaba el PUT y devolvía 422 pidiendo que `date` fuera None; llevaba
+# así desde que se escribió (encontrado el 2026-09-16 publicando por API).
+from datetime import date as FechaISO
 from typing import List, Optional
 
 from django.db import transaction
@@ -74,7 +80,7 @@ class QuestionIn(Schema):
 class TestPageIn(Schema):
     title: str
     intro: Optional[str] = None
-    date: Optional[date] = None
+    date: Optional[FechaISO] = None
     featured_image_id: Optional[int] = None
     parent_page_id: Optional[int] = None
     category_ids: List[int] = []
@@ -812,7 +818,7 @@ class BlogPageUpdateIn(Schema):
     """Schema de entrada para actualizar una BlogPage (todos los campos opcionales)."""
 
     title: Optional[str] = None
-    date: Optional[date] = None
+    date: Optional[FechaISO] = None
     intro: Optional[str] = None
     body: Optional[str] = None
     featured_image_id: Optional[int] = None

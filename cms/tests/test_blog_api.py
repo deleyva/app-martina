@@ -387,3 +387,27 @@ class BlogPageMetadatosMusicalesTest(BlogPageAPITest):
         # visible encima de la tarjeta; esto lo pillo el navegador, no el test.
         self.assertNotIn("{#", html)
         self.assertNotIn("MusicXML/MIDI", html)
+
+
+class FechaEnLosEsquemasTest(TestCase):
+    """Un campo llamado como su tipo se anula a sí mismo (2026-09-16).
+
+    `date: Optional[date] = None` se resuelve con el valor ya asignado, así que
+    el campo acababa siendo de tipo `NoneType`: el API contestaba 422 pidiendo
+    que `date` fuera None, y actualizar la fecha de un artículo era imposible.
+    Se descubrió publicando por API, no con un test, porque el esquema se
+    construye sin quejarse.
+    """
+
+    def test_los_esquemas_con_fecha_aceptan_una_fecha(self):
+        from datetime import date as fecha_real
+
+        from cms.api import BlogPageIn, BlogPageUpdateIn, TestPageIn
+
+        for esquema in (BlogPageIn, BlogPageUpdateIn, TestPageIn):
+            anotacion = esquema.model_fields["date"].annotation
+            self.assertIn(
+                fecha_real,
+                (anotacion, *getattr(anotacion, "__args__", ())),
+                f"{esquema.__name__}.date quedó como {anotacion}",
+            )
