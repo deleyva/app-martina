@@ -3014,6 +3014,38 @@ escriben después de `save()`, así que `page.faceted_tags.all()` sale vacío
 hasta publicar. Comprobado leyendo `tagged_items` de la revisión, que sí las
 lleva. No es un fallo, pero engaña al mirarlo por el ORM.
 
+### Cambiar de lengua sin recargar, y portadas (2026-09-16)
+
+El botón recargaba la página entera para sustituir dos trozos de texto. Ahora
+las dos versiones viajan dentro de `<template>` y el cambio es instantáneo, sin
+perder el sitio donde ibas leyendo.
+
+Lo que evita que sea un truco: el selector siguen siendo enlaces de verdad, así
+que sin JavaScript funciona igual; la URL se actualiza con `replaceState`; y
+**si el cuerpo que entra trae un `iframe`, no se intercambia, se navega**,
+porque los botones de biblioteca de los embeds se pintan en el servidor y viven
+dentro del cuerpo. Media página servida a medias es peor que una recarga.
+
+**Hallazgo por el camino: el índice lateral de los artículos está muerto.**
+`musica/recurso.html` lo mete dentro de `{% if page.is_music_library_child %}`,
+y esa propiedad **no existe en ningún sitio del código**: se perdió al partir
+`cms` en la fase 25. Django resuelve el atributo que falta como falso, así que
+el sidebar lleva desde entonces sin aparecer en ninguna página, y con él el
+contenedor ancho para el profesorado. No se toca en esta pasada: devolverlo
+cambia la pinta de 340 páginas y esa es una decisión del principal, no mía. El
+constructor del índice sí queda ya preparado para rehacerse al cambiar de
+lengua.
+
+**Portadas.** Tres imágenes de licencia libre de Wikimedia Commons, a 1600 px y
+en WebP, guardadas en el repo para que importar no dependa de que Commons
+conteste. Se miraron una a una antes de usarlas, y eso descartó dos: la del
+autobús 142 tiene a un turista sin camiseta en primer plano, y la única foto de
+U2 de la gira de 1987 es un borrón granuloso de aficionado. Quedaron el paisaje
+de Denali camino del autobús, el parque Joshua Tree con tormenta, y el Malecón
+de La Habana de noche. **El crédito va en el cuerpo del artículo**, en las dos
+lenguas: una licencia CC pide atribución visible, y el título de una imagen de
+Wagtail no lo lee nadie.
+
 ### Fuera de alcance
 
 El índice de recursos sigue enseñando la entradilla base; traducir la interfaz
