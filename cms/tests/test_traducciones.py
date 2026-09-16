@@ -7,6 +7,7 @@ que el alumno de la bilingüe no tenga que pulsar un botón para leer en inglés
 """
 
 import json
+import re
 
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
@@ -117,6 +118,17 @@ class VistaTraduccionTest(TraduccionesBase):
         self.assertIn("Estopa en 2005", cuerpo)
         self.assertNotIn('aria-label="Lengua del artículo"', cuerpo)
 
+    def _entradilla_visible(self, html):
+        """Lo que de verdad se lee bajo el título.
+
+        Desde que el cambio de lengua ocurre sin recargar, **las dos versiones
+        viajan en la página**: la otra vive dentro de un `<template>`, que el
+        navegador no pinta. Por eso ya no vale preguntar si una cadena está en
+        el HTML; hay que mirar el párrafo que se ve.
+        """
+        m = re.search(r'<p id="entradilla"[^>]*>(.*?)</p>', html, re.S)
+        return m.group(1).strip() if m else ""
+
     def test_la_misma_url_responde_en_las_dos_lenguas(self):
         """C186."""
         page = self._recurso(slug="dos-lenguas")
@@ -125,10 +137,25 @@ class VistaTraduccionTest(TraduccionesBase):
         )
         es = self.client.get(page.url + "?lang=es").content.decode()
         en = self.client.get(page.url + "?lang=en").content.decode()
-        self.assertIn("Estopa en 2005", es)
-        self.assertNotIn("Estopa in 2005", es)
-        self.assertIn("Estopa in 2005", en)
+
+        self.assertEqual(self._entradilla_visible(es), "Estopa en 2005")
+        self.assertEqual(self._entradilla_visible(en), "Estopa in 2005")
         self.assertIn('aria-label="Lengua del artículo"', en)
+
+    def test_las_dos_versiones_viajan_en_la_pagina(self):
+        """El cambio de lengua no puede ser instantáneo si falta la otra versión.
+
+        *Falsador:* sin el `<template>` de la lengua contraria, el botón tendría
+        que volver al servidor, que es justo lo que se quitó.
+        """
+        page = self._recurso(slug="las-dos-viajan")
+        RecursoTraduccion.objects.create(
+            page=page, idioma="en", intro="Estopa in 2005", body="<p>Rumba EN.</p>"
+        )
+        html = self.client.get(page.url).content.decode()
+        self.assertIn('<template class="version-idioma" data-lang="es"', html)
+        self.assertIn('<template class="version-idioma" data-lang="en"', html)
+        self.assertIn("Rumba EN.", html)
 
     def test_el_aviso_de_respaldo_solo_sale_si_la_lengua_se_pidio(self):
         """Un cartel permanente se aprende a no leer.

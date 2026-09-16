@@ -3046,6 +3046,33 @@ de La Habana de noche. **El crédito va en el cuerpo del artículo**, en las dos
 lenguas: una licencia CC pide atribución visible, y el título de una imagen de
 Wagtail no lo lee nadie.
 
+### El índice lateral, de vuelta (2026-09-16)
+
+`RecursoPage.is_music_library_child` vuelve a existir, y con ella vuelven de
+golpe las **tres** cosas que colgaban de esa pregunta desde la fase 25: el
+índice lateral, los botones de biblioteca de los vídeos incrustados y el panel
+de anotaciones del profesorado.
+
+Se calcula por ascendencia y no devolviendo `True`, que era lo cómodo:
+`parent_page_types` lo garantiza hoy, pero una página se puede mover en el
+administrador y entonces la respuesta cómoda mentiría.
+
+**Un test tuvo que cambiar, y el cambio es la parte interesante.**
+`test_la_misma_url_responde_en_las_dos_lenguas` afirmaba que la página en
+castellano NO contiene el texto inglés. Desde que el cambio de lengua ocurre sin
+recargar, eso es falso a propósito: las dos versiones viajan, y la que no se ve
+está dentro de un `<template>`. El criterio de verdad nunca fue «esa cadena no
+está en el HTML» sino «lo que se lee es la lengua pedida», así que el test
+ahora extrae el párrafo de la entradilla en vez de buscar en la página entera.
+Se suma otro que comprueba lo contrario: que las dos versiones **sí** están,
+porque sin eso el botón tendría que volver al servidor.
+
+Comprobado en navegador real: el índice aparece con los ocho apartados y se
+rehace en inglés al cambiar de lengua; en un capítulo de libro lista sus diez
+episodios, que es justo la navegación que le faltaba; y en una página sin
+encabezados el índice se esconde (`display: none`) y el texto ocupa el ancho
+completo, sin columna vacía.
+
 ### Fuera de alcance
 
 El índice de recursos sigue enseñando la entradilla base; traducir la interfaz
