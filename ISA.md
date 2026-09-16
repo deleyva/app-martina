@@ -1,7 +1,7 @@
 ---
 slug: app-martina
-phase: verify
-progress: true
+phase: complete
+progress: false
 iteration: 44
 principal_stated_goal: "Necesito desarrollar en apps.iesmartinabescos.es Otra app de Django como la que tenemos en /incidencias. Está sí que debe de requerir login con Google porque ya tenemos implementado. Básicamente, es una aplicación en la que quiero que vayan solicitando la clave Wi-Fi. Pero para ello deben logearse y enviar la MAC de su dispositivo WIFI, la privada (real) no la aleatoria."
 updated: 2026-09-16
@@ -3301,10 +3301,25 @@ Listas: exportaciones phpMyAdmin de la aplicación de gestión del centro —
 - La suite completa da 837 pasan y 4 fallan, y los mismos 4 fallan sin estos cambios
   (2 de `test_frontend_integration`, 2 de `incidencias`).
 
-### Pendiente — producción (necesita el visto bueno de Jesús)
+### Producción · DESPLEGADA Y CARGADA (2026-09-16)
 
-1. `git push` y `just deploy-production`.
-2. Subir las listas recortadas (`~/Downloads/listas-blogs-recortadas/`: solo Id, nombre,
-   departamento y correo), ejecutar `cargar_equipos_blogs --dry-run`, mirar los avisos,
-   ejecutar de verdad y borrar las listas del servidor.
-3. Decidir lo de avisar a los superusuarios.
+- **Historia limpia.** El nombre real se quitó de la historia con `git filter-repo`
+  (`--replace-text`, solo `main`) y Jesús hizo el push forzado. Tras reescribir, el árbol
+  final quedó idéntico, y `git grep` sobre `origin/main` da 0. GitHub puede seguir sirviendo
+  el commit viejo `e3e4018` por su hash hasta que purgue la caché. En local queda una copia
+  previa en `~/Documents/app-martina-backup-antes-filter-repo.git`, pendiente de borrar.
+- **Avisos solo al jefe:** `WAGTAILADMIN_NOTIFICATION_INCLUDE_SUPERUSERS = False` (`5a0484c`).
+  El test se comprobó a la contra.
+- **Desplegado por Jesús** sobre `5a0484c`. La carga en producción: primero en seco (175
+  cambios, los mismos 17 departamentos), luego de verdad (1 blog creado, 74 usuarios
+  precreados, 100 altas en grupo) y una segunda pasada con **0 cambios**. Las listas se
+  borraron del servidor.
+- **Comprobado en la BD de producción:** 19 departamentos, **ninguno mal montado** (workflow
+  propio, jefe con `publish_page`, profesores sin él y con permisos de colección), 17
+  miembros en grupos de jefe y 86 de profesor (85 más la cuenta de pruebas, que se deja por
+  decisión de Jesús). `INCLUDE_SUPERUSERS` vale False.
+- **Chrome real:** `blogs.iesmartinabescos.es/instalaciones-electrotecnicas/` responde con
+  «Aún no hay artículos publicados».
+- **Hueco que queda:** COFOTAP y Actividades Extraescolares no tienen jefe en las listas,
+  así que sus grupos siguen vacíos. Si alguien escribe ahí, con los avisos a superusuarios
+  apagados no se entera nadie.
