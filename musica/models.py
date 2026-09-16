@@ -1645,6 +1645,23 @@ class RecursoPage(AdjuntosMixin, Page):
             "exacto": False,
         }
 
+    @cached_property
+    def is_music_library_child(self):
+        """Si esta ficha cuelga de la biblioteca musical.
+
+        **Existía y se perdió al partir `cms` en la fase 25.** La plantilla
+        siguió preguntando por ella, y Django resuelve un atributo que no
+        existe como falso, sin error y sin aviso: durante meses se apagaron a
+        la vez el índice lateral, los botones de biblioteca de los vídeos
+        incrustados y el panel de anotaciones del profesorado. Nada falló; solo
+        dejaron de aparecer.
+
+        Se calcula por ascendencia en vez de devolver `True` a secas, que sería
+        lo cómodo: `parent_page_types` lo garantiza hoy, pero una página se
+        puede mover en el administrador, y entonces la respuesta cómoda mentiría.
+        """
+        return self.get_ancestors().type(MusicLibraryIndexPage).exists()
+
     # --- La misma ficha en dos lenguas (fase 33) ---
     # Lo que cambia con la lengua es la prosa; la ficha musical, los recursos y
     # los adjuntos son los mismos. Por eso una traducción es una fila hija y no
