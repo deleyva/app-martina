@@ -3130,7 +3130,25 @@ principal quiere que la biblioteca RECUERDE que va en modo repaso, eso es otra
 fase y otro modelo. Los mazos (`deck_study`) no llevan casilla: ahí el conjunto
 lo decide el mazo y el caso no se ha planteado.
 
-### Pendiente
+### El despliegue (2026-09-16)
 
-Sin desplegar. Verificado en local sobre Chrome real; falta el `git push` y el
-`just deploy-production`, que necesitan luz verde del principal.
+Desplegada en `apps.iesmartinabescos.es` sobre `8bd82c7`. Sin migraciones que
+aplicar: el cambio no toca el modelo, solo la lectura de la query y el armado de
+la sesion.
+
+**El despliegue no llevo solo esta fase.** El commit ya estaba en `origin/main`
+empujado desde otra sesion, con cuatro commits encima (importacion de articulos
+de cancion en dos lenguas, cambio de lengua sin recarga, portadas, y su ISA).
+`just deploy-production` hace `git reset --hard origin/main` en el servidor, asi
+que va lo que haya en la rama, no lo que uno crea que esta desplegando.
+
+Verificado en Chrome real sobre la biblioteca de verdad del principal: 108
+elementos coinciden, sesion de 15 con tres «sin tocar» y uno por crear del
+libro. Al desmarcar: 107 —el que iba a crearse ya no cuenta—, sesion de 15
+igual de larga, aviso «Solo repaso», y cero «sin tocar» en la lista.
+
+**Dato util del caso real:** con 107 elementos ya practicados, apagar la novedad
+NO acorta la sesion. El riesgo de sesion corta que se vio en local era un
+artefacto de la biblioteca de prueba; aqui hay repaso de sobra para llenar los
+quince huecos. Lo que se pierde apagandola es el avance del libro, no la
+longitud de la sesion.
