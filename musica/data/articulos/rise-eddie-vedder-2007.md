@@ -9,6 +9,8 @@ tempo_bpm: 173
 duracion_segundos: 156
 etiquetas: artista:eddie-vedder, estilo:folk-rock, estilo:bso, curso:3-eso, concepto:acordes
 idioma: es
+imagen: rise-denali.webp
+imagen_titulo: Cruzando la cordillera camino del autobús 142, parque nacional de Denali (Alaska). Foto: Paxson Woelber, CC BY 2.0, vía Wikimedia Commons
 ---
 # Rise — Eddie Vedder (2007)
 
@@ -109,7 +111,7 @@ Datos duros: **Sol mayor**, **173 BPM** según la partitura que usamos en clase,
 1. **Videoclip oficial** — `https://www.youtube.com/watch?v=kjDxxKMDf0Y`
 2. **Acordes** — `https://tabs.ultimate-guitar.com/tab/eddie-vedder/rise-chords-626436`
 3. **Partitura** — pendiente de crear la `ScorePage` con el PDF del cancionero
-
+4. **Imagen de portada** — Cruzando la cordillera camino del autobús 142, parque nacional de Denali (Alaska). Foto: Paxson Woelber, CC BY 2.0, vía Wikimedia Commons
 ---
 
 ## English version
@@ -186,3 +188,4 @@ Hard facts: **G major**, **173 BPM** according to the chart we use in class, **2
 1. **Official video** — `https://www.youtube.com/watch?v=kjDxxKMDf0Y`
 2. **Chords** — `https://tabs.ultimate-guitar.com/tab/eddie-vedder/rise-chords-626436`
 3. **Score** — the `ScorePage` still needs creating from the songbook PDF
+4. **Cover image** — Cruzando la cordillera camino del autobús 142, parque nacional de Denali (Alaska). Foto: Paxson Woelber, CC BY 2.0, vía Wikimedia Commons

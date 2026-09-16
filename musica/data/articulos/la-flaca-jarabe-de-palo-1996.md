@@ -6,6 +6,8 @@ artista: Jarabe de Palo
 duracion_segundos: 269
 etiquetas: artista:jarabe-de-palo, estilo:rumba-catalana, estilo:rock-espanol, curso:3-eso
 idioma: es
+imagen: la-flaca-malecon-habana.webp
+imagen_titulo: El Malecón de La Habana de noche. Foto: Horacio Fernández, CC BY 3.0, vía Wikimedia Commons
 ---
 # La flaca — Jarabe de Palo (1996)
 
@@ -109,7 +111,7 @@ Por debajo de la canción hay también una decisión de estilo. El grupo venía 
 1. **Videoclip oficial** — `https://www.youtube.com/watch?v=r2g0pM3PMNQ`
 2. **Partitura** — no existe; es la que más falta hace de las tres
 3. **Backing track** — opcional, por buscar
-
+4. **Imagen de portada** — El Malecón de La Habana de noche. Foto: Horacio Fernández, CC BY 3.0, vía Wikimedia Commons
 ---
 
 ## English version
@@ -187,3 +189,4 @@ Underneath there is also a decision about style. The band had come back from Cub
 1. **Official video** — `https://www.youtube.com/watch?v=r2g0pM3PMNQ`
 2. **Score** — none; this is the one most worth making
 3. **Backing track** — optional, still to find
+4. **Cover image** — El Malecón de La Habana de noche. Foto: Horacio Fernández, CC BY 3.0, vía Wikimedia Commons

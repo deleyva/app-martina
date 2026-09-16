@@ -22,8 +22,10 @@ import html
 import re
 from pathlib import Path
 
+from django.core.files.images import ImageFile
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from wagtail.images import get_image_model
 
 from cms.etiquetas import aplicar_etiquetas
 from musica.models import MusicLibraryIndexPage, RecursoPage, RecursoTraduccion
@@ -171,6 +173,36 @@ def partir_lengua(bloque):
     return entradilla, markdown_a_richtext("\n".join(cuerpo))
 
 
+def imagen_de_portada(datos):
+    """Crea (o encuentra) la imagen de portada del artículo.
+
+    La imagen vive en el repo, ya convertida a WebP y a 1600 px de ancho: así
+    la importación no depende de que Wikimedia conteste, y lo que se publica es
+    exactamente lo que se revisó.
+
+    **El crédito va en el título de la imagen y también en el texto del
+    artículo.** Las licencias Creative Commons piden atribución visible para
+    quien lee, y el título de una imagen de Wagtail no lo ve nadie.
+
+    Idempotente por título: reimportar no llena la biblioteca de copias.
+    """
+    nombre = datos.get("imagen")
+    if not nombre:
+        return None
+    Imagen = get_image_model()
+    titulo = datos.get("imagen_titulo") or nombre
+    existente = Imagen.objects.filter(title=titulo).first()
+    if existente:
+        return existente
+    ruta = DIRECTORIO / "imagenes" / nombre
+    if not ruta.exists():
+        raise FileNotFoundError(f"No está la imagen {ruta}")
+    with ruta.open("rb") as fichero:
+        imagen = Imagen(title=titulo, file=ImageFile(fichero, name=nombre))
+        imagen.save()
+    return imagen
+
+
 class Command(BaseCommand):
     help = "Importa borradores de artículo como RecursoPage en borrador, con sus dos lenguas."
 
@@ -205,6 +237,7 @@ class Command(BaseCommand):
             self.stdout.write(f"  castellano: entradilla {len(intro_es)} car., cuerpo {len(body_es)} car.")
             self.stdout.write(f"  inglés:     entradilla {len(intro_en)} car., cuerpo {len(body_en)} car.")
             self.stdout.write(f"  etiquetas:  {datos.get('etiquetas', '')}")
+            self.stdout.write(f"  portada:    {datos.get('imagen', '(ninguna)')}")
 
             if not (intro_es and body_es and intro_en and body_en):
                 self.stdout.write(self.style.ERROR("  Falta alguna de las dos lenguas. No se importa."))
@@ -229,6 +262,9 @@ class Command(BaseCommand):
                     if valor:
                         setattr(page, destino, int(valor))
                 page.key_mode = datos.get("key_mode", "")
+                portada = imagen_de_portada(datos)
+                if portada:
+                    page.featured_image = portada
                 page.traducciones = [
                     RecursoTraduccion(idioma="en", intro=intro_en[:250], body=body_en)
                 ]

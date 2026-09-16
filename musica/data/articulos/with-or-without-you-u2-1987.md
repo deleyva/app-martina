@@ -9,6 +9,8 @@ tempo_bpm: 110
 duracion_segundos: 296
 etiquetas: artista:u2, estilo:rock, estilo:anos-80, curso:4-eso, concepto:acordes
 idioma: es
+imagen: with-or-without-you-joshua-tree.webp
+imagen_titulo: Tormenta acercándose en el parque nacional Joshua Tree (California). Foto: Tuxyso, CC BY-SA 3.0, vía Wikimedia Commons
 ---
 # With or Without You — U2 (1987)
 
@@ -122,7 +124,7 @@ Minutaje sobre el corte del disco. El vídeo oficial dura tres segundos menos; c
 1. **Videoclip oficial** — `https://www.youtube.com/watch?v=ujNeHIo7oTE`
 2. **Análisis armónico** — `https://www.hooktheory.com/theorytab/view/u2/with-or-without-you`
 3. **Partitura** — no hay; habría que hacerla
-
+4. **Imagen de portada** — Tormenta acercándose en el parque nacional Joshua Tree (California). Foto: Tuxyso, CC BY-SA 3.0, vía Wikimedia Commons
 ---
 
 ## English version
@@ -207,3 +209,4 @@ Timings are for the album track. The official video is three seconds shorter; ch
 1. **Official video** — `https://www.youtube.com/watch?v=ujNeHIo7oTE`
 2. **Harmonic analysis** — `https://www.hooktheory.com/theorytab/view/u2/with-or-without-you`
 3. **Score** — none yet; it would have to be made
+4. **Cover image** — Tormenta acercándose en el parque nacional Joshua Tree (California). Foto: Tuxyso, CC BY-SA 3.0, vía Wikimedia Commons
