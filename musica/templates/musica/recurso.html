@@ -358,9 +358,11 @@
         nada que elegir y un botón muerto solo estorba.
         {% endcomment %}
         {% if idiomas_disponibles|length > 1 %}
-        <div class="join mb-4" role="group" aria-label="Lengua del artículo">
+        <div class="join mb-4" role="group" aria-label="Lengua del artículo" id="selector-idioma">
             {% for codigo, nombre in idiomas_disponibles %}
+            {# Sigue siendo un enlace de verdad: sin JavaScript, recarga y funciona igual. #}
             <a class="btn btn-sm join-item {% if codigo == texto.idioma %}btn-active btn-primary{% endif %}"
+               data-lang="{{ codigo }}"
                href="?lang={{ codigo }}{% if request.GET.from_session %}&from_session={{ request.GET.from_session }}{% endif %}{% if request.GET.from %}&from={{ request.GET.from }}{% endif %}"
                {% if codigo == texto.idioma %}aria-current="true"{% endif %}>
                 {{ nombre }}
@@ -370,14 +372,14 @@
         {% endif %}
 
         {% if texto.aviso %}
-        <p class="text-sm text-base-content/60 mb-4">
+        <p id="aviso-respaldo" class="text-sm text-base-content/60 mb-4">
             Esta ficha todavía no está escrita en esa lengua. Se muestra la
             versión original.
         </p>
         {% endif %}
 
         {% if texto.intro %}
-        <p class="text-lg text-base-content/70 mb-4">{{ texto.intro }}</p>
+        <p id="entradilla" class="text-lg text-base-content/70 mb-4">{{ texto.intro }}</p>
         {% endif %}
 
         <div class="flex items-center justify-between flex-wrap gap-3 text-sm text-base-content/60 border-b border-base-200 pb-4 mb-6">
@@ -525,6 +527,15 @@
     <div id="richtext-body" class="richtext-body text-base leading-relaxed mb-12" lang="{{ texto.idioma }}">
         {{ texto.body|richtext }}
     </div>
+    {% comment %}
+    Las demás lenguas, ya renderizadas, esperando dentro de `<template>`: el
+    navegador no las pinta ni ejecuta nada de dentro, y cambiar de lengua es
+    copiar este HTML en su sitio. Sin esto, el botón obligaba a una recarga
+    entera para sustituir dos trozos de texto.
+    {% endcomment %}
+    {% for version in versiones %}
+    <template class="version-idioma" data-lang="{{ version.idioma }}" data-intro="{{ version.intro }}">{{ version.body|richtext }}</template>
+    {% endfor %}
 
     {# Pre-rendered library buttons for each embed (hidden, moved by JS) #}
     {% if user.is_authenticated and page.is_music_library_child %}
@@ -552,7 +563,7 @@
     {% endif %}
 
     <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    function decorarCuerpoDelArticulo() {
         var body = document.getElementById('richtext-body');
         if (!body) return;
 
@@ -611,7 +622,10 @@
 
         // Annotation panel: bidirectional scroll sync
         initAnnotationSync();
-    });
+    }
+
+    document.addEventListener('DOMContentLoaded', decorarCuerpoDelArticulo);
+    document.addEventListener('lifeos:contenido-cambiado', decorarCuerpoDelArticulo);
 
     /* === Annotation Panel: scroll sync === */
     function scrollToEmbed(index) {
@@ -1167,7 +1181,7 @@
 
 {# Transform audio document links in RichText body into WaveSurfer players #}
 <script>
-(function() {
+function transformarAudioDelCuerpo() {
     var audioExt = ['.mp3', '.wav', '.ogg', '.m4a', '.aac', '.flac'];
     var body = document.querySelector('.richtext-body');
     if (!body || typeof WaveSurfer === 'undefined') return;
@@ -1258,6 +1272,78 @@
         else { pi.classList.remove('hidden'); pa.classList.add('hidden'); }
     }
     function fmt(s) { if (!s || isNaN(s)) return '0:00'; var m = Math.floor(s/60), ss = Math.floor(s%60); return m + ':' + (ss < 10 ? '0' : '') + ss; }
+}
+
+document.addEventListener('DOMContentLoaded', transformarAudioDelCuerpo);
+document.addEventListener('lifeos:contenido-cambiado', transformarAudioDelCuerpo);
+</script>
+
+{% comment %}
+Cambiar de lengua sin recargar (2026-09-16).
+
+Lo que cambia con la lengua son dos trozos —entradilla y cuerpo—, y los dos ya
+están en la página dentro de `<template>`. Sustituirlos es instantáneo y no
+pierde el sitio donde estabas leyendo.
+
+Tres cosas que este bloque cuida y son las que hacen que no sea un truco:
+
+1. **Sin JavaScript sigue funcionando.** El selector son enlaces de verdad; esto
+   solo intercepta el clic.
+2. **La URL se actualiza** con `replaceState`, así que compartir o recargar da
+   la misma lengua que estás viendo.
+3. **Si el cuerpo que entra trae un `iframe`, no se intercambia: se navega.**
+   Los botones de biblioteca de cada embed se pintan en el servidor y se meten
+   dentro del cuerpo, así que sustituirlo los perdería. Antes que servir una
+   página a medias, se paga la recarga en ese caso.
+{% endcomment %}
+<script>
+(function() {
+    var selector = document.getElementById('selector-idioma');
+    var cuerpo = document.getElementById('richtext-body');
+    if (!selector || !cuerpo) return;
+
+    function plantillaDe(codigo) {
+        return document.querySelector('.version-idioma[data-lang="' + codigo + '"]');
+    }
+
+    selector.addEventListener('click', function(e) {
+        var boton = e.target.closest('[data-lang]');
+        if (!boton) return;
+        var codigo = boton.dataset.lang;
+        var plantilla = plantillaDe(codigo);
+        if (!plantilla) return;                       // sin versión: que navegue
+        if (plantilla.content.querySelector('iframe')) return;
+
+        e.preventDefault();
+
+        cuerpo.innerHTML = '';
+        cuerpo.appendChild(plantilla.content.cloneNode(true));
+        cuerpo.setAttribute('lang', codigo);
+
+        var entradilla = document.getElementById('entradilla');
+        if (entradilla && plantilla.dataset.intro) {
+            entradilla.textContent = plantilla.dataset.intro;
+        }
+
+        selector.querySelectorAll('[data-lang]').forEach(function(b) {
+            var activo = b.dataset.lang === codigo;
+            b.classList.toggle('btn-active', activo);
+            b.classList.toggle('btn-primary', activo);
+            if (activo) { b.setAttribute('aria-current', 'true'); }
+            else { b.removeAttribute('aria-current'); }
+        });
+
+        // El aviso de respaldo solo tiene sentido en la lengua que falta, y si
+        // estamos intercambiando es que las dos están escritas.
+        var aviso = document.getElementById('aviso-respaldo');
+        if (aviso) aviso.remove();
+
+        var url = new URL(window.location.href);
+        url.searchParams.set('lang', codigo);
+        history.replaceState(null, '', url);
+
+        document.dispatchEvent(new CustomEvent('lifeos:contenido-cambiado'));
+    });
 })();
 </script>
 {% endblock %}

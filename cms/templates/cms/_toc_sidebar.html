@@ -176,6 +176,7 @@
         if (!content) return;
 
         var headings = content.querySelectorAll('h2, h3');
+        var headingElements = Array.from(headings);
         if (headings.length === 0) {
             // No headings: hide TOC entirely
             var desktop = document.getElementById('toc-desktop');
@@ -187,6 +188,11 @@
         var idCounts = {};
         var tocItems = [];
 
+        function recogerEncabezados() {
+        idCounts = {};
+        tocItems = [];
+        headings = content.querySelectorAll('h2, h3');
+        headingElements = Array.from(headings);
         headings.forEach(function(heading) {
             var text = heading.textContent.trim();
             var baseId = 'toc-' + text.toLowerCase()
@@ -208,6 +214,8 @@
                 level: heading.tagName.toLowerCase()
             });
         });
+        }
+        recogerEncabezados();
 
         // Render TOC in both desktop and mobile containers
         var desktopList = document.getElementById('toc-list-desktop');
@@ -215,6 +223,9 @@
 
         function renderToc(container) {
             if (!container) return;
+            // Vaciar primero: esta función se vuelve a llamar cuando el
+            // contenido cambia de lengua, y si no, los apartados se duplican.
+            container.innerHTML = '';
             var frag = document.createDocumentFragment();
             tocItems.forEach(function(item) {
                 var li = document.createElement('li');
@@ -254,8 +265,6 @@
         if (mobileList) mobileList.addEventListener('click', handleTocClick);
 
         // Scroll spy
-        var allLinks = document.querySelectorAll('.toc-link');
-        var headingElements = Array.from(headings);
         var scrollTimeout;
         var lastActiveId = null;
 
@@ -273,7 +282,8 @@
             if (currentId === lastActiveId) return;
             lastActiveId = currentId;
 
-            allLinks.forEach(function(link) {
+            // Se consultan en vivo: al cambiar de lengua se pintan otros.
+            document.querySelectorAll('.toc-link').forEach(function(link) {
                 if (link.getAttribute('data-toc-id') === currentId) {
                     link.classList.add('active');
                 } else {
@@ -287,6 +297,17 @@
             scrollTimeout = requestAnimationFrame(updateScrollSpy);
         });
         updateScrollSpy();
+
+        // El cuerpo puede cambiar sin recargar la página (cambio de lengua en
+        // `musica/recurso.html`). El índice se rehace con los encabezados
+        // nuevos; si no, apunta a anclas que ya no existen.
+        document.addEventListener('lifeos:contenido-cambiado', function() {
+            recogerEncabezados();
+            renderToc(desktopList);
+            renderToc(mobileList);
+            lastActiveId = null;
+            updateScrollSpy();
+        });
 
         // Mobile drawer toggle
         var overlay = document.getElementById('toc-mobile-overlay');

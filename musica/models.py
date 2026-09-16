@@ -1720,6 +1720,20 @@ class RecursoPage(AdjuntosMixin, Page):
         texto["aviso"] = texto["es_respaldo"] and bool(request.GET.get("lang"))
         context["texto"] = texto
         context["idiomas_disponibles"] = self.idiomas_disponibles
+        # Todas las versiones van a la página, no solo la activa: cambiar de
+        # lengua es entonces sustituir un trozo de HTML que ya está, y no otra
+        # petición. La plantilla pinta la activa y guarda las demás en
+        # `<template>`, que el navegador no muestra ni ejecuta.
+        context["versiones"] = [
+            {
+                "idioma": codigo,
+                "nombre": nombre,
+                "intro": self._textos[codigo]["intro"],
+                "body": self._textos[codigo]["body"],
+                "activo": codigo == texto["idioma"],
+            }
+            for codigo, nombre in self.idiomas_disponibles
+        ]
         from_session = request.GET.get("from_session")
         if from_session:
             from_edit = request.GET.get("from") == "edit"
