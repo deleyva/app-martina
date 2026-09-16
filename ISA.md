@@ -1,10 +1,10 @@
 ---
 slug: app-martina
-phase: complete
-progress: false
-iteration: 43
+phase: build
+progress: true
+iteration: 44
 principal_stated_goal: "Necesito desarrollar en apps.iesmartinabescos.es Otra app de Django como la que tenemos en /incidencias. Está sí que debe de requerir login con Google porque ya tenemos implementado. Básicamente, es una aplicación en la que quiero que vayan solicitando la clave Wi-Fi. Pero para ello deben logearse y enviar la MAC de su dispositivo WIFI, la privada (real) no la aleatoria."
-updated: 2026-09-15
+updated: 2026-09-16
 ---
 
 # ISA — app-martina · Sistema de estudio de la biblioteca
@@ -3220,3 +3220,59 @@ NO acorta la sesion. El riesgo de sesion corta que se vio en local era un
 artefacto de la biblioteca de prueba; aqui hay repaso de sobra para llenar los
 quince huecos. Lo que se pierde apagandola es el avance del libro, no la
 longitud de la sesion.
+
+## Fase 35 — Los blogs, abiertos al claustro: jefe publica, profesor envía a revisión (2026-09-16)
+
+**Goal (literal de Jesús, 2026-09-16):** «Te voy a pasar tres listas y quiero que me montes ya el flujo de publicación para poder decirle a los profesores que pueden empezar a publicar, tal y como hemos hablado tantas veces en blogs.iesmartinabescos.es . Ya sabes que, reunido jefe de departamento, que sea el moderador, es decir, que sea el que puede publicar. Luego, los profesores de esos departamentos solo pueden escribir en su departamento y enviar a moderar, no publicar. Es decir, pueden escribir, editar, pero no publicar. ¿Queda claro?»
+
+Listas: exportaciones phpMyAdmin de la aplicación de gestión del centro —
+`DepartamentosInstituto` (17 departamentos con su jefe), `DepartamentosProfesorado`
+(107 profesores con departamento) y `CuentasGoogle` (118 cuentas del dominio).
+**No entran en el repo**: tienen teléfonos, códigos de fotocopiadora y carnés NFC.
+
+### Lo que medí antes de tocar nada (BD local, 2026-09-16)
+
+- La tubería ya existía: `setup_blog_permissions` crea «Jefe del departamento de X»
+  (publica) y «Profesores de X» (envía a revisión) y engancha un workflow por
+  departamento aprobado por el jefe. **Lo que faltaba era gente dentro**: 16 de 18
+  departamentos con los dos grupos vacíos.
+- `DepartamentosProfesorado.IdProfesorado` = `CuentasGoogle.Id` en **107/107**. Por
+  nombre solo casan 104: tres personas figuran con otro nombre («M. ROSA» frente
+  a «María Rosa»). La clave buena es el Id, no el nombre.
+- Los jefes vienen por NOMBRE, sin Id. Los 17 casan con exactamente una cuenta.
+- Los nombres de SIGAD no son los títulos de los blogs: LATÍN → «Cultura clásica»,
+  CIENCIAS NATURALES → «Biología y Geología», ARTES PLÁSTICAS → «Educación Plástica y
+  Visual»… **INSTALACIONES ELECTROTÉCNICAS no tiene blog.**
+- Solo 14 de los 115 usuarios del dominio tienen `EmailAddress` verificada; los que
+  entraron con Google no la necesitan. Un profesor que aún no ha entrado nunca **no
+  existe** como usuario, y sin usuario no hay grupo al que meterlo.
+
+### Claims
+
+- [ ] **ISC-35.1** — Cada profesor de la lista queda en «Profesores de <su departamento>»
+      y cada jefe en «Jefe del departamento de <su departamento>», con el mapeo SIGAD →
+      blog explícito. *Falsador:* conteo por grupo tras cargar ≠ conteo de la lista.
+- [ ] **ISC-35.2** — Un profesor que aún no ha entrado nunca queda precreado (correo del
+      dominio, sin contraseña usable) y, al entrar con Google, cae en ESA cuenta con sus
+      grupos, sin duplicado. *Falsador:* test que simule el `pre_social_login` y encuentre
+      otro usuario o la cuenta sin grupos.
+- [ ] **ISC-35.3** — Un profesor NO puede publicar: en su formulario el botón es «Enviar a
+      revisión» y no hay «Publicar». *Falsador:* Chrome real como profesor y ver «Publicar».
+- [ ] **ISC-35.4** — El jefe SÍ publica y aprueba lo enviado por sus profesores.
+      *Falsador:* Chrome real como jefe; el artículo enviado no aparece para aprobar.
+- [ ] **ISC-35.5** — Un profesor no puede escribir en otro departamento.
+      *Falsador:* `permissions_for_user` sobre otro departamento con `can_add_subpage()` cierto.
+- [ ] **ISC-35.6** — INSTALACIONES ELECTROTÉCNICAS tiene blog, colección de imágenes y los
+      mismos permisos que los demás. *Falsador:* profesor de ese departamento sin sitio donde escribir.
+- [ ] **ISC-35.7** — La carga es idempotente: dos pasadas seguidas, la segunda no cambia nada.
+      *Falsador:* la segunda pasada informa cambios.
+
+### Anti-claims
+
+- **No se quita a nadie de un grupo por defecto.** Quien está y no sale en las listas se
+  AVISA; quitarlo exige `--quitar-sobrantes`.
+- **No se toca `is_staff`** ni se da permiso fuera de la rama de blogs.
+- **Las listas no se commitean** ni salen enteras al servidor: solo los campos que la
+  carga usa.
+- **Producción no se toca sin el visto bueno de Jesús** (push al repo público + deploy +
+  comando).

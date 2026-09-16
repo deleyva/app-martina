@@ -30,6 +30,15 @@ cercano, así que sin ese `WorkflowPage` los artículos caerían en el «Moderat
 approval» que Wagtail trae de fábrica colgado de la raíz, y el visto bueno se
 lo pediría al grupo Moderators en vez de al jefe.
 
+Imágenes y documentos
+---------------------
+Cada departamento sube a su colección, `Blogs > <Departamento>`, y a ninguna
+otra: con permiso de alta en una sola colección Wagtail ni siquiera enseña el
+selector, que era el objetivo de la fase 25. Las colecciones y sus permisos se
+pusieron a mano entonces; el comando los garantiza desde el 2026-09-16 para que
+un departamento nuevo nazca completo y no con un blog donde no se puede subir
+una imagen.
+
 Permisos de más
 ---------------
 El comando no quita nada nunca, pero sí AVISA cuando un grupo tiene permisos
@@ -50,7 +59,9 @@ Ejecutar: `just manage setup_blog_permissions` (o con `--dry-run`).
 from django.contrib.auth.models import Group as AuthGroup
 from django.contrib.auth.models import Permission
 from django.core.management.base import BaseCommand
+from wagtail.models import Collection
 from wagtail.models import GroupApprovalTask
+from wagtail.models import GroupCollectionPermission
 from wagtail.models import GroupPagePermission
 from wagtail.models import Page
 from wagtail.models import Workflow
@@ -64,6 +75,25 @@ PERMISOS_JEFE = ["add_page", "change_page", "publish_page", "lock_page", "unlock
 
 # Quien escribe: sin `publish_page`, así que el botón dice «Enviar a revisión».
 PERMISOS_PROFESOR = ["add_page", "change_page"]
+
+# Sobre la colección del departamento. Son los dos juegos que tenían los 17
+# departamentos completos al medirlo (2026-09-16): el jefe además organiza
+# subcolecciones.
+MEDIOS = [
+    ("wagtailimages", "add_image"),
+    ("wagtailimages", "change_image"),
+    ("wagtailimages", "choose_image"),
+    ("wagtaildocs", "add_document"),
+    ("wagtaildocs", "change_document"),
+    ("wagtaildocs", "choose_document"),
+]
+COLECCION_PROFESOR = MEDIOS
+COLECCION_JEFE = MEDIOS + [
+    ("wagtailcore", "add_collection"),
+    ("wagtailcore", "change_collection"),
+]
+
+COLECCION_BLOGS = "Blogs"
 
 
 def _permiso(codename, app_label="wagtailcore"):
@@ -115,6 +145,14 @@ class Command(BaseCommand):
             cambios += self._dar_permisos_de_pagina(jefes, dept, PERMISOS_JEFE)
             cambios += self._dar_permisos_de_pagina(profes, dept, PERMISOS_PROFESOR)
             cambios += self._montar_revision(dept, jefes)
+            coleccion = self._coleccion(dept)
+            if coleccion is not None:
+                cambios += self._dar_permisos_de_coleccion(
+                    jefes, coleccion, COLECCION_JEFE
+                )
+                cambios += self._dar_permisos_de_coleccion(
+                    profes, coleccion, COLECCION_PROFESOR
+                )
 
         self._avisar_de_permisos_de_mas(departamentos)
 
@@ -208,6 +246,46 @@ class Command(BaseCommand):
             )
             self.stdout.write(self.style.SUCCESS(f"  {codename}: {grupo.name}"))
             cambios += 1
+        return cambios
+
+    def _coleccion(self, dept):
+        """`Blogs > <Departamento>`, creándola si falta."""
+        blogs = Collection.objects.filter(name=COLECCION_BLOGS, depth=2).first()
+        if blogs is None:
+            self.stdout.write(
+                self.style.WARNING(
+                    f"  sin colección «{COLECCION_BLOGS}»: no se reparten imágenes"
+                )
+            )
+            return None
+        coleccion = blogs.get_children().filter(name=dept.title).first()
+        if coleccion is not None:
+            return coleccion
+        if self.seco:
+            self.stdout.write(f"  crearía colección: {COLECCION_BLOGS} > {dept.title}")
+            return Collection(name=dept.title)
+        coleccion = blogs.add_child(name=dept.title)
+        self.stdout.write(
+            self.style.SUCCESS(f"  colección creada: {COLECCION_BLOGS} > {dept.title}")
+        )
+        return coleccion
+
+    def _dar_permisos_de_coleccion(self, grupo, coleccion, permisos):
+        cambios = 0
+        for app_label, codename in permisos:
+            permiso = _permiso(codename, app_label=app_label)
+            if grupo.pk and coleccion.pk and GroupCollectionPermission.objects.filter(
+                group=grupo, collection=coleccion, permission=permiso
+            ).exists():
+                continue
+            cambios += 1
+            if self.seco:
+                self.stdout.write(f"  daría {codename} en la colección a {grupo.name}")
+                continue
+            GroupCollectionPermission.objects.create(
+                group=grupo, collection=coleccion, permission=permiso
+            )
+            self.stdout.write(self.style.SUCCESS(f"  {codename} (colección): {grupo.name}"))
         return cambios
 
     def _montar_revision(self, dept, jefes):
