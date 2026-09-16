@@ -178,7 +178,9 @@ def publicar(nombre, publicar_ya=False):
         "publish_immediately": publicar_ya,
     }
     for campo, destino in (("key_fifths", "key_fifths"), ("tempo_bpm", "tempo_bpm"),
-                           ("duracion_segundos", "duration_seconds")):
+                           ("duracion_segundos", "duration_seconds"),
+                           ("time_signature_beats", "time_signature_beats"),
+                           ("time_signature_beat_type", "time_signature_beat_type")):
         if datos.get(campo):
             payload[destino] = int(datos[campo])
     if datos.get("key_mode"):

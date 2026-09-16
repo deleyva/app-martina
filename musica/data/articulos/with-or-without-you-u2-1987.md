@@ -12,6 +12,10 @@ idioma: es
 imagen: with-or-without-you-joshua-tree.webp
 imagen_titulo: Tormenta acercándose en el parque nacional Joshua Tree (California). Foto: Tuxyso, CC BY-SA 3.0, vía Wikimedia Commons
 page_id: 861
+songsterr_url: https://www.songsterr.com/a/wsa/u2-with-or-without-you-tab-s8711
+tablatura: ~/Documents/tablaturas/U2-With Or Without You-05-07-2026.gp
+time_signature_beats: 4
+time_signature_beat_type: 4
 ---
 # With or Without You — U2 (1987)
 

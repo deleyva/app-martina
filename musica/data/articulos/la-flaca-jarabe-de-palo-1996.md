@@ -9,6 +9,11 @@ idioma: es
 imagen: la-flaca-malecon-habana.webp
 imagen_titulo: El Malecón de La Habana de noche. Foto: Horacio Fernández, CC BY 3.0, vía Wikimedia Commons
 page_id: 859
+songsterr_url: https://www.songsterr.com/a/wsa/jarabe-de-palo-la-flaca-tab-s38960
+tablatura: ~/Documents/tablaturas/Jarabe De Palo-La Flaca-07-15-2026.gp
+time_signature_beats: 4
+time_signature_beat_type: 4
+tempo_bpm: 103
 ---
 # La flaca — Jarabe de Palo (1996)
 
@@ -24,8 +29,8 @@ page_id: 859
 |---|---|---|
 | Artista | Jarabe de Palo | — |
 | Tonalidad | La menor — **por confirmar** | cifrados de Cifra Club y similares, no partitura oficial |
-| Tempo | **por confirmar de oído** | — |
-| Compás | **por confirmar de oído** | — |
+| Tempo | 103 BPM | tablatura de Songsterr (`s38960`) |
+| Compás | 4/4 | tablatura de Songsterr (`s38960`) |
 | Duración | 269 s (4:29) | Wikipedia, y coincide con el vídeo oficial |
 | Referencia | del álbum *La flaca*, Virgin, 1996 | Wikipedia |
 | Idioma del texto base | `es`, con traducción `en` | — |
@@ -68,7 +73,9 @@ Lo interesante para el oído está en cómo empieza esa vuelta. La introducción
 
 Por debajo de la canción hay también una decisión de estilo. El grupo venía de Cuba y el disco se grabó entre Barcelona y Londres: esa mezcla es el asunto del que va todo el disco, no un detalle de esta canción.
 
-**Este bloque se queda corto a propósito.** Falta lo que solo se puede decir escuchando con instrumento en mano: tempo, compás, y qué hace exactamente la percusión. Ponlo tú y queda cerrado.
+Datos duros: **4/4** y **103 BPM**, según la tablatura de Songsterr. La tonalidad sigue sin confirmar: los cifrados que circulan dicen La menor y no he encontrado partitura oficial.
+
+**Falta todavía una cosa**, y es la que solo se puede decir escuchando: qué hace exactamente la percusión. Ponlo tú y queda cerrado.
 
 ### Curiosidades
 
@@ -145,7 +152,9 @@ The interesting part for your ear is how that turn begins. The introduction runs
 
 Underneath there is also a decision about style. The band had come back from Cuba and the album was recorded between Barcelona and London: that mixture is what the whole record is about, not a detail of this song.
 
-**This section is deliberately short.** What is missing is what can only be said with the record playing and an instrument in your hands: tempo, metre, and exactly what the percussion is doing.
+Hard facts: **4/4** and **103 BPM**, from the Songsterr tab. The key is still unconfirmed: the chord charts people use say A minor and there is no official score.
+
+**One thing is still missing**, and it can only be said with the record playing: exactly what the percussion is doing.
 
 ### Trivia and curiosities
 

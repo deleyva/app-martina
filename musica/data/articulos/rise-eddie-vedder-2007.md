@@ -12,6 +12,10 @@ idioma: es
 imagen: rise-denali.webp
 imagen_titulo: Cruzando la cordillera camino del autobús 142, parque nacional de Denali (Alaska). Foto: Paxson Woelber, CC BY 2.0, vía Wikimedia Commons
 page_id: 860
+songsterr_url: https://www.songsterr.com/a/wsa/eddie-vedder-rise-tab-s192032
+tablatura: ~/Documents/tablaturas/Eddie Vedder-Rise-07-14-2025.gp
+time_signature_beats: 3
+time_signature_beat_type: 4
 ---
 # Rise — Eddie Vedder (2007)
 
@@ -25,9 +29,9 @@ page_id: 860
 |---|---|---|
 | Artista | Eddie Vedder | — |
 | Tonalidad | Sol mayor (`key_fifths` = 1, `key_mode` = major) | partitura del cancionero, «Key: G» |
-| Tempo | 173 BPM | misma partitura, «WHOLE SONG 173 bpm» |
+| Tempo | 173 BPM | partitura del cancionero; Songsterr dice 174, dos fuentes independientes |
 | Duración | 156 s (2:36) | Wikipedia, *Into the Wild* (banda sonora) |
-| Compás | **por confirmar de oído** | — |
+| Compás | 3/4 | tablatura de Songsterr (`s192032`) |
 | Idioma del texto base | `es`, con traducción `en` | — |
 
 **Recursos (URLs comprobadas):**
@@ -66,7 +70,9 @@ Lo interesante es lo que produce esa decisión. Como la armonía no sorprende nu
 
 El instrumento tampoco es casual. La mandolina lleva las cuerdas por parejas, afinadas igual, y nunca suenan exactamente a la vez: por eso el sonido parece que tiembla, aunque nadie esté haciendo vibrato.
 
-Datos duros: **Sol mayor**, **173 BPM** según la partitura que usamos en clase, **2:36** de duración. Forma: intro, estrofa, estribillo, puente, estrofa. Ese 173 engaña, porque los acordes cambian despacio: lo que va rápido es la mano, no la armonía.
+Y hay una cosa que no se suele mirar: la canción va en **compás de tres**, no de cuatro. Cuenta con ella y te sale uno-dos-tres, uno-dos-tres. Es el compás del vals, en una canción que no suena a vals en absoluto.
+
+Datos duros: **Sol mayor**, **3/4**, **173 BPM** según la partitura que usamos en clase, **2:36** de duración. Forma: intro, estrofa, estribillo, puente, estrofa. Ese 173 engaña, porque los acordes cambian despacio: lo que va rápido es la mano, no la armonía.
 
 ### Curiosidades
 
@@ -143,7 +149,9 @@ What matters is what the choice does to you. Because the harmony never surprises
 
 The instrument is not an accident either. A mandolin has its strings in pairs, tuned the same, and they never sound at exactly the same instant: that is why the sound seems to shiver, even though nobody is adding vibrato.
 
-Hard facts: **G major**, **173 BPM** according to the chart we use in class, **2:36** long. Form: intro, verse, chorus, bridge, verse. That 173 is misleading, because the chords change slowly: the hand is fast, the harmony is not.
+And here is something people rarely check: the song is in **three**, not four. Count along and you get one-two-three, one-two-three. It is the metre of a waltz, in a song that sounds nothing like one.
+
+Hard facts: **G major**, **3/4**, **173 BPM** according to the chart we use in class, **2:36** long. Form: intro, verse, chorus, bridge, verse. That 173 is misleading, because the chords change slowly: the hand is fast, the harmony is not.
 
 ### Trivia and curiosities
 
