@@ -25,7 +25,9 @@ if (!window.__afterLibraryAdd) {
     {% if is_teacher %}
         {# PROFESORES: Botón que abre modal para seleccionar destinos #}
         <div class="tooltip tooltip-left" data-tip="{% if in_library %}En tu biblioteca · Gestionar{% else %}Añadir a bibliotecas{% endif %}">
-            <button onclick="library_modal_{{ content_object.pk }}_{{ content_type.id }}.showModal()"
+            {% comment %}Pide el alumnado al abrir, no antes: el `once` de
+            HTMX hace que solo viaje una vez por diálogo.{% endcomment %}
+            <button onclick="document.getElementById('students_list_{{ content_object.pk }}_{{ content_type.id }}')?.dispatchEvent(new Event('cargar-alumnado')); library_modal_{{ content_object.pk }}_{{ content_type.id }}.showModal()"
                     id="library-trigger-{{ content_object.pk }}-{{ content_type.id }}"
                     class="btn btn-sm {% if in_library %}btn-success{% else %}btn-primary{% endif %} btn-square">
                 {% if in_library %}
