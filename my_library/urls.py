@@ -18,6 +18,8 @@ urlpatterns = [
     path("update-title/<int:pk>/", views.update_item_title, name="update_title"),
     path("update-tags/<int:pk>/", views.update_item_tags, name="update_tags"),
     path("suggest-tags/", views.suggest_tags, name="suggest_tags"),
+    # El alumnado del diálogo de bibliotecas, servido al abrirlo y no antes.
+    path("selector-alumnado/", views.students_picker, name="students_picker"),
     path("empezar/", views.session_start, name="session_start"),
     path("empezar/recuento/", views.session_count, name="session_count"),
     path("empezar/lanzar/", views.session_launch, name="session_launch"),

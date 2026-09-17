@@ -1199,3 +1199,50 @@ def _render_deck_panel(request):
         request=request,
     )
     return HttpResponse(html)
+
+
+@login_required
+def students_picker(request):
+    """La lista de alumnado del diálogo de bibliotecas, servida al abrirlo.
+
+    Existe para sacar los correos del HTML de cada artículo (2026-09-16). El
+    diálogo se incluye una vez por botón de biblioteca, así que la lista
+    viajaba 28 veces en un artículo con vídeos: 591 correos y 736 KB, contra
+    los 80 KB de un visitante, sin que nadie lo hubiera abierto.
+
+    **Devuelve solo el alumnado de los grupos que imparte quien pregunta**, y
+    nada a quien no imparte ninguno. La comprobación es aquí y no en la
+    plantilla: una URL es una puerta, y quien la llame a mano tiene que
+    encontrarse la misma cerradura que tenía el diálogo.
+    """
+    from clases.models import Enrollment, Group, Student
+
+    grupos = list(Group.del_profesor(request.user)) if request.user.is_staff else []
+    if not grupos:
+        # 403 y no una lista vacía: son cosas distintas y conviene que se note.
+        return HttpResponse(
+            "<p class='text-sm text-error p-2'>No tienes grupos a tu cargo.</p>",
+            status=403,
+        )
+
+    alumnado = (
+        Enrollment.objects.filter(group__in=grupos, is_active=True)
+        .select_related("user", "group")
+        .order_by("group__name", "user__name")
+    )
+    if not alumnado.exists():
+        alumnado = (
+            Student.objects.filter(group__in=grupos)
+            .select_related("user", "group")
+            .order_by("group__name", "user__name")
+        )
+
+    return render(
+        request,
+        "my_library/partials/students_list.html",
+        {
+            "all_students": alumnado,
+            # Lo usan los `onchange` de cada casilla para hablar con su diálogo.
+            "modal_id": request.GET.get("modal_id", ""),
+        },
+    )
