@@ -18,6 +18,7 @@ libros que ya estaban dentro eso era una casualidad; para estos, no.
 """
 
 from django.contrib.contenttypes.models import ContentType
+from django.db.models import Q
 
 from my_library.models import LibraryItem
 
@@ -115,6 +116,9 @@ def _de_los_adjuntos(pagina):
             documento = bloque.get(campo) if hasattr(bloque, "get") else None
             if documento is not None:
                 salida.append(documento)
+    # Los recortes vienen ya resueltos al objeto, no como `StructValue`: un
+    # recorte ES material con pk propia, no un envoltorio del que sacar algo.
+    salida.extend(_acceso("get_recortes"))
     return salida
 
 
@@ -134,8 +138,24 @@ def _enlaces_externos(pagina):
     return list(enlaces.all())
 
 
+def _es_recorte(capitulo):
+    """¿Este capítulo ES el material, en vez de contenerlo?
+
+    Se pregunta por capacidad y no con `isinstance`, por la misma razón que
+    `capitulos_de`: `my_library` no debe importar tipos concretos de `musica`.
+    Un recorte es lo único del sistema que sabe decir a qué rango de páginas de
+    qué documento apunta.
+    """
+    return hasattr(capitulo, "rango_paginas") and hasattr(capitulo, "documento")
+
+
 def material_de(capitulo):
     """Los medios practicables de un capítulo, en orden de aparición.
+
+    **Un recorte es el caso degenerado y va primero**: no tiene cuerpo ni
+    adjuntos de los que sacar nada, porque él mismo es el material. Un capítulo
+    normal APORTA medios; un capítulo-recorte ES un medio. Sin esta rama, un
+    libro de recortes saldría vacío —sin error, que es la peor forma de fallar.
 
     **Primero el cuerpo, luego los adjuntos** (decisión del principal,
     2026-08-27). Dentro del cuerpo el orden es estricto: imágenes y embeds
@@ -151,6 +171,9 @@ def material_de(capitulo):
     esto, una imagen incrustada saldría dos veces, y la segunda con el orden
     equivocado.
     """
+    if _es_recorte(capitulo):
+        return [capitulo]
+
     objetos, vistos = [], set()
     fuentes = (
         list(_incrustado_en_el_cuerpo(capitulo))
@@ -188,12 +211,20 @@ def meter_libro(user, libro):
     solo que no reviente: un elemento repetido saldría dos veces en la cola.
     """
     creados = ya_estaban = 0
+    por_referencia = _por_referencia(libro)
     for capitulo, objeto in material_del_libro(libro):
         _, creado = LibraryItem.objects.get_or_create(
             user=user,
             content_type=ContentType.objects.get_for_model(objeto),
             object_id=objeto.pk,
-            defaults={"source_page": capitulo},
+            defaults={
+                # `source_page` es FK a `Page`: un capítulo-recorte no cabe ahí.
+                "source_page": None if _es_recorte(capitulo) else capitulo,
+                # Y sin esto, lo que se acaba de meter no se reconocería después
+                # como perteneciente al libro. Antes daba igual porque todo
+                # capítulo era una página; con recortes es la única atadura.
+                "libro": libro if por_referencia else None,
+            },
         )
         if creado:
             creados += 1
@@ -202,17 +233,56 @@ def meter_libro(user, libro):
     return creados, ya_estaban
 
 
+def items_del_libro(user, libro, capitulos=None):
+    """Los `LibraryItem` del usuario que pertenecen a este libro.
+
+    Hay DOS formas de atar un elemento a su libro y ninguna sirve sola:
+
+    - `source_page` — el capítulo-página del que salió. Es la única que existe
+      en los libros de árbol, y la que llevan los elementos creados por
+      `meter_libro`.
+    - `libro` — la FK directa. Es la única posible para un capítulo-recorte,
+      que no tiene página ninguna, y la que `siguiente_del_objetivo` ya
+      rellenaba en los libros por referencia.
+
+    **Sin la unión, un libro de recortes no reconoce ni uno solo de sus
+    elementos.** `_ya_vistos` saldría vacío, la creación perezosa volvería a
+    proponer los mismos primeros elementos en cada sesión y la cola se quedaría
+    atascada para siempre. Sin error, que es la peor forma de fallar.
+    """
+    from my_library.models import LibraryItem
+
+    if capitulos is None:
+        capitulos = capitulos_de(libro)
+    # Los recortes NO pueden ir en un `source_page__in`: su pk es de otra tabla
+    # y coincidiría por accidente con el de una página cualquiera.
+    paginas = [c for c in capitulos if not _es_recorte(c)]
+
+    condicion = Q(libro=libro)
+    if paginas:
+        condicion |= Q(source_page__in=paginas)
+    return LibraryItem.objects.filter(user=user).filter(condicion)
+
+
+def _clave_de_capitulo(source_page_id, content_type_id, object_id):
+    """Qué capítulo representa un elemento, sea página o recorte.
+
+    Un elemento de capítulo-página se identifica por su página; uno de
+    capítulo-recorte, por sí mismo, porque el recorte ES el capítulo.
+    """
+    if source_page_id:
+        return ("pagina", source_page_id)
+    return ("objeto", content_type_id, object_id)
+
+
 def _ya_vistos(user, libro):
     """{(content_type_id, object_id)} del material del libro que ya tiene fila.
 
     Incluye los descartados a propósito: la lápida existe justamente para que
     el objetivo no vuelva a ofrecerlos.
     """
-    from my_library.models import LibraryItem
-
     return set(
-        LibraryItem.objects.filter(user=user, source_page__in=capitulos_de(libro))
-        .values_list("content_type_id", "object_id")
+        items_del_libro(user, libro).values_list("content_type_id", "object_id")
     )
 
 
@@ -238,7 +308,10 @@ def siguiente_del_objetivo(user, libro, cuantos=1):
             content_type=tipo,
             object_id=objeto.pk,
             defaults={
-                "source_page": capitulo,
+                # FK a `Page`: un capítulo-recorte no cabe ahí. Se ata al libro
+                # por la FK `libro`, que ya se rellenaba en los libros por
+                # referencia — y un libro de recortes siempre lo es.
+                "source_page": None if _es_recorte(capitulo) else capitulo,
                 "orden": orden,
                 "libro": libro if _por_referencia(libro) else None,
             },
@@ -305,7 +378,8 @@ def previsualizar_relleno(user, cuota, seleccion=None, solo_libros=None):
                 user=user,
                 content_type=tipo,
                 object_id=objeto.pk,
-                source_page=capitulo,
+                # Igual que en la creación real: FK a `Page`, un recorte no cabe.
+                source_page=None if _es_recorte(capitulo) else capitulo,
                 orden=orden,
                 libro=libro if _por_referencia(libro) else None,
             )
@@ -321,27 +395,29 @@ def progreso(user, libro):
     Un capítulo cuenta como tocado en cuanto uno de sus elementos tiene al menos
     un repaso. Es lo que responde a "por dónde voy": «Semana 12 de 40».
     """
-    from my_library.models import LibraryItem, ReviewLog
+    from my_library.models import ReviewLog
 
     capitulos = capitulos_de(libro)
-    con_repaso = set(
-        ReviewLog.objects.filter(
-            item__in=LibraryItem.objects.filter(
-                user=user, source_page__in=capitulos
-            )
-        ).values_list("item__source_page_id", flat=True)
-    )
+    # Un elemento de capítulo-página se agrupa por su página; uno de
+    # capítulo-recorte, por sí mismo, porque el recorte ES el capítulo. Contar
+    # solo por `source_page_id` metía todos los recortes en el mismo cubo
+    # `None`, y un libro de cuarenta recortes marcaba «1 de 40» para siempre.
+    con_repaso = {
+        _clave_de_capitulo(*fila)
+        for fila in ReviewLog.objects.filter(
+            item__in=items_del_libro(user, libro, capitulos)
+        ).values_list(
+            "item__source_page_id", "item__content_type_id", "item__object_id"
+        )
+    }
     return len(con_repaso), len(capitulos)
 
 
 def _sin_tocar_del_libro(user, libro, practicados):
     """Cuántos elementos DE ESTE LIBRO tiene el usuario sin practicar todavía."""
-    from my_library.models import LibraryItem
-
     return (
-        LibraryItem.objects.filter(
-            user=user, descartado=False, source_page__in=capitulos_de(libro)
-        )
+        items_del_libro(user, libro)
+        .filter(descartado=False)
         .exclude(pk__in=practicados)
         .count()
     )

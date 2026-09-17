@@ -327,6 +327,7 @@ class LibraryItem(models.Model):
             "image": "Imagen",
             "embed": "Contenido Incrustado",
             "externalresource": "Enlace Externo",
+            "recorte": "Recorte de PDF",
         }
         return mapping.get(model_name, model_name.title())
 
@@ -348,6 +349,7 @@ class LibraryItem(models.Model):
             "image": "🖼️",
             "embed": "▶️",
             "externalresource": "🔗",
+            "recorte": "✂️",
         }
         return icons.get(model_name, "📁")
 
@@ -678,6 +680,12 @@ class LibraryItem(models.Model):
             return {"embeds": [self.content_object]}
         elif self.content_type.model == "externalresource":
             return {"external_links": [self.content_object]}
+        elif self.content_type.model == "recorte":
+            # Clave propia y no `pdfs`: el visor de recorte necesita saber que lo
+            # que le llega trae encuadre y NO debe dejar navegar el documento. Si
+            # se colara por `pdfs`, se pintaría con el visor de PDF entero y el
+            # alumno saldría del recorte con dos toques.
+            return {"recortes": [self.content_object]}
         return {}
 
     @classmethod

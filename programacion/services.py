@@ -35,6 +35,12 @@ def get_page_elements(page):
     model = type(specific).__name__.lower()
     elements = []
 
+    if model == "recorte":
+        # Un recorte no CONTIENE elementos: es uno. Sin esta rama caía al
+        # `return []` del final y programarlo creaba una sesión de clase vacía
+        # —sin error ni aviso, que es la peor forma de fallar.
+        return [_element(specific, "recorte", specific.nombre)]
+
     if model == "recursopage":
         cache = specific._parse_attachments()
         for sv in cache["pdfs"]:

@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags wagtailimages_tags %}
+
+{% block title %}{{ page.title }} - Ayuda{% endblock title %}
+
+{% block content %}
+{% comment %}
+Una guía escrita: pasos numerados, cada uno con su captura.
+
+La numeración la pone la plantilla con `forloop`, no quien escribe. Si la
+pusiera el editor, a la tercera vez que se inserta un paso en medio deja de
+cuadrar y nadie lo revisa.
+{% endcomment %}
+<div class="container mx-auto px-4 py-8 max-w-3xl">
+
+  <div class="text-sm opacity-70 mb-2">
+    <a href="{{ page.get_parent.url }}" class="link link-hover">← Ayuda</a>
+  </div>
+
+  <h1 class="text-3xl font-bold">{{ page.title }}</h1>
+  {% if page.intro %}
+  <p class="text-base opacity-70 mt-2">{{ page.intro }}</p>
+  {% endif %}
+
+  {% if page.resumen %}
+  <div class="prose max-w-none mt-6">{{ page.resumen|richtext }}</div>
+  {% endif %}
+
+  {% if page.numero_de_pasos %}
+  <div class="text-xs uppercase tracking-wide opacity-70 mt-10 mb-4">
+    {{ page.numero_de_pasos }} pasos
+  </div>
+  {% endif %}
+
+  <ol class="flex flex-col gap-10">
+    {% for bloque in page.pasos %}
+      {% if bloque.block_type == "paso" %}
+      <li class="flex gap-4">
+        <span class="badge badge-primary badge-lg shrink-0 mt-1">{{ forloop.counter }}</span>
+        <div class="flex-1 min-w-0">
+          <h2 class="text-xl font-semibold mb-2">{{ bloque.value.titulo }}</h2>
+          <div class="prose max-w-none">{{ bloque.value.texto|richtext }}</div>
+
+          {% if bloque.value.captura %}
+          <figure class="mt-4">
+            {% comment %}
+            La captura a ancho completo y con borde: una pantalla encogida en
+            una columna estrecha no se lee, y sin borde se confunde con la
+            propia página.
+            {% endcomment %}
+            {% image bloque.value.captura width-1200 class="rounded-lg border border-base-300 w-full" %}
+            {% if bloque.value.pie %}
+            <figcaption class="text-sm opacity-70 mt-2">{{ bloque.value.pie }}</figcaption>
+            {% endif %}
+          </figure>
+          {% endif %}
+        </div>
+      </li>
+      {% elif bloque.block_type == "aviso" %}
+      <li class="list-none">
+        <div class="alert">
+          <div class="prose prose-sm max-w-none">{{ bloque.value.texto|richtext }}</div>
+        </div>
+      </li>
+      {% endif %}
+    {% endfor %}
+  </ol>
+
+  <div class="divider mt-12"></div>
+  <a href="{{ page.get_parent.url }}" class="btn btn-ghost btn-sm">← Volver a Ayuda</a>
+</div>
+{% endblock content %}

@@ -1,0 +1,11 @@
+{% comment %}
+Aviso suelto para los formularios del índice de importación, que no tienen
+lista que intercambiar. Los caminos felices no pasan por aquí: contestan con
+`HX-Redirect` y el navegador se va a recortar.
+{% endcomment %}
+{% if error %}
+<div class="alert alert-error text-sm mb-4 py-2">{{ error }}</div>
+{% endif %}
+{% if aviso %}
+<div class="alert alert-success text-sm mb-4 py-2">{{ aviso }}</div>
+{% endif %}

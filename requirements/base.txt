@@ -13,7 +13,15 @@ django-model-utils==5.0.0  # https://github.com/jazzband/django-model-utils
 django-allauth==65.3.1  # https://github.com/pennersr/django-allauth
 
 # PDF support
-ReportLab==4.0.8
+ReportLab==4.0.8  # generar PDF (study cards)
+# Cortar un PDF por páginas, para servir solo el rango de un recorte.
+# BSD a propósito: PyMuPDF haría esto y más, pero es AGPL y aquí solo hace falta
+# copiar páginas. Si algún día se generan miniaturas rasterizadas habrá que
+# volver sobre esta decisión; no antes.
+pypdf==5.1.0
+# Recomprimir las imágenes de un PDF escaneado al subirlo (MPL-2.0).
+# Medido sobre un método de 56 páginas: 13,7 MB -> 7,0 MB sin pérdida visible.
+pikepdf==9.4.2
 
 # MFA Support
 cryptography==41.0.2

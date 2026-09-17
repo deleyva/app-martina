@@ -248,3 +248,115 @@ class TestSessionClose:
         session.refresh_from_db()
         assert session.is_closed
         assert session.reflection == "Reflexión vía POST"
+
+
+# === Libros que no eran programables ===
+
+
+def _recorte_de(doc, nombre, desde=1, hasta=None):
+    from musica.models import Recorte
+
+    return Recorte.objects.create(
+        documento=doc, nombre=nombre, pagina_desde=desde, pagina_hasta=hasta
+    )
+
+
+def _libro_de_estudio(root_page, titulo, slug, bloques):
+    from musica.models import LibroDeEstudioPage
+
+    libro = LibroDeEstudioPage(title=titulo, slug=slug, capitulos=bloques)
+    root_page.add_child(instance=libro)
+    libro.save_revision().publish()
+    return libro
+
+
+@pytest.mark.django_db
+class TestLibrosProgramables:
+    """`is_book` era solo `"libropage"` y `sync_chapters` consultaba el arbol a
+    mano. Consecuencia: un `LibroDeEstudioPage` entraba en el plan como un
+    bloque opaco, sin capitulos y sin progreso. Nadie lo habia notado."""
+
+    def test_un_libro_de_estudio_es_un_libro(self, db, root_page, teacher, group):
+        libro = _libro_de_estudio(root_page, "Los 70", "los-70-plan", [])
+        plan = CoursePlan.objects.create(teacher=teacher, group=group, name="1T")
+        item = PlanItem.objects.create(
+            plan=plan,
+            content_type=ContentType.objects.get_for_model(libro),
+            object_id=libro.pk,
+        )
+
+        assert item.is_book
+
+    def test_programar_un_libro_de_recortes_crea_un_item_por_recorte(
+        self, db, root_page, teacher, group
+    ):
+        doc = _make_doc("metodo.pdf")
+        uno = _recorte_de(doc, "Sailing Boat", 10, 13)
+        dos = _recorte_de(doc, "Rain Rain", 14, 14)
+        libro = _libro_de_estudio(
+            root_page, "Piano Adventures", "piano-adv-plan",
+            [("recorte", uno), ("recorte", dos)],
+        )
+        plan = CoursePlan.objects.create(teacher=teacher, group=group, name="1T")
+        item = PlanItem.objects.create(
+            plan=plan,
+            content_type=ContentType.objects.get_for_model(libro),
+            object_id=libro.pk,
+        )
+
+        creados = item.sync_chapters()
+
+        assert [c.content_object.nombre for c in creados] == [
+            "Sailing Boat", "Rain Rain"
+        ]
+
+    def test_sync_chapters_sigue_funcionando_en_los_libros_de_arbol(
+        self, db, root_page, teacher, group, article
+    ):
+        """La regresion que no puede haber: `LibroPage` iba por el arbol."""
+        pagina, _d1, _d2 = article
+        libro = LibroPage(title="Libro arbol", slug="libro-arbol-plan")
+        root_page.add_child(instance=libro)
+        pagina.move(libro, pos="last-child")
+
+        plan = CoursePlan.objects.create(teacher=teacher, group=group, name="1T")
+        item = PlanItem.objects.create(
+            plan=plan,
+            content_type=ContentType.objects.get_for_model(libro),
+            object_id=libro.pk,
+        )
+
+        creados = item.sync_chapters()
+
+        assert [c.object_id for c in creados] == [pagina.pk]
+
+    def test_sync_chapters_es_idempotente(self, db, root_page, teacher, group):
+        doc = _make_doc("metodo2.pdf")
+        libro = _libro_de_estudio(
+            root_page, "Metodo", "metodo-idem",
+            [("recorte", _recorte_de(doc, "Uno", 1, 1))],
+        )
+        plan = CoursePlan.objects.create(teacher=teacher, group=group, name="1T")
+        item = PlanItem.objects.create(
+            plan=plan,
+            content_type=ContentType.objects.get_for_model(libro),
+            object_id=libro.pk,
+        )
+
+        item.sync_chapters()
+        segunda_vez = item.sync_chapters()
+
+        assert segunda_vez == []
+        assert item.children.count() == 1
+
+    def test_un_recorte_es_un_elemento_no_una_pagina_vacia(self, db):
+        """Sin la guarda, programar un recorte creaba una sesion de clase VACIA,
+        sin error: `get_page_elements` no tenia rama y devolvia []."""
+        doc = _make_doc("metodo3.pdf")
+        recorte = _recorte_de(doc, "El ejercicio", 13, 13)
+
+        elementos = get_page_elements(recorte)
+
+        assert len(elementos) == 1
+        assert elementos[0]["object_id"] == recorte.pk
+        assert elementos[0]["title"] == "El ejercicio"

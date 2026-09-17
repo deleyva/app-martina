@@ -19,10 +19,12 @@ from django.utils.safestring import mark_safe
 from taggit.managers import TaggableManager
 from taggit.models import TaggedItemBase
 from wagtail.admin.panels import FieldPanel, MultiFieldPanel
+from wagtail.blocks import CharBlock, RichTextBlock, StructBlock
 from wagtail.embeds.embeds import get_embed
 from wagtail.embeds.exceptions import EmbedException
 from wagtail.embeds.models import Embed
-from wagtail.fields import RichTextField
+from wagtail.fields import RichTextField, StreamField
+from wagtail.images.blocks import ImageChooserBlock
 from wagtail.models import Page, Site
 from wagtail.snippets.models import register_snippet
 
@@ -169,7 +171,7 @@ class HelpIndexPage(Page):
         "cms.StandardPage",
         "musica.MusicLibraryIndexPage",
     ]
-    subpage_types = ["cms.HelpVideoPage"]
+    subpage_types = ["cms.HelpVideoPage", "cms.HelpGuidePage"]
 
     class Meta:
         verbose_name = "Ayuda (Índice)"
@@ -185,6 +187,14 @@ class HelpIndexPage(Page):
 
     def get_videos(self):
         return HelpVideoPage.objects.child_of(self).live().order_by("title").specific()
+
+    def get_guias(self):
+        """Las guías escritas, por el orden del árbol.
+
+        Por `path` y no por título: en una guía el orden importa —primero la de
+        empezar, luego las de casos sueltos— y alfabético no es ese orden.
+        """
+        return HelpGuidePage.objects.child_of(self).live().order_by("path").specific()
 
 
 class HelpVideoPage(Page):
@@ -234,6 +244,93 @@ class HelpVideoPage(Page):
         if not embed:
             return ""
         return mark_safe(embed.html)
+
+
+class HelpGuidePage(Page):
+    """Una guía escrita, en pasos y con capturas.
+
+    **Por qué no vale un videotutorial.** Hasta ahora la ayuda solo admitía
+    vídeo, y hay procesos —el de importar un método son cinco pasos y dos
+    pantallas— que en vídeo se siguen mal: no se puede volver al paso 3 sin
+    rebobinar, ni buscar «restringido» en el texto, ni tenerlo abierto al lado
+    mientras lo haces. Una guía por pasos sí.
+
+    **El paso es el bloque, no el párrafo.** Un tutorial es una secuencia
+    numerada de cosas que hacer, y cada una tiene su captura. Modelarlo como
+    texto libre con imágenes sueltas deja la numeración en manos de quien
+    escribe, y a la tercera edición ya no cuadra.
+    """
+
+    intro = models.CharField(
+        max_length=250,
+        blank=True,
+        help_text="De qué va la guía, en una línea",
+    )
+    resumen = RichTextField(
+        blank=True,
+        help_text="Contexto antes de los pasos: para qué sirve esto y cuándo usarlo",
+    )
+    pasos = StreamField(
+        [
+            (
+                "paso",
+                StructBlock(
+                    [
+                        ("titulo", CharBlock(help_text="Qué se hace en este paso")),
+                        ("texto", RichTextBlock(help_text="Cómo se hace")),
+                        (
+                            "captura",
+                            ImageChooserBlock(
+                                required=False,
+                                help_text="La pantalla en ese momento",
+                            ),
+                        ),
+                        (
+                            "pie",
+                            CharBlock(
+                                required=False,
+                                help_text="Qué mirar en la captura",
+                            ),
+                        ),
+                    ],
+                    icon="list-ol",
+                    label="Paso",
+                ),
+            ),
+            (
+                "aviso",
+                StructBlock(
+                    [("texto", RichTextBlock())],
+                    icon="warning",
+                    label="Aviso",
+                ),
+            ),
+        ],
+        blank=True,
+        use_json_field=True,
+        verbose_name="Pasos",
+        help_text="Arrastra para reordenar. La numeración sale sola.",
+    )
+
+    content_panels = Page.content_panels + [
+        FieldPanel("intro"),
+        FieldPanel("resumen"),
+        FieldPanel("pasos"),
+    ]
+
+    parent_page_types = ["cms.HelpIndexPage"]
+    subpage_types = []
+
+    class Meta:
+        verbose_name = "Guía de ayuda"
+        verbose_name_plural = "Guías de ayuda"
+
+    def get_template(self, request, *args, **kwargs):
+        return "cms/help_guide_page.html"
+
+    @property
+    def numero_de_pasos(self):
+        return sum(1 for bloque in self.pasos if bloque.block_type == "paso")
 
 
 class SavedResourceFilter(models.Model):

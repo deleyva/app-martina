@@ -235,6 +235,7 @@ TEMPLATES = [
                 "martina_bescos_app.users.context_processors.impersonation_info",
                 "martina_bescos_app.users.context_processors.user_profile_picture",
                 "martina_bescos_app.users.context_processors.user_groups",
+                "martina_bescos_app.users.context_processors.profesorado",
                 "martina_bescos_app.utils.context_processors.base_template_context",
                 "blogs.context_processors.blog_navigation",
             ],
@@ -438,6 +439,24 @@ WAGTAIL_SITE_NAME = "IES Blog"
 # revisión en cualquiera de los 17 departamentos mandaba dos correos a cada
 # superusuario. Decisión de Jesús, 2026-09-16.
 WAGTAILADMIN_NOTIFICATION_INCLUDE_SUPERUSERS = False
+
+# Los documentos pasan POR LA VISTA de Wagtail, para que el gancho decida.
+#
+# El defecto es `redirect`: la URL del documento manda un 302 al fichero de
+# media y a partir de ahí lo sirve el servidor web sin pasar por Django. Con
+# eso, `before_serve_document` no llega a aplicarse nunca y cualquiera con el
+# enlace se baja un método comercial entero.
+#
+# **Pero servirlo TODO por Django tampoco vale.** La vista de Wagtail no atiende
+# peticiones por rango —medido: `bytes=0-99` devuelve un 200 con el fichero
+# entero—, y los 43 audios del centro (101 MB, el mayor de 23) se reproducen con
+# `<audio>` nativo, que necesita rangos para mover la barra.
+#
+# La salida es el gancho `musica.servido.servido_selectivo`: bloquea lo
+# restringido y **redirige todo lo demás al fichero**, como antes. Django decide;
+# el servidor web sigue sirviendo.
+WAGTAILDOCS_SERVE_METHOD = "serve_view"
+
 WAGTAILDOCS_EXTENSIONS = [
     "csv",
     "docx",

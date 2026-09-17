@@ -76,10 +76,14 @@ def plan_detail(request, pk):
     plan = _get_plan(request, pk)
     items = list(plan.get_items_ordered())
 
-    # Contenido de la biblioteca del grupo que se puede programar
+    # Contenido de la biblioteca del grupo que se puede programar.
+    # `recorte` entra aquí porque un trozo con nombre de un método ES una unidad
+    # programable: "esta semana, Sailing Boat" es exactamente lo que se planifica.
     programmable = GroupLibraryItem.objects.filter(
         group=plan.group,
-        content_type__model__in=["recursopage", "libropage", "scorepage"],
+        content_type__model__in=[
+            "recursopage", "libropage", "librodeestudiopage", "scorepage", "recorte",
+        ],
     ).select_related("content_type")
     # Excluir los ya programados
     existing = {(i.content_type_id, i.object_id) for i in plan.items.all()}
@@ -90,14 +94,19 @@ def plan_detail(request, pk):
         and gli.content_object is not None
     ]
 
-    # Libros disponibles (LibroPage con capítulos) aunque no estén en la biblioteca
-    from musica.models import LibroPage
+    # Libros disponibles aunque no estén en la biblioteca del grupo. Las dos
+    # formas de libro: por árbol (`LibroPage`) y por referencia
+    # (`LibroDeEstudioPage`, que es la que puede estar hecha de recortes).
+    from musica.models import LibroDeEstudioPage, LibroPage
 
-    books = LibroPage.objects.live().order_by("title")
-    book_ct = ContentType.objects.get_for_model(LibroPage)
-    book_choices = [
-        b for b in books if (book_ct.pk, b.pk) not in existing
-    ]
+    book_choices = []
+    for modelo in (LibroPage, LibroDeEstudioPage):
+        ct = ContentType.objects.get_for_model(modelo)
+        book_choices.extend(
+            b
+            for b in modelo.objects.live().order_by("title")
+            if (ct.pk, b.pk) not in existing
+        )
 
     next_step = plan.get_next_step()
     pending_elements = next_step.get_pending_elements() if next_step else []

@@ -1,0 +1,131 @@
+{% load l10n %}
+{% comment %}
+Lo que cambia cada vez que se toca algo: los recortes del PDF y, si la pantalla
+está atada a un libro, sus capítulos en orden.
+
+Van juntos en un solo parcial a propósito. Crear un recorte cambia las dos
+listas a la vez, y con dos objetivos de intercambio distintos una de las dos se
+quedaría vieja hasta el siguiente clic.
+
+Los recortes se ordenan por página, que es como se busca uno mientras troceas.
+El orden de estudio es el del libro, y se arrastra abajo.
+{% endcomment %}
+<div id="lista-de-recortes" class="flex flex-col gap-4">
+
+  {% if aviso %}
+  <div class="alert alert-success text-sm py-2">{{ aviso }}</div>
+  {% endif %}
+  {% if error %}
+  <div class="alert alert-error text-sm py-2">{{ error }}</div>
+  {% endif %}
+
+  <div class="bg-base-200 rounded-lg p-4">
+    <div class="flex items-baseline justify-between mb-2">
+      <span class="text-xs uppercase tracking-wide opacity-70">
+        Recortes de este PDF · {{ recortes|length }}
+      </span>
+      <form hx-post="{% url 'musica:alternar_restriccion' documento.pk %}"
+            hx-target="#lista-de-recortes" hx-swap="outerHTML">
+        {% csrf_token %}
+        {% if libro %}<input type="hidden" name="libro" value="{{ libro.pk }}">{% endif %}
+        <button type="submit" class="btn btn-ghost btn-xs">
+          {% if restringido %}🔒 solo por recortes{% else %}🔓 se sirve entero{% endif %}
+        </button>
+      </form>
+    </div>
+
+    {% if recortes %}
+    <ul class="flex flex-col divide-y divide-base-300">
+      {% for recorte in recortes %}
+      <li class="flex items-baseline gap-2 py-2">
+        <span class="opacity-60">✂️</span>
+        <span class="flex-1 min-w-0">
+          <span class="block truncate">{{ recorte.nombre }}</span>
+          <span class="text-xs opacity-70">
+            {{ recorte.etiqueta_de_paginas }}
+            {% if recorte.tiene_rect %}· recuadro{% endif %}
+            {% if recorte.posicion_en_el_libro %}
+            · <span class="text-success">capítulo {{ recorte.posicion_en_el_libro }}</span>
+            {% endif %}
+          </span>
+        </span>
+
+        {% comment %}
+        Los datos del recorte viajan en atributos y no en una petición aparte:
+        pulsar «Editar» tiene que rellenar el formulario y saltar a su página al
+        instante, y una ida al servidor por cada clic haría el repaso tedioso.
+        {% endcomment %}
+        <button type="button"
+                class="btn btn-ghost btn-xs js-editar-recorte"
+                data-id="{{ recorte.pk }}"
+                data-nombre="{{ recorte.nombre }}"
+                data-desde="{{ recorte.pagina_desde|unlocalize }}"
+                data-hasta="{{ recorte.pagina_hasta|default_if_none:''|unlocalize }}"
+                data-offset="{{ recorte.pagina_offset_impresa|default_if_none:''|unlocalize }}"
+                data-x0="{{ recorte.rect_x0|default_if_none:''|unlocalize }}"
+                data-y0="{{ recorte.rect_y0|default_if_none:''|unlocalize }}"
+                data-x1="{{ recorte.rect_x1|default_if_none:''|unlocalize }}"
+                data-y1="{{ recorte.rect_y1|default_if_none:''|unlocalize }}">
+          Editar
+        </button>
+
+        <form hx-post="{% url 'musica:borrar_recorte' recorte.pk %}"
+              hx-target="#lista-de-recortes" hx-swap="outerHTML"
+              hx-confirm="¿Borrar «{{ recorte.nombre }}»? El PDF no se toca.">
+          {% csrf_token %}
+          {% if libro %}<input type="hidden" name="libro" value="{{ libro.pk }}">{% endif %}
+          <button type="submit" class="btn btn-ghost btn-xs">Borrar</button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-sm opacity-70">
+      Todavía no hay recortes. Marca un trozo en la página y ponle nombre.
+    </p>
+    {% endif %}
+  </div>
+
+  {% if libro %}
+  <div class="bg-base-200 rounded-lg p-4">
+    <div class="text-xs uppercase tracking-wide opacity-70 mb-2">
+      {{ libro.title }} · {{ capitulos|length }} capítulos
+    </div>
+
+    {% if capitulos %}
+    <p class="text-xs opacity-70 mb-2">Arrastra para cambiar el orden de estudio.</p>
+    <ul id="capitulos-del-libro"
+        data-url="{% url 'musica:reordenar_libro' libro.pk %}"
+        class="flex flex-col divide-y divide-base-300">
+      {% for capitulo in capitulos %}
+      <li class="flex items-baseline gap-2 py-2 cursor-move bg-base-200"
+          data-clave="{{ capitulo.clave }}">
+        <span class="opacity-40 text-sm w-5 text-right">{{ forloop.counter }}</span>
+        <span class="opacity-60">{% if capitulo.tipo == "recorte" %}✂️{% else %}📄{% endif %}</span>
+        <span class="flex-1 min-w-0">
+          <span class="block truncate">{{ capitulo.titulo }}</span>
+          <span class="text-xs opacity-70">{{ capitulo.detalle }}</span>
+        </span>
+        <span class="opacity-40 text-sm">☰</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% comment %}
+    A dónde sigue esto. Un libro troceado no alimenta nada por sí solo: le
+    quedan el grupo y la biblioteca, y sin los enlaces el flujo se corta aquí
+    sin decir que aún falta algo.
+    {% endcomment %}
+    <div class="flex flex-wrap gap-2 mt-3">
+      <a href="{{ libro.url }}" class="btn btn-ghost btn-xs">Ver el libro</a>
+      <a href="{% url 'clases:class_session_list' %}" class="btn btn-ghost btn-xs">
+        Asignar a un grupo
+      </a>
+    </div>
+    {% else %}
+    <p class="text-sm opacity-70">
+      El libro está vacío. Crea un recorte con destino «{{ libro.title }}».
+    </p>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>

@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}Importar un método{% endblock title %}
+
+{% block content %}
+{% comment %}
+La portada del flujo de importación. Tres cosas y ninguna más: subir un PDF,
+crear el libro vacío, y volver a un método empezado.
+
+No hay nada aquí que obligue a abrir el admin de Wagtail, que es el punto: el
+flujo entero vive en el frontend.
+{% endcomment %}
+
+<div class="max-w-5xl mx-auto px-4 py-8">
+
+  <h1 class="text-2xl font-bold">Importar un método</h1>
+  <p class="text-sm opacity-70 mt-1 mb-4">
+    Sube el PDF una vez, crea el libro y ve marcando cada pieza. El fichero no se
+    trocea: cada capítulo es un puntero a un rango de páginas o a un recuadro.
+    Al subirlo se aligera solo, recomprimiendo los escaneos.
+  </p>
+
+  {% comment %}
+  El camino entero a la vista desde el primer momento. Sin esto, cada paso se
+  descubre al llegar y no se sabe cuánto queda ni para qué sirve el anterior.
+  {% endcomment %}
+  <ol class="steps steps-vertical sm:steps-horizontal w-full mb-8 text-sm">
+    <li class="step step-primary">Sube el PDF</li>
+    <li class="step step-primary">Crea el libro</li>
+    <li class="step step-primary">Trocea pieza a pieza</li>
+    <li class="step">Asígnalo a un grupo</li>
+    <li class="step">El alumnado lo estudia</li>
+  </ol>
+
+  <div id="aviso-importar"></div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+
+    <form class="bg-base-200 rounded-lg p-4 flex flex-col gap-3"
+          hx-post="{% url 'musica:subir_pdf' %}"
+          hx-encoding="multipart/form-data"
+          hx-target="#aviso-importar"
+          hx-swap="innerHTML">
+      {% csrf_token %}
+      <h2 class="font-semibold">1 · Sube el PDF</h2>
+
+      <label class="form-control">
+        <span class="label-text text-xs uppercase tracking-wide opacity-70">Título</span>
+        <input type="text" name="title" maxlength="255" class="input input-bordered input-sm"
+               placeholder="Piano Adventures Level 1">
+      </label>
+
+      <label class="form-control">
+        <span class="label-text text-xs uppercase tracking-wide opacity-70">Fichero</span>
+        <input type="file" name="file" accept="application/pdf" required
+               class="file-input file-input-bordered file-input-sm">
+      </label>
+
+      <label class="form-control">
+        <span class="label-text text-xs uppercase tracking-wide opacity-70">
+          Libro al que irán los recortes
+        </span>
+        <select name="libro" class="select select-bordered select-sm">
+          <option value="">— lo elijo luego —</option>
+          {% for libro in libros %}
+          <option value="{{ libro.pk }}">{{ libro.title }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <button type="submit" class="btn btn-primary btn-sm">Subir y empezar a recortar</button>
+    </form>
+
+    <form class="bg-base-200 rounded-lg p-4 flex flex-col gap-3"
+          hx-post="{% url 'musica:crear_libro' %}"
+          hx-target="#aviso-importar"
+          hx-swap="innerHTML">
+      {% csrf_token %}
+      <h2 class="font-semibold">2 · Crea el libro</h2>
+      <p class="text-sm opacity-70">
+        Un libro de estudio vacío, listo para recibir capítulos. Cuelga del
+        índice de recursos musicales.
+      </p>
+
+      <label class="form-control">
+        <span class="label-text text-xs uppercase tracking-wide opacity-70">Título</span>
+        <input type="text" name="titulo" maxlength="255" required
+               class="input input-bordered input-sm" placeholder="Piano Adventures Level 1">
+      </label>
+
+      <button type="submit" class="btn btn-sm">Crear libro vacío</button>
+    </form>
+  </div>
+
+  <h2 class="font-semibold mb-2">3 · Sigue con un método</h2>
+
+  {% if libros %}
+  <div class="text-xs uppercase tracking-wide opacity-70 mb-2">Libros</div>
+  <ul class="flex flex-wrap gap-2 mb-6">
+    {% for libro in libros %}
+    <li>
+      <a href="{{ libro.url }}" class="btn btn-ghost btn-xs">
+        📚 {{ libro.title }} · {{ libro.capitulos|length }}
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  <div class="text-xs uppercase tracking-wide opacity-70 mb-2">PDF subidos</div>
+  {% if documentos %}
+  <ul class="flex flex-col divide-y divide-base-300">
+    {% for documento in documentos %}
+    <li class="flex items-baseline gap-3 py-2">
+      <span class="opacity-60">📄</span>
+      <span class="flex-1 min-w-0">
+        <span class="block truncate">{{ documento.title }}</span>
+        <span class="text-xs opacity-70">
+          {% if documento.tiene_recortes %}con recortes{% else %}sin trocear{% endif %}
+          {% if documento.esta_restringido %}· 🔒 solo por recortes{% endif %}
+        </span>
+      </span>
+      <a class="btn btn-sm" href="{% url 'musica:recortador' documento.pk %}">Recortar</a>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="text-sm opacity-70">Todavía no hay ningún PDF. Sube uno arriba.</p>
+  {% endif %}
+
+  {% comment %}
+  Los dos pasos que ya no son de esta pantalla, pero sin los cuales el libro no
+  llega a nadie. Van aquí para que el flujo no se corte sin decir a dónde sigue.
+  {% endcomment %}
+  <div class="divider mt-10"></div>
+  <h2 class="font-semibold mb-2">4 y 5 · Que llegue a las clases</h2>
+  <p class="text-sm opacity-70 mb-3">
+    Un libro troceado no alimenta nada por sí solo. Le quedan dos pasos:
+    asignarlo a un grupo, para trabajarlo en clase y bajarlo a la biblioteca de
+    cada alumno; y el botón <strong>«Estudiarme este libro»</strong> de la
+    página del libro, que lo mete en tu propia cola de repetición espaciada.
+  </p>
+  <div class="flex flex-wrap gap-2">
+    <a href="{% url 'clases:class_session_list' %}" class="btn btn-sm">Mis clases y grupos</a>
+    <a href="{% url 'my_library:index' %}" class="btn btn-sm btn-ghost">Mi biblioteca</a>
+  </div>
+</div>
+{% endblock content %}
