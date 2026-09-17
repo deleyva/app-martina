@@ -1127,7 +1127,15 @@ def add_study_book_chapters(request, page_id: int, payload: ChaptersIn):
             existentes = []
             libro.capitulos = []
         else:
-            existentes = [b.value.id for b in libro.capitulos if b.value]
+            # Solo los bloques de tipo `pagina`. Desde que el libro admite
+            # tambien capitulos de tipo `recorte`, mirar el `id` de TODOS los
+            # bloques mezcla dos tablas: el recorte 5 haria pasar por «ya estaba»
+            # a la pagina 5, que no se anadiria y nadie se enteraria.
+            existentes = [
+                b.value.id
+                for b in libro.capitulos
+                if b.block_type == "pagina" and b.value
+            ]
 
         anadidos, ya_estaban = [], []
         for i in payload.page_ids:

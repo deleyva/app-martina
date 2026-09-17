@@ -57,7 +57,12 @@ cambia con cada item, mientras que el flyout es estático.
 </div>
 
 <div style="width: 100%; height: 100%;">
-    {% if documents.pdfs %}
+    {% if documents.recortes %}
+        <!-- Visor de recorte: acotado al rango del recorte, no al documento -->
+        <div style="height: 100%; overflow: hidden;">
+            {% include "my_library/viewers/recorte_viewer.html" with recorte=documents.recortes.0 %}
+        </div>
+    {% elif documents.pdfs %}
         <!-- PDF Viewer -->
         <div style="height: 100%; overflow: hidden;">
             {% include "my_library/viewers/pdf_viewer.html" with pdfs=documents.pdfs %}

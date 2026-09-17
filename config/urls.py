@@ -20,12 +20,14 @@ from evaluations.api import router as evaluations_router
 from api_keys.api import router as api_keys_router
 from cms.api import router as cms_router
 from content_hub.api import router as content_hub_router
+from musica.api import router as recortes_router
 
 # Registrar los routers en la API principal
 api.add_router("/evaluations/", evaluations_router)
 api.add_router("/keys/", api_keys_router)
 api.add_router("/cms/", cms_router)
 api.add_router("/content/", content_hub_router)
+api.add_router("/recortes/", recortes_router)
 
 
 @api.get("/add")
@@ -78,6 +80,8 @@ urlpatterns = [
     path("content/", include("content_hub.urls", namespace="content_hub")),
     # Programación didáctica - planes por trimestre, cobertura y recomendaciones
     path("programacion/", include("programacion.urls", namespace="programacion")),
+    # Herramientas de autoría musical: la pantalla de recorte de PDF
+    path("musica/", include("musica.urls", namespace="musica")),
     # CMS custom views (filtros de partituras)
     path("", include("cms.urls")),
     # music-pills integrado en Wagtail CMS - accesible via /cms/ y páginas públicas

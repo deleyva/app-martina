@@ -46,6 +46,12 @@ def adjuntos_field(help_text="Archivos que se muestran como cards con descarga, 
                 ("resource", SnippetChooserBlock("cms.ExternalResource")),
                 ("override_title", CharBlock(required=False, help_text="Título alternativo (opcional)")),
             ], icon="link", label="Enlace")),
+            # Un trozo con nombre de un PDF ya subido: "Sailing Boat, pp. 10-13".
+            # Adjuntar el recorte en vez del PDF entero es lo que evita tener
+            # que trocear el fichero para poder estudiar una parte.
+            ("recorte", StructBlock([
+                ("recorte", SnippetChooserBlock("musica.Recorte")),
+            ], icon="cut", label="Recorte de PDF")),
         ],
         blank=True,
         use_json_field=True,
@@ -64,6 +70,7 @@ class AdjuntosMixin:
     def _parse_attachments(self):
         if not hasattr(self, "_attachments_cache"):
             pdfs, audios, images, videos, external_links = [], [], [], [], []
+            recortes = []
             for block in self.attachments:
                 if block.block_type == "pdf_score":
                     pdfs.append(block.value)
@@ -75,9 +82,14 @@ class AdjuntosMixin:
                     videos.append(block.value)
                 elif block.block_type == "external_link":
                     external_links.append(block.value)
+                elif block.block_type == "recorte":
+                    recorte = block.value.get("recorte")
+                    if recorte is not None:
+                        recortes.append(recorte)
             self._attachments_cache = {
                 "pdfs": pdfs, "audios": audios, "images": images,
                 "videos": videos, "external_links": external_links,
+                "recortes": recortes,
             }
         return self._attachments_cache
 
@@ -92,6 +104,15 @@ class AdjuntosMixin:
 
     def get_external_links(self):
         return self._parse_attachments()["external_links"]
+
+    def get_recortes(self):
+        """Los recortes adjuntos, ya resueltos al objeto.
+
+        A diferencia de los demás accesores, este devuelve el modelo y no el
+        `StructValue`: un recorte ya ES material practicable con pk propia, así
+        que no hay nada que extraer de él después.
+        """
+        return self._parse_attachments()["recortes"]
 
     def get_images(self):
         """Imágenes de los adjuntos más las incrustadas en el cuerpo."""

@@ -558,6 +558,7 @@ class GroupLibraryItem(models.Model):
             # Sin el nombre del proveedor se leería "Enlaceexterno". En clase
             # lo que hace falta saber es a dónde te manda, no de qué clase es.
             "enlaceexterno": "Enlace externo",
+            "recorte": "Recorte de PDF",
         }
         return mapping.get(model_name, model_name.title())
 
@@ -582,6 +583,7 @@ class GroupLibraryItem(models.Model):
             # Material con licencia que vive fuera (Blink Learning): el visor
             # lo abre en ventana con nombre, no lo incrusta.
             "enlaceexterno": "🔗",
+            "recorte": "✂️",
         }
         return icons.get(model_name, "📁")
 
@@ -1362,6 +1364,7 @@ class ClassSessionItem(models.Model):
             "grouplibraryitem": "Item de Biblioteca",
             "embed": "Contenido Incrustado",
             "enlaceexterno": "Enlace externo",
+            "recorte": "Recorte de PDF",
         }
         return mapping.get(model_name, model_name.title())
 
@@ -1385,6 +1388,7 @@ class ClassSessionItem(models.Model):
             # Material con licencia que vive fuera (Blink Learning): el visor
             # lo abre en ventana con nombre, no lo incrusta.
             "enlaceexterno": "🔗",
+            "recorte": "✂️",
         }
         return icons.get(model_name, "📁")
 

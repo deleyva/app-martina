@@ -90,3 +90,16 @@ def user_groups(request):
             pass
 
     return {"user_groups": groups}
+
+
+def profesorado(request):
+    """`es_profesor` disponible en cualquier plantilla.
+
+    Existe para que el menú no tenga que reinventar la regla. «Ser profesor» son
+    tres caminos (`is_staff`, el grupo Profesorado, o tener un grupo donde das
+    clase), y escribirlos a mano en una plantilla garantiza que el día que
+    cambien, el menú se quede diciendo otra cosa que las vistas.
+    """
+    from martina_bescos_app.users.permisos import es_profesor
+
+    return {"es_profesor": es_profesor(getattr(request, "user", None))}

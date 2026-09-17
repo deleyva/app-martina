@@ -640,7 +640,7 @@ def render_item_content(request, item):
 
     score_media = item.get_related_scorepage_media()
 
-    documents = {"pdfs": [], "images": [], "audios": [], "embeds": []}
+    documents = {"pdfs": [], "images": [], "audios": [], "embeds": [], "recortes": []}
 
     if content_type == "document" and hasattr(content, "file"):
         filename = content.file.name.lower()
@@ -652,6 +652,10 @@ def render_item_content(request, item):
         documents["images"].append(content)
     elif content_type == "embed":
         documents["embeds"].append(content)
+    elif content_type == "recorte":
+        # Clave propia, no `pdfs`: proyectar un recorte en clase con el visor de
+        # PDF entero dejaría salirse del trozo con dos toques en la pizarra.
+        documents["recortes"].append(content)
 
     if score_media and score_media.get("embeds"):
         for embed_val in score_media["embeds"]:
@@ -1139,10 +1143,16 @@ def group_library_item_viewer(request, group_id, pk):
         "images": [],
         "audios": [],
         "embeds": [],
+        "recortes": [],
     }
 
     # Clasificar según tipo
-    if content_type == "document":
+    if content_type == "recorte":
+        # Un recorte se pinta con su propio visor, acotado a su rango de
+        # páginas. Va el primero de la cadena porque no comparte ninguna de las
+        # ramas de abajo: no tiene `file`, ni bloques, ni elementos sueltos.
+        documents["recortes"].append(content)
+    elif content_type == "document":
         # Wagtail Document
         if hasattr(content, "file"):
             filename = content.file.name.lower()

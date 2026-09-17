@@ -20,6 +20,7 @@ from functools import lru_cache
 
 from django import forms
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import connection, models
 from django.db.utils import OperationalError, ProgrammingError
@@ -29,6 +30,7 @@ from django.utils.functional import cached_property
 from django.utils.safestring import mark_safe
 from modelcluster.contrib.taggit import ClusterTaggableManager
 from modelcluster.fields import ParentalKey, ParentalManyToManyField
+from taggit.managers import TaggableManager
 from taggit.models import Tag, TaggedItemBase
 from wagtail.admin.panels import FieldPanel, InlinePanel, MultiFieldPanel
 from wagtail.blocks import (
@@ -544,6 +546,322 @@ class MusicCategory(models.Model):
             path.insert(0, parent.name)
             parent = parent.parent
         return " > ".join(path)
+
+
+@register_snippet
+class Recorte(models.Model):
+    """Un trozo de un PDF con nombre propio, tratado como contenido de pleno derecho.
+
+    **El problema que resuelve.** Para que un alumno estudiara *Piano Adventures* o
+    una suite de Bach había que trocear el PDF a mano: escanear partes, separar
+    texto de imagen y crear una página por capítulo. Un recorte hace lo mismo sin
+    tocar el fichero — apunta a un documento, a un rango de páginas y opcionalmente
+    a un rectángulo dentro de la página, y le pone nombre. "Sailing Boat, páginas
+    10-13" pasa a ser una cosa que existe.
+
+    **Es un puntero, no una copia.** El PDF no se modifica, no se recorta en
+    servidor y no se rasteriza: el visor pinta el documento original encuadrado.
+    Rasterizar notación musical a un DPI fijo se ve mal, y es la misma decisión que
+    ya tomó `clases/services/card_pdf.py` al usar renditions `width-` y no `fill-`
+    para las study cards. Cualquier miniatura que se genere es caché derivada, como
+    las renditions de Wagtail; el dato es el puntero.
+
+    **Vive al nivel de un embed o una imagen, no al de una anotación.** Tiene pk
+    propia, así que entra tal cual en los cuatro sitios que guardan contenido por
+    `(ContentType, object_id)`: `LibraryItem`, `GroupLibraryItem`, `GroupBookItem` y
+    `PlanItem`. Eso es lo que lo separa de `ItemSection`, que es el recorte PRIVADO
+    de un usuario sobre un elemento suyo y no se puede publicar ni asignar a un
+    grupo. Los dos conviven y componen: un recorte publicado se puede trocear a su
+    vez en secciones personales, y ninguno de los dos estorba al otro.
+
+    Se llama `Recorte` y no `Fragmento` porque Wagtail ya traduce "Snippets" al
+    español como "Fragmentos", y este modelo ES un snippet: el nombre chocaría con
+    el de su propia categoría en el admin.
+    """
+
+    # PROTECT y no CASCADE a propósito. Un recorte publicado puede ser el capítulo
+    # de un libro que varios grupos están estudiando; borrar el PDF de debajo se
+    # llevaría por delante ese capítulo sin que nadie se entere. Con PROTECT, el
+    # admin de Wagtail se niega a borrar el documento y dice por qué, que es el
+    # aviso más barato que existe.
+    documento = models.ForeignKey(
+        "wagtaildocs.Document",
+        on_delete=models.PROTECT,
+        related_name="recortes",
+        verbose_name="PDF de origen",
+        help_text="El documento del que se recorta. No se modifica nunca.",
+    )
+    nombre = models.CharField(
+        max_length=200,
+        verbose_name="Nombre",
+        help_text='Cómo lo llamas: "Sailing Boat", "Allemande", "el ejercicio de terceras"',
+    )
+
+    # Índice dentro del PDF, empezando en 1 — NO el número impreso en el papel.
+    # Ver `pagina_offset_impresa` justo debajo para por qué son dos cosas.
+    pagina_desde = models.PositiveSmallIntegerField(
+        default=1,
+        validators=[MinValueValidator(1)],
+        verbose_name="Página desde",
+        help_text="Número de página dentro del PDF, empezando por 1",
+    )
+    pagina_hasta = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1)],
+        verbose_name="Página hasta",
+        help_text="Vacío = una sola página",
+    )
+
+    # La página 10 del libro casi nunca es la 10 del PDF: los métodos llevan
+    # preliminares sin numerar. Se guarda SIEMPRE el índice del PDF (que es lo
+    # único con lo que se puede renderizar) y este desfase traduce al número
+    # impreso de cara al usuario. Retrofitarlo después obligaría a revisar a mano
+    # cada recorte ya creado, así que entra desde el primer día.
+    pagina_offset_impresa = models.SmallIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Desfase de numeración",
+        help_text=(
+            "Cuánto hay que restar al índice del PDF para obtener el número "
+            "impreso. Si la página 14 del PDF es la 10 del libro, pon 4."
+        ),
+    )
+
+    # Rectángulo NORMALIZADO (0..1) sobre la página, no en puntos PostScript.
+    # En puntos habría que reinterpretarlo cada vez que cambia la escala o el DPI
+    # del render; normalizado vale igual en el canvas del móvil, en el del portátil
+    # y en una futura miniatura a 300 ppp.
+    #
+    # Una franja horizontal —el caso normal en partituras, donde el sistema ocupa
+    # todo el ancho— es simplemente x0=0, x1=1. Un solo camino de código para las
+    # dos cosas, en vez de un campo "tipo" que haya que mirar en todas partes.
+    rect_x0 = models.FloatField(null=True, blank=True, verbose_name="Recorte — izquierda")
+    rect_y0 = models.FloatField(null=True, blank=True, verbose_name="Recorte — arriba")
+    rect_x1 = models.FloatField(null=True, blank=True, verbose_name="Recorte — derecha")
+    rect_y1 = models.FloatField(null=True, blank=True, verbose_name="Recorte — abajo")
+
+    tags = TaggableManager(
+        blank=True,
+        help_text="Etiquetas propias del recorte. No las hereda del PDF.",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    panels = [
+        FieldPanel("documento"),
+        FieldPanel("nombre"),
+        MultiFieldPanel(
+            [
+                FieldPanel("pagina_desde"),
+                FieldPanel("pagina_hasta"),
+                FieldPanel("pagina_offset_impresa"),
+            ],
+            heading="Páginas",
+        ),
+        MultiFieldPanel(
+            [
+                FieldPanel("rect_x0"),
+                FieldPanel("rect_y0"),
+                FieldPanel("rect_x1"),
+                FieldPanel("rect_y1"),
+            ],
+            heading="Rectángulo (0 a 1, opcional)",
+            classname="collapsed",
+        ),
+        FieldPanel("tags"),
+    ]
+
+    class Meta:
+        ordering = ["documento", "pagina_desde", "nombre"]
+        verbose_name = "Recorte"
+        verbose_name_plural = "Recortes"
+        indexes = [models.Index(fields=["documento", "pagina_desde"])]
+
+    def __str__(self):
+        # En el admin conviven recortes de muchos libros y los nombres se repiten
+        # ("Ejercicio 1" sale en todos los métodos), así que la etiqueta lleva el
+        # documento. El título limpio para la biblioteca es `title`, más abajo.
+        return f"{self.nombre} · {self.documento} ({self.etiqueta_de_paginas})"
+
+    def clean(self):
+        """Las formas de guardar un recorte imposible.
+
+        Se validan aquí y no solo en el formulario porque el recorte también se
+        crea por API y desde la pantalla de recorte, y ninguno de los dos pasa por
+        el `ModelForm` del admin.
+        """
+        errores = {}
+
+        if self.pagina_hasta is not None and self.pagina_hasta < self.pagina_desde:
+            errores["pagina_hasta"] = (
+                "La página final no puede ser anterior a la inicial."
+            )
+
+        esquinas = (self.rect_x0, self.rect_y0, self.rect_x1, self.rect_y1)
+        nombres = ("rect_x0", "rect_y0", "rect_x1", "rect_y1")
+        puestas = [c for c in esquinas if c is not None]
+        if puestas and len(puestas) != 4:
+            errores["rect_x0"] = (
+                "El rectángulo va entero o no va: hacen falta las cuatro esquinas."
+            )
+        elif puestas:
+            for campo, valor in zip(nombres, esquinas):
+                if not 0.0 <= valor <= 1.0:
+                    errores[campo] = "Debe estar entre 0 y 1 (coordenada normalizada)."
+            if self.rect_x1 <= self.rect_x0:
+                errores["rect_x1"] = "La derecha debe ser mayor que la izquierda."
+            if self.rect_y1 <= self.rect_y0:
+                errores["rect_y1"] = (
+                    "El borde inferior debe ser mayor que el superior."
+                )
+
+        if errores:
+            raise ValidationError(errores)
+
+    # === FAT MODEL ===
+
+    @property
+    def title(self):
+        """El nombre limpio, sin el documento ni las páginas.
+
+        Existe porque los tres modelos que guardan contenido genérico resuelven el
+        título con el mismo duck-typing —`hasattr(obj, "title")`, luego `"name"`,
+        luego `str(obj)`— en `my_library/models.py`, `clases/models.py` y
+        `programacion/models.py`. Con esta propiedad los tres aciertan sin que haya
+        que añadirles una rama.
+        """
+        return self.nombre
+
+    @property
+    def rango_paginas(self):
+        """`(desde, hasta)` en índices del PDF. `hasta` nunca es None aquí."""
+        return (self.pagina_desde, self.pagina_hasta or self.pagina_desde)
+
+    @property
+    def numero_de_paginas(self):
+        desde, hasta = self.rango_paginas
+        return hasta - desde + 1
+
+    @property
+    def tiene_rect(self):
+        return self.rect_x0 is not None
+
+    @property
+    def rect(self):
+        """`(x0, y0, x1, y1)` normalizado, o None si el recorte es de página entera."""
+        if not self.tiene_rect:
+            return None
+        return (self.rect_x0, self.rect_y0, self.rect_x1, self.rect_y1)
+
+    def pagina_impresa(self, indice_pdf):
+        """El número que el alumno ve escrito en el papel, o None si no se sabe."""
+        if self.pagina_offset_impresa is None:
+            return None
+        return indice_pdf - self.pagina_offset_impresa
+
+    @property
+    def etiqueta_de_paginas(self):
+        """`p. 13` o `pp. 10-13`, con los números impresos si los conocemos."""
+        desde, hasta = self.rango_paginas
+        impresa_desde = self.pagina_impresa(desde)
+        if impresa_desde is not None:
+            desde, hasta = impresa_desde, self.pagina_impresa(hasta)
+        return f"p. {desde}" if desde == hasta else f"pp. {desde}-{hasta}"
+
+    def get_icon(self):
+        return "✂️"
+
+    def get_content_type_name(self):
+        return "Recorte de PDF"
+
+    @property
+    def se_sirve_cortado(self):
+        return DocumentoRestringido.esta_restringido(self.documento_id)
+
+    def get_pdf_url(self):
+        """De dónde saca el visor el PDF de este recorte.
+
+        Un documento restringido no se sirve entero: se entrega un PDF cortado
+        al rango del recorte. Uno normal se sirve tal cual, que es más barato
+        (no hay que cortar nada) y permite que el navegador lo cachee.
+        """
+        if self.se_sirve_cortado:
+            return reverse("musica:pdf_del_recorte", args=[self.pk])
+        return self.documento.url
+
+    @property
+    def rango_para_el_visor(self):
+        """El rango EN EL FICHERO QUE VA A RECIBIR EL VISOR, que no siempre es
+        el mismo que `rango_paginas`.
+
+        Cuando el PDF se sirve cortado, lo que llega empieza en su página 1: el
+        recorte de las páginas 10-13 viaja como un PDF de cuatro páginas. Pedirle
+        al visor la página 10 de ese fichero lo dejaría en la última, enseñando
+        el trozo equivocado sin dar ningún error.
+
+        Es el mismo error de fondo que el desfase de numeración impresa: hay tres
+        sistemas de numeración en juego (el papel, el PDF original y lo que se
+        entrega) y confundirlos no revienta, solo miente.
+        """
+        desde, hasta = self.rango_paginas
+        if self.se_sirve_cortado:
+            return (1, hasta - desde + 1)
+        return (desde, hasta)
+
+
+class DocumentoRestringido(models.Model):
+    """Un PDF que solo se puede ver a través de sus recortes.
+
+    **Para qué.** Subir un método comercial entero al servidor del centro y
+    servirlo por una URL directa es distribuirlo. Reproducir en clase las cuatro
+    páginas que se trabajan no es lo mismo. Esta tabla es lo que hace que esa
+    diferencia sea real y no una promesa: con el documento marcado, la vista de
+    Wagtail deja de entregarlo y el visor pide un PDF cortado al rango.
+
+    **Tabla aparte y no un campo en `Document`.** Sustituir el modelo de
+    documentos de Wagtail es una migración de las que dan miedo y afecta a los
+    138 PDF que ya hay. Esto se puede poner y quitar sin tocar nada de eso.
+
+    **Se marca por documento y no globalmente** porque las dos clases de
+    material conviven: los apuntes propios y los de dominio público se sirven
+    enteros, y solo lo comercial pasa por el recorte.
+    """
+
+    documento = models.OneToOneField(
+        "wagtaildocs.Document",
+        on_delete=models.CASCADE,
+        related_name="restriccion",
+        verbose_name="Documento",
+    )
+    solo_por_recorte = models.BooleanField(
+        default=True,
+        verbose_name="Solo por recorte",
+        help_text="Marcado: el PDF completo deja de servirse por su URL.",
+    )
+    motivo = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name="Motivo",
+        help_text="Para acordarse dentro de un año. ej: método comercial con licencia de aula",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Documento restringido"
+        verbose_name_plural = "Documentos restringidos"
+
+    def __str__(self):
+        return f"{self.documento} · solo por recorte"
+
+    @classmethod
+    def esta_restringido(cls, documento_id):
+        if not documento_id:
+            return False
+        return cls.objects.filter(
+            documento_id=documento_id, solo_por_recorte=True
+        ).exists()
 
 
 @lru_cache(maxsize=1)
@@ -1204,6 +1522,20 @@ class LibroDeEstudioPage(Page):
                     help_text="Una pagina que ya existe. El orden manda.",
                 ),
             ),
+            # Un capítulo que es un trozo de un PDF, sin página propia.
+            #
+            # Esto es lo que permite montar *Piano Adventures* sin escanear: se
+            # sube el PDF una vez, se marcan los trozos, y cada uno es un
+            # capítulo. Un capítulo-página APORTA su material (imágenes, PDFs,
+            # audios del cuerpo y los adjuntos); un capítulo-recorte ES el
+            # material. Esa diferencia la resuelve `my_library.libros.material_de`.
+            (
+                "recorte",
+                SnippetChooserBlock(
+                    "musica.Recorte",
+                    help_text="Un trozo con nombre de un PDF ya subido.",
+                ),
+            ),
         ],
         blank=True,
         use_json_field=True,
@@ -1252,27 +1584,62 @@ class LibroDeEstudioPage(Page):
 
     def get_context(self, request, *args, **kwargs):
         contexto = super().get_context(request, *args, **kwargs)
-        contexto["capitulos"] = self.paginas_referenciadas()
+        capitulos = self.paginas_referenciadas()
+        contexto["capitulos"] = capitulos
+        # De qué PDF salió el libro, para poder volver al recortador sin buscarlo.
+        # Se toma el del primer capítulo-recorte: un libro puede mezclar varios
+        # documentos, pero el caso real es un método y su fichero.
+        contexto["pdf_del_libro"] = next(
+            (
+                c.documento
+                for c in capitulos
+                if hasattr(c, "documento") and c.documento_id
+            ),
+            None,
+        )
         return contexto
 
     def paginas_referenciadas(self):
-        """Las paginas del libro, en el orden de los bloques.
+        """Los capitulos del libro, en el orden de los bloques.
+
+        Devuelve DOS clases de cosa, y ese es el punto: una `Page` referenciada,
+        o un `Recorte` —un trozo con nombre de un PDF, que no tiene pagina
+        propia—. Quien consume esto (`my_library.libros.capitulos_de`) no
+        pregunta de que clase es: le pasa cada uno a `material_de`, que sabe que
+        una pagina APORTA material y un recorte ES el material.
+
+        El nombre se queda como estaba aunque ya no devuelva solo paginas:
+        `capitulos_de` lo busca por `getattr` para decidir si un libro agrupa
+        por referencia, asi que renombrarlo convertiria en libro-de-arbol a todo
+        libro de estudio que ya existe, en silencio.
 
         Se saltan las que ya no existen o no estan publicadas: un libro con una
         referencia rota tiene que seguir funcionando, no reventar la sesion.
-        Se saltan tambien los duplicados, porque referenciar dos veces la misma
-        pagina no anade material y si romperia el conteo de progreso.
+        Se saltan tambien los duplicados, porque referenciar dos veces lo mismo
+        no anade material y si romperia el conteo de progreso.
         """
-        paginas, vistas = [], set()
+        capitulos, vistos = [], set()
         for bloque in self.capitulos:
-            if bloque.block_type != "pagina":
+            valor = bloque.value
+            if valor is None:
                 continue
-            pagina = bloque.value
-            if pagina is None or not pagina.live or pagina.pk in vistas:
+
+            if bloque.block_type == "pagina":
+                if not valor.live:
+                    continue
+                clave = ("pagina", valor.pk)
+                capitulo = valor.specific
+            elif bloque.block_type == "recorte":
+                clave = ("recorte", valor.pk)
+                capitulo = valor
+            else:
                 continue
-            vistas.add(pagina.pk)
-            paginas.append(pagina.specific)
-        return paginas
+
+            if clave in vistos:
+                continue
+            vistos.add(clave)
+            capitulos.append(capitulo)
+        return capitulos
 
 
 class LibroPage(Page):

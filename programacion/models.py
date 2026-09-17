@@ -165,8 +165,10 @@ class PlanItem(models.Model):
         mapping = {
             "recursopage": "Artículo",
             "libropage": "Libro",
+            "librodeestudiopage": "Libro de estudio",
             "scorepage": "Partitura",
             "dictadopage": "Dictado",
+            "recorte": "Recorte de PDF",
         }
         return mapping.get(self.content_type.model, self.content_type.model.title())
 
@@ -174,36 +176,50 @@ class PlanItem(models.Model):
         icons = {
             "recursopage": "📝",
             "libropage": "📚",
+            "librodeestudiopage": "📚",
             "scorepage": "🎼",
             "dictadopage": "🎧",
+            "recorte": "✂️",
         }
         return icons.get(self.content_type.model, "📁")
 
     @property
     def is_book(self):
-        return self.content_type.model == "libropage"
+        """¿Esto es un libro, es decir, algo que se expande en capítulos?
+
+        Las dos formas de libro cuentan: `LibroPage`, que agrupa por árbol, y
+        `LibroDeEstudioPage`, que agrupa por referencia. Mientras esto fue solo
+        `"libropage"`, **un libro de estudio no se podía programar**: se metía
+        en el plan como un bloque opaco, sin capítulos y sin progreso.
+        """
+        return self.content_type.model in ("libropage", "librodeestudiopage")
 
     def sync_chapters(self):
-        """
-        Si este item es un libro (LibroPage), crear PlanItems hijos para
-        cada capítulo (RecursoPage hijo publicado) que aún no esté en el plan.
+        """Crea un `PlanItem` hijo por capítulo del libro que aún no esté.
+
+        Delega en `my_library.libros.capitulos_de`, que es el único sitio que
+        sabe enumerar capítulos y **ya despacha por capacidad, no por tipo**.
+        Antes esto consultaba el árbol de treebeard a mano, lo que dejaba fuera
+        a los libros por referencia y a los de recortes.
+
+        Cada capítulo puede ser de una clase distinta —una `RecursoPage`, una
+        `ScorePage`, un `Recorte`—, así que el `ContentType` se resuelve por
+        capítulo y no una vez para todos.
         """
         if not self.is_book or self.content_object is None:
             return []
-        from musica.models import RecursoPage
+        from my_library.libros import capitulos_de
 
-        chapters = (
-            RecursoPage.objects.child_of(self.content_object).live().order_by("path")
-        )
-        ct = ContentType.objects.get_for_model(RecursoPage)
         created = []
-        existing_ids = set(
-            self.children.filter(content_type=ct).values_list("object_id", flat=True)
+        existing = set(
+            self.children.values_list("content_type_id", "object_id")
         )
         next_order = self.children.count()
-        for chapter in chapters:
-            if chapter.pk in existing_ids:
+        for chapter in capitulos_de(self.content_object):
+            ct = ContentType.objects.get_for_model(chapter)
+            if (ct.pk, chapter.pk) in existing:
                 continue
+            existing.add((ct.pk, chapter.pk))
             created.append(
                 PlanItem.objects.create(
                     plan=self.plan,

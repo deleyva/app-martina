@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Recortar {{ documento.title }}{% endblock title %}
+
+{% block content %}
+{% comment %}
+La pantalla de trabajo. Dos mitades:
+
+- Izquierda: el PDF en un canvas de PDF.js con una capa transparente encima
+  para dibujar. Es lo único de la pantalla con JavaScript propio, porque
+  arrastrar un rectángulo y verlo mientras se arrastra no se puede resolver
+  intercambiando HTML desde el servidor.
+- Derecha: el formulario, los recortes y los capítulos del libro. HTMX puro:
+  crear, editar, borrar, colocar y reordenar son POST que devuelven el parcial.
+
+Recordatorio: `{# … #}` en Django es de UNA línea, y un comentario multilínea
+escrito así se pinta entero en la página. Por eso esto es `{% comment %}`.
+{% endcomment %}
+
+{% comment %}
+El PDF se pide por la vista de profesor y no por la URL del fichero: si el
+documento está marcado como restringido, esa URL devuelve 404 y el recortador
+se quedaría sin nada que dibujar.
+{% endcomment %}
+<div id="recortador"
+     data-pdf-url="{% url 'musica:pdf_para_recortar' documento.pk %}"
+     class="max-w-screen-2xl mx-auto px-4 py-6">
+
+  <div class="flex items-baseline justify-between gap-4 flex-wrap mb-4">
+    <div>
+      <div class="text-xs opacity-60 mb-1">
+        <a href="{% url 'musica:importar' %}" class="link link-hover">← Importar</a>
+      </div>
+      <h1 class="text-2xl font-bold">{{ documento.title }}</h1>
+      <p class="text-sm opacity-70">
+        Arrastra sobre la página para marcar un trozo. Con <strong>modo franja</strong>
+        —o <kbd class="kbd kbd-xs">Shift</kbd>— sale de ancho completo, que es lo
+        normal en una partitura. Sin arrastrar nada, el recorte es de páginas enteras.
+      </p>
+    </div>
+    <div class="text-sm opacity-70">
+      Página <span id="recortador-pagina">1</span> de <span id="recortador-total">?</span>
+    </div>
+  </div>
+
+  {% comment %}
+  El libro al que está atada la pantalla viaja en la query, no en sesión: así el
+  enlace de «seguir con este método» se puede guardar en marcadores.
+  {% endcomment %}
+  <form method="get" class="flex items-center gap-2 mb-4 flex-wrap">
+    <span class="text-xs uppercase tracking-wide opacity-70">Trabajando en</span>
+    <select name="libro" class="select select-bordered select-sm"
+            onchange="this.form.submit()"
+            aria-label="Libro en el que estás trabajando">
+      <option value="">— ningún libro —</option>
+      {% for l in libros %}
+      <option value="{{ l.pk }}" {% if libro and l.pk == libro.pk %}selected{% endif %}>
+        {{ l.title }}
+      </option>
+      {% endfor %}
+    </select>
+    <noscript><button type="submit" class="btn btn-sm">Cambiar</button></noscript>
+  </form>
+
+  <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_24rem] gap-6 items-start">
+
+    <div class="bg-base-200 rounded-lg p-3">
+      {% comment %}
+      Los controles van ARRIBA, antes del PDF. Debajo se iban fuera de la
+      pantalla en cuanto la página era alta, que es siempre: no se podía pasar
+      de página sin bajar hasta el final y volver.
+      {% endcomment %}
+      <div class="flex flex-wrap items-center gap-2 mb-3">
+        <button type="button" id="recortador-anterior" class="btn btn-sm">← Anterior</button>
+        <button type="button" id="recortador-siguiente" class="btn btn-sm">Siguiente →</button>
+        <label class="label cursor-pointer gap-2 px-2">
+          <input type="checkbox" id="recortador-modo-franja" class="toggle toggle-sm toggle-primary">
+          <span class="label-text text-sm">Modo franja</span>
+        </label>
+        <button type="button" id="recortador-franja" class="btn btn-sm btn-ghost">Franja central</button>
+        <button type="button" id="recortador-limpiar" class="btn btn-sm btn-ghost">Quitar recuadro</button>
+        <button type="button" id="recortador-marcar-fin" class="btn btn-sm btn-ghost">
+          Terminar rango aquí
+        </button>
+      </div>
+
+      {% comment %}
+      El ancho disponible se mide en ESTE div y no en el `inline-block` de
+      dentro. Un inline-block se encoge al contenido, así que preguntarle su
+      ancho para decidir el tamaño del canvas que va dentro es circular: la
+      primera medida daba los 300 px por defecto del canvas y la página se
+      pintaba en miniatura.
+      {% endcomment %}
+      <div id="recortador-marco" class="flex justify-center">
+        <div class="relative inline-block">
+          <canvas id="recortador-canvas" class="block rounded shadow"></canvas>
+          <div id="recortador-capa"
+               class="absolute inset-0 cursor-crosshair select-none touch-none">
+            <div id="recortador-marca" hidden
+                 class="absolute border-2 border-primary bg-primary/20 pointer-events-none"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex flex-col gap-4">
+
+      <form id="form-recorte"
+            class="bg-base-200 rounded-lg p-4 flex flex-col gap-3"
+            hx-post="{% url 'musica:crear_recorte' documento.pk %}"
+            hx-target="#lista-de-recortes"
+            hx-swap="outerHTML"
+            data-url-crear="{% url 'musica:crear_recorte' documento.pk %}"
+            data-url-editar-base="/musica/recortes/">
+        {% csrf_token %}
+        {% if libro %}<input type="hidden" name="libro" value="{{ libro.pk }}">{% endif %}
+
+        <div class="flex items-baseline justify-between">
+          <h2 id="titulo-form" class="font-semibold">Nuevo recorte</h2>
+          <button type="button" id="cancelar-edicion" hidden
+                  class="btn btn-ghost btn-xs">Cancelar edición</button>
+        </div>
+
+        <label class="form-control">
+          <span class="label-text text-xs uppercase tracking-wide opacity-70">Nombre</span>
+          <input type="text" name="nombre" id="campo-nombre" required maxlength="200"
+                 placeholder="Sailing in the Sun" class="input input-bordered input-sm">
+        </label>
+
+        <div class="grid grid-cols-2 gap-2">
+          <label class="form-control">
+            <span class="label-text text-xs uppercase tracking-wide opacity-70">Desde</span>
+            <input type="number" min="1" name="pagina_desde" id="campo-pagina-desde"
+                   value="1" class="input input-bordered input-sm">
+          </label>
+          <label class="form-control">
+            <span class="label-text text-xs uppercase tracking-wide opacity-70">Hasta</span>
+            <input type="number" min="1" name="pagina_hasta" id="campo-pagina-hasta"
+                   placeholder="igual" class="input input-bordered input-sm">
+          </label>
+        </div>
+
+        <label class="form-control">
+          <span class="label-text text-xs uppercase tracking-wide opacity-70">
+            Desfase de numeración
+          </span>
+          <input type="number" name="pagina_offset_impresa" id="campo-offset"
+                 class="input input-bordered input-sm" placeholder="opcional">
+          <span class="label-text-alt opacity-70 mt-1">
+            Si la página 14 del PDF es la 10 del libro, pon 4.
+          </span>
+        </label>
+
+        <div class="text-xs opacity-70">
+          Recorte: <span id="recortador-rect" class="font-medium">página entera</span>
+        </div>
+        <input type="hidden" name="rect_x0" id="campo-rect-x0">
+        <input type="hidden" name="rect_y0" id="campo-rect-y0">
+        <input type="hidden" name="rect_x1" id="campo-rect-x1">
+        <input type="hidden" name="rect_y1" id="campo-rect-y1">
+
+        {% comment %}
+        Un solo campo por cosa. Antes convivían un `select` y un `input` ocultos
+        con el mismo `name="destino_id"`, y dos campos homónimos en un formulario
+        es una apuesta sobre cuál gana.
+
+        El libro en el que estás trabajando es solo el valor preseleccionado, no
+        un camino aparte.
+        {% endcomment %}
+        <label class="form-control">
+          <span class="label-text text-xs uppercase tracking-wide opacity-70">Dónde va</span>
+          <select name="destino" id="campo-destino" class="select select-bordered select-sm">
+            <option value="libro" {% if libro %}selected{% endif %}>Capítulo de un libro</option>
+            <option value="suelto" {% if not libro %}selected{% endif %}>
+              Suelto, ya lo colocaré
+            </option>
+            <option value="capitulo">Adjunto a una página que ya existe</option>
+          </select>
+        </label>
+
+        <label class="form-control" id="bloque-destino-id"
+               {% if not libro %}hidden{% endif %}>
+          <span class="label-text text-xs uppercase tracking-wide opacity-70">
+            Libro o página de destino
+          </span>
+          <select name="destino_id" id="campo-destino-id"
+                  class="select select-bordered select-sm">
+            <option value="">— elige —</option>
+            <optgroup label="Libros de estudio">
+              {% for l in libros %}
+              <option value="{{ l.pk }}"
+                      {% if libro and l.pk == libro.pk %}selected{% endif %}>{{ l.title }}</option>
+              {% endfor %}
+            </optgroup>
+            <optgroup label="Páginas">
+              {% for p in paginas %}
+              <option value="{{ p.pk }}">{{ p.title }}</option>
+              {% endfor %}
+            </optgroup>
+          </select>
+        </label>
+
+        <button type="submit" id="boton-guardar" class="btn btn-primary btn-sm">
+          Crear recorte
+        </button>
+      </form>
+
+      {% include "musica/partials/lista_de_recortes.html" %}
+    </div>
+  </div>
+</div>
+{% endblock content %}
+
+{% block extra_js %}
+{% comment %}
+PDF.js y SortableJS antes del bundle: el recortador los busca en `window` al
+arrancar, y si llegan después se queda sin dibujar y sin arrastrar.
+{% endcomment %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.1/Sortable.min.js"></script>
+<script src="{% static 'js/pdf_recortador.js' %}"></script>
+{% endblock extra_js %}

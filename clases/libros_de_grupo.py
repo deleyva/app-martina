@@ -72,6 +72,12 @@ def describir(objeto):
         # dónde te manda el botón antes de pulsarlo.
         return "🔗", titulo, objeto.get_proveedor_display()
 
+    if nombre == "recorte":
+        # Las páginas van en el tipo y no en el título: en un libro troceado
+        # conviven veinte recortes del mismo PDF y sin el rango no se sabe cuál
+        # es cuál, pero meterlo en el título los haría ilegibles en una lista.
+        return "✂️", titulo, f"Recorte · {objeto.etiqueta_de_paginas}"
+
     iconos = {
         "image": ("🖼️", "Imagen"),
         "embed": ("▶️", "Vídeo"),
@@ -152,12 +158,19 @@ def excepcion(group_book, objeto, capitulo=None, **campos):
     Es el único sitio por el que nacen filas en `GroupBookItem`, y por eso el
     invariante "un libro sin tocar son cero filas" se sostiene mirando aquí.
     """
+    from my_library.libros import _es_recorte
+
     tipo, pk = _clave(objeto)
     item, creado = GroupBookItem.objects.get_or_create(
         group_book=group_book,
         content_type=tipo,
         object_id=pk,
-        defaults={"source_page": capitulo},
+        defaults={
+            # `source_page` es FK a `Page`. En un libro de recortes el capítulo
+            # ES el recorte y no tiene página: se guarda vacío, y el libro se
+            # sigue conociendo por `group_book`, que es quien manda aquí.
+            "source_page": None if capitulo is not None and _es_recorte(capitulo) else capitulo,
+        },
     )
     if campos:
         for nombre, valor in campos.items():

@@ -3538,3 +3538,453 @@ def test_view_content_object_con_sesion_responde_200(client, recurso_externo, us
     response = client.get(_url_view_content(recurso_externo))
 
     assert response.status_code == 200
+
+
+# === Recortes de PDF: un trozo con nombre, al nivel de cualquier otro contenido ===
+
+
+@pytest.fixture
+def pdf(db):
+    """Un `Document` de Wagtail que hace de PDF fuente."""
+    from wagtail.documents.models import Document
+
+    return Document.objects.create(title="Piano Adventures 1")
+
+
+def _recorte(pdf, nombre="Sailing Boat", desde=10, hasta=13, **kw):
+    from musica.models import Recorte
+
+    return Recorte.objects.create(
+        documento=pdf, nombre=nombre, pagina_desde=desde, pagina_hasta=hasta, **kw
+    )
+
+
+def _item_de(user, objeto):
+    return LibraryItem.objects.create(
+        user=user,
+        content_type=ContentType.objects.get_for_model(objeto),
+        object_id=objeto.pk,
+    )
+
+
+def test_un_recorte_entra_en_la_biblioteca_como_cualquier_otro(db, user, pdf):
+    """El punto entero del diseño: si hubiera que tratarlo aparte, no sería
+    contenido de primera clase sino una anotación con otro nombre."""
+    recorte = _recorte(pdf)
+
+    item, creado = LibraryItem.add_to_library(user, recorte)
+
+    assert creado
+    assert item.content_object == recorte
+    assert item.get_content_title() == "Sailing Boat"
+    assert item.get_content_type_name() == "Recorte de PDF"
+    assert item.get_icon() == "✂️"
+
+
+def test_el_recorte_no_se_sirve_por_la_clave_de_los_pdf(db, user, pdf):
+    """Si cayera en `documents["pdfs"]` se pintaría con el visor de PDF entero,
+    que no mira `pagina_hasta` — y el alumno saldría del recorte con dos toques."""
+    item = _item_de(user, _recorte(pdf))
+
+    documentos = item.get_documents()
+
+    assert list(documentos) == ["recortes"]
+    assert documentos["recortes"][0].nombre == "Sailing Boat"
+
+
+def test_el_recorte_es_su_propia_unidad_de_practica(db, user, pdf):
+    """No es un tipo repasable nuevo: es un LibraryItem, así que `ReviewLog`
+    sigue teniendo dos FK y no hace falta una tercera columna."""
+    item = _item_de(user, _recorte(pdf))
+
+    unidades = unidades_de_practica([item])
+
+    assert [u.clave_de_practica for u in unidades] == [("item", item.pk)]
+
+
+def test_un_recorte_publicado_todavia_se_puede_trocear_en_secciones(db, user, pdf):
+    """Los dos niveles componen: el recorte lo publica el profesor, la sección
+    la carva el alumno encima."""
+    item = _item_de(user, _recorte(pdf))
+    ItemSection.objects.create(item=item, nombre="los compases difíciles")
+
+    unidades = unidades_de_practica([item])
+
+    assert [u.clave_de_practica[0] for u in unidades] == ["seccion"]
+
+
+# --- El rango es la frontera ---
+
+
+def test_el_visor_de_recorte_acota_la_navegacion_al_rango(client, db, user, pdf):
+    item = _item_de(user, _recorte(pdf, desde=10, hasta=13))
+    client.force_login(user)
+
+    html = client.get(
+        reverse("my_library:view_item", args=[item.pk])
+    ).content.decode()
+
+    assert "var PAGINA_DESDE = 10;" in html
+    assert "var PAGINA_HASTA = 13;" in html
+
+
+def test_un_recorte_de_una_pagina_no_tiene_a_donde_ir(client, db, user, pdf):
+    """Lo pedido al pie de la letra: ver esa página a esa altura y no viajar."""
+    item = _item_de(user, _recorte(pdf, desde=13, hasta=None))
+    client.force_login(user)
+
+    html = client.get(
+        reverse("my_library:view_item", args=[item.pk])
+    ).content.decode()
+
+    assert "var PAGINA_DESDE = 13;" in html
+    assert "var PAGINA_HASTA = 13;" in html
+
+
+def test_el_visor_de_recorte_no_es_el_visor_de_pdf(client, db, user, pdf):
+    item = _item_de(user, _recorte(pdf))
+    client.force_login(user)
+
+    html = client.get(
+        reverse("my_library:view_item", args=[item.pk])
+    ).content.decode()
+
+    assert "recorte-canvas" in html
+    assert "the-canvas" not in html
+
+
+def test_la_plantilla_del_recorte_no_escupe_comentarios(client, db, user, pdf):
+    """`{# … #}` de Django es de una sola línea y un comentario multilínea así
+    se pinta entero en la página. Ha pasado tres veces en este proyecto."""
+    item = _item_de(user, _recorte(pdf))
+    client.force_login(user)
+
+    html = client.get(
+        reverse("my_library:view_item", args=[item.pk])
+    ).content.decode()
+
+    assert "{#" not in html
+
+
+# --- Encuadre ---
+
+
+def test_una_franja_es_un_rectangulo_de_ancho_completo(db, pdf):
+    """Un solo camino de código para franja y recuadro, en vez de un campo
+    "tipo" que haya que mirar en todas partes."""
+    franja = _recorte(pdf, rect_x0=0.0, rect_y0=0.3, rect_x1=1.0, rect_y1=0.45)
+
+    assert franja.tiene_rect
+    assert franja.rect == (0.0, 0.3, 1.0, 0.45)
+
+
+def test_un_recorte_sin_rectangulo_es_de_pagina_entera(db, pdf):
+    assert _recorte(pdf).rect is None
+
+
+def test_el_rectangulo_viaja_al_visor_normalizado(client, db, user, pdf):
+    """Normalizado y no en puntos: el mismo valor vale en el canvas del móvil,
+    en el del portátil y en una futura miniatura a 300 ppp."""
+    recorte = _recorte(pdf, rect_x0=0.0, rect_y0=0.25, rect_x1=1.0, rect_y1=0.5)
+    item = _item_de(user, recorte)
+    client.force_login(user)
+
+    html = client.get(
+        reverse("my_library:view_item", args=[item.pk])
+    ).content.decode()
+
+    assert "y0: 0.25" in html
+    assert "var RECT = null" not in html
+
+
+# --- Numeración impresa ---
+
+
+def test_la_etiqueta_de_paginas_usa_el_numero_impreso(db, pdf):
+    """La página 10 del libro no es la 10 del PDF: los métodos llevan
+    preliminares. Se guarda el índice del PDF y se enseña el número impreso."""
+    recorte = _recorte(pdf, desde=14, hasta=17, pagina_offset_impresa=4)
+
+    assert recorte.etiqueta_de_paginas == "pp. 10-13"
+
+
+def test_sin_desfase_se_ensena_el_indice_del_pdf(db, pdf):
+    assert _recorte(pdf, desde=10, hasta=10).etiqueta_de_paginas == "p. 10"
+
+
+# --- Lo que no se puede guardar ---
+
+
+def test_un_rango_al_reves_no_se_guarda(db, pdf):
+    from django.core.exceptions import ValidationError
+    from musica.models import Recorte
+
+    recorte = Recorte(documento=pdf, nombre="imposible", pagina_desde=13, pagina_hasta=10)
+
+    with pytest.raises(ValidationError):
+        recorte.full_clean()
+
+
+def test_medio_rectangulo_no_es_un_rectangulo(db, pdf):
+    from django.core.exceptions import ValidationError
+    from musica.models import Recorte
+
+    recorte = Recorte(documento=pdf, nombre="medio", rect_x0=0.1, rect_y0=0.2)
+
+    with pytest.raises(ValidationError):
+        recorte.full_clean()
+
+
+def test_un_rectangulo_fuera_de_rango_no_se_guarda(db, pdf):
+    from django.core.exceptions import ValidationError
+    from musica.models import Recorte
+
+    recorte = Recorte(
+        documento=pdf, nombre="fuera",
+        rect_x0=0.0, rect_y0=0.0, rect_x1=1.5, rect_y1=0.5,
+    )
+
+    with pytest.raises(ValidationError):
+        recorte.full_clean()
+
+
+def test_un_rectangulo_invertido_no_se_guarda(db, pdf):
+    from django.core.exceptions import ValidationError
+    from musica.models import Recorte
+
+    recorte = Recorte(
+        documento=pdf, nombre="invertido",
+        rect_x0=0.8, rect_y0=0.0, rect_x1=0.2, rect_y1=0.5,
+    )
+
+    with pytest.raises(ValidationError):
+        recorte.full_clean()
+
+
+def test_borrar_el_pdf_de_debajo_de_un_recorte_esta_prohibido(db, pdf):
+    """Un recorte publicado puede ser el capítulo de un libro que varios grupos
+    están estudiando. Borrar el PDF se lo llevaría por delante en silencio."""
+    from django.db.models import ProtectedError
+
+    _recorte(pdf)
+
+    with pytest.raises(ProtectedError):
+        pdf.delete()
+
+
+def test_el_visor_de_recorte_no_se_rompe_en_espanol(client, db, user, pdf):
+    """El fallo que los demás tests no veían.
+
+    Con el idioma en español, `{{ 0.3 }}` se renderiza `0,3`, y `{ y0: 0,3 }`
+    es un error de sintaxis de JavaScript: la página se queda EN BLANCO con una
+    sola línea en la consola. Los otros tests pasaban porque el cliente de
+    pruebas no manda `Accept-Language` y Django cae al inglés — el test estaba
+    verde y el visor roto. Se cazó mirando el píxel en un navegador de verdad.
+    """
+    recorte = _recorte(pdf, rect_x0=0.0, rect_y0=0.3, rect_x1=1.0, rect_y1=0.55)
+    item = _item_de(user, recorte)
+    client.force_login(user)
+
+    html = client.get(
+        reverse("my_library:view_item", args=[item.pk]),
+        HTTP_ACCEPT_LANGUAGE="es",
+    ).content.decode()
+
+    # Solo la línea de asignación. Un `in html` a secas también casaba con el
+    # comentario de la plantilla, que cita a propósito la forma rota.
+    asignaciones = [l.strip() for l in html.splitlines() if l.strip().startswith("y0:")]
+
+    assert asignaciones == ["y0: 0.3,"]
+
+
+def test_las_paginas_del_recorte_tampoco_se_localizan(client, db, user, pdf):
+    """Un PDF de más de mil páginas renderizaría `1.234` y rompería igual."""
+    item = _item_de(user, _recorte(pdf, desde=1200, hasta=1205))
+    client.force_login(user)
+
+    html = client.get(
+        reverse("my_library:view_item", args=[item.pk]),
+        HTTP_ACCEPT_LANGUAGE="es",
+    ).content.decode()
+
+    assert "var PAGINA_DESDE = 1200;" in html
+    assert "1.200" not in html
+
+
+# === Libros hechos de recortes ===
+
+
+def _libro_de_recortes(titulo, slug, bloques):
+    """Un `LibroDeEstudioPage` cuyos capitulos son recortes y/o paginas.
+
+    `bloques` es una lista de `("recorte", Recorte)` o `("pagina", Page)`.
+    """
+    from musica.models import LibroDeEstudioPage
+    from wagtail.models import Page
+
+    raiz = Page.objects.get(id=2)
+    libro = LibroDeEstudioPage(title=titulo, slug=slug, capitulos=bloques)
+    raiz.add_child(instance=libro)
+    libro.save_revision().publish()
+    return libro
+
+
+def test_un_recorte_puede_ser_un_capitulo(db, pdf):
+    """Lo que abre la fase: montar Piano Adventures sin escanear nada."""
+    from my_library.libros import capitulos_de
+
+    a = _recorte(pdf, "Sailing Boat", 10, 13)
+    b = _recorte(pdf, "Rain Rain", 14, 14)
+    libro = _libro_de_recortes("Piano Adventures", "piano-adv", [
+        ("recorte", a), ("recorte", b),
+    ])
+
+    assert [c.pk for c in capitulos_de(libro)] == [a.pk, b.pk]
+
+
+def test_un_libro_de_recortes_sale_en_orden_de_bloques(db, pdf):
+    """El orden de los bloques ES el orden de estudio, igual que con paginas."""
+    from my_library.libros import material_del_libro
+
+    tercero = _recorte(pdf, "Tercero", 30, 31)
+    primero = _recorte(pdf, "Primero", 10, 11)
+    segundo = _recorte(pdf, "Segundo", 20, 21)
+    # Referenciados en orden de estudio, que NO es el orden de pk.
+    libro = _libro_de_recortes("Metodo", "metodo", [
+        ("recorte", primero), ("recorte", segundo), ("recorte", tercero),
+    ])
+
+    salida = [objeto.nombre for _capitulo, objeto in material_del_libro(libro)]
+
+    assert salida == ["Primero", "Segundo", "Tercero"]
+
+
+def test_un_recorte_es_el_material_no_lo_contiene(db, pdf):
+    """Una pagina APORTA medios; un recorte ES un medio. Sin esta distincion el
+    libro saldria vacio, sin error."""
+    from my_library.libros import material_de
+
+    r = _recorte(pdf)
+
+    assert material_de(r) == [r]
+
+
+def test_un_libro_mezcla_paginas_y_recortes(db, pdf):
+    """Nada obliga a elegir: un metodo escaneado y una cancion propia conviven."""
+    from my_library.libros import material_del_libro
+
+    _libro_suelto, capitulos = _libro_con_capitulos(
+        "Sueltas", "sueltas-mixto", [("Cancion propia", ["img1"])]
+    )
+    pagina = capitulos[0][0]
+    r = _recorte(pdf, "Del metodo", 10, 10)
+
+    libro = _libro_de_recortes("Mixto", "mixto", [
+        ("recorte", r), ("pagina", pagina),
+    ])
+    salida = material_del_libro(libro)
+
+    assert salida[0][1].pk == r.pk
+    assert len(salida) == 2
+
+
+# --- La atadura al libro: lo que estaba a punto de romperse ---
+
+
+def test_meter_un_libro_de_recortes_lo_ata_al_libro(db, user, pdf):
+    """`source_page` es FK a `Page` y un recorte no cabe ahi. Si el elemento no
+    queda atado por la FK `libro`, el libro no reconoce despues ni uno solo de
+    sus elementos."""
+    from my_library.libros import meter_libro
+
+    libro = _libro_de_recortes("Metodo", "metodo-atadura", [
+        ("recorte", _recorte(pdf, "Uno", 1, 2)),
+    ])
+
+    creados, _ = meter_libro(user, libro)
+    item = LibraryItem.objects.get(user=user)
+
+    assert creados == 1
+    assert item.source_page_id is None
+    assert item.libro_id == libro.pk
+
+
+def test_la_cola_de_un_libro_de_recortes_avanza(db, user, pdf):
+    """El falsador de todo lo anterior.
+
+    Si `_ya_vistos` no reconoce los elementos ya creados, la creacion perezosa
+    vuelve a proponer el primero en cada sesion y la cola se queda atascada
+    para siempre — sin error ni aviso.
+    """
+    from my_library.libros import siguiente_del_objetivo
+
+    libro = _libro_de_recortes("Metodo", "metodo-cola", [
+        ("recorte", _recorte(pdf, "Uno", 1, 1)),
+        ("recorte", _recorte(pdf, "Dos", 2, 2)),
+        ("recorte", _recorte(pdf, "Tres", 3, 3)),
+    ])
+
+    primeros = siguiente_del_objetivo(user, libro, cuantos=1)
+    segundos = siguiente_del_objetivo(user, libro, cuantos=1)
+    terceros = siguiente_del_objetivo(user, libro, cuantos=1)
+
+    nombres = [i.content_object.nombre for i in primeros + segundos + terceros]
+    assert nombres == ["Uno", "Dos", "Tres"]
+
+
+def test_el_progreso_cuenta_cada_recorte_por_separado(db, user, pdf):
+    """Contando solo por `source_page_id`, los recortes caian todos en el mismo
+    cubo `None` y un libro de cuarenta marcaba «1 de 40» para siempre."""
+    from my_library.libros import meter_libro, progreso
+
+    libro = _libro_de_recortes("Metodo", "metodo-progreso", [
+        ("recorte", _recorte(pdf, "Uno", 1, 1)),
+        ("recorte", _recorte(pdf, "Dos", 2, 2)),
+        ("recorte", _recorte(pdf, "Tres", 3, 3)),
+    ])
+    meter_libro(user, libro)
+
+    assert progreso(user, libro) == (0, 3)
+
+    for item in LibraryItem.objects.filter(user=user).order_by("pk")[:2]:
+        ReviewLog.objects.create(
+            user=user, item=item, source=ReviewLog.SOURCE_STUDY
+        )
+
+    assert progreso(user, libro) == (2, 3)
+
+
+def test_un_recorte_adjunto_a_un_capitulo_es_material(db, pdf):
+    """El segundo destino: anadirlo a un capitulo que ya existe, en vez de
+    crear uno nuevo."""
+    from my_library.libros import material_de
+    from musica.models import RecursoPage
+    from wagtail.models import Page
+
+    r = _recorte(pdf, "El ejercicio de terceras", 13, 13)
+    raiz = Page.objects.get(id=2)
+    pagina = RecursoPage(
+        title="Capitulo con recorte adjunto",
+        slug="cap-recorte-adjunto",
+        date="2026-09-16",
+        intro="x",
+        attachments=[("recorte", {"recorte": r})],
+    )
+    raiz.add_child(instance=pagina)
+    pagina.save_revision().publish()
+
+    assert [o.pk for o in material_de(pagina)] == [r.pk]
+
+
+def test_la_pagina_del_libro_pinta_los_recortes_sin_enlace(client, db, pdf):
+    """`{% pageurl %}` sobre un recorte no vale: no es una pagina. Sin la rama,
+    la plantilla revienta o pinta un enlace vacio."""
+    libro = _libro_de_recortes("Metodo", "metodo-plantilla", [
+        ("recorte", _recorte(pdf, "Sailing Boat", 10, 13)),
+    ])
+
+    html = client.get(libro.url).content.decode()
+
+    assert "Sailing Boat" in html
+    assert "pp. 10-13" in html
+    assert "{#" not in html

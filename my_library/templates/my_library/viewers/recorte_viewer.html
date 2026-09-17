@@ -1,0 +1,345 @@
+{% load wagtailcore_tags l10n %}
+
+{% comment %}
+Visor de un Recorte: un trozo con nombre de un PDF.
+
+Tres diferencias con `pdf_viewer.html`, y las tres son el motivo de que este
+fichero exista en vez de añadirle un `if` al otro:
+
+1. **La navegación está acotada al recorte.** `pdf_viewer.html` no mira
+   `pagina_hasta` en ningún sitio: te deja entrar por la página 10 y salir
+   navegando por el libro entero. Aquí el rango es la frontera, y cuando el
+   recorte es de una sola página no hay a dónde ir — que es justo lo pedido.
+2. **Encuadra en el rectángulo.** La escala se calcula sobre el ancho del
+   RECORTE, no el de la página, y el contenedor arranca desplazado a su
+   esquina. Para una franja horizontal (x0=0, x1=1) eso da exactamente "la
+   página entera de ancho, a esa altura".
+3. **No modifica el PDF.** Se pinta el documento original con otro encuadre,
+   como hace la herramienta Crop de forScore. No hay recorte en servidor ni
+   imagen generada.
+
+Recordatorio de la casa: `{# … #}` en Django es de UNA línea y un comentario
+multilínea escrito así se pinta entero en la página. Por eso este bloque es
+`{% comment %}`.
+{% endcomment %}
+
+<style>
+    #recorte-container {
+        width: 100%;
+        height: 100vh;
+        overflow: auto;
+        background: white;
+    }
+    #recorte-canvas {
+        display: block;
+        margin: 0 auto;
+    }
+    #recorte-indicator {
+        position: fixed;
+        bottom: 16px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 9998;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 4px 12px;
+        border-radius: 999px;
+        font-size: 12px;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        pointer-events: none;
+        max-width: 90vw;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+</style>
+
+<div id="recorte-container">
+    <canvas id="recorte-canvas"></canvas>
+</div>
+
+<div id="recorte-indicator">
+    <span id="recorte-info"></span>
+</div>
+
+<script>
+(function () {
+    var pdfjsLib = window['pdfjs-dist/build/pdf'];
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    // --- Datos del recorte, puestos por Django ---
+    //
+    // `|unlocalize` en TODOS los números, y no es cosmético: con el idioma en
+    // español, `0.3` se renderiza `0,3` y `{ y0: 0,3 }` es un error de sintaxis
+    // de JavaScript que deja la página en blanco sin más aviso que una línea en
+    // la consola. Los tests no lo cazaron porque el cliente de pruebas no manda
+    // `Accept-Language` y cae al inglés: el test pasaba y el visor estaba roto.
+    // Los enteros van igual de protegidos — un PDF de más de mil páginas
+    // renderizaría `1.234` y rompería lo mismo.
+    // `rango_para_el_visor` y no `rango_paginas`: cuando el PDF se sirve
+    // cortado, lo que llega empieza en su página 1, y pedir la 10 de un fichero
+    // de cuatro páginas enseña el trozo equivocado sin dar ningún error.
+    var PAGINA_DESDE = {{ recorte.rango_para_el_visor.0|unlocalize }};
+    var PAGINA_HASTA = {{ recorte.rango_para_el_visor.1|unlocalize }};
+    var NOMBRE = "{{ recorte.nombre|escapejs }}";
+    var ETIQUETA_PAGINAS = "{{ recorte.etiqueta_de_paginas|escapejs }}";
+    {% if recorte.tiene_rect %}
+    var RECT = {
+        x0: {{ recorte.rect_x0|unlocalize }},
+        y0: {{ recorte.rect_y0|unlocalize }},
+        x1: {{ recorte.rect_x1|unlocalize }},
+        y1: {{ recorte.rect_y1|unlocalize }}
+    };
+    {% else %}
+    var RECT = null;
+    {% endif %}
+    // `get_pdf_url()` y no la URL del fichero: si el documento está marcado
+    // como restringido, lo que llega es un PDF cortado al rango del recorte, y
+    // el original no se sirve por ninguna parte. Un documento normal se sigue
+    // sirviendo entero, que es más barato y lo cachea el navegador.
+    var URL_PDF = "{{ recorte.get_pdf_url }}";
+
+    var pdfDoc = null,
+        paginaActual = PAGINA_DESDE,
+        rendering = false;
+
+    var canvas = document.getElementById('recorte-canvas'),
+        ctx = canvas.getContext('2d'),
+        container = document.getElementById('recorte-container'),
+        indicator = document.getElementById('recorte-indicator'),
+        info = document.getElementById('recorte-info');
+
+    var indicatorTimeout = null;
+
+    function mostrarIndicador() {
+        // Con una sola página no hay nada que contar: se enseña el nombre y ya.
+        if (PAGINA_DESDE === PAGINA_HASTA) {
+            info.textContent = NOMBRE + ' · ' + ETIQUETA_PAGINAS;
+        } else {
+            var n = paginaActual - PAGINA_DESDE + 1;
+            var total = PAGINA_HASTA - PAGINA_DESDE + 1;
+            info.textContent = NOMBRE + ' · ' + n + ' / ' + total;
+        }
+        indicator.style.opacity = '1';
+        clearTimeout(indicatorTimeout);
+        indicatorTimeout = setTimeout(function () {
+            indicator.style.opacity = '0';
+        }, 1500);
+    }
+
+    // Contador de generación: la única forma fiable de que dos renders que se
+    // solapan no se pisen.
+    //
+    // Se ganó en la verificación, y costó una hora. El visor se quedaba MUDO de
+    // forma intermitente: pintaba la primera página y no volvía a responder ni
+    // al teclado ni al tap. La causa son dos renders compitiendo al arrancar —
+    // la carga inicial y el `resize` que dispara el navegador al asentar el
+    // layout. Con un `if (rendering) return`, el segundo se descartaba; con un
+    // `cancel()` a pelo, el callback tardío del PRIMERO borraba el handle del
+    // segundo, y a partir de ahí ya no se podía cancelar nada.
+    //
+    // Con generación, cada render sabe si sigue siendo el vigente y los
+    // callbacks viejos no tocan nada. Es lo mismo que hace `pdf_viewer.html`
+    // con su bandera `rendering`, pero sin el modo de fallo permanente.
+    var generacion = 0;
+    var tareaEnCurso = null;
+
+    function renderPagina(num) {
+        if (!pdfDoc) return;
+
+        var mia = ++generacion;
+        if (tareaEnCurso) {
+            try { tareaEnCurso.cancel(); } catch (e) { /* ya había terminado */ }
+            tareaEnCurso = null;
+        }
+        rendering = true;
+
+        // La frontera del recorte. Esto es lo que `pdf_viewer.html` no tiene.
+        paginaActual = Math.max(PAGINA_DESDE, Math.min(num, PAGINA_HASTA));
+
+        pdfDoc.getPage(paginaActual).then(function (page) {
+            if (mia !== generacion) return;  // llegó tarde: manda otro render
+
+            var base = page.getViewport({ scale: 1 });
+
+            // La escala la manda el ancho del RECORTE, no el de la página: si el
+            // recorte ocupa medio ancho, se ve al doble de tamaño. Una franja
+            // (x0=0, x1=1) cae en el mismo número que el visor de PDF entero.
+            var anchoRelativo = RECT ? (RECT.x1 - RECT.x0) : 1;
+            var scale = container.clientWidth / (base.width * anchoRelativo);
+            var viewport = page.getViewport({ scale: scale });
+
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+
+            var tarea = page.render({ canvasContext: ctx, viewport: viewport });
+            tareaEnCurso = tarea;
+
+            tarea.promise.then(function () {
+                if (mia !== generacion) return;
+                rendering = false;
+                tareaEnCurso = null;
+                // Colocar la esquina del recorte arriba a la izquierda. Se hace
+                // DESPUÉS del render porque hasta que el canvas no tiene su
+                // tamaño definitivo, scrollTop se recorta contra la altura vieja.
+                if (RECT) {
+                    container.scrollTop = RECT.y0 * canvas.height;
+                    container.scrollLeft = RECT.x0 * canvas.width;
+                } else {
+                    container.scrollTop = 0;
+                    container.scrollLeft = 0;
+                }
+                mostrarIndicador();
+            }).catch(function (e) {
+                // Un render cancelado es lo normal cuando el usuario pasa de
+                // página antes de que acabe el anterior; no es un error.
+                if (mia !== generacion) return;
+                rendering = false;
+                tareaEnCurso = null;
+                if (!e || e.name !== 'RenderingCancelledException') {
+                    console.error('[recorte] render fallido:', e);
+                }
+            });
+        }).catch(function (e) {
+            if (mia !== generacion) return;
+            rendering = false;
+            tareaEnCurso = null;
+            console.error('[recorte] no se pudo obtener la página:', e);
+        });
+    }
+
+    // Avance con solapamiento del 25%, igual que el visor de PDF — pero cuando
+    // se acaba la página NO se salta a la siguiente del documento, sino a la
+    // siguiente DEL RECORTE, y si no la hay se acaba el contenido.
+    function avanzar(direccion) {
+        if (rendering || !pdfDoc) return;
+
+        var alto = container.clientHeight;
+        var scroll = Math.ceil(container.scrollTop);
+        var maxScroll = container.scrollHeight - alto;
+        var salto = alto * 0.75;
+
+        if (direccion === 'down') {
+            if (scroll >= maxScroll - 50) {
+                if (paginaActual < PAGINA_HASTA) {
+                    renderPagina(paginaActual + 1);
+                } else if (window.onStudyContentEnd) {
+                    // El gancho por el que la sesión de estudio pasa al
+                    // siguiente elemento. Sin esto, el recorte es un callejón.
+                    window.onStudyContentEnd();
+                }
+            } else {
+                container.scrollTo({ top: Math.min(scroll + salto, maxScroll), behavior: 'smooth' });
+                mostrarIndicador();
+            }
+        } else if (direccion === 'up') {
+            if (scroll <= 50) {
+                if (paginaActual > PAGINA_DESDE) {
+                    renderPagina(paginaActual - 1);
+                    setTimeout(function () {
+                        container.scrollTop = container.scrollHeight - container.clientHeight;
+                    }, 100);
+                }
+                // En la primera página del recorte no se retrocede: salirse por
+                // arriba sería salirse del recorte.
+            } else {
+                container.scrollTo({ top: Math.max(scroll - salto, 0), behavior: 'smooth' });
+                mostrarIndicador();
+            }
+        }
+    }
+
+    function zonaDeLaPantalla(x) {
+        var ancho = window.innerWidth;
+        if (x > ancho * 0.7) return 'derecha';
+        if (x < ancho * 0.3) return 'izquierda';
+        return 'centro';
+    }
+
+    function actuar(zona) {
+        if (zona === 'derecha') avanzar('down');
+        else if (zona === 'izquierda') avanzar('up');
+        else if (window.toggleViewerTopbar) window.toggleViewerTopbar();
+    }
+
+    container.addEventListener('click', function (e) {
+        actuar(zonaDeLaPantalla(e.clientX));
+    });
+
+    var tX = 0, tY = 0, tInicio = 0;
+    container.addEventListener('touchstart', function (e) {
+        tX = e.touches[0].clientX;
+        tY = e.touches[0].clientY;
+        tInicio = Date.now();
+    }, { passive: true });
+
+    container.addEventListener('touchend', function (e) {
+        if (Date.now() - tInicio >= 300) return;
+        var x = e.changedTouches[0].clientX;
+        var y = e.changedTouches[0].clientY;
+        // Movimiento pequeño = tap, no scroll.
+        if (Math.abs(x - tX) >= 20 || Math.abs(y - tY) >= 20) return;
+        var zona = zonaDeLaPantalla(x);
+        if (zona !== 'centro') e.preventDefault();
+        actuar(zona);
+    });
+
+    document.addEventListener('keydown', function (e) {
+        // Escribiendo en un campo, el teclado es del campo. Misma guarda que en
+        // `pdf_viewer.html`: sin ella, un espacio en la nota compartida avanzaba
+        // el visor en vez de escribirse.
+        var campo = e.target;
+        if (campo && e.key !== 'Escape' && (
+                campo.tagName === 'TEXTAREA' ||
+                campo.tagName === 'INPUT' ||
+                campo.tagName === 'SELECT' ||
+                campo.isContentEditable)) {
+            return;
+        }
+        switch (e.key) {
+            case 'ArrowRight':
+            case 'ArrowDown':
+            case 'PageDown':
+            case ' ':
+                e.preventDefault();
+                avanzar('down');
+                break;
+            case 'ArrowLeft':
+            case 'ArrowUp':
+            case 'PageUp':
+                e.preventDefault();
+                avanzar('up');
+                break;
+        }
+    });
+
+    // Con debounce: el navegador dispara varios `resize` seguidos mientras
+    // asienta el layout, y cada uno lanzaba un render que cancelaba al
+    // anterior. Esa es la carrera que dejaba el visor mudo al arrancar.
+    var esperaResize = null;
+    window.addEventListener('resize', function () {
+        clearTimeout(esperaResize);
+        esperaResize = setTimeout(function () {
+            if (pdfDoc) renderPagina(paginaActual);
+        }, 200);
+    });
+
+    // Sin peticiones por rango: desde que los documentos se sirven por la vista
+    // de Wagtail, el servidor contesta el fichero entero a cada petición de
+    // trozo. Se baja una vez y ya.
+    pdfjsLib.getDocument({
+        url: URL_PDF,
+        disableRange: true
+    }).promise.then(function (doc) {
+        pdfDoc = doc;
+        // Un recorte puede apuntar más allá del final si alguien sustituyó el
+        // PDF por uno más corto. Se recorta contra el documento real en vez de
+        // quedarse en blanco sin decir nada.
+        PAGINA_HASTA = Math.min(PAGINA_HASTA, doc.numPages);
+        renderPagina(Math.min(PAGINA_DESDE, doc.numPages));
+    }).catch(function (e) {
+        console.error('[recorte] no se pudo cargar el PDF:', e);
+    });
+})();
+</script>

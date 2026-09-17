@@ -10,6 +10,33 @@
       {% endif %}
     </div>
 
+    {% comment %}
+    Las guías escritas van ANTES que los vídeos: son las que se siguen con la
+    pantalla al lado mientras se hace, y por tanto las que se buscan a mitad de
+    faena. Un vídeo se ve una vez.
+    {% endcomment %}
+    {% with guias=page.get_guias %}
+      {% if guias %}
+        <div class="mb-10">
+          <div class="text-xs uppercase tracking-wide opacity-70 mb-3">Guías paso a paso</div>
+          <ul class="flex flex-col divide-y divide-base-300">
+            {% for guia in guias %}
+            <li class="flex items-baseline gap-3 py-3">
+              <span class="opacity-60">📘</span>
+              <span class="flex-1 min-w-0">
+                <a href="{{ guia.url }}" class="link link-hover font-medium">{{ guia.title }}</a>
+                {% if guia.intro %}
+                <span class="block text-sm opacity-70">{{ guia.intro }}</span>
+                {% endif %}
+              </span>
+              <span class="text-xs opacity-70 shrink-0">{{ guia.numero_de_pasos }} pasos</span>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+    {% endwith %}
+
     {% with videos=page.get_videos %}
       {% if videos %}
         <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">

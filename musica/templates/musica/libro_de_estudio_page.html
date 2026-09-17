@@ -13,8 +13,24 @@
     <div class="text-base opacity-70 mb-6">{{ page.intro|richtext }}</div>
     {% endif %}
 
-    <div class="mb-8">
+    <div class="mb-8 flex flex-wrap items-center gap-2">
         {% boton_objetivo page %}
+
+        {% comment %}
+        Para el profesorado, la vuelta al taller. Sin esto, seguir troceando un
+        método a medias obliga a recordar la URL del recortador o a pasar por el
+        índice de importación y buscar el PDF entre todos.
+        {% endcomment %}
+        {% if es_profesor %}
+        {% if pdf_del_libro %}
+        <a href="{% url 'musica:recortador' pdf_del_libro.pk %}?libro={{ page.pk }}"
+           class="btn btn-sm btn-ghost">✂️ Seguir troceando</a>
+        {% endif %}
+        <a href="{% url 'musica:importar' %}" class="btn btn-sm btn-ghost">Importar</a>
+        <a href="{% url 'clases:class_session_list' %}" class="btn btn-sm btn-ghost">
+            Asignar a un grupo
+        </a>
+        {% endif %}
     </div>
 
     {% if capitulos %}
@@ -25,7 +41,20 @@
         {% for capitulo in capitulos %}
         <li class="flex items-baseline gap-3 border-b border-base-300 py-3">
             <span class="opacity-40 text-sm w-6 text-right">{{ forloop.counter }}</span>
+            {% comment %}
+            Dos clases de capitulo. Una pagina tiene URL propia y se enlaza; un
+            recorte NO es una pagina —es un trozo con nombre de un PDF— y
+            pageurl sobre el no vale. Se distinguen preguntando por algo que
+            solo un recorte sabe responder, no por el tipo.
+            {% endcomment %}
+            {% if capitulo.etiqueta_de_paginas %}
+            <span class="flex-1">
+                <span class="opacity-60 mr-1">✂️</span>{{ capitulo.title }}
+                <span class="opacity-50 text-sm ml-1">{{ capitulo.etiqueta_de_paginas }}</span>
+            </span>
+            {% else %}
             <a href="{% pageurl capitulo %}" class="link link-hover flex-1">{{ capitulo.title }}</a>
+            {% endif %}
         </li>
         {% endfor %}
     </ol>
