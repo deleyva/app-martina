@@ -3114,6 +3114,52 @@ corrección duerme en un borrador que nadie mira. Corregir una errata y que no
 se note es peor que no corregirla, así que el publicador ahora avisa en
 pantalla y `--publicar` lo cierra.
 
+### Los correos del alumnado salen del HTML (2026-09-17)
+
+Encontrado por accidente y por la peor vía: al leer el DOM de un artículo para
+comprobar la ficha musical, se colaron al transcript **correos de alumnado**.
+El descuido fue volcar en vez de filtrar —la misma regla que ya estaba escrita
+tras la fuga del token de Readeck—, pero al medirlo apareció algo de fondo.
+
+**La medida, por rol, en producción antes del arreglo:**
+
+| Quién abre el artículo | Bytes | Correos de alumnado |
+|---|---|---|
+| Visitante sin sesión | 80 KB | 0 |
+| Alumno matriculado | 119 KB | 1, el suyo |
+| Profesor | **736 KB** | **591** |
+
+El diálogo de «añadir a bibliotecas» se incluye una vez por botón de
+biblioteca, y cada copia llevaba la lista entera del alumnado: 28 copias en un
+artículo con vídeos. No era una brecha hacia terceros —ni un alumno ni un
+visitante la recibieron nunca— pero mandaba datos personales al navegador sin
+que nadie hubiera abierto nada.
+
+Ahora la sirve `my_library:students_picker` al abrir el diálogo, con `once` de
+HTMX. **La cerradura está en la vista, no en la plantilla**: una URL es una
+puerta, y devuelve solo el alumnado de los grupos de quien pregunta. Ocho tests
+lo fijan, incluido el de que un profesor no ve grupos ajenos.
+
+**Después, en producción:** profesor 326 KB y **cero** correos de alumnado;
+alumno y visitante, igual que antes.
+
+#### Dos defectos que solo se vieron en el navegador
+
+**1. `{# #}` de Django es de UNA línea.** Multilínea no se parsea como
+comentario: se imprime. Mi nota de mantenimiento salió publicada sobre el
+título del artículo. Ya había pasado en la fase 7 de este mismo proyecto, y
+volvió a pasar. Barrido del árbol entero: cero casos más.
+
+**2. La sección colgaba de `{% if all_students %}`.** Al dejar de mandar la
+lista, la condición escondía la sección entera —y con ella el contenedor que la
+pide—, así que el diálogo se abría sin selector de alumnado y el test de acceso
+seguía en verde. Depende ahora de si hay grupos. Se vio abriendo el diálogo, no
+leyendo código.
+
+La lección repetida: **medir el estado, no la respuesta**. Tres mediciones
+previas dieron «0 correos para todos» y eran redirecciones de 143 bytes. Se
+detectó por mirar el tamaño, no el número.
+
 ### Fuera de alcance
 
 El índice de recursos sigue enseñando la entradilla base; traducir la interfaz
