@@ -40,8 +40,18 @@ def capitulos_de(libro):
     Se distinguen por capacidad y no por `isinstance` para no atar `my_library`
     a un tipo concreto de `cms`: cualquier página que sepa decir qué páginas
     referencia se comporta como un libro por referencia.
+
+    **`.specific` primero, y no es opcional.** Preguntar por capacidad solo
+    funciona si delante hay la clase de verdad. `GroupBook.libro` y
+    `PlanItem.content_object` son FK a `wagtailcore.Page`, así que entregan una
+    `Page` BASE: no tiene `paginas_referenciadas`, la pregunta sale que no, y un
+    libro por referencia se trataba como libro de árbol. Como no tiene páginas
+    hijas, el resultado era una lista vacía — y la pantalla decía «este libro no
+    tiene material practicable todavía» sobre un libro lleno de capítulos.
     """
     from musica.models import RecursoPage
+
+    libro = getattr(libro, "specific", libro)
 
     referencias = getattr(libro, "paginas_referenciadas", None)
     if callable(referencias):
@@ -323,7 +333,11 @@ def siguiente_del_objetivo(user, libro, cuantos=1):
 def _por_referencia(libro):
     """`libro` solo se guarda en los libros por REFERENCIA: en los de árbol se
     deduce del path del padre, y guardarlo en unos sí y en otros no partiría en
-    dos el grupo de un mismo libro. Ver `session._libro_de`."""
+    dos el grupo de un mismo libro. Ver `session._libro_de`.
+
+    Con `.specific` por lo mismo que `capitulos_de`: una `Page` base contesta
+    que no a cualquier pregunta por capacidad."""
+    libro = getattr(libro, "specific", libro)
     return callable(getattr(libro, "paginas_referenciadas", None))
 
 

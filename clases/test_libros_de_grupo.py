@@ -883,3 +883,42 @@ def test_un_profesor_no_corrige_el_libro_de_otro(db, client, django_user_model):
     group_book.refresh_from_db()
     assert respuesta.status_code == 404
     assert group_book.modo == GroupBook.SECUENCIAL
+
+
+# === Libros hechos de recortes asignados a un grupo ===
+
+
+def test_un_libro_de_recortes_asignado_a_un_grupo_trae_su_material(db):
+    """El fallo que se vio al asignar: la pantalla decia «este libro no tiene
+    material practicable todavia» sobre un libro con dos capitulos.
+
+    La causa es que `GroupBook.libro` es una FK a `wagtailcore.Page` y entrega
+    una Page BASE, a la que preguntar por capacidad sale siempre que no. Se
+    recargaba la fila desde la base para que el test parta del mismo objeto que
+    tiene la vista, no del que uno crea a mano.
+    """
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from wagtail.documents.models import Document
+    from wagtail.models import Collection
+
+    from musica.models import Recorte
+    from my_library.tests import _libro_de_recortes
+
+    if not Collection.objects.exists():
+        Collection.add_root(name="Root")
+    doc = Document.objects.create(
+        title="Metodo", file=SimpleUploadedFile("m.pdf", b"%PDF-1.4 falso")
+    )
+    libro = _libro_de_recortes("Metodo de grupo", "metodo-grupo", [
+        ("recorte", Recorte.objects.create(documento=doc, nombre="Uno", pagina_desde=1)),
+        ("recorte", Recorte.objects.create(documento=doc, nombre="Dos", pagina_desde=2)),
+    ])
+    grupo = _grupo()
+    group_book = _asignar(grupo, libro)
+    group_book = GroupBook.objects.get(pk=group_book.pk)
+
+    filas = libros_de_grupo.enumerar(group_book)
+
+    assert [f["titulo"] for f in filas] == ["Uno", "Dos"]
+    assert all(f["icono"] == "✂️" for f in filas)
+

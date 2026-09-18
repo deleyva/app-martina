@@ -4029,3 +4029,40 @@ def test_el_enlace_de_vuelta_es_del_mismo_host(client, db, user, pdf):
     html = client.get(libro.url).content.decode()
 
     assert "?back=/" in html, "el enlace de vuelta tiene que ser relativo"
+
+
+def test_un_libro_por_referencia_funciona_aunque_llegue_como_page_base(db, pdf):
+    """El fallo de los libros de grupo.
+
+    `GroupBook.libro` y `PlanItem.content_object` son FK a `wagtailcore.Page`,
+    asi que entregan una `Page` BASE. Preguntar por capacidad a una Page base
+    sale siempre que no, el libro por referencia se trataba como libro de arbol,
+    y como no tiene paginas hijas el material salia VACIO: la pantalla decia
+    «este libro no tiene material practicable todavia» sobre un libro lleno.
+    """
+    from wagtail.models import Page
+
+    from my_library.libros import capitulos_de, material_del_libro
+
+    libro = _libro_de_recortes("Metodo", "metodo-page-base", [
+        ("recorte", _recorte(pdf, "Uno", 1, 1)),
+        ("recorte", _recorte(pdf, "Dos", 2, 2)),
+    ])
+    # Exactamente lo que entrega la FK: la fila de `Page`, sin especializar.
+    como_llega = Page.objects.get(pk=libro.pk)
+    assert type(como_llega) is Page, "el test tiene que partir de una Page base"
+
+    assert len(capitulos_de(como_llega)) == 2
+    assert [o.nombre for _c, o in material_del_libro(como_llega)] == ["Uno", "Dos"]
+
+
+def test_por_referencia_tambien_reconoce_una_page_base(db, pdf):
+    from wagtail.models import Page
+
+    from my_library.libros import _por_referencia
+
+    libro = _libro_de_recortes("Metodo", "metodo-por-ref", [
+        ("recorte", _recorte(pdf, "Uno", 1, 1)),
+    ])
+
+    assert _por_referencia(Page.objects.get(pk=libro.pk))
