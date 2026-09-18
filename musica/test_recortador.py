@@ -622,3 +622,87 @@ def test_el_indice_recuerda_a_que_libro_va_cada_pdf(client, profe, pdf, raiz):
 
     assert f"?libro={libro.pk}" in html
     assert "Seguir" in html
+
+
+# === Separacion por coleccion: apps. y blogs. comparten el pool de documentos ===
+
+
+def _en_coleccion(nombre_coleccion, nombre_fichero="x.pdf", titulo="Doc"):
+    from wagtail.models import Collection
+
+    raiz = Collection.get_first_root_node()
+    col = Collection.objects.filter(name=nombre_coleccion).first()
+    if col is None:
+        col = raiz.add_child(name=nombre_coleccion)
+    return Document.objects.create(
+        title=titulo,
+        file=SimpleUploadedFile(nombre_fichero, b"%PDF-1.4 falso"),
+        collection=col,
+    )
+
+
+def test_no_salen_los_pdf_de_los_blogs_de_departamento(client, profe, db):
+    """El fallo que reporto Jesus: un profesor de musica veia los adjuntos de
+    aleman, frances y matematicas mezclados con sus metodos."""
+    from wagtail.models import Collection
+
+    if not Collection.objects.exists():
+        Collection.add_root(name="Root")
+    _en_coleccion("Blogspot — Alemán", "aleman.pdf", "Apuntes de alemán")
+    _en_coleccion("Biblioteca musical", "metodo.pdf", "Método de piano")
+    client.force_login(profe)
+
+    html = client.get(reverse("musica:importar")).content.decode()
+
+    assert "Método de piano" in html
+    assert "Apuntes de alemán" not in html
+
+
+def test_si_salen_los_que_todavia_no_tienen_coleccion(client, profe, db):
+    """En la raiz estan hoy los metodos con los que se trabaja: excluirlos
+    vaciaria la pantalla de lo util."""
+    from wagtail.models import Collection
+
+    raiz = Collection.get_first_root_node() or Collection.add_root(name="Root")
+    Document.objects.create(
+        title="Sin colocar",
+        file=SimpleUploadedFile("suelto.pdf", b"%PDF-1.4 falso"),
+        collection=raiz,
+    )
+    client.force_login(profe)
+
+    html = client.get(reverse("musica:importar")).content.decode()
+
+    assert "Sin colocar" in html
+
+
+def test_lo_que_subes_va_a_la_biblioteca_musical(client, profe, db):
+    """Sin esto, cada metodo subido aqui caia en la raiz junto a los adjuntos de
+    los 16 blogs."""
+    from wagtail.models import Collection
+
+    if not Collection.objects.exists():
+        Collection.add_root(name="Root")
+    client.force_login(profe)
+
+    client.post(reverse("musica:subir_pdf"), {
+        "title": "Método nuevo",
+        "file": SimpleUploadedFile("nuevo.pdf", b"%PDF-1.4 falso"),
+    })
+
+    doc = Document.objects.get(title="Método nuevo")
+    assert doc.collection.name == "Biblioteca musical"
+
+
+def test_listar_no_crea_colecciones(client, profe, db):
+    """Abrir una pantalla no debe escribir en la base."""
+    from wagtail.models import Collection
+
+    if not Collection.objects.exists():
+        Collection.add_root(name="Root")
+    antes = Collection.objects.count()
+    client.force_login(profe)
+
+    client.get(reverse("musica:importar"))
+
+    assert Collection.objects.count() == antes
