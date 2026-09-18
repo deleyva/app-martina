@@ -30,6 +30,22 @@ TIME_ZONE = "Europe/Madrid"
 # quien no tenga idioma elegido en su perfil, y en los correos de aviso
 # de moderacion, que salian en ingles por este valor.
 LANGUAGE_CODE = "es"
+# El defecto NO basta, y esto se midio: `get_preferred_language()` de un
+# perfil sin idioma elegido —los ocho de produccion— devuelve el idioma
+# ACTIVO si es uno de los que trae el admin, y solo cae en `LANGUAGE_CODE`
+# si no lo es. El idioma activo lo pone `LocaleMiddleware` a partir del
+# `Accept-Language` del navegador, asi que a quien tiene el Chrome en
+# ingles el admin le salia en ingles igualmente, y el aviso de moderacion
+# salia en el idioma de QUIEN ENVIA, no en el de quien lo recibe.
+#
+# Dejando una sola lengua permitida, ningun idioma del navegador es un
+# idioma de admin valido y todos caen en `LANGUAGE_CODE`. Afecta solo al
+# panel: la negociacion de idioma del sitio publico no se toca.
+#
+# Efecto secundario: desaparece el desplegable de idioma de
+# `/cms/account/` (wagtail/admin/forms/account.py lo quita cuando hay una
+# sola). Para devolverlo, borrar estas lineas.
+WAGTAILADMIN_PERMITTED_LANGUAGES = [("es", "Español")]
 # https://docs.djangoproject.com/en/dev/ref/settings/#languages
 # from django.utils.translation import gettext_lazy as _
 # LANGUAGES = [
