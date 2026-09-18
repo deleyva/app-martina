@@ -42,16 +42,26 @@
         <li class="flex items-baseline gap-3 border-b border-base-300 py-3">
             <span class="opacity-40 text-sm w-6 text-right">{{ forloop.counter }}</span>
             {% comment %}
-            Dos clases de capitulo. Una pagina tiene URL propia y se enlaza; un
-            recorte NO es una pagina —es un trozo con nombre de un PDF— y
-            pageurl sobre el no vale. Se distinguen preguntando por algo que
-            solo un recorte sabe responder, no por el tipo.
+            Dos clases de capitulo, y cada una tiene su URL. Una pagina la sabe
+            dar `pageurl`; un recorte NO es una pagina —es un trozo con nombre de
+            un PDF— y por eso la pide a `get_viewer_url`, que lo abre en el visor
+            generico. Se distinguen preguntando por algo que solo un recorte sabe
+            responder, no por el tipo.
+
+            Antes el recorte se pintaba como texto sin enlace y los capitulos de
+            un libro troceado no se podian abrir: se veian y no se podian mirar.
             {% endcomment %}
             {% if capitulo.etiqueta_de_paginas %}
-            <span class="flex-1">
+            {% comment %}
+            `pageurl` y no `page.url`: con varios sitios, `page.url` sale con el
+            dominio delante, y el visor descarta un `back` que no sea del mismo
+            host. El botón de volver se quedaba mudo sin decir por qué.
+            {% endcomment %}
+            <a href="{{ capitulo.get_viewer_url }}?back={% pageurl page %}"
+               class="link link-hover flex-1">
                 <span class="opacity-60 mr-1">✂️</span>{{ capitulo.title }}
-                <span class="opacity-50 text-sm ml-1">{{ capitulo.etiqueta_de_paginas }}</span>
-            </span>
+                <span class="opacity-60 text-sm ml-1">{{ capitulo.etiqueta_de_paginas }}</span>
+            </a>
             {% else %}
             <a href="{% pageurl capitulo %}" class="link link-hover flex-1">{{ capitulo.title }}</a>
             {% endif %}

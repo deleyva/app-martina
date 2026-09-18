@@ -120,7 +120,15 @@ flujo entero vive en el frontend.
           {% if documento.esta_restringido %}· 🔒 solo por recortes{% endif %}
         </span>
       </span>
-      <a class="btn btn-sm" href="{% url 'musica:recortador' documento.pk %}">Recortar</a>
+      {% comment %}
+      Si ese PDF ya alimenta un libro, el enlace se lo lleva puesto. Sin esto,
+      volver a un método a medias te dejaba en el documento pero sin libro, y
+      había que elegirlo otra vez en el desplegable de arriba.
+      {% endcomment %}
+      <a class="btn btn-sm"
+         href="{% url 'musica:recortador' documento.pk %}{% if documento.libro_id %}?libro={{ documento.libro_id }}{% endif %}">
+        {% if documento.libro_id %}Seguir{% else %}Recortar{% endif %}
+      </a>
     </li>
     {% endfor %}
   </ul>

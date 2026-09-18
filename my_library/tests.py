@@ -3988,3 +3988,44 @@ def test_la_pagina_del_libro_pinta_los_recortes_sin_enlace(client, db, pdf):
     assert "Sailing Boat" in html
     assert "pp. 10-13" in html
     assert "{#" not in html
+
+
+def test_los_capitulos_recorte_se_pueden_abrir(client, db, user, pdf):
+    """El fallo que se coló en la fase 3.
+
+    Un recorte no es una pagina, asi que `{% pageurl %}` no vale para el. Se
+    pinto como texto plano y los capitulos de un libro troceado quedaron
+    muertos: se veian y no se podian pulsar. El falsador es directo: el enlace
+    tiene que estar en el HTML y tiene que responder.
+    """
+    recorte = _recorte(pdf, "Review Piece", 4, 5)
+    libro = _libro_de_recortes("Metodo", "metodo-enlaces", [("recorte", recorte)])
+    client.force_login(user)
+
+    html = client.get(libro.url).content.decode()
+
+    assert recorte.get_viewer_url() in html
+    assert client.get(recorte.get_viewer_url()).status_code == 200
+
+
+def test_abrir_un_recorte_no_lo_mete_en_la_biblioteca(client, db, user, pdf):
+    """Es una vista previa. Mirar un capitulo no debe meterlo en la cola de
+    estudio de nadie."""
+    recorte = _recorte(pdf)
+    client.force_login(user)
+
+    client.get(recorte.get_viewer_url())
+
+    assert LibraryItem.objects.filter(user=user).count() == 0
+
+
+def test_el_enlace_de_vuelta_es_del_mismo_host(client, db, user, pdf):
+    """`page.url` sale con el dominio delante en un sitio multi-host, y el visor
+    descarta un `back` de otro host: el boton de volver se quedaba mudo."""
+    recorte = _recorte(pdf)
+    libro = _libro_de_recortes("Metodo", "metodo-volver", [("recorte", recorte)])
+    client.force_login(user)
+
+    html = client.get(libro.url).content.decode()
+
+    assert "?back=/" in html, "el enlace de vuelta tiene que ser relativo"

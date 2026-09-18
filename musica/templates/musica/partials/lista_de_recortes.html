@@ -106,6 +106,12 @@ El orden de estudio es el del libro, y se arrastra abajo.
           <span class="block truncate">{{ capitulo.titulo }}</span>
           <span class="text-xs opacity-70">{{ capitulo.detalle }}</span>
         </span>
+        {% comment %}
+        Un enlace aparte y no el título entero: esta fila se arrastra para
+        reordenar, y un título enlazado navegaría cada vez que un arrastre se
+        quedara a medio píxel.
+        {% endcomment %}
+        <a href="{{ capitulo.url }}" class="btn btn-ghost btn-xs">Ver</a>
         <span class="opacity-40 text-sm">☰</span>
       </li>
       {% endfor %}
