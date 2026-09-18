@@ -2,9 +2,9 @@
 slug: app-martina
 phase: complete
 progress: false
-iteration: 44
+iteration: 45
 principal_stated_goal: "Necesito desarrollar en apps.iesmartinabescos.es Otra app de Django como la que tenemos en /incidencias. Está sí que debe de requerir login con Google porque ya tenemos implementado. Básicamente, es una aplicación en la que quiero que vayan solicitando la clave Wi-Fi. Pero para ello deben logearse y enviar la MAC de su dispositivo WIFI, la privada (real) no la aleatoria."
-updated: 2026-09-16
+updated: 2026-09-18
 ---
 
 # ISA — app-martina · Sistema de estudio de la biblioteca
@@ -3369,3 +3369,123 @@ Listas: exportaciones phpMyAdmin de la aplicación de gestión del centro —
 - **Hueco que queda:** COFOTAP y Actividades Extraescolares no tienen jefe en las listas,
   así que sus grupos siguen vacíos. Si alguien escribe ahí, con los avisos a superusuarios
   apagados no se entera nadie.
+
+## Fase 36 — El aviso de moderación llegaba a ninguna parte, y en inglés (2026-09-18)
+
+**Goal (literal de Jesús, 2026-09-18):** «en blogs.iesmartinabescos.es cuando entran en blogs.iesmartinabescos.es/cms van a una plantilla frontend no al cms de wagtail, y luego, cuando entro en el cms desde el pajarito de wagtail se me acumulan los avisos como los que ves en la imagen. / mi compañera ve el pajarito de wagtail en inglés. A la moderadora le llega el mail en inglés y los enlaces les envían a las plantillas de apps.iesmartinabescos.es en lugar de blogs»
+
+Cuatro síntomas, tres causas. Ninguno era del flujo de moderación: los tres
+son de configuración y plantilla.
+
+### La barra final que rompía el enlace
+
+Las plantillas de aviso de Wagtail concatenan `{{ base_url }}{% url ... %}` en
+crudo (`wagtailadmin/notifications/*.txt`). `WAGTAILADMIN_BASE_URL` valía
+`"https://apps.iesmartinabescos.es/"` **con barra**, así que salía
+`…es//cms/pages/866/edit/`. Esa ruta no casa con `path("cms/", …)` de
+`config/urls.py`, cae en el catch-all de Wagtail y termina en el 404 del front
+de la app musical — de ahí «me manda a una plantilla de apps».
+
+Comprobado en Chrome antes de tocar nada: `apps.iesmartinabescos.es//cms/`
+devuelve la página de error «Martina Bescós Music App · Page not found».
+
+### El defecto de idioma no era el defecto
+
+`LANGUAGE_CODE` era `en-us`, y **ninguno de los ocho perfiles de Wagtail de
+producción tiene idioma elegido** (medido el 2026-09-18). Pero ponerlo en `es`
+no bastaba, y esto es lo que hay que recordar:
+
+`UserProfile.get_preferred_language()` (wagtail/users/models.py:122) devuelve,
+por este orden: el idioma del perfil → **el idioma ACTIVO si es uno de los que
+trae el admin** → `LANGUAGE_CODE`. El idioma activo lo pone `LocaleMiddleware`
+desde el `Accept-Language` del navegador. Con el perfil vacío, entonces:
+
+- el panel sale en el idioma del NAVEGADOR de quien lo abre;
+- y el correo de aviso sale en el idioma de **quien ENVÍA**, no en el de quien
+  lo recibe, porque `send_emails()` evalúa `get_preferred_language()` del
+  destinatario bajo el locale activo de la petición del remitente.
+
+Medido en el contenedor de producción: con `LANGUAGE_CODE` ya en `es` y
+`translation.override("en")`, el aviso salía en inglés igual. La contraprueba
+es un test.
+
+El arreglo es `WAGTAILADMIN_PERMITTED_LANGUAGES = [("es", "Español")]`: si
+ninguna lengua de navegador es válida para el admin, todas caen en
+`LANGUAGE_CODE`. Toca solo el panel; el sitio público negocia idioma como
+antes. Efecto secundario: desaparece el desplegable de idioma de
+`/cms/account/`.
+
+### Un mensaje que no se recorre no se marca como leído
+
+`blogs/base.html` era el único de los cinco `base` del proyecto que no recorría
+`messages`. Lo que se veía era el amontonamiento; lo que importaba era lo que
+tapaba: cuando Wagtail te echa de `/cms/` **encola el motivo**
+(`wagtail/admin/auth.py:146`, «no tienes permiso para acceder al admin»). En
+blogs ese motivo no se pintaba nunca, así que el profesor veía la pantalla de
+acceso otra vez, sin explicación, volvía a entrar, y cada vuelta dejaba dos
+mensajes más en la cola hasta que abría el admin y le salían todos de golpe.
+
+Las clases del bloque están verificadas contra `static/css/output.css`:
+`border-l-4` y `pt-6` **no existen** en el compilado y el despliegue no
+recompila Tailwind. Se usan `border-l-2` y `py-6`.
+
+### Claims
+
+- [x] **ISC-36.1** — El enlace del aviso lleva a la pantalla de edición, no a un
+      404. *Falsador:* `base_url + reverse("wagtailadmin_pages:edit")` contiene
+      `//cms`. *Evidencia:* correo reproducido en producción →
+      `https://blogs.iesmartinabescos.es/cms/pages/867/edit/`;
+      `cms/tests/test_avisos_moderacion.py`.
+- [x] **ISC-36.2** — El aviso llega en castellano aunque quien lo envía tenga el
+      navegador en inglés. *Falsador:* reproducir el aviso bajo
+      `translation.override("en")` y que salga en inglés. *Evidencia:* asunto
+      «La página "…" se ha enviado para su aprobación…» bajo ese override, tras
+      desplegar el pin. Antes del pin, el mismo probe daba inglés.
+- [x] **ISC-36.3** — Los mensajes de Django se pintan y se consumen en el
+      subdominio de blogs. *Falsador:* un usuario sin `access_admin` entra en
+      `/cms/`, va a un artículo y no ve el motivo del rechazo.
+      *Evidencia:* `cms/tests/test_blogs_mensajes.py` — falla con la plantilla
+      revertida, comprobado; y `grep` dentro del contenedor de producción.
+- [x] **ISC-36.4** — El flujo entero, de punta a punta, con gente real.
+      *Evidencia:* jlopez en «Jefe del departamento de COFOTAP», test en
+      «Profesores de COFOTAP», artículo 867 enviado a revisión por test, aviso
+      real a jlopez@, y la página en «Esperando tu revisión» del panel visto en
+      Chrome.
+
+### Anti-claims
+
+- [x] **No tocar la negociación de idioma del sitio público.** Se descartó
+      `LANGUAGES = [("es", …)]`, que era lo que Jesús rechazó explícitamente,
+      en favor de la restricción que afecta solo al panel.
+- [x] **No quitar permisos ni cuentas a nadie.** Solo altas en grupo.
+- [x] **No usar clases de Tailwind que no estén ya compiladas.** Verificado
+      clase por clase contra `output.css`.
+
+### Lo que apareció por el camino
+
+- **`WorkflowStateSubmissionEmailNotifier` no avisa al jefe, avisa a los
+  superusuarios** — y `WAGTAILADMIN_NOTIFICATION_INCLUDE_SUPERUSERS` está en
+  `False` desde la fase 35, así que ese notificador manda cero correos. El que
+  avisa al jefe es `GroupApprovalTaskStateSubmissionEmailNotifier`, por el
+  grupo de la `GroupApprovalTask`. Costó una reproducción en falso.
+- **COFOTAP ya tiene jefe**, que era uno de los dos huecos que dejó la fase 35.
+  **Actividades Extraescolares sigue sin jefe**: si alguien escribe ahí, con
+  los avisos a superusuarios apagados no se entera nadie.
+- **Queda un artículo de prueba**, id 867, «Prueba de aviso de moderación» en
+  COFOTAP, en revisión y sin publicar. Se puede borrar.
+- **Siguen en inglés** «Search all pages…», «N Pages», «N Images» y
+  «N Documents» del panel. No es configuración nuestra: son cadenas que el
+  catálogo `es` de Wagtail 7.3.1 no trae traducidas.
+- **Fallos previos de la suite, no míos:** 4 tests
+  (`cms/tests/test_frontend_integration.py` ×2,
+  `incidencias/tests/test_views.py` ×2) fallan igual con el árbol limpio, y 3
+  de `musica/test_recortador.py` son `ModuleNotFound` de pymupdf, que falta en
+  el venv local.
+
+### Producción · DESPLEGADA (2026-09-18)
+
+Dos despliegues: `1adf68e` (enlaces, idioma por defecto, mensajes) y `ee6c645`
+(el pin del idioma del admin). Sin migraciones. Verificado leyendo los valores
+en vivo dentro del contenedor: `WAGTAILADMIN_BASE_URL` sin barra y apuntando a
+blogs, `LANGUAGE_CODE = "es"`, `WAGTAILADMIN_PERMITTED_LANGUAGES = [("es",
+"Español")]`.
