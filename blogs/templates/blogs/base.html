@@ -142,6 +142,26 @@
 
     <!-- Main Content -->
     <main class="flex-grow">
+      {% comment %}
+        Sin este bloque los mensajes de Django no se consumen nunca en este
+        subdominio: se quedan en la sesion y aparecen todos de golpe la
+        siguiente vez que alguien abre el admin de Wagtail. Eso, ademas de
+        feo, escondia el aviso que explica por que te echa de /cms/
+        ("no tienes permiso para acceder al admin"): el profesor veia la
+        pantalla de acceso otra vez, sin ninguna explicacion, y volvia a
+        entrar. Cada vuelta dejaba dos mensajes mas en la cola.
+
+        Solo clases que YA existen en `static/css/output.css` — el despliegue
+        no recompila Tailwind. `border-l-4` y `pt-6` no estan; `border-l-2`
+        y `py-6` si.
+      {% endcomment %}
+      {% if messages %}
+        <div class="container mx-auto px-4 py-6">
+          {% for message in messages %}
+            <div class="border-l-2 border-black bg-gray-50 px-4 py-3 mb-3 font-sans text-sm text-black">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
       {% block content %}{% endblock content %}
     </main>
 
