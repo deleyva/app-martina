@@ -20,6 +20,7 @@ from pathlib import Path
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import SimpleTestCase, TestCase, override_settings
+from django.utils import translation
 from django.urls import reverse
 from wagtail.users.models import UserProfile
 
@@ -73,3 +74,29 @@ class IdiomaDeLosAvisosTest(TestCase):
         self.assertEqual(
             UserProfile.get_for_user(usuario).get_preferred_language(), "en-us"
         )
+
+    def test_el_navegador_en_ingles_ya_no_arrastra_el_aviso(self):
+        """El defecto por si solo NO bastaba, y esto es por que.
+
+        Medido en produccion el 2026-09-18: el correo se redacta en el
+        idioma ACTIVO de quien envia cuando quien recibe no tiene idioma
+        elegido. Con `translation.override("en")` el aviso salia en ingles
+        aunque `LANGUAGE_CODE` ya fuera `es`.
+        """
+        usuario = User.objects.create_user(
+            email="moderadora3@example.com", password="x123456789"
+        )
+        perfil = UserProfile.get_for_user(usuario)
+        with translation.override("en"):
+            self.assertEqual(perfil.get_preferred_language(), "es")
+
+    @override_settings(WAGTAILADMIN_PERMITTED_LANGUAGES=None)
+    def test_contraprueba_sin_el_pin_se_cuela_el_ingles(self):
+        """Sin lenguas permitidas restringidas, el navegador vuelve a mandar."""
+        del settings.WAGTAILADMIN_PERMITTED_LANGUAGES
+        usuario = User.objects.create_user(
+            email="moderadora4@example.com", password="x123456789"
+        )
+        perfil = UserProfile.get_for_user(usuario)
+        with translation.override("en"):
+            self.assertEqual(perfil.get_preferred_language(), "en")
