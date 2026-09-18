@@ -378,7 +378,11 @@ function init() {
         pdfDoc = doc;
         total = doc.numPages;
         etiquetaTotal.textContent = total;
-        render(1);
+        // Por donde lo dejaste, no por la 1. El servidor calcula la pagina
+        // siguiente al ultimo recorte de este documento; si no hay ninguno,
+        // manda 1. Ver `_por_donde_ibas`.
+        const inicial = parseInt(raiz.dataset.paginaInicial, 10) || 1;
+        render(Math.min(inicial, total));
     }).catch((e) => {
         console.error('[recortador] no se pudo cargar el PDF:', e);
     });

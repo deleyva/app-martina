@@ -791,6 +791,22 @@ class Recorte(models.Model):
             return reverse("musica:pdf_del_recorte", args=[self.pk])
         return self.documento.url
 
+    def get_viewer_url(self):
+        """Dónde se abre este recorte para verlo.
+
+        **Un recorte no tiene página propia**, así que `{% pageurl %}` no sirve.
+        Sin esto, en el índice de un libro los capítulos-recorte quedaban como
+        texto muerto: se veía el nombre y el rango, y no se podía pulsar.
+
+        Va al visor genérico de contenido, que monta un `LibraryItem` **sin
+        guardarlo** solo para resolver qué visor toca. Es una vista previa: abrir
+        un capítulo para mirarlo no debe meterlo en la cola de estudio de nadie.
+        """
+        from django.contrib.contenttypes.models import ContentType
+
+        tipo = ContentType.objects.get_for_model(self)
+        return reverse("my_library:view_content_object", args=[tipo.pk, self.pk])
+
     @property
     def rango_para_el_visor(self):
         """El rango EN EL FICHERO QUE VA A RECIBIR EL VISOR, que no siempre es

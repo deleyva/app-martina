@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static l10n %}
 
 {% block title %}Recortar {{ documento.title }}{% endblock title %}
 
@@ -25,6 +25,7 @@ se quedaría sin nada que dibujar.
 {% endcomment %}
 <div id="recortador"
      data-pdf-url="{% url 'musica:pdf_para_recortar' documento.pk %}"
+     data-pagina-inicial="{{ pagina_inicial|unlocalize }}"
      class="max-w-screen-2xl mx-auto px-4 py-6">
 
   <div class="flex items-baseline justify-between gap-4 flex-wrap mb-4">

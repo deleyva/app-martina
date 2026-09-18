@@ -103,6 +103,7 @@ def _capitulos_del_libro(libro):
                 "titulo": valor.nombre,
                 "detalle": valor.etiqueta_de_paginas,
                 "recorte_id": valor.pk,
+                "url": valor.get_viewer_url(),
             })
         else:
             filas.append({
@@ -111,6 +112,7 @@ def _capitulos_del_libro(libro):
                 "titulo": valor.title,
                 "detalle": "página",
                 "recorte_id": None,
+                "url": valor.url,
             })
     return filas
 
@@ -181,9 +183,21 @@ def importar(request):
             "documento_id", flat=True
         )
     )
+    # A qué libro va cada PDF, para que «Seguir» vuelva emparejado.
+    #
+    # Un recorte no sabe de libros —su sitio lo guarda el StreamField del
+    # libro—, así que se recorre al revés: de cada libro, qué documentos usan
+    # sus capítulos. Son pocos libros y se hace una vez por carga.
+    libro_de = {}
+    for libro in LibroDeEstudioPage.objects.live():
+        for bloque in libro.capitulos:
+            if bloque.block_type == "recorte" and bloque.value:
+                libro_de.setdefault(bloque.value.documento_id, libro.pk)
+
     for documento in documentos:
         documento.tiene_recortes = documento.pk in con_recortes
         documento.esta_restringido = documento.pk in restringidos
+        documento.libro_id = libro_de.get(documento.pk)
 
     return render(
         request,
@@ -285,8 +299,30 @@ def recortador(request, document_id):
     contexto.update(
         libros=LibroDeEstudioPage.objects.live().order_by("title"),
         paginas=RecursoPage.objects.live().order_by("title"),
+        pagina_inicial=_por_donde_ibas(documento),
     )
     return render(request, "musica/recortador.html", contexto)
+
+
+def _por_donde_ibas(documento):
+    """La página por la que conviene abrir: la siguiente a tu último recorte.
+
+    Trocear un método son varias sentadas. Abrir siempre por la 1 obliga a
+    avanzar a mano hasta la 30 cada vez que vuelves, y en un libro de 56 páginas
+    eso es más trabajo que el propio recorte.
+
+    Se calcula, no se guarda: el estado ya está en los recortes que hiciste, y
+    una preferencia por usuario y documento sería una tabla que mantener para
+    decir algo que ya se sabe.
+    """
+    ultimo = (
+        Recorte.objects.filter(documento=documento)
+        .order_by("-pagina_desde")
+        .first()
+    )
+    if ultimo is None:
+        return 1
+    return (ultimo.pagina_hasta or ultimo.pagina_desde) + 1
 
 
 def _rellenar(recorte, request):

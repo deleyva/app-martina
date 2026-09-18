@@ -587,3 +587,38 @@ def test_subir_un_pdf_lo_guarda_aligerado(client, profe, db):
 
     doc = Document.objects.get(title="Metodo pesado")
     assert doc.file.size < len(datos)
+
+
+# === Volver a un metodo a medias ===
+
+
+def test_el_recortador_abre_por_donde_lo_dejaste(client, profe, pdf, raiz):
+    """Abrir siempre por la 1 obliga a avanzar a mano hasta la 30 cada vez que
+    vuelves. En un libro de 56 paginas eso es mas trabajo que el recorte."""
+    client.force_login(profe)
+    _crear(client, pdf, nombre="Uno", pagina_desde="4", pagina_hasta="5")
+
+    html = client.get(reverse("musica:recortador", args=[pdf.pk])).content.decode()
+
+    assert 'data-pagina-inicial="6"' in html
+
+
+def test_sin_recortes_abre_por_la_primera(client, profe, pdf):
+    client.force_login(profe)
+
+    html = client.get(reverse("musica:recortador", args=[pdf.pk])).content.decode()
+
+    assert 'data-pagina-inicial="1"' in html
+
+
+def test_el_indice_recuerda_a_que_libro_va_cada_pdf(client, profe, pdf, raiz):
+    """Sin esto, volver a un metodo a medias te dejaba en el documento pero sin
+    libro, y habia que elegirlo otra vez."""
+    libro = _libro(raiz, "Metodo", "metodo-recuerda")
+    client.force_login(profe)
+    _crear(client, pdf, destino="libro", destino_id=str(libro.pk))
+
+    html = client.get(reverse("musica:importar")).content.decode()
+
+    assert f"?libro={libro.pk}" in html
+    assert "Seguir" in html
