@@ -42,6 +42,59 @@ logger = logging.getLogger(__name__)
 
 EXTENSIONES_PDF = (".pdf",)
 
+# La coleccion de Wagtail donde vive el material de esta app.
+#
+# Los dos sitios —apps. y blogs.— comparten un unico pool de documentos, y la
+# separacion la hacen las colecciones. Existen desde antes: «Biblioteca
+# musical» para lo de aqui y una `Blogspot — <departamento>` por cada blog.
+# Esta pantalla no las miraba, asi que un profesor de musica veia los PDF de
+# aleman, frances o matematicas mezclados con sus metodos.
+COLECCION_MUSICAL = "Biblioteca musical"
+
+
+def _coleccion_musical(crear=False):
+    """La coleccion de musica. Se crea solo al subir, nunca al listar.
+
+    Crearla desde un GET seria un efecto secundario escondido en una lectura:
+    abrir una pantalla no debe escribir en la base.
+    """
+    from wagtail.models import Collection
+
+    coleccion = Collection.objects.filter(name=COLECCION_MUSICAL).first()
+    if coleccion is None and crear:
+        raiz = Collection.get_first_root_node()
+        if raiz is not None:
+            coleccion = raiz.add_child(name=COLECCION_MUSICAL)
+    return coleccion
+
+
+def _pdf_de_esta_app():
+    """Los PDF que le incumben a la biblioteca musical.
+
+    Dos grupos, y el segundo no es un descuido:
+
+    - Los de «Biblioteca musical» y sus hijas, que es donde va lo de aqui.
+    - Los de la RAIZ, que es el cajon de sastre donde aterriza todo lo que se
+      sube sin elegir coleccion. Ahi estan hoy los metodos con los que se
+      trabaja, asi que excluirlos vaciaria la pantalla de lo util.
+
+    Lo que queda fuera son las colecciones de los blogs de departamento, que es
+    exactamente lo que no pinta nada aqui.
+    """
+    from wagtail.models import Collection
+
+    permitidas = []
+    raiz = Collection.get_first_root_node()
+    if raiz is not None:
+        permitidas.append(raiz.pk)
+    musical = _coleccion_musical()
+    if musical is not None:
+        permitidas += [c.pk for c in musical.get_descendants(inclusive=True)]
+
+    return Document.objects.filter(
+        file__iendswith=".pdf", collection_id__in=permitidas
+    )
+
 
 # === Ayudantes ===
 
@@ -171,10 +224,9 @@ def _lista(request, documento, **extra):
 @user_passes_test(es_profesor)
 def importar(request):
     """La portada del flujo: subir un PDF, crear un libro, seguir con lo empezado."""
-    documentos = (
-        Document.objects.filter(file__iendswith=".pdf")
-        .order_by("-created_at")[:40]
-    )
+    documentos = _pdf_de_esta_app().select_related("collection").order_by(
+        "-created_at"
+    )[:40]
     con_recortes = set(
         Recorte.objects.values_list("documento_id", flat=True).distinct()
     )
@@ -239,6 +291,9 @@ def subir_pdf(request):
     documento = Document.objects.create(
         title=titulo[:255] or fichero.name,
         file=ContentFile(datos, name=fichero.name),
+        # A su colección, no al cajón de sastre. Sin esto, cada método subido
+        # aquí caía en la raíz junto a los adjuntos de los 16 blogs.
+        collection=_coleccion_musical(crear=True),
     )
     logger.info("PDF subido %s: %s", documento.pk, informe)
     # Por `messages` y no en el parcial: la respuesta es una redirección, así
