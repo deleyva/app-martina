@@ -26,7 +26,10 @@ DEBUG = env.bool("DJANGO_DEBUG", False)
 # In Windows, this must be set to your system time zone.
 TIME_ZONE = "Europe/Madrid"
 # https://docs.djangoproject.com/en/dev/ref/settings/#language-code
-LANGUAGE_CODE = "en-us"
+# Castellano: es el idioma del centro. Manda en el admin de Wagtail para
+# quien no tenga idioma elegido en su perfil, y en los correos de aviso
+# de moderacion, que salian en ingles por este valor.
+LANGUAGE_CODE = "es"
 # https://docs.djangoproject.com/en/dev/ref/settings/#languages
 # from django.utils.translation import gettext_lazy as _
 # LANGUAGES = [

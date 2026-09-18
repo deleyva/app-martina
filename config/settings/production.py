@@ -194,4 +194,10 @@ SITE_ID = env.int("DJANGO_SITE_ID", default=1)
 OAUTH_DEBUG = True  # Para obtener más información de depuración
 
 # Wagtail
-WAGTAILADMIN_BASE_URL = "https://apps.iesmartinabescos.es/"
+# Sin barra final: las plantillas de aviso de Wagtail concatenan
+# `{{ base_url }}{% url ... %}`, asi que la barra producia
+# `https://.../` + `/cms/pages/866/edit/` = `//cms/...`, que no casa con
+# ninguna ruta y caia en el 404 del front. Apunta a blogs porque quien
+# recibe estos avisos son las moderadoras de los blogs; el admin de
+# Wagtail es el mismo en los dos dominios.
+WAGTAILADMIN_BASE_URL = "https://blogs.iesmartinabescos.es"
