@@ -126,15 +126,19 @@ def subir_imagen(nombre, titulo):
 
 def subir_documento(ruta_str, titulo):
     """Sube la tablatura (u otro documento) desde cualquier sitio del disco."""
-    cache = _cache_leer()
-    if ruta_str in cache:
-        return cache[ruta_str]
     ruta = Path(ruta_str).expanduser()
     if not ruta.exists():
         sys.exit(f"No está el fichero {ruta}")
+    # La clave del caché es la ruta RESUELTA, no lo que venga escrito: si no,
+    # `~/x.pdf` y `/Users/…/x.pdf` son dos entradas y el mismo fichero se sube
+    # dos veces, dejando documentos huérfanos en Wagtail (pasó el 2026-09-19).
+    clave = str(ruta.resolve())
+    cache = _cache_leer()
+    if clave in cache:
+        return cache[clave]
     cuerpo, tipo = _multipart({"title": titulo}, "file", ruta)
     salida = _peticion("/api/cms/upload-document", metodo="POST", cuerpo_multipart=cuerpo, tipo=tipo)
-    cache[ruta_str] = salida["id"]
+    cache[clave] = salida["id"]
     _cache_escribir(cache)
     print(f"    documento subido: {ruta.name} → id {salida['id']}")
     return salida["id"]
