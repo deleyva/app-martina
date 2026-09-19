@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Catálogo de repertorio{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-6">
+
+  <div class="mb-6">
+    <h1 class="text-3xl font-bold">Catálogo de repertorio</h1>
+    <p class="text-sm opacity-70 mt-1">
+      Datos de <a href="https://jamzone.musicwill.org/" target="_blank" rel="noopener"
+                  class="link link-primary">JamZone</a>, de
+      <a href="https://musicwill.org/" target="_blank" rel="noopener" class="link">Music Will</a>,
+      más tu propio repertorio. Los charts se ven en su web; aquí solo se busca.
+    </p>
+    {% if sincronizacion %}
+      <p class="text-xs mt-1 {% if not sincronizacion.ok %}text-error font-semibold{% else %}opacity-60{% endif %}">
+        {% if sincronizacion.ok %}
+          Última sincronización {% if sincronizacion.reciente %}hace un momento{% else %}hace {{ sincronizacion.momento|timesince }}{% endif %}:
+          {{ sincronizacion.recibidas }} canciones
+          {% if sincronizacion.campos_respetados %}
+            · {{ sincronizacion.campos_respetados }} campo{{ sincronizacion.campos_respetados|pluralize:"s" }}
+            corregido{{ sincronizacion.campos_respetados|pluralize:"s" }} a mano, respetado{{ sincronizacion.campos_respetados|pluralize:"s" }}
+          {% endif %}
+        {% else %}
+          ⚠ La última sincronización, {% if sincronizacion.reciente %}hace un momento{% else %}hace {{ sincronizacion.momento|timesince }}{% endif %}, falló.
+        {% endif %}
+      </p>
+    {% else %}
+      <p class="text-xs mt-1 opacity-60">Todavía no se ha sincronizado con JamZone.</p>
+    {% endif %}
+  </div>
+
+  <form id="filter-form" method="GET" action="{% url 'repertorio:catalogo' %}" role="search"
+        hx-get="{% url 'repertorio:catalogo' %}"
+        hx-target="#panel"
+        hx-select="#panel"
+        hx-swap="outerHTML"
+        hx-push-url="true"
+        hx-include="#filter-form"
+        hx-trigger="change, search">
+
+    <label class="input input-bordered flex items-center gap-2 w-full">
+      <span aria-hidden="true">🔎</span>
+      <input type="search" name="q" value="{{ texto }}" class="grow"
+             placeholder="Prueba: «de los 70 con 3 acordes al ukelele»"
+             aria-label="Buscar en el catálogo"
+             hx-get="{% url 'repertorio:catalogo' %}"
+             hx-trigger="keyup changed delay:300ms, search"
+             hx-target="#panel" hx-select="#panel" hx-swap="outerHTML"
+             hx-push-url="true" hx-include="#filter-form">
+    </label>
+
+    <noscript>
+      <button type="submit" class="btn btn-primary btn-sm mt-2">Aplicar filtros</button>
+    </noscript>
+
+    {% include "repertorio/partials/panel.html" %}
+  </form>
+</div>
+{% endblock %}
