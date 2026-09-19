@@ -74,3 +74,30 @@ class InterpretarConsultaTest(SimpleTestCase):
         _, chips, _ = interpretar_consulta("de los 70 con 3 acordes al ukelele")
         claves = {c["clave"] for c in chips}
         self.assertEqual(claves, {"decada", "num_acordes", "instrumento"})
+
+
+class ProgresionEnLaCajaTest(SimpleTestCase):
+    """La progresión escrita en la caja, conviviendo con los demás filtros."""
+
+    def test_sola(self):
+        filtros, chips, resto = interpretar_consulta("progresión I-V-vi-IV")
+        self.assertEqual(filtros["progresion"], ["I-V-vi-IV"])
+        self.assertEqual(resto, "")
+
+    def test_junto_a_decada_e_instrumento(self):
+        filtros, _, resto = interpretar_consulta("I-V-vi-IV de los 90 al ukelele")
+        self.assertEqual(filtros["progresion"], ["I-V-vi-IV"])
+        self.assertEqual(filtros["decada"], [1990])
+        self.assertEqual(filtros["instrumento"], ["Ukulele"])
+        self.assertEqual(resto, "")
+
+    def test_el_blues_de_12_compases_no_se_come_la_decada(self):
+        """El 12 del blues no puede leerse como una década."""
+        filtros, _, _ = interpretar_consulta("blues de 12 compases de los 60")
+        self.assertEqual(filtros["progresion"], ["12 Bar Blues"])
+        self.assertEqual(filtros["decada"], [1960])
+
+    def test_los_numeros_de_acordes_siguen_funcionando(self):
+        filtros, _, _ = interpretar_consulta("I-IV-V con 3 acordes")
+        self.assertEqual(filtros["progresion"], ["I-IV-V"])
+        self.assertEqual(filtros["num_acordes"], [3])

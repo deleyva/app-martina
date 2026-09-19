@@ -18,7 +18,7 @@ mientras se escribe.
   </div>
   {% endif %}
 
-  <div class="grid gap-4 lg:grid-cols-[16rem_1fr]">
+  <div class="grid gap-4 lg:grid-cols-[18rem_1fr]">
 
     <aside class="space-y-4">
       {% if facetas.decadas %}
@@ -69,6 +69,39 @@ mientras se escribe.
           </label>
           {% endfor %}
         </div>
+      </fieldset>
+      {% endif %}
+
+      {% if facetas.progresiones %}
+      <fieldset class="border border-base-300 rounded-box p-3">
+        <legend class="px-1 text-sm font-semibold">Progresión armónica</legend>
+        <div class="flex flex-col gap-1">
+          {% for f in facetas.progresiones %}
+          {% comment %}
+          Bloque de dos líneas y no una píldora: con el apodo («la de los cuatro
+          acordes») no cabe en una sola y se salía del panel, dejando el
+          recuento fuera de la pantalla.
+          {% endcomment %}
+          <label class="cursor-pointer block">
+            <input type="checkbox" name="progresion" value="{{ f.valor }}" class="peer sr-only"
+                   {% if f.marcada %}checked{% endif %}>
+            <span class="block rounded-btn border border-base-300 px-2 py-1
+                         peer-checked:bg-primary peer-checked:border-primary peer-checked:text-primary-content">
+              <span class="flex items-baseline justify-between gap-2">
+                <span class="font-mono text-xs break-all">{{ f.etiqueta }}</span>
+                <span class="text-xs opacity-60 shrink-0">{{ f.total }}</span>
+              </span>
+              {% if f.nombre %}
+                <span class="block text-xs opacity-70 leading-tight">{{ f.nombre }}</span>
+              {% endif %}
+            </span>
+          </label>
+          {% endfor %}
+        </div>
+        <p class="text-xs opacity-60 mt-2 leading-tight break-words">
+          Los giros van juntos: <span class="font-mono">vi-IV-I-V</span> cuenta
+          como <span class="font-mono">I-V-vi-IV</span>.
+        </p>
       </fieldset>
       {% endif %}
 

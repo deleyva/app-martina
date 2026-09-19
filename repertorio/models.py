@@ -19,6 +19,7 @@ from django.db import models
 from django.utils.text import slugify
 
 from musica.models import q_texto
+from repertorio import progresiones
 
 # Los tres campos que escribe Jesús y que la importación no puede pisar nunca.
 # Vive aquí, en una constante, para que el importador no tenga que acordarse y
@@ -132,6 +133,10 @@ class Cancion(models.Model):
     num_acordes = models.PositiveSmallIntegerField(null=True, blank=True, db_index=True)
     tempo = models.PositiveSmallIntegerField(null=True, blank=True)
     progresion_romana = models.CharField(max_length=120, blank=True)
+    # Forma canónica de la progresión, plegando los giros: `vi-IV-I-V` y
+    # `IV-I-V-vi` comparten familia con `I-V-vi-IV`. Vacía cuando el origen trae
+    # un inventario de acordes en vez de una progresión. Ver `progresiones.py`.
+    progresion_familia = models.CharField(max_length=120, blank=True, db_index=True)
     g_rated = models.BooleanField(default=False)
 
     spotify_id = models.CharField(max_length=64, blank=True)
@@ -170,6 +175,7 @@ class Cancion(models.Model):
 
     def save(self, *args, **kwargs):
         self.decada = (self.anio // 10) * 10 if self.anio else None
+        self.progresion_familia = progresiones.familia(self.progresion_romana)[:120]
         super().save(*args, **kwargs)
 
     # -- Correcciones a mano ------------------------------------------------
@@ -241,6 +247,8 @@ class Cancion(models.Model):
             qs = qs.filter(num_acordes__lte=filtros["num_acordes_max"])
         if filtros.get("num_acordes_min"):
             qs = qs.filter(num_acordes__gte=filtros["num_acordes_min"])
+        if filtros.get("progresion"):
+            qs = qs.filter(progresion_familia__in=_lista(filtros["progresion"]))
         if filtros.get("genero"):
             qs = qs.filter(generos__slug__in=_lista(filtros["genero"]))
         if filtros.get("idioma"):
@@ -342,6 +350,24 @@ class Cancion(models.Model):
             for codigo, etiqueta in NIVELES
         ]
 
+        base_progresion = cls.buscar(**sin("progresion"))
+        familias = (
+            base_progresion.exclude(progresion_familia="")
+            .values("progresion_familia")
+            .annotate(total=models.Count("id"))
+            .order_by("-total", "progresion_familia")[:12]
+        )
+        progresiones_facetas = [
+            {
+                "valor": fila["progresion_familia"],
+                "etiqueta": fila["progresion_familia"],
+                "nombre": progresiones.nombre(fila["progresion_familia"]),
+                "total": fila["total"],
+                "marcada": marcada("progresion", fila["progresion_familia"]),
+            }
+            for fila in familias
+        ]
+
         idiomas = [
             {
                 "valor": fila["idiomas__slug"],
@@ -362,6 +388,7 @@ class Cancion(models.Model):
             "instrumentos": [f for f in instrumentos if f["total"] or f["marcada"]],
             "niveles": [f for f in niveles if f["total"] or f["marcada"]],
             "idiomas": idiomas,
+            "progresiones": progresiones_facetas,
         }
 
 

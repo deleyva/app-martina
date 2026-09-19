@@ -14,6 +14,8 @@ esos resultados.
 
 import re
 
+from repertorio import progresiones
+
 NUMEROS = {
     "uno": 1, "una": 1, "dos": 2, "tres": 3, "cuatro": 4, "cinco": 5,
     "seis": 6, "siete": 7, "ocho": 8, "nueve": 9, "diez": 10,
@@ -85,6 +87,21 @@ def interpretar_consulta(texto):
             return " "
 
         restante = re.sub(patron, sustituir, restante, flags=re.IGNORECASE)
+
+    # --- Progresión armónica. Va la PRIMERA porque sus grados romanos
+    # («I-V-vi-IV») contienen dígitos romanos que ningún otro patrón debe tocar,
+    # y porque «12 bar blues» lleva un número que si no se comería la década. ---
+    # Se busca sobre el texto ORIGINAL, no sobre `restante`, que ya va en
+    # minúsculas: en los grados romanos la caja distingue mayor de menor, así
+    # que bajarlo todo convertía `I-V-vi-IV` en `i-v-vi-iv` y no encontraba nada.
+    familia, trozo = progresiones.desde_texto(texto)
+    if familia:
+        filtros["progresion"] = [familia]
+        chips.append(
+            {"clave": "progresion", "valor": familia, "etiqueta": progresiones.etiqueta(familia)}
+        )
+        restante = re.sub(re.escape(trozo.lower()), " ", restante, count=1)
+        restante = restante.replace("progresion", " ").replace("progresión", " ")
 
     # --- Número de acordes. Va ANTES que la década para que «3 acordes» no se
     # lea como un año, y para que «los 70 con 4 acordes» no pierda el 4. ---
