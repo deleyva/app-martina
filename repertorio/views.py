@@ -14,6 +14,7 @@ PARAMETROS = {
     "acordes": "num_acordes",
     "instrumento": "instrumento",
     "nivel": "nivel",
+    "progresion": "progresion",
     "idioma": "idioma",
     "curso": "curso",
     "origen": "origen",
