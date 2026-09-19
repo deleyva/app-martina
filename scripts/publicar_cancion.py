@@ -189,10 +189,26 @@ def publicar(nombre, publicar_ya=False):
         payload["featured_image_id"] = subir_imagen(
             datos["imagen"], datos.get("imagen_titulo", datos["imagen"])
         )
+    # Adjuntos: la tablatura de Songsterr y, desde 2026-09-19, cualquier otro
+    # documento —el chart de JamZone, por ejemplo—. Van en `adjuntos:` separados
+    # por comas, cada uno con su nombre visible tras un `|` si se quiere:
+    #   adjuntos: ~/charts/saturn.pdf|Chart de banda (JamZone), ~/otro.pdf
+    # Cuentan como material de estudio, así que el nombre se lee en la sesión.
+    adjuntos = []
     if datos.get("tablatura"):
-        payload["attachment_ids"] = [
-            subir_documento(datos["tablatura"], f"{datos['titulo']} — tablatura")
-        ]
+        adjuntos.append((datos["tablatura"], f"{datos['titulo']} — tablatura"))
+    for trozo in (datos.get("adjuntos") or "").split(","):
+        trozo = trozo.strip()
+        if not trozo:
+            continue
+        ruta_adjunto, _, titulo_adjunto = trozo.partition("|")
+        ruta_adjunto = ruta_adjunto.strip()
+        adjuntos.append((
+            ruta_adjunto,
+            titulo_adjunto.strip() or f"{datos['titulo']} — {Path(ruta_adjunto).stem}",
+        ))
+    if adjuntos:
+        payload["attachment_ids"] = [subir_documento(r, t) for r, t in adjuntos]
 
     page_id = datos.get("page_id")
     if page_id:
