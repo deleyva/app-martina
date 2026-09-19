@@ -26,6 +26,18 @@
         <a href="{% url 'musica:recortador' pdf_del_libro.pk %}?libro={{ page.pk }}"
            class="btn btn-sm btn-ghost">✂️ Seguir troceando</a>
         {% endif %}
+        {% comment %}
+        Aquí los capítulos son bloques de un StreamField, no páginas: se
+        arrastran en el editor de la página, no en el explorador. El campo
+        ya lo dice al llegar, pero llegar es justo lo que costaba.
+        {% endcomment %}
+        {% if capitulos|length > 1 %}
+        <a href="{% url 'wagtailadmin_pages:edit' page.pk %}"
+           class="btn btn-sm btn-ghost"
+           title="Arrastra los capítulos en el campo «Capitulos» para cambiar el orden de estudio">
+            <span aria-hidden="true">☰</span> Reordenar capítulos
+        </a>
+        {% endif %}
         <a href="{% url 'musica:importar' %}" class="btn btn-sm btn-ghost">Importar</a>
         <a href="{% url 'clases:class_session_list' %}" class="btn btn-sm btn-ghost">
             Asignar a un grupo

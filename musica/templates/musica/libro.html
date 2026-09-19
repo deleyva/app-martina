@@ -74,6 +74,25 @@ when the book is a music library descendant.
                     Editar
                 </a>
                 {% endif %}
+                {% comment %}
+                Aquí los capítulos son páginas hijas, así que el orden es el del
+                árbol y se cambia en el explorador de Wagtail, no en el editor.
+                Ese modo se llama allí «Ordenar menú» y vive dentro del menú de
+                acciones: nadie lo encuentra buscando «reordenar». Este atajo
+                lleva directo, con el modo ya activado.
+
+                Se enseña a `es_profesor` y no a `is_staff` porque el
+                profesorado invitado tiene permisos de Wagtail y puede hacerlo,
+                aunque no sea staff. Y solo con más de un capítulo: reordenar
+                uno solo no significa nada.
+                {% endcomment %}
+                {% if es_profesor and capitulos|length > 1 %}
+                <a href="{% url 'wagtailadmin_explore' page.id %}?ordering=ord"
+                   class="btn btn-sm btn-ghost"
+                   title="Arrastra los capítulos para cambiar el orden del libro">
+                    <span aria-hidden="true">☰</span> Reordenar
+                </a>
+                {% endif %}
             </div>
             {% endif %}
         </div>
