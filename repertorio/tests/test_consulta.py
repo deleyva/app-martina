@@ -101,3 +101,26 @@ class ProgresionEnLaCajaTest(SimpleTestCase):
         filtros, _, _ = interpretar_consulta("I-IV-V con 3 acordes")
         self.assertEqual(filtros["progresion"], ["I-IV-V"])
         self.assertEqual(filtros["num_acordes"], [3])
+
+
+class TonalidadEnLaCajaTest(SimpleTestCase):
+    def test_nota_en_castellano(self):
+        filtros, _, resto = interpretar_consulta("en sol")
+        self.assertEqual(filtros["tonalidad"], ["G"])
+        self.assertEqual(resto, "")
+
+    def test_junto_a_otros_filtros(self):
+        filtros, _, _ = interpretar_consulta("de los 80 al ukelele en la menor")
+        self.assertEqual(filtros["tonalidad"], ["Ami"])
+        self.assertEqual(filtros["decada"], [1980])
+        self.assertEqual(filtros["instrumento"], ["Ukulele"])
+
+    def test_modo_suelto(self):
+        filtros, _, _ = interpretar_consulta("algo fácil en menor")
+        self.assertEqual(filtros["modo"], ["menor"])
+        self.assertEqual(filtros["nivel"], ["Beginner"])
+
+    def test_la_bamba_sigue_siendo_una_busqueda_de_texto(self):
+        filtros, _, resto = interpretar_consulta("la bamba")
+        self.assertNotIn("tonalidad", filtros)
+        self.assertEqual(resto, "bamba")
