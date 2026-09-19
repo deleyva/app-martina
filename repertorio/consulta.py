@@ -14,7 +14,7 @@ esos resultados.
 
 import re
 
-from repertorio import progresiones
+from repertorio import progresiones, tonalidades
 
 NUMEROS = {
     "uno": 1, "una": 1, "dos": 2, "tres": 3, "cuatro": 4, "cinco": 5,
@@ -102,6 +102,23 @@ def interpretar_consulta(texto):
         )
         restante = re.sub(re.escape(trozo.lower()), " ", restante, count=1)
         restante = restante.replace("progresion", " ").replace("progresión", " ")
+
+    # --- Tonalidad. Va sobre el texto original por la misma razón que la
+    # progresión: `Ami` y `ami` no son lo mismo. Y antes que la década, porque
+    # «en Do» no debe cruzarse con nada numérico. ---
+    tono, trozo_tono = tonalidades.desde_texto(texto)
+    if tono:
+        filtros["tonalidad"] = [tono]
+        chips.append(
+            {"clave": "tonalidad", "valor": tono, "etiqueta": tonalidades.etiqueta(tono)}
+        )
+        restante = re.sub(re.escape(trozo_tono.lower()), " ", restante, count=1)
+    else:
+        modo = tonalidades.modo_desde_texto(texto)
+        if modo:
+            filtros["modo"] = [modo]
+            chips.append({"clave": "modo", "valor": modo, "etiqueta": modo.capitalize()})
+            restante = re.sub(r"\b(en\s+)?(mayor|menor)(es)?\b", " ", restante, count=1)
 
     # --- Número de acordes. Va ANTES que la década para que «3 acordes» no se
     # lea como un año, y para que «los 70 con 4 acordes» no pierda el 4. ---

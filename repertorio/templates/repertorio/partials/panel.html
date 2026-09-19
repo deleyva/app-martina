@@ -72,6 +72,45 @@ mientras se escribe.
       </fieldset>
       {% endif %}
 
+      {% if facetas.modos %}
+      <fieldset class="border border-base-300 rounded-box p-3">
+        <legend class="px-1 text-sm font-semibold">Modo</legend>
+        <div class="flex flex-wrap gap-1">
+          {% for f in facetas.modos %}
+          <label class="cursor-pointer">
+            <input type="checkbox" name="modo" value="{{ f.valor }}" class="peer sr-only"
+                   {% if f.marcada %}checked{% endif %}>
+            <span class="badge badge-outline peer-checked:bg-primary peer-checked:border-primary peer-checked:text-primary-content">
+              {{ f.etiqueta }} <span class="opacity-60 ml-1">{{ f.total }}</span>
+            </span>
+          </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+      {% endif %}
+
+      {% if facetas.tonalidades %}
+      <fieldset class="border border-base-300 rounded-box p-3">
+        <legend class="px-1 text-sm font-semibold">Tonalidad</legend>
+        <div class="flex flex-wrap gap-1">
+          {% for f in facetas.tonalidades %}
+          <label class="cursor-pointer">
+            <input type="checkbox" name="tonalidad" value="{{ f.valor }}" class="peer sr-only"
+                   {% if f.marcada %}checked{% endif %}>
+            <span class="badge badge-outline peer-checked:bg-primary peer-checked:border-primary peer-checked:text-primary-content"
+                  title="{{ f.cifrado }}">
+              {{ f.etiqueta }} <span class="opacity-60 ml-1">{{ f.total }}</span>
+            </span>
+          </label>
+          {% endfor %}
+        </div>
+        <p class="text-xs opacity-60 mt-2 leading-tight break-words">
+          Cuenta cualquiera de las dos versiones, así que «Do» incluye lo que
+          está en Do solo en la tonalidad fácil.
+        </p>
+      </fieldset>
+      {% endif %}
+
       {% if facetas.progresiones %}
       <fieldset class="border border-base-300 rounded-box p-3">
         <legend class="px-1 text-sm font-semibold">Progresión armónica</legend>

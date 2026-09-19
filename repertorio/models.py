@@ -19,7 +19,7 @@ from django.db import models
 from django.utils.text import slugify
 
 from musica.models import q_texto
-from repertorio import progresiones
+from repertorio import progresiones, tonalidades
 
 # Los tres campos que escribe Jesús y que la importación no puede pisar nunca.
 # Vive aquí, en una constante, para que el importador no tenga que acordarse y
@@ -271,6 +271,10 @@ class Cancion(models.Model):
             )
         if filtros.get("nivel"):
             condiciones_de_version["versiones__nivel__in"] = _lista(filtros["nivel"])
+        if filtros.get("tonalidad"):
+            condiciones_de_version["versiones__tonalidad__in"] = _lista(filtros["tonalidad"])
+        if filtros.get("modo"):
+            condiciones_de_version["versiones__es_menor"] = _lista(filtros["modo"])[0] == "menor"
         if condiciones_de_version:
             qs = qs.filter(**condiciones_de_version)
 
@@ -350,6 +354,34 @@ class Cancion(models.Model):
             for codigo, etiqueta in NIVELES
         ]
 
+        base_tonalidad = cls.buscar(**sin("tonalidad"))
+        tonalidades_facetas = [
+            {
+                "valor": fila["versiones__tonalidad"],
+                "etiqueta": tonalidades.nombre(fila["versiones__tonalidad"]),
+                "cifrado": fila["versiones__tonalidad"],
+                "total": fila["total"],
+                "marcada": marcada("tonalidad", fila["versiones__tonalidad"]),
+            }
+            for fila in base_tonalidad.exclude(versiones__tonalidad="")
+            .values("versiones__tonalidad")
+            .annotate(total=models.Count("id", distinct=True))
+            .order_by("-total", "versiones__tonalidad")[:14]
+        ]
+
+        base_modo = cls.buscar(**sin("modo"))
+        modos = [
+            {
+                "valor": codigo,
+                "etiqueta": etiqueta_modo,
+                "total": base_modo.filter(versiones__es_menor=(codigo == "menor"))
+                .distinct()
+                .count(),
+                "marcada": marcada("modo", codigo),
+            }
+            for codigo, etiqueta_modo in [("mayor", "Mayor"), ("menor", "Menor")]
+        ]
+
         base_progresion = cls.buscar(**sin("progresion"))
         familias = (
             base_progresion.exclude(progresion_familia="")
@@ -389,6 +421,8 @@ class Cancion(models.Model):
             "niveles": [f for f in niveles if f["total"] or f["marcada"]],
             "idiomas": idiomas,
             "progresiones": progresiones_facetas,
+            "tonalidades": tonalidades_facetas,
+            "modos": [m for m in modos if m["total"] or m["marcada"]],
         }
 
 
@@ -407,13 +441,22 @@ class Version(models.Model):
     cancion = models.ForeignKey(Cancion, on_delete=models.CASCADE, related_name="versiones")
     version = models.CharField(max_length=20, choices=VERSIONES)
     nivel = models.CharField(max_length=20, choices=NIVELES, blank=True, db_index=True)
-    tonalidad = models.CharField(max_length=20, blank=True)
+    tonalidad = models.CharField(max_length=20, blank=True, db_index=True)
+    # Se deriva de la tonalidad al guardar. Existe como columna para que «en
+    # menor» pueda ir en el MISMO `filter()` que el instrumento y el nivel: con
+    # un `exclude()` aparte, «ukelele en mayor» pasaría a significar «tiene
+    # versión de ukelele y tiene alguna versión mayor», que no es lo mismo.
+    es_menor = models.BooleanField(default=False, db_index=True)
     acordes = models.JSONField(default=list, blank=True)
     instrumentos = models.JSONField(default=list, blank=True)
 
     class Meta:
         unique_together = [("cancion", "version")]
         ordering = ["version"]
+
+    def save(self, *args, **kwargs):
+        self.es_menor = tonalidades.es_menor(self.tonalidad)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.cancion.titulo} ({self.get_version_display()})"

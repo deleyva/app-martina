@@ -15,6 +15,8 @@ PARAMETROS = {
     "instrumento": "instrumento",
     "nivel": "nivel",
     "progresion": "progresion",
+    "tonalidad": "tonalidad",
+    "modo": "modo",
     "idioma": "idioma",
     "curso": "curso",
     "origen": "origen",
