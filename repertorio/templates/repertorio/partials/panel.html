@@ -1,0 +1,208 @@
+{% comment %}
+Facetas + resultados en un solo contenedor. Se intercambia entero en cada
+petición HTMX, de modo que los recuentos de las píldoras siempre corresponden a
+lo que se está viendo. La caja de búsqueda queda fuera, así no pierde el foco
+mientras se escribe.
+{% endcomment %}
+<div id="panel" class="mt-4">
+
+  {% if chips %}
+  <div class="flex flex-wrap items-center gap-2 mb-4">
+    <span class="text-sm opacity-70">He entendido:</span>
+    {% for chip in chips %}
+      <span class="badge badge-primary badge-lg gap-1">{{ chip.etiqueta }}</span>
+    {% endfor %}
+    {% if resto %}
+      <span class="badge badge-ghost badge-lg">texto: «{{ resto }}»</span>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="grid gap-4 lg:grid-cols-[16rem_1fr]">
+
+    <aside class="space-y-4">
+      {% if facetas.decadas %}
+      <fieldset class="border border-base-300 rounded-box p-3">
+        <legend class="px-1 text-sm font-semibold">Década</legend>
+        <div class="flex flex-wrap gap-1">
+          {% for f in facetas.decadas %}
+          <label class="cursor-pointer">
+            <input type="checkbox" name="decada" value="{{ f.valor }}" class="peer sr-only"
+                   {% if f.marcada %}checked{% endif %}>
+            <span class="badge badge-outline peer-checked:bg-primary peer-checked:border-primary peer-checked:text-primary-content">
+              {{ f.etiqueta }} <span class="opacity-60 ml-1">{{ f.total }}</span>
+            </span>
+          </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+      {% endif %}
+
+      {% if facetas.acordes %}
+      <fieldset class="border border-base-300 rounded-box p-3">
+        <legend class="px-1 text-sm font-semibold">Nº de acordes</legend>
+        <div class="flex flex-wrap gap-1">
+          {% for f in facetas.acordes %}
+          <label class="cursor-pointer">
+            <input type="checkbox" name="acordes" value="{{ f.valor }}" class="peer sr-only"
+                   {% if f.marcada %}checked{% endif %}>
+            <span class="badge badge-outline peer-checked:bg-primary peer-checked:border-primary peer-checked:text-primary-content">
+              {{ f.etiqueta }} <span class="opacity-60 ml-1">{{ f.total }}</span>
+            </span>
+          </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+      {% endif %}
+
+      {% if facetas.instrumentos %}
+      <fieldset class="border border-base-300 rounded-box p-3">
+        <legend class="px-1 text-sm font-semibold">Con chart de</legend>
+        <div class="flex flex-wrap gap-1">
+          {% for f in facetas.instrumentos %}
+          <label class="cursor-pointer">
+            <input type="checkbox" name="instrumento" value="{{ f.valor }}" class="peer sr-only"
+                   {% if f.marcada %}checked{% endif %}>
+            <span class="badge badge-outline peer-checked:bg-primary peer-checked:border-primary peer-checked:text-primary-content">
+              {{ f.etiqueta }} <span class="opacity-60 ml-1">{{ f.total }}</span>
+            </span>
+          </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+      {% endif %}
+
+      {% if facetas.niveles %}
+      <fieldset class="border border-base-300 rounded-box p-3">
+        <legend class="px-1 text-sm font-semibold">Nivel</legend>
+        <div class="flex flex-wrap gap-1">
+          {% for f in facetas.niveles %}
+          <label class="cursor-pointer">
+            <input type="checkbox" name="nivel" value="{{ f.valor }}" class="peer sr-only"
+                   {% if f.marcada %}checked{% endif %}>
+            <span class="badge badge-outline peer-checked:bg-primary peer-checked:border-primary peer-checked:text-primary-content">
+              {{ f.etiqueta }} <span class="opacity-60 ml-1">{{ f.total }}</span>
+            </span>
+          </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+      {% endif %}
+
+      {% if facetas.idiomas %}
+      <fieldset class="border border-base-300 rounded-box p-3">
+        <legend class="px-1 text-sm font-semibold">Idioma</legend>
+        <div class="flex flex-wrap gap-1">
+          {% for f in facetas.idiomas %}
+          <label class="cursor-pointer">
+            <input type="checkbox" name="idioma" value="{{ f.valor }}" class="peer sr-only"
+                   {% if f.marcada %}checked{% endif %}>
+            <span class="badge badge-outline peer-checked:bg-primary peer-checked:border-primary peer-checked:text-primary-content">
+              {{ f.etiqueta }} <span class="opacity-60 ml-1">{{ f.total }}</span>
+            </span>
+          </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+      {% endif %}
+
+      <label class="cursor-pointer flex items-center gap-2 px-1">
+        <input type="checkbox" name="favorito" value="1" class="checkbox checkbox-sm"
+               {% if request.GET.favorito %}checked{% endif %}>
+        <span class="text-sm">Solo favoritas</span>
+      </label>
+
+      {% if hay_filtros %}
+        <a href="{% url 'repertorio:catalogo' %}" class="btn btn-ghost btn-sm w-full">Limpiar filtros</a>
+      {% endif %}
+    </aside>
+
+    <section>
+      <p class="text-sm opacity-70 mb-3" aria-live="polite">
+        {% comment %}`pluralize` daría «canciónes»: el plural español pierde la tilde.{% endcomment %}
+        {{ total }} {% if total == 1 %}canción{% else %}canciones{% endif %}
+      </p>
+
+      {% if not pagina.object_list %}
+        <div class="alert">
+          <span>No hay ninguna canción con esos criterios. Prueba a quitar alguna píldora.</span>
+        </div>
+      {% endif %}
+
+      <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {% for cancion in pagina %}
+        <article class="card card-compact bg-base-100 border border-base-300">
+          <div class="card-body">
+            <h2 class="card-title text-base leading-snug">
+              {{ cancion.titulo }}
+              {% if cancion.favorito %}<span title="Favorita">⭐</span>{% endif %}
+            </h2>
+            <p class="text-sm opacity-70">
+              {% for a in cancion.artistas.all %}{{ a.nombre }}{% if not forloop.last %}, {% endif %}{% endfor %}
+              {% if cancion.anio %} · {{ cancion.anio }}{% endif %}
+            </p>
+
+            <div class="flex flex-wrap gap-1 text-xs">
+              {% if cancion.num_acordes %}
+                <span class="badge badge-sm">{{ cancion.num_acordes }} acorde{{ cancion.num_acordes|pluralize:"s" }}</span>
+              {% endif %}
+              {% if cancion.progresion_romana %}
+                <span class="badge badge-sm badge-outline font-mono">{{ cancion.progresion_romana }}</span>
+              {% endif %}
+              {% if cancion.tempo %}<span class="badge badge-sm badge-ghost">{{ cancion.tempo }} bpm</span>{% endif %}
+            </div>
+
+            {% for v in cancion.versiones.all %}
+            <div class="text-xs border-t border-base-200 pt-2 mt-1">
+              <span class="font-semibold">{{ v.get_version_display }}</span>
+              {% if v.tonalidad %} · {{ v.tonalidad }}{% endif %}
+              {% if v.nivel %} · {{ v.get_nivel_display }}{% endif %}
+              <div class="opacity-70 mt-1">{{ v.instrumentos|join:" · " }}</div>
+            </div>
+            {% endfor %}
+
+            {% if cancion.notas %}
+              <p class="text-xs bg-base-200 rounded p-2 mt-1">{{ cancion.notas|truncatewords:25 }}</p>
+            {% endif %}
+
+            <div class="card-actions mt-2">
+              {% if cancion.url_jamzone %}
+                <a href="{{ cancion.url_jamzone }}" target="_blank" rel="noopener"
+                   class="btn btn-primary btn-xs">Ver chart ↗</a>
+              {% endif %}
+              {% if cancion.url_spotify %}
+                <a href="{{ cancion.url_spotify }}" target="_blank" rel="noopener"
+                   class="btn btn-ghost btn-xs">Spotify</a>
+              {% endif %}
+              {% if cancion.url_youtube %}
+                <a href="{{ cancion.url_youtube }}" target="_blank" rel="noopener"
+                   class="btn btn-ghost btn-xs">Vídeo</a>
+              {% endif %}
+            </div>
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+
+      {% if pagina.has_other_pages %}
+      <div class="join mt-6 flex justify-center">
+        {% if pagina.has_previous %}
+          <button type="button" class="join-item btn btn-sm"
+                  hx-get="?page={{ pagina.previous_page_number }}"
+                  hx-target="#panel" hx-select="#panel" hx-swap="outerHTML"
+                  hx-push-url="true" hx-include="#filter-form">«</button>
+        {% endif %}
+        <span class="join-item btn btn-sm btn-disabled">
+          {{ pagina.number }} / {{ pagina.paginator.num_pages }}
+        </span>
+        {% if pagina.has_next %}
+          <button type="button" class="join-item btn btn-sm"
+                  hx-get="?page={{ pagina.next_page_number }}"
+                  hx-target="#panel" hx-select="#panel" hx-swap="outerHTML"
+                  hx-push-url="true" hx-include="#filter-form">»</button>
+        {% endif %}
+      </div>
+      {% endif %}
+    </section>
+  </div>
+</div>

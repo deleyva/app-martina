@@ -82,6 +82,7 @@ urlpatterns = [
     path("programacion/", include("programacion.urls", namespace="programacion")),
     # Herramientas de autoría musical: la pantalla de recorte de PDF
     path("musica/", include("musica.urls", namespace="musica")),
+    path("canciones/", include("repertorio.urls", namespace="repertorio")),
     # CMS custom views (filtros de partituras)
     path("", include("cms.urls")),
     # music-pills integrado en Wagtail CMS - accesible via /cms/ y páginas públicas

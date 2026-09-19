@@ -132,10 +132,20 @@ LOCAL_APPS = [
     "analytics",
     "content_hub",  # Sistema flexible de gestión de contenido musical (grafo de conocimiento)
     "programacion",  # Programación didáctica: planes por trimestre, cobertura y recomendaciones
+    "repertorio",  # Catálogo de repertorio consultable (JamZone importado + propio)
     # Your stuff: custom apps go here
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
+
+# JamZone (Music Will): endpoint GROQ del CMS Sanity que hay detrás de su web.
+# Va como setting con valor por defecto y NO como variable de entorno a
+# propósito: `just deploy-production` solo copia los `.envs` que existan en
+# local, así que una variable nueva no llegaría sola al servidor.
+JAMZONE_SANITY_URL = env(
+    "JAMZONE_SANITY_URL",
+    default="https://teha7qd2.api.sanity.io/v2025-09-25/data/query/production",
+)
 
 # Spotify API settings
 # ------------------------------------------------------------------------------
