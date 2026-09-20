@@ -10,10 +10,17 @@ cuanto uno de los dos cambiara.
 
     <h2 class="card-title text-base">Preparar desde los libros del grupo</h2>
 
-    {% if propuesta %}
-      <p class="text-sm text-base-content/70">
-        Esto es lo siguiente que le toca a {{ session.group.name }}, en el orden de la clase:
-      </p>
+    {% if propuesta or sin_propuesta %}
+      {% if propuesta %}
+        <p class="text-sm text-base-content/70">
+          Esto es lo siguiente que le toca a {{ session.group.name }}, en el orden de la clase:
+        </p>
+      {% else %}
+        <p class="text-sm text-base-content/70">
+          Los libros de {{ session.group.name }} no tienen nada pendiente que proponer,
+          pero puedes coger de ellos lo que quieras:
+        </p>
+      {% endif %}
 
       <form method="post" action="{% url 'clases:class_session_prepare' session.pk %}" class="flex flex-col gap-2">
         {% csrf_token %}
@@ -73,6 +80,35 @@ cuanto uno de los dos cambiara.
             </details>
           </div>
         {% endfor %}
+
+        {% if sin_propuesta %}
+          {% comment %}
+          Los libros que hoy no proponen nada: terminados, o con su siguiente ya
+          en la clase. Siguen siendo libros del grupo, así que sus capítulos
+          tienen que estar a mano; sin esto, un libro terminado se volvía
+          inalcanzable desde aquí.
+          {% endcomment %}
+          <div class="border-t border-base-300 mt-2 pt-2">
+            <p class="text-xs text-base-content/60 mb-1">
+              Sin nada pendiente que proponer, pero puedes coger de ellos:
+            </p>
+            {% for group_book in sin_propuesta %}
+              <details class="ml-2"
+                       hx-get="{% url 'clases:class_session_book_picker' session.pk %}?group_book={{ group_book.pk }}"
+                       hx-trigger="toggle once"
+                       hx-target="find .cuerpo-del-libro"
+                       hx-swap="innerHTML">
+                <summary class="text-xs text-primary cursor-pointer select-none py-1">
+                  <span class="badge badge-outline badge-xs mr-1">{{ group_book.get_seccion_display }}</span>
+                  Elegir de «{{ group_book.libro.title }}»
+                </summary>
+                <div class="cuerpo-del-libro">
+                  <div class="py-2"><span class="loading loading-dots loading-sm"></span></div>
+                </div>
+              </details>
+            {% endfor %}
+          </div>
+        {% endif %}
 
         <button type="submit" class="btn btn-primary btn-sm self-start mt-1">
           Añadir a la sesión

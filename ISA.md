@@ -3544,7 +3544,12 @@ perdió al sustituirla por la propuesta.
 - De punta a punta en el navegador: tres propuestas + «2. Pitch and melody»
   elegido a mano → «4 elementos añadidos» y los cuatro en el contenido de la
   sesión, cada uno con su sección y su capítulo.
-- `pytest clases` → 123 passed.
+- **«De cada libro», también del terminado** — un libro sin nada pendiente
+  conserva su desplegable bajo «Sin nada pendiente que proponer, pero puedes
+  coger de ellos». Comprobado en Chrome con un grupo de dos libros, uno de
+  ellos dado por visto entero, y con
+  `test_un_libro_sin_nada_pendiente_conserva_su_desplegable`.
+- `pytest clases` → 124 passed.
 
 ### Decisiones
 

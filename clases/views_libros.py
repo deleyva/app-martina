@@ -376,12 +376,25 @@ def class_session_prepare(request, pk):
 def class_session_prepare_preview(request, pk):
     """Qué metería el botón de preparar, antes de pulsarlo."""
     session = get_object_or_404(ClassSession, pk=pk, teacher=request.user)
+    propuesta = libros_de_grupo.previsualizar_sesion(session.group, session=session)
+
+    # Un libro terminado, o cuyo siguiente ya está en la clase, desaparece de la
+    # propuesta. Sin esto se llevaba por delante su desplegable, y con él la
+    # única puerta a sus capítulos: «de cada libro» incluye los que hoy no
+    # tienen nada que proponer.
+    con_propuesta = {fila["group_book"].pk for fila in propuesta}
+    sin_propuesta = [
+        gb for gb in libros_de_grupo.libros_activos(session.group)
+        if gb.pk not in con_propuesta
+    ]
+
     return render(
         request,
         "clases/class_sessions/partials/preparar.html",
         {
             "session": session,
-            "propuesta": libros_de_grupo.previsualizar_sesion(session.group, session=session),
+            "propuesta": propuesta,
+            "sin_propuesta": sin_propuesta,
             "secciones": GroupBook.SECCIONES,
         },
     )

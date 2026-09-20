@@ -129,3 +129,31 @@ def test_el_formulario_mete_lo_marcado(client, profesor, sesion, group_book):
         "cartel",
         "portada",
     ]
+
+
+def test_un_libro_sin_nada_pendiente_conserva_su_desplegable(
+    client, profesor, sesion, group_book
+):
+    """«Un desplegable por capítulo de CADA libro», también del terminado.
+
+    Un libro cuyo siguiente ya está en la clase desaparece de la propuesta. Si
+    con él se fuera su desplegable, sus capítulos dejarían de ser alcanzables
+    justo cuando más falta hace cogerlos a mano.
+    """
+    client.force_login(profesor)
+    filas = libros_de_grupo.enumerar(group_book)
+    # Todo el libro dado por visto: ya no propone nada.
+    for fila in filas:
+        libros_de_grupo.excepcion(
+            group_book,
+            fila["objeto"],
+            capitulo=fila["capitulo"],
+            estado="visto",
+        )
+
+    html = client.get(
+        reverse("clases:class_session_prepare_preview", args=[sesion.pk])
+    ).content.decode()
+
+    assert "Sin nada pendiente que proponer" in html
+    assert "Elegir de «Historia de la música moderna»" in html
