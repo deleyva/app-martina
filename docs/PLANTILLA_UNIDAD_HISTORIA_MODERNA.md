@@ -287,3 +287,7 @@ scripts/publicar_cancion.py.
 - [ ] Existen las dos lenguas y los datos duros coinciden entre ellas.
 - [ ] Las canciones citadas tienen su artículo publicado y enlazado.
 - [ ] La unidad se puede leer sin haber leído ninguna otra.
+- [ ] Ninguna cursiva dentro de una negrita: `**texto *en cursiva* texto**`
+      rompe el editor de Wagtail con un 500 al abrir la página, aunque se
+      publique y se vea bien. Comprobar con
+      `grep -nE '\*\*[^*]*\*[^*]+\*[^*]*\*\*' <borrador>.md`.
