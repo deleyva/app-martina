@@ -322,11 +322,40 @@ def group_book_item_move(request, pk):
 @login_required
 @user_passes_test(es_profesor)
 @require_http_methods(["POST"])
+def _claves_del_formulario(request):
+    """Las claves `libro:tipo:objeto` que vienen marcadas, en el orden enviado.
+
+    El orden del formulario ES el orden de la clase: la propuesta va por
+    secciones y lo elegido a mano cuelga de su libro, así que respetarlo evita
+    tener que recolocar a mano lo que ya salía bien colocado.
+    """
+    claves = []
+    for crudo in request.POST.getlist("elementos"):
+        partes = crudo.split(":")
+        if len(partes) != 3:
+            continue
+        try:
+            claves.append(tuple(int(p) for p in partes))
+        except ValueError:
+            continue
+    return claves
+
+
 def class_session_prepare(request, pk):
-    """Mete en la sesión el siguiente pendiente de cada sección elegida."""
+    """Mete en la sesión lo que el profesor ha dejado marcado.
+
+    Dos caminos, y el de las claves manda: el formulario nuevo envía
+    `elementos` —una casilla por elemento, más lo elegido dentro de los
+    capítulos—, y el viejo enviaba `secciones`, que apagaba la sección entera.
+    El segundo se queda para no romper nada que aún lo use.
+    """
     session = get_object_or_404(ClassSession, pk=pk, teacher=request.user)
-    secciones = request.POST.getlist("secciones") or None
-    creados = libros_de_grupo.preparar_sesion(session, secciones)
+    claves = _claves_del_formulario(request)
+    if claves:
+        creados = libros_de_grupo.anadir_elementos(session, claves)
+    else:
+        secciones = request.POST.getlist("secciones") or None
+        creados = libros_de_grupo.preparar_sesion(session, secciones)
 
     if creados:
         messages.success(
@@ -354,6 +383,50 @@ def class_session_prepare_preview(request, pk):
             "session": session,
             "propuesta": libros_de_grupo.previsualizar_sesion(session.group, session=session),
             "secciones": GroupBook.SECCIONES,
+        },
+    )
+
+
+@login_required
+@user_passes_test(es_profesor)
+def class_session_book_picker(request, pk):
+    """Los capítulos de un libro, para elegir a mano qué más entra en la clase.
+
+    Se carga al abrir el desplegable y no al pintar la pantalla: enumerar un
+    libro parsea el StreamField y el RichText de cada capítulo, y un grupo de
+    cuarto tiene siete libros. Al abrir la sesión eso serían siete recorridos
+    para mirar, casi siempre, ninguno.
+    """
+    session = get_object_or_404(ClassSession, pk=pk, teacher=request.user)
+    group_book = get_object_or_404(
+        GroupBook.objects.select_related("libro"),
+        pk=request.GET.get("group_book"),
+        group=session.group,
+    )
+    bloques = libros_de_grupo.por_capitulos(group_book)
+    # La clave de cada fila se arma aquí: en la plantilla habría que encadenar
+    # `stringformat` y `add`, que concatena por accidente cuando el `add`
+    # numérico falla. Una clave mal armada no da error, solo deja de casar.
+    for bloque in bloques:
+        for fila in bloque["filas"]:
+            fila["clave"] = f"{fila['tipo'].pk}:{fila['objeto'].pk}"
+
+    return render(
+        request,
+        "clases/class_sessions/partials/elegir_del_libro.html",
+        {
+            "session": session,
+            "group_book": group_book,
+            "bloques": bloques,
+            # Lo que ya está en la clase se señala en vez de esconderse: que
+            # falte sin explicación es lo que hace dudar de si se añadió.
+            "ya_puestas_clave": {
+                f"{tipo}:{objeto}"
+                for tipo, objeto in libros_de_grupo.ya_en_la_sesion(session)
+            },
+            # Lo que la propuesta de arriba ya ofrece de este libro, para no
+            # enseñar la misma casilla dos veces en la misma pantalla.
+            "propuesto": request.GET.get("propuesto", ""),
         },
     )
 

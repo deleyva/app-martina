@@ -275,7 +275,7 @@ def libros_activos(group):
     )
 
 
-def _ya_en_la_sesion(session):
+def ya_en_la_sesion(session):
     """{(content_type_id, object_id)} de lo que la sesión ya tiene."""
     if session is None:
         return set()
@@ -293,7 +293,7 @@ def previsualizar_sesion(group, secciones=None, por_libro=1, session=None):
     seguía ofreciendo los tres elementos recién añadidos —estar en una sesión no
     los da por vistos— y prometía un trabajo que el botón no iba a hacer.
     """
-    puestos = _ya_en_la_sesion(session)
+    puestos = ya_en_la_sesion(session)
     propuesta = []
     for group_book in libros_activos(group):
         if secciones is not None and group_book.seccion not in secciones:
@@ -340,6 +340,99 @@ def preparar_sesion(session, secciones=None, por_libro=1):
                 source_page=propuesta["capitulo"],
                 group_book=propuesta["group_book"],
                 seccion=propuesta["group_book"].seccion,
+                order=orden,
+            )
+        )
+        orden += 1
+    return creados
+
+
+def por_capitulos(group_book):
+    """El libro agrupado por capítulos, en su orden efectivo.
+
+    Agrupar aquí y no con `{% regroup %}`: esa etiqueta exige la lista ya
+    ordenada por la clave, y tras recolocar a mano los capítulos quedan
+    entrelazados. Agrupando en Python se respeta el orden del grupo sin perder
+    ningún capítulo por el camino.
+    """
+    bloques, indice = [], {}
+    for fila in enumerar(group_book):
+        capitulo = fila["capitulo"]
+        clave = capitulo.pk if capitulo else None
+        if clave not in indice:
+            indice[clave] = len(bloques)
+            bloques.append({"capitulo": capitulo, "filas": [], "encendidos": 0})
+        bloque = bloques[indice[clave]]
+        bloque["filas"].append(fila)
+        if fila["item"] is None or fila["item"].incluido:
+            bloque["encendidos"] += 1
+    return bloques
+
+
+def anadir_elementos(session, claves):
+    """Mete en la sesión exactamente los elementos elegidos, y nada más.
+
+    `claves` son `(group_book_id, content_type_id, object_id)` en el orden en
+    que se quieren. Es el camino de «lo elijo yo», hermano de `preparar_sesion`
+    —que es el de «lo que toca»— y distinto a propósito: aquí el profesor ya ha
+    mirado y ha decidido, así que no se filtra por pendiente ni por sección.
+
+    **Entra con su libro, su capítulo y su sección.** Sin eso, dar por visto en
+    clase no avanzaría el libro y el elemento sería un extra suelto, que es
+    justo lo que no se quiere al sacarlo de un capítulo.
+
+    **No configura el libro.** Elegir algo a mano no lo marca visto, ni lo
+    incluye, ni lo excluye: `GroupBookItem` no se toca aquí.
+
+    Idempotente: lo que ya está en la sesión no se mete otra vez.
+    """
+    from my_library.libros import _es_recorte
+
+    puestos = ya_en_la_sesion(session)
+    orden = session.get_next_order()
+    creados = []
+
+    # Memoria por libro: varias claves del mismo libro se resuelven con un solo
+    # recorrido. Enumerar parsea el StreamField de cada capítulo, así que
+    # hacerlo por clave convertiría «añadir seis cosas» en seis recorridos.
+    memoria = {}
+
+    for group_book_id, tipo_id, objeto_id in claves:
+        if (tipo_id, objeto_id) in puestos:
+            continue
+        group_book = memoria.get(("gb", group_book_id))
+        if group_book is None:
+            group_book = GroupBook.objects.filter(
+                pk=group_book_id, group=session.group
+            ).select_related("libro").first()
+            # Un libro que no es de este grupo se ignora en silencio: la clave
+            # viene de un formulario, y el formulario es del navegador.
+            if group_book is None:
+                continue
+            memoria[("gb", group_book_id)] = group_book
+            memoria[("filas", group_book_id)] = {
+                (f["tipo"].pk, f["objeto"].pk): f for f in enumerar(group_book)
+            }
+
+        fila = memoria[("filas", group_book_id)].get((tipo_id, objeto_id))
+        if fila is None:
+            continue
+
+        puestos.add((tipo_id, objeto_id))
+        creados.append(
+            ClassSessionItem.objects.create(
+                session=session,
+                content_type=fila["tipo"],
+                object_id=fila["objeto"].pk,
+                # En un libro de recortes el capítulo ES el recorte, que no es
+                # una página y no cabe en esta FK.
+                source_page=(
+                    None
+                    if fila["capitulo"] is None or _es_recorte(fila["capitulo"])
+                    else fila["capitulo"]
+                ),
+                group_book=group_book,
+                seccion=group_book.seccion,
                 order=orden,
             )
         )

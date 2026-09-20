@@ -19,32 +19,58 @@ cuanto uno de los dos cambiara.
         {% csrf_token %}
 
         {% for fila in propuesta %}
-          <div class="flex items-center gap-3 py-1.5 px-2 rounded hover:bg-base-300/40">
-            <label class="flex items-center gap-3 min-w-0 flex-1 cursor-pointer">
-              <input type="checkbox" name="secciones" value="{{ fila.group_book.seccion }}"
-                     class="checkbox checkbox-sm checkbox-primary" checked>
-              <span class="badge badge-outline badge-sm shrink-0">{{ fila.group_book.get_seccion_display }}</span>
-              <span class="text-lg shrink-0" aria-hidden="true">{{ fila.icono }}</span>
-              <span class="min-w-0 flex-1">
-                <span class="block truncate text-sm">{{ fila.titulo }}</span>
-                <span class="block truncate text-xs text-base-content/60">{{ fila.group_book.libro.title }}</span>
-              </span>
-            </label>
+          <div class="rounded hover:bg-base-300/40">
+            <div class="flex items-center gap-3 py-1.5 px-2">
+              {% comment %}
+              La casilla apaga ESTE elemento. Antes iba con `name="secciones"` y
+              el valor de la sección, así que quitar la imagen propuesta apagaba
+              el libro entero de esa sección.
+              {% endcomment %}
+              <label class="flex items-center gap-3 min-w-0 flex-1 cursor-pointer">
+                <input type="checkbox" name="elementos"
+                       value="{{ fila.group_book.pk }}:{{ fila.tipo.pk }}:{{ fila.objeto.pk }}"
+                       class="checkbox checkbox-sm checkbox-primary" checked>
+                <span class="badge badge-outline badge-sm shrink-0">{{ fila.group_book.get_seccion_display }}</span>
+                <span class="text-lg shrink-0" aria-hidden="true">{{ fila.icono }}</span>
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate text-sm">{{ fila.titulo }}</span>
+                  <span class="block truncate text-xs text-base-content/60">{{ fila.group_book.libro.title }}</span>
+                </span>
+              </label>
 
-            {# El ojo: verlo entero antes de decidir si entra en la clase. #}
-            <button type="button"
-                    class="btn btn-ghost btn-xs btn-square shrink-0"
-                    title="Ver «{{ fila.titulo }}» a pantalla completa"
-                    aria-label="Ver {{ fila.titulo }}"
-                    hx-get="{% url 'clases:class_session_preview_content' session.pk %}?content_type={{ fila.tipo.pk }}&object_id={{ fila.objeto.pk }}"
-                    hx-target="#cuerpo-vistazo"
-                    hx-swap="innerHTML"
-                    onclick="abrirVistazo('{{ fila.titulo|escapejs }}')">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-              </svg>
-            </button>
+              {# El ojo: verlo entero antes de decidir si entra en la clase. #}
+              <button type="button"
+                      class="btn btn-ghost btn-xs btn-square shrink-0"
+                      title="Ver «{{ fila.titulo }}» a pantalla completa"
+                      aria-label="Ver {{ fila.titulo }}"
+                      hx-get="{% url 'clases:class_session_preview_content' session.pk %}?content_type={{ fila.tipo.pk }}&object_id={{ fila.objeto.pk }}"
+                      hx-target="#cuerpo-vistazo"
+                      hx-swap="innerHTML"
+                      onclick="abrirVistazo('{{ fila.titulo|escapejs }}')">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                </svg>
+              </button>
+            </div>
+
+            {% comment %}
+            El desplegable del libro. `hx-trigger="toggle once"` lo trae al
+            abrirlo y no al pintar la pantalla: enumerar un libro parsea el
+            StreamField de cada capítulo, y un cuarto de ESO tiene siete libros.
+            {% endcomment %}
+            <details class="ml-9 mb-1"
+                     hx-get="{% url 'clases:class_session_book_picker' session.pk %}?group_book={{ fila.group_book.pk }}&propuesto={{ fila.tipo.pk }}:{{ fila.objeto.pk }}"
+                     hx-trigger="toggle once"
+                     hx-target="find .cuerpo-del-libro"
+                     hx-swap="innerHTML">
+              <summary class="text-xs text-primary cursor-pointer select-none py-1">
+                Elegir más de «{{ fila.group_book.libro.title }}»
+              </summary>
+              <div class="cuerpo-del-libro">
+                <div class="py-2"><span class="loading loading-dots loading-sm"></span></div>
+              </div>
+            </details>
           </div>
         {% endfor %}
 

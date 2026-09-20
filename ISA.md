@@ -3489,3 +3489,73 @@ Dos despliegues: `1adf68e` (enlaces, idioma por defecto, mensajes) y `ee6c645`
 en vivo dentro del contenedor: `WAGTAILADMIN_BASE_URL` sin barra y apuntando a
 blogs, `LANGUAGE_CODE = "es"`, `WAGTAILADMIN_PERMITTED_LANGUAGES = [("es",
 "Español")]`.
+
+## Fase 37 — Elegir a mano dentro de cada capítulo al montar la sesión (2026-09-20)
+
+**Goal (literal de Jesús, 2026-09-20):** «Ahora vamos con el montaje de sesiones. Tengo seleccionados los libros que quiero enseñar en cuarto, por ejemplo. Y claro, me va ofreciendo cosas siguientes a las que ya he visto, pero si no quiero poner esa imagen o quiero además añadir otras cosas del capítulo, esta interfaz no me ayuda. Me gustaría que fuera así: proponiendo cosas de cada libro, pero que tuvieran un desplegable por capítulo de cada libro en el que pudiera seleccionar otras cosas que añadir yo. Algo parecido a una mezcla entre lo que tenía antes (donde podía buscar capítulos o artículos y luego desplegar y elegir qué elemento poner) y lo que tengo ahora, que ahora propone ordenar las cosas que ver según sean teorías, canciones y demás. Pero me gustaría poder seleccionar, además, dentro de cada capítulo propuesto, qué cosas añadir.»
+
+La propuesta automática acierta el 80% de las veces y no hay manera de discutir
+el otro 20%: la casilla de cada fila no apaga esa fila, apaga **la sección
+entera** (`name="secciones"`), y no hay ninguna puerta a lo demás del capítulo.
+La pantalla anterior sí la tenía —capítulos desplegables con sus elementos— y se
+perdió al sustituirla por la propuesta.
+
+### Claims
+
+- [x] **C200** — La casilla de cada fila propuesta apaga ESE elemento, no su
+  sección. *Falsador: test que envía la propuesta sin una de las claves y
+  comprueba que la sesión recibe las demás y no esa.*
+- [x] **C201** — Cada libro propuesto trae un desplegable con sus capítulos, y
+  cada capítulo con sus elementos marcables para añadir. *Falsador: navegador
+  real, abrir el desplegable de un libro y ver capítulos y elementos.*
+- [x] **C202** — Lo elegido a mano entra con su libro, su capítulo y su sección,
+  así que darlo por visto sigue avanzando el libro. *Falsador: test que mira
+  `group_book`, `source_page` y `seccion` del `ClassSessionItem` creado.*
+- [x] **C203** — Nada se duplica: lo que ya está en la sesión sale señalado y
+  elegirlo otra vez no crea una segunda fila. *Falsador: test que lo envía dos
+  veces y cuenta las filas.*
+- [x] **C204** — El desplegable se carga al abrirlo, no al pintar la pantalla.
+  *Falsador: la respuesta de la vista previa no contiene los elementos del
+  libro; la del desplegable sí.*
+
+### Anti-claims
+
+- **Elegir a mano no configura el libro.** No marca visto, no excluye, no
+  recoloca: `GroupBookItem` no se toca al añadir a una sesión.
+- **La pantalla no enumera todos los libros al cargar.** Siete libros de más de
+  200 elementos cada uno parsean StreamField y RichText; eso no puede pasar al
+  abrir la sesión.
+
+### Evidencia (2026-09-20, local)
+
+- **C200** — `test_se_anade_exactamente_lo_elegido` y, de punta a punta,
+  `test_el_formulario_mete_lo_marcado`: se envían dos claves de tres y entran
+  esas dos.
+- **C201** — Chrome real sobre `127.0.0.1:8000`, sesión de un grupo de prueba
+  con tres libros: el desplegable de «A World of Sounds A» abre sus once
+  capítulos (Índex, 1. Sound… Appendix) y el capítulo «2. Pitch and melody»
+  despliega su elemento con casilla y ojo.
+- **C202** — `test_lo_elegido_a_mano_entra_con_su_libro_y_su_capitulo`, que
+  además da por visto lo elegido y comprueba que el libro avanza.
+- **C203** — `test_lo_ya_puesto_no_se_duplica`, y en pantalla: tras añadirlo,
+  el mismo elemento sale apagado con la etiqueta «ya en la clase».
+- **C204** — `test_la_vista_previa_no_enumera_el_libro`: en la primera carga
+  sale lo propuesto y no sale el resto del capítulo ni los otros capítulos.
+- De punta a punta en el navegador: tres propuestas + «2. Pitch and melody»
+  elegido a mano → «4 elementos añadidos» y los cuatro en el contenido de la
+  sesión, cada uno con su sección y su capítulo.
+- `pytest clases` → 123 passed.
+
+### Decisiones
+
+- **Las casillas viajan en un solo formulario.** El desplegable se pinta dentro
+  del `<form>` de preparar, así que lo propuesto y lo elegido a mano entran en
+  un envío y en el orden en que se ven. Un formulario aparte habría dado dos
+  botones y dos tandas de orden.
+- **El desplegable se carga al abrirlo** (`hx-trigger="toggle once"`). Enumerar
+  un libro parsea el StreamField de cada capítulo; con siete libros, hacerlo al
+  abrir la sesión sería recorrerlos todos para no mirar ninguno.
+- **Lo que ya está en la clase se enseña apagado, no se esconde.** Que un
+  elemento desaparezca sin decir por qué es lo que hace dudar de si se añadió.
+- **`preparar_sesion` sigue viva.** El camino viejo (`secciones`) se queda como
+  respaldo: el nuevo formulario manda cuando envía `elementos`.

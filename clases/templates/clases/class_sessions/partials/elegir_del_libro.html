@@ -1,0 +1,79 @@
+{% comment %}
+Los capítulos de un libro, para elegir a mano qué más entra en la clase.
+
+Se pinta DENTRO del formulario de «Preparar», así que las casillas de aquí
+viajan con las de la propuesta y todo entra en un solo envío, en el orden en que
+se ve.
+
+Llega por HTMX al abrir el desplegable: enumerar un libro parsea el StreamField
+de cada capítulo, y hacerlo con los siete libros al abrir la sesión sería
+recorrerlos todos para mirar, casi siempre, ninguno.
+{% endcomment %}
+
+{% if bloques %}
+  <div class="flex flex-col gap-1 border-l-2 border-base-300 pl-3 py-1">
+    {% for bloque in bloques %}
+      <details class="group">
+        <summary class="text-xs cursor-pointer select-none py-1 flex items-center gap-2">
+          <span class="font-medium truncate">
+            {% if bloque.capitulo %}{{ bloque.capitulo.title }}{% else %}Sin capítulo{% endif %}
+          </span>
+          <span class="text-base-content/50 shrink-0">{{ bloque.filas|length }}</span>
+        </summary>
+
+        <div class="flex flex-col gap-0.5 pl-2 pb-2">
+          {% for fila in bloque.filas %}
+            <div class="flex items-center gap-2 py-0.5 px-1 rounded hover:bg-base-300/40">
+              {% if fila.clave in ya_puestas_clave or fila.clave == propuesto %}
+                {% comment %}
+                Ya está en la clase, o es justo lo que se propone arriba. Se
+                enseña igual, apagado: que un elemento desaparezca sin decir por
+                qué es lo que hace dudar de si se añadió o se perdió.
+                {% endcomment %}
+                <input type="checkbox" class="checkbox checkbox-xs" disabled checked>
+                <span class="text-sm shrink-0" aria-hidden="true">{{ fila.icono }}</span>
+                <span class="min-w-0 flex-1 truncate text-xs text-base-content/50">{{ fila.titulo }}</span>
+                <span class="badge badge-ghost badge-xs shrink-0">
+                  {% if fila.clave == propuesto %}propuesto arriba{% else %}ya en la clase{% endif %}
+                </span>
+              {% else %}
+                <label class="flex items-center gap-2 min-w-0 flex-1 cursor-pointer">
+                  <input type="checkbox" name="elementos"
+                         value="{{ group_book.pk }}:{{ fila.tipo.pk }}:{{ fila.objeto.pk }}"
+                         class="checkbox checkbox-xs checkbox-primary">
+                  <span class="text-sm shrink-0" aria-hidden="true">{{ fila.icono }}</span>
+                  <span class="min-w-0 flex-1 truncate text-xs">{{ fila.titulo }}</span>
+                </label>
+
+                {% if fila.item and fila.item.estado == "visto" %}
+                  <span class="badge badge-ghost badge-xs shrink-0" title="Este grupo ya lo vio">visto</span>
+                {% elif fila.item and not fila.item.incluido %}
+                  <span class="badge badge-ghost badge-xs shrink-0" title="Apagado en la configuración del libro">apagado</span>
+                {% endif %}
+
+                {# El ojo, igual que en la propuesta: mirarlo antes de meterlo. #}
+                <button type="button"
+                        class="btn btn-ghost btn-xs btn-square shrink-0"
+                        title="Ver «{{ fila.titulo }}»"
+                        aria-label="Ver {{ fila.titulo }}"
+                        hx-get="{% url 'clases:class_session_preview_content' session.pk %}?content_type={{ fila.tipo.pk }}&object_id={{ fila.objeto.pk }}"
+                        hx-target="#cuerpo-vistazo"
+                        hx-swap="innerHTML"
+                        onclick="abrirVistazo('{{ fila.titulo|escapejs }}')">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                  </svg>
+                </button>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      </details>
+    {% endfor %}
+  </div>
+{% else %}
+  <p class="text-xs text-base-content/60 py-2">
+    Este libro no tiene material practicable: ni imágenes, ni PDF, ni audios, ni vídeos en sus capítulos.
+  </p>
+{% endif %}

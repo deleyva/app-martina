@@ -922,3 +922,120 @@ def test_un_libro_de_recortes_asignado_a_un_grupo_trae_su_material(db):
     assert [f["titulo"] for f in filas] == ["Uno", "Dos"]
     assert all(f["icono"] == "✂️" for f in filas)
 
+
+
+# =============================================================================
+# Fase 37 · Elegir a mano dentro de cada capítulo (C200-C204)
+# =============================================================================
+
+
+def _claves_de(group_book, titulos):
+    """Las claves `(libro, tipo, objeto)` de unos elementos, por su título."""
+    por_titulo = {f["titulo"]: f for f in libros_de_grupo.enumerar(group_book)}
+    return [
+        (group_book.pk, por_titulo[t]["tipo"].pk, por_titulo[t]["objeto"].pk)
+        for t in titulos
+    ]
+
+
+def test_se_anade_exactamente_lo_elegido(db, profesor):
+    """C200. Lo elegido entra, y lo no elegido se queda fuera.
+
+    El falsador de la casilla por elemento: antes la casilla apagaba la sección
+    entera, así que quitar una imagen se llevaba por delante su libro.
+    """
+    libro, _ = _libro_con_capitulos(
+        "Armonía", "armonia", [("Capítulo 1", ["a1", "a2", "a3"])]
+    )
+    group_book = _asignar(_grupo(), libro)
+    sesion = _sesion(group_book.group, profesor)
+
+    libros_de_grupo.anadir_elementos(sesion, _claves_de(group_book, ["a1", "a3"]))
+
+    assert [i.content_object.title for i in sesion.items.order_by("order")] == ["a1", "a3"]
+
+
+def test_lo_elegido_a_mano_entra_con_su_libro_y_su_capitulo(db, profesor):
+    """C202. Sin libro, capítulo y sección, dar por visto no avanzaría el libro."""
+    libro, _ = _libro_con_capitulos("Ritmo", "ritmo", [("Capítulo 1", ["r1", "r2"])])
+    group_book = _asignar(_grupo(), libro, seccion="ritmo")
+    sesion = _sesion(group_book.group, profesor)
+
+    (item,) = libros_de_grupo.anadir_elementos(sesion, _claves_de(group_book, ["r2"]))
+
+    assert item.group_book == group_book
+    assert item.seccion == "ritmo"
+    assert item.source_page is not None
+    assert item.source_page.title == "Capítulo 1"
+
+    # Y la prueba de que sirve para lo que se pidió: darlo por visto avanza el
+    # libro, igual que si hubiera entrado por la propuesta automática.
+    libros_de_grupo.marcar_visto(item)
+    fila = GroupBookItem.objects.get(group_book=group_book, object_id=item.object_id)
+    assert fila.estado == GroupBookItem.VISTO
+
+
+def test_elegir_a_mano_no_configura_el_libro(db, profesor):
+    """Anti-claim. Añadir a una clase no es tocar el libro del grupo."""
+    libro, _ = _libro_con_capitulos("Canciones", "canciones", [("Capítulo 1", ["c1", "c2"])])
+    group_book = _asignar(_grupo(), libro, seccion="cancion")
+    sesion = _sesion(group_book.group, profesor)
+
+    libros_de_grupo.anadir_elementos(sesion, _claves_de(group_book, ["c2"]))
+
+    assert GroupBookItem.objects.filter(group_book=group_book).count() == 0
+
+
+def test_lo_ya_puesto_no_se_duplica(db, profesor):
+    """C203. Ni dentro del mismo envío ni entre dos envíos seguidos."""
+    libro, _ = _libro_con_capitulos("Teoría", "teoria", [("Capítulo 1", ["t1", "t2"])])
+    group_book = _asignar(_grupo(), libro)
+    sesion = _sesion(group_book.group, profesor)
+    claves = _claves_de(group_book, ["t1"])
+
+    libros_de_grupo.anadir_elementos(sesion, claves + claves)
+    libros_de_grupo.anadir_elementos(sesion, claves)
+
+    assert sesion.items.count() == 1
+
+
+def test_un_libro_de_otro_grupo_se_ignora(db, profesor):
+    """Las claves vienen de un formulario, y un formulario es del navegador."""
+    libro, _ = _libro_con_capitulos("Ajeno", "ajeno", [("Capítulo 1", ["x1"])])
+    ajeno = _asignar(_grupo("Otro grupo"), libro)
+    mio = _asignar(_grupo("Mi grupo"), libro)
+    sesion = _sesion(mio.group, profesor)
+
+    libros_de_grupo.anadir_elementos(sesion, _claves_de(ajeno, ["x1"]))
+
+    assert sesion.items.count() == 0
+
+
+def test_lo_elegido_se_pone_detras_de_lo_que_ya_habia(db, profesor):
+    """El orden del formulario es el orden de la clase."""
+    libro, _ = _libro_con_capitulos("Orden", "orden", [("Capítulo 1", ["o1", "o2", "o3"])])
+    group_book = _asignar(_grupo(), libro)
+    sesion = _sesion(group_book.group, profesor)
+
+    libros_de_grupo.anadir_elementos(sesion, _claves_de(group_book, ["o3"]))
+    libros_de_grupo.anadir_elementos(sesion, _claves_de(group_book, ["o1"]))
+
+    puestos = list(sesion.items.order_by("order"))
+    assert [i.content_object.title for i in puestos] == ["o3", "o1"]
+    assert puestos[0].order < puestos[1].order
+
+
+def test_por_capitulos_agrupa_sin_perder_nada(db):
+    """El desplegable se pinta de aquí: si pierde un elemento, no se puede elegir."""
+    libro, _ = _libro_con_capitulos(
+        "Dos capítulos",
+        "dos-capitulos",
+        [("Capítulo 1", ["a1", "a2"]), ("Capítulo 2", ["b1"])],
+    )
+    group_book = _asignar(_grupo(), libro)
+
+    bloques = libros_de_grupo.por_capitulos(group_book)
+
+    assert [b["capitulo"].title for b in bloques] == ["Capítulo 1", "Capítulo 2"]
+    assert [len(b["filas"]) for b in bloques] == [2, 1]
+    assert sum(len(b["filas"]) for b in bloques) == len(libros_de_grupo.enumerar(group_book))
