@@ -102,3 +102,41 @@ def test_no_hay_etiquetas_cruzadas(fuente):
 def test_el_parrafo_entero_tambien_cierra_bien():
     md = "- **Durante la escucha de *Blinding Lights***: levanta la mano.\n"
     assert _cruzadas(markdown_a_richtext(md)) == []
+
+
+# --- Enlaces (2026-09-20) -------------------------------------------------
+#
+# Las unidades de historia enlazan a los artículos de canción: el profesor da
+# la teoría y salta a la canción dentro de la misma sesión. Sin esto, un
+# `[texto](url)` salía literal en la página, con los corchetes puestos.
+
+
+def test_enlace_externo():
+    assert (
+        _en_linea("[la ficha](https://jamzone.musicwill.org/songs/x)")
+        == '<a href="https://jamzone.musicwill.org/songs/x">la ficha</a>'
+    )
+
+
+def test_enlace_a_una_pagina_del_sitio():
+    """`page:875` usa el linktype de Wagtail, que rehace la URL si la página se
+    mueve o le cambian el slug. Un href absoluto no sobrevive a eso."""
+    assert (
+        _en_linea("[Blinding Lights](page:875)")
+        == '<a linktype="page" id="875">Blinding Lights</a>'
+    )
+
+
+def test_el_enlace_convive_con_la_negrita():
+    assert (
+        _en_linea("**[Blinding Lights](page:875)**")
+        == '<b><a linktype="page" id="875">Blinding Lights</a></b>'
+    )
+
+
+def test_lo_que_no_es_un_enlace_se_queda_como_esta():
+    assert _en_linea("[esto no] (es un enlace)") == "[esto no] (es un enlace)"
+
+
+def test_un_enlace_no_deja_etiquetas_cruzadas():
+    assert _cruzadas(_en_linea("**Toca [esta canción](page:875) hoy**")) == []

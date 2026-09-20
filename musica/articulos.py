@@ -57,6 +57,24 @@ def _cursivas(texto):
     return CURSIVA.sub(r"<i>\1</i>", texto)
 
 
+# `[texto](destino)`. El destino puede ser una URL o `page:123`, que es como se
+# enlaza una página del propio sitio: Wagtail guarda el id y rehace la URL sola
+# si la página se mueve o cambia de slug, cosa que un href absoluto no hace.
+# Existe porque las unidades de historia enlazan a los artículos de canción y
+# el profesor navega de la teoría a la canción dentro de la misma sesión.
+ENLACE = re.compile(r"\[([^\]]+)\]\((page:(\d+)|https?://[^)\s]+)\)")
+
+
+def _enlaces(texto):
+    def _uno(m):
+        etiqueta, destino, page_id = m.group(1), m.group(2), m.group(3)
+        if page_id:
+            return f'<a linktype="page" id="{page_id}">{etiqueta}</a>'
+        return f'<a href="{destino}">{etiqueta}</a>'
+
+    return ENLACE.sub(_uno, texto)
+
+
 def _en_linea(texto):
     """Negrita, cursiva y escapado. El orden importa: primero se escapa.
 
@@ -78,6 +96,9 @@ def _en_linea(texto):
         for i, trozo in enumerate(trozos)
     )
     texto = re.sub(r"`([^`\n]+?)`", r"\1", texto)
+    # Los enlaces, al final: el escapado de arriba ha convertido `&` en `&amp;`
+    # y así la URL sale ya escapada dentro del href.
+    texto = _enlaces(texto)
     return texto
 
 
