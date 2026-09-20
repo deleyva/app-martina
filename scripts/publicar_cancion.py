@@ -171,6 +171,9 @@ def publicar(nombre, publicar_ya=False):
 
     payload = {
         "title": datos["titulo"],
+        # El slug del borrador manda. Sin él, Wagtail lo deriva del título con
+        # acentos y la URL viaja porcentajeada (2026-09-20).
+        "slug": datos["slug"],
         "date": datos["fecha"],
         "intro": intro_es[:250],
         "body": body_es,

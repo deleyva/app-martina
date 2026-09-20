@@ -438,6 +438,11 @@ class BlogPageIn(Schema):
     title: str
     date: date
     intro: str
+    # Sin `slug`, Wagtail lo deriva del título CON acentos: «¿Quién toca la
+    # batería?» nace en /quién-toca-la-batería/, que responde pero viaja
+    # porcentajeado en cada enlace. Mandarlo explícito es la forma de tener
+    # URLs limpias (2026-09-20).
+    slug: Optional[str] = None
     body: Optional[str] = ""
     featured_image_id: Optional[int] = None
     is_featured: bool = False
@@ -504,6 +509,20 @@ class BlogPageOut(Schema):
     duration_display: str = ""
     idioma: str = ""
     traducciones: List[TraduccionOut] = []
+
+
+def _slug_limpio(valor: str) -> str:
+    """El slug, sin acentos y en minúsculas, o un 400 si no queda nada.
+
+    `slugify` sin `allow_unicode` transcribe a ASCII, que es justo lo que
+    Wagtail NO hace al derivarlo del título.
+    """
+    from django.utils.text import slugify
+
+    limpio = slugify(valor)[:255]
+    if not limpio:
+        raise HttpError(400, f"El slug «{valor}» se queda vacío al normalizarlo.")
+    return limpio
 
 
 def _parse_tags(tags: str) -> List[str]:
@@ -779,6 +798,8 @@ def create_blog_page(request, payload: BlogPageIn):
         )
 
     with transaction.atomic():
+        if payload.slug:
+            campos["slug"] = _slug_limpio(payload.slug)
         page = modelo(**campos)
         if featured_image:
             page.featured_image = featured_image
@@ -820,6 +841,7 @@ class BlogPageUpdateIn(Schema):
     title: Optional[str] = None
     date: Optional[FechaISO] = None
     intro: Optional[str] = None
+    slug: Optional[str] = None
     body: Optional[str] = None
     featured_image_id: Optional[int] = None
     is_featured: Optional[bool] = None
@@ -877,6 +899,8 @@ def update_blog_page(request, page_id: int, payload: BlogPageUpdateIn):
             page.date = payload.date
         if payload.intro is not None:
             page.intro = payload.intro
+        if payload.slug is not None:
+            page.slug = _slug_limpio(payload.slug)
         if payload.body is not None:
             page.body = payload.body
         if payload.featured_image_id is not None:
