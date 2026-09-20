@@ -45,11 +45,38 @@ def _seccion(texto, cabecera, siguiente=None):
     return texto[inicio:fin if fin != -1 else len(texto)].strip()
 
 
+# Un tramo en negrita. El `(?!\*)` del final es lo que permite que la negrita
+# contenga cursiva: sin él, `**texto *en cursiva* texto**` cerraba la negrita en
+# el `**` que en realidad era el `*` de cierre de la cursiva más el `**` de la
+# negrita, y salían etiquetas cruzadas.
+NEGRITA = re.compile(r"\*\*(.+?)\*\*(?!\*)")
+CURSIVA = re.compile(r"(?<![\*\w])\*([^*\n]+?)\*(?!\*)")
+
+
+def _cursivas(texto):
+    return CURSIVA.sub(r"<i>\1</i>", texto)
+
+
 def _en_linea(texto):
-    """Negrita, cursiva y escapado. El orden importa: primero se escapa."""
+    """Negrita, cursiva y escapado. El orden importa: primero se escapa.
+
+    **La negrita se resuelve partiendo el texto, no sustituyendo en él**, y la
+    cursiva se aplica por separado dentro y fuera de cada tramo. Hacerlo con dos
+    `re.sub` encadenados sobre la misma cadena producía `<b>…<i>…</b>…</i>`
+    cuando una cursiva vivía dentro de una negrita: HTML cruzado que el sitio
+    publicaba tan tranquilo y que reventaba el editor de Wagtail con
+    `AssertionError: Unmatched tags` al abrir la página (2026-09-20, la unidad
+    de la caja de ritmos). Se veía bien y no se podía editar, que es la peor
+    forma de fallar.
+    """
     texto = html.escape(texto, quote=False)
-    texto = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", texto)
-    texto = re.sub(r"(?<![\*\w])\*([^*\n]+?)\*(?!\*)", r"<i>\1</i>", texto)
+    trozos = NEGRITA.split(texto)
+    # `split` con un grupo devuelve [fuera, dentro, fuera, dentro, …]: los
+    # impares son el interior de cada negrita.
+    texto = "".join(
+        f"<b>{_cursivas(trozo)}</b>" if i % 2 else _cursivas(trozo)
+        for i, trozo in enumerate(trozos)
+    )
     texto = re.sub(r"`([^`\n]+?)`", r"\1", texto)
     return texto
 
