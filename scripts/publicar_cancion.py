@@ -108,8 +108,23 @@ def _cache_escribir(cache):
     CACHE.write_text(json.dumps(cache, indent=2, ensure_ascii=False))
 
 
+# `wagtailimages.Image.title` es un CharField(255). Un pie más largo no daba un
+# 400 explicativo: daba un 500 del servidor, y desde aquí parecía que el API
+# estaba roto (2026-09-20, el pie de la MPC3000 medía 263).
+TITULO_MAX = 255
+
+
+def _recortar(titulo):
+    if len(titulo) <= TITULO_MAX:
+        return titulo
+    corte = titulo[:TITULO_MAX].rsplit(" ", 1)[0]
+    print(f"    ⚠ pie de imagen de {len(titulo)} caracteres; se recorta a {len(corte)}")
+    return corte
+
+
 def subir_imagen(nombre, titulo):
     """Sube una imagen de `imagenes/` y devuelve su id. Una vez por fichero."""
+    titulo = _recortar(titulo)
     cache = _cache_leer()
     if nombre in cache:
         return cache[nombre]
@@ -126,6 +141,7 @@ def subir_imagen(nombre, titulo):
 
 def subir_documento(ruta_str, titulo):
     """Sube la tablatura (u otro documento) desde cualquier sitio del disco."""
+    titulo = _recortar(titulo)
     ruta = Path(ruta_str).expanduser()
     if not ruta.exists():
         sys.exit(f"No está el fichero {ruta}")
