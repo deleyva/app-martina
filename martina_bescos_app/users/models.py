@@ -1,6 +1,7 @@
 from typing import ClassVar
 
 from django.contrib.auth.models import AbstractUser
+from django.db.models import BooleanField
 from django.db.models import CharField
 from django.db.models import EmailField
 from django.urls import reverse
@@ -21,6 +22,15 @@ class User(AbstractUser):
     first_name = CharField(_("First Name"), blank=True, max_length=150)
     last_name = CharField(_("Last Name"), blank=True, max_length=150)
     email = EmailField(_("email address"), unique=True)
+    acceso_con_contrasena = BooleanField(
+        _("Puede entrar con contraseña"),
+        default=False,
+        help_text=_(
+            "Para las cuentas de fuera del centro, que da de alta el "
+            "administrador a mano. Quien tiene correo del centro entra con "
+            "Google y no necesita esto."
+        ),
+    )
     username = None  # type: ignore[assignment]
 
     USERNAME_FIELD = "email"

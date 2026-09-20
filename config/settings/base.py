@@ -378,6 +378,13 @@ ACCOUNT_ALLOW_REGISTRATION = env.bool("DJANGO_ACCOUNT_ALLOW_REGISTRATION", True)
 # cuentas de pruebas o de servicio, sin tener que darles `is_staff` —que es
 # acceso al admin— ni abrir el login por contraseña a todo el alumnado.
 # Vacío por defecto: sin configurar la variable, no cambia nada para nadie.
+# Dominios que entran con Google. Todo lo demás solo entra si el administrador
+# lo da de alta a mano (casilla «Puede entrar con contraseña» en la ficha del
+# usuario). Es una variable, y no una constante, para poder ampliarla el día que
+# el centro estrene otro dominio sin tener que desplegar.
+SOCIAL_LOGIN_DOMAINS = env.list(
+    "DJANGO_SOCIAL_LOGIN_DOMAINS", default=["iesmartinabescos.es"]
+)
 PASSWORD_LOGIN_EMAILS = env.list("DJANGO_PASSWORD_LOGIN_EMAILS", default=[])
 # https://docs.allauth.org/en/latest/account/configuration.html
 ACCOUNT_AUTHENTICATION_METHOD = "email"

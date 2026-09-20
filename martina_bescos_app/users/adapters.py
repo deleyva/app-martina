@@ -3,11 +3,42 @@ from __future__ import annotations
 import typing
 
 from allauth.account.adapter import DefaultAccountAdapter
+from allauth.core.exceptions import ImmediateHttpResponse
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
-from allauth.socialaccount.helpers import ImmediateHttpResponse
 from django.conf import settings
-from django.forms import ValidationError
+from django.contrib import messages
+from django.http import HttpResponseRedirect
+from django.urls import reverse
 import re
+
+def es_correo_del_centro(correo: str) -> bool:
+    """¿Este correo pertenece a un dominio del centro?
+
+    La lista vive en `SOCIAL_LOGIN_DOMAINS` para poder ampliarla sin tocar
+    código: es la frontera entre «entra con Google» y «lo da de alta el
+    administrador».
+    """
+    correo = (correo or "").strip().lower()
+    if "@" not in correo:
+        return False
+    dominio = correo.rsplit("@", 1)[-1]
+    permitidos = {
+        d.strip().lower().lstrip("@")
+        for d in getattr(settings, "SOCIAL_LOGIN_DOMAINS", [])
+        if d.strip()
+    }
+    return dominio in permitidos
+
+
+MENSAJE_DE_FUERA_SIN_ALTA = (
+    "Esta cuenta no tiene permitido entrar con contraseña. Si eres de fuera "
+    "del centro, pide al administrador que te dé de alta."
+)
+
+MENSAJE_GOOGLE_SOLO_DEL_CENTRO = (
+    "Con Google solo se entra con una cuenta del centro. Si el administrador "
+    "te ha dado de alta con otro correo, entra con tu correo y contraseña."
+)
 
 if typing.TYPE_CHECKING:
     from allauth.socialaccount.models import SocialLogin
@@ -61,64 +92,56 @@ class AccountAdapter(DefaultAccountAdapter):
             
         return False
     
+    def _login_permitido(self, request, user) -> bool:
+        """Quién puede entrar con correo y contraseña.
+
+        El centro, sí: quien tiene correo del centro entra como quiera, con
+        Google o con la contraseña que se haya puesto él. Los de fuera solo si
+        el administrador les ha marcado la casilla en su ficha — esa casilla
+        ES el alta. Y al margen de todo, staff, impersonación y la lista de la
+        variable de entorno, que son la salida de emergencia si Google falla.
+        """
+        if request.session.get("_impersonate") is not None:
+            return True
+        if getattr(user, "is_staff", False):
+            return True
+        if self.is_social_login_request(request):
+            return True
+        if es_correo_del_centro(getattr(user, "email", "")):
+            return True
+        if getattr(user, "acceso_con_contrasena", False):
+            return True
+        return self._password_login_permitido(user)
+
+    def _rechazo(self, request, user) -> HttpResponseRedirect:
+        """Devolver una respuesta es lo que allauth entiende por «corta aquí».
+
+        Esto antes lanzaba `ValidationError`, y nadie la recoge en el camino
+        `LoginView.form_valid` → `perform_password_login` → `pre_login`: la
+        excepción salía del request como un 500 en la cara de quien se
+        equivocaba de puerta. Salió a la luz el 2026-09-20, con una cuenta
+        de fuera del centro intentando entrar con su contraseña.
+
+        Aquí solo llega gente de fuera sin alta: al del centro no se le niega
+        nunca, y quien se equivoca de contraseña recibe el error del propio
+        formulario, no este.
+        """
+        del user  # el mensaje es el mismo para todo el que llega hasta aquí
+        messages.error(request, MENSAJE_DE_FUERA_SIN_ALTA)
+        return HttpResponseRedirect(reverse("account_login"))
+
     def login(self, request, user):
-        # Permitir inicio de sesión en estos casos:
-        # 1. El usuario es staff (administrador)
-        # 2. Es un inicio de sesión social (Google)
-        # 3. El usuario tiene cuentas sociales vinculadas
-        # 4. Es parte del proceso de impersonación
-        
-        # Verificar si es parte del proceso de impersonación
-        is_impersonating = request.session.get('_impersonate', None) is not None
-        
-        # Verificar si el usuario es administrador
-        is_staff = getattr(user, 'is_staff', False)
-        
-        # Verificar si es un inicio de sesión social
-        is_social_login = self.is_social_login_request(request)
-        
-        # Verificar si el usuario tiene cuentas sociales vinculadas
-        has_social_account = False
-        if hasattr(user, 'socialaccount_set'):
-            has_social_account = user.socialaccount_set.exists()
-        
-        # Permitir el login si se cumple alguna de las condiciones
-        if (is_staff or is_social_login or has_social_account or is_impersonating
-                or self._password_login_permitido(user)):
-            return super().login(request, user)
-        
-        # Si no cumple ninguna condición, rechazar el login
-        raise ValidationError(
-            "El inicio de sesión con email/contraseña está deshabilitado. "
-            "Por favor, usa tu cuenta de Google para iniciar sesión."
-        )
-    
+        if not self._login_permitido(request, user):
+            # Aquí sí hay quien la recoja: `resume_login` envuelve
+            # `adapter.login()` en un `except ImmediateHttpResponse`.
+            raise ImmediateHttpResponse(self._rechazo(request, user))
+        return super().login(request, user)
+
     def pre_login(self, request, user, **kwargs):
-        # Verificar si es parte del proceso de impersonación
-        is_impersonating = request.session.get('_impersonate', None) is not None
-        
-        # Verificar si el usuario es administrador
-        is_staff = getattr(user, 'is_staff', False)
-        
-        # Verificar si es un inicio de sesión social
-        is_social_login = self.is_social_login_request(request)
-        
-        # Verificar si el usuario tiene cuentas sociales vinculadas
-        has_social_account = False
-        if hasattr(user, 'socialaccount_set'):
-            has_social_account = user.socialaccount_set.exists()
-        
-        # Permitir el login si se cumple alguna de las condiciones
-        if (is_staff or is_social_login or has_social_account or is_impersonating
-                or self._password_login_permitido(user)):
-            return super().pre_login(request, user, **kwargs)
-        
-        # Si llega aquí, es un intento de login normal y no es administrador
-        raise ValidationError(
-            "El inicio de sesión con email/contraseña está deshabilitado. "
-            "Por favor, usa tu cuenta de Google para iniciar sesión."
-        )
-        
+        if not self._login_permitido(request, user):
+            return self._rechazo(request, user)
+        return super().pre_login(request, user, **kwargs)
+
     def get_signup_form_class(self, request=None):
         if request and request.session.get('sociallogin_provider'):
             # Si es un registro social, permitir el formulario normal
@@ -159,8 +182,14 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
         request: HttpRequest,
         sociallogin: SocialLogin,
     ) -> bool:
-        # Permitir el registro con cuentas sociales si está habilitado globalmente
-        return getattr(settings, "ACCOUNT_ALLOW_REGISTRATION", True)
+        """Con Google se registra quien tiene correo del centro, y nadie más.
+
+        Sin esto, el alta por el administrador no vale de nada: cualquiera con
+        una cuenta de Google se crea la suya sola y entra.
+        """
+        if not getattr(settings, "ACCOUNT_ALLOW_REGISTRATION", True):
+            return False
+        return es_correo_del_centro(self._correo_de(sociallogin))
     
     def get_callback_url(self, request, app):
         """
@@ -176,11 +205,29 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
         
         return callback_url
         
+    @staticmethod
+    def _correo_de(sociallogin) -> str:
+        """El correo del login social, venga del usuario o de los datos crudos."""
+        del_usuario = getattr(getattr(sociallogin, "user", None), "email", "") or ""
+        if del_usuario:
+            return del_usuario
+        return (sociallogin.account.extra_data or {}).get("email", "") or ""
+
     def pre_social_login(self, request, sociallogin):
         """
         Este método se llama justo antes de que un usuario se autentique con una cuenta social.
         Aquí intentamos vincular la cuenta social con un usuario existente si el correo electrónico coincide.
         """
+        correo = self._correo_de(sociallogin)
+        if not es_correo_del_centro(correo):
+            # Los de fuera entran con correo y contraseña, y solo si el
+            # administrador les ha dado de alta. Cortar aquí, antes de
+            # `connect()`, es lo que impide que Google sea una puerta de atrás.
+            messages.error(request, MENSAJE_GOOGLE_SOLO_DEL_CENTRO)
+            raise ImmediateHttpResponse(
+                HttpResponseRedirect(reverse("account_login"))
+            )
+
         # Verificar si ya existe un usuario con el mismo correo electrónico
         if sociallogin.is_existing:
             self._nombre_de_google(sociallogin)

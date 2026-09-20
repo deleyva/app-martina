@@ -34,6 +34,11 @@
         <a class="btn btn-primary"
            href="{% url 'mfa_index' %}"
            role="button">MFA</a>
+        {# Quien entra con Google no tiene contraseña; esta vista le manda a #}
+        {# ponerse una, que es lo que permite entrar luego sin Google.       #}
+        <a class="btn btn-primary"
+           href="{% url 'account_change_password' %}"
+           role="button">Contraseña</a>
         <!-- Your Stuff: Custom user template urls -->
       </div>
     </div>

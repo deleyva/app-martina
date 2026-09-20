@@ -29,6 +29,7 @@ class UserAdmin(auth_admin.UserAdmin):
                     "is_active",
                     "is_staff",
                     "is_superuser",
+                    "acceso_con_contrasena",
                     "groups",
                     "user_permissions",
                 ),
@@ -36,7 +37,8 @@ class UserAdmin(auth_admin.UserAdmin):
         ),
         (_("Important dates"), {"fields": ("last_login", "date_joined")}),
     )
-    list_display = ["email", "name", "first_name", "last_name", "is_superuser", "get_last_login_display"]
+    list_display = ["email", "name", "first_name", "last_name", "is_superuser", "acceso_con_contrasena", "get_last_login_display"]
+    list_filter = [*auth_admin.UserAdmin.list_filter, "acceso_con_contrasena"]
     search_fields = ["name", "first_name", "last_name", "email"]
     ordering = ["id"]
     readonly_fields = ["last_login", "date_joined"]
@@ -73,7 +75,15 @@ class UserAdmin(auth_admin.UserAdmin):
             None,
             {
                 "classes": ("wide",),
-                "fields": ("email", "password1", "password2", "name", "first_name", "last_name"),
+                "fields": (
+                    "email",
+                    "password1",
+                    "password2",
+                    "name",
+                    "first_name",
+                    "last_name",
+                    "acceso_con_contrasena",
+                ),
             },
         ),
     )
