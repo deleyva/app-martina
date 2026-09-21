@@ -17,6 +17,8 @@ import re
 import unicodedata
 
 from bs4 import BeautifulSoup, NavigableString, Tag
+
+from cms.texto_enriquecido import reparar
 from bs4.element import CData, Comment, Declaration, Doctype, ProcessingInstruction
 
 # ---------------------------------------------------------------------------
@@ -467,6 +469,11 @@ def limpiar_cuerpo(html: str) -> str:
     _envolver_sueltos(soup)
     _podar_vacios(soup)
     salida = soup.decode()
+    # Blogger envuelve párrafos enteros en un enlace o en una negrita, y esa
+    # forma —etiqueta de línea por fuera de un bloque— es la que hace reventar
+    # la página de edición de Wagtail con un 500. Se endereza aquí, en la
+    # ingesta, para no volver a repararla a mano página por página.
+    salida = reparar(salida)
     # Los `&nbsp;` de Google Docs se acumulan y desmaquetan el texto.
     salida = salida.replace("\xa0", " ")
     return re.sub(r"[ \t]{2,}", " ", salida).strip()

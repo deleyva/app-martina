@@ -3570,3 +3570,46 @@ perdió al sustituirla por la propuesta.
   elemento desaparezca sin decir por qué es lo que hace dudar de si se añadió.
 - **`preparar_sesion` sigue viva.** El camino viejo (`secciones`) se queda como
   respaldo: el nuevo formulario manda cuando envía `elementos`.
+
+## Fase 38 — El editor de Wagtail reventaba en seis artículos importados (2026-09-21)
+
+**Goal (literal de Jesús, 2026-09-21):** «me han llegado estos errores al mail» — `Internal Server Error: /cms/pages/655/edit/`, `AssertionError: End of block reached without closing inline style elements`, sobre `blogs.iesmartinabescos.es`, con el usuario `afuentes@` intentando editar.
+
+El editor convierte el HTML guardado a ContentState antes de pintarlo, y ese
+conversor **afirma** que al cerrar un bloque no queda ningún estilo ni enlace
+abierto. Si queda, no avisa: revienta. La forma que lo provoca viene de la
+importación de Blogspot, y es siempre una etiqueta de línea envolviendo un
+bloque: `<strong><h2>…</h2></strong>`, `<a><p><a>…</a></p></a>`,
+`<b><p><embed/></p><p>…</p></b>`.
+
+**El barrido dice que no era una página: son seis de 627 campos.** Cuatro
+fallan por enlace (`entity`) y dos por estilo (`inline style`): pks 615, 618,
+639, 655, 685, 687, todas `ArticuloPage`.
+
+### Claims
+
+- [x] **C205** — La reparación deja el HTML de las seis formas reales en algo
+  que el editor abre, y sin cambiar el texto visible. *Falsador: el MISMO
+  widget que usa la página de edición, sobre las formas copiadas de las seis
+  páginas reales.*
+- [x] **C206** — Lo que el editor ya abre no se toca: sale byte a byte igual.
+  *Falsador: test sobre un corpus sano, incluidas dos formas retorcidas del
+  mismo Blogspot que el editor sí digiere.*
+- [x] **C207** — El comando repara el campo publicado **y la última revisión**.
+  *Falsador: test que repara una página y comprueba las dos; sin la revisión,
+  el 500 sigue, porque el editor abre la revisión y no el campo.*
+- [x] **C208** — El comando no escribe sin `--escribir`, y nunca guarda un
+  arreglo que no haya comprobado. *Falsador: test en seco; y en el código, el
+  arreglo se descarta si el editor no lo abre o si el texto cambia.*
+- [x] **C209** — La ingesta de Blogspot deja de fabricar la forma: `limpiar_cuerpo`
+  termina reparando. *Falsador: los tests de `blogs` siguen pasando y el cuerpo
+  limpiado pasa por `reparar`.*
+- [ ] **C210** — En producción, las seis páginas abren en el editor. *Falsador:
+  navegador real sobre `/cms/pages/655/edit/` y las otras cinco.*
+
+### Anti-claims
+
+- **Reparar no es reescribir.** Si el texto visible cambia, no se guarda.
+- **No se tocan las revisiones antiguas.** El editor abre la última; reescribir
+  el historial entero sería cambiar un registro por comodidad.
+- **No se corre sobre producción sin copia previa de la base.**
