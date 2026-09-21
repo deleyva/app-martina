@@ -3571,7 +3571,7 @@ perdió al sustituirla por la propuesta.
 - **`preparar_sesion` sigue viva.** El camino viejo (`secciones`) se queda como
   respaldo: el nuevo formulario manda cuando envía `elementos`.
 
-## Fase 38 — El editor de Wagtail reventaba en seis artículos importados (2026-09-21)
+## Fase 38 — El editor de Wagtail reventaba en seis artículos importados (2026-09-21) · DESPLEGADA Y VERIFICADA EN PRODUCCIÓN
 
 **Goal (literal de Jesús, 2026-09-21):** «me han llegado estos errores al mail» — `Internal Server Error: /cms/pages/655/edit/`, `AssertionError: End of block reached without closing inline style elements`, sobre `blogs.iesmartinabescos.es`, con el usuario `afuentes@` intentando editar.
 
@@ -3604,7 +3604,7 @@ fallan por enlace (`entity`) y dos por estilo (`inline style`): pks 615, 618,
 - [x] **C209** — La ingesta de Blogspot deja de fabricar la forma: `limpiar_cuerpo`
   termina reparando. *Falsador: los tests de `blogs` siguen pasando y el cuerpo
   limpiado pasa por `reparar`.*
-- [ ] **C210** — En producción, las seis páginas abren en el editor. *Falsador:
+- [x] **C210** — En producción, las seis páginas abren en el editor. *Falsador:
   navegador real sobre `/cms/pages/655/edit/` y las otras cinco.*
 
 ### Anti-claims
@@ -3613,3 +3613,15 @@ fallan por enlace (`entity`) y dos por estilo (`inline style`): pks 615, 618,
 - **No se tocan las revisiones antiguas.** El editor abre la última; reescribir
   el historial entero sería cambiar un registro por comodidad.
 - **No se corre sobre producción sin copia previa de la base.**
+
+### Evidencia (2026-09-21, producción)
+
+- Copia previa de la base: `production_backup_2026_09_21T15_22_24.sql.gz`.
+- En seco: 688 campos revisados, 6 páginas con algo que arreglar, campo y
+  revisión en las seis. Con `--escribir`: las mismas 6. Segunda pasada en seco:
+  **0 páginas con algo que arreglar**.
+- Chrome real sobre `blogs.iesmartinabescos.es`, con sesión de Jesús: abren las
+  seis páginas de edición (655, 615, 618, 639, 685, 687). En la 655 se ve el
+  cuerpo en Draftail con su titular y su lista, con el texto intacto.
+- El fallo original llegó por correo a las 6:44 del 2026-09-21, disparado por
+  `afuentes@` al pulsar «editar» en la 655.
