@@ -3490,7 +3490,7 @@ en vivo dentro del contenedor: `WAGTAILADMIN_BASE_URL` sin barra y apuntando a
 blogs, `LANGUAGE_CODE = "es"`, `WAGTAILADMIN_PERMITTED_LANGUAGES = [("es",
 "Español")]`.
 
-## Fase 37 — Elegir a mano dentro de cada capítulo al montar la sesión (2026-09-20)
+## Fase 37 — Elegir a mano dentro de cada capítulo al montar la sesión (2026-09-20) · DESPLEGADA Y VERIFICADA EN PRODUCCIÓN
 
 **Goal (literal de Jesús, 2026-09-20):** «Ahora vamos con el montaje de sesiones. Tengo seleccionados los libros que quiero enseñar en cuarto, por ejemplo. Y claro, me va ofreciendo cosas siguientes a las que ya he visto, pero si no quiero poner esa imagen o quiero además añadir otras cosas del capítulo, esta interfaz no me ayuda. Me gustaría que fuera así: proponiendo cosas de cada libro, pero que tuvieran un desplegable por capítulo de cada libro en el que pudiera seleccionar otras cosas que añadir yo. Algo parecido a una mezcla entre lo que tenía antes (donde podía buscar capítulos o artículos y luego desplegar y elegir qué elemento poner) y lo que tengo ahora, que ahora propone ordenar las cosas que ver según sean teorías, canciones y demás. Pero me gustaría poder seleccionar, además, dentro de cada capítulo propuesto, qué cosas añadir.»
 
@@ -3550,6 +3550,12 @@ perdió al sustituirla por la propuesta.
   ellos dado por visto entero, y con
   `test_un_libro_sin_nada_pendiente_conserva_su_desplegable`.
 - `pytest clases` → 124 passed.
+- **En producción (2026-09-21, `8af9398`)** — sesión real «Toma de contacto»
+  de 4-AC-BIL: las siete propuestas con su casilla propia y su «Elegir más
+  de ‹libro›»; el desplegable de «The Caged System and 100 Licks for Blues
+  Guitar» abre sus capítulos con el número de elementos de cada uno (6, 28,
+  30, 4, 31, 10, 35…) y «Chapter Four - How to Practise» despliega sus cuatro
+  ejemplos con casilla y ojo. No se envió nada: la sesión quedó intacta.
 
 ### Decisiones
 
