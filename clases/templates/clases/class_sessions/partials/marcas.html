@@ -1,0 +1,46 @@
+{% comment %}
+Las dos marcas de una fila al preparar la clase: dado por visto y para casa.
+
+Escriben en `GroupBookItem`, que es por GRUPO, así que marcar aquí decide lo que
+el motor propondrá la próxima vez a ESTE grupo y a ningún otro.
+
+Se intercambia el bloque entero (`hx-target="closest .marcas"`), que es lo que
+devuelve la vista: así el color y el texto salen del servidor y no hay un estado
+paralelo en JavaScript que se pueda desincronizar.
+
+Ojo con `.fila-preparar`: al dar por visto algo que venía propuesto se desmarca
+también su casilla, porque lo que ya das por visto no quieres que entre hoy en
+la clase.
+{% endcomment %}
+{% with item=fila.item %}
+<span class="marcas flex items-center gap-0.5 shrink-0">
+
+  <button type="button"
+          class="btn btn-ghost btn-xs btn-square {% if item.estado == 'visto' %}text-success{% else %}text-base-content/30{% endif %}"
+          hx-post="{% url 'clases:preparar_marca' group_book.pk %}"
+          hx-vals='{"content_type": "{{ fila.tipo.pk }}", "object_id": "{{ fila.objeto.pk }}", "campo": "visto"}'
+          hx-target="closest .marcas"
+          hx-swap="outerHTML"
+          {% if item.estado != "visto" %}onclick="desmarcarFilaPreparar(this)"{% endif %}
+          title="{% if item.estado == 'visto' %}Visto: este grupo no lo volverá a ver propuesto. Tocar para devolverlo a la cola.{% else %}Darlo por visto para este grupo: dejará de proponerse.{% endif %}"
+          aria-pressed="{% if item.estado == 'visto' %}true{% else %}false{% endif %}">
+    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+    </svg>
+  </button>
+
+  <button type="button"
+          class="btn btn-ghost btn-xs btn-square {% if item.a_casa %}text-primary{% else %}text-base-content/30{% endif %}"
+          hx-post="{% url 'clases:preparar_marca' group_book.pk %}"
+          hx-vals='{"content_type": "{{ fila.tipo.pk }}", "object_id": "{{ fila.objeto.pk }}", "campo": "a_casa"}'
+          hx-target="closest .marcas"
+          hx-swap="outerHTML"
+          title="{% if item.a_casa %}Marcado para casa: bajará a la biblioteca del alumnado cuando lo des por visto EN CLASE. Tocar para quitarlo.{% else %}Marcar para que se lo lleven a casa.{% endif %}"
+          aria-pressed="{% if item.a_casa %}true{% else %}false{% endif %}">
+    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M3 10.5L12 3l9 7.5M5.25 9.75V20a1 1 0 001 1h11.5a1 1 0 001-1V9.75"/>
+    </svg>
+  </button>
+
+</span>
+{% endwith %}

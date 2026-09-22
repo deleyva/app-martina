@@ -27,7 +27,7 @@ cuanto uno de los dos cambiara.
         {% csrf_token %}
 
         {% for fila in propuesta %}
-          <div class="rounded hover:bg-base-300/40">
+          <div class="rounded hover:bg-base-300/40 fila-preparar">
             <div class="flex items-center gap-3 py-1.5 px-2">
               {% comment %}
               La casilla apaga ESTE elemento. Antes iba con `name="secciones"` y
@@ -45,6 +45,8 @@ cuanto uno de los dos cambiara.
                   <span class="block truncate text-xs text-base-content/60">{{ fila.group_book.libro.title }}</span>
                 </span>
               </label>
+
+              {% include "clases/class_sessions/partials/marcas.html" with group_book=fila.group_book fila=fila %}
 
               {# El ojo: verlo entero antes de decidir si entra en la clase. #}
               <button type="button"

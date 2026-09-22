@@ -203,31 +203,26 @@ def _fila_de(group_book, tipo_id, objeto_id):
     return None
 
 
-@login_required
-@user_passes_test(es_profesor)
-@require_http_methods(["POST"])
-def group_book_item_toggle(request, pk):
-    """Cambia una propiedad de un elemento para este grupo. Devuelve su fila.
+def _alternar_marca(group_book, tipo_id, objeto_id, campo):
+    """Le da la vuelta a `incluido`, `a_casa` o `visto`, y devuelve la fila nueva.
 
-    `campo` es `incluido`, `a_casa` o `visto`. Los tres son reversibles: en
-    clase se dan toques por error, y sin vuelta atrás se deja de marcar.
+    Los tres son reversibles: se dan toques por error, y sin vuelta atrás se
+    deja de marcar por miedo.
+
+    Vive aparte de la vista porque hay DOS pantallas que marcan lo mismo sobre
+    el mismo `GroupBookItem` —la de elegir elementos de un libro y la de
+    preparar la clase— y cada una pinta su propia fila. Con la decisión copiada
+    en las dos, acabarían marcando cosas distintas.
     """
-    group_book = _libro_del_profesor(request, pk)
-    tipo_id = int(request.POST.get("content_type"))
-    objeto_id = int(request.POST.get("object_id"))
-    campo = request.POST.get("campo")
-
     fila = _fila_de(group_book, tipo_id, objeto_id)
     if fila is None:
-        return render(request, "clases/group_books/partials/fila.html", {})
+        return None
 
     item = fila["item"]
     if campo == "incluido":
-        valor = not (item.incluido if item else True)
-        cambios = {"incluido": valor}
+        cambios = {"incluido": not (item.incluido if item else True)}
     elif campo == "a_casa":
-        valor = not (item.a_casa if item else False)
-        cambios = {"a_casa": valor}
+        cambios = {"a_casa": not (item.a_casa if item else False)}
     elif campo == "visto":
         ya = item is not None and item.estado == GroupBookItem.VISTO
         cambios = {"estado": GroupBookItem.PENDIENTE if ya else GroupBookItem.VISTO}
@@ -239,7 +234,21 @@ def group_book_item_toggle(request, pk):
             group_book, fila["objeto"], capitulo=fila["capitulo"], **cambios
         )
 
-    fila = _fila_de(group_book, tipo_id, objeto_id)
+    return _fila_de(group_book, tipo_id, objeto_id)
+
+
+@login_required
+@user_passes_test(es_profesor)
+@require_http_methods(["POST"])
+def group_book_item_toggle(request, pk):
+    """Cambia una propiedad de un elemento para este grupo. Devuelve su fila."""
+    group_book = _libro_del_profesor(request, pk)
+    tipo_id = int(request.POST.get("content_type"))
+    objeto_id = int(request.POST.get("object_id"))
+
+    fila = _alternar_marca(group_book, tipo_id, objeto_id, request.POST.get("campo"))
+    if fila is None:
+        return render(request, "clases/group_books/partials/fila.html", {})
     vistos, total = libros_de_grupo.progreso(group_book)
     return render(
         request,
@@ -253,6 +262,39 @@ def group_book_item_toggle(request, pk):
             "vistos": vistos,
             "total": total,
         },
+    )
+
+
+@login_required
+@user_passes_test(es_profesor)
+@require_http_methods(["POST"])
+def preparar_marca(request, pk):
+    """Marca visto o para casa desde la pantalla de preparar la clase.
+
+    **Qué resuelve.** El motor propone lo siguiente pendiente de cada libro, y
+    hasta ahora la única forma de decirle «esto ya está, no me lo vuelvas a
+    ofrecer» era meterlo en una clase y darlo por visto allí. Con muchos grupos
+    a ritmos distintos eso obliga a pasar por la clase cosas que no se van a
+    dar. Aquí la decisión se toma al preparar, y es POR GRUPO: cada `GroupBook`
+    lleva su propio avance, así que 3-FH y 3-EA pueden ir por sitios distintos
+    del mismo libro.
+
+    Escribe exactamente donde escribe la otra pantalla —una fila de excepción en
+    `GroupBookItem`— y por eso comparte motor con `group_book_item_toggle`. Lo
+    único distinto es la fila que se devuelve, porque cada pantalla pinta la
+    suya.
+    """
+    group_book = _libro_del_profesor(request, pk)
+    fila = _alternar_marca(
+        group_book,
+        int(request.POST.get("content_type")),
+        int(request.POST.get("object_id")),
+        request.POST.get("campo"),
+    )
+    return render(
+        request,
+        "clases/class_sessions/partials/marcas.html",
+        {"group_book": group_book, "fila": fila},
     )
 
 

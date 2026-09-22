@@ -126,6 +126,17 @@ cabecera.
 {# Las miniaturas de PDF y de recorte, que se pintan con el pdf.js de arriba. #}
 <script src="{% static 'js/miniaturas.js' %}"></script>
 
+<script>
+    // Dar por visto algo que venía propuesto para hoy significa que no lo vas a
+    // dar: se desmarca su casilla para que no entre en la clase. Vive aquí y no
+    // en el fragmento porque las filas llegan por htmx y se reemplazan solas.
+    function desmarcarFilaPreparar(boton) {
+        var fila = boton.closest('.fila-preparar');
+        var casilla = fila && fila.querySelector('input[name="elementos"]');
+        if (casilla) casilla.checked = false;
+    }
+</script>
+
 <!-- SortableJS CDN -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script>

@@ -230,6 +230,13 @@ urlpatterns = [
         views.class_session_reopen,
         name="class_session_reopen",
     ),
+    # Marcar visto / para casa desde la pantalla de preparar la clase, sin tener
+    # que meter el elemento en una sesión para poder darlo por visto.
+    path(
+        "libros/<int:pk>/marcar/",
+        views_libros.preparar_marca,
+        name="preparar_marca",
+    ),
     # La nota de voz NO sale por /media/: ver la vista y la regla de nginx.
     path(
         "sessions/<int:pk>/reflexion/audio/",

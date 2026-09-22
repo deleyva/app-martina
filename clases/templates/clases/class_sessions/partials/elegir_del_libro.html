@@ -24,7 +24,7 @@ recorrerlos todos para mirar, casi siempre, ninguno.
 
         <div class="flex flex-col gap-0.5 pl-2 pb-2">
           {% for fila in bloque.filas %}
-            <div class="flex items-center gap-2 py-0.5 px-1 rounded hover:bg-base-300/40">
+            <div class="flex items-center gap-2 py-0.5 px-1 rounded hover:bg-base-300/40 fila-preparar">
               {% if fila.clave in ya_puestas_clave or fila.clave == propuesto %}
                 {% comment %}
                 Ya está en la clase, o es justo lo que se propone arriba. Se
@@ -51,6 +51,8 @@ recorrerlos todos para mirar, casi siempre, ninguno.
                 {% elif fila.item and not fila.item.incluido %}
                   <span class="badge badge-ghost badge-xs shrink-0" title="Apagado en la configuración del libro">apagado</span>
                 {% endif %}
+
+                {% include "clases/class_sessions/partials/marcas.html" with group_book=group_book fila=fila %}
 
                 {# El ojo, igual que en la propuesta: mirarlo antes de meterlo. #}
                 <button type="button"
