@@ -218,6 +218,28 @@
         #fab-visto.si { background: rgba(34, 197, 94, 0.35); border-color: rgba(34, 197, 94, 0.7); }
         #fab-casa.si { background: rgba(139, 92, 246, 0.4); border-color: rgba(139, 92, 246, 0.8); }
 
+        /* ── Globo de ayuda ──
+           Al pasar el ratón por encima, y al dejar el dedo apoyado en tablet.
+           El `title` del navegador no vale: en táctil no aparece nunca, y en
+           clase la mitad de las veces se trabaja con el dedo. */
+        #globo {
+            position: fixed;
+            z-index: 10003;
+            max-width: 260px;
+            padding: 10px 14px;
+            border-radius: 12px;
+            background: rgba(20, 20, 24, 0.97);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            color: #fff;
+            font-size: 13px;
+            line-height: 1.35;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.15s;
+        }
+        #globo.visible { opacity: 1; }
+
         /* ── Aviso efímero ──
            Con botones de icono no hay dónde escribir «no se ha podido guardar»:
            antes ese mensaje se metía en el `textContent` del botón del menú. */
@@ -485,7 +507,8 @@
     <div id="flyout-backdrop" onclick="toggleFlyout(false)"></div>
 
     <!-- Floating Action Button -->
-    <button id="study-fab" onclick="toggleFlyout()" title="Menu (M)">
+    <button id="study-fab" onclick="toggleFlyout()"
+            data-ayuda="Menú (M). La lista de elementos de la clase, finalizar y salir.">
         <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z"></path>
         </svg>
@@ -532,12 +555,14 @@
     {# Pista visual de las zonas de paso, un instante al cambiar de elemento. #}
     <div id="pista-lados"><span class="izq">‹</span><span class="der">›</span></div>
 
-    <button id="fab-plantillas" class="fab-izq" onclick="abrirPlantillas()" title="Plantillas para escribir (P)">
+    <button id="fab-plantillas" class="fab-izq" onclick="abrirPlantillas()"
+            data-ayuda="Plantillas para escribir (P). Pentagramas, cuadrículas y papeles en blanco para proyectar y escribir encima.">
         <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M4 5h16M4 12h16M4 19h10"/>
         </svg>
     </button>
-    <button id="fab-pagina" class="fab-izq" onclick="abrirPagina()" title="Ver la página entera (V)">
+    <button id="fab-pagina" class="fab-izq" onclick="abrirPagina()"
+            data-ayuda="Ver en contexto (V). Abre la página entera de la que sale este elemento, con su texto alrededor.">
         <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
         </svg>
@@ -549,29 +574,34 @@
     elemento además de hacer lo suyo.
     {% endcomment %}
     {% if is_teacher %}
-    <button id="fab-visto" class="fab-der" type="button" onclick="alternarVisto()" aria-pressed="false" title="Dar por visto (D)">
+    <button id="fab-visto" class="fab-der" type="button" onclick="alternarVisto()" aria-pressed="false"
+            data-ayuda="No visto. Tocar para darlo por visto (D).">
         <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
         </svg>
     </button>
-    <button id="fab-casa" class="fab-der" type="button" onclick="alternarACasa()" aria-pressed="false" title="Mandar para casa (C)">
+    <button id="fab-casa" class="fab-der" type="button" onclick="alternarACasa()" aria-pressed="false"
+            data-ayuda="No se manda para casa. Tocar para que se lo lleven (C).">
         <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M3 10.5L12 3l9 7.5M5.25 9.75V20a1 1 0 001 1h11.5a1 1 0 001-1V9.75"/>
         </svg>
     </button>
     {% endif %}
-    <button id="fab-anterior" class="fab-der" type="button" onclick="navigateItem(-1)" title="Elemento anterior (←)">
+    <button id="fab-anterior" class="fab-der" type="button" onclick="navigateItem(-1)"
+            data-ayuda="Elemento anterior de la clase (flecha ←).">
         <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
         </svg>
     </button>
-    <button id="fab-siguiente" class="fab-der" type="button" onclick="navigateItem(1)" title="Elemento siguiente (→)">
+    <button id="fab-siguiente" class="fab-der" type="button" onclick="navigateItem(1)"
+            data-ayuda="Elemento siguiente de la clase (flecha →).">
         <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
         </svg>
     </button>
 
     <div id="aviso" role="status" aria-live="polite"></div>
+    <div id="globo" role="tooltip"></div>
 
     <div id="lienzo">
         <div id="lienzo-barra">
@@ -997,6 +1027,72 @@
         avisoTimer = setTimeout(function() { caja.classList.remove('visible'); }, 2500);
     }
 
+    // ── Globos de ayuda ──
+    //
+    // Con el ratón, al pasar por encima. Con el dedo, al dejarlo apoyado medio
+    // segundo: el `title` del navegador no aparece NUNCA en táctil, y media
+    // clase se da con el dedo sobre la tablet.
+    //
+    // La pulsación larga no debe además pulsar el botón: quien deja el dedo
+    // encima está preguntando qué es esto, no dando por visto un elemento.
+    var globoTimer = null;
+    var tragarClick = false;
+
+    function mostrarGlobo(boton) {
+        var texto = boton.getAttribute('data-ayuda');
+        var globo = document.getElementById('globo');
+        if (!texto || !globo) return;
+
+        globo.textContent = texto;
+        globo.classList.add('visible');
+
+        var caja = boton.getBoundingClientRect();
+        var suyo = globo.getBoundingClientRect();
+        var alaIzquierda = caja.left + caja.width / 2 > window.innerWidth / 2;
+        var x = alaIzquierda ? caja.left - suyo.width - 12 : caja.right + 12;
+        var y = caja.top + caja.height / 2 - suyo.height / 2;
+
+        globo.style.left = Math.max(8, x) + 'px';
+        globo.style.top = Math.min(Math.max(8, y), window.innerHeight - suyo.height - 8) + 'px';
+    }
+
+    function esconderGlobo() {
+        clearTimeout(globoTimer);
+        var globo = document.getElementById('globo');
+        if (globo) globo.classList.remove('visible');
+    }
+
+    document.querySelectorAll('[data-ayuda]').forEach(function(boton) {
+        boton.addEventListener('mouseenter', function() { mostrarGlobo(boton); });
+        boton.addEventListener('mouseleave', esconderGlobo);
+        boton.addEventListener('focus', function() { mostrarGlobo(boton); });
+        boton.addEventListener('blur', esconderGlobo);
+
+        boton.addEventListener('pointerdown', function(e) {
+            if (e.pointerType !== 'touch') return;
+            clearTimeout(globoTimer);
+            globoTimer = setTimeout(function() {
+                tragarClick = true;
+                mostrarGlobo(boton);
+            }, 450);
+        });
+        ['pointerup', 'pointercancel', 'pointerleave'].forEach(function(evento) {
+            boton.addEventListener(evento, function() {
+                clearTimeout(globoTimer);
+                setTimeout(esconderGlobo, tragarClick ? 2200 : 0);
+            });
+        });
+    });
+
+    // En captura y antes que nadie: así no llega ni al `onclick` del botón ni
+    // al listener de las zonas de paso.
+    document.addEventListener('click', function(e) {
+        if (!tragarClick) return;
+        tragarClick = false;
+        e.preventDefault();
+        e.stopPropagation();
+    }, true);
+
     // ── Dar por visto ──
     function pintarVisto() {
         var btn = document.getElementById('fab-visto');
@@ -1005,7 +1101,9 @@
         if (!item) return;
         btn.classList.toggle('si', !!item.visto);
         btn.setAttribute('aria-pressed', item.visto ? 'true' : 'false');
-        btn.title = item.visto ? 'Visto — tocar para deshacer (D)' : 'Dar por visto (D)';
+        btn.setAttribute('data-ayuda', item.visto
+            ? 'Visto. Tocar para volver a marcarlo como no visto (D).'
+            : 'No visto. Tocar para darlo por visto (D).');
     }
 
     function alternarVisto() {
@@ -1022,8 +1120,10 @@
             if (!r.ok) throw new Error(r.status);
             item.visto = !item.visto;
             pintarVisto();
+            pintarACasa();  // el texto de la casita depende de si está visto
             buildSyllabus();
             updateSyllabusActive();
+            avisar(item.visto ? 'Dado por visto' : 'Marcado como no visto');
         })
         .catch(function() {
             avisar('No se ha podido guardar el visto');
@@ -1041,9 +1141,21 @@
         btn.disabled = !item.tiene_libro;
         btn.classList.toggle('si', !!item.a_casa);
         btn.setAttribute('aria-pressed', item.a_casa ? 'true' : 'false');
-        btn.title = !item.tiene_libro
-            ? 'Suelto: no se lo pueden llevar'
-            : (item.a_casa ? 'Se lo llevan a casa — tocar para quitarlo (C)' : 'Mandar para casa (C)');
+
+        // Dar por visto es el ÚNICO gesto que baja el material a las
+        // bibliotecas del alumnado (`libros_de_grupo.marcar_visto`), así que
+        // marcar la casita sin dar por visto todavía no manda nada. Decirlo.
+        var ayuda;
+        if (!item.tiene_libro) {
+            ayuda = 'Este elemento es un extra suelto: no sale de ningún libro, así que no se puede mandar para casa.';
+        } else if (item.a_casa && item.visto) {
+            ayuda = 'Se manda para casa. Ya está en la biblioteca del alumnado. Tocar para no mandarlo (C).';
+        } else if (item.a_casa) {
+            ayuda = 'Se manda para casa. Bajará a la biblioteca del alumnado en cuanto lo des por visto. Tocar para no mandarlo (C).';
+        } else {
+            ayuda = 'No se manda para casa. Tocar para que se lo lleven (C).';
+        }
+        btn.setAttribute('data-ayuda', ayuda);
     }
 
     function alternarACasa() {
@@ -1064,6 +1176,9 @@
             item.a_casa = datos.a_casa;
             item.tiene_libro = datos.aplicable;
             pintarACasa();
+            avisar(item.a_casa
+                ? (item.visto ? 'Se manda para casa' : 'Se manda para casa al darlo por visto')
+                : 'Ya no se manda para casa');
         })
         .catch(function() {
             avisar('No se ha podido guardar');
