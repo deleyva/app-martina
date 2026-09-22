@@ -1,3 +1,4 @@
+{% load library_tags %}
 {% comment %}
 Los capítulos de un libro, para elegir a mano qué más entra en la clase.
 
@@ -31,7 +32,7 @@ recorrerlos todos para mirar, casi siempre, ninguno.
                 qué es lo que hace dudar de si se añadió o se perdió.
                 {% endcomment %}
                 <input type="checkbox" class="checkbox checkbox-xs" disabled checked>
-                <span class="text-sm shrink-0" aria-hidden="true">{{ fila.icono }}</span>
+                {% miniatura fila.objeto fila.tipo.model compacta=True %}
                 <span class="min-w-0 flex-1 truncate text-xs text-base-content/50">{{ fila.titulo }}</span>
                 <span class="badge badge-ghost badge-xs shrink-0">
                   {% if fila.clave == propuesto %}propuesto arriba{% else %}ya en la clase{% endif %}
@@ -41,7 +42,7 @@ recorrerlos todos para mirar, casi siempre, ninguno.
                   <input type="checkbox" name="elementos"
                          value="{{ group_book.pk }}:{{ fila.tipo.pk }}:{{ fila.objeto.pk }}"
                          class="checkbox checkbox-xs checkbox-primary">
-                  <span class="text-sm shrink-0" aria-hidden="true">{{ fila.icono }}</span>
+                  {% miniatura fila.objeto fila.tipo.model compacta=True %}
                   <span class="min-w-0 flex-1 truncate text-xs">{{ fila.titulo }}</span>
                 </label>
 

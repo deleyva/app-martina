@@ -1,10 +1,25 @@
 from django import template
 from django.contrib.contenttypes.models import ContentType
 from my_library.models import LibraryItem
+from my_library import previsualizacion
 from wagtail.embeds.embeds import get_embed
 from wagtail.embeds.exceptions import EmbedException
 
 register = template.Library()
+
+
+@register.inclusion_tag("my_library/partials/miniatura.html")
+def miniatura(objeto, modelo=None, compacta=False):
+    """Una miniatura del medio, para saber qué es sin abrirlo.
+
+    Se le pasa el objeto real, que las tres pantallas de preparar una sesión ya
+    tienen a mano (`item.content_object`, `fila.objeto`). `modelo` es el nombre
+    del ContentType cuando quien llama lo tiene cargado; si no, se deduce.
+    """
+    return {
+        "datos": previsualizacion.datos_de_miniatura(objeto, modelo),
+        "compacta": compacta,
+    }
 
 @register.simple_tag
 def get_wagtail_embed(url):

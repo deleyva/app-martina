@@ -1,3 +1,4 @@
+{% load library_tags %}
 {% comment %}
 Vista previa de lo que el botón «preparar» va a meter en la sesión.
 
@@ -38,7 +39,7 @@ cuanto uno de los dos cambiara.
                        value="{{ fila.group_book.pk }}:{{ fila.tipo.pk }}:{{ fila.objeto.pk }}"
                        class="checkbox checkbox-sm checkbox-primary" checked>
                 <span class="badge badge-outline badge-sm shrink-0">{{ fila.group_book.get_seccion_display }}</span>
-                <span class="text-lg shrink-0" aria-hidden="true">{{ fila.icono }}</span>
+                {% miniatura fila.objeto fila.tipo.model compacta=True %}
                 <span class="min-w-0 flex-1">
                   <span class="block truncate text-sm">{{ fila.titulo }}</span>
                   <span class="block truncate text-xs text-base-content/60">{{ fila.group_book.libro.title }}</span>

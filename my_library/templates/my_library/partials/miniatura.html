@@ -1,0 +1,47 @@
+{% comment %}
+La miniatura de un medio, para poder ver qué se va a proyectar sin abrir nada.
+
+El marcado vive aquí y no en Python porque Tailwind escanea plantillas, y una
+clase escrita en una cadena de `my_library/*.py` no llega al CSS compilado.
+
+Las tres cajas de PDF y recorte salen con su icono y las pinta `miniaturas.js`
+encima, con pdf.js, solo cuando la fila entra en pantalla. Si el fichero está
+restringido o ya no está, se queda el icono y no pasa nada.
+{% endcomment %}
+<div class="relative shrink-0 overflow-hidden rounded-md bg-base-300 flex items-center justify-center
+            {% if compacta %}w-16 h-12{% else %}w-24 h-16{% endif %}"
+     {% if datos.titulo %}title="{{ datos.titulo }}"{% endif %}>
+
+  {% if datos.tipo == "imagen" %}
+    <img src="{{ datos.src }}" alt="{{ datos.titulo }}" loading="lazy"
+         class="w-full h-full object-cover">
+
+  {% elif datos.tipo == "video" and datos.src %}
+    <img src="{{ datos.src }}" alt="{{ datos.titulo }}" loading="lazy"
+         class="w-full h-full object-cover">
+    <span class="absolute inset-0 flex items-center justify-center bg-black/30 text-white text-xl">▶</span>
+
+  {% elif datos.tipo == "video" %}
+    <span class="text-xl">▶️</span>
+
+  {% elif datos.tipo == "pdf" or datos.tipo == "recorte" %}
+    <span class="text-xl">{% if datos.tipo == "recorte" %}✂️{% else %}📄{% endif %}</span>
+    {% if datos.pdf_url %}
+      <canvas class="absolute inset-0 w-full h-full hidden"
+              data-miniatura-pdf="{{ datos.pdf_url }}"
+              data-pagina="{{ datos.pagina }}"
+              {% if datos.recorte %}data-recorte="{{ datos.recorte }}"{% endif %}></canvas>
+    {% endif %}
+
+  {% elif datos.tipo == "audio" %}
+    <span class="text-xl">🎵</span>
+  {% elif datos.tipo == "tablatura" %}
+    <span class="text-xl">🎸</span>
+  {% elif datos.tipo == "enlace" %}
+    <span class="text-xl">🔗</span>
+  {% elif datos.tipo == "imagen_rota" %}
+    <span class="text-xl opacity-50">🖼️</span>
+  {% else %}
+    <span class="text-xl opacity-50">📁</span>
+  {% endif %}
+</div>

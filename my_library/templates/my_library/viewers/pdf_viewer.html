@@ -328,6 +328,10 @@
     var hideCloseTimeout;
     
     function showCloseButton() {
+        // El listener es de `document` y sobrevive al fragmento: en el modo
+        // clase, cambiar de elemento deja este handler vivo con el botón ya
+        // fuera del DOM, y cada movimiento del ratón lanzaba un TypeError.
+        if (!closeBtn || !closeBtn.isConnected) return;
         closeBtn.style.opacity = '1';
         clearTimeout(hideCloseTimeout);
         hideCloseTimeout = setTimeout(() => {

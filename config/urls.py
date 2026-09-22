@@ -11,6 +11,7 @@ from ninja import NinjaAPI, Router
 from wagtail.admin import urls as wagtailadmin_urls
 from wagtail import urls as wagtail_urls
 from wagtail.documents import urls as wagtaildocs_urls
+from wagtail.images import urls as wagtailimages_urls
 
 # Crear una única instancia de NinjaAPI para toda la aplicación
 api = NinjaAPI(title="Martina Bescós App API", version="1.0.0")
@@ -68,6 +69,17 @@ urlpatterns = [
     path("cms/login/", RedirectView.as_view(url="/accounts/login/?next=/cms/"), name="wagtail_login_redirect"),
     path("cms/", include(wagtailadmin_urls)),
     path("documents/", include(wagtaildocs_urls)),
+    # Servido dinámico de imágenes.
+    #
+    # Sin esto, pedir una miniatura obliga a llamar a `get_rendition()` DENTRO
+    # de la petición que pinta la lista: un libro de 283 elementos genera 283
+    # ficheros antes de devolver una sola línea de HTML. Con esta ruta, la vista
+    # solo firma una URL y la rendition se genera en la petición del <img>, que
+    # con `loading="lazy"` solo ocurre para lo que el profesor llega a ver.
+    #
+    # La URL va firmada con la SECRET_KEY, así que nadie puede pedir
+    # transformaciones arbitrarias de imágenes ajenas.
+    path("images/", include(wagtailimages_urls)),
     # Analytics
     path("analytics/", include("analytics.urls")),
     # My Library - Biblioteca personal de usuario
