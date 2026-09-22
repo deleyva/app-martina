@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+{% load static %}<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -6,6 +6,19 @@
     <title>{{ session.title }} — Clase</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://unpkg.com/wavesurfer.js@7"></script>
+    {% if tiene_gp %}
+    {% comment %}
+    alphaTab solo cuando la clase lleva alguna tablatura: son 1,1 MB. Y del
+    propio dominio, nunca de un CDN, porque hace el maquetado en un Web Worker y
+    `new Worker()` con una URL de otro origen lanza SecurityError.
+
+    Va aquí y no en el visor que llega por fetch: `ejecutarScripts()` espera a
+    los `<script src>` que inyecta, pero esperar 1,1 MB con la clase ya
+    proyectada se nota, y el visor lo pide justo cuando el profesor cambia al
+    elemento.
+    {% endcomment %}
+    <script src="{% static 'vendor/alphatab/alphaTab.min.js' %}"></script>
+    {% endif %}
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -801,16 +814,50 @@
 
     // Los visores llegan como HTML con <script> dentro, y el navegador NO
     // ejecuta los scripts de un innerHTML. Hay que recrearlos.
+    //
+    // **En serie, esperando a los externos.** Recrearlos todos de golpe parece
+    // que funciona y no funciona: un `<script src>` carga de forma asíncrona,
+    // así que el script de al lado —el que usa la librería— corre antes de que
+    // exista y revienta con un ReferenceError. Cualquier visor con dependencia
+    // externa estaba roto en modo clase por esto; el de Guitar Pro fue el
+    // primero que lo destapó.
     function ejecutarScripts(contenedor) {
-        contenedor.querySelectorAll('script').forEach(function(viejo) {
+        // Lo que ya está en la página no se vuelve a bajar ni a evaluar: alphaTab
+        // viene en el <head> cuando la sesión lleva alguna tablatura.
+        var cargados = {};
+        document.querySelectorAll('script[src]').forEach(function(s) {
+            if (!contenedor.contains(s)) cargados[s.src] = true;
+        });
+
+        var pendientes = Array.prototype.slice.call(contenedor.querySelectorAll('script'));
+
+        (function siguiente() {
+            if (!pendientes.length) return;
+            var viejo = pendientes.shift();
+
+            if (viejo.src && cargados[viejo.src]) {
+                viejo.parentNode.removeChild(viejo);
+                siguiente();
+                return;
+            }
+
             var nuevo = document.createElement('script');
             if (viejo.src) {
                 nuevo.src = viejo.src;
-            } else {
-                nuevo.textContent = viejo.textContent;
+                cargados[viejo.src] = true;
+                nuevo.onload = siguiente;
+                nuevo.onerror = function() {
+                    console.error('[clase] no se pudo cargar', viejo.src);
+                    siguiente();
+                };
+                viejo.parentNode.replaceChild(nuevo, viejo);
+                return;  // el resto espera al onload
             }
+
+            nuevo.textContent = viejo.textContent;
             viejo.parentNode.replaceChild(nuevo, viejo);
-        });
+            siguiente();
+        })();
     }
 
     // ── El lienzo: la página entera y las plantillas ──

@@ -3588,7 +3588,11 @@ def test_el_recorte_no_se_sirve_por_la_clave_de_los_pdf(db, user, pdf):
 
     documentos = item.get_documents()
 
-    assert list(documentos) == ["recortes"]
+    # Se afirma el cajón vacío y no la forma del dict: desde que la
+    # clasificación vive en `my_library.medios`, el dict trae SIEMPRE todas las
+    # claves, precisamente para que un tipo sin clasificar sea una lista vacía
+    # visible y no una clave que falta.
+    assert documentos["pdfs"] == []
     assert documentos["recortes"][0].nombre == "Sailing Boat"
 
 

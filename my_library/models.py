@@ -9,6 +9,8 @@ from django.utils.html import format_html
 from taggit.managers import TaggableManager
 from martina_bescos_app.users.models import User
 
+from my_library import medios
+
 
 class LibraryDeck(models.Model):
     """
@@ -653,40 +655,29 @@ class LibraryItem(models.Model):
         """
         Obtener documentos/archivos del contenido.
         Para ScorePage extrae PDFs, audios, imágenes del StreamField de Wagtail.
+
+        Todo lo que no es una página se clasifica en `my_library.medios`, que es
+        el único sitio donde vive esa decisión. Antes vivía aquí y en tres
+        vistas más, y las cuatro copias divergieron: ver la cabecera de ese
+        módulo. El recorte, por ejemplo, tiene clave propia y no `pdfs` porque
+        el visor necesita saber que lo que le llega trae encuadre y NO debe
+        dejar navegar el documento entero.
         """
         if self.content_type.model == "scorepage":
             score = self.content_object
-            return {
-                "pdfs": (
-                    score.get_pdf_blocks() if hasattr(score, "get_pdf_blocks") else []
-                ),
-                "audios": score.get_audios() if hasattr(score, "get_audios") else [],
-                "images": score.get_images() if hasattr(score, "get_images") else [],
-            }
-        elif self.content_type.model == "document":
-            # Verificar si es audio, GP o PDF
-            if hasattr(self.content_object, "file"):
-                filename = self.content_object.file.name.lower()
-                if filename.endswith((".mp3", ".wav", ".ogg", ".m4a", ".aac", ".flac")):
-                    return {"audios": [self.content_object]}
-                elif filename.endswith((".gp", ".gp5", ".gpx", ".gp4", ".gp3")):
-                    return {"gp_files": [self.content_object]}
-                else:
-                    return {"pdfs": [self.content_object]}
-            return {"pdfs": [self.content_object]}
-        elif self.content_type.model == "image":
-            return {"images": [self.content_object]}
-        elif self.content_type.model == "embed":
-            return {"embeds": [self.content_object]}
-        elif self.content_type.model == "externalresource":
-            return {"external_links": [self.content_object]}
-        elif self.content_type.model == "recorte":
-            # Clave propia y no `pdfs`: el visor de recorte necesita saber que lo
-            # que le llega trae encuadre y NO debe dejar navegar el documento. Si
-            # se colara por `pdfs`, se pintaría con el visor de PDF entero y el
-            # alumno saldría del recorte con dos toques.
-            return {"recortes": [self.content_object]}
-        return {}
+            documentos = medios.vacio()
+            documentos["pdfs"] = (
+                score.get_pdf_blocks() if hasattr(score, "get_pdf_blocks") else []
+            )
+            documentos["audios"] = (
+                score.get_audios() if hasattr(score, "get_audios") else []
+            )
+            documentos["images"] = (
+                score.get_images() if hasattr(score, "get_images") else []
+            )
+            return documentos
+
+        return medios.clasificar(self.content_object, self.content_type.model)
 
     @classmethod
     def add_to_library(cls, user, content_object, source_page_id=None):

@@ -8,6 +8,7 @@ from django.contrib.contenttypes.models import ContentType
 import json
 
 from martina_bescos_app.users.permisos import es_profesor, grupo_del_profesor
+from my_library import medios
 
 from .models import (
     Group,
@@ -556,10 +557,19 @@ def class_session_present(request, pk):
         if (item.group_book_id, item.content_type_id, item.object_id) in marcados
     }
 
+    # alphaTab pesa 1,1 MB y hay que precargarlo en el `<head>`: los visores
+    # llegan por fetch y su script inline corre antes de que una librería
+    # pedida en ese momento haya terminado de bajar. Precargarlo en toda clase
+    # sería pagarlo también en las que no llevan ninguna tablatura, así que se
+    # mira aquí, en el bucle que ya recorre la sesión entera.
+    tiene_gp = False
+
     playlist = []
     for item in items:
         if not item.content_object:
             continue
+        if medios.clave_de(item.content_object, item.content_type.model) == "gp_files":
+            tiene_gp = True
         # `page_url` alimenta el botón de "ver la página entera": el elemento que
         # se estudia es un medio suelto —una imagen, un PDF—, y a veces hace
         # falta el texto que lo rodea. Se calcula aquí y no en el cliente porque
@@ -587,6 +597,7 @@ def class_session_present(request, pk):
             "session": session,
             "playlist_json": json.dumps(playlist),
             "is_teacher": is_teacher and session.teacher == user,
+            "tiene_gp": tiene_gp,
         },
     )
 
@@ -640,22 +651,11 @@ def render_item_content(request, item):
 
     score_media = item.get_related_scorepage_media()
 
-    documents = {"pdfs": [], "images": [], "audios": [], "embeds": [], "recortes": []}
-
-    if content_type == "document" and hasattr(content, "file"):
-        filename = content.file.name.lower()
-        if filename.endswith(".pdf"):
-            documents["pdfs"].append(content)
-        elif filename.endswith((".mp3", ".wav", ".ogg", ".m4a", ".aac", ".flac")):
-            documents["audios"].append(content)
-    elif content_type == "image":
-        documents["images"].append(content)
-    elif content_type == "embed":
-        documents["embeds"].append(content)
-    elif content_type == "recorte":
-        # Clave propia, no `pdfs`: proyectar un recorte en clase con el visor de
-        # PDF entero dejaría salirse del trozo con dos toques en la pizarra.
-        documents["recortes"].append(content)
+    # El cajón de cada tipo de medio lo decide `my_library.medios`, y solo él.
+    # Cuando esta clasificación vivía aquí escrita a mano no conocía los
+    # ficheros de Guitar Pro, así que una tablatura acababa en el «No se
+    # encontró contenido para visualizar» en mitad de una clase.
+    documents = medios.clasificar(content, content_type)
 
     if score_media and score_media.get("embeds"):
         for embed_val in score_media["embeds"]:
@@ -1137,33 +1137,13 @@ def group_library_item_viewer(request, group_id, pk):
 
     score_media = item.get_related_scorepage_media()
 
-    # Preparar documentos según tipo de contenido
-    documents = {
-        "pdfs": [],
-        "images": [],
-        "audios": [],
-        "embeds": [],
-        "recortes": [],
-    }
+    # Los medios sueltos los clasifica `my_library.medios`; las páginas, no.
+    # Una `ScorePage` o una `RecursoPage` no son un medio sino un contenedor del
+    # que hay que sacar bloques del StreamField, a veces filtrando uno concreto
+    # por pk, y eso solo lo hace esta vista.
+    documents = medios.clasificar(content, content_type)
 
-    # Clasificar según tipo
-    if content_type == "recorte":
-        # Un recorte se pinta con su propio visor, acotado a su rango de
-        # páginas. Va el primero de la cadena porque no comparte ninguna de las
-        # ramas de abajo: no tiene `file`, ni bloques, ni elementos sueltos.
-        documents["recortes"].append(content)
-    elif content_type == "document":
-        # Wagtail Document
-        if hasattr(content, "file"):
-            filename = content.file.name.lower()
-            if filename.endswith(".pdf"):
-                documents["pdfs"].append(content)
-            elif filename.endswith((".mp3", ".wav", ".ogg", ".m4a", ".aac", ".flac")):
-                documents["audios"].append(content)
-    elif content_type == "image":
-        # Wagtail Image
-        documents["images"].append(content)
-    elif content_type == "scorepage":
+    if content_type == "scorepage":
         # ScorePage: extraer sus PDFs, audios, imágenes
         if hasattr(content, "content"):
             for block in content.content:
@@ -1348,39 +1328,14 @@ def class_session_item_viewer(request, session_id, item_id):
 
     score_media = item.get_related_scorepage_media()
 
-    # Preparar documentos según tipo de contenido
-    documents = {
-        "pdfs": [],
-        "images": [],
-        "audios": [],
-        "embeds": [],
-        "enlaces": [],
-    }
+    # Un solo clasificador, en `my_library.medios`. El `enlaceexterno` es
+    # material con licencia que vive fuera (Blink Learning) y no se incrusta: su
+    # cookie de sesión no viaja en un iframe de otro sitio, así que el visor
+    # ofrece un botón que lo abre en una ventana con nombre fijo.
+    documents = medios.clasificar(content, content_type)
 
-    # Clasificar según tipo (similar a my_library)
-    if content_type == "document":
-        # Wagtail Document
-        if hasattr(content, "file"):
-            filename = content.file.name.lower()
-            if filename.endswith(".pdf"):
-                documents["pdfs"].append(content)
-            elif filename.endswith((".mp3", ".wav", ".ogg", ".m4a", ".aac", ".flac")):
-                documents["audios"].append(content)
-    elif content_type == "image":
-        # Wagtail Image
-        documents["images"].append(content)
-    elif content_type == "embed":
-        # Wagtail Embed model
-        documents["embeds"].append(content)
-    elif content_type == "enlaceexterno":
-        # Material con licencia que vive fuera (Blink Learning). No se incrusta:
-        # su cookie de sesión no viaja en un iframe de otro sitio, así que el
-        # visor ofrece un botón que lo abre en una ventana con nombre fijo.
-        documents["enlaces"].append(content)
-        
-    # Extraer embeds de ScorePage (que fueron importados como items en la sesion?)
-    # Wait, en ClassSession, a content_object can also be a PDF/image inside a ScorePage...
-    # Bueno, vamos a obtener los embeds directamente de score_media
+    # Los embeds de una ScorePage se añaden aparte: no son el medio del elemento
+    # sino lo que cuelga de su página de origen.
     if score_media and score_media.get("embeds"):
         for embed_val in score_media["embeds"]:
             if element_type == "embed" and embed_url == embed_val.url:

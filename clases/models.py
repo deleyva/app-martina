@@ -1406,6 +1406,20 @@ class ClassSessionItem(models.Model):
             pass
         return None
 
+    @property
+    def songsterr_link(self):
+        """Enlace a Songsterr de la página de la que salió este elemento.
+
+        Un documento .gp no sabe nada de Songsterr: el id vive en la
+        `RecursoPage`, y aquí llegamos a ella por `source_page`. Es la misma
+        propiedad que `LibraryItem.songsterr_link`, y tiene que existir también
+        aquí porque `study_item_content.html` se la pide al `item` sea cual sea
+        su clase: sin esto la tablatura se pinta, pero con el botón vacío.
+        """
+        if not self.source_page_id:
+            return None
+        return getattr(self.source_page.specific, "songsterr_link", None)
+
     def get_related_scorepage(self):
         """
         Obtener ScorePage relacionado si este item es un Document, Image individual.
