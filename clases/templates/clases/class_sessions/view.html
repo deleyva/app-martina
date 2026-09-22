@@ -70,7 +70,8 @@
                     {% endif %}
                 </h2>
                 {% if session.reflection_audio %}
-                <audio controls class="w-full mt-2" src="{{ session.reflection_audio.url }}"></audio>
+                {# Por la vista, nunca por `.url`: nginx sirve /media/ sin preguntar quién eres. #}
+                <audio controls class="w-full mt-2" src="{% url 'clases:class_session_reflection_audio' session.pk %}"></audio>
                 {% endif %}
                 <form method="post" action="{% url 'clases:class_session_close' session.pk %}" class="mt-2">
                     {% csrf_token %}

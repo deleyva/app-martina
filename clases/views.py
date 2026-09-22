@@ -1,6 +1,8 @@
 from django.shortcuts import render, redirect, get_object_or_404, reverse
 from django.contrib import messages
-from django.http import HttpResponse
+from django.http import FileResponse, Http404, HttpResponse
+from pathlib import Path
+import secrets
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.views import redirect_to_login
 from django.views.decorators.http import require_http_methods
@@ -9,6 +11,21 @@ import json
 
 from martina_bescos_app.users.permisos import es_profesor, grupo_del_profesor
 from my_library import medios
+
+# Los tres formatos que puede soltar `MediaRecorder` según el navegador. Las dos
+# tablas son la misma correspondencia leída en cada sentido: una para nombrar el
+# fichero al subirlo y otra para devolverlo con su tipo al servirlo.
+EXTENSION_DE_AUDIO = {
+    "audio/mp4": ".m4a",
+    "audio/x-m4a": ".m4a",
+    "audio/m4a": ".m4a",
+    "audio/ogg": ".ogg",
+}
+TIPO_DE_AUDIO = {
+    ".webm": "audio/webm",
+    ".m4a": "audio/mp4",
+    ".ogg": "audio/ogg",
+}
 
 from .models import (
     Group,
@@ -440,13 +457,12 @@ def class_session_close(request, pk):
         # Límite de seguridad: 20 MB
         if audio_file.size > 20 * 1024 * 1024:
             return HttpResponse("Audio demasiado grande (máx. 20 MB)", status=400)
-        # Nombre estable con extensión según content type
-        ext = ".webm"
-        if audio_file.content_type in ("audio/mp4", "audio/x-m4a", "audio/m4a"):
-            ext = ".m4a"
-        elif audio_file.content_type == "audio/ogg":
-            ext = ".ogg"
-        audio_file.name = f"reflexion_sesion_{session.pk}{ext}"
+        ext = EXTENSION_DE_AUDIO.get(audio_file.content_type, ".webm")
+        # Nombre impredecible, no `reflexion_sesion_<pk>`. El id de la sesión lo
+        # tiene el alumnado en su propia barra de direcciones, así que el nombre
+        # anterior se adivinaba entero. El portero de verdad es la vista de
+        # abajo; esto es el cinturón por si algún día falla el tirante.
+        audio_file.name = f"reflexion_{session.pk}_{secrets.token_urlsafe(12)}{ext}"
 
     session.close(reflection_text=reflection_text, audio_file=audio_file)
 
@@ -463,6 +479,31 @@ def class_session_close(request, pk):
 
     messages.success(request, "Clase finalizada. Reflexión guardada.")
     return redirect("clases:class_session_view", pk=session.pk)
+
+
+@login_required
+@user_passes_test(es_profesor)
+def class_session_reflection_audio(request, pk):
+    """La nota de voz de una reflexión, solo para el profesor que la grabó.
+
+    **Por qué no se sirve por `/media/`.** nginx entrega ese directorio tal
+    cual, sin pasar por Django: cualquiera con la URL se baja el fichero. Y la
+    URL se adivinaba entera, porque el nombre se construía con el id de la
+    sesión, que el alumnado tiene delante en su propia barra de direcciones.
+    Una reflexión de clase puede hablar de un alumno con nombre y apellidos.
+
+    Es la misma forma que usa `musica.servido` con los PDF restringidos: el
+    fichero sale por una vista que pregunta quién lo pide, y nginx tiene cerrado
+    el atajo (`location ^~ /media/class_reflections/`).
+    """
+    session = get_object_or_404(ClassSession, pk=pk, teacher=request.user)
+
+    if not session.reflection_audio:
+        raise Http404("Esta sesión no tiene nota de voz.")
+
+    extension = Path(session.reflection_audio.name).suffix.lower()
+    tipo = TIPO_DE_AUDIO.get(extension, "application/octet-stream")
+    return FileResponse(session.reflection_audio.open("rb"), content_type=tipo)
 
 
 @login_required

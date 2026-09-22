@@ -230,6 +230,12 @@ urlpatterns = [
         views.class_session_reopen,
         name="class_session_reopen",
     ),
+    # La nota de voz NO sale por /media/: ver la vista y la regla de nginx.
+    path(
+        "sessions/<int:pk>/reflexion/audio/",
+        views.class_session_reflection_audio,
+        name="class_session_reflection_audio",
+    ),
     path(
         "sessions/<int:session_id>/item-content/<int:item_id>/",
         views.class_session_item_content,
