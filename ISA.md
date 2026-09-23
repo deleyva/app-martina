@@ -3628,7 +3628,7 @@ fallan por enlace (`entity`) y dos por estilo (`inline style`): pks 615, 618,
 
 
 
-## Fase 39 — Calificaciones: criterios × instrumentos, cuadro y modo clase (2026-09-23) · CONSTRUIDA Y VERIFICADA EN LOCAL (pendiente: audio/vídeo desde el móvil)
+## Fase 39 — Calificaciones: criterios × instrumentos, cuadro y modo clase (2026-09-23) · DESPLEGADA EN PRODUCCIÓN (pendiente: audio/vídeo desde el móvil)
 
 **Goal (literal de Jesús, 2026-09-23):** «Me gustaría añadir opciones de evaluación en la apps.iesmartinabescos.es, de manera que cada profesor pudiera evaluar a su grupo. […] Quiero que sea fluido y efectivo para mí. […] Me gustaría poder acceder a las calificaciones de manera aislada y también poder coger notas mientras doy la clase […] un botón de grabado de audio/vídeo para recoger el momento en vídeo o audio como evidencia, también notas de texto o fotos, tal y como está en /Users/deleyva/Documents/notas». Añadido después: «quiero que añadas otro instrumento de evaluación: la sensorialidad».
 
@@ -3718,3 +3718,4 @@ pasado · rúbricas por prueba · purga automática de evidencias.
 - Sin cross-vendor audit: superficie de profesor autenticado, sin publicar todavía, con 34 tests propios y verificación en navegador; el riesgo real (media de menores) está cubierto por C217 con test y configuración de nginx. Elegido a conciencia.
 - Nada desplegado ni empujado. `output.css` reconstruido en local con `bunx @tailwindcss/cli` (producción lo reconstruye en el Dockerfile).
 - Fase 2 sigue en el plan: vista del alumnado, exportar a la plantilla `.xlsx` del departamento, criterios no alcanzados, importar el `data.json` de 4º 25-26.
+- **2026-09-23, despliegue:** push `bcde090..4ff3da9`, `just deploy-production` (migración `calificaciones.0001_initial` OK, cinco contenedores arriba), `cargar_marcos_musica` en producción: tres marcos, tres planes por defecto, los tres cuadran. Probado en la web real: `/media/calificaciones/x.jpg` → 404 desde nginx; `/calificaciones/` sin sesión → 302 al login; con la sesión de Jesús, la portada lista sus seis grupos de 2026-2027 y el cuadro de 3-FH ofrece adoptar el plan por defecto de 3º.
