@@ -101,6 +101,10 @@
         imageIndicator = document.getElementById('image-indicator'),
         imageInfo = document.getElementById('image-info');
 
+    // El modo presentación (present.html) lee esto: con un visor con páginas
+    // delante, las flechas del teclado pasan de página y no de elemento.
+    window.visorConPaginas = true;
+
     var indicatorTimeout = null;
     var isChangingImage = false; // Flag para evitar loops durante cambios programáticos
 
@@ -299,6 +303,10 @@
 
     // Navegación con teclado
     document.addEventListener('keydown', function (e) {
+        // Cada elemento cargado deja aquí su listener y nadie lo quita: un
+        // visor que ya no está en la página no puede reaccionar a las teclas,
+        // o el PDF de hace tres elementos «avanza» a ciegas.
+        if (!document.body.contains(container)) return;
         // Escribiendo en un campo, el teclado es del campo. Sin esta guarda, un
         // espacio en la nota compartida avanzaba el visor en vez de escribirse
         // (2026-08-25), y las flechas y AvPág/RePág movían el visor en lugar

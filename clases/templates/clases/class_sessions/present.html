@@ -209,6 +209,10 @@
         }
         .fab-der:hover { transform: scale(1.1); background: rgba(60, 60, 68, 0.95); }
         .fab-der:disabled { opacity: 0.3; cursor: default; transform: none; }
+        /* Al llegar al final de un PDF con las flechas, el botón de siguiente
+           late un momento: es ahí donde hay que pulsar para cambiar de elemento. */
+        @keyframes fab-pulso { 0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.7); } 50% { transform: scale(1.12); box-shadow: 0 0 0 12px rgba(139, 92, 246, 0); } }
+        .fab-der.pulso { animation: fab-pulso 0.7s ease-out 2; }
 
         #fab-siguiente { bottom: 84px; right: 24px; }
         #fab-anterior  { bottom: 84px; right: 84px; }
@@ -588,13 +592,13 @@
     </button>
     {% endif %}
     <button id="fab-anterior" class="fab-der" type="button" onclick="navigateItem(-1)"
-            data-ayuda="Elemento anterior de la clase (flecha ←).">
+            data-ayuda="Elemento anterior de la clase. Las flechas del teclado pasan páginas dentro de un PDF; para cambiar de elemento, este botón.">
         <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
         </svg>
     </button>
     <button id="fab-siguiente" class="fab-der" type="button" onclick="navigateItem(1)"
-            data-ayuda="Elemento siguiente de la clase (flecha →).">
+            data-ayuda="Elemento siguiente de la clase. Las flechas del teclado pasan páginas dentro de un PDF; para cambiar de elemento, este botón. En el último, cierra la clase.">
         <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
         </svg>
@@ -692,7 +696,7 @@
         var btnAnterior = document.getElementById('fab-anterior');
         var btnSiguiente = document.getElementById('fab-siguiente');
         if (btnAnterior) btnAnterior.disabled = currentIndex === 0;
-        if (btnSiguiente) btnSiguiente.disabled = currentIndex >= playlist.length - 1;
+        if (btnSiguiente) btnSiguiente.disabled = playlist.length === 0;
         // El botón de la página entera se apaga cuando el elemento no viene de
         // ninguna: un extra suelto puede no tener página de origen.
         var btnPagina = document.getElementById('fab-pagina');
@@ -704,7 +708,10 @@
 
     function navigateItem(delta) {
         var newIndex = currentIndex + delta;
-        if (newIndex < 0 || newIndex >= playlist.length) return;
+        // `newIndex === playlist.length` es «pasar del último»: loadItem enseña
+        // la pantalla de cierre. Antes solo se llegaba ahí al agotar el último
+        // visor con la flecha; ahora la flecha no cambia de elemento.
+        if (newIndex < 0 || newIndex > playlist.length) return;
         toggleFlyout(false);
         loadItem(newIndex);
     }
@@ -724,6 +731,9 @@
         currentIndex = index;
         itemVersion++;
         loadingItem = true; // Block viewer events during transition
+        // Los visores con páginas (PDF, imágenes, recortes) lo ponen a true al
+        // arrancar. Mientras sea true, las flechas del teclado son suyas.
+        window.visorConPaginas = false;
         updateFlyout();
         var pk = playlist[index].pk;
         var myVersion = itemVersion;
@@ -811,11 +821,18 @@
     // Hook for viewers: auto-advance to next item at end of content.
     // Guard: loadingItem blocks during the 600ms after item load (prevents cascade).
     // After that window, onStudyContentEnd works normally for user-initiated advances.
+    // Antes cambiaba de elemento solo: al agotar un PDF con la flecha, la
+    // clase saltaba al siguiente y se quedaban páginas sin ver (2026-09-23,
+    // petición de Jesús). Ahora avisa y se queda: cambiar de elemento es cosa
+    // de los botones ‹ › o del índice.
     window.onStudyContentEnd = function() {
         if (loadingItem) return;
-        if (flyoutCurrentAudio) { flyoutCurrentAudio.pause(); flyoutCurrentAudio = null; }
-        loadingItem = true; // Prevent re-entry until next item loads
-        loadItem(currentIndex + 1);
+        asomarPista();
+        var btn = document.getElementById('fab-siguiente');
+        if (!btn) return;
+        btn.classList.remove('pulso');
+        void btn.offsetWidth; // reinicia la animación si ya estaba puesta
+        btn.classList.add('pulso');
     };
 
     function showSessionComplete() {
@@ -1233,8 +1250,11 @@
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
         if (lienzoAbierto()) return;
 
-        if (e.key === 'ArrowRight') { navigateItem(1); return; }
-        if (e.key === 'ArrowLeft') { navigateItem(-1); return; }
+        // Con un visor con páginas delante, las flechas son del visor: pasa
+        // de página y no de elemento. Sin él (audio, enlace, tablatura),
+        // siguen cambiando de elemento.
+        if (e.key === 'ArrowRight') { if (!window.visorConPaginas) navigateItem(1); return; }
+        if (e.key === 'ArrowLeft') { if (!window.visorConPaginas) navigateItem(-1); return; }
         if (e.key === 'm' || e.key === 'M') { toggleFlyout(); return; }
         if (e.key === 'v' || e.key === 'V') { abrirPagina(); return; }
         if (e.key === 'p' || e.key === 'P') { abrirPlantillas(); return; }

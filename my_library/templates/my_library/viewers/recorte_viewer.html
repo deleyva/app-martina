@@ -110,6 +110,10 @@ multilínea escrito así se pinta entero en la página. Por eso este bloque es
         indicator = document.getElementById('recorte-indicator'),
         info = document.getElementById('recorte-info');
 
+    // El modo presentación (present.html) lee esto: con un visor con páginas
+    // delante, las flechas del teclado pasan de página y no de elemento.
+    window.visorConPaginas = true;
+
     var indicatorTimeout = null;
 
     function mostrarIndicador() {
@@ -286,6 +290,10 @@ multilínea escrito así se pinta entero en la página. Por eso este bloque es
     });
 
     document.addEventListener('keydown', function (e) {
+        // Cada elemento cargado deja aquí su listener y nadie lo quita: un
+        // visor que ya no está en la página no puede reaccionar a las teclas,
+        // o el PDF de hace tres elementos «avanza» a ciegas.
+        if (!document.body.contains(container)) return;
         // Escribiendo en un campo, el teclado es del campo. Misma guarda que en
         // `pdf_viewer.html`: sin ella, un espacio en la nota compartida avanzaba
         // el visor en vez de escribirse.
