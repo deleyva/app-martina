@@ -45,7 +45,11 @@ from musica.articulos import (  # noqa: E402
 )
 
 API = os.environ.get("IES_API_URL", "https://apps.iesmartinabescos.es")
-DIRECTORIO = RAIZ / "musica" / "data" / "articulos"
+# Los borradores viven fuera del repo: son contenido, no código, y el remoto es
+# público. Lo publicado vive en la base de datos de producción.
+DIRECTORIO = Path(
+    os.environ.get("IES_ARTICULOS_DIR", "~/Documents/articulos-ies")
+).expanduser()
 # Qué imagen del disco corresponde a qué id de Wagtail. Fuera de git: son ids
 # de una instalación concreta, no algo que viaje con el código.
 CACHE = DIRECTORIO / ".imagenes-subidas.json"

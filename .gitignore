@@ -299,4 +299,4 @@ site/
 
 # Copias de seguridad de datos de producción (no van al repo público)
 backups/
-musica/data/articulos/.imagenes-subidas.json
+musica/data/articulos/

@@ -18,6 +18,7 @@ de escucha guiada), y el destino es un `RichTextField`, que no admite `<pre>`
 ni `<table>`. Traer una dependencia para seis construcciones sería pagar de más.
 """
 
+import os
 from pathlib import Path
 
 from django.core.files.images import ImageFile
@@ -35,9 +36,11 @@ from musica.articulos import (
 )
 from musica.models import MusicLibraryIndexPage, RecursoPage, RecursoTraduccion
 
-# Relativo a este fichero, no a `settings`: `APPS_DIR` de cookiecutter apunta al
-# paquete interno, y ahí no vive `musica/`.
-DIRECTORIO = Path(__file__).resolve().parents[3] / "musica" / "data" / "articulos"
+# Los borradores viven fuera del repo (el remoto es público). Mismo sitio que
+# usa scripts/publicar_cancion.py; se cambia con IES_ARTICULOS_DIR.
+DIRECTORIO = Path(
+    os.environ.get("IES_ARTICULOS_DIR", "~/Documents/articulos-ies")
+).expanduser()
 
 def imagen_de_portada(datos):
     """Crea (o encuentra) la imagen de portada del artículo.
@@ -94,7 +97,7 @@ class Command(BaseCommand):
     help = "Importa borradores de artículo como RecursoPage en borrador, con sus dos lenguas."
 
     def add_arguments(self, parser):
-        parser.add_argument("ficheros", nargs="*", help="Nombres dentro de musica/data/articulos")
+        parser.add_argument("ficheros", nargs="*", help="Nombres dentro de IES_ARTICULOS_DIR (~/Documents/articulos-ies)")
         parser.add_argument("--aplicar", action="store_true", help="Escribe las páginas")
         parser.add_argument(
             "--publicar",
