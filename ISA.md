@@ -1,10 +1,10 @@
 ---
 slug: app-martina
-phase: complete
-progress: false
-iteration: 45
+phase: verify
+progress: true
+iteration: 46
 principal_stated_goal: "Necesito desarrollar en apps.iesmartinabescos.es Otra app de Django como la que tenemos en /incidencias. Está sí que debe de requerir login con Google porque ya tenemos implementado. Básicamente, es una aplicación en la que quiero que vayan solicitando la clave Wi-Fi. Pero para ello deben logearse y enviar la MAC de su dispositivo WIFI, la privada (real) no la aleatoria."
-updated: 2026-09-18
+updated: 2026-09-23
 ---
 
 # ISA — app-martina · Sistema de estudio de la biblioteca
@@ -3625,3 +3625,96 @@ fallan por enlace (`entity`) y dos por estilo (`inline style`): pks 615, 618,
   cuerpo en Draftail con su titular y su lista, con el texto intacto.
 - El fallo original llegó por correo a las 6:44 del 2026-09-21, disparado por
   `afuentes@` al pulsar «editar» en la 655.
+
+
+
+## Fase 39 — Calificaciones: criterios × instrumentos, cuadro y modo clase (2026-09-23) · CONSTRUIDA Y VERIFICADA EN LOCAL (pendiente: audio/vídeo desde el móvil)
+
+**Goal (literal de Jesús, 2026-09-23):** «Me gustaría añadir opciones de evaluación en la apps.iesmartinabescos.es, de manera que cada profesor pudiera evaluar a su grupo. […] Quiero que sea fluido y efectivo para mí. […] Me gustaría poder acceder a las calificaciones de manera aislada y también poder coger notas mientras doy la clase […] un botón de grabado de audio/vídeo para recoger el momento en vídeo o audio como evidencia, también notas de texto o fotos, tal y como está en /Users/deleyva/Documents/notas». Añadido después: «quiero que añadas otro instrumento de evaluación: la sensorialidad».
+
+Plan aprobado: `~/.claude/plans/fluttering-sleeping-deer.md`. Decisiones cerradas
+con Jesús: app nueva `calificaciones` (la `evaluations` heredada no se toca);
+un instrumento tiene varias pruebas datadas con una por defecto; el alumnado ve
+sus notas en fase 2.
+
+**La idea que lo sostiene:** una sola tabla criterio × instrumento con un % de
+la nota en cada celda. La suma de la columna es lo que se dice en clase («la
+lectura rítmica cuenta un 10 %»); la suma de la fila es el peso legal del
+criterio en la programación. La nota es la misma cifra leída por filas o por
+columnas, así que no hay dos verdades que cuadrar.
+
+### Problem
+
+El curso pasado las notas vivían en una SPA local con JSON en disco: no
+conocía a los alumnos ni a los grupos, no se podía usar desde el móvil en clase
+mientras se proyectaba desde el portátil, y las evidencias (audio y vídeo de
+menores) estaban en un portátil. La ley pide porcentajes por criterio; el
+profesor y los alumnos piensan en instrumentos.
+
+### Out of Scope (esta fase)
+
+Vista del alumnado · exportar a la plantilla `.xlsx` del departamento ·
+recuperación de criterios no alcanzados · importar el `data.json` del curso
+pasado · rúbricas por prueba · purga automática de evidencias.
+
+### Claims
+
+- [x] **C211** — Existe la app `calificaciones` con los modelos `MarcoEvaluacion`, `Criterio`, `Plan`, `Instrumento`, `Reparto`, `Prueba`, `Nota` (valor nulo permitido), `Evidencia`, `NotaManual`, `CambioNota`; el alumno es `User` vía `Enrollment`, nunca `Student`. *Falsador: `manage.py makemigrations --check` sale 0 y `manage.py check` sale 0; un `grep` de `Student` en `calificaciones/` no devuelve nada.*
+- [x] **C212** — El cuadre es una sola verdad: para cualquier plan, `Σ_criterio peso_c · nota_c` = `Σ_instrumento columna_i · nota_i` con precisión de centésima; una nota nula no cuenta como 0 y la media se renormaliza. *Falsador: tests de `calculo.py` con dos planes distintos y alumnos con huecos.*
+- [x] **C213** — La pantalla del plan enseña la rejilla criterio × instrumento con totales de fila y de columna; marcar criterios en un instrumento reparte su % a partes iguales, cada celda se edita y una fila que no coincide con el peso legal se ve en rojo. *Falsador: navegador real sobre el plan de 3º con el reparto de la tabla del plan: 100/100 y cada fila 10.*
+- [x] **C214** — `cargar_marcos_musica` siembra los criterios y pesos de 1º bilingüe, 3º y 4º bilingüe desde las programaciones 26-27, con los nueve instrumentos (incluida **sensorialidad**) como plan por defecto. *Falsador: tras el comando, `Criterio` suma 100 por marco; es idempotente (segunda ejecución no duplica).*
+- [x] **C215** — El cuadro: alumnos matriculados × instrumentos, celda editable inline con autoguardado, Enter baja por la columna, nota del trimestre y cualitativa en vivo. *Falsador: navegador real; una nota escrita sobrevive a recargar y aparece en `CambioNota`.*
+- [~] **C216** `[DEFERRED-VERIFY]` — Modo clase en móvil: elegida la prueba, cada alumno tiene nota rápida y botones de audio, vídeo, foto y texto; la evidencia sube en segundo plano y se reproduce después desde el cuadro. *Falsador: navegador real con micrófono y cámara; fila en `Evidencia` con fichero existente en disco.*
+- [x] **C217** — Las evidencias no salen por `/media/`: nginx devuelve 404 en `/media/calificaciones/` y la vista que las sirve exige `grupo_del_profesor`. *Falsador: test de permisos (profesor B recibe 404 en la evidencia de un grupo de A) y lectura del `default.conf`.*
+- [x] **C218** — Un profesor no ve ni edita grupos ajenos, y un alumno no entra en `/calificaciones/`. *Falsador: test con dos profesores y un alumno, sobre cuadro, plan, guardar nota y subir evidencia.*
+- [x] **C219** — Historial con deshacer: cada cambio de nota queda con antes, después, quién y cuándo; deshacer escribe el valor anterior y registra otro cambio, nunca borra. *Falsador: test de ida y vuelta.*
+- [x] **C220** — Entrada en el menú en los tres sitios de `base.html`, solo para `es_profesor`. *Falsador: render de una página con un profesor y con un alumno; `assert "{#" not in html`.*
+- [x] **C221** — La suite pasa (`just test`) sin fallos nuevos respecto a `main`.
+
+### Anti-claims
+
+- **Anti-A** — Ninguna tabla ni vista de `evaluations` se modifica ni se borra en esta fase. *Falsador: `git diff --stat main -- evaluations/` vacío.*
+- **Anti-B** — No se despliega ni se hace push sin visto bueno explícito de Jesús.
+- **Anti-C** — Nada de `calificaciones` guarda un 0 donde el profesor no ha puesto nota.
+
+### Test Strategy
+
+`pytest` vía `just test`. Tests en `calificaciones/tests/` con `conftest.py` propio (fixture `user` y `MEDIA_ROOT` temporal, porque el `conftest` de `martina_bescos_app` no alcanza a las apps hermanas). Vistas web verificadas en Chrome real con la sesión de Jesús (`mcp__claude-in-chrome__*`), móvil emulado para el modo clase.
+
+### Verificación (2026-09-23, local, Chrome con la sesión de Jesús)
+
+- **C211** — `makemigrations --check --dry-run` → «No changes detected», `manage.py check` → 0 issues; `grep Student calificaciones/` solo encuentra la línea del docstring que explica por qué NO se usa.
+- **C212** — `calificaciones/tests/test_calculo.py`: 11 tests, incluido el que demuestra que filas y columnas solo coinciden cuando cada fila cuadra con el peso legal. 34/34 en la app.
+- **C213** — Navegador: `/calificaciones/plan/4/` pinta la rejilla 10 criterios × 9 instrumentos, cada fila 10 en verde, columnas 15/10/10/10/10/10/10/15/10, «✅ Cuadra: 100 %». Al escribir 8 en (1.2, Teoría) la fila pasa a rojo y el estado dice «Suma 98 % · 1 criterio(s) no coinciden con la programación».
+- **C214** — `cargar_marcos_musica` dos veces: 3 marcos, 29 criterios (10+10+9), 3 planes por defecto con 9 instrumentos, «100.00 % · cuadra» los tres; la segunda ejecución dice «ya existía». Test `test_cargar_marcos_musica_cuadra_y_es_idempotente`.
+- **C215** — Navegador: «8,5» en Teoría de la primera alumna se guarda como 8.5, Enter baja a la siguiente fila, se escribe 4; Nota 8,50/NT y 4/IN aparecen sin recargar y «faltan» pasa de 9 a 8. `CambioNota`: `'' -> '8.5'` y `'' -> '4'` por jlopez.
+- **C216** — Navegador: modo clase lista 12 alumnos con nota grande y cuatro botones; nota 7 y nota de texto para hsanchez guardadas («Nota 7 · hsanchez», «✏️ guardado para hsanchez», contador 1); las dos evidencias de texto están en `Evidencia` y la del cuadro aparece como badge «1» en su celda. **Pendiente:** grabar audio y vídeo de verdad. El botón 🎤 dispara `getUserMedia` y Chrome se queda en el permiso (`permissions.query` → `prompt`), que la automatización no puede contestar. Tarea de seguimiento: Jesús lo prueba en su móvil en `/calificaciones/grupo/<id>/clase/`; el código es el mismo patrón que la reflexión de voz de `present.html`, que sí está probado.
+- **C217** — `test_evidencia_se_sube_y_solo_la_ve_su_profesor`: el fichero va a `calificaciones/<plan>/<alumno>/<uuid>.jpg`, el profesor del grupo lo recibe con `image/jpeg`, el otro profesor recibe 404 al verlo y al borrarlo, el alumno es redirigido al login. `test_nginx_cierra_la_ruta_de_media` lee el `default.conf`.
+- **C218** — `test_otro_profesor_recibe_404_en_todo` (cuadro, plan, clase, historial, guardar nota, subir evidencia) y `test_un_alumno_no_entra`.
+- **C219** — `test_deshacer_escribe_el_valor_anterior_y_no_borra`: 4 → 9, deshacer → 4, tres filas en el historial, la tercera con `revertido_de`. Página `/historial/` renderizada en navegador.
+- **C220** — Icono de barras en la barra superior (captura), `test_el_menu_solo_lo_ve_el_profesorado` cuenta tres enlaces y comprueba que un alumno no ve «Calificaciones».
+- **C221** — Suite completa: 4 fallos, todos preexistentes: `cms.test_frontend_integration` (2, pagination JS y tag links) e `incidencias.test_views` (2, filtro por planta y título del panel). Los dos que renderizan `base.html` se volvieron a correr con `base.html` devuelto a `main` (`git stash`) y siguen fallando igual: no son míos.
+- **Anti-A** — `git diff --stat main -- evaluations/` vacío. **Anti-C** — `Nota.valor` nulo es el estado «sin nota» y el cuadro lo pinta como «—» (captura).
+
+### Lo que encontró el navegador (y no encontraron los tests)
+
+1. **El script del panel no corría.** El parcial del panel llegaba por `innerHTML` y su `<script>` no se ejecuta: el formulario de evidencias hacía su envío nativo por GET y la URL se llenaba de campos. Arreglo: la lógica vive en `cuadro.html` (`initPanel`) y el parcial no lleva script. Es la misma trampa que ya documentaba `present.html`; ahora está en `AGENTS.md`.
+2. **`FormData.append` con tres argumentos y un texto.** En modo clase, guardar una nota de texto lanzaba `TypeError: parameter 2 is not of type 'Blob'` y el botón no hacía nada. Lo cazó la consola de Chrome. En `AGENTS.md`.
+3. **El contenedor local cachea las plantillas.** Dos veces creí que un arreglo no funcionaba cuando lo que pasaba es que Django servía la plantilla vieja. `docker compose restart django`. En `AGENTS.md`.
+
+### Decisiones
+
+- **La nota del trimestre se calcula por criterios (la lectura legal), no por columnas.** Con todo puesto dan lo mismo; con huecos, la de criterios es la que la programación describe. El test `test_si_una_fila_no_cuadra_las_dos_lecturas_divergen` deja escrito por qué importa el cuadre.
+- **Un hueco no es un cero.** `Nota.valor` nulo se sale del reparto y la media se renormaliza; el cuadro enseña «faltan N». Si Jesús quiere que cuente cero, pone un cero. Viene de los `melodic: 0` del `data.json` del curso pasado.
+- **El peso de un instrumento no se guarda: es la suma de su columna.** Una sola verdad (`Reparto`), y el % que se dice en clase es una vista de ella.
+- **Celda editable en línea solo con una prueba activa.** Con varias, la celda enseña la agregación y se califica prueba a prueba en el panel: editar «la media» no significa nada.
+- **Los ficheros de evidencia llevan uuid en el nombre y cuelgan de `calificaciones/<plan>/<alumno>/`.** nginx devuelve 404 en toda la ruta; la vista comprueba el grupo.
+- **Un plan de un trimestre puede tener grupos vacíos** (los tres «por defecto» de la siembra): se editan solo desde el admin hasta que un grupo los adopta o copia. Adoptar comparte el plan entre grupos; copiar lo hace propio.
+- **Pesos de los trimestres:** 20/30/50 solo en 3º, que es la única programación que lo dice. 1º y 4º quedan a partes iguales en el marco, editables en el admin, hasta que Jesús confirme.
+
+### Log
+
+- Local: grupo de prueba `3º ESO T (prueba local)` (pk 14, 2026-2027, 12 alumnos copiados de 4AG) creado solo en la base local para verificar; no existe en producción. Puede borrarse o quedarse para jugar.
+- Sin cross-vendor audit: superficie de profesor autenticado, sin publicar todavía, con 34 tests propios y verificación en navegador; el riesgo real (media de menores) está cubierto por C217 con test y configuración de nginx. Elegido a conciencia.
+- Nada desplegado ni empujado. `output.css` reconstruido en local con `bunx @tailwindcss/cli` (producción lo reconstruye en el Dockerfile).
+- Fase 2 sigue en el plan: vista del alumnado, exportar a la plantilla `.xlsx` del departamento, criterios no alcanzados, importar el `data.json` de 4º 25-26.

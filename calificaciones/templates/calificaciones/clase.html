@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+
+{% block title %}Modo clase · {{ group.name }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-2 sm:px-4 py-4 pb-24" id="clase">
+  <div class="flex items-center justify-between gap-2 mb-2">
+    <div>
+      <a href="{% url 'calificaciones:cuadro' group.pk %}?t={{ trimestre }}" class="text-xs link link-hover">← Cuadro</a>
+      <h1 class="text-xl font-bold leading-tight">🎤 {{ group.name }}</h1>
+    </div>
+    <div class="join">
+      {% for t in "123" %}<a href="?t={{ t }}" class="btn btn-xs join-item {% if t == trimestre|stringformat:'s' %}btn-primary{% endif %}">{{ t }}ª</a>{% endfor %}
+    </div>
+  </div>
+
+  {% if not pruebas %}
+    <div class="alert">El plan no tiene instrumentos todavía. <a class="link" href="{% url 'calificaciones:plan' plan.pk %}">Añádelos en el plan</a>.</div>
+  {% else %}
+  <form method="get" class="flex gap-2 items-center mb-3">
+    <input type="hidden" name="t" value="{{ trimestre }}" />
+    <select name="prueba" class="select select-bordered select-sm flex-1" onchange="this.form.submit()">
+      {% regroup pruebas by instrumento as por_instrumento %}
+      {% for grupo_p in por_instrumento %}
+        <optgroup label="{{ grupo_p.grouper.nombre }}">
+          {% for p in grupo_p.list %}<option value="{{ p.pk }}" {% if p.pk == prueba.pk %}selected{% endif %}>{{ p.nombre }} · {{ p.fecha|date:"d/m" }}</option>{% endfor %}
+        </optgroup>
+      {% endfor %}
+    </select>
+    <button type="button" class="btn btn-sm btn-outline" onclick="document.getElementById('nueva-prueba').showModal()">＋</button>
+  </form>
+
+  <dialog id="nueva-prueba" class="modal">
+    <div class="modal-box">
+      <h3 class="font-bold">Nueva prueba</h3>
+      <p class="text-sm opacity-70 mb-2">Una observación más de un instrumento, para todo el grupo (por ejemplo, la lectura rítmica de hoy).</p>
+      <form method="post" action="" id="form-nueva-prueba" class="space-y-2">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="" />
+        <select name="instrumento" class="select select-bordered w-full" id="nueva-instrumento">
+          {% for i in instrumentos %}<option value="{{ i.pk }}" {% if prueba and i.pk == prueba.instrumento_id %}selected{% endif %}>{{ i.nombre }}</option>{% endfor %}
+        </select>
+        <input name="nombre" class="input input-bordered w-full" placeholder="Nombre (vacío = nombre del instrumento + número)" />
+        <input type="date" name="fecha" class="input input-bordered w-full" />
+        <div class="modal-action">
+          <button type="button" class="btn" onclick="document.getElementById('nueva-prueba').close()">Cancelar</button>
+          <button class="btn btn-primary">Crear</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <div class="text-xs opacity-70 mb-2">Prueba: <strong>{{ prueba.nombre }}</strong> ({{ prueba.instrumento.nombre }}, {{ prueba.fecha|date:"d/m/Y" }}). La nota se guarda al cambiar; las evidencias suben solas.</div>
+
+  <div id="estado" class="text-sm min-h-5 mb-1"></div>
+
+  <ul class="space-y-1">
+    {% for alumno, nota, n_evidencias in alumnos %}
+    <li class="card bg-base-100 shadow-sm" data-alumno="{{ alumno.pk }}">
+      <div class="card-body p-2 sm:p-3 flex-row items-center gap-2 flex-wrap">
+        <div class="flex-1 min-w-32 font-semibold truncate">{{ alumno.name|default:alumno.email }}</div>
+        {% if opciones %}
+          <select class="select select-bordered select-sm w-32 nota">
+            <option value="">—</option>
+            {% for o in opciones %}<option value="{{ o.valor|floatformat:'-2' }}" {% if nota and nota.valor is not None and nota.valor == o.valor %}selected{% endif %}>{{ o.etiqueta }}</option>{% endfor %}
+          </select>
+        {% else %}
+          <input type="text" inputmode="decimal" class="input input-bordered input-lg w-20 text-center text-xl nota" value="{% if nota and nota.valor is not None %}{{ nota.valor|floatformat:'-2' }}{% endif %}" placeholder="—" />
+        {% endif %}
+        <div class="flex gap-1">
+          <button type="button" class="btn btn-square btn-sm grabar" data-tipo="audio" title="Grabar audio">🎤</button>
+          <button type="button" class="btn btn-square btn-sm grabar" data-tipo="video" title="Grabar vídeo">🎥</button>
+          <label class="btn btn-square btn-sm" title="Foto"><span>📷</span><input type="file" accept="image/*" capture="environment" class="hidden foto" /></label>
+          <button type="button" class="btn btn-square btn-sm texto" title="Nota de texto">✏️</button>
+          <span class="badge badge-info badge-sm self-center contador {% if not n_evidencias %}hidden{% endif %}">{{ n_evidencias }}</span>
+        </div>
+        <div class="w-full hidden texto-caja">
+          <div class="flex gap-1">
+            <input class="input input-bordered input-sm flex-1" placeholder="Escribe y pulsa Enter" />
+            <button type="button" class="btn btn-sm btn-primary enviar-texto">Guardar</button>
+          </div>
+        </div>
+      </div>
+    </li>
+    {% empty %}
+    <li class="opacity-60 text-center py-6">No hay alumnado matriculado.</li>
+    {% endfor %}
+  </ul>
+
+  <dialog id="grabadora" class="modal">
+    <div class="modal-box">
+      <h3 class="font-bold" id="grabadora-titulo">Grabando…</h3>
+      <p class="text-sm opacity-70" id="grabadora-alumno"></p>
+      <video id="grabadora-preview" class="w-full rounded mt-2 hidden" autoplay muted playsinline></video>
+      <div class="text-3xl font-mono text-center my-3" id="grabadora-tiempo">0:00</div>
+      <div class="modal-action">
+        <button type="button" class="btn btn-ghost" id="grabadora-cancelar">Cancelar</button>
+        <button type="button" class="btn btn-error" id="grabadora-parar">■ Parar y guardar</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script>
+  (function () {
+    const csrf = "{{ csrf_token }}";
+    const prueba = {{ prueba.pk }};
+    const urlNota = "{% url 'calificaciones:nota_guardar' group.pk %}";
+    const urlEvidencia = "{% url 'calificaciones:evidencia_subir' group.pk %}";
+    const estado = document.getElementById('estado');
+    const avisar = (msg, mal) => { estado.textContent = msg; estado.className = 'text-sm min-h-5 mb-1 ' + (mal ? 'text-error' : 'text-success'); };
+
+    // Nueva prueba: la acción depende del instrumento elegido.
+    const formNueva = document.getElementById('form-nueva-prueba');
+    const selNueva = document.getElementById('nueva-instrumento');
+    function ajustarAccion() { formNueva.action = '/calificaciones/instrumento/' + selNueva.value + '/prueba/'; formNueva.next.value = window.location.pathname + '?t={{ trimestre }}'; }
+    selNueva.addEventListener('change', ajustarAccion); ajustarAccion();
+
+    function post(url, fd) {
+      return fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRFToken': csrf }, body: fd })
+        .then(r => r.json().then(d => ({ ok: r.ok, d })));
+    }
+
+    document.querySelectorAll('#clase li[data-alumno]').forEach(li => {
+      const alumno = li.dataset.alumno;
+      const nombre = li.querySelector('.font-semibold').textContent.trim();
+      const contador = li.querySelector('.contador');
+      const nota = li.querySelector('.nota');
+
+      function subir(tipo, extra) {
+        const fd = new FormData(); fd.append('prueba', prueba); fd.append('alumno', alumno); fd.append('tipo', tipo);
+        // FormData.append con tres argumentos exige un Blob: un texto va con dos.
+        Object.entries(extra).forEach(([k, v]) => { if (v && v.blob) fd.append(k, v.blob, v.nombre); else fd.append(k, v); });
+        avisar('Subiendo ' + tipo + ' de ' + nombre + '…');
+        return post(urlEvidencia, fd).then(({ ok, d }) => {
+          if (!ok) { avisar('Error: ' + (d.error || '?'), true); return; }
+          contador.textContent = d.total; contador.classList.remove('hidden');
+          avisar(d.icono + ' guardado para ' + nombre);
+        }).catch(() => avisar('Error de red al subir', true));
+      }
+
+      nota.dataset.previo = nota.value;
+      nota.addEventListener('change', () => {
+        if (nota.value === nota.dataset.previo) return; nota.dataset.previo = nota.value;
+        const fd = new FormData(); fd.append('prueba', prueba); fd.append('alumno', alumno); fd.append('valor', nota.value);
+        post(urlNota, fd).then(({ ok, d }) => {
+          nota.classList.toggle('input-error', !ok);
+          if (ok) { if (nota.tagName === 'INPUT') nota.value = d.valor; avisar('Nota ' + (d.valor || 'borrada') + ' · ' + nombre); } else avisar(d.error || 'Error', true);
+        });
+      });
+      nota.addEventListener('focus', () => { if (nota.select) nota.select(); });
+      nota.addEventListener('keydown', e => {
+        if (e.key !== 'Enter') return; e.preventDefault(); nota.blur();
+        const sig = li.nextElementSibling && li.nextElementSibling.querySelector('.nota'); if (sig) sig.focus();
+      });
+
+      li.querySelector('.foto').addEventListener('change', e => {
+        const f = e.target.files[0]; if (!f) return;
+        subir('foto', { archivo: { blob: f, nombre: f.name || 'foto.jpg' } }); e.target.value = '';
+      });
+
+      const caja = li.querySelector('.texto-caja'); const campo = caja.querySelector('input');
+      li.querySelector('.texto').addEventListener('click', () => { caja.classList.toggle('hidden'); if (!caja.classList.contains('hidden')) campo.focus(); });
+      function enviarTexto() {
+        const t = campo.value.trim(); if (!t) return;
+        subir(/^https?:\/\//.test(t) ? 'enlace' : 'texto', { texto: t }).then(() => { campo.value = ''; caja.classList.add('hidden'); });
+      }
+      caja.querySelector('.enviar-texto').addEventListener('click', enviarTexto);
+      campo.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); enviarTexto(); } });
+
+      li.querySelectorAll('.grabar').forEach(b => b.addEventListener('click', () => grabar(b.dataset.tipo, nombre, subir)));
+    });
+
+    // ── Grabadora de audio y vídeo ──
+    const dlg = document.getElementById('grabadora');
+    const preview = document.getElementById('grabadora-preview');
+    const tiempo = document.getElementById('grabadora-tiempo');
+    let recorder = null, chunks = [], stream = null, timer = null, cancelado = false;
+
+    function grabar(tipo, nombre, subir) {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { avisar('Este navegador no puede grabar.', true); return; }
+      const restr = tipo === 'video' ? { video: { facingMode: 'environment', width: { ideal: 1280 } }, audio: true } : { audio: true };
+      navigator.mediaDevices.getUserMedia(restr).then(s => {
+        stream = s; chunks = []; cancelado = false;
+        document.getElementById('grabadora-titulo').textContent = tipo === 'video' ? '🎥 Grabando vídeo' : '🎤 Grabando audio';
+        document.getElementById('grabadora-alumno').textContent = nombre;
+        preview.classList.toggle('hidden', tipo !== 'video');
+        if (tipo === 'video') preview.srcObject = s;
+        const tipos = tipo === 'video' ? ['video/webm;codecs=vp9,opus', 'video/webm', 'video/mp4'] : ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
+        const mime = tipos.find(t => window.MediaRecorder && MediaRecorder.isTypeSupported(t)) || '';
+        recorder = mime ? new MediaRecorder(s, { mimeType: mime }) : new MediaRecorder(s);
+        recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+        recorder.onstop = () => {
+          s.getTracks().forEach(t => t.stop()); clearInterval(timer); dlg.close();
+          if (cancelado) return;
+          const tipoReal = recorder.mimeType || mime || (tipo === 'video' ? 'video/webm' : 'audio/webm');
+          const ext = tipoReal.includes('mp4') ? '.mp4' : tipoReal.includes('ogg') ? '.ogg' : '.webm';
+          const blob = new Blob(chunks, { type: tipoReal });
+          subir(tipo, { archivo: { blob: blob, nombre: tipo + ext } });
+        };
+        const inicio = Date.now();
+        timer = setInterval(() => { const seg = Math.floor((Date.now() - inicio) / 1000); tiempo.textContent = Math.floor(seg / 60) + ':' + String(seg % 60).padStart(2, '0'); }, 250);
+        tiempo.textContent = '0:00';
+        recorder.start(1000);
+        dlg.showModal();
+      }).catch(() => avisar('No se pudo acceder al micrófono o la cámara.', true));
+    }
+    document.getElementById('grabadora-parar').addEventListener('click', () => { if (recorder && recorder.state === 'recording') recorder.stop(); });
+    document.getElementById('grabadora-cancelar').addEventListener('click', () => { cancelado = true; if (recorder && recorder.state === 'recording') recorder.stop(); else dlg.close(); });
+  })();
+  </script>
+  {% endif %}
+</div>
+{% endblock %}

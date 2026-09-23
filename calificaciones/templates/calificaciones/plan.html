@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+
+{% block title %}Plan · {{ plan.nombre }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-2 sm:px-4 py-6">
+  <div class="mb-4">
+    <a href="{% url 'calificaciones:index' %}" class="text-sm link link-hover">← Calificaciones</a>
+    <h1 class="text-2xl sm:text-3xl font-bold">⚖️ {{ plan.nombre }}</h1>
+    <p class="text-sm opacity-70">{{ plan.marco }} · {{ plan.get_trimestre_display }}
+      {% if grupos %}· lo usan: {% for g in grupos %}<a class="link" href="{% url 'calificaciones:cuadro' g.pk %}?t={{ plan.trimestre }}">{{ g.name }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}
+    </p>
+  </div>
+
+  <div class="alert text-sm mb-4">
+    <div>
+      <p><strong>Una tabla, dos lecturas.</strong> Cada celda es el % de la nota que un instrumento aporta a un criterio. La suma de la <strong>columna</strong> es lo que cuenta ese instrumento («la lectura rítmica cuenta un {{ cuadre.columnas.0|default:"10"|floatformat:"-2" }} %»); la suma de la <strong>fila</strong> tiene que ser el peso del criterio en la programación. Marca criterios y pulsa «repartir» para partir el % de un instrumento a partes iguales, o escribe en las celdas.</p>
+    </div>
+  </div>
+
+  <form method="post" action="{% url 'calificaciones:reparto_guardar' plan.pk %}" id="reparto">
+    {% csrf_token %}
+    <div class="overflow-x-auto">
+      <table class="table table-xs table-pin-rows table-pin-cols" id="cuadre">
+        <thead>
+          <tr>
+            <th class="bg-base-200">Criterio</th>
+            <th class="bg-base-200 text-center" title="Peso en la programación">Legal</th>
+            {% for i in instrumentos %}
+              <th class="bg-base-200 text-center align-bottom">
+                <div class="font-semibold" title="{{ i.nombre }}">{{ i.abreviatura }}</div>
+                <div class="flex flex-col items-center gap-1 mt-1">
+                  <input type="text" inputmode="decimal" class="input input-bordered input-xs w-14 text-center peso-instrumento" data-instrumento="{{ i.pk }}" placeholder="%" title="Porcentaje total del instrumento; «repartir» lo parte entre los criterios marcados" />
+                  <button type="button" class="btn btn-xs btn-outline repartir" data-instrumento="{{ i.pk }}" title="Repartir el % a partes iguales entre los criterios marcados">repartir</button>
+                </div>
+              </th>
+            {% endfor %}
+            <th class="bg-base-200 text-center">Σ fila</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for fila in cuadre.filas %}
+          <tr data-criterio="{{ fila.criterio.pk }}" data-legal="{{ fila.criterio.peso|floatformat:'-2' }}">
+            <th class="bg-base-100 whitespace-nowrap" title="{{ fila.criterio.descripcion }}">{{ fila.criterio.codigo }} <span class="opacity-50 font-normal text-xs">{{ fila.criterio.competencia }}</span></th>
+            <td class="text-center font-mono">{{ fila.criterio.peso|floatformat:"-2" }}</td>
+            {% for i in instrumentos %}
+              {% with celda=fila.celdas|slice:forloop.counter0|last %}{% endwith %}
+              <td class="text-center p-0.5">
+                <div class="flex items-center justify-center gap-0.5">
+                  <input type="checkbox" class="checkbox checkbox-xs marca" data-instrumento="{{ i.pk }}" data-criterio="{{ fila.criterio.pk }}" />
+                  <input type="text" inputmode="decimal" name="celda-{{ fila.criterio.pk }}-{{ i.pk }}" class="input input-bordered input-xs w-12 text-center celda" data-instrumento="{{ i.pk }}" data-criterio="{{ fila.criterio.pk }}" />
+                </div>
+              </td>
+            {% endfor %}
+            <td class="text-center font-mono suma-fila">0</td>
+          </tr>
+          {% endfor %}
+          <tr class="font-bold">
+            <th class="bg-base-100">Σ columna</th>
+            <td class="text-center font-mono">{{ plan.marco.peso_total|floatformat:"-2" }}</td>
+            {% for i in instrumentos %}<td class="text-center font-mono suma-columna" data-instrumento="{{ i.pk }}">0</td>{% endfor %}
+            <td class="text-center font-mono suma-total">0</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="flex flex-wrap items-center gap-3 mt-3">
+      <button class="btn btn-primary">Guardar reparto</button>
+      <span id="estado-cuadre" class="text-sm"></span>
+    </div>
+  </form>
+
+  <div class="divider">Instrumentos</div>
+
+  <div class="grid gap-3 md:grid-cols-2">
+    {% for i in instrumentos %}
+    <form method="post" action="{% url 'calificaciones:instrumento_editar' i.pk %}" class="card bg-base-100 shadow-sm">
+      {% csrf_token %}
+      <div class="card-body p-4 gap-2">
+        <div class="flex gap-2 items-center">
+          <input name="orden" type="number" value="{{ i.orden }}" class="input input-bordered input-sm w-14" title="Orden" />
+          <input name="nombre" value="{{ i.nombre }}" class="input input-bordered input-sm flex-1" />
+          <input name="abreviatura" value="{{ i.abreviatura }}" maxlength="12" class="input input-bordered input-sm w-24" placeholder="Abrev." />
+        </div>
+        <div class="flex flex-wrap gap-2 items-center text-sm">
+          <select name="escala" class="select select-bordered select-sm">
+            {% for k, v in escalas %}<option value="{{ k }}" {% if i.escala == k %}selected{% endif %}>{{ v }}</option>{% endfor %}
+          </select>
+          <select name="agregacion" class="select select-bordered select-sm" title="Si hay varias pruebas, cómo se combinan">
+            {% for k, v in agregaciones %}<option value="{{ k }}" {% if i.agregacion == k %}selected{% endif %}>{{ v }}</option>{% endfor %}
+          </select>
+          <span class="opacity-60">{{ i.peso|floatformat:"-2" }} %</span>
+        </div>
+        <details>
+          <summary class="text-xs cursor-pointer opacity-70">Opciones (solo escala de lista) y pruebas</summary>
+          <textarea name="opciones" class="textarea textarea-bordered textarea-xs w-full mt-1" rows="3" placeholder="Etiqueta=valor por línea, ej.  Bien=6">{% for o in i.opciones %}{{ o.etiqueta }}={{ o.valor|floatformat:"-2" }}
+{% endfor %}</textarea>
+          <ul class="text-xs mt-2 space-y-1">
+            {% for p in i.pruebas.all %}
+              <li class="flex items-center gap-2">
+                <span>{{ p.nombre }} · {{ p.fecha|date:"d/m/Y" }}{% if not p.activa %} · <em>inactiva</em>{% endif %}</span>
+                <button type="submit" form="prueba-{{ p.pk }}" name="borrar" value="1" class="btn btn-ghost btn-xs" title="Borrar prueba">🗑</button>
+              </li>
+            {% endfor %}
+          </ul>
+        </details>
+        <div class="card-actions justify-between">
+          <button type="submit" name="borrar" value="1" class="btn btn-ghost btn-sm text-error" title="Borra el instrumento con todas sus notas y evidencias">Borrar instrumento</button>
+          <button class="btn btn-sm btn-outline">Guardar</button>
+        </div>
+      </div>
+    </form>
+    {% for p in i.pruebas.all %}
+      <form id="prueba-{{ p.pk }}" method="post" action="{% url 'calificaciones:prueba_editar' p.pk %}" class="hidden">{% csrf_token %}</form>
+    {% endfor %}
+    {% endfor %}
+
+    <form method="post" action="{% url 'calificaciones:instrumento_crear' plan.pk %}" class="card bg-base-200 border-dashed border-2">
+      {% csrf_token %}
+      <div class="card-body p-4 gap-2">
+        <h3 class="font-semibold">＋ Nuevo instrumento</h3>
+        <input name="nombre" class="input input-bordered input-sm" placeholder="Nombre, ej. Sensorialidad" required />
+        <div class="flex gap-2">
+          <input name="abreviatura" maxlength="12" class="input input-bordered input-sm w-28" placeholder="Abrev." />
+          <select name="escala" class="select select-bordered select-sm">{% for k, v in escalas %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select>
+        </div>
+        <button class="btn btn-sm btn-primary">Crear</button>
+      </div>
+    </form>
+  </div>
+
+  <script>
+  (function () {
+    const celdas = {{ celdas_json|safe }};
+    const tabla = document.getElementById('cuadre');
+    const num = v => { const n = parseFloat(String(v || '').replace(',', '.')); return isNaN(n) ? 0 : n; };
+    const fmt = n => (Math.round(n * 100) / 100).toString();
+
+    // Estado inicial: celdas y marcas desde el reparto guardado.
+    tabla.querySelectorAll('.celda').forEach(inp => {
+      const v = celdas[inp.dataset.criterio + '-' + inp.dataset.instrumento];
+      if (v !== undefined) { inp.value = fmt(num(v)); }
+    });
+
+    function recalcular() {
+      let total = 0;
+      const porInstrumento = {};
+      tabla.querySelectorAll('tbody tr[data-criterio]').forEach(tr => {
+        let suma = 0;
+        tr.querySelectorAll('.celda').forEach(inp => {
+          const v = num(inp.value); suma += v;
+          porInstrumento[inp.dataset.instrumento] = (porInstrumento[inp.dataset.instrumento] || 0) + v;
+          tr.querySelector('.marca[data-instrumento="' + inp.dataset.instrumento + '"]').checked = v > 0;
+        });
+        const celdaSuma = tr.querySelector('.suma-fila');
+        celdaSuma.textContent = fmt(suma);
+        const cuadra = Math.abs(suma - num(tr.dataset.legal)) < 0.005;
+        celdaSuma.className = 'text-center font-mono suma-fila ' + (cuadra ? 'text-success' : 'text-error font-bold');
+        total += suma;
+      });
+      tabla.querySelectorAll('.suma-columna').forEach(td => {
+        td.textContent = fmt(porInstrumento[td.dataset.instrumento] || 0);
+        const inp = tabla.querySelector('.peso-instrumento[data-instrumento="' + td.dataset.instrumento + '"]');
+        if (document.activeElement !== inp) inp.value = fmt(porInstrumento[td.dataset.instrumento] || 0);
+      });
+      tabla.querySelector('.suma-total').textContent = fmt(total);
+      const filasMal = tabla.querySelectorAll('.suma-fila.text-error').length;
+      const estado = document.getElementById('estado-cuadre');
+      if (Math.abs(total - {{ plan.marco.peso_total|floatformat:"-2" }}) < 0.005 && filasMal === 0) {
+        estado.textContent = '✅ Cuadra: ' + fmt(total) + ' %'; estado.className = 'text-sm text-success';
+      } else {
+        estado.textContent = '⚠️ Suma ' + fmt(total) + ' % · ' + filasMal + ' criterio(s) no coinciden con la programación'; estado.className = 'text-sm text-error';
+      }
+    }
+
+    function repartir(instrumento) {
+      const marcadas = Array.from(tabla.querySelectorAll('.marca[data-instrumento="' + instrumento + '"]')).filter(c => c.checked);
+      const total = num(tabla.querySelector('.peso-instrumento[data-instrumento="' + instrumento + '"]').value);
+      tabla.querySelectorAll('.celda[data-instrumento="' + instrumento + '"]').forEach(inp => { inp.value = ''; });
+      if (!marcadas.length || total <= 0) { recalcular(); return; }
+      const parte = Math.floor((total / marcadas.length) * 100) / 100;
+      let resto = Math.round((total - parte * marcadas.length) * 100) / 100;
+      marcadas.forEach((c, idx) => {
+        const inp = tabla.querySelector('.celda[data-instrumento="' + instrumento + '"][data-criterio="' + c.dataset.criterio + '"]');
+        inp.value = fmt(parte + (idx === 0 ? resto : 0));
+      });
+      recalcular();
+    }
+
+    tabla.addEventListener('input', e => { if (e.target.classList.contains('celda')) recalcular(); });
+    tabla.querySelectorAll('.repartir').forEach(b => b.addEventListener('click', () => repartir(b.dataset.instrumento)));
+    tabla.querySelectorAll('.marca').forEach(c => c.addEventListener('change', () => {
+      if (!c.checked) { tabla.querySelector('.celda[data-instrumento="' + c.dataset.instrumento + '"][data-criterio="' + c.dataset.criterio + '"]').value = ''; recalcular(); }
+    }));
+    tabla.querySelectorAll('.peso-instrumento').forEach(inp => inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); repartir(inp.dataset.instrumento); } }));
+    recalcular();
+  })();
+  </script>
+</div>
+{% endblock %}

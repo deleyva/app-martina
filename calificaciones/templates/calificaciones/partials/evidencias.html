@@ -1,0 +1,29 @@
+{% for e in evidencias %}
+  <div class="flex items-start gap-2 text-sm" data-evidencia="{{ e.pk }}">
+    <span>{{ e.icono }}</span>
+    <div class="flex-1 min-w-0">
+      <div class="text-xs opacity-60">{{ e.prueba.nombre }} · {{ e.created_at|date:"d/m/Y H:i" }}{% if e.estado != "listo" %} · {{ e.get_estado_display }}{% endif %}</div>
+      {% if e.tipo == "texto" %}
+        <div class="whitespace-pre-wrap">{{ e.texto }}</div>
+      {% elif e.tipo == "enlace" %}
+        <a class="link break-all" href="{{ e.texto }}" target="_blank" rel="noopener">{{ e.texto }}</a>
+      {% elif e.tipo == "foto" %}
+        <a href="{% url 'calificaciones:evidencia_ver' e.pk %}" target="_blank"><img src="{% url 'calificaciones:evidencia_ver' e.pk %}" alt="foto" class="max-h-40 rounded" loading="lazy" /></a>
+      {% elif e.tipo == "audio" %}
+        <audio controls preload="none" src="{% url 'calificaciones:evidencia_ver' e.pk %}" class="w-full max-w-sm"></audio>
+      {% elif e.tipo == "video" %}
+        {% if e.estado == "listo" %}
+          <video controls preload="none" src="{% url 'calificaciones:evidencia_ver' e.pk %}" class="max-h-56 rounded"></video>
+        {% else %}
+          <span class="opacity-60">Vídeo {{ e.get_estado_display|lower }}…</span>
+        {% endif %}
+      {% endif %}
+    </div>
+    <form method="post" action="{% url 'calificaciones:evidencia_borrar' e.pk %}" class="borrar-evidencia" onsubmit="return false;">
+      {% csrf_token %}
+      <button type="button" class="btn btn-ghost btn-xs" title="Borrar" onclick="(function(b){var f=b.closest('form');fetch(f.action,{method:'POST',credentials:'same-origin',headers:{'X-CSRFToken':f.querySelector('[name=csrfmiddlewaretoken]').value}}).then(function(r){if(r.ok){f.closest('[data-evidencia]').remove(); if(window.marcarPanelTocado) window.marcarPanelTocado();}});})(this)">🗑</button>
+    </form>
+  </div>
+{% empty %}
+  <p class="text-sm opacity-60">Sin evidencias todavía.</p>
+{% endfor %}

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Historial · {{ group.name }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6">
+  <a href="{% url 'calificaciones:cuadro' group.pk %}" class="text-sm link link-hover">← Cuadro de {{ group.name }}</a>
+  <h1 class="text-2xl font-bold mb-3">🕓 Historial de notas · {{ group.name }}</h1>
+
+  <form method="get" class="mb-4 flex gap-2 items-center">
+    <select name="alumno" class="select select-bordered select-sm" onchange="this.form.submit()">
+      <option value="">Todo el grupo</option>
+      {% for a in alumnos %}<option value="{{ a.pk }}" {% if alumno_id == a.pk|stringformat:"s" %}selected{% endif %}>{{ a.name|default:a.email }}</option>{% endfor %}
+    </select>
+  </form>
+
+  <div class="overflow-x-auto">
+    <table class="table table-sm">
+      <thead><tr><th>Cuándo</th><th>Alumno</th><th>Prueba</th><th class="text-center">Antes</th><th class="text-center">Después</th><th>Quién</th><th></th></tr></thead>
+      <tbody>
+        {% for c in cambios %}
+        <tr>
+          <td class="whitespace-nowrap">{{ c.ts|date:"d/m/Y H:i" }}</td>
+          <td>{{ c.nota.alumno.name|default:c.nota.alumno.email }}</td>
+          <td>{{ c.nota.prueba.instrumento.nombre }} · {{ c.nota.prueba.nombre }}</td>
+          <td class="text-center font-mono">{{ c.antes|default:"—" }}</td>
+          <td class="text-center font-mono">{{ c.despues|default:"—" }}</td>
+          <td>{{ c.user.name|default:c.user.email }}{% if c.revertido_de %} <span class="badge badge-ghost badge-xs">deshacer</span>{% endif %}</td>
+          <td>
+            <form method="post" action="{% url 'calificaciones:cambio_revertir' c.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="next" value="{{ request.get_full_path }}" />
+              <button class="btn btn-ghost btn-xs" title="Volver a {{ c.antes|default:'sin nota' }}">↩︎ Deshacer</button>
+            </form>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-center opacity-60 py-6">Todavía no hay cambios.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

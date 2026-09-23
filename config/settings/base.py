@@ -133,6 +133,7 @@ LOCAL_APPS = [
     "content_hub",  # Sistema flexible de gestión de contenido musical (grafo de conocimiento)
     "programacion",  # Programación didáctica: planes por trimestre, cobertura y recomendaciones
     "repertorio",  # Catálogo de repertorio consultable (JamZone importado + propio)
+    "calificaciones",  # Calificaciones: criterios × instrumentos, cuadro, modo clase y evidencias
     # Your stuff: custom apps go here
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps

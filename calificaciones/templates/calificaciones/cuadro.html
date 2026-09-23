@@ -1,0 +1,297 @@
+{% extends "base.html" %}
+{% load calificaciones_extras %}
+
+{% block title %}{{ group.name }} · {{ trimestre }}ª evaluación{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-2 sm:px-4 py-6" data-group="{{ group.pk }}">
+  <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 mb-4">
+    <div>
+      <a href="{% url 'calificaciones:index' %}" class="text-sm link link-hover">← Calificaciones</a>
+      <h1 class="text-2xl sm:text-3xl font-bold">{{ group.name }}</h1>
+      <p class="text-sm opacity-70">{{ group.subject.name }} · {{ group.academic_year }}</p>
+    </div>
+    <div class="flex flex-wrap gap-2 items-center">
+      <div class="join">
+        {% for t in trimestres %}
+          <a href="?t={{ t }}" class="btn btn-sm join-item {% if t == trimestre %}btn-active btn-primary{% endif %}">{{ t }}ª ev.</a>
+        {% endfor %}
+      </div>
+      {% if plan %}
+        <a href="{% url 'calificaciones:clase' group.pk %}?t={{ trimestre }}" class="btn btn-sm btn-primary">🎤 Modo clase</a>
+        <a href="{% url 'calificaciones:plan' plan.pk %}" class="btn btn-sm btn-outline">⚖️ Plan y reparto</a>
+        <a href="{% url 'calificaciones:historial' group.pk %}" class="btn btn-sm btn-ghost">🕓 Historial</a>
+        <div class="dropdown dropdown-end">
+          <div tabindex="0" role="button" class="btn btn-sm btn-ghost">⬇️ Exportar</div>
+          <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box w-64 p-2 shadow-lg z-50">
+            <li><a href="{% url 'calificaciones:exportar' group.pk %}?t={{ trimestre }}&por=criterio">CSV por criterio (departamento)</a></li>
+            <li><a href="{% url 'calificaciones:exportar' group.pk %}?t={{ trimestre }}&por=instrumento">CSV por instrumento</a></li>
+          </ul>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if not plan %}
+    <div class="card bg-base-100 shadow max-w-2xl">
+      <div class="card-body">
+        <h2 class="card-title">Este grupo no tiene plan para la {{ trimestre }}ª evaluación</h2>
+        <p class="text-sm opacity-70">Un plan es la lista de instrumentos (lectura rítmica, dictado, cuaderno…) y cómo reparten su porcentaje entre los criterios de la programación. Varios grupos pueden compartir el mismo plan.</p>
+
+        {% if elegibles %}
+        <form method="post" action="{% url 'calificaciones:plan_adoptar' group.pk %}?t={{ trimestre }}" class="mt-4">
+          {% csrf_token %}
+          <label class="form-control">
+            <span class="label-text font-semibold">Usar un plan que ya existe para la {{ trimestre }}ª evaluación</span>
+            <select name="plan_id" class="select select-bordered">
+              {% for p in elegibles %}<option value="{{ p.pk }}">{{ p.nombre }} — {{ p.marco }}</option>{% endfor %}
+            </select>
+          </label>
+          <button class="btn btn-primary mt-2">Usar este plan</button>
+        </form>
+        {% endif %}
+
+        {% if copiables %}
+        <div class="divider">o</div>
+        <form method="post" action="{% url 'calificaciones:plan_adoptar' group.pk %}?t={{ trimestre }}">
+          {% csrf_token %}
+          <label class="form-control">
+            <span class="label-text font-semibold">Copiar un plan (instrumentos y reparto) para este grupo</span>
+            <select name="copiar_de" class="select select-bordered">
+              {% for p in copiables %}<option value="{{ p.pk }}">{{ p.nombre }} ({{ p.get_trimestre_display }}) — {{ p.marco }}</option>{% endfor %}
+            </select>
+          </label>
+          <label class="form-control mt-2">
+            <span class="label-text">Nombre del nuevo plan</span>
+            <input name="nombre" class="input input-bordered" placeholder="{{ group.name }} · {{ trimestre }}ª ev." />
+          </label>
+          <button class="btn btn-outline mt-2">Copiar y usar</button>
+        </form>
+        {% else %}
+          <div class="alert alert-warning mt-4">No hay ningún marco de evaluación para {{ group.subject.name }} en {{ group.academic_year }}. Pídele al administrador que ejecute <code>cargar_marcos_musica</code>.</div>
+        {% endif %}
+      </div>
+    </div>
+  {% else %}
+
+  <div class="text-xs opacity-70 mb-2 flex flex-wrap gap-x-4 gap-y-1">
+    <span>Plan: <strong>{{ plan.nombre }}</strong> ({{ plan.marco }})</span>
+    <span>Escribe la nota y pulsa Enter para bajar al siguiente alumno. Vacío = sin nota.</span>
+    <span>Pulsa el icono de una celda para ver sus pruebas y evidencias.</span>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="table table-xs sm:table-sm table-pin-rows table-pin-cols" id="cuadro">
+      <thead>
+        <tr>
+          <th class="bg-base-200">Alumno</th>
+          {% for i in instrumentos %}
+            <th class="bg-base-200 text-center" title="{{ i.obj.nombre }} · {{ i.obj.peso }} %{% if not i.prueba %} · varias pruebas{% endif %}">
+              <div>{{ i.obj.abreviatura }}</div>
+              <div class="font-normal opacity-60">{{ i.obj.peso|floatformat:"-2" }} %</div>
+            </th>
+          {% endfor %}
+          <th class="bg-base-200 text-center">Nota</th>
+          <th class="bg-base-200 text-center">Calif.</th>
+          <th class="bg-base-200 text-center" title="Nota manual, por encima de la calculada">Manual</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for fila in filas %}
+        <tr data-alumno="{{ fila.alumno.pk }}">
+          <th class="bg-base-100 whitespace-nowrap">
+            {{ fila.alumno.name|default:fila.alumno.email }}
+            {% if fila.resultado.faltan %}<span class="badge badge-ghost badge-xs ml-1" title="Instrumentos sin nota">faltan {{ fila.resultado.faltan }}</span>{% endif %}
+          </th>
+          {% for c in fila.celdas %}
+          <td class="text-center p-0.5" data-instrumento="{{ c.instrumento.pk }}">
+            <div class="flex items-center justify-center gap-0.5">
+              {% if c.prueba %}
+                {% if c.instrumento.escala == "opciones" %}
+                  <select class="select select-bordered select-xs w-20 nota" data-prueba="{{ c.prueba.pk }}" data-col="{{ forloop.counter }}">
+                    <option value="" {% if c.texto == "" %}selected{% endif %}>—</option>
+                    {% for o in c.opciones %}
+                      <option value="{{ o.valor|floatformat:'-2' }}" {% if c.valor is not None and c.valor == o.valor %}selected{% endif %}>{{ o.etiqueta }} ({{ o.valor|floatformat:'-2' }})</option>
+                    {% endfor %}
+                  </select>
+                {% else %}
+                  <input type="text" inputmode="decimal" class="input input-bordered input-xs w-14 text-center nota" value="{{ c.texto }}" data-prueba="{{ c.prueba.pk }}" data-col="{{ forloop.counter }}" />
+                {% endif %}
+              {% else %}
+                <span class="w-14 inline-block font-mono nota-agregada" title="Media de varias pruebas: se califica desde el panel">{% if c.valor is not None %}{{ c.valor|floatformat:"-2" }}{% else %}—{% endif %}</span>
+              {% endif %}
+              <button type="button" class="btn btn-ghost btn-xs px-1 panel-btn" title="Pruebas y evidencias"
+                      data-url="{% url 'calificaciones:panel' group.pk c.instrumento.pk fila.alumno.pk %}">
+                {% if c.evidencias %}<span class="badge badge-info badge-xs">{{ c.evidencias }}</span>{% else %}📎{% endif %}
+              </button>
+            </div>
+          </td>
+          {% endfor %}
+          <td class="text-center font-mono font-bold nota-trimestre">{% if fila.resultado.trimestre is not None %}{{ fila.resultado.trimestre|floatformat:"-2" }}{% else %}—{% endif %}</td>
+          <td class="text-center cualitativa"><span class="badge badge-sm {{ fila.resultado.cualitativa|clase_cualitativa }}">{{ fila.resultado.cualitativa }}</span></td>
+          <td class="text-center p-0.5">
+            <select class="select select-bordered select-xs w-16 manual" data-alumno="{{ fila.alumno.pk }}" title="{% with m=manuales|dict_get:fila.alumno.pk %}{{ m.motivo }}{% endwith %}">
+              <option value="">—</option>
+              {% for k, v in cualitativas %}
+                <option value="{{ k }}" {% with m=manuales|dict_get:fila.alumno.pk %}{% if m and m.calificacion == k %}selected{% endif %}{% endwith %}>{{ k }}</option>
+              {% endfor %}
+            </select>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="99" class="text-center opacity-60 py-6">No hay alumnado matriculado en este grupo. Invítalos desde Sesiones → grupo.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <details class="mt-6">
+    <summary class="cursor-pointer text-sm font-semibold">Criterios de la programación y su peso</summary>
+    <ul class="text-sm mt-2 space-y-1">
+      {% for c in criterios %}<li><strong>{{ c.codigo }}</strong> ({{ c.peso|floatformat:"-2" }} %) — {{ c.descripcion }}</li>{% endfor %}
+    </ul>
+  </details>
+
+  <dialog id="panel-dialog" class="modal">
+    <div class="modal-box max-w-2xl" id="panel-contenido"></div>
+    <form method="dialog" class="modal-backdrop"><button>cerrar</button></form>
+  </dialog>
+
+  <script>
+  (function () {
+    const csrf = "{{ csrf_token }}";
+    const clases = { IN: 'badge-error', SU: 'badge-warning', BI: 'badge-info', NT: 'badge-primary', SB: 'badge-success', '': 'badge-ghost' };
+    const grupo = {{ group.pk }};
+    const urlNota = "{% url 'calificaciones:nota_guardar' group.pk %}";
+    const urlManual = "{% url 'calificaciones:nota_manual_guardar' group.pk %}";
+
+    function pintar(fila, datos) {
+      fila.querySelector('.nota-trimestre').textContent = datos.trimestre === null ? '—' : datos.trimestre;
+      const badge = fila.querySelector('.cualitativa span');
+      badge.textContent = datos.cualitativa;
+      badge.className = 'badge badge-sm ' + (clases[datos.cualitativa] || 'badge-ghost');
+      let faltan = fila.querySelector('th .badge');
+      if (datos.faltan) {
+        if (!faltan) { faltan = document.createElement('span'); faltan.className = 'badge badge-ghost badge-xs ml-1'; fila.querySelector('th').appendChild(faltan); }
+        faltan.textContent = 'faltan ' + datos.faltan;
+      } else if (faltan) { faltan.remove(); }
+    }
+
+    function guardar(campo) {
+      const fila = campo.closest('tr');
+      const fd = new FormData();
+      fd.append('prueba', campo.dataset.prueba);
+      fd.append('alumno', fila.dataset.alumno);
+      fd.append('valor', campo.value);
+      campo.classList.remove('input-error', 'input-success', 'select-error');
+      fetch(urlNota, { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRFToken': csrf }, body: fd })
+        .then(r => r.json().then(d => ({ ok: r.ok, d })))
+        .then(({ ok, d }) => {
+          if (!ok) { campo.classList.add(campo.tagName === 'SELECT' ? 'select-error' : 'input-error'); campo.title = d.error || 'Error'; return; }
+          if (campo.tagName === 'INPUT') campo.value = d.valor;
+          campo.classList.add('input-success');
+          setTimeout(() => campo.classList.remove('input-success'), 800);
+          pintar(fila, d);
+        })
+        .catch(() => campo.classList.add('input-error'));
+    }
+
+    document.querySelectorAll('#cuadro .nota').forEach(campo => {
+      campo.dataset.previo = campo.value;
+      campo.addEventListener('change', () => { if (campo.value !== campo.dataset.previo) { campo.dataset.previo = campo.value; guardar(campo); } });
+      campo.addEventListener('keydown', e => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        campo.blur();
+        const fila = campo.closest('tr');
+        const siguiente = fila.nextElementSibling;
+        if (!siguiente) return;
+        const destino = siguiente.querySelector('.nota[data-col="' + campo.dataset.col + '"]');
+        if (destino) { destino.focus(); if (destino.select) destino.select(); }
+      });
+      campo.addEventListener('focus', () => { if (campo.select) campo.select(); });
+    });
+
+    document.querySelectorAll('#cuadro .manual').forEach(sel => {
+      sel.addEventListener('change', () => {
+        const fd = new FormData();
+        fd.append('alumno', sel.dataset.alumno);
+        fd.append('ambito', '{{ trimestre }}');
+        fd.append('calificacion', sel.value);
+        fetch(urlManual, { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRFToken': csrf }, body: fd })
+          .then(r => { sel.classList.toggle('select-error', !r.ok); });
+      });
+    });
+
+    const dialog = document.getElementById('panel-dialog');
+    const contenido = document.getElementById('panel-contenido');
+    document.querySelectorAll('#cuadro .panel-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        contenido.innerHTML = '<span class="loading loading-spinner"></span>';
+        dialog.showModal();
+        fetch(btn.dataset.url, { credentials: 'same-origin' }).then(r => r.text()).then(html => { contenido.innerHTML = html; initPanel(); });
+      });
+    });
+
+    // El HTML del panel llega por innerHTML, así que sus <script> no correrían:
+    // toda su lógica está aquí y se engancha después de cada carga.
+    const urlEvidencia = "{% url 'calificaciones:evidencia_subir' group.pk %}";
+    function initPanel() {
+      const root = document.getElementById('panel-root');
+      if (!root) return;
+      const alumno = root.dataset.alumno;
+      root.querySelectorAll('.nota-panel').forEach(campo => {
+        campo.addEventListener('change', () => {
+          const fd = new FormData();
+          fd.append('prueba', campo.dataset.prueba); fd.append('alumno', alumno); fd.append('valor', campo.value);
+          fetch(urlNota, { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRFToken': csrf }, body: fd })
+            .then(r => { campo.classList.toggle('input-error', !r.ok); if (r.ok) window.marcarPanelTocado(); });
+        });
+      });
+      const form = document.getElementById('panel-evidencia-form');
+      if (!form) return;
+      function subir(fd) {
+        return fetch(urlEvidencia, { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRFToken': csrf }, body: fd })
+          .then(r => r.json().then(d => ({ ok: r.ok, d })))
+          .then(({ ok, d }) => {
+            if (!ok) { form.texto.placeholder = d.error || 'Error al subir'; form.texto.classList.add('input-error'); return; }
+            form.texto.classList.remove('input-error');
+            window.marcarPanelTocado();
+            const lista = document.getElementById('panel-evidencias');
+            const vacio = lista.querySelector('p'); if (vacio) vacio.remove();
+            const div = document.createElement('div');
+            div.className = 'text-sm';
+            if (d.tipo === 'texto') { div.textContent = d.icono + ' ' + d.texto; }
+            else if (d.tipo === 'enlace') { div.innerHTML = d.icono + ' <a class="link" target="_blank" rel="noopener"></a>'; const a = div.querySelector('a'); a.href = d.texto; a.textContent = d.texto; }
+            else { div.innerHTML = d.icono + ' <a class="link" target="_blank">ver</a>'; div.querySelector('a').href = d.url; }
+            lista.prepend(div);
+          });
+      }
+      form.querySelector('[name=foto]').addEventListener('change', e => {
+        if (!e.target.files[0]) return;
+        const fd = new FormData(); fd.append('alumno', alumno); fd.append('prueba', form.prueba.value); fd.append('tipo', 'foto'); fd.append('archivo', e.target.files[0]);
+        subir(fd); e.target.value = '';
+      });
+      form.querySelector('[name=archivo]').addEventListener('change', e => {
+        const f = e.target.files[0]; if (!f) return;
+        const tipo = f.type.startsWith('audio/') ? 'audio' : f.type.startsWith('video/') ? 'video' : 'foto';
+        const fd = new FormData(); fd.append('alumno', alumno); fd.append('prueba', form.prueba.value); fd.append('tipo', tipo); fd.append('archivo', f);
+        subir(fd); e.target.value = '';
+      });
+      function enviarTexto() {
+        const texto = form.texto.value.trim(); if (!texto) return;
+        const fd = new FormData(); fd.append('alumno', alumno); fd.append('prueba', form.prueba.value);
+        fd.append('tipo', /^https?:\/\//.test(texto) ? 'enlace' : 'texto'); fd.append('texto', texto);
+        subir(fd).then(() => { form.texto.value = ''; });
+      }
+      form.querySelector('button[type=submit]').addEventListener('click', enviarTexto);
+      form.texto.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); enviarTexto(); } });
+    }
+    // Al cerrar el panel, el cuadro se recarga si dentro se ha tocado algo.
+    dialog.addEventListener('close', () => { if (dialog.dataset.tocado === '1') window.location.reload(); });
+    window.marcarPanelTocado = () => { dialog.dataset.tocado = '1'; };
+  })();
+  </script>
+  {% endif %}
+</div>
+{% endblock %}

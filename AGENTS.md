@@ -77,6 +77,12 @@ Las vistas deben ser extremadamente delgadas:
 
 -   **`{# … #}` de Django es de UNA SOLA LÍNEA.** Un comentario de varias líneas escrito así **se pinta entero en la página**, sin error ni aviso. Ha pasado TRES veces en este proyecto (agosto de 2026), dos de ellas llegaron a producción y una la cazó un test. Para varias líneas, `{% comment %}…{% endcomment %}`, siempre. Y cuando toques una plantilla que se renderiza en una vista con test, añade `assert "{#" not in html`: es la única forma de que no vuelva a pasar.
 
+-   **El contenedor local de Django cachea las plantillas.** Editar un `.html` no se ve hasta `docker compose restart django` (unos 10 s). Si una plantilla «no cambia», no es que el cambio esté mal: es que no se ha recargado. (2026-09-23, pasó dos veces seguidas construyendo `calificaciones`.)
+
+-   **Un `<script>` que llega por `innerHTML` NO se ejecuta.** Un parcial que se carga con `fetch` y se inyecta en un `<dialog>` tiene que dejar su lógica en la página que lo carga (ver `calificaciones/templates/calificaciones/cuadro.html`, `initPanel`) o recrear los scripts a mano (ver `class_sessions/present.html`). Si no, el formulario del parcial hace su envío nativo por GET y la URL se llena de campos. (2026-09-23.)
+
+-   **`FormData.append(clave, valor, nombre)` con tres argumentos exige un `Blob`.** Con un texto lanza `TypeError: parameter 2 is not of type 'Blob'` y se lo traga el `.then`: el botón no hace nada y no hay aviso. Para texto, dos argumentos. (2026-09-23, modo clase de `calificaciones`.)
+
 -   **`just up` falla al final del primer build** con `image ... already exists`: `django` y `huey_consumer` exportan el mismo tag a la vez. La imagen queda bien construida; basta con repetir `docker compose up -d`.
 
 * * *
