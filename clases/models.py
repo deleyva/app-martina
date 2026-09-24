@@ -1245,6 +1245,33 @@ class ClassSession(models.Model):
             update_fields=["reflection", "reflection_audio", "closed_at", "updated_at"]
         )
 
+    def anadir_nota(self, texto="", audio_file=None, item=None):
+        """Guardar una nota tomada en mitad de la clase, SIN cerrarla.
+
+        Crea la `SessionNote` y añade su línea al final de `reflection`, que es
+        donde el profesor quiere encontrarlo todo al acabar. Nunca toca
+        `closed_at`: eso es de `close()`.
+
+        La reflexión se relee de la base antes de añadir: el visor puede llevar
+        una hora abierto y la copia en memoria no sabe de las notas que se
+        tomaron desde otra ventana.
+        """
+        nota = SessionNote.objects.create(
+            session=self,
+            texto=texto,
+            audio=audio_file,
+            item=item,
+            item_titulo=(item.get_content_title() or "")[:255] if item else "",
+        )
+        actual = (
+            type(self).objects.filter(pk=self.pk).values_list("reflection", flat=True).first()
+            or ""
+        )
+        linea = nota.linea_de_reflexion()
+        self.reflection = f"{actual.rstrip()}\n{linea}" if actual.strip() else linea
+        self.save(update_fields=["reflection", "updated_at"])
+        return nota
+
     def reopen(self):
         """Reabrir una sesión cerrada (mantiene la reflexión)"""
         self.closed_at = None
@@ -1922,3 +1949,66 @@ class GroupBookItem(models.Model):
     def propuesto(self):
         """Si el motor debe volver a ofrecer este elemento."""
         return self.incluido and self.estado != self.VISTO
+
+
+class SessionNote(models.Model):
+    """Una nota que el profesor toma DURANTE la clase, sin cerrarla.
+
+    Antes el único sitio para apuntar algo de una clase era la reflexión, y
+    solo aparecía al pulsar «Finalizar clase»: para entonces lo que había que
+    apuntar de un alumno ya se había olvidado.
+
+    **Por qué un modelo y no escribir directamente en `ClassSession`.** La
+    sesión tiene un solo `reflection_audio`: tres notas de voz en una hora se
+    pisarían. Aquí cada nota es una fila con su fichero, y `reflection` sigue
+    siendo el texto consolidado que se lee al final (lo escribe
+    `ClassSession.anadir_nota`). Cuando llegue la transcripción, rellenará la
+    nota que toca, no un fichero suelto.
+    """
+
+    session = models.ForeignKey(
+        ClassSession,
+        on_delete=models.CASCADE,
+        related_name="notas",
+        verbose_name="Sesión",
+    )
+    texto = models.TextField(blank=True, verbose_name="Texto")
+    # Debajo de `class_reflections/`, que nginx cierra con 404: estos audios
+    # pueden nombrar a un alumno y solo salen por `class_session_note_audio`.
+    audio = models.FileField(
+        upload_to="class_reflections/notas/%Y/%m/",
+        blank=True,
+        null=True,
+        verbose_name="Nota de voz",
+    )
+    # Qué había en pantalla. Nullable porque el elemento puede quitarse de la
+    # sesión después; por eso el título se copia y no se lee del elemento.
+    item = models.ForeignKey(
+        "ClassSessionItem",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="notas",
+        verbose_name="Elemento en pantalla",
+    )
+    item_titulo = models.CharField(max_length=255, blank=True, verbose_name="Título del elemento")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+        verbose_name = "Nota de clase"
+        verbose_name_plural = "Notas de clase"
+
+    def __str__(self):
+        return f"Nota de {self.session} · {self.created_at:%H:%M}"
+
+    def linea_de_reflexion(self):
+        """La línea que esta nota añade a la reflexión consolidada."""
+        hora = timezone.localtime(self.created_at).strftime("%H:%M")
+        cabecera = f"[{hora} · {self.item_titulo}]" if self.item_titulo else f"[{hora}]"
+        partes = [cabecera]
+        if self.texto:
+            partes.append(self.texto)
+        if self.audio:
+            partes.append("🎤 nota de voz")
+        return " ".join(partes)

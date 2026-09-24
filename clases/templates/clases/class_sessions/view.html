@@ -73,6 +73,14 @@
                 {# Por la vista, nunca por `.url`: nginx sirve /media/ sin preguntar quién eres. #}
                 <audio controls class="w-full mt-2" src="{% url 'clases:class_session_reflection_audio' session.pk %}"></audio>
                 {% endif %}
+                {% with notas_de_voz=session.notas.all %}
+                {% for nota in notas_de_voz %}{% if nota.audio %}
+                <div class="mt-2">
+                    <div class="text-xs opacity-70">{{ nota.linea_de_reflexion }}</div>
+                    <audio controls preload="none" class="w-full mt-1" src="{% url 'clases:class_session_note_audio' session.pk nota.pk %}"></audio>
+                </div>
+                {% endif %}{% endfor %}
+                {% endwith %}
                 <form method="post" action="{% url 'clases:class_session_close' session.pk %}" class="mt-2">
                     {% csrf_token %}
                     <textarea name="reflection" rows="3" class="textarea textarea-bordered w-full"

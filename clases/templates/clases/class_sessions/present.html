@@ -62,6 +62,27 @@
         .fab-izq:disabled { opacity: 0.3; cursor: default; transform: none; }
         #fab-pagina { bottom: 24px; }
         #fab-plantillas { bottom: 84px; }
+        #fab-notas { bottom: 144px; }
+
+        /* ── Panel de notas (táctil, o si el navegador bloquea la ventana) ──
+           Por encima de los botones flotantes y por debajo del lienzo y de la
+           pantalla de cierre. Pegado a la izquierda, junto a su botón. */
+        #panel-notas {
+            display: none;
+            position: fixed;
+            left: 84px;
+            bottom: 24px;
+            width: min(420px, calc(100vw - 108px));
+            height: min(560px, calc(100vh - 48px));
+            z-index: 15000;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            overflow: hidden;
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+            background: #121216;
+        }
+        #panel-notas.abierto { display: block; }
+        #panel-notas iframe { width: 100%; height: 100%; border: 0; }
 
         /* ── Modal a pantalla completa (página entera y plantillas) ── */
         #lienzo {
@@ -559,6 +580,15 @@
     {# Pista visual de las zonas de paso, un instante al cambiar de elemento. #}
     <div id="pista-lados"><span class="izq">‹</span><span class="der">›</span></div>
 
+    {% if is_teacher %}
+    <button id="fab-notas" class="fab-izq" type="button" onclick="abrirNotas()"
+            data-ayuda="Notas de la clase (N). Apunta algo por escrito o por voz sin cerrar la clase: va a la reflexión, con la hora y el elemento en pantalla.">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zM19.5 7.125L16.875 4.5M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/>
+        </svg>
+    </button>
+    <div id="panel-notas" aria-label="Notas de la clase"></div>
+    {% endif %}
     <button id="fab-plantillas" class="fab-izq" onclick="abrirPlantillas()"
             data-ayuda="Plantillas para escribir (P). Pentagramas, cuadrículas y papeles en blanco para proyectar y escribir encima.">
         <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
@@ -838,7 +868,75 @@
     function showSessionComplete() {
         document.getElementById('session-complete').classList.add('active');
         document.getElementById('study-fab').style.display = 'none';
+        {% if is_teacher %}
+        cerrarNotas();
+        traerReflexion();
+        {% endif %}
     }
+
+    {% if is_teacher %}
+    // ── Notas durante la clase ──
+    //
+    // En escritorio, en una ventana aparte: si se emite LA PESTAÑA por
+    // Chromecast, otra ventana no sale. En táctil, `window.open` abre una
+    // pestaña que tapa la clase, así que ahí va un panel dentro del visor; y
+    // también si el navegador bloquea la ventana. Las dos cargan la misma
+    // página de notas.
+    var URL_NOTAS = '{% url "clases:class_session_notes" session.pk %}';
+    var ventanaNotas = null;
+
+    function panelNotasAbierto() {
+        var panel = document.getElementById('panel-notas');
+        return !!(panel && panel.classList.contains('abierto'));
+    }
+
+    function abrirNotas() {
+        if (ventanaNotas && !ventanaNotas.closed) { ventanaNotas.focus(); return; }
+        if (panelNotasAbierto()) { cerrarNotas(); return; }
+        var tactil = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+        if (!tactil) {
+            ventanaNotas = window.open(URL_NOTAS, 'notas-clase-{{ session.pk }}', 'width=420,height=600');
+            if (ventanaNotas) return;
+        }
+        abrirPanelNotas();
+    }
+
+    function abrirPanelNotas() {
+        var panel = document.getElementById('panel-notas');
+        // Se crea cada vez: así la lista de notas llega al día y no queda un
+        // micrófono vivo en un iframe escondido.
+        panel.innerHTML = '<iframe src="' + URL_NOTAS + '" allow="microphone" title="Notas de la clase"></iframe>';
+        panel.classList.add('abierto');
+    }
+
+    function cerrarNotas() {
+        var panel = document.getElementById('panel-notas');
+        if (!panel) return;
+        panel.classList.remove('abierto');
+        panel.innerHTML = '';
+    }
+
+    // La pantalla de cierre precargaba la reflexión de cuando se abrió el
+    // visor, casi siempre vacía. Como `close()` SOBRESCRIBE, finalizar habría
+    // borrado todas las notas de la hora. Se relee del servidor, y hasta
+    // tenerla no se deja finalizar.
+    function traerReflexion() {
+        var caja = document.getElementById('reflection-text');
+        var btn = document.getElementById('close-session-btn');
+        if (!caja || !btn) return;
+        btn.disabled = true;
+        fetch('{% url "clases:class_session_reflection_actual" session.pk %}', { credentials: 'same-origin' })
+            .then(function(r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+            .then(function(datos) {
+                caja.value = datos.reflection || '';
+                btn.disabled = false;
+            })
+            .catch(function() {
+                document.getElementById('reflection-status').textContent =
+                    'No he podido traer las notas de la clase. Recarga antes de finalizar para no perderlas.';
+            });
+    }
+    {% endif %}
 
     {% if is_teacher %}
     // ── Reflexión de cierre: grabación de voz + envío ──
@@ -1212,7 +1310,7 @@
 
     function esControl(el) {
         return !!(el && el.closest &&
-            el.closest('button, a, input, select, textarea, label, [role="button"], #study-flyout, #lienzo'));
+            el.closest('button, a, input, select, textarea, label, [role="button"], #study-flyout, #lienzo, #panel-notas'));
     }
 
     document.addEventListener('click', function(e) {
@@ -1240,6 +1338,8 @@
             // De dentro afuera: primero lo que esté tapando la clase.
             if (lienzoAbierto()) {
                 cerrarLienzo();
+            } else if (typeof panelNotasAbierto === 'function' && panelNotasAbierto()) {
+                cerrarNotas();
             } else if (flyoutOpen) {
                 toggleFlyout(false);
             } else {
@@ -1263,6 +1363,7 @@
         // los botones tampoco existen para el alumnado.
         if (e.key === 'd' || e.key === 'D') { alternarVisto(); return; }
         if (e.key === 'c' || e.key === 'C') { alternarACasa(); return; }
+        if (e.key === 'n' || e.key === 'N') { e.preventDefault(); abrirNotas(); return; }
         {% endif %}
     }, true);
 

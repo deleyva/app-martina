@@ -244,6 +244,21 @@ urlpatterns = [
         name="class_session_reflection_audio",
     ),
     path(
+        "sessions/<int:pk>/notas/",
+        views.class_session_notes,
+        name="class_session_notes",
+    ),
+    path(
+        "sessions/<int:pk>/notas/reflexion/",
+        views.class_session_reflection_actual,
+        name="class_session_reflection_actual",
+    ),
+    path(
+        "sessions/<int:pk>/notas/<int:nota_pk>/audio/",
+        views.class_session_note_audio,
+        name="class_session_note_audio",
+    ),
+    path(
         "sessions/<int:session_id>/item-content/<int:item_id>/",
         views.class_session_item_content,
         name="class_session_item_content",

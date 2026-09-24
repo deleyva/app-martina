@@ -2,7 +2,7 @@
 slug: app-martina
 phase: verify
 progress: true
-iteration: 47
+iteration: 48
 principal_stated_goal: "Necesito desarrollar en apps.iesmartinabescos.es Otra app de Django como la que tenemos en /incidencias. Está sí que debe de requerir login con Google porque ya tenemos implementado. Básicamente, es una aplicación en la que quiero que vayan solicitando la clave Wi-Fi. Pero para ello deben logearse y enviar la MAC de su dispositivo WIFI, la privada (real) no la aleatoria."
 updated: 2026-09-24
 ---
@@ -3761,3 +3761,73 @@ pasado · rúbricas por prueba · purga automática de evidencias.
 - Nada desplegado ni empujado. `output.css` reconstruido en local con `bunx @tailwindcss/cli` (producción lo reconstruye en el Dockerfile).
 - Fase 2 sigue en el plan: vista del alumnado, exportar a la plantilla `.xlsx` del departamento, criterios no alcanzados, importar el `data.json` de 4º 25-26.
 - **2026-09-23, despliegue:** push `bcde090..4ff3da9`, `just deploy-production` (migración `calificaciones.0001_initial` OK, cinco contenedores arriba), `cargar_marcos_musica` en producción: tres marcos, tres planes por defecto, los tres cuadran. Probado en la web real: `/media/calificaciones/x.jpg` → 404 desde nginx; `/calificaciones/` sin sesión → 302 al login; con la sesión de Jesús, la portada lista sus seis grupos de 2026-2027 y el cuadro de 3-FH ofrece adoptar el plan por defecto de 3º.
+
+---
+
+## Fase 40 — Notas durante la clase que van a la reflexión (2026-09-24) · CONSTRUIDA Y VERIFICADA EN LOCAL (pendiente: micrófono real)
+
+**Goal (literal de Jesús, 2026-09-24):** «¿y lo de tomar notas sobre la clase en mitad de la clase que vayan al campo "💭 Reflexión de la clase"? (texto y/o audio que luego, se puedan transcribir con whisper)» · «dale a esto».
+
+Es la fase 4 del plan del visor (`~/.claude/plans/ok-de-momento-lo-steady-leaf.md`), cuyas fases 1-3 están desplegadas desde el 22/09. Whisper es la fase 5 de ese plan y **no entra aquí**: esta fase deja cada audio guardado aparte para que la transcripción tenga algo que rellenar después.
+
+### Vision
+
+Pasa algo en clase que vale la pena apuntar: un alumno que por fin coge el ritmo, un ejercicio que no ha funcionado. Hoy eso se pierde, porque el campo de reflexión solo aparece al pulsar «Finalizar clase». Una nota tiene que capturarse en dos segundos, por voz o por texto, sin cerrar la clase y sin que salga en la proyección. Al final de la hora todas esas notas ya están en «💭 Reflexión de la clase», cada una con su hora y el elemento que había en pantalla.
+
+### Out of Scope
+
+Transcripción con Whisper (fase 5 del plan) · notas por alumno (eso es la evidencia de Calificaciones, fase 39) · editar o borrar una nota suelta desde el visor · notas desde la pantalla de la sesión fuera del visor.
+
+### Claims
+
+- [x] **C222** — Existe `SessionNote` (sesión, texto, audio, elemento de la sesión nullable, título del elemento copiado, fecha), con su migración. *Falsador: `makemigrations --check` sale limpio y `manage.py check` da 0.*
+- [x] **C223** — Guardar una nota NO cierra la clase: `closed_at` sigue vacío y no se toca la cobertura de la programación. La línea se añade al final de `reflection` con la hora y el título del elemento, y lo anterior sigue intacto. *Falsador: test que guarda dos notas sobre una reflexión previa y comprueba las tres partes en orden y `closed_at is None`.*
+- [x] **C224** — Una nota solo de audio también deja rastro en la reflexión («🎤 nota de voz») y su fichero queda en su propia fila; tres grabaciones son tres ficheros, ninguna pisa a otra. Una nota vacía, sin texto ni audio, da 400. *Falsador: test con tres audios y un envío vacío.*
+- [x] **C225** — El audio de una nota solo lo oye el profesor dueño de la sesión: otro profesor recibe 404 y un alumno no entra. El fichero cuelga de `class_reflections/`, que nginx ya cierra con 404, y su nombre no se puede adivinar. *Falsador: test por HTTP, igual que `test_reflexion_audio.py`.*
+- [x] **C226** — El límite de 20 MB y el renombrado del audio viven en un solo helper que usan el cierre y la nota. *Falsador: test de 20 MB + 1 byte contra la vista de notas → 400; grep de `20 \* 1024 \* 1024` en `clases/views.py` → una sola aparición.*
+- [x] **C227** — **Cerrar la clase no borra las notas.** Al abrir la pantalla de cierre, el cuadro de reflexión se rellena con lo que hay en el servidor en ese momento, no con lo que había al cargar la página. *Falsador: navegador real; nota escrita, pasar del último elemento, el texto está en el cuadro; finalizar y verlo en la pantalla de la sesión.*
+- [x] **C228** — Un botón en el carril izquierdo del visor, solo del profesor, abre las notas (y la tecla N). Escribir en la nota no cambia de elemento y tocar dentro del panel tampoco. *Falsador: navegador real; escribir «flecha» y pulsar dentro del panel sin que cambie el contador.*
+- [x] **C229** — En escritorio las notas se abren en una ventana aparte, que no sale si se emite la pestaña; en táctil o con la ventana bloqueada, en un panel dentro del visor. *Falsador: navegador real, las dos rutas.*
+- [x] **C230** — La pantalla de la sesión lista las notas con su hora, su elemento y su reproductor de audio, servido por la vista protegida. *Falsador: navegador real tras guardar una nota de voz.*
+- [x] **C231** — La suite no tiene fallos nuevos respecto a `main`.
+
+### Anti-claims
+
+- **Anti-D** — Ninguna nota llega al alumnado: ni el texto ni el audio, ni en el visor ni en la pantalla de la sesión. *Falsador: test con un alumno matriculado.*
+- **Anti-E** — Ninguna nota se pierde al cerrar la clase (C227).
+- **Anti-F** — No se despliega ni se hace push sin visto bueno explícito de Jesús.
+
+### Test Strategy
+
+`pytest` en `clases/test_notas_de_clase.py`, por HTTP como `test_reflexion_audio.py`. El visor se prueba en Chrome real con la sesión de Jesús (`mcp__claude-in-chrome__*`) sobre el entorno local.
+
+### Decisions
+
+- **Un modelo por nota, y `reflection` como texto consolidado.** `reflection_audio` es un solo fichero y tres grabaciones se pisarían. Con `SessionNote` cada audio tiene su fila, que es lo que Whisper necesitará para rellenar la transcripción de cada una.
+- **Ventana aparte en escritorio, panel en táctil.** En una tablet, `window.open` abre una pestaña nueva que tapa la clase, así que ahí va el panel. Las dos rutas cargan la MISMA página de notas, dentro de una ventana o de un iframe: un solo código.
+
+### Verificación (2026-09-24, local, Chrome con la sesión de Jesús, sesión 112 «Intervalos I»)
+
+- **C222** — `makemigrations --check --dry-run` → «No changes detected»; `manage.py check` → 0 issues. Migración `clases.0019_sessionnote`, sin dependencia de Wagtail.
+- **C223** — `test_la_nota_se_anade_a_la_reflexion_sin_cerrar_la_clase`: reflexión previa + dos notas en orden, `closed_at is None`, `update_coverage_for_session` sin llamar. En Chrome: dos notas desde la ventana y una desde el panel; la base tenía las tres líneas y la sesión seguía abierta hasta pulsar «Finalizar».
+- **C224** — `test_tres_notas_de_voz_son_tres_ficheros` (tres nombres distintos, tres «🎤 nota de voz», `reflection_audio` intacto) y `test_una_nota_vacia_da_400_y_no_escribe_nada`.
+- **C225** — `test_el_profesor_oye_su_nota_de_voz`, `test_otro_profesor_recibe_404` (audio, guardar nota y reflexión actual) y `test_el_fichero_cuelga_de_la_ruta_cerrada_y_no_se_adivina`. En Chrome, el audio de la nota se pide a `/clases/sessions/112/notas/<id>/audio/`: 200, `audio/webm`, 130 706 bytes.
+- **Anti-D** — `test_el_alumno_no_llega_ni_a_las_notas_ni_al_audio`: el alumno no llega a ninguna de las tres URLs y la pantalla de la sesión no le enseña ni el texto ni el audio.
+- **C226** — `test_un_audio_de_mas_de_20_mb_da_400`; `20 * 1024 * 1024` aparece una sola vez en `clases/views.py` (`LIMITE_DE_AUDIO`), dentro de `_preparar_audio`, que usan el cierre y la nota.
+- **C227** — Chrome: el visor se cargó con la reflexión vacía; tras tres notas, pasar del último elemento abre la pantalla de cierre con las tres líneas ya en el cuadro y el botón habilitado. Añadida una línea de cierre, «Finalizar» → en la base, las tres notas + «Cierre: buena clase en general.» y `closed_at` puesto. Test de servidor: `test_la_reflexion_actual_trae_las_notas_tomadas_desde_otra_ventana`.
+- **C228** — Chrome: botón del lápiz arriba del carril izquierdo. Con el panel abierto, escribir «nota con n y flecha», pulsar → ← → y tocar dentro del panel: `currentIndex` sigue en 1 y la «n» se escribe sin abrir nada. Fuera de un campo, N abre el panel y Escape lo cierra sin salir del visor; la ✕ también lo cierra.
+- **C229** — Chrome de escritorio (`pointer: coarse` falso): el botón abre `/notas/` en ventana aparte; «Sobre:» pasa de «Círculo de quintas» a «no-clef-12» al cambiar de elemento en el visor, sin recargar. Con `window.open` devolviendo `null`, el mismo botón abre el panel con la misma página. La rama táctil llama a esa misma `abrirPanelNotas()`; no la he probado con un dedo de verdad.
+- **C230** — Chrome: `/clases/sessions/112/view/` enseña «[11:50] 🎤 nota de voz» con su reproductor, servido por la vista protegida (captura).
+- **C231** — Suite completa: 1222 pasan, 4 fallan, los mismos cuatro preexistentes de la fase 39 (`cms.test_frontend_integration` ×2, `incidencias.test_views` ×2).
+
+### Lo que queda
+
+- **`[DEFERRED-VERIFY]` Grabar con el micrófono de verdad.** La automatización no puede contestar al permiso del micrófono. La grabación se probó sustituyendo `getUserMedia` por un oscilador: el resto del camino es real (`MediaRecorder`, subida, fichero, reproducción). Seguimiento: Jesús graba una nota en su portátil y en la tablet desde el visor. Es la misma prueba pendiente de C216 (fase 39), así que se hacen juntas.
+
+### Log
+
+- 2026-09-24 · **Los tests de `clases` escribían audio en la carpeta de medios de verdad.** El `conftest.py` de `martina_bescos_app` redirige `MEDIA_ROOT` a un temporal, pero solo alcanza a esa app; Calificaciones se había hecho el suyo. Había 51 ficheros de prueba en `media/class_reflections/`, todos con los bytes falsos de los tests y ninguno referenciado por la base local: borrados. Arreglo de clase: `conftest.py` en la raíz del repo, con solo esa redirección, que cubre a todas las apps. Tras el arreglo, cero ficheros nuevos al pasar los tests.
+- 2026-09-24 · Datos de prueba de la sesión local 112 devueltos a su estado previo: reflexión vacía, abierta, cuatro notas y su audio borrados. El cierre de prueba llamó una vez a `update_coverage_for_session` sobre esa sesión local; no se ha deshecho.
+- 2026-09-24 · Sin auditoría cruzada: superficie de profesor autenticado, 13 tests propios sobre los caminos de privilegio y verificación en navegador; el riesgo real (audio que puede nombrar a un alumno) va por la misma ruta cerrada en nginx que ya protege la reflexión. Elegido a conciencia.
+- 2026-09-24 · Nada empujado ni desplegado (Anti-F).
+

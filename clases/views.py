@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404, reverse
 from django.contrib import messages
-from django.http import FileResponse, Http404, HttpResponse
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from pathlib import Path
 import secrets
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -26,6 +26,36 @@ TIPO_DE_AUDIO = {
     ".m4a": "audio/mp4",
     ".ogg": "audio/ogg",
 }
+
+
+LIMITE_DE_AUDIO = 20 * 1024 * 1024  # 20 MB
+
+
+def _preparar_audio(audio_file, prefijo):
+    """Valida y renombra una nota de voz subida. Devuelve un 400 si no vale.
+
+    La usan el cierre de la clase y las notas tomadas durante ella: el límite y
+    el nombre tienen que ser los mismos en las dos, o la primera vez que se
+    toque uno se olvidará el otro.
+
+    **El nombre es impredecible a propósito**, no `reflexion_sesion_<pk>`: el id
+    de la sesión lo tiene el alumnado en su propia barra de direcciones, así que
+    ese nombre se adivinaba entero. El portero de verdad es la vista que sirve
+    el fichero; esto es el cinturón por si algún día falla el tirante.
+    """
+    if not audio_file:
+        return None
+    if audio_file.size > LIMITE_DE_AUDIO:
+        return HttpResponse("Audio demasiado grande (máx. 20 MB)", status=400)
+    ext = EXTENSION_DE_AUDIO.get(audio_file.content_type, ".webm")
+    audio_file.name = f"{prefijo}_{secrets.token_urlsafe(12)}{ext}"
+    return None
+
+
+def _servir_audio(fichero):
+    extension = Path(fichero.name).suffix.lower()
+    tipo = TIPO_DE_AUDIO.get(extension, "application/octet-stream")
+    return FileResponse(fichero.open("rb"), content_type=tipo)
 
 from .models import (
     Group,
@@ -453,16 +483,9 @@ def class_session_close(request, pk):
     reflection_text = request.POST.get("reflection", "").strip()
     audio_file = request.FILES.get("reflection_audio")
 
-    if audio_file:
-        # Límite de seguridad: 20 MB
-        if audio_file.size > 20 * 1024 * 1024:
-            return HttpResponse("Audio demasiado grande (máx. 20 MB)", status=400)
-        ext = EXTENSION_DE_AUDIO.get(audio_file.content_type, ".webm")
-        # Nombre impredecible, no `reflexion_sesion_<pk>`. El id de la sesión lo
-        # tiene el alumnado en su propia barra de direcciones, así que el nombre
-        # anterior se adivinaba entero. El portero de verdad es la vista de
-        # abajo; esto es el cinturón por si algún día falla el tirante.
-        audio_file.name = f"reflexion_{session.pk}_{secrets.token_urlsafe(12)}{ext}"
+    error = _preparar_audio(audio_file, f"reflexion_{session.pk}")
+    if error:
+        return error
 
     session.close(reflection_text=reflection_text, audio_file=audio_file)
 
@@ -501,9 +524,89 @@ def class_session_reflection_audio(request, pk):
     if not session.reflection_audio:
         raise Http404("Esta sesión no tiene nota de voz.")
 
-    extension = Path(session.reflection_audio.name).suffix.lower()
-    tipo = TIPO_DE_AUDIO.get(extension, "application/octet-stream")
-    return FileResponse(session.reflection_audio.open("rb"), content_type=tipo)
+    return _servir_audio(session.reflection_audio)
+
+
+# ── Notas durante la clase ──────────────────────────────────────────────────
+#
+# El campo de reflexión solo aparecía al finalizar, y para entonces ya se ha
+# olvidado lo que había que apuntar de un alumno. Estas vistas guardan una nota
+# en mitad de la clase SIN cerrarla: ni `close()` ni la cobertura de la
+# programación, que es lo que dispara el cierre.
+
+
+@login_required
+@user_passes_test(es_profesor)
+@require_http_methods(["GET", "POST"])
+def class_session_notes(request, pk):
+    """GET: la página de notas, que el visor abre en una ventana o en un panel.
+    POST: guarda una nota (texto y/o audio) y devuelve la reflexión al día."""
+    session = get_object_or_404(ClassSession, pk=pk, teacher=request.user)
+
+    if request.method == "GET":
+        return render(
+            request,
+            "clases/class_sessions/notas.html",
+            {"session": session, "notas": session.notas.all()},
+        )
+
+    texto = request.POST.get("texto", "").strip()
+    audio_file = request.FILES.get("audio")
+    if not texto and not audio_file:
+        return JsonResponse({"error": "La nota está vacía."}, status=400)
+
+    error = _preparar_audio(audio_file, f"nota_{session.pk}")
+    if error:
+        return error
+
+    # Solo un elemento de ESTA sesión: el id viene del cliente.
+    item = None
+    item_pk = request.POST.get("item")
+    if item_pk and item_pk.isdigit():
+        item = session.items.filter(pk=int(item_pk)).first()
+
+    nota = session.anadir_nota(texto=texto, audio_file=audio_file, item=item)
+    return JsonResponse(
+        {
+            "ok": True,
+            "linea": nota.linea_de_reflexion(),
+            "reflection": session.reflection,
+            "audio_url": (
+                reverse("clases:class_session_note_audio", args=[session.pk, nota.pk])
+                if nota.audio
+                else ""
+            ),
+        }
+    )
+
+
+@login_required
+@user_passes_test(es_profesor)
+def class_session_reflection_actual(request, pk):
+    """La reflexión tal como está AHORA en la base.
+
+    La pantalla de cierre del visor la pide al abrirse. Sin esto rellenaba su
+    cuadro con la reflexión de cuando se cargó la página —vacía, al empezar la
+    clase—, y como `close()` sobrescribe, finalizar habría borrado todas las
+    notas de la hora.
+    """
+    session = get_object_or_404(ClassSession, pk=pk, teacher=request.user)
+    return JsonResponse({"reflection": session.reflection})
+
+
+@login_required
+@user_passes_test(es_profesor)
+def class_session_note_audio(request, pk, nota_pk):
+    """El audio de una nota de clase, solo para el profesor de la sesión.
+
+    Mismo portero que `class_session_reflection_audio`: nginx cierra
+    `/media/class_reflections/` y el fichero solo sale por aquí.
+    """
+    session = get_object_or_404(ClassSession, pk=pk, teacher=request.user)
+    nota = get_object_or_404(session.notas, pk=nota_pk)
+    if not nota.audio:
+        raise Http404("Esta nota no tiene audio.")
+    return _servir_audio(nota.audio)
 
 
 @login_required
