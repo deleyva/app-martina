@@ -1655,7 +1655,7 @@ Tres peticiones del principal tras usar la app en producción.
 
 ---
 
-## Fase 26·2 — Dar de alta a un compañero desde la mesa de administración (2026-09-24)
+## Fase 26·2 — Dar de alta a un compañero desde la mesa de administración (2026-09-24) · DESPLEGADA Y VERIFICADA EN PRODUCCIÓN
 
 > "En https://apps.iesmartinabescos.es/wifi/, si soy gestor, me gustaría poder añadir a mano la Mac, el tipo de dispositivo que doy de alta y el mail con el que está relacionado." · "Así, si alguna vez me comenta algún compañero que no sabe hacerlo y lo estoy haciendo con él presencialmente, no le esfuerzo a él a que se lo que con Google copie y pegue."
 
@@ -1693,7 +1693,7 @@ pegar en el programa de la red, marcar, y la clave le llega **a él**.
 
 - 2026-09-24 · Suite `wifi/` + `users/tests/test_adapters.py`: 110 pasando. Migración aplicada en local.
 - 2026-09-24 · Datos de prueba locales (`prueba.companero@…` y su dispositivo) borrados tras la verificación.
-- 2026-09-24 · **Pendiente: push y `just deploy-production`** (lleva migración). Esperando el visto bueno del principal.
+- 2026-09-24 · Con el visto bueno del principal («sí! Empuja y despliega»): push `e27dbeb`, `just deploy-production` con `wifi.0002_dispositivowifi_solicitado_por... OK`, cinco contenedores arriba. Chrome real con la sesión de Jesús en `apps.iesmartinabescos.es/wifi/`: el campo «¿Para quién es?» y la sección «Registrados por ti para otras personas» están en la página de producción. Sin sesión, `/wifi/` sigue en 302 al login.
 
 ---
 
