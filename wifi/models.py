@@ -69,6 +69,18 @@ class DispositivoWifi(models.Model):
         blank=True,
         related_name="bajas_wifi_realizadas",
     )
+    solicitado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name=_("Registrado a mano por"),
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="altas_wifi_en_nombre_de_otros",
+        help_text=_(
+            "Quien lo dio de alta desde administración en nombre del solicitante, "
+            "sin que este entrara con Google. Vacío si lo pidió él mismo."
+        ),
+    )
     notificado_at = models.DateTimeField(
         _("Aviso enviado"),
         null=True,

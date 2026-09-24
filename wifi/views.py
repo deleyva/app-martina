@@ -13,6 +13,7 @@ from django.views import View
 from django.views.generic import CreateView
 from django.views.generic import TemplateView
 
+from .forms import AltaEnNombreDeForm
 from .forms import DispositivoWifiForm
 from .models import DispositivoWifi
 from .permissions import es_gestor
@@ -68,20 +69,52 @@ class SolicitarView(PersonalRequiredMixin, CreateView):
             usuario=self.request.user,
         ).order_by("-created_at")
         context["es_gestor"] = es_gestor(self.request.user)
+        if context["es_gestor"]:
+            # Lo que este gestor registró a nombre de otros. No sale en «mis
+            # dispositivos» porque no son suyos, y sin esta lista no habría
+            # forma de ver desde aquí que el alta del compañero entró.
+            context["en_nombre_de_otros"] = (
+                DispositivoWifi.objects.filter(solicitado_por=self.request.user)
+                .select_related("usuario")
+                .order_by("-created_at")
+            )
         # De qué dirección sale el aviso. Se saca de `DEFAULT_FROM_EMAIL` en vez
         # de escribirla en la plantilla: si algún día cambia la cuenta de envío,
         # la página no se queda mintiendo.
         context["remitente"] = parseaddr(getattr(settings, "DEFAULT_FROM_EMAIL", ""))[1]
         return context
 
+    def get_form_class(self):
+        # El campo «¿para quién es?» solo existe en el formulario del gestor.
+        # Un profesor que lo mande en el POST no tiene campo que lo recoja:
+        # el dispositivo queda a su nombre, haga lo que haga.
+        if es_gestor(self.request.user):
+            return AltaEnNombreDeForm
+        return DispositivoWifiForm
+
     def form_valid(self, form):
-        form.instance.usuario = self.request.user
-        respuesta = super().form_valid(form)
-        messages.success(
-            self.request,
-            "Recibido. Te avisaremos por correo en cuanto tu dispositivo esté "
-            "dado de alta en la red.",
-        )
+        # Atómico porque `titular()` puede crear la cuenta del compañero: si
+        # el dispositivo no llegara a guardarse, no debe quedar una cuenta
+        # huérfana que nadie pidió.
+        with transaction.atomic():
+            titular = form.titular(self.request.user)
+            form.instance.usuario = titular
+            if titular != self.request.user:
+                form.instance.solicitado_por = self.request.user
+            respuesta = super().form_valid(form)
+
+        if titular == self.request.user:
+            messages.success(
+                self.request,
+                "Recibido. Te avisaremos por correo en cuanto tu dispositivo esté "
+                "dado de alta en la red.",
+            )
+        else:
+            messages.success(
+                self.request,
+                f"Recibido a nombre de {titular.email}. Cuando lo marques como "
+                "añadido en gestión, la clave le llegará a esa dirección.",
+            )
         return respuesta
 
 
@@ -92,7 +125,7 @@ class SolicitarView(PersonalRequiredMixin, CreateView):
 
 def _lote(queryset):
     """Empaqueta un grupo de dispositivos con todo lo que la pantalla necesita."""
-    filas = list(queryset.select_related("usuario"))
+    filas = list(queryset.select_related("usuario", "solicitado_por"))
     macs = [d.mac for d in filas]
     return {
         "filas": filas,
@@ -127,7 +160,7 @@ class GestionView(GestorRequiredMixin, TemplateView):
                 | Q(usuario__email__icontains=buscar)
                 | Q(usuario__name__icontains=buscar),
             )
-        context["activas"] = activas.select_related("usuario").order_by("-anadida_at")
+        context["activas"] = activas.select_related("usuario", "solicitado_por").order_by("-anadida_at")
         context["total_activas"] = base.filter(estado=DispositivoWifi.Estado.ANADIDA).count()
         context["buscar"] = buscar
         # Sin clave en el entorno la app funciona, pero nadie recibe nada:

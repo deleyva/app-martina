@@ -57,6 +57,27 @@
           {% endif %}
         </div>
 
+        {% if es_gestor %}
+          <div class="rounded-box border border-dashed border-base-300 p-4">
+            <label class="label" for="{{ form.para_correo.id_for_label }}">
+              <span class="label-text font-semibold">{{ form.para_correo.label }}</span>
+              <span class="label-text-alt opacity-60">solo gestión · opcional</span>
+            </label>
+            {{ form.para_correo }}
+            {% if form.para_correo.errors %}
+              <div class="alert alert-error mt-2 text-sm">
+                <span>{{ form.para_correo.errors.0 }}</span>
+              </div>
+            {% else %}
+              <p class="text-xs opacity-70 mt-1">
+                Déjalo vacío si el dispositivo es tuyo. Si escribes el correo del centro de
+                un compañero, el dispositivo queda a su nombre y la clave le llegará a él,
+                sin que tenga que entrar aquí con Google. Si aún no tiene cuenta, se le crea.
+              </p>
+            {% endif %}
+          </div>
+        {% endif %}
+
         <button type="submit" class="btn btn-primary w-full sm:w-auto">Enviar solicitud</button>
       </form>
     </div>
@@ -71,6 +92,47 @@
     </p>
     {% include "wifi/partials/tutoriales.html" %}
   </div>
+
+  {% if es_gestor %}
+    <div class="mb-8">
+      <h2 class="text-xl font-bold mb-3">Registrados por ti para otras personas</h2>
+      {% if en_nombre_de_otros %}
+        <div class="overflow-x-auto">
+          <table class="table table-zebra">
+            <thead>
+              <tr><th>MAC</th><th>Para</th><th>Dispositivo</th><th>Estado</th><th>Registrado</th></tr>
+            </thead>
+            <tbody>
+              {% for d in en_nombre_de_otros %}
+                <tr>
+                  <td class="mac font-semibold">{{ d.mac }}</td>
+                  <td class="text-sm">{{ d.usuario.email }}</td>
+                  <td>{{ d.descripcion|default:"—" }}</td>
+                  <td>
+                    {% if d.estado == "anadida" %}
+                      <span class="badge badge-success badge-sm">Dado de alta</span>
+                    {% elif d.estado == "pendiente" %}
+                      <span class="badge badge-warning badge-sm">Pendiente</span>
+                    {% elif d.estado == "baja_pendiente" %}
+                      <span class="badge badge-info badge-sm">Baja en curso</span>
+                    {% else %}
+                      <span class="badge badge-ghost badge-sm">Dado de baja</span>
+                    {% endif %}
+                  </td>
+                  <td class="text-sm opacity-70">{{ d.created_at|date:"d/m/Y H:i" }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p class="text-xs opacity-70 mt-2">
+          Los pendientes se marcan como añadidos en <a href="{% url 'wifi:gestion' %}" class="link">gestión</a>, como los demás.
+        </p>
+      {% else %}
+        <p class="text-base-content/60">Todavía no has registrado ningún dispositivo a nombre de otra persona.</p>
+      {% endif %}
+    </div>
+  {% endif %}
 
   <div>
     <h2 class="text-xl font-bold mb-3">Mis dispositivos</h2>

@@ -31,6 +31,15 @@ Estado, criterios y evidencia: sección **Fase 26** de `ISA.md`, en la raíz del
 - `/wifi/` — formulario de alta, tutoriales por sistema operativo y mis dispositivos.
 - `/wifi/gestion/` — pendientes de alta, pendientes de baja y activos en la red.
 
+**Dar de alta a un compañero desde la mesa.** Quien está en el grupo de gestión ve en
+`/wifi/` un campo más, «¿Para quién es?». Con el correo del centro de un compañero, el
+dispositivo queda a su nombre —y la clave le llega a él— sin que tenga que entrar con
+Google. Si no tiene cuenta todavía, se le crea sin contraseña; el día que entre con Google,
+`SocialAccountAdapter.pre_social_login` la enlaza por correo y ve sus dispositivos. El
+correo tiene que pasar la misma regla de personal que la solicitud normal (o estar en el
+grupo de excepciones). Lo registrado así lleva `solicitado_por` y sale marcado «a mano» en
+gestión.
+
 El flujo de gestión es siempre el mismo: **copiar → pegar en el otro programa → marcar**.
 Son dos clics a propósito. Marcar actúa sobre los identificadores que se copiaron, nunca
 sobre «lo pendiente ahora mismo»: entre copiar y marcar puede entrar una solicitud nueva

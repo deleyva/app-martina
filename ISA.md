@@ -2,9 +2,9 @@
 slug: app-martina
 phase: verify
 progress: true
-iteration: 46
+iteration: 47
 principal_stated_goal: "Necesito desarrollar en apps.iesmartinabescos.es Otra app de Django como la que tenemos en /incidencias. Está sí que debe de requerir login con Google porque ya tenemos implementado. Básicamente, es una aplicación en la que quiero que vayan solicitando la clave Wi-Fi. Pero para ello deben logearse y enviar la MAC de su dispositivo WIFI, la privada (real) no la aleatoria."
-updated: 2026-09-23
+updated: 2026-09-24
 ---
 
 # ISA — app-martina · Sistema de estudio de la biblioteca
@@ -1652,6 +1652,48 @@ Tres peticiones del principal tras usar la app en producción.
 - 2026-09-06 · La rama wifi del login enseña **solo** el botón de Google, sin formulario de contraseña: el personal entra siempre con la cuenta del centro, y ofrecer usuario/contraseña ahí solo genera intentos fallidos.
 - 2026-09-06 · Gotcha de test: la plantilla de login pinta `provider_login_url`, que revienta con `SocialApp.DoesNotExist` si no hay fila de Google en la BD. Hace falta fixture.
 - 2026-09-06 · Gotcha de verificación: el campo del formulario de allauth se llama `login`, no `email`. Rellenarlo por el nombre equivocado falla en silencio y parece un problema de credenciales.
+
+---
+
+## Fase 26·2 — Dar de alta a un compañero desde la mesa de administración (2026-09-24)
+
+> "En https://apps.iesmartinabescos.es/wifi/, si soy gestor, me gustaría poder añadir a mano la Mac, el tipo de dispositivo que doy de alta y el mail con el que está relacionado." · "Así, si alguna vez me comenta algún compañero que no sabe hacerlo y lo estoy haciendo con él presencialmente, no le esfuerzo a él a que se lo que con Google copie y pegue."
+
+### Vision
+
+El compañero está de pie junto a la mesa con el móvil en la mano. Obligarle a entrar con
+Google en la app, buscar la MAC y pegarla él mismo convierte un favor de treinta segundos en
+un tutorial. El gestor teclea la MAC y el correo, y el resto del flujo no cambia: copiar,
+pegar en el programa de la red, marcar, y la clave le llega **a él**.
+
+### Claims
+
+- [x] **C106 — El campo «¿Para quién es?» solo existe para quien gestiona.** *Test: el gestor ve `name="para_correo"` en `/wifi/`; un profesor normal no. Chrome real en local con la sesión de superusuario: el campo sale dentro del formulario, marcado «solo gestión · opcional».*
+- [x] **C107 — Vacío, todo sigue igual: el dispositivo queda a nombre de quien lo envía.** *Tests: campo vacío y también el propio correo del gestor → `usuario` = gestor, `solicitado_por` = None. Los 87 tests previos de la app siguen pasando.*
+- [x] **C108 — Con el correo de un compañero, el dispositivo es suyo y la clave le llega a él.** *Test: `usuario` = compañero, `solicitado_por` = gestor, estado pendiente; tras marcarlo en gestión, `mail.outbox[0].to == [compañero]`. En Chrome: enviado `f8-e4-3b-00-11-22` para `prueba.companero@…`, mensaje «Recibido a nombre de …», fila en «Registrados por ti para otras personas» con badge Pendiente. Read-back en la base local: MAC canónica, `pendiente`, `solicitado_por` con dominio del centro.*
+- [x] **C109 — Si el compañero no tiene cuenta, se le crea sin contraseña, y Google la enlaza después.** *Tests: `has_usable_password() is False`, `acceso_con_contrasena is False`; y con el adaptador real, `pre_social_login` sobre ese correo deja **una** cuenta y la `SocialAccount` colgando de ella. Read-back local tras el envío en Chrome: `usable_password: False`.*
+- [x] **C110 — La regla de quién puede tener dispositivos es la misma que en la solicitud normal.** *Tests: alumno (`0125…`) rechazado sin crear cuenta ni dispositivo; `@gmail.com` rechazado; una cuenta del grupo de excepciones sí vale aunque parezca de alumno. Falsificador: `correo_puede_solicitar` divergiendo de `puede_solicitar` — ambas comparten `correo_es_de_personal`.*
+- [x] **C111 — Un profesor no puede colar un dispositivo a nombre de otro.** *Test: POST con `para_correo` ajeno desde una cuenta sin gestión → el dispositivo queda a su propio nombre. Mecanismo: `get_form_class` le da el formulario sin ese campo, así que el valor no tiene dónde caer.*
+- [x] **C112 — En gestión se distingue lo registrado a mano.** *Test: badge «a mano» junto al correo. Chrome real en `/wifi/gestion/`: la fila pendiente lleva el badge.*
+
+### Anti-claims
+
+- **No se manda ningún correo al registrar.** El aviso sigue saliendo solo al marcar en gestión, por la máquina de estados de siempre. Cubierto por C108: `mail.outbox` vacío hasta el POST de `anadidas`.
+- **No se relaja la validación de la MAC.** El formulario del gestor hereda `clean_mac` entero: aleatorias, multicast y duplicados activos se rechazan igual.
+
+### Decisions
+
+- **El campo vive en `/wifi/`, no en `/wifi/gestion/`.** Es donde pidió el principal, y es donde están los tutoriales por sistema: el compañero está delante y a veces hay que enseñarle a encontrar la MAC.
+- **Cuenta creada a mano, no dispositivo sin usuario.** La alternativa era hacer `usuario` nullable y guardar un correo suelto. Se descartó: `pre_social_login` ya enlaza por correo (verificado en `users/adapters.py`), así que crear la cuenta vacía es gratis y el compañero ve sus dispositivos el día que entre. Un dispositivo huérfano habría exigido una reconciliación aparte.
+- **`solicitado_por` es un campo nuevo (migración `wifi.0002`).** Sin él no hay forma de que el gestor vea desde `/wifi/` lo que registró para otros, ni de distinguirlo en gestión. Nullable, `SET_NULL`.
+- **El POST es atómico.** `titular()` puede crear una cuenta; si el dispositivo no se guardara, no debe quedar la cuenta huérfana.
+- **Sin auditoría cruzada.** Superficie autenticada de gestor, 12 tests nuevos sobre los caminos de privilegio (C110, C111) y verificación en Chrome. Elegido a conciencia.
+
+### Log
+
+- 2026-09-24 · Suite `wifi/` + `users/tests/test_adapters.py`: 110 pasando. Migración aplicada en local.
+- 2026-09-24 · Datos de prueba locales (`prueba.companero@…` y su dispositivo) borrados tras la verificación.
+- 2026-09-24 · **Pendiente: push y `just deploy-production`** (lleva migración). Esperando el visto bueno del principal.
 
 ---
 

@@ -73,7 +73,7 @@ Un bloque «copiar → pegar fuera → marcar». Espera en contexto:
             {% for d in lote.filas %}
               <tr>
                 <td class="mac font-semibold">{{ d.mac }}</td>
-                <td class="text-sm">{{ d.usuario.email }}</td>
+                <td class="text-sm">{{ d.usuario.email }}{% if d.solicitado_por %} <span class="badge badge-ghost badge-xs" title="Registrado desde administración por {{ d.solicitado_por.email }}">a mano</span>{% endif %}</td>
                 <td class="text-sm">{{ d.descripcion|default:"—" }}</td>
                 <td class="text-sm opacity-70">{{ d.created_at|date:"d/m/Y H:i" }}</td>
                 {% if con_baja %}

@@ -246,3 +246,160 @@ class TestAvisoDeClaveAusente:
         dispositivo.refresh_from_db()
         assert dispositivo.estado == DispositivoWifi.Estado.ANADIDA
         assert dispositivo.notificado_at is None
+
+
+@pytest.mark.django_db
+class TestAltaEnNombreDeOtro:
+    """El compañero que viene a la mesa de administración con el móvil en la mano.
+
+    El gestor le da de alta desde `/wifi/` tecleando su correo; nadie le obliga
+    a entrar con Google para copiar y pegar doce dígitos.
+    """
+
+    MAC = "A4:83:E7:1C:90:2B"
+
+    def test_el_gestor_ve_el_campo_y_el_profesor_no(self, client):
+        client.force_login(_gestor())
+        assert 'name="para_correo"' in client.get(SOLICITAR).content.decode()
+
+        client.force_login(PersonalFactory())
+        assert 'name="para_correo"' not in client.get(SOLICITAR).content.decode()
+
+    def test_vacio_queda_a_nombre_del_propio_gestor(self, client):
+        gestor = _gestor()
+        client.force_login(gestor)
+
+        client.post(SOLICITAR, {"mac": self.MAC, "descripcion": "Mi móvil", "para_correo": ""})
+
+        dispositivo = DispositivoWifi.objects.get()
+        assert dispositivo.usuario == gestor
+        assert dispositivo.solicitado_por is None
+
+    def test_su_propio_correo_tampoco_cuenta_como_en_nombre_de_otro(self, client):
+        gestor = _gestor()
+        client.force_login(gestor)
+
+        client.post(SOLICITAR, {"mac": self.MAC, "para_correo": gestor.email})
+
+        dispositivo = DispositivoWifi.objects.get()
+        assert dispositivo.usuario == gestor
+        assert dispositivo.solicitado_por is None
+
+    def test_con_el_correo_de_un_companero_queda_a_su_nombre_y_la_clave_va_a_el(self, client, settings):
+        settings.WIFI_PASSWORD = "clave-de-prueba"
+        companero = PersonalFactory()
+        gestor = _gestor()
+        client.force_login(gestor)
+
+        respuesta = client.post(
+            SOLICITAR,
+            {"mac": self.MAC, "descripcion": "Portátil", "para_correo": companero.email.upper()},
+            follow=True,
+        )
+
+        dispositivo = DispositivoWifi.objects.get()
+        assert dispositivo.usuario == companero
+        assert dispositivo.solicitado_por == gestor
+        assert dispositivo.estado == DispositivoWifi.Estado.PENDIENTE
+        assert f"Recibido a nombre de {companero.email}" in respuesta.content.decode()
+
+        # El flujo de gestión no cambia: se copia, se pega y se marca. Y el
+        # correo con la clave le llega al compañero, no a quien lo tecleó.
+        client.post("/wifi/gestion/anadidas/", {"ids": str(dispositivo.pk)})
+        assert len(mail.outbox) == 1
+        assert mail.outbox[0].to == [companero.email]
+
+    def test_un_correo_del_centro_sin_cuenta_crea_la_cuenta_sin_contrasena(self, client):
+        from martina_bescos_app.users.models import User
+
+        client.force_login(_gestor())
+        correo = "nueva.profe@iesmartinabescos.es"
+
+        client.post(SOLICITAR, {"mac": self.MAC, "para_correo": correo})
+
+        usuario = User.objects.get(email=correo)
+        assert not usuario.has_usable_password()
+        assert usuario.acceso_con_contrasena is False
+        assert DispositivoWifi.objects.get().usuario == usuario
+
+    def test_cuando_el_companero_entra_con_google_es_la_misma_cuenta(self, client):
+        """La promesa del diseño: crearle la cuenta a mano no le crea un duplicado.
+
+        Reutiliza el adaptador real: `pre_social_login` enlaza por correo.
+        """
+        from allauth.socialaccount.models import SocialAccount
+
+        from martina_bescos_app.users.adapters import SocialAccountAdapter
+        from martina_bescos_app.users.models import User
+        from martina_bescos_app.users.tests.test_adapters import _login_social
+        from martina_bescos_app.users.tests.test_adapters import _peticion_con_mensajes
+
+        client.force_login(_gestor())
+        correo = "nueva.profe@iesmartinabescos.es"
+        client.post(SOLICITAR, {"mac": self.MAC, "para_correo": correo})
+        creada = User.objects.get(email=correo)
+
+        SocialAccountAdapter().pre_social_login(_peticion_con_mensajes(), _login_social(correo))
+
+        assert User.objects.filter(email__iexact=correo).count() == 1
+        assert SocialAccount.objects.get(provider="google", uid="uid-1").user == creada
+
+    def test_rechaza_el_correo_de_un_alumno(self, client):
+        from martina_bescos_app.users.models import User
+
+        client.force_login(_gestor())
+
+        respuesta = client.post(
+            SOLICITAR, {"mac": self.MAC, "para_correo": "0125eromero@iesmartinabescos.es"},
+        )
+
+        assert "no es de personal del centro" in respuesta.content.decode()
+        assert not DispositivoWifi.objects.exists()
+        assert not User.objects.filter(email="0125eromero@iesmartinabescos.es").exists()
+
+    def test_rechaza_un_correo_de_fuera_del_centro(self, client):
+        client.force_login(_gestor())
+
+        respuesta = client.post(SOLICITAR, {"mac": self.MAC, "para_correo": "alguien@gmail.com"})
+
+        assert "no es de personal del centro" in respuesta.content.decode()
+        assert not DispositivoWifi.objects.exists()
+
+    def test_una_cuenta_autorizada_a_mano_si_vale_aunque_parezca_de_alumno(self, client):
+        autorizado = AlumnadoFactory()
+        grupo, _ = Group.objects.get_or_create(name=GRUPO_PERSONAL)
+        autorizado.groups.add(grupo)
+        client.force_login(_gestor())
+
+        client.post(SOLICITAR, {"mac": self.MAC, "para_correo": autorizado.email})
+
+        assert DispositivoWifi.objects.get().usuario == autorizado
+
+    def test_un_profesor_no_puede_colar_un_dispositivo_a_nombre_de_otro(self, client):
+        profe = PersonalFactory()
+        otro = PersonalFactory()
+        client.force_login(profe)
+
+        client.post(SOLICITAR, {"mac": self.MAC, "para_correo": otro.email})
+
+        dispositivo = DispositivoWifi.objects.get()
+        assert dispositivo.usuario == profe
+        assert dispositivo.solicitado_por is None
+
+    def test_el_gestor_ve_lo_que_registro_para_otros(self, client):
+        gestor = _gestor()
+        DispositivoWifiFactory(solicitado_por=gestor, descripcion="Tablet de Ana")
+        DispositivoWifiFactory(descripcion="La de alguien ajeno")
+        client.force_login(gestor)
+
+        contenido = client.get(SOLICITAR).content.decode()
+
+        assert "Tablet de Ana" in contenido
+        assert "La de alguien ajeno" not in contenido
+
+    def test_en_gestion_se_distingue_lo_registrado_a_mano(self, client):
+        gestor = _gestor()
+        DispositivoWifiFactory(solicitado_por=gestor)
+        client.force_login(gestor)
+
+        assert ">a mano<" in client.get(GESTION).content.decode()

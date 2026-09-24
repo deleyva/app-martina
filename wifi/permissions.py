@@ -16,6 +16,7 @@ from __future__ import annotations
 import re
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 
 GRUPO_GESTION = "Gestión WiFi"
 GRUPO_PERSONAL = "WiFi personal autorizado"
@@ -46,18 +47,13 @@ def _dominios_permitidos() -> set[str]:
     return {d for d in dominios if d}
 
 
-def puede_solicitar(user) -> bool:
-    """¿Es personal del centro, y por tanto puede pedir el alta?"""
-    if not getattr(user, "is_authenticated", False):
-        return False
-    if user.is_superuser or es_gestor(user):
-        return True
+def correo_es_de_personal(correo: str) -> bool:
+    """La heurística pura sobre el correo, sin mirar cuentas ni grupos.
 
-    grupos = _grupos(user)
-    if GRUPO_PERSONAL in grupos:
-        return True
-
-    correo = (user.email or "").strip().lower()
+    Dominio del centro y parte local que empieza por letra. Es lo único que se
+    puede comprobar de alguien que todavía no tiene cuenta en la app.
+    """
+    correo = (correo or "").strip().lower()
     if "@" not in correo:
         return False
     local, _, dominio = correo.partition("@")
@@ -68,3 +64,27 @@ def puede_solicitar(user) -> bool:
 
     patron = getattr(settings, "WIFI_PATRON_PERSONAL", r"^[a-z]")
     return bool(re.match(patron, local, flags=re.IGNORECASE))
+
+
+def puede_solicitar(user) -> bool:
+    """¿Es personal del centro, y por tanto puede pedir el alta?"""
+    if not getattr(user, "is_authenticated", False):
+        return False
+    if user.is_superuser or es_gestor(user):
+        return True
+    if GRUPO_PERSONAL in _grupos(user):
+        return True
+    return correo_es_de_personal(user.email)
+
+
+def correo_puede_solicitar(correo: str) -> bool:
+    """¿Se puede dar de alta un dispositivo a nombre de este correo?
+
+    Es la misma regla que `puede_solicitar`, aplicada a un correo en vez de a
+    una sesión: si la cuenta existe mandan sus grupos (las excepciones a mano
+    siguen valiendo); si no existe, solo queda la heurística del correo.
+    """
+    existente = get_user_model().objects.filter(email__iexact=(correo or "").strip()).first()
+    if existente is not None:
+        return puede_solicitar(existente)
+    return correo_es_de_personal(correo)

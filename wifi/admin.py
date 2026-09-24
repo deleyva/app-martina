@@ -5,7 +5,7 @@ from .models import DispositivoWifi
 
 @admin.register(DispositivoWifi)
 class DispositivoWifiAdmin(admin.ModelAdmin):
-    list_display = ("mac", "usuario", "descripcion", "estado", "created_at", "notificado_at")
+    list_display = ("mac", "usuario", "descripcion", "estado", "solicitado_por", "created_at", "notificado_at")
     list_filter = ("estado", "created_at")
     search_fields = ("mac", "descripcion", "usuario__email", "usuario__name")
     readonly_fields = ("created_at", "updated_at", "anadida_at", "baja_at", "notificado_at")
