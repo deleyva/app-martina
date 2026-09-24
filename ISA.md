@@ -3831,3 +3831,30 @@ Transcripción con Whisper (fase 5 del plan) · notas por alumno (eso es la evid
 - 2026-09-24 · Sin auditoría cruzada: superficie de profesor autenticado, 13 tests propios sobre los caminos de privilegio y verificación en navegador; el riesgo real (audio que puede nombrar a un alumno) va por la misma ruta cerrada en nginx que ya protege la reflexión. Elegido a conciencia.
 - 2026-09-24 · Nada empujado ni desplegado (Anti-F).
 
+
+### Rediseño pedido por Jesús (2026-09-24, tras ver la fase construida)
+
+> «Durante la clase sólo quiero grabar notas de audio (así no tiene que abrirse otra pestaña), en la pantalla final de clase, que me muestre, bajo la caja "💭 Reflexión de la clase", una lista de los audios grabados durante la clase. Estaría bien que al lado se mostrara la transcripción que ha cazado el modelo y que yo pueda modificarla y aceptarla, para que se añada al campo "💭 Reflexión de la clase" y se borre el audio y la transcripción.»
+
+Acordado: el botón del visor pasa a grabar directamente (sin ventana ni panel); Whisper transcribe en segundo plano con Huey; la lista con Aceptar / Descartar sale en la pantalla de cierre del visor Y en la de la sesión, porque la última nota puede no estar transcrita al finalizar. Aceptar añade el texto a la reflexión y borra audio y fila; Descartar solo borra. Se aprovecha `SessionNote`, la vista protegida del audio y la relectura de la reflexión al cerrar; se retira la página de notas de texto. **La fase 40 construida (`cbae150`) no se despliega tal cual.**
+
+### Medida de Whisper en el servidor del IES (2026-09-24)
+
+Servidor: 2 vCPU (EPYC Milan, AVX2), 3,8 GB de RAM, **~1,1 GB disponibles y sin swap**, 19 contenedores. Pruebas en un contenedor con `--memory=900m` para que un exceso matara solo la prueba. `faster-whisper 1.1.1`, `int8`, `language="es"`. Audios generados con `say -v Mónica`, 19,9 s, en webm/opus como los del navegador.
+
+| Modelo | Hilos | Audio | Transcribir | Memoria máx. |
+|---|---|---|---|---|
+| base | 2 | voz limpia | 3,9 s | 372 MB |
+| base | 1 | voz limpia | 4,5 s | 341 MB |
+| base | 2 | voz + música | 4,0 s | 339 MB |
+| base | 2 | solo música, 15 s | 9,5 s | 430 MB |
+| small | 2 | voz limpia | 11,0 s | 769 MB |
+| small | 1 | voz limpia | 13,2 s | 624 MB |
+| small | 2 | voz + música | 10,6 s | 784 MB |
+| small | 2 | solo música, 15 s | 4,3 s | 784 MB |
+
+- **Calidad:** los dos modelos transcriben la nota casi perfecta, con música de fondo incluida. `base` escribe «compas» sin tilde; `small` acierta la tilde pero parte «repetir lo» y escribe «canón».
+- **Alucinaciones:** con solo música, los dos devuelven texto vacío. La música de prueba son senos y ruido rosa, no instrumentos reales.
+- **La reserva que decide:** la voz es sintética y limpia. Falta medir con la voz de Jesús grabada en el aula, que es donde `small` suele sacar ventaja.
+- **Memoria:** `small` deja unos 350 MB de margen sobre lo disponible, sin swap. `base` deja unos 750 MB.
+- Restos en el servidor: `~/whisper-bench/` (script, audios, modelos) y la imagen `whisper-bench:prueba` (558 MB). Se borran tras la prueba con voz real.
