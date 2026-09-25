@@ -1,6 +1,6 @@
 ---
 slug: app-martina
-phase: build
+phase: verify
 progress: true
 iteration: 50
 principal_stated_goal: "Necesito desarrollar en apps.iesmartinabescos.es Otra app de Django como la que tenemos en /incidencias. Está sí que debe de requerir login con Google porque ya tenemos implementado. Básicamente, es una aplicación en la que quiero que vayan solicitando la clave Wi-Fi. Pero para ello deben logearse y enviar la MAC de su dispositivo WIFI, la privada (real) no la aleatoria."
@@ -3966,7 +3966,7 @@ Nota real de 20,6 s grabada en clase «con follón, con ruido, música», conver
 - 2026-09-25 · Push y despliegue con aprobación explícita de Jesús («ok, push and just deploy-production»). En producción, con su sesión en Chrome: libreta creada, «no-clef-12» añadida, `/libreta/1/libreta.pdf` servido (portada + índice + hoja + relleno).
 
 
-## Fase 42 — Plantillas A4 generadas para imprimir, y nombres en el CMS (2026-09-25) · CONSTRUIDA Y VERIFICADA EN LOCAL · RENOMBRADO HECHO EN PRODUCCIÓN · CÓDIGO SIN DESPLEGAR
+## Fase 42 — Plantillas A4 generadas para imprimir, y nombres en el CMS (2026-09-25) · DESPLEGADA (`a70b400`)
 
 ### Goal
 
@@ -3993,7 +3993,7 @@ Las plantillas del CMS son para proyectar: A5 con cabecera y número de página 
 - [ ] **C247 — El compositor ofrece el grupo «Para imprimir (A4)»** antes de «Del CMS (para proyectar)», y añadir una genera el elemento con su título. *Probe: test de vista + Chrome local.*
 - [x] **C248 — Las hojas se ven bien impresas**: densidad y trazos comprobados en píxeles (montaje de las diez hojas a 60 dpi y una a 150 dpi). *Probe: viewed pixels.*
 - [x] **C249 — Los nueve documentos del CMS renombrados en producción** (`no-clef-12` → «Pentagrama (12 por hoja)», …), y el compositor y la vista de proyectar los enseñan con el nombre nuevo. *Probe: `SELECT title` antes/después por SSH filtrado; Chrome en producción.*
-- [ ] **C250 — Suite verde** salvo los cuatro preexistentes. *Probe: `just test`.*
+- [x] **C250 — Suite verde** salvo los cuatro preexistentes. *Probe: `just test`.*
 
 ### Decisions
 
@@ -4013,4 +4013,5 @@ Las plantillas del CMS son para proyectar: A5 con cabecera y número de página 
 ### Log
 
 - 2026-09-25 · **`docker compose exec` en producción no ve la base de datos**: `KeyError: 'DATABASE_URL'`. El entrypoint de cookiecutter-django construye esa variable a partir de `POSTGRES_*` y `exec` se lo salta. Para cualquier `manage.py` en producción, `run --rm`, como hace el propio `deploy-production`.
+- 2026-09-25 · Push (`06b1a15..a70b400`) y `just deploy-production` con el ok de Jesús («ok, push and deploy»); `libreta.0002_elemento_plantilla` aplicada, exit 0. **C250**: suite completa 1255 pasan, 4 fallan (los cuatro preexistentes).
 - 2026-09-25 · El `--fix` de ruff y `ruff format` se pisan: hace falta pasar `--fix` → `format` → `--fix` para que las comas finales queden.
