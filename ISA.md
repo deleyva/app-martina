@@ -1,8 +1,8 @@
 ---
 slug: app-martina
-phase: verify
+phase: complete
 progress: true
-iteration: 50
+iteration: 51
 principal_stated_goal: "Necesito desarrollar en apps.iesmartinabescos.es Otra app de Django como la que tenemos en /incidencias. Está sí que debe de requerir login con Google porque ya tenemos implementado. Básicamente, es una aplicación en la que quiero que vayan solicitando la clave Wi-Fi. Pero para ello deben logearse y enviar la MAC de su dispositivo WIFI, la privada (real) no la aleatoria."
 updated: 2026-09-25
 ---
@@ -4015,3 +4015,37 @@ Las plantillas del CMS son para proyectar: A5 con cabecera y número de página 
 - 2026-09-25 · **`docker compose exec` en producción no ve la base de datos**: `KeyError: 'DATABASE_URL'`. El entrypoint de cookiecutter-django construye esa variable a partir de `POSTGRES_*` y `exec` se lo salta. Para cualquier `manage.py` en producción, `run --rm`, como hace el propio `deploy-production`.
 - 2026-09-25 · Push (`06b1a15..a70b400`) y `just deploy-production` con el ok de Jesús («ok, push and deploy»); `libreta.0002_elemento_plantilla` aplicada, exit 0. **C250**: suite completa 1255 pasan, 4 fallan (los cuatro preexistentes).
 - 2026-09-25 · El `--fix` de ruff y `ruff format` se pisan: hace falta pasar `--fix` → `format` → `--fix` para que las comas finales queden.
+
+
+## Fase 43 — Los pies se estampaban sobre todas las copias (2026-09-25) · DESPLEGADA (`d9a461a`)
+
+### Goal
+
+> «los números de página se ven raros. Alguna página va en blanco» · «Itera descargando el PDF generado. Prueba varias veces para que tú mismo veas lo que ocurre.»
+
+### Lo que pasaba (reproducido sobre `~/Downloads/test-4o-eso.pdf`)
+
+- **Bug real:** `PdfWriter.add_page` clona la página pero comparte el flujo de contenido. Al estampar el pie sobre el clon, cada copia de una misma página acumulaba los pies de todas sus hermanas: la página 3 decía «hoja 1 de 3 · 3», «hoja 2 de 3 · 4» y «hoja 3 de 3 · 5» superpuestos. Por eso los números «se veían raros». Mis tests no lo cazaron porque comprobaban `"hoja 2 de 2" in texto` — una afirmación de ejemplo, no universal.
+- **Diseño que no gustó:** el relleno «cada sección empieza en hoja nueva» estaba activo por defecto y metía páginas en blanco sin número, con lo que la numeración saltaba (5 → 7).
+
+### Claims
+
+- [x] **C251 — Cada página del cuerpo lleva exactamente un rótulo y un número.** *Probe: `test_cada_pagina_lleva_exactamente_un_rotulo_y_un_numero` (`t.count("hoja") == 1` y `"Pentagrama · hoja i de 3 i"` por página); sobre la libreta local 1, las 12 páginas dan `count('hoja') == 1` y numeración 3…12 seguida.*
+- [x] **C252 — Sin relleno por defecto**, también en las libretas ya creadas (migración `0003` con `RunPython`); con el relleno activado, las páginas en blanco van numeradas. *Probe: `test_hoja_nueva_por_seccion_rellena_las_secciones_impares` (relleno = «4»), migración aplicada en producción.*
+- [x] **C253 — Descargado desde producción con Chrome, varias veces y con ajustes distintos, y mirado en píxeles.** *Probe: ficheros en `~/Downloads`, texto por página con pypdf y montaje rasterizado.*
+
+### Decisions
+
+- **Hoja nueva por copia, siempre.** Fundir la página normalizada sobre un A4 en blanco cuesta nada y elimina de raíz el estado compartido; es la única forma segura de estampar cosas distintas sobre copias de lo mismo con pypdf.
+- **Las afirmaciones de los tests sobre el pie pasan a ser universales** (exactamente uno por página), no de ejemplo. Es la lección de la fase: un `in` sobre texto extraído no ve lo que sobra.
+
+### Log
+
+- 2026-09-25 · Push y deploy (`a70b400..d9a461a`) entendidos como parte de «itera descargando el PDF generado»: sin desplegar no hay PDF de producción que descargar.
+
+### Verificación (2026-09-25, producción, sesión de Jesús)
+
+- **C253** — Reproducido primero sobre `~/Downloads/test-4o-eso.pdf` (12 páginas: tres pies superpuestos por página, blanco sin número en la 6). Tras desplegar `d9a461a`:
+  - Descarga 1, `libreta-descarga-1.pdf`, desde Chrome con la sesión de Jesús (`fetch` + `<a download>` sobre `/libreta/2/libreta.pdf`, 200, 136 789 bytes): 11 páginas, `count('hoja') == 1` en cada una del cuerpo, numeración 3…11 seguida, sin blancos; montaje y pie a 90 dpi mirados.
+  - Chrome bloquea la segunda descarga automática y la salida del `javascript_tool` se trunca, así que las variantes 2 y 3 se generaron en el servidor con los datos reales (`docker compose run … manage.py shell`, misma función `Libreta.pdf()` que sirve la vista) sobre una libreta de prueba «Prueba Illa» (pk 3, borrada al terminar): **A** (sin portada/índice/relleno, desde 1) → 5 páginas numeradas 1…5, un pie por página; **B** (portada + índice + relleno, desde 5) → 10 páginas, portada 5, índice 6 con «Acordes de ukelele 7 · Pentagrama 9 – 11 · Normas 13», rellenos numerados 8, 12 y 14; hoja de pedido «5 páginas: 3 hojas».
+- `hoja_nueva_por_seccion` de la libreta «test» de Jesús pasó a `False` con la migración: su PDF salió sin la página en blanco sin que tocara nada.
