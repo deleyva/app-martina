@@ -241,10 +241,11 @@ def _ruta_de_la_imagen(imagen) -> str:
 def _plan(libreta):
     """Qué páginas van, en qué orden y con qué rótulo, antes de escribir nada.
 
-    Devuelve `(paginas, secciones)`: `paginas` es [(PageObject, rótulo | None)]
-    con el frente incluido y los rellenos en blanco (rótulo `None`), y
-    `secciones` [(título, primera, última)] sobre la numeración real, que es lo
-    que el índice necesita ANTES de dibujarse.
+    Devuelve `(paginas, secciones)`: `paginas` es
+    [(PageObject, rótulo | None, con_numero)] con el frente incluido y los
+    rellenos en blanco (sin rótulo pero CON número: si no, la numeración salta
+    y parece un error), y `secciones` [(título, primera, última)] sobre la
+    numeración real, que es lo que el índice necesita ANTES de dibujarse.
     """
     rellenar = libreta.hoja_nueva_por_seccion
     cuerpo, secciones = [], []
@@ -262,20 +263,22 @@ def _plan(libreta):
         for _ in range(elemento.copias):
             for pagina in base:
                 i += 1
-                cuerpo.append((pagina, f"{elemento.titulo} · hoja {i} de {total}"))
+                cuerpo.append(
+                    (pagina, f"{elemento.titulo} · hoja {i} de {total}", True),
+                )
         secciones.append((elemento.titulo, primera, primera + total - 1))
         numero += total
         if rellenar and total % 2:
-            cuerpo.append((_en_blanco(), None))
+            cuerpo.append((_en_blanco(), None, True))
             numero += 1
 
     paginas = []
     if libreta.portada:
-        paginas.append((_portada(libreta), None))
+        paginas.append((_portada(libreta), None, False))
     if libreta.indice:
-        paginas.append((_indice(secciones), None))
+        paginas.append((_indice(secciones), None, False))
     if rellenar and len(paginas) % 2:
-        paginas.append((_en_blanco(), None))
+        paginas.append((_en_blanco(), None, False))
     return paginas + cuerpo, secciones
 
 
@@ -283,10 +286,17 @@ def construir(libreta) -> bytes:
     paginas, _ = _plan(libreta)
     escritor = PdfWriter()
     numero = libreta.primera_pagina
-    for pagina, rotulo in paginas:
-        nueva = escritor.add_page(pagina)
-        if rotulo:
-            nueva.merge_page(_pie(rotulo, numero))
+    for pagina, rotulo, con_numero in paginas:
+        # Una hoja nueva por copia, siempre. `add_page` clona la página pero
+        # comparte su flujo de contenido, así que estampar el pie sobre el
+        # clon lo estampaba sobre TODAS las copias de la misma página: tres
+        # números superpuestos en cada pentagrama (encontrado por Jesús en el
+        # primer PDF de producción, 2026-09-25).
+        hoja = _en_blanco()
+        hoja.merge_page(pagina)
+        if con_numero:
+            hoja.merge_page(_pie(rotulo, numero))
+        escritor.add_page(hoja)
         numero += 1
     escritor.add_metadata(
         {"/Title": f"{libreta.titulo} {libreta.subtitulo}".strip(), "/Creator": CENTRO},

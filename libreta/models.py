@@ -44,7 +44,7 @@ class Libreta(models.Model):
         help_text="Número que lleva la primera página del PDF, sea portada u hoja.",
     )
     hoja_nueva_por_seccion = models.BooleanField(
-        default=True,
+        default=False,
         help_text=(
             "A doble cara, cada elemento empieza en hoja nueva "
             "(se rellena con una página en blanco)."

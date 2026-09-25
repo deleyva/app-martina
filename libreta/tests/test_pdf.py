@@ -44,7 +44,7 @@ def test_todas_las_paginas_salen_a4_vertical_aunque_la_fuente_sea_a5_o_apaisada(
     libreta.insertar(Elemento(titulo="Normas", texto="Cuida la libreta."))
     paginas = paginas_de(libreta.pdf())
     assert {tamano(p) for p in paginas} == {A4_PT}
-    assert "A5 p1" in texto(paginas[2])  # rótulo y contenido siguen ahí tras escalar
+    assert "A5 p1" in texto(paginas[1])  # rótulo y contenido siguen ahí tras escalar
 
 
 def test_cada_elemento_se_repite_sus_copias_una_pagina_tras_otra(
@@ -135,7 +135,7 @@ def test_hoja_nueva_por_seccion_rellena_las_secciones_impares(libreta, documento
     libreta.save()
     paginas = paginas_de(libreta.pdf())
     assert len(paginas) == 3 + 1 + 2
-    assert texto(paginas[3]) == ""  # la de relleno, sin rótulo ni número
+    assert texto(paginas[3]) == "4"  # la de relleno: sin rótulo, pero numerada
     assert "Par · hoja 1 de 2" in texto(paginas[4])
     assert " 5" in texto(paginas[4])
     libreta.hoja_nueva_por_seccion = False
@@ -148,6 +148,7 @@ def test_solo_portada_tambien_se_rellena_para_que_el_cuerpo_empiece_en_hoja_nuev
     documento,
 ):
     libreta.indice = False
+    libreta.hoja_nueva_por_seccion = True
     libreta.save()
     libreta.insertar(Elemento.desde_medio(documento("a.pdf", "A"), titulo="Pentagrama"))
     paginas = paginas_de(libreta.pdf())
@@ -157,6 +158,8 @@ def test_solo_portada_tambien_se_rellena_para_que_el_cuerpo_empiece_en_hoja_nuev
 
 
 def test_la_hoja_de_pedido_resume_elementos_copias_y_total(libreta, documento, imagen):
+    libreta.hoja_nueva_por_seccion = True
+    libreta.save()
     a = libreta.insertar(
         Elemento.desde_medio(documento("a.pdf", "A", 2), titulo="Pentagrama"),
     )
