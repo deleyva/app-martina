@@ -1,6 +1,6 @@
 ---
 slug: app-martina
-phase: verify
+phase: complete
 progress: true
 iteration: 52
 principal_stated_goal: "Necesito desarrollar en apps.iesmartinabescos.es Otra app de Django como la que tenemos en /incidencias. Está sí que debe de requerir login con Google porque ya tenemos implementado. Básicamente, es una aplicación en la que quiero que vayan solicitando la clave Wi-Fi. Pero para ello deben logearse y enviar la MAC de su dispositivo WIFI, la privada (real) no la aleatoria."
@@ -4051,9 +4051,10 @@ Las plantillas del CMS son para proyectar: A5 con cabecera y número de página 
 - `hoja_nueva_por_seccion` de la libreta «test» de Jesús pasó a `False` con la migración: su PDF salió sin la página en blanco sin que tocara nada.
 
 
-## Fase 44 — Portada e índice en la misma hoja (2026-09-25)
+## Fase 44 — Portada e índice en la misma hoja (2026-09-25) · DESPLEGADA (`2bf6631`)
 
 > «ahora sí, cuadra! Prefiero el título y el índice en la misma página para ahorrar papel.»
 
 - [x] **C254 — Con portada e índice activados salen en UNA página** (título, curso, centro, líneas de nombre y el índice debajo), y el cuerpo empieza en la siguiente. Con más de 11 elementos el índice no cabe y vuelve a página aparte; solo-portada y solo-índice siguen como estaban. *Probe: `test_portada_e_indice_van_en_la_misma_pagina…` (1+6+2 páginas, «Pentagrama 2 – 7»), `test_con_mas_de_once_elementos_el_indice_va_en_pagina_aparte`, `test_solo_indice_o_solo_portada…`; página rasterizada de la libreta local 1 mirada.*
-- [ ] **C255 — Verificado en producción sobre la libreta «test» de Jesús.** *Probe: PDF descargado con su sesión, página 1 con título e índice, `count('hoja') == 1` en el resto.*
+- [x] **C255 — Verificado en producción sobre la libreta «test» de Jesús.** *Probe: PDF descargado con su sesión, página 1 con título e índice, `count('hoja') == 1` en el resto.*
+- 2026-09-25 · Desplegado (`d9a461a..2bf6631`, sin migraciones) y descargado `libreta-descarga-4.pdf` con la sesión de Jesús: 10 páginas, portada+índice en la 1, un pie por página del cuerpo.
