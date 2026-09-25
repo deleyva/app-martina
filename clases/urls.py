@@ -249,6 +249,21 @@ urlpatterns = [
         name="class_session_notes",
     ),
     path(
+        "sessions/<int:pk>/notas/lista/",
+        views.class_session_notes_lista,
+        name="class_session_notes_lista",
+    ),
+    path(
+        "sessions/<int:pk>/notas/<int:nota_pk>/aceptar/",
+        views.class_session_note_aceptar,
+        name="class_session_note_aceptar",
+    ),
+    path(
+        "sessions/<int:pk>/notas/<int:nota_pk>/descartar/",
+        views.class_session_note_descartar,
+        name="class_session_note_descartar",
+    ),
+    path(
         "sessions/<int:pk>/notas/reflexion/",
         views.class_session_reflection_actual,
         name="class_session_reflection_actual",

@@ -1,4 +1,5 @@
 volumes:
+  production_whisper_modelos: {}
   production_postgres_data: {}
   production_django_media: {}
 
@@ -57,6 +58,23 @@ services:
     image: docker.io/redis:6
     container_name: martina_bescos_app_production_redis
     restart: unless-stopped
+    networks:
+      - app-martina-production-network
+
+  # Transcribe las notas de voz de clase (fase 40·1). Aparte y con tope de
+  # memoria: el servidor no tiene swap, y si Whisper se pasa tiene que morir
+  # él y no Postgres. Sin puertos publicados ni volumen de medios: solo ve
+  # los bytes que le manda la tarea de Huey.
+  whisper:
+    build:
+      context: ./compose/production/whisper
+    image: martina_bescos_app_production_whisper
+    container_name: martina_bescos_app_production_whisper
+    restart: unless-stopped
+    mem_limit: 900m
+    memswap_limit: 900m
+    volumes:
+      - production_whisper_modelos:/modelos
     networks:
       - app-martina-production-network
 

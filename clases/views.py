@@ -527,34 +527,39 @@ def class_session_reflection_audio(request, pk):
     return _servir_audio(session.reflection_audio)
 
 
-# ── Notas durante la clase ──────────────────────────────────────────────────
+# ── Notas de voz durante la clase ───────────────────────────────────────────
 #
-# El campo de reflexión solo aparecía al finalizar, y para entonces ya se ha
-# olvidado lo que había que apuntar de un alumno. Estas vistas guardan una nota
-# en mitad de la clase SIN cerrarla: ni `close()` ni la cobertura de la
-# programación, que es lo que dispara el cierre.
+# En clase solo se graba: un toque en el micrófono del visor. Whisper transcribe
+# en segundo plano (`clases.tasks.transcribir_nota`), y al final el profesor
+# revisa cada nota bajo «💭 Reflexión de la clase»: corrige la transcripción y
+# la acepta —pasa a la reflexión y el audio se borra— o la descarta. Nada de
+# esto cierra la clase: ni `close()` ni la cobertura de la programación.
+
+
+def _nota_a_json(session, nota):
+    return {
+        "pk": nota.pk,
+        "cabecera": nota.cabecera(),
+        "estado": nota.estado,
+        "transcripcion": nota.transcripcion,
+        "audio_url": reverse("clases:class_session_note_audio", args=[session.pk, nota.pk]),
+        "aceptar_url": reverse("clases:class_session_note_aceptar", args=[session.pk, nota.pk]),
+        "descartar_url": reverse(
+            "clases:class_session_note_descartar", args=[session.pk, nota.pk]
+        ),
+    }
 
 
 @login_required
 @user_passes_test(es_profesor)
-@require_http_methods(["GET", "POST"])
+@require_http_methods(["POST"])
 def class_session_notes(request, pk):
-    """GET: la página de notas, que el visor abre en una ventana o en un panel.
-    POST: guarda una nota (texto y/o audio) y devuelve la reflexión al día."""
+    """Guarda una nota de voz grabada en el visor. Solo audio."""
     session = get_object_or_404(ClassSession, pk=pk, teacher=request.user)
 
-    if request.method == "GET":
-        return render(
-            request,
-            "clases/class_sessions/notas.html",
-            {"session": session, "notas": session.notas.all()},
-        )
-
-    texto = request.POST.get("texto", "").strip()
     audio_file = request.FILES.get("audio")
-    if not texto and not audio_file:
-        return JsonResponse({"error": "La nota está vacía."}, status=400)
-
+    if not audio_file:
+        return JsonResponse({"error": "Falta el audio."}, status=400)
     error = _preparar_audio(audio_file, f"nota_{session.pk}")
     if error:
         return error
@@ -565,19 +570,43 @@ def class_session_notes(request, pk):
     if item_pk and item_pk.isdigit():
         item = session.items.filter(pk=int(item_pk)).first()
 
-    nota = session.anadir_nota(texto=texto, audio_file=audio_file, item=item)
+    nota = session.anadir_nota(audio_file=audio_file, item=item)
+    return JsonResponse({"ok": True, "nota": _nota_a_json(session, nota)})
+
+
+@login_required
+@user_passes_test(es_profesor)
+def class_session_notes_lista(request, pk):
+    """Las notas de voz que esperan revisión, para las dos pantallas."""
+    session = get_object_or_404(ClassSession, pk=pk, teacher=request.user)
     return JsonResponse(
-        {
-            "ok": True,
-            "linea": nota.linea_de_reflexion(),
-            "reflection": session.reflection,
-            "audio_url": (
-                reverse("clases:class_session_note_audio", args=[session.pk, nota.pk])
-                if nota.audio
-                else ""
-            ),
-        }
+        {"notas": [_nota_a_json(session, n) for n in session.notas.all()]}
     )
+
+
+@login_required
+@user_passes_test(es_profesor)
+@require_http_methods(["POST"])
+def class_session_note_aceptar(request, pk, nota_pk):
+    """Pasa el texto corregido a la reflexión y borra la nota con su audio."""
+    session = get_object_or_404(ClassSession, pk=pk, teacher=request.user)
+    nota = get_object_or_404(session.notas, pk=nota_pk)
+    try:
+        linea = nota.aceptar(request.POST.get("texto", ""))
+    except ValueError as e:
+        return JsonResponse({"error": str(e)}, status=400)
+    return JsonResponse({"ok": True, "linea": linea})
+
+
+@login_required
+@user_passes_test(es_profesor)
+@require_http_methods(["POST"])
+def class_session_note_descartar(request, pk, nota_pk):
+    """Borra la nota y su audio sin tocar la reflexión."""
+    session = get_object_or_404(ClassSession, pk=pk, teacher=request.user)
+    nota = get_object_or_404(session.notas, pk=nota_pk)
+    nota.descartar()
+    return JsonResponse({"ok": True})
 
 
 @login_required

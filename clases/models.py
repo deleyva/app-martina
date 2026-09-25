@@ -1245,31 +1245,29 @@ class ClassSession(models.Model):
             update_fields=["reflection", "reflection_audio", "closed_at", "updated_at"]
         )
 
-    def anadir_nota(self, texto="", audio_file=None, item=None):
-        """Guardar una nota tomada en mitad de la clase, SIN cerrarla.
+    def anadir_nota(self, audio_file, item=None):
+        """Guardar una nota de voz grabada en mitad de la clase, SIN cerrarla.
 
-        Crea la `SessionNote` y añade su línea al final de `reflection`, que es
-        donde el profesor quiere encontrarlo todo al acabar. Nunca toca
-        `closed_at`: eso es de `close()`.
-
-        La reflexión se relee de la base antes de añadir: el visor puede llevar
-        una hora abierto y la copia en memoria no sabe de las notas que se
-        tomaron desde otra ventana.
+        No toca `reflection`: la nota espera en la lista de revisión hasta que
+        el profesor acepta su transcripción (`SessionNote.aceptar`) o la
+        descarta. La transcripción se encola al confirmar la transacción, para
+        que la tarea nunca busque una fila que aún no existe.
         """
+        from django.db import transaction
+
         nota = SessionNote.objects.create(
             session=self,
-            texto=texto,
             audio=audio_file,
             item=item,
             item_titulo=(item.get_content_title() or "")[:255] if item else "",
         )
-        actual = (
-            type(self).objects.filter(pk=self.pk).values_list("reflection", flat=True).first()
-            or ""
-        )
-        linea = nota.linea_de_reflexion()
-        self.reflection = f"{actual.rstrip()}\n{linea}" if actual.strip() else linea
-        self.save(update_fields=["reflection", "updated_at"])
+
+        def encolar():
+            from clases.tasks import transcribir_nota
+
+            transcribir_nota(nota.pk)
+
+        transaction.on_commit(encolar)
         return nota
 
     def reopen(self):
@@ -1972,7 +1970,17 @@ class SessionNote(models.Model):
         related_name="notas",
         verbose_name="Sesión",
     )
-    texto = models.TextField(blank=True, verbose_name="Texto")
+    PENDIENTE = "pendiente"
+    TRANSCRITA = "transcrita"
+    ERROR = "error"
+    ESTADOS = [
+        (PENDIENTE, "Transcribiendo"),
+        (TRANSCRITA, "Transcrita"),
+        (ERROR, "No se pudo transcribir"),
+    ]
+
+    estado = models.CharField(max_length=12, choices=ESTADOS, default=PENDIENTE)
+    transcripcion = models.TextField(blank=True, verbose_name="Transcripción")
     # Debajo de `class_reflections/`, que nginx cierra con 404: estos audios
     # pueden nombrar a un alumno y solo salen por `class_session_note_audio`.
     audio = models.FileField(
@@ -2002,13 +2010,47 @@ class SessionNote(models.Model):
     def __str__(self):
         return f"Nota de {self.session} · {self.created_at:%H:%M}"
 
-    def linea_de_reflexion(self):
-        """La línea que esta nota añade a la reflexión consolidada."""
+    def cabecera(self):
+        """`[10:42 · Círculo de quintas]`: cuándo y sobre qué era la nota."""
         hora = timezone.localtime(self.created_at).strftime("%H:%M")
-        cabecera = f"[{hora} · {self.item_titulo}]" if self.item_titulo else f"[{hora}]"
-        partes = [cabecera]
-        if self.texto:
-            partes.append(self.texto)
-        if self.audio:
-            partes.append("🎤 nota de voz")
-        return " ".join(partes)
+        return f"[{hora} · {self.item_titulo}]" if self.item_titulo else f"[{hora}]"
+
+    def aceptar(self, texto):
+        """Pasa el texto (ya corregido por el profesor) a la reflexión y borra
+        la nota con su audio. Devuelve la línea añadida.
+
+        La reflexión se relee de la base y se bloquea: el profesor puede estar
+        aceptando desde dos pantallas, y la copia en memoria no sabe de lo que
+        se aceptó en la otra. El fichero se borra al confirmar la transacción:
+        si algo falla antes, el audio sigue ahí.
+        """
+        from django.db import transaction
+
+        texto = (texto or "").strip()
+        if not texto:
+            raise ValueError("No se acepta una nota vacía; para quitarla, descártala.")
+        linea = f"{self.cabecera()} {texto}"
+        with transaction.atomic():
+            sesion = ClassSession.objects.select_for_update().get(pk=self.session_id)
+            actual = sesion.reflection or ""
+            sesion.reflection = f"{actual.rstrip()}\n{linea}" if actual.strip() else linea
+            sesion.save(update_fields=["reflection", "updated_at"])
+            self._borrar()
+        return linea
+
+    def descartar(self):
+        """Borra la nota y su audio sin tocar la reflexión."""
+        from django.db import transaction
+
+        with transaction.atomic():
+            self._borrar()
+
+    def _borrar(self):
+        from django.db import transaction
+
+        audio = self.audio
+        nombre = audio.name if audio else ""
+        self.delete()
+        if nombre:
+            almacen = audio.storage
+            transaction.on_commit(lambda: almacen.delete(nombre))

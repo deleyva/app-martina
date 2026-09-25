@@ -19,6 +19,10 @@
     {% endcomment %}
     <script src="{% static 'vendor/alphatab/alphaTab.min.js' %}"></script>
     {% endif %}
+    {% if is_teacher %}
+    <link rel="stylesheet" href="{% static 'clases/notas_de_voz.css' %}">
+    <script src="{% static 'clases/notas_de_voz.js' %}"></script>
+    {% endif %}
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -64,25 +68,12 @@
         #fab-plantillas { bottom: 84px; }
         #fab-notas { bottom: 144px; }
 
-        /* ── Panel de notas (táctil, o si el navegador bloquea la ventana) ──
-           Por encima de los botones flotantes y por debajo del lienzo y de la
-           pantalla de cierre. Pegado a la izquierda, junto a su botón. */
-        #panel-notas {
-            display: none;
-            position: fixed;
-            left: 84px;
-            bottom: 24px;
-            width: min(420px, calc(100vw - 108px));
-            height: min(560px, calc(100vh - 48px));
-            z-index: 15000;
-            border-radius: 16px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            overflow: hidden;
-            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
-            background: #121216;
-        }
-        #panel-notas.abierto { display: block; }
-        #panel-notas iframe { width: 100%; height: 100%; border: 0; }
+        /* ── Grabando una nota de voz ──
+           Rojo y latiendo: tiene que verse de reojo, con la clase delante, que
+           el micrófono sigue abierto. */
+        @keyframes latido-rojo { 0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 50% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } }
+        .fab-izq.grabando { background: rgba(220, 38, 38, 0.95); border-color: rgba(252, 165, 165, 0.9); animation: latido-rojo 1.2s ease-out infinite; }
+        #record-btn.grabando { background: rgba(220, 38, 38, 0.8) !important; }
 
         /* ── Modal a pantalla completa (página entera y plantillas) ── */
         #lienzo {
@@ -503,9 +494,14 @@
             backdrop-filter: blur(10px);
             flex-direction: column;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start;
+            overflow-y: auto;
             padding: 20px;
         }
+        /* `margin: auto` centra cuando cabe y deja hacer scroll cuando la
+           lista de notas de voz es larga; `justify-content: center` cortaba
+           la parte de arriba sin poder llegar a ella. */
+        #session-complete .session-summary { margin: auto 0; }
         #session-complete.active {
             display: flex;
         }
@@ -581,13 +577,12 @@
     <div id="pista-lados"><span class="izq">‹</span><span class="der">›</span></div>
 
     {% if is_teacher %}
-    <button id="fab-notas" class="fab-izq" type="button" onclick="abrirNotas()"
-            data-ayuda="Notas de la clase (N). Apunta algo por escrito o por voz sin cerrar la clase: va a la reflexión, con la hora y el elemento en pantalla.">
-        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zM19.5 7.125L16.875 4.5M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/>
+    <button id="fab-notas" class="fab-izq" type="button" onclick="alternarNotaDeVoz()" aria-pressed="false"
+            data-ayuda="Nota de voz (N). Un toque graba, otro para y la guarda. Al final de la clase revisas lo que ha entendido y lo pasas a la reflexión.">
+        <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 14a3 3 0 003-3V5a3 3 0 10-6 0v6a3 3 0 003 3zm5-3a5 5 0 01-10 0H5a7 7 0 006 6.92V21h2v-3.08A7 7 0 0019 11h-2z"/>
         </svg>
     </button>
-    <div id="panel-notas" aria-label="Notas de la clase"></div>
     {% endif %}
     <button id="fab-plantillas" class="fab-izq" onclick="abrirPlantillas()"
             data-ayuda="Plantillas para escribir (P). Pentagramas, cuadrículas y papeles en blanco para proyectar y escribir encima.">
@@ -651,16 +646,21 @@
             <div style="font-size: 48px; margin-bottom: 12px;">✅</div>
             <h2>Clase completada</h2>
             {% if is_teacher %}
-            <p style="font-size: 14px; opacity: 0.7; margin-bottom: 16px;">¿Cómo ha ido la clase? Deja una reflexión rápida (texto o voz).</p>
+            <p style="font-size: 14px; opacity: 0.7; margin-bottom: 16px;">¿Cómo ha ido la clase? Escribe la reflexión o graba una nota de voz.</p>
             <textarea id="reflection-text" rows="4" placeholder="Reflexión: qué se ha trabajado, cómo ha respondido el grupo, qué quedó pendiente..."
                 style="width:100%;border-radius:12px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.06);color:#fff;padding:12px;font-size:14px;resize:vertical;margin-bottom:12px;font-family:inherit;">{{ session.reflection }}</textarea>
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;justify-content:center;">
-                <button type="button" id="record-btn" onclick="toggleRecording()"
+            {% comment %}
+            Las notas de voz de la clase, con lo que ha entendido Whisper, para
+            aceptarlas (pasan al cuadro de arriba) o descartarlas. Lo pinta
+            `notas_de_voz.js`, el mismo de la pantalla de la sesión.
+            {% endcomment %}
+            <div id="notas-de-voz" hidden style="margin-bottom:12px;"></div>
+            <div style="display:flex;align-items:center;gap:10px;margin:8px 0 20px;justify-content:center;">
+                <button type="button" id="record-btn" onclick="alternarNotaDeVoz()"
                     style="display:flex;align-items:center;gap:8px;padding:10px 16px;border-radius:12px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.08);color:#fff;font-size:13px;cursor:pointer;">
                     <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14a3 3 0 003-3V5a3 3 0 10-6 0v6a3 3 0 003 3zm5-3a5 5 0 01-10 0H5a7 7 0 006 6.92V21h2v-3.08A7 7 0 0019 11h-2z"/></svg>
                     <span id="record-label">Grabar nota de voz</span>
                 </button>
-                <audio id="reflection-audio-preview" controls style="display:none;height:36px;max-width:180px;"></audio>
             </div>
             <div style="display:flex;gap:10px;justify-content:center;">
                 <button type="button" id="close-session-btn" onclick="submitReflection()"
@@ -869,51 +869,125 @@
         document.getElementById('session-complete').classList.add('active');
         document.getElementById('study-fab').style.display = 'none';
         {% if is_teacher %}
-        cerrarNotas();
-        traerReflexion();
+        // Si se estaba grabando, primero se para y se sube: la nota tiene que
+        // estar en la lista que se pinta ahora.
+        if (grabando()) { alParar = abrirRevision; grabadora.stop(); } else { abrirRevision(); }
         {% endif %}
     }
 
     {% if is_teacher %}
-    // ── Notas durante la clase ──
+    // ── Notas de voz durante la clase ──
     //
-    // En escritorio, en una ventana aparte: si se emite LA PESTAÑA por
-    // Chromecast, otra ventana no sale. En táctil, `window.open` abre una
-    // pestaña que tapa la clase, así que ahí va un panel dentro del visor; y
-    // también si el navegador bloquea la ventana. Las dos cargan la misma
-    // página de notas.
+    // Un toque en el micrófono graba, otro para y sube. Nada se abre ni se ve
+    // en la proyección. Whisper transcribe en el servidor y al final de la
+    // clase la lista de revisión deja aceptar (pasa a la reflexión) o
+    // descartar cada nota.
+    //
+    // Si una subida falla, el audio se queda en `pendientesDeSubir` y se
+    // reintenta con la siguiente grabación y al abrir la pantalla de cierre.
+    // Una nota grabada no se pierde por un corte de red.
     var URL_NOTAS = '{% url "clases:class_session_notes" session.pk %}';
-    var ventanaNotas = null;
+    var grabadora = null;
+    var trozos = [];
+    var pendientesDeSubir = [];
+    var subiendo = false;
+    var alParar = null;
+    var notasDeVoz = null;
 
-    function panelNotasAbierto() {
-        var panel = document.getElementById('panel-notas');
-        return !!(panel && panel.classList.contains('abierto'));
-    }
+    function grabando() { return !!(grabadora && grabadora.state === 'recording'); }
 
-    function abrirNotas() {
-        if (ventanaNotas && !ventanaNotas.closed) { ventanaNotas.focus(); return; }
-        if (panelNotasAbierto()) { cerrarNotas(); return; }
-        var tactil = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-        if (!tactil) {
-            ventanaNotas = window.open(URL_NOTAS, 'notas-clase-{{ session.pk }}', 'width=420,height=600');
-            if (ventanaNotas) return;
+    function pintarGrabacion() {
+        var enMarcha = grabando();
+        var fab = document.getElementById('fab-notas');
+        if (fab) {
+            fab.classList.toggle('grabando', enMarcha);
+            fab.setAttribute('aria-pressed', enMarcha ? 'true' : 'false');
+            fab.setAttribute('data-ayuda', enMarcha
+                ? 'Grabando. Tocar para parar y guardar la nota (N).'
+                : 'Nota de voz (N). Un toque graba, otro para y la guarda. Al final de la clase revisas lo que ha entendido y lo pasas a la reflexión.');
         }
-        abrirPanelNotas();
+        var btn = document.getElementById('record-btn');
+        if (btn) btn.classList.toggle('grabando', enMarcha);
+        var etiqueta = document.getElementById('record-label');
+        if (etiqueta) etiqueta.textContent = enMarcha ? 'Parar y guardar' : 'Grabar nota de voz';
     }
 
-    function abrirPanelNotas() {
-        var panel = document.getElementById('panel-notas');
-        // Se crea cada vez: así la lista de notas llega al día y no queda un
-        // micrófono vivo en un iframe escondido.
-        panel.innerHTML = '<iframe src="' + URL_NOTAS + '" allow="microphone" title="Notas de la clase"></iframe>';
-        panel.classList.add('abierto');
+    function alternarNotaDeVoz() {
+        if (grabando()) { grabadora.stop(); return; }
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
+            avisar('Este navegador no puede grabar audio.');
+            return;
+        }
+        // Qué había en pantalla AL EMPEZAR a grabar. En la pantalla de cierre
+        // no hay elemento: la nota es de la clase entera.
+        var enCierre = document.getElementById('session-complete').classList.contains('active');
+        var item = enCierre ? null : playlist[currentIndex];
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
+            trozos = [];
+            var tipo = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
+            grabadora = tipo ? new MediaRecorder(stream, { mimeType: tipo }) : new MediaRecorder(stream);
+            grabadora.ondataavailable = function(e) { if (e.data.size > 0) trozos.push(e.data); };
+            grabadora.onstop = function() {
+                stream.getTracks().forEach(function(t) { t.stop(); });
+                var blob = new Blob(trozos, { type: grabadora.mimeType || 'audio/webm' });
+                pintarGrabacion();
+                pendientesDeSubir.push({ blob: blob, item: item ? item.pk : '' });
+                var despues = alParar;
+                alParar = null;
+                subirPendientes().then(function() { if (despues) despues(); });
+            };
+            grabadora.start();
+            pintarGrabacion();
+            avisar('🎤 Grabando…');
+        }).catch(function() {
+            avisar('No se ha podido usar el micrófono.');
+        });
     }
 
-    function cerrarNotas() {
-        var panel = document.getElementById('panel-notas');
-        if (!panel) return;
-        panel.classList.remove('abierto');
-        panel.innerHTML = '';
+    function extensionDe(tipo) {
+        if (/mp4|m4a/.test(tipo)) return '.m4a';
+        if (/ogg/.test(tipo)) return '.ogg';
+        return '.webm';
+    }
+
+    function subirPendientes() {
+        if (subiendo || !pendientesDeSubir.length) return Promise.resolve();
+        subiendo = true;
+        var nota = pendientesDeSubir[0];
+        var fd = new FormData();
+        fd.append('audio', nota.blob, 'nota' + extensionDe(nota.blob.type));
+        if (nota.item) fd.append('item', nota.item);
+        return fetch(URL_NOTAS, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
+            body: fd
+        }).then(function(r) {
+            if (!r.ok) throw new Error(r.status);
+            pendientesDeSubir.shift();
+            subiendo = false;
+            avisar('🎤 Nota guardada');
+            if (notasDeVoz) notasDeVoz.recargar();
+            return subirPendientes();
+        }).catch(function() {
+            subiendo = false;
+            avisar('No se ha podido subir la nota. Se reintentará.');
+        });
+    }
+
+    function abrirRevision() {
+        traerReflexion();
+        subirPendientes();
+        if (!notasDeVoz) {
+            notasDeVoz = NotasDeVoz.montar({
+                contenedor: document.getElementById('notas-de-voz'),
+                listaUrl: '{% url "clases:class_session_notes_lista" session.pk %}',
+                csrf: csrfToken,
+                reflexion: document.getElementById('reflection-text')
+            });
+        } else {
+            notasDeVoz.recargar();
+        }
     }
 
     // La pantalla de cierre precargaba la reflexión de cuando se abrió el
@@ -939,56 +1013,28 @@
     {% endif %}
 
     {% if is_teacher %}
-    // ── Reflexión de cierre: grabación de voz + envío ──
-    var mediaRecorder = null;
-    var recordedChunks = [];
-    var reflectionBlob = null;
-    var isRecording = false;
-
-    function toggleRecording() {
-        if (isRecording) {
-            mediaRecorder.stop();
-            return;
-        }
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            document.getElementById('reflection-status').textContent = 'Tu navegador no soporta grabación de audio.';
-            return;
-        }
-        navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
-            recordedChunks = [];
-            var mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
-            mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType: mimeType }) : new MediaRecorder(stream);
-            mediaRecorder.ondataavailable = function(e) {
-                if (e.data.size > 0) recordedChunks.push(e.data);
-            };
-            mediaRecorder.onstop = function() {
-                stream.getTracks().forEach(function(t) { t.stop(); });
-                reflectionBlob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
-                var preview = document.getElementById('reflection-audio-preview');
-                preview.src = URL.createObjectURL(reflectionBlob);
-                preview.style.display = 'inline-block';
-                isRecording = false;
-                document.getElementById('record-label').textContent = 'Volver a grabar';
-                document.getElementById('record-btn').style.background = 'rgba(255,255,255,0.08)';
-            };
-            mediaRecorder.start();
-            isRecording = true;
-            document.getElementById('record-label').textContent = 'Detener grabación';
-            document.getElementById('record-btn').style.background = 'rgba(239,68,68,0.6)';
-        }).catch(function() {
-            document.getElementById('reflection-status').textContent = 'No se pudo acceder al micrófono.';
-        });
-    }
-
+    // ── Reflexión de cierre: envío ──
     function submitReflection() {
         var btn = document.getElementById('close-session-btn');
         btn.disabled = true;
         btn.textContent = 'Guardando...';
+        // Una nota de voz sin subir se perdería al salir de la página: primero
+        // se sube, y si no se puede, no se sale.
+        subirPendientes().then(function() {
+            if (pendientesDeSubir.length) {
+                btn.disabled = false;
+                btn.textContent = 'Finalizar clase';
+                document.getElementById('reflection-status').textContent =
+                    'Hay una nota de voz sin subir. Comprueba la conexión y vuelve a pulsar.';
+                return;
+            }
+            cerrarLaClase(btn);
+        });
+    }
+
+    function cerrarLaClase(btn) {
         var fd = new FormData();
         fd.append('reflection', document.getElementById('reflection-text').value);
-        if (reflectionBlob) {
-            fd.append('reflection_audio', reflectionBlob, 'reflexion.webm');
-        }
         fetch('{% url "clases:class_session_close" session.pk %}', {
             method: 'POST',
             credentials: 'same-origin',
@@ -1310,7 +1356,7 @@
 
     function esControl(el) {
         return !!(el && el.closest &&
-            el.closest('button, a, input, select, textarea, label, [role="button"], #study-flyout, #lienzo, #panel-notas'));
+            el.closest('button, a, input, select, textarea, label, [role="button"], #study-flyout, #lienzo'));
     }
 
     document.addEventListener('click', function(e) {
@@ -1338,8 +1384,6 @@
             // De dentro afuera: primero lo que esté tapando la clase.
             if (lienzoAbierto()) {
                 cerrarLienzo();
-            } else if (typeof panelNotasAbierto === 'function' && panelNotasAbierto()) {
-                cerrarNotas();
             } else if (flyoutOpen) {
                 toggleFlyout(false);
             } else {
@@ -1363,7 +1407,7 @@
         // los botones tampoco existen para el alumnado.
         if (e.key === 'd' || e.key === 'D') { alternarVisto(); return; }
         if (e.key === 'c' || e.key === 'C') { alternarACasa(); return; }
-        if (e.key === 'n' || e.key === 'N') { e.preventDefault(); abrirNotas(); return; }
+        if (e.key === 'n' || e.key === 'N') { e.preventDefault(); alternarNotaDeVoz(); return; }
         {% endif %}
     }, true);
 

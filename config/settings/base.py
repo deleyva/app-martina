@@ -435,6 +435,11 @@ SOCIALACCOUNT_PROVIDERS = {
 }
 
 
+# Whisper (notas de voz de clase, fase 40·1)
+# ------------------------------------------------------------------------------
+# Servicio `whisper` del compose, en la red interna del stack.
+WHISPER_URL = env("WHISPER_URL", default="http://whisper:9000/transcribir")
+
 # HUEY Configuration
 # ------------------------------------------------------------------------------
 HUEY = {

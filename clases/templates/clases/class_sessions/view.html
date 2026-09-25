@@ -1,7 +1,12 @@
 {% extends "base.html" %}
-{% load library_tags %}
+{% load library_tags static %}
 
 {% block title %}{{ session.title }}{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+{% if is_teacher %}<link rel="stylesheet" href="{% static 'clases/notas_de_voz.css' %}">{% endif %}
+{% endblock %}
 
 {% block content %}
 <div class="w-full px-4 py-8">
@@ -73,14 +78,6 @@
                 {# Por la vista, nunca por `.url`: nginx sirve /media/ sin preguntar quién eres. #}
                 <audio controls class="w-full mt-2" src="{% url 'clases:class_session_reflection_audio' session.pk %}"></audio>
                 {% endif %}
-                {% with notas_de_voz=session.notas.all %}
-                {% for nota in notas_de_voz %}{% if nota.audio %}
-                <div class="mt-2">
-                    <div class="text-xs opacity-70">{{ nota.linea_de_reflexion }}</div>
-                    <audio controls preload="none" class="w-full mt-1" src="{% url 'clases:class_session_note_audio' session.pk nota.pk %}"></audio>
-                </div>
-                {% endif %}{% endfor %}
-                {% endwith %}
                 <form method="post" action="{% url 'clases:class_session_close' session.pk %}" class="mt-2">
                     {% csrf_token %}
                     <textarea name="reflection" rows="3" class="textarea textarea-bordered w-full"
@@ -91,6 +88,12 @@
                         </button>
                     </div>
                 </form>
+                {% comment %}
+                Las notas de voz grabadas en clase esperan aquí a que se acepte su
+                transcripción (pasa a la reflexión) o se descarten. Lo pinta
+                `notas_de_voz.js`, el mismo que usa la pantalla de cierre del visor.
+                {% endcomment %}
+                <div id="notas-de-voz" hidden></div>
             </div>
         </div>
     </div>
@@ -180,4 +183,19 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+{% if is_teacher %}
+<script src="{% static 'clases/notas_de_voz.js' %}"></script>
+<script>
+  NotasDeVoz.montar({
+    contenedor: document.getElementById('notas-de-voz'),
+    listaUrl: '{% url "clases:class_session_notes_lista" session.pk %}',
+    csrf: '{{ csrf_token }}',
+    reflexion: document.querySelector('textarea[name="reflection"]')
+  });
+</script>
+{% endif %}
 {% endblock %}

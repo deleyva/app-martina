@@ -3764,7 +3764,7 @@ pasado · rúbricas por prueba · purga automática de evidencias.
 
 ---
 
-## Fase 40 — Notas durante la clase que van a la reflexión (2026-09-24) · CONSTRUIDA Y VERIFICADA EN LOCAL (pendiente: micrófono real)
+## Fase 40 — Notas durante la clase que van a la reflexión (2026-09-24) · DESPLEGADA EL 25/09 SIN QUERER, REDISEÑADA EN LA FASE 40·1
 
 **Goal (literal de Jesús, 2026-09-24):** «¿y lo de tomar notas sobre la clase en mitad de la clase que vayan al campo "💭 Reflexión de la clase"? (texto y/o audio que luego, se puedan transcribir con whisper)» · «dale a esto».
 
@@ -3782,12 +3782,12 @@ Transcripción con Whisper (fase 5 del plan) · notas por alumno (eso es la evid
 
 - [x] **C222** — Existe `SessionNote` (sesión, texto, audio, elemento de la sesión nullable, título del elemento copiado, fecha), con su migración. *Falsador: `makemigrations --check` sale limpio y `manage.py check` da 0.*
 - [x] **C223** — Guardar una nota NO cierra la clase: `closed_at` sigue vacío y no se toca la cobertura de la programación. La línea se añade al final de `reflection` con la hora y el título del elemento, y lo anterior sigue intacto. *Falsador: test que guarda dos notas sobre una reflexión previa y comprueba las tres partes en orden y `closed_at is None`.*
-- [x] **C224** — Una nota solo de audio también deja rastro en la reflexión («🎤 nota de voz») y su fichero queda en su propia fila; tres grabaciones son tres ficheros, ninguna pisa a otra. Una nota vacía, sin texto ni audio, da 400. *Falsador: test con tres audios y un envío vacío.*
+- [killed 2026-09-25, rediseño 40·1] **C224** — Una nota solo de audio también deja rastro en la reflexión («🎤 nota de voz») y su fichero queda en su propia fila; tres grabaciones son tres ficheros, ninguna pisa a otra. Una nota vacía, sin texto ni audio, da 400. *Falsador: test con tres audios y un envío vacío.*
 - [x] **C225** — El audio de una nota solo lo oye el profesor dueño de la sesión: otro profesor recibe 404 y un alumno no entra. El fichero cuelga de `class_reflections/`, que nginx ya cierra con 404, y su nombre no se puede adivinar. *Falsador: test por HTTP, igual que `test_reflexion_audio.py`.*
 - [x] **C226** — El límite de 20 MB y el renombrado del audio viven en un solo helper que usan el cierre y la nota. *Falsador: test de 20 MB + 1 byte contra la vista de notas → 400; grep de `20 \* 1024 \* 1024` en `clases/views.py` → una sola aparición.*
 - [x] **C227** — **Cerrar la clase no borra las notas.** Al abrir la pantalla de cierre, el cuadro de reflexión se rellena con lo que hay en el servidor en ese momento, no con lo que había al cargar la página. *Falsador: navegador real; nota escrita, pasar del último elemento, el texto está en el cuadro; finalizar y verlo en la pantalla de la sesión.*
-- [x] **C228** — Un botón en el carril izquierdo del visor, solo del profesor, abre las notas (y la tecla N). Escribir en la nota no cambia de elemento y tocar dentro del panel tampoco. *Falsador: navegador real; escribir «flecha» y pulsar dentro del panel sin que cambie el contador.*
-- [x] **C229** — En escritorio las notas se abren en una ventana aparte, que no sale si se emite la pestaña; en táctil o con la ventana bloqueada, en un panel dentro del visor. *Falsador: navegador real, las dos rutas.*
+- [killed 2026-09-25, rediseño 40·1] **C228** — Un botón en el carril izquierdo del visor, solo del profesor, abre las notas (y la tecla N). Escribir en la nota no cambia de elemento y tocar dentro del panel tampoco. *Falsador: navegador real; escribir «flecha» y pulsar dentro del panel sin que cambie el contador.*
+- [killed 2026-09-25, rediseño 40·1] **C229** — En escritorio las notas se abren en una ventana aparte, que no sale si se emite la pestaña; en táctil o con la ventana bloqueada, en un panel dentro del visor. *Falsador: navegador real, las dos rutas.*
 - [x] **C230** — La pantalla de la sesión lista las notas con su hora, su elemento y su reproductor de audio, servido por la vista protegida. *Falsador: navegador real tras guardar una nota de voz.*
 - [x] **C231** — La suite no tiene fallos nuevos respecto a `main`.
 
@@ -4070,3 +4070,56 @@ Las plantillas del CMS son para proyectar: A5 con cabecera y número de página 
 
 ### Log
 - 2026-09-25 · Origen del triple aviso: `{% for message in messages %}` en tres plantillas de la misma petición (base, página, parcial incluido). Django no vacía la lista entre bucles dentro de la misma respuesta.
+
+---
+
+## Fase 40·1 — Notas de voz en clase, transcritas con Whisper y revisadas al final (2026-09-25) · CONSTRUIDA Y VERIFICADA EN LOCAL
+
+**Goal:** el rediseño literal de Jesús está citado en la fase 40 («Rediseño pedido por Jesús»). Plan aprobado: `~/.claude/plans/te-doy-permiso-dise-a-groovy-abelson.md`.
+
+**Cómo llegó la fase 40 a producción.** A las 14:00 del 25/09 otra sesión empujó y desplegó la fase 41 (`06b1a15`), y con ella viajaron `cbae150`, `ff67397` y `469f7f4`. En producción, `clases.0019_sessionnote` quedó aplicada, con 0 notas, y en clase salía el lápiz que abría la ventana de notas. Por eso Jesús «no veía botón de grabación».
+
+### Claims
+
+- [x] **C232** — El servicio `whisper` transcribe un webm de voz y devuelve texto; en reposo el proceso vuelve a menos de 150 MB.
+- [x] **C233** — Grabar crea una `SessionNote` `pendiente` sin tocar la reflexión; la transcripción la pasa a `transcrita` con texto.
+- [x] **C234** — Aceptar añade `[hh:mm · elemento] <texto corregido>` a la reflexión y borra nota y fichero.
+- [x] **C235** — Descartar borra nota y fichero sin tocar la reflexión.
+- [x] **C236** — Si Whisper falla en el último intento, la nota queda en `error` con su audio, y se puede aceptar escribiendo a mano. Un fallo con reintentos pendientes la deja `pendiente`.
+- [x] **C237** — Una nota descartada antes de transcribirse no rompe la tarea.
+- [x] **C238** — La lista sale bajo la reflexión en las dos pantallas; las filas pendientes se rellenan solas sin pisar lo escrito; Aceptar añade la línea al cuadro de la página.
+- [x] **C239** — Otro profesor recibe 404 en lista, audio, aceptar, descartar y grabar; el alumno no llega a nada.
+- [x] **C240** — En el visor no queda nada de la ventana ni del panel; N y el micrófono graban y paran sin cambiar de elemento.
+- [x] **C241** — `makemigrations --check` limpio; la suite sin fallos nuevos.
+- [ ] **C242** `[DEFERRED-VERIFY]` — Micrófono y reproducción de verdad, en el portátil y en la tablet de Jesús.
+
+### Verificación (2026-09-25, local, Chrome con la sesión de Jesús, sesión 112)
+
+- **C232** — `docker compose up whisper`; la nota sintética de 20 s → 200 en 7,8 s y 8,5 s, **con puntuación** gracias al `initial_prompt`. Primera versión, que soltaba el modelo con `del` + `gc.collect()`: el proceso se quedaba en **633 MB en reposo** y el pico de la segunda nota llegó a **846 MB** con un tope de 900. Arreglo: cada nota en un proceso hijo (`spawn`) que muere al acabar. Después: **84 MB en reposo**, `oom_kill 0`, `OOMKilled=false`. El contador de pico del grupo marca 900 MB, pero incluye la caché de ficheros, que el sistema liberó 718 veces (`memory.events max`) sin matar a nadie.
+- **C233** — Test `test_grabar_deja_la_nota_pendiente_sin_tocar_la_reflexion` y `test_whisper_rellena_la_transcripcion`. En Chrome, con `getUserMedia` sustituido por un stream que reproduce el clip de voz sintética: N → botón rojo latiendo y «🎤 Grabando…», el elemento sigue en 0; otro toque → «🎤 Nota guardada». En la base: `transcrita`, «Nota para la reflexión. En tercero FH, el ejercicio del círculo de quintas…», con su elemento y la reflexión vacía.
+- **Grabar y pasar del último elemento:** la grabación se para, se sube y la lista se pinta con las dos notas, cada una con su elemento.
+- **C238** — Dos notas `pendiente` creadas en la base: la lista las pinta con «Transcribiendo…» y Aceptar desactivado. En una escribí «Escrito por mí antes de que llegue». Al marcarlas `transcrita` en la base, en el siguiente sondeo la otra se rellenó sola con el texto de Whisper y la mía conservó lo escrito. Captura de la pantalla de cierre con cuatro notas y scroll.
+- **C234** — Aceptar en la pantalla de cierre: la línea pasa al cuadro, la fila desaparece y el contador baja a 3. En la base, reflexión con esa línea, nota borrada y su fichero fuera del disco. Otra vez en la pantalla de la sesión, tras finalizar con dos notas sin revisar: la línea se añade al final del cuadro y, **tras recargar**, la reflexión tiene las dos líneas y queda una nota.
+- **C235** — Descartar pide un segundo toque («¿Seguro? Descartar»). Tras él, fila, nota y fichero fuera y reflexión intacta. Nota de prueba: con la automatización, cada paso tarda más que los 3 s del armado y tuve que dar los dos toques en un solo lote; para una persona 3 s sobran.
+- **C236, C237, C239** — Tests (`test_si_whisper_falla_…`, `test_un_fallo_con_reintentos_pendientes_…`, `test_una_nota_descartada_antes_…`, `test_otro_profesor_recibe_404_en_todo`, `test_el_alumno_no_llega_a_nada`).
+- **C240** — `rg 'abrirNotas|abrirPanelNotas|cerrarNotas|panel-notas|panelNotasAbierto|notas\.html|toggleRecording|reflectionBlob'` en `clases/` → vacío; `test_el_visor_graba_directo_y_no_abre_ventanas`.
+- **C241** — `makemigrations --check` → «No changes detected». Suite: 1262 pasan, 4 fallan, los mismos cuatro preexistentes.
+- **C242, por qué queda abierto:** la pestaña de pruebas está oculta para Chrome (`visibilityState: hidden`), y Chrome no carga audio en pestañas ocultas. Tampoco cargó el clip de ffmpeg, que se sabe bueno. Lo demostrado: el audio se sirve completo (200, `audio/webm`, 128 774 bytes, también con `Range: bytes=0-`) y `decodeAudioData` lo lee entero (8,0 s). Seguimiento: Jesús graba y escucha una nota en su portátil y en la tablet.
+
+### Decisiones
+
+- **Transcribir en un proceso hijo, no en el servidor HTTP.** Medido arriba: soltar el modelo en Python no devuelve la memoria al sistema.
+- **`initial_prompt` con puntuación, puesto.** Con él, `small` puntúa la nota sintética; sin él devolvía la nota real de Jesús sin un punto. Falta confirmarlo con su voz.
+- **La grabación de la pantalla de cierre también crea una nota de la lista.** Antes iba a `reflection_audio`, un fichero suelto sin transcripción. `reflection_audio` y su vista se quedan para las sesiones antiguas.
+- **Si una subida falla, el audio se queda en memoria** y se reintenta con la siguiente grabación y al abrir la pantalla de cierre. «Finalizar» no deja salir con notas sin subir.
+- **En local, Django tiene `DJANGO_HUEY_IMMEDIATE=true`** en `.envs/.local/.django`, así que cada subida espera a Whisper. En producción la variable no existe y vale `False`: la transcripción va en segundo plano. Por eso el relleno de la lista se probó simulando el final de Whisper en la base.
+
+### Log
+
+- 2026-09-25 · Restos de la prueba de Whisper borrados del servidor (carpeta con la grabación de Jesús, e imagen), con su permiso.
+- 2026-09-25 · Un `ls -d` impreso en la sesión sacó la ruta del home del servidor con el usuario de despliegue. No es una credencial; está avisado.
+- 2026-09-25 · Hay otra sesión trabajando en este repo a la vez (fases 41-45). No he tocado su frontmatter (`phase: complete`) para no pelear por él; commits solo con mis ficheros.
+- 2026-09-25 · Sesión local 112 devuelta a su estado; clip de prueba borrado de medios; 0 audios en disco.
+- 2026-09-25 · Sin auditoría cruzada: superficie de profesor autenticado, 18 tests propios sobre privilegios y borrado, y verificación en navegador; el contenedor nuevo no publica puertos ni monta medios. Elegido a conciencia.
+- Nada empujado ni desplegado.
+

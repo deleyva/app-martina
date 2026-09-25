@@ -1,4 +1,5 @@
 volumes:
+  martina_bescos_app_local_whisper_modelos: {}
   martina_bescos_app_local_postgres_data: {}
   martina_bescos_app_local_meilisearch_data: {}
   
@@ -62,6 +63,21 @@ services:
     environment:
       - MEILI_ENV=development
       - MEILI_NO_ANALYTICS=true
+
+  # Transcribe las notas de voz de clase (fase 40·1). Aparte y con tope de
+  # memoria: el servidor no tiene swap, y si Whisper se pasa tiene que morir
+  # él y no Postgres. Sin puertos publicados ni volumen de medios: solo ve
+  # los bytes que le manda la tarea de Huey.
+  whisper:
+    build:
+      context: ./compose/production/whisper
+    image: martina_bescos_app_local_whisper
+    container_name: martina_bescos_app_local_whisper
+    restart: unless-stopped
+    mem_limit: 900m
+    memswap_limit: 900m
+    volumes:
+      - martina_bescos_app_local_whisper_modelos:/modelos
 
   huey_consumer:
     <<: *django-base
