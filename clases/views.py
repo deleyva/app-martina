@@ -1486,6 +1486,10 @@ def class_session_item_viewer(request, session_id, item_id):
     element_type = request.GET.get("element_type")
     element_id = request.GET.get("element_id")
     embed_url = request.GET.get("embed_url")
+    # Antes se leía más abajo, después de usarse en la redirección de las
+    # páginas: toda canción o dictado abierto desde una sesión daba un 500
+    # (`UnboundLocalError`). Cubierto por `ClassSessionItemViewerPaginaTest`.
+    from_view = request.GET.get("from", "edit")
 
     # BlogPages y DictadoPages: redirigir a su visualización normal de Wagtail
     # EXCEPTO si estamos intentando ver un embed específico de la misma
@@ -1518,7 +1522,6 @@ def class_session_item_viewer(request, session_id, item_id):
                 documents["embeds"].append(embed_val)
 
     # Determinar URL de retorno según parámetro 'from' y rol
-    from_view = request.GET.get("from", "edit")
     if from_view == "view" or not is_teacher:
         # Estudiantes siempre vuelven a 'view'
         back_url = reverse("clases:class_session_view", args=[session_id])

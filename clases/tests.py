@@ -145,3 +145,70 @@ class LibraryAdditionReproductionTest(TestCase):
             object_id=self.document.id
         ).exists()
         self.assertTrue(is_in_group_library, "Item should be in group library")
+
+
+class ClassSessionItemViewerPaginaTest(TestCase):
+    """Una canción o un dictado abiertos desde una sesión redirigen al artículo.
+
+    `from_view` se leía después de usarse en esa redirección, así que la rama
+    daba siempre `UnboundLocalError` (un 500) y ningún test pasaba por ella.
+    """
+
+    def setUp(self):
+        from datetime import date
+
+        from wagtail.models import Site
+
+        from clases.models import ClassSession, Subject
+        from musica.models import MusicLibraryIndexPage, RecursoPage
+
+        User = get_user_model()
+        sitio = Site.objects.get(is_default_site=True)
+        biblioteca = MusicLibraryIndexPage(title="Biblioteca", slug="biblio-visor")
+        sitio.root_page.add_child(instance=biblioteca)
+        biblioteca.save_revision().publish()
+        self.cancion = RecursoPage(
+            title="Una canción", slug="una-cancion-visor",
+            date="2026-09-25", intro="x", body="<p>Cuerpo.</p>",
+        )
+        biblioteca.add_child(instance=self.cancion)
+        self.cancion.save_revision().publish()
+
+        asignatura, _ = Subject.objects.get_or_create(
+            name="Música", defaults={"code": "MUS-VIS"}
+        )
+        grupo = Group.objects.create(
+            name="1A-vis", subject=asignatura, academic_year="2026-2027"
+        )
+        self.profe = User.objects.create_user(
+            email="profe-vis@example.com", password="x123456789", is_staff=True
+        )
+        grupo.teachers.add(self.profe)
+        self.sesion = ClassSession.objects.create(
+            teacher=self.profe, group=grupo, date=date(2026, 9, 25), title="Sesión"
+        )
+        self.item = ClassSessionItem.objects.create(
+            session=self.sesion,
+            content_type=ContentType.objects.get_for_model(RecursoPage),
+            object_id=self.cancion.pk,
+        )
+
+    def _url(self, desde):
+        from django.urls import reverse
+
+        url = reverse(
+            "clases:class_session_item_viewer", args=[self.sesion.pk, self.item.pk]
+        )
+        return f"{url}?from={desde}"
+
+    def test_redirige_al_articulo_con_el_contexto_de_la_sesion(self):
+        self.client.force_login(self.profe)
+        for desde, cola in (
+            ("view", f"?from_session={self.sesion.pk}"),
+            ("edit", f"?from_session={self.sesion.pk}&from=edit"),
+        ):
+            with self.subTest(desde=desde):
+                respuesta = self.client.get(self._url(desde))
+                self.assertEqual(respuesta.status_code, 302)
+                self.assertTrue(respuesta["Location"].endswith(cola))
+                self.assertIn("una-cancion-visor", respuesta["Location"])
