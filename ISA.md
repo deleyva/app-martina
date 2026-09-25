@@ -1,6 +1,6 @@
 ---
 slug: app-martina
-phase: verify
+phase: complete
 progress: true
 iteration: 49
 principal_stated_goal: "Necesito desarrollar en apps.iesmartinabescos.es Otra app de Django como la que tenemos en /incidencias. Está sí que debe de requerir login con Google porque ya tenemos implementado. Básicamente, es una aplicación en la que quiero que vayan solicitando la clave Wi-Fi. Pero para ello deben logearse y enviar la MAC de su dispositivo WIFI, la privada (real) no la aleatoria."
@@ -3860,7 +3860,7 @@ Servidor: 2 vCPU (EPYC Milan, AVX2), 3,8 GB de RAM, **~1,1 GB disponibles y sin 
 - Restos en el servidor: `~/whisper-bench/` (script, audios, modelos) y la imagen `whisper-bench:prueba` (558 MB). Se borran tras la prueba con voz real.
 
 
-## Fase 41 — Libreta musical para fotocopiar (2026-09-25) · CONSTRUIDA Y VERIFICADA EN LOCAL · SIN DESPLEGAR
+## Fase 41 — Libreta musical para fotocopiar (2026-09-25) · DESPLEGADA Y VERIFICADA EN PRODUCCIÓN (`06b1a15`)
 
 ### Goal
 
@@ -3951,7 +3951,7 @@ Nota real de 20,6 s grabada en clase «con follón, con ruido, música», conver
 
 ### Lo que queda
 
-- **Desplegar** (Anti-J): nada empujado. `git push` + `just deploy-production` cuando Jesús lo diga; la migración es solo dos tablas nuevas.
+- ~~Desplegar~~ Hecho el 2026-09-25 con el visto bueno de Jesús: `git push` (`bcd57aa..06b1a15`) + `just deploy-production`; `libreta.0001_initial` aplicada. **El mismo despliegue llevó `clases.0019_sessionnote` (fase 40, `cbae150`)**, que estaba en los dos commits locales sin empujar y que el rediseño de la fase 40 decía no desplegar tal cual: la migración es aditiva y el botón del visor funciona, pero el flujo de notas no es el acordado. Queda dicho.
 - **Los títulos de las plantillas son nombres de fichero** («no-clef-12», «piano-diagram»): son los `title` de los documentos en el CMS. Se renombran en el CMS (Documentos) y salen bien en el compositor; mientras tanto el título del elemento se edita en la propia libreta.
 - **Cuatro plantillas son páginas A5 recortadas de la libreta del año pasado**, con su cabecera («Guitar Tab») y su número de página («32») impresos dentro del PDF: `guitar-tab`, `guitar-diagram-v`, `ukelele-diagram-v`, `ukelele-diagram-h`. Al salir en A4 llevan dos números: el viejo, dentro, y el nuevo, en el pie. Conviene sustituirlas en el CMS por versiones limpias en A4.
 - **No hay hoja punteada** (descartada) ni seguimiento/diario como el año pasado; si se quieren, se suben como PDF a `plantillas-para-escribir` y aparecen solas.
@@ -3963,4 +3963,4 @@ Nota real de 20,6 s grabada en clase «con follón, con ruido, música», conver
 - 2026-09-25 · **Subir un fichero que no es imagen tumbaba la vista con 500**: Wagtail lee ancho y alto en `post_init`, así que `willow` revienta al CONSTRUIR el modelo, antes de `full_clean`. Se comprueba el formato con `willow.Image.open` antes de instanciar. Encontrado por el test negativo, no por el positivo.
 - 2026-09-25 · Siete de los nueve PDF de plantillas no estaban en `media/` local; se copiaron desde la URL pública (`media/` está en `.gitignore`).
 - 2026-09-25 · Sin auditoría cruzada, a conciencia: superficie autenticada, sin datos personales más allá del propio usuario, 28 tests propios incluidos los de privilegio, y verificación en navegador.
-- 2026-09-25 · Nada empujado ni desplegado (Anti-J).
+- 2026-09-25 · Push y despliegue con aprobación explícita de Jesús («ok, push and just deploy-production»). En producción, con su sesión en Chrome: libreta creada, «no-clef-12» añadida, `/libreta/1/libreta.pdf` servido (portada + índice + hoja + relleno).
