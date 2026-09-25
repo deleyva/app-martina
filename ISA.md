@@ -4073,7 +4073,7 @@ Las plantillas del CMS son para proyectar: A5 con cabecera y número de página 
 
 ---
 
-## Fase 40·1 — Notas de voz en clase, transcritas con Whisper y revisadas al final (2026-09-25) · CONSTRUIDA Y VERIFICADA EN LOCAL
+## Fase 40·1 — Notas de voz en clase, transcritas con Whisper y revisadas al final (2026-09-25) · DESPLEGADA Y VERIFICADA EN PRODUCCIÓN (pendiente: micrófono real, C242)
 
 **Goal:** el rediseño literal de Jesús está citado en la fase 40 («Rediseño pedido por Jesús»). Plan aprobado: `~/.claude/plans/te-doy-permiso-dise-a-groovy-abelson.md`.
 
@@ -4121,5 +4121,6 @@ Las plantillas del CMS son para proyectar: A5 con cabecera y número de página 
 - 2026-09-25 · Hay otra sesión trabajando en este repo a la vez (fases 41-45). No he tocado su frontmatter (`phase: complete`) para no pelear por él; commits solo con mis ficheros.
 - 2026-09-25 · Sesión local 112 devuelta a su estado; clip de prueba borrado de medios; 0 audios en disco.
 - 2026-09-25 · Sin auditoría cruzada: superficie de profesor autenticado, 18 tests propios sobre privilegios y borrado, y verificación en navegador; el contenedor nuevo no publica puertos ni monta medios. Elegido a conciencia.
-- Nada empujado ni desplegado.
+- 2026-09-25 · **Despliegue** con el visto bueno de Jesús («empuja y despliega»): push `b7d541e..294442c`, que arrastró también `df86173` (ISA de la fase 45, de la otra sesión). `just deploy-production`: imagen `whisper` construida, volumen de modelos creado, seis contenedores arriba y `clases.0020_notas_de_voz_transcritas... OK`.
+- 2026-09-25 · **Verificado en producción:** Whisper descargó `small`; tope `943718400` bytes (900 MiB); 0 puertos publicados hacia fuera; 82 MB en reposo. Desde el contenedor de Huey, `POST http://whisper:9000/transcribir` con la nota sintética de 20 s → 200 en 18,1 s, con puntuación; 125 MB tras transcribir, `OOMKilled=false`, 0 reinicios; 1 245 MiB disponibles en el servidor. Ninguna nota creada en la base de producción. En Chrome con la sesión de Jesús, sesión 130: el visor tiene el micrófono (`alternarNotaDeVoz()`) y no el panel viejo; la pantalla de la sesión monta la lista (oculta sin notas), carga su CSS y su JS (200) y `notas/lista/` responde JSON.
 
