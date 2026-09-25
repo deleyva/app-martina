@@ -221,6 +221,12 @@ def _paginas_por_copia(elemento) -> list[PageObject]:
             return [_a4(pagina) for pagina in lector.pages]
     if elemento.tipo == elemento.IMAGEN:
         return [_pagina_imagen(elemento.titulo, _ruta_de_la_imagen(elemento.imagen))]
+    if elemento.tipo == elemento.PLANTILLA:
+        from . import plantillas
+
+        return [
+            _pagina_de(lambda lienzo: plantillas.dibujar(elemento.plantilla, lienzo)),
+        ]
     return [_pagina_texto(elemento.titulo, elemento.texto)]
 
 

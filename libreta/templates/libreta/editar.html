@@ -32,7 +32,21 @@
         </label>
 
         <div>
-          <div class="text-xs uppercase opacity-60 mb-1">Plantillas para escribir</div>
+          <div class="text-xs uppercase opacity-60 mb-1">Para imprimir (A4)</div>
+          <div class="flex flex-wrap gap-1">
+            {% for hoja in generadas %}
+              <button type="button" class="btn btn-xs btn-outline btn-primary"
+                      hx-post="{% url 'libreta:anadir' libreta.pk %}"
+                      hx-vals='{"tipo": "plantilla", "clave": "{{ hoja.clave }}"}'
+                      hx-include="#posicion" hx-target="#elementos" hx-swap="outerHTML">
+                ＋ {{ hoja.titulo }}
+              </button>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div>
+          <div class="text-xs uppercase opacity-60 mb-1">Del CMS (las de proyectar)</div>
           {% if plantillas %}
             <div class="flex flex-wrap gap-1">
               {% for medio in plantillas %}

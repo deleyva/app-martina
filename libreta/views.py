@@ -22,6 +22,7 @@ from django.shortcuts import render
 from django.views.decorators.http import require_POST
 
 from . import fuentes
+from . import plantillas
 from .models import Elemento
 from .models import Libreta
 
@@ -78,6 +79,7 @@ def editar(request, pk):
         {
             "libreta": libreta,
             "elementos": libreta.elementos_ordenados(),
+            "generadas": plantillas.disponibles(),
             "plantillas": fuentes.plantillas(),
         },
     )
@@ -111,7 +113,7 @@ def borrar(request, pk):
 @login_required
 @require_POST
 def anadir(request, pk):
-    """Un elemento nuevo: `tipo` = documento | imagen | subida | texto."""
+    """Un elemento nuevo: `tipo` = plantilla | documento | imagen | subida | texto."""
     libreta = Libreta.del_usuario(request.user, pk)
     tipo = request.POST.get("tipo", "")
     posicion = request.POST.get("posicion", "final")
@@ -124,6 +126,8 @@ def anadir(request, pk):
 
 
 def _elemento_nuevo(request, tipo, titulo) -> Elemento:
+    if tipo == "plantilla":
+        return Elemento.desde_plantilla(request.POST.get("clave", ""), titulo or None)
     if tipo in ("documento", "imagen"):
         objeto = fuentes.medio(tipo, request.POST.get("pk"))
         if objeto is None:

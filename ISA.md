@@ -1,8 +1,8 @@
 ---
 slug: app-martina
-phase: complete
+phase: build
 progress: true
-iteration: 49
+iteration: 50
 principal_stated_goal: "Necesito desarrollar en apps.iesmartinabescos.es Otra app de Django como la que tenemos en /incidencias. Está sí que debe de requerir login con Google porque ya tenemos implementado. Básicamente, es una aplicación en la que quiero que vayan solicitando la clave Wi-Fi. Pero para ello deben logearse y enviar la MAC de su dispositivo WIFI, la privada (real) no la aleatoria."
 updated: 2026-09-25
 ---
@@ -3964,3 +3964,53 @@ Nota real de 20,6 s grabada en clase «con follón, con ruido, música», conver
 - 2026-09-25 · Siete de los nueve PDF de plantillas no estaban en `media/` local; se copiaron desde la URL pública (`media/` está en `.gitignore`).
 - 2026-09-25 · Sin auditoría cruzada, a conciencia: superficie autenticada, sin datos personales más allá del propio usuario, 28 tests propios incluidos los de privilegio, y verificación en navegador.
 - 2026-09-25 · Push y despliegue con aprobación explícita de Jesús («ok, push and just deploy-production»). En producción, con su sesión en Chrome: libreta creada, «no-clef-12» añadida, `/libreta/1/libreta.pdf` servido (portada + índice + hoja + relleno).
+
+
+## Fase 42 — Plantillas A4 generadas para imprimir, y nombres en el CMS (2026-09-25) · CONSTRUIDA Y VERIFICADA EN LOCAL · RENOMBRADO HECHO EN PRODUCCIÓN · CÓDIGO SIN DESPLEGAR
+
+### Goal
+
+> «renombra tú, por favor y ojo, la libreta ha salido con doble numeración en las páginas. Has cogido las plantillas tal cual. En la carpeta local tengo los elementos que usé para hacer las plantillas. esas plantillas quedan bien para proyectar en pantalla. Pero, para un A4, son pocos elementos, es decir, caben más diagramas de ukelele que nueve o doce en un A4.»
+
+### Vision
+
+Las plantillas del CMS son para proyectar: A5 con cabecera y número de página dentro, pocos elementos. La libreta necesita hojas A4 de imprimir: densas, limpias, sin número dentro. Se dibujan en código con ReportLab (vectoriales: pentagramas, tablaturas, rejillas de acordes, teclados; las claves del piano van como imagen recortada del material del año pasado) y el compositor las ofrece en un grupo aparte, «Para imprimir (A4)», delante de las del CMS. Los nueve documentos del CMS se renombran en castellano para que la lista de proyectar y el índice de la libreta se lean bien.
+
+### Out of Scope
+
+- Tocar los PDF del CMS (siguen siendo los de proyectar). Subir las hojas generadas al CMS.
+- Hoja punteada (descartada en la fase 41).
+
+### Anti-claims
+
+- **Anti-K** — Ninguna hoja generada lleva número ni cabecera dentro: el único número es el del pie de la libreta. *Probe: `extract_text()` de cada hoja generada está vacío.*
+- **Anti-L** — Renombrar los documentos del CMS no cambia ningún fichero ni ningún bloque de página: solo `Document.title` de los nueve. *Probe: los `file.name` y los `pk` siguen iguales antes y después.*
+
+### Claims
+
+- [x] **C245 — Diez hojas generadas, registradas por clave** en `libreta/plantillas.py`: pentagrama (12), pentagrama de piano (6), teclados (24), tablatura de guitarra (10), de bajo (12), de ukelele (12), acordes de guitarra vertical (30) y horizontal (24), acordes de ukelele vertical (42) y horizontal (36). *Probe: test que renderiza cada clave a una página A4 con contenido (stream no vacío) y sin texto.*
+- [x] **C246 — Un `Elemento` puede ser una plantilla generada** (`plantilla` = clave), cuarto tipo excluyente con PDF / imagen / texto; una copia = una página. *Probe: `makemigrations --check` limpio; test de validación.*
+- [ ] **C247 — El compositor ofrece el grupo «Para imprimir (A4)»** antes de «Del CMS (para proyectar)», y añadir una genera el elemento con su título. *Probe: test de vista + Chrome local.*
+- [x] **C248 — Las hojas se ven bien impresas**: densidad y trazos comprobados en píxeles (montaje de las diez hojas a 60 dpi y una a 150 dpi). *Probe: viewed pixels.*
+- [x] **C249 — Los nueve documentos del CMS renombrados en producción** (`no-clef-12` → «Pentagrama (12 por hoja)», …), y el compositor y la vista de proyectar los enseñan con el nombre nuevo. *Probe: `SELECT title` antes/después por SSH filtrado; Chrome en producción.*
+- [ ] **C250 — Suite verde** salvo los cuatro preexistentes. *Probe: `just test`.*
+
+### Decisions
+
+- **Hojas generadas en código, no PDF subidos al CMS.** Los elementos del año pasado son geometría pura (líneas, rejillas, teclas): dibujados con ReportLab salen vectoriales, sin número dentro, con la densidad que decidamos, y sin depender de que alguien suba ficheros. Las del CMS siguen siendo las de proyectar; el compositor las enseña en un segundo grupo.
+- **Las claves del piano van como imagen** (`static/libreta/claves-piano.png`, tira de 96×320 px recortada de `keyboard-staff.png`): no hay fuente musical en el proyecto y dibujar una clave de sol a mano no compensa. Las líneas del pentagrama sí son vectoriales y se colocan sobre las de la imagen (filas 40 y 286 medidas en el PNG).
+- **Densidades elegidas** (A4 útil 180×255 mm): pentagrama 12, piano 6, teclados 24 (3×8), tab guitarra 10, tab bajo 12, tab ukelele 12, acordes guitarra 30 vertical (5×6) y 24 horizontal (3×8), acordes ukelele 42 vertical (7×6) y 36 horizontal (4×9). El año pasado, en A5: 8, 4, 14, 7, —, 8, 9, 8, 16, 18.
+- **Renombrado por `Document.title` y solo eso.** Los ficheros y los bloques de la página no se tocan (Anti-L); el compositor y la vista de proyectar leen el título del documento.
+
+### Verificación (2026-09-25)
+
+- **C245, Anti-K** — `test_hay_diez_hojas_y_todas_dibujan_algo_en_a4_sin_texto_dentro` (595×842, stream > 500 bytes, `extract_text()` vacío salvo las letras T A B de las tablaturas), `test_las_claves_del_piano_estan_en_el_repo`.
+- **C246** — `makemigrations --check` → «No changes detected» tras `0002_elemento_plantilla`; `test_un_elemento_plantilla_es_una_pagina_por_copia` (clave inexistente y doble contenido rechazados).
+- **C248** — Montaje de las diez hojas a 40 dpi y piano y teclados a 110 dpi, mirados: claves alineadas con las líneas, negras en el patrón 2-3-2-3, cejillas gruesas, letras TAB legibles.
+- **C249 (datos)** — Renombrados en local (ensayo) y en producción vía `docker compose run … manage.py shell` con el script en base64 (con `exec` no hay `DATABASE_URL`: la exporta el entrypoint). Nueve filas, pk 33-39 y 112-115, `file` intacto. Pendiente mirarlo en Chrome en producción.
+- **Anti-L** — El script solo hace `save(update_fields=["title"])`.
+
+### Log
+
+- 2026-09-25 · **`docker compose exec` en producción no ve la base de datos**: `KeyError: 'DATABASE_URL'`. El entrypoint de cookiecutter-django construye esa variable a partir de `POSTGRES_*` y `exec` se lo salta. Para cualquier `manage.py` en producción, `run --rm`, como hace el propio `deploy-production`.
+- 2026-09-25 · El `--fix` de ruff y `ruff format` se pisan: hace falta pasar `--fix` → `format` → `--fix` para que las comas finales queden.

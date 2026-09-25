@@ -140,7 +140,7 @@ class Libreta(models.Model):
 class Elemento(models.Model):
     """Una sección de la libreta: qué se fotocopia y cuántas veces."""
 
-    PDF, IMAGEN, TEXTO = "pdf", "imagen", "texto"
+    PDF, IMAGEN, TEXTO, PLANTILLA = "pdf", "imagen", "texto", "plantilla"
 
     libreta = models.ForeignKey(
         Libreta,
@@ -165,6 +165,8 @@ class Elemento(models.Model):
         related_name="+",
     )
     texto = models.TextField(blank=True)
+    # Clave de una hoja A4 generada en código (`libreta/plantillas.py`).
+    plantilla = models.CharField(max_length=40, blank=True)
 
     class Meta:
         ordering = ["orden", "pk"]
@@ -173,18 +175,22 @@ class Elemento(models.Model):
         return f"{self.titulo} ×{self.copias}"  # noqa: RUF001
 
     def clean(self):
+        from . import plantillas
+
         contenidos = [
             bool(self.documento_id),
             bool(self.imagen_id),
             bool(self.texto.strip()),
+            bool(self.plantilla),
         ]
         if sum(contenidos) != 1:
-            msg = "Un elemento es un PDF, una imagen o un texto: exactamente uno."
-            raise ValidationError(
-                msg,
-            )
+            msg = "Un elemento es una sola cosa: PDF, imagen, texto o plantilla."
+            raise ValidationError(msg)
         if self.documento_id and not self.documento.file.name.lower().endswith(".pdf"):
             msg = "Solo se pueden fotocopiar documentos PDF."
+            raise ValidationError(msg)
+        if self.plantilla and self.plantilla not in plantillas.HOJAS:
+            msg = "No existe esa plantilla."
             raise ValidationError(msg)
 
     @property
@@ -193,11 +199,18 @@ class Elemento(models.Model):
             return self.PDF
         if self.imagen_id:
             return self.IMAGEN
+        if self.plantilla:
+            return self.PLANTILLA
         return self.TEXTO
 
     @property
     def icono(self) -> str:
-        return {self.PDF: "📄", self.IMAGEN: "🖼️", self.TEXTO: "📝"}[self.tipo]
+        return {
+            self.PDF: "📄",
+            self.IMAGEN: "🖼️",
+            self.TEXTO: "📝",
+            self.PLANTILLA: "🎼",
+        }[self.tipo]
 
     def paginas_por_copia(self) -> int:
         """Páginas que ocupa una copia. Un PDF, las suyas; imagen o texto, una."""
@@ -210,6 +223,15 @@ class Elemento(models.Model):
 
     def paginas(self) -> int:
         return self.copias * self.paginas_por_copia()
+
+    @classmethod
+    def desde_plantilla(cls, clave: str, titulo: str | None = None) -> Elemento:
+        from . import plantillas
+
+        if clave not in plantillas.HOJAS:
+            msg = "No existe esa plantilla."
+            raise ValidationError(msg)
+        return cls(titulo=(titulo or plantillas.titulo(clave))[:120], plantilla=clave)
 
     @classmethod
     def desde_medio(cls, objeto, titulo: str | None = None) -> Elemento:
