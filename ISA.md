@@ -1,8 +1,8 @@
 ---
 slug: app-martina
-phase: complete
+phase: verify
 progress: true
-iteration: 51
+iteration: 52
 principal_stated_goal: "Necesito desarrollar en apps.iesmartinabescos.es Otra app de Django como la que tenemos en /incidencias. Está sí que debe de requerir login con Google porque ya tenemos implementado. Básicamente, es una aplicación en la que quiero que vayan solicitando la clave Wi-Fi. Pero para ello deben logearse y enviar la MAC de su dispositivo WIFI, la privada (real) no la aleatoria."
 updated: 2026-09-25
 ---
@@ -4049,3 +4049,11 @@ Las plantillas del CMS son para proyectar: A5 con cabecera y número de página 
   - Descarga 1, `libreta-descarga-1.pdf`, desde Chrome con la sesión de Jesús (`fetch` + `<a download>` sobre `/libreta/2/libreta.pdf`, 200, 136 789 bytes): 11 páginas, `count('hoja') == 1` en cada una del cuerpo, numeración 3…11 seguida, sin blancos; montaje y pie a 90 dpi mirados.
   - Chrome bloquea la segunda descarga automática y la salida del `javascript_tool` se trunca, así que las variantes 2 y 3 se generaron en el servidor con los datos reales (`docker compose run … manage.py shell`, misma función `Libreta.pdf()` que sirve la vista) sobre una libreta de prueba «Prueba Illa» (pk 3, borrada al terminar): **A** (sin portada/índice/relleno, desde 1) → 5 páginas numeradas 1…5, un pie por página; **B** (portada + índice + relleno, desde 5) → 10 páginas, portada 5, índice 6 con «Acordes de ukelele 7 · Pentagrama 9 – 11 · Normas 13», rellenos numerados 8, 12 y 14; hoja de pedido «5 páginas: 3 hojas».
 - `hoja_nueva_por_seccion` de la libreta «test» de Jesús pasó a `False` con la migración: su PDF salió sin la página en blanco sin que tocara nada.
+
+
+## Fase 44 — Portada e índice en la misma hoja (2026-09-25)
+
+> «ahora sí, cuadra! Prefiero el título y el índice en la misma página para ahorrar papel.»
+
+- [x] **C254 — Con portada e índice activados salen en UNA página** (título, curso, centro, líneas de nombre y el índice debajo), y el cuerpo empieza en la siguiente. Con más de 11 elementos el índice no cabe y vuelve a página aparte; solo-portada y solo-índice siguen como estaban. *Probe: `test_portada_e_indice_van_en_la_misma_pagina…` (1+6+2 páginas, «Pentagrama 2 – 7»), `test_con_mas_de_once_elementos_el_indice_va_en_pagina_aparte`, `test_solo_indice_o_solo_portada…`; página rasterizada de la libreta local 1 mirada.*
+- [ ] **C255 — Verificado en producción sobre la libreta «test» de Jesús.** *Probe: PDF descargado con su sesión, página 1 con título e índice, `count('hoja') == 1` en el resto.*

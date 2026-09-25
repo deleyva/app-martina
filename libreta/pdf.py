@@ -179,34 +179,67 @@ def _portada(libreta) -> PageObject:
     return _pagina_de(dibujar)
 
 
+MAXIMO_DE_ENTRADAS_EN_PORTADA = 11  # con más, el índice va en página aparte
+
+
+def _dibujar_indice(lienzo, secciones, y_titulo):
+    """El índice desde `y_titulo` hacia abajo.
+
+    `secciones` = [(título, primera, última)].
+    """
+    lienzo.setFont(FUENTE_NEGRITA, 18)
+    lienzo.drawCentredString(ANCHO / 2, y_titulo, "Índice")
+    lienzo.setLineWidth(0.6)
+    lienzo.line(MARGEN, y_titulo - 5 * mm, ANCHO - MARGEN, y_titulo - 5 * mm)
+    y = y_titulo - 16 * mm
+    for titulo, primera, ultima in secciones:
+        rango = str(primera) if primera == ultima else f"{primera} – {ultima}"  # noqa: RUF001
+        lienzo.setFont(FUENTE, 11)
+        lienzo.drawString(MARGEN, y, titulo)
+        lienzo.drawRightString(ANCHO - MARGEN, y, rango)
+        x0 = MARGEN + lienzo.stringWidth(titulo, FUENTE, 11) + 3 * mm
+        x1 = ANCHO - MARGEN - lienzo.stringWidth(rango, FUENTE, 11) - 3 * mm
+        if x1 > x0:
+            lienzo.setDash(1, 2)
+            lienzo.line(x0, y - 1 * mm, x1, y - 1 * mm)
+            lienzo.setDash()
+        y -= 8 * mm
+        if y < MARGEN + BANDA_PIE:
+            break
+
+
 def _indice(secciones) -> PageObject:
-    """`secciones`: [(título, primera, última)] con la numeración real."""
+    return _pagina_de(
+        lambda lienzo: _dibujar_indice(lienzo, secciones, ALTO - MARGEN - 10 * mm),
+    )
+
+
+def _portada_con_indice(libreta, secciones) -> PageObject:
+    """Portada e índice en la misma hoja: el título arriba, las líneas de
+    nombre en medio y el índice debajo. Pedido por Jesús para ahorrar papel."""
 
     def dibujar(lienzo):
-        lienzo.setFont(FUENTE_NEGRITA, 20)
-        lienzo.drawCentredString(ANCHO / 2, ALTO - MARGEN - 10 * mm, "Índice")
-        lienzo.setLineWidth(0.6)
-        lienzo.line(
-            MARGEN,
-            ALTO - MARGEN - 15 * mm,
-            ANCHO - MARGEN,
-            ALTO - MARGEN - 15 * mm,
-        )
-        y = ALTO - MARGEN - 28 * mm
-        for titulo, primera, ultima in secciones:
-            rango = str(primera) if primera == ultima else f"{primera} – {ultima}"  # noqa: RUF001
-            lienzo.setFont(FUENTE, 11)
-            lienzo.drawString(MARGEN, y, titulo)
-            lienzo.drawRightString(ANCHO - MARGEN, y, rango)
-            x0 = MARGEN + lienzo.stringWidth(titulo, FUENTE, 11) + 3 * mm
-            x1 = ANCHO - MARGEN - lienzo.stringWidth(rango, FUENTE, 11) - 3 * mm
-            if x1 > x0:
-                lienzo.setDash(1, 2)
-                lienzo.line(x0, y - 1 * mm, x1, y - 1 * mm)
-                lienzo.setDash()
-            y -= 9 * mm
-            if y < MARGEN + BANDA_PIE:
-                break  # más de ~70 elementos no caben; la libreta real tiene una docena
+        y = ALTO - 42 * mm
+        lienzo.setFont(FUENTE_NEGRITA, 26)
+        lienzo.drawCentredString(ANCHO / 2, y, libreta.titulo)
+        lienzo.setLineWidth(0.8)
+        lienzo.line(ANCHO * 0.2, y - 9 * mm, ANCHO * 0.8, y - 9 * mm)
+        lienzo.setFont(FUENTE, 16)
+        if libreta.subtitulo:
+            lienzo.drawCentredString(ANCHO / 2, y - 20 * mm, libreta.subtitulo)
+        lienzo.setFont(FUENTE, 12)
+        lienzo.drawCentredString(ANCHO / 2, y - 30 * mm, CENTRO)
+        lienzo.setFont(FUENTE, 11)
+        for i, etiqueta in enumerate(("Nombre:", "Clase:", "Curso:")):
+            fila = y - 50 * mm - i * 12 * mm
+            lienzo.drawString(MARGEN + 5 * mm, fila, etiqueta)
+            lienzo.line(
+                MARGEN + 25 * mm,
+                fila - 1.5 * mm,
+                ANCHO - MARGEN - 5 * mm,
+                fila - 1.5 * mm,
+            )
+        _dibujar_indice(lienzo, secciones, y - 100 * mm)
 
     return _pagina_de(dibujar)
 
@@ -250,12 +283,18 @@ def _plan(libreta):
     rellenar = libreta.hoja_nueva_por_seccion
     cuerpo, secciones = [], []
     numero = libreta.primera_pagina
-    frente = int(libreta.portada) + int(libreta.indice)
+    elementos = list(libreta.elementos_ordenados())
+    juntos = (
+        libreta.portada
+        and libreta.indice
+        and len(elementos) <= MAXIMO_DE_ENTRADAS_EN_PORTADA
+    )
+    frente = 1 if juntos else int(libreta.portada) + int(libreta.indice)
     if rellenar and frente % 2:
         frente += 1
     numero += frente
 
-    for elemento in libreta.elementos_ordenados():
+    for elemento in elementos:
         base = _paginas_por_copia(elemento)
         total = len(base) * elemento.copias
         primera = numero
@@ -273,10 +312,13 @@ def _plan(libreta):
             numero += 1
 
     paginas = []
-    if libreta.portada:
-        paginas.append((_portada(libreta), None, False))
-    if libreta.indice:
-        paginas.append((_indice(secciones), None, False))
+    if juntos:
+        paginas.append((_portada_con_indice(libreta, secciones), None, False))
+    else:
+        if libreta.portada:
+            paginas.append((_portada(libreta), None, False))
+        if libreta.indice:
+            paginas.append((_indice(secciones), None, False))
     if rellenar and len(paginas) % 2:
         paginas.append((_en_blanco(), None, False))
     return paginas + cuerpo, secciones

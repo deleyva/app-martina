@@ -85,29 +85,60 @@ def test_el_pie_dice_hoja_i_de_n_y_numera_desde_primera_pagina(libreta, document
     assert " 9" in texto(paginas[2])
 
 
-def test_portada_e_indice_con_rangos_sobre_la_numeracion_real(libreta, documento):
+def test_portada_e_indice_van_en_la_misma_pagina_con_rangos_sobre_la_numeracion_real(
+    libreta, documento
+):
     libreta.hoja_nueva_por_seccion = False
     libreta.save()
     a = libreta.insertar(
-        Elemento.desde_medio(documento("a.pdf", "A"), titulo="Pentagrama"),
+        Elemento.desde_medio(documento("a.pdf", "A"), titulo="Pentagrama")
     )
     a.copias = 6
     a.save()
     libreta.insertar(Elemento.desde_medio(documento("b.pdf", "B", 2), titulo="Teclado"))
     paginas = paginas_de(libreta.pdf())
-    assert len(paginas) == 2 + 6 + 2
-    portada, indice = texto(paginas[0]), texto(paginas[1])
-    assert "Libreta de música" in portada
-    assert "4º ESO" in portada
-    assert "IES Martina Bescós" in portada
-    assert "Nombre:" in portada
-    assert "Clase:" in portada
-    assert "Índice" in indice
-    assert "Pentagrama" in indice
-    assert "3 – 8" in indice
-    assert "Teclado" in indice
-    assert "9 – 10" in indice
-    assert "Pentagrama · hoja 1 de 6" in texto(paginas[2])
+    assert len(paginas) == 1 + 6 + 2
+    frente = texto(paginas[0])
+    assert (
+        "Libreta de música" in frente
+        and "4º ESO" in frente
+        and "IES Martina Bescós" in frente
+    )
+    assert "Nombre:" in frente and "Clase:" in frente
+    assert (
+        "Índice" in frente
+        and "Pentagrama 2 – 7" in frente
+        and "Teclado 8 – 9" in frente
+    )
+    assert "Pentagrama · hoja 1 de 6" in texto(paginas[1]) and " 2" in texto(paginas[1])
+
+
+def test_con_mas_de_once_elementos_el_indice_va_en_pagina_aparte(libreta, documento):
+    libreta.hoja_nueva_por_seccion = False
+    libreta.save()
+    for i in range(12):
+        libreta.insertar(
+            Elemento.desde_medio(documento(f"{i}.pdf", f"D{i}"), titulo=f"Elemento {i}")
+        )
+    paginas = paginas_de(libreta.pdf())
+    assert len(paginas) == 2 + 12
+    assert "Índice" not in texto(paginas[0]) and "Índice" in texto(paginas[1])
+    assert "Elemento 11 14" in texto(paginas[1])
+
+
+def test_solo_indice_o_solo_portada_siguen_siendo_una_pagina_cada_uno(
+    libreta, documento
+):
+    libreta.hoja_nueva_por_seccion = False
+    libreta.portada = False
+    libreta.save()
+    libreta.insertar(Elemento.desde_medio(documento("a.pdf", "A"), titulo="Pentagrama"))
+    paginas = paginas_de(libreta.pdf())
+    assert (
+        len(paginas) == 2
+        and "Índice" in texto(paginas[0])
+        and "Pentagrama 2" in texto(paginas[0])
+    )
 
 
 def test_sin_portada_ni_indice_el_cuerpo_empieza_en_la_primera_pagina(
@@ -177,5 +208,5 @@ def test_la_hoja_de_pedido_resume_elementos_copias_y_total(libreta, documento, i
     assert "doble cara" in t
     assert "lado largo" in t
     assert "libreta-de-musica-4o-eso.pdf" in t
-    # 2 de frente + 8 + 1 imagen + 1 relleno = 12 páginas, 6 hojas
+    # portada+índice (1) + relleno (1) + 8 + 1 imagen + 1 relleno = 12 páginas, 6 hojas
     assert "12 páginas: 6 hojas" in t
