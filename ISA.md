@@ -4058,3 +4058,15 @@ Las plantillas del CMS son para proyectar: A5 con cabecera y número de página 
 - [x] **C254 — Con portada e índice activados salen en UNA página** (título, curso, centro, líneas de nombre y el índice debajo), y el cuerpo empieza en la siguiente. Con más de 11 elementos el índice no cabe y vuelve a página aparte; solo-portada y solo-índice siguen como estaban. *Probe: `test_portada_e_indice_van_en_la_misma_pagina…` (1+6+2 páginas, «Pentagrama 2 – 7»), `test_con_mas_de_once_elementos_el_indice_va_en_pagina_aparte`, `test_solo_indice_o_solo_portada…`; página rasterizada de la libreta local 1 mirada.*
 - [x] **C255 — Verificado en producción sobre la libreta «test» de Jesús.** *Probe: PDF descargado con su sesión, página 1 con título e índice, `count('hoja') == 1` en el resto.*
 - 2026-09-25 · Desplegado (`d9a461a..2bf6631`, sin migraciones) y descargado `libreta-descarga-4.pdf` con la sesión de Jesús: 10 páginas, portada+índice en la 1, un pie por página del cuerpo.
+
+
+## Fase 45 — Sin columna «Páginas» y un solo aviso (2026-09-25) · DESPLEGADA (`b7d541e`)
+
+> «No veo la utilidad de tener dos columnas: copias y páginas. Si subo copias, suben las páginas.» · «Si guardo ajustes de la libreta, salen demasiados avisos.»
+
+- [x] **C256 — Una sola columna, «Copias»**; solo cuando un elemento tiene más de una página por copia se dice debajo («2 págs. cada una · 6 en total»); el total de páginas queda en el pie de la tabla. *Probe: Chrome local, «Total 10 páginas» y ninguna columna «Páginas».*
+- [x] **C257 — Un aviso, no tres.** Los mensajes de Django los pinta `base.html`; la página del compositor ya no los repite y el parcial solo los pinta en respuestas HTMX (donde base no se renderiza). *Probe: Chrome local tras «Guardar ajustes»: cero repeticiones en el texto de la página; 35 tests.*
+- [x] **C258 — Comprobado en producción.** *Chrome con la sesión de Jesús, «test» (pk 2), tras «Guardar ajustes»: cabeceras `['Elemento', 'Copias']`, pie «Total 9 páginas», cero repeticiones de «Ajustes guardados» en el texto de la página.*
+
+### Log
+- 2026-09-25 · Origen del triple aviso: `{% for message in messages %}` en tres plantillas de la misma petición (base, página, parcial incluido). Django no vacía la lista entre bucles dentro de la misma respuesta.
