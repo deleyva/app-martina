@@ -1,10 +1,10 @@
 ---
 slug: app-martina
-phase: verify
+phase: build
 progress: true
-iteration: 48
+iteration: 49
 principal_stated_goal: "Necesito desarrollar en apps.iesmartinabescos.es Otra app de Django como la que tenemos en /incidencias. Está sí que debe de requerir login con Google porque ya tenemos implementado. Básicamente, es una aplicación en la que quiero que vayan solicitando la clave Wi-Fi. Pero para ello deben logearse y enviar la MAC de su dispositivo WIFI, la privada (real) no la aleatoria."
-updated: 2026-09-24
+updated: 2026-09-25
 ---
 
 # ISA — app-martina · Sistema de estudio de la biblioteca
@@ -3858,3 +3858,75 @@ Servidor: 2 vCPU (EPYC Milan, AVX2), 3,8 GB de RAM, **~1,1 GB disponibles y sin 
 - **La reserva que decide:** la voz es sintética y limpia. Falta medir con la voz de Jesús grabada en el aula, que es donde `small` suele sacar ventaja.
 - **Memoria:** `small` deja unos 350 MB de margen sobre lo disponible, sin swap. `base` deja unos 750 MB.
 - Restos en el servidor: `~/whisper-bench/` (script, audios, modelos) y la imagen `whisper-bench:prueba` (558 MB). Se borran tras la prueba con voz real.
+
+
+## Fase 41 — Libreta musical para fotocopiar (2026-09-25) · EN CONSTRUCCIÓN
+
+### Goal
+
+> «Quiero hacer una aplicación dentro de apps.iesmartinabescos.es que nos permita elegir cuántas copias de lo que tengo en la página de plantillas. Quiero que, en cada hoja, se indique cuántas hojas de cada hay y que permita, con un botón, exportar un PDF que mande a fotocopia. Que permita añadir imágenes, por si se quiere generar un PDF, porque queremos mandar a los alumnos que compren fotocopias para que tengan pentagramas, diagramas del QWERTY de teclados para que impriman. […] Este año serían a 4, por lo que es más fácil la paginación. Irían una detrás de otra. Obtener la posibilidad de añadir elementos antes o después a mano desde la biblioteca de índice de recursos musicales o añadiendo una imagen o un pequeño texto.»
+
+Respuestas a las tres preguntas (2026-09-25): (1) profesores **y alumnado**; (2) portada e índice, **o** hojas sueltas eligiendo desde dónde empieza la numeración; (3) sin hoja punteada; el teclado ya está como `piano-diagram.pdf` en la página de plantillas. Es el objetivo **G5** del TELOS (generador de libretas, target septiembre 2026).
+
+### Vision
+
+El año pasado la libreta (48 páginas A5, `~/Documents/material-para-libreta-de-música/libreta-musical-v4-*.pdf`) se montó a mano fuera de la app: portada, índice, seguimiento, diario, punteado, pentagramas, teclados, tabs, diagramas de acordes. Este año la libreta se compone dentro de la app a partir de lo que ya existe (los nueve PDF de `plantillas-para-escribir`, cualquier PDF o imagen del índice de recursos, imágenes subidas, textos cortos), con un número de copias por elemento, y se exporta como **un solo PDF A4 vertical** listo para la fotocopiadora, con cada hoja rotulada («Pentagrama · hoja 3 de 12») y numerada. Cien alumnos con la misma libreta en el mismo orden, y el año que viene se regenera cambiando cantidades.
+
+### Out of Scope
+
+- Cuadernillo A5 con imposición (el «a 4» de este año son hojas A4 una detrás de otra).
+- Hoja punteada generada (descartada por Jesús).
+- Compra o pago dentro de la app; compartir una libreta con un grupo; plantillas nuevas (se añaden en el CMS a `plantillas-para-escribir`, como hasta ahora).
+- Renderizado HTML→PDF (no hay pango/cairo en Docker; ReportLab + pypdf bastan).
+
+### Anti-claims
+
+- **Anti-G** — No se modifica `plantillas-para-escribir` ni ningún documento o imagen de Wagtail: la libreta solo LEE del CMS. *Probe: la app no importa `Document.save`/`Image.save` salvo para la imagen subida por el propio usuario, y los tests no alteran ningún documento existente.*
+- **Anti-H** — Nadie edita ni exporta la libreta de otro: pk ajena → 404, no 403. *Probe: test con dos usuarios.*
+- **Anti-I** — Ningún PDF de salida mezcla tamaños: todas las páginas son A4 vertical (595×842 pt) aunque la fuente sea A5 (`guitar-tab.pdf`, 420×595) o apaisada (`guitar-diagram-horizontal.pdf`, 750×554). *Probe: test que lee el `mediabox` de cada página.*
+- **Anti-J** — Nada empujado ni desplegado sin el visto bueno explícito de Jesús.
+
+### Claims
+
+- [ ] **C232 — App `libreta` registrada y montada en `/libreta/`**, con `Libreta` (usuario, título, subtítulo, portada, índice, primera_pagina, hoja_nueva_por_seccion) y `Elemento` (orden, título, copias, exactamente uno de: documento de Wagtail / imagen de Wagtail / texto). *Probe: `makemigrations --check --dry-run` → «No changes detected»; `manage.py check` → 0; test de validación: un elemento con dos contenidos o ninguno no se guarda.*
+- [ ] **C233 — Las nueve plantillas de `plantillas-para-escribir` se ofrecen con un botón cada una** en el compositor, resueltas con `material_de` (el mismo camino que la vista de clase), y añadir una crea un `Elemento` con `copias=1` al final o en la posición elegida (al principio / después de X). *Probe: test que crea una `ScorePage` con un PDF adjunto bajo el índice y comprueba la lista y la inserción en posición.*
+- [ ] **C234 — Buscar en el índice de recursos** por título devuelve páginas y sus PDF/imágenes, cada uno con su botón de añadir. *Probe: test con dos páginas hijas del índice y `?q=`.*
+- [ ] **C235 — Se puede añadir una imagen subida** (queda como `wagtailimages.Image` del usuario, título = nombre del fichero) **y un texto corto** con título. *Probe: test con `get_test_image_file()`; test de texto.*
+- [ ] **C236 — Copias, título, orden y borrado se editan por elemento** sin JavaScript propio (HTMX devuelve el parcial de la lista). *Probe: tests de `copias`, `mover` arriba/abajo (los extremos no se mueven), `borrar` renumera.*
+- [ ] **C237 — El PDF repite cada elemento `copias` veces, una página detrás de otra, en el orden de la libreta.** *Probe: test con un PDF de 2 páginas × 3 copias y una imagen × 2 → 8 páginas de cuerpo en el orden esperado (el texto extraído de cada página identifica su origen).*
+- [ ] **C238 — Cada hoja del cuerpo lleva rótulo «<título> · hoja i de n»** (n = copias × páginas del elemento) **y número de página**, y la numeración empieza en `primera_pagina`. *Probe: `extract_text()` de cada página contiene el rótulo y el número esperados; con `primera_pagina=7` la primera hoja dice 7.*
+- [ ] **C239 — Portada e índice opcionales**: con `portada` sale una primera página con título, subtítulo, «IES Martina Bescós» y líneas Nombre/Clase/Curso; con `indice` una página con cada elemento y su rango de páginas, calculado sobre la numeración real. *Probe: test que comprueba que el índice dice «3 – 8» cuando el cuerpo empieza en la 3 y el primer elemento tiene 6 hojas; sin portada ni índice el cuerpo empieza en la primera página.*
+- [ ] **C240 — `hoja_nueva_por_seccion` rellena con página en blanco** cualquier sección de nº impar de páginas (y el bloque portada/índice), para que a doble cara cada elemento empiece en hoja nueva. *Probe: test con un elemento de 3 páginas → 4 en el PDF; con el flag apagado → 3.*
+- [ ] **C241 — Hoja de pedido para la fotocopiadora** (`pedido.pdf`): tabla elemento × copias × hojas, total de hojas, e instrucciones (A4, doble cara, voltear por el lado largo). *Probe: test de texto extraído.*
+- [ ] **C242 — Un alumno (usuario sin `es_profesor`) crea, compone y exporta su propia libreta** igual que un profesor; sin sesión, redirección al login. *Probe: tests con `UserFactory` sin grupos ni `is_staff`.*
+- [ ] **C243 — En Chrome real, con la sesión de Jesús en local**: crear una libreta, añadir dos plantillas con 3 y 2 copias, una imagen y un texto, reordenar, exportar; el PDF descargado se abre y se ven las hojas A4 con su rótulo (captura de píxeles). *Probe: `mcp__claude-in-chrome__*` + el PDF renderizado y mirado.*
+- [ ] **C244 — La suite entera pasa** salvo los cuatro fallos preexistentes de la fase 39. *Probe: `just test`.*
+
+### Test Strategy
+
+`pytest` en `libreta/tests/`, fixtures locales (`UserFactory`), documentos de prueba generados con ReportLab dentro del test (A4, A5 y apaisado) para no depender de ficheros de `media/`. El PDF de salida se inspecciona con `pypdf` (`mediabox`, `extract_text`). Navegador real para C243. Los nueve PDF reales de producción están bajados en el scratchpad de la sesión (URL pública `/media/documents/…`) y sirven para la prueba manual de tamaños.
+
+### Decisions
+
+- **App nueva `libreta`, no un añadido a `clases`.** `clases` es de profesor (`es_profesor` en todas las vistas) y esta herramienta la usa también el alumnado. Además la libreta es un objeto con identidad propia que sobrevive al curso.
+- **Solo pypdf + ReportLab.** Ya están en `requirements/base.txt`; PyMuPDF se evita por licencia (AGPL, decisión previa del repo) y WeasyPrint exigiría pango/cairo en las imágenes de Docker.
+- **Todo a A4 vertical.** Cuatro de las nueve plantillas son A5 y una apaisada (medido 2026-09-25 sobre los PDF de producción). Se escalan al A4 con margen y las apaisadas se giran 90°: la fotocopiadora recibe hojas iguales y el alumno gira la hoja. Anti-I lo vigila.
+- **La numeración empieza donde diga `primera_pagina`, sea cual sea la primera página del PDF.** Una sola regla para los dos modos: con portada, la portada es la página `primera_pagina`; sin nada, lo es la primera hoja del cuerpo. El índice se calcula sobre esa numeración.
+- **Insertar «al principio / después de X», y luego flechas.** Cubre el «antes o después a mano» sin arrastrar-y-soltar ni JavaScript propio (regla de `AGENTS.md`).
+- **La imagen subida se guarda como `wagtailimages.Image`** para reutilizar renditions y el visor; no se crea un modelo de fichero propio.
+- **La hoja de pedido va en un PDF aparte**, no como primera página: si fuera dentro, la fotocopiadora la imprimiría cien veces.
+
+### Medida con la voz de Jesús (2026-09-25)
+
+Nota real de 20,6 s grabada en clase «con follón, con ruido, música», convertida a webm/opus como la graba Chrome.
+
+| Modelo | Hilos | Transcribir | Memoria máx. | Errores de palabra |
+|---|---|---|---|---|
+| base | 1 | 3,5 s | 330 MB | «ya está estado» (he estado), «ocultiendo» (ocurriendo) |
+| small | 1 | 10,3 s | 619 MB | ninguno evidente; sin mayúsculas ni puntuación |
+| small | 2 | 7,1 s | 616 MB | igual que con un hilo |
+
+- Los dos difieren en «un poquito» (`base`) frente a «un momento» (`small`); decide Jesús cuál dijo.
+- El filtro de voz (`vad_filter`) no cambia nada en ninguno de los dos.
+- **Conclusión:** con voz real, `small` acierta las palabras y `base` no. En un flujo donde Jesús corrige antes de aceptar, una palabra mal cuesta más que una coma que falta. `small` con un hilo tarda unos 10 s por nota y deja unos 500 MB libres: va, pero con el contenedor de Whisper limitado en memoria para que un exceso lo mate a él y no a otro stack.
+- **Pendiente:** borrar los restos de la prueba en el servidor (`~/whisper-bench/` con la grabación de Jesús dentro, e imagen `whisper-bench:prueba`). El borrado se denegó en la sesión; espera visto bueno.
