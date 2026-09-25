@@ -1,0 +1,21 @@
+{% if resultados %}
+  <ul class="space-y-2">
+    {% for pagina, medios in resultados %}
+      <li>
+        <div class="text-sm font-semibold">{{ pagina.title }}</div>
+        <div class="flex flex-wrap gap-1 mt-1">
+          {% for medio in medios %}
+            <button type="button" class="btn btn-xs btn-outline"
+                    hx-post="{% url 'libreta:anadir' libreta.pk %}"
+                    hx-vals='{"tipo": "{{ medio.tipo }}", "pk": {{ medio.pk }}}'
+                    hx-include="#posicion" hx-target="#elementos" hx-swap="outerHTML">
+              ＋ {{ medio.titulo }}
+            </button>
+          {% endfor %}
+        </div>
+      </li>
+    {% endfor %}
+  </ul>
+{% elif q|length >= 2 %}
+  <p class="text-sm opacity-70">Nada con PDF o imágenes que se llame «{{ q }}».</p>
+{% endif %}

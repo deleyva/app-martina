@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}{{ libreta.titulo }} · Libreta{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6 max-w-5xl" id="libreta">
+  <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+    <div>
+      <a href="{% url 'libreta:index' %}" class="text-xs link link-hover">← Mis libretas</a>
+      <h1 class="text-2xl font-bold leading-tight">📒 {{ libreta.titulo }}{% if libreta.subtitulo %} <span class="font-normal opacity-70">· {{ libreta.subtitulo }}</span>{% endif %}</h1>
+    </div>
+    <div class="flex gap-2">
+      <a href="{% url 'libreta:pedido' libreta.pk %}" class="btn btn-sm btn-outline" target="_blank">Hoja de pedido</a>
+      <a href="{% url 'libreta:pdf' libreta.pk %}" class="btn btn-sm btn-primary" target="_blank">⬇ Descargar PDF</a>
+    </div>
+  </div>
+
+  {% if messages %}
+    {% for message in messages %}<div class="alert alert-{% if message.tags == 'error' %}error{% else %}success{% endif %} py-2 mb-3 text-sm">{{ message }}</div>{% endfor %}
+  {% endif %}
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2">
+      <h2 class="font-semibold mb-2">Contenido de la libreta</h2>
+      {% include "libreta/partials/elementos.html" %}
+
+      <h2 class="font-semibold mt-8 mb-2">Añadir</h2>
+      <div class="card bg-base-200 p-4 space-y-4">
+        <label class="form-control">
+          <span class="label-text text-xs">Dónde</span>
+          {% include "libreta/partials/posicion.html" %}
+        </label>
+
+        <div>
+          <div class="text-xs uppercase opacity-60 mb-1">Plantillas para escribir</div>
+          {% if plantillas %}
+            <div class="flex flex-wrap gap-1">
+              {% for medio in plantillas %}
+                <button type="button" class="btn btn-xs btn-outline"
+                        hx-post="{% url 'libreta:anadir' libreta.pk %}"
+                        hx-vals='{"tipo": "{{ medio.tipo }}", "pk": {{ medio.pk }}}'
+                        hx-include="#posicion" hx-target="#elementos" hx-swap="outerHTML">
+                  ＋ {{ medio.titulo }}
+                </button>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="text-sm opacity-70">No encuentro la página <code>plantillas-para-escribir</code> o no tiene PDF.</p>
+          {% endif %}
+        </div>
+
+        <div>
+          <div class="text-xs uppercase opacity-60 mb-1">Del índice de recursos</div>
+          <input type="search" name="q" class="input input-bordered input-sm w-full" placeholder="Buscar por título…"
+                 hx-get="{% url 'libreta:buscar' libreta.pk %}" hx-trigger="keyup changed delay:300ms, search" hx-target="#resultados" />
+          <div id="resultados" class="mt-2"></div>
+        </div>
+
+        <form hx-post="{% url 'libreta:anadir' libreta.pk %}" hx-encoding="multipart/form-data" hx-include="#posicion"
+              hx-target="#elementos" hx-swap="outerHTML" hx-on::after-request="if(event.detail.successful) this.reset()" class="flex flex-col sm:flex-row gap-2 items-end">
+          <input type="hidden" name="tipo" value="subida" />
+          <label class="form-control flex-1">
+            <span class="label-text text-xs">Una imagen (PNG, JPG…)</span>
+            <input type="file" name="fichero" accept="image/*" class="file-input file-input-bordered file-input-sm w-full" required />
+          </label>
+          <label class="form-control flex-1">
+            <span class="label-text text-xs">Título</span>
+            <input name="titulo" class="input input-bordered input-sm" placeholder="Teclado" />
+          </label>
+          <button class="btn btn-sm">Añadir imagen</button>
+        </form>
+
+        <form hx-post="{% url 'libreta:anadir' libreta.pk %}" hx-include="#posicion" hx-target="#elementos" hx-swap="outerHTML" hx-on::after-request="if(event.detail.successful) this.reset()" class="space-y-2">
+          <input type="hidden" name="tipo" value="texto" />
+          <label class="form-control">
+            <span class="label-text text-xs">Un texto corto</span>
+            <input name="titulo" class="input input-bordered input-sm" placeholder="Título" required />
+          </label>
+          <textarea name="texto" class="textarea textarea-bordered w-full" rows="3" placeholder="Instrucciones, normas de la libreta, lo que sea…" required></textarea>
+          <button class="btn btn-sm">Añadir texto</button>
+        </form>
+      </div>
+    </div>
+
+    <aside>
+      <h2 class="font-semibold mb-2">Ajustes</h2>
+      <form method="post" action="{% url 'libreta:ajustes' libreta.pk %}" class="card bg-base-200 p-4 space-y-3">
+        {% csrf_token %}
+        <label class="form-control">
+          <span class="label-text text-xs">Título</span>
+          <input name="titulo" value="{{ libreta.titulo }}" class="input input-bordered input-sm" />
+        </label>
+        <label class="form-control">
+          <span class="label-text text-xs">Curso</span>
+          <input name="subtitulo" value="{{ libreta.subtitulo }}" class="input input-bordered input-sm" placeholder="4º ESO" />
+        </label>
+        <label class="label cursor-pointer justify-start gap-2 py-1">
+          <input type="checkbox" name="portada" class="checkbox checkbox-sm" {% if libreta.portada %}checked{% endif %} />
+          <span class="label-text">Portada</span>
+        </label>
+        <label class="label cursor-pointer justify-start gap-2 py-1">
+          <input type="checkbox" name="indice" class="checkbox checkbox-sm" {% if libreta.indice %}checked{% endif %} />
+          <span class="label-text">Índice</span>
+        </label>
+        <label class="label cursor-pointer justify-start gap-2 py-1">
+          <input type="checkbox" name="hoja_nueva_por_seccion" class="checkbox checkbox-sm" {% if libreta.hoja_nueva_por_seccion %}checked{% endif %} />
+          <span class="label-text">Cada elemento empieza en hoja nueva (doble cara)</span>
+        </label>
+        <label class="form-control">
+          <span class="label-text text-xs">La primera página se numera como</span>
+          <input type="number" min="1" name="primera_pagina" value="{{ libreta.primera_pagina }}" class="input input-bordered input-sm w-24" />
+        </label>
+        <button class="btn btn-sm btn-outline w-full">Guardar ajustes</button>
+      </form>
+
+      <form method="post" action="{% url 'libreta:borrar' libreta.pk %}" class="mt-4" onsubmit="return confirm('¿Borrar esta libreta?');">
+        {% csrf_token %}
+        <button class="btn btn-xs btn-ghost text-error">Borrar libreta</button>
+      </form>
+    </aside>
+  </div>
+</div>
+{% endblock %}

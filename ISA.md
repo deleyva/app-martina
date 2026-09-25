@@ -1,6 +1,6 @@
 ---
 slug: app-martina
-phase: build
+phase: verify
 progress: true
 iteration: 49
 principal_stated_goal: "Necesito desarrollar en apps.iesmartinabescos.es Otra app de Django como la que tenemos en /incidencias. Está sí que debe de requerir login con Google porque ya tenemos implementado. Básicamente, es una aplicación en la que quiero que vayan solicitando la clave Wi-Fi. Pero para ello deben logearse y enviar la MAC de su dispositivo WIFI, la privada (real) no la aleatoria."
@@ -3860,7 +3860,7 @@ Servidor: 2 vCPU (EPYC Milan, AVX2), 3,8 GB de RAM, **~1,1 GB disponibles y sin 
 - Restos en el servidor: `~/whisper-bench/` (script, audios, modelos) y la imagen `whisper-bench:prueba` (558 MB). Se borran tras la prueba con voz real.
 
 
-## Fase 41 — Libreta musical para fotocopiar (2026-09-25) · EN CONSTRUCCIÓN
+## Fase 41 — Libreta musical para fotocopiar (2026-09-25) · CONSTRUIDA Y VERIFICADA EN LOCAL · SIN DESPLEGAR
 
 ### Goal
 
@@ -3888,19 +3888,19 @@ El año pasado la libreta (48 páginas A5, `~/Documents/material-para-libreta-de
 
 ### Claims
 
-- [ ] **C232 — App `libreta` registrada y montada en `/libreta/`**, con `Libreta` (usuario, título, subtítulo, portada, índice, primera_pagina, hoja_nueva_por_seccion) y `Elemento` (orden, título, copias, exactamente uno de: documento de Wagtail / imagen de Wagtail / texto). *Probe: `makemigrations --check --dry-run` → «No changes detected»; `manage.py check` → 0; test de validación: un elemento con dos contenidos o ninguno no se guarda.*
-- [ ] **C233 — Las nueve plantillas de `plantillas-para-escribir` se ofrecen con un botón cada una** en el compositor, resueltas con `material_de` (el mismo camino que la vista de clase), y añadir una crea un `Elemento` con `copias=1` al final o en la posición elegida (al principio / después de X). *Probe: test que crea una `ScorePage` con un PDF adjunto bajo el índice y comprueba la lista y la inserción en posición.*
-- [ ] **C234 — Buscar en el índice de recursos** por título devuelve páginas y sus PDF/imágenes, cada uno con su botón de añadir. *Probe: test con dos páginas hijas del índice y `?q=`.*
-- [ ] **C235 — Se puede añadir una imagen subida** (queda como `wagtailimages.Image` del usuario, título = nombre del fichero) **y un texto corto** con título. *Probe: test con `get_test_image_file()`; test de texto.*
-- [ ] **C236 — Copias, título, orden y borrado se editan por elemento** sin JavaScript propio (HTMX devuelve el parcial de la lista). *Probe: tests de `copias`, `mover` arriba/abajo (los extremos no se mueven), `borrar` renumera.*
-- [ ] **C237 — El PDF repite cada elemento `copias` veces, una página detrás de otra, en el orden de la libreta.** *Probe: test con un PDF de 2 páginas × 3 copias y una imagen × 2 → 8 páginas de cuerpo en el orden esperado (el texto extraído de cada página identifica su origen).*
-- [ ] **C238 — Cada hoja del cuerpo lleva rótulo «<título> · hoja i de n»** (n = copias × páginas del elemento) **y número de página**, y la numeración empieza en `primera_pagina`. *Probe: `extract_text()` de cada página contiene el rótulo y el número esperados; con `primera_pagina=7` la primera hoja dice 7.*
-- [ ] **C239 — Portada e índice opcionales**: con `portada` sale una primera página con título, subtítulo, «IES Martina Bescós» y líneas Nombre/Clase/Curso; con `indice` una página con cada elemento y su rango de páginas, calculado sobre la numeración real. *Probe: test que comprueba que el índice dice «3 – 8» cuando el cuerpo empieza en la 3 y el primer elemento tiene 6 hojas; sin portada ni índice el cuerpo empieza en la primera página.*
-- [ ] **C240 — `hoja_nueva_por_seccion` rellena con página en blanco** cualquier sección de nº impar de páginas (y el bloque portada/índice), para que a doble cara cada elemento empiece en hoja nueva. *Probe: test con un elemento de 3 páginas → 4 en el PDF; con el flag apagado → 3.*
-- [ ] **C241 — Hoja de pedido para la fotocopiadora** (`pedido.pdf`): tabla elemento × copias × hojas, total de hojas, e instrucciones (A4, doble cara, voltear por el lado largo). *Probe: test de texto extraído.*
-- [ ] **C242 — Un alumno (usuario sin `es_profesor`) crea, compone y exporta su propia libreta** igual que un profesor; sin sesión, redirección al login. *Probe: tests con `UserFactory` sin grupos ni `is_staff`.*
-- [ ] **C243 — En Chrome real, con la sesión de Jesús en local**: crear una libreta, añadir dos plantillas con 3 y 2 copias, una imagen y un texto, reordenar, exportar; el PDF descargado se abre y se ven las hojas A4 con su rótulo (captura de píxeles). *Probe: `mcp__claude-in-chrome__*` + el PDF renderizado y mirado.*
-- [ ] **C244 — La suite entera pasa** salvo los cuatro fallos preexistentes de la fase 39. *Probe: `just test`.*
+- [x] **C232 — App `libreta` registrada y montada en `/libreta/`**, con `Libreta` (usuario, título, subtítulo, portada, índice, primera_pagina, hoja_nueva_por_seccion) y `Elemento` (orden, título, copias, exactamente uno de: documento de Wagtail / imagen de Wagtail / texto). *Probe: `makemigrations --check --dry-run` → «No changes detected»; `manage.py check` → 0; test de validación: un elemento con dos contenidos o ninguno no se guarda.*
+- [x] **C233 — Las nueve plantillas de `plantillas-para-escribir` se ofrecen con un botón cada una** en el compositor, resueltas con `material_de` (el mismo camino que la vista de clase), y añadir una crea un `Elemento` con `copias=1` al final o en la posición elegida (al principio / después de X). *Probe: test que crea una `ScorePage` con un PDF adjunto bajo el índice y comprueba la lista y la inserción en posición.*
+- [x] **C234 — Buscar en el índice de recursos** por título devuelve páginas y sus PDF/imágenes, cada uno con su botón de añadir. *Probe: test con dos páginas hijas del índice y `?q=`.*
+- [x] **C235 — Se puede añadir una imagen subida** (queda como `wagtailimages.Image` del usuario, título = nombre del fichero) **y un texto corto** con título. *Probe: test con `get_test_image_file()`; test de texto.*
+- [x] **C236 — Copias, título, orden y borrado se editan por elemento** sin JavaScript propio (HTMX devuelve el parcial de la lista). *Probe: tests de `copias`, `mover` arriba/abajo (los extremos no se mueven), `borrar` renumera.*
+- [x] **C237 — El PDF repite cada elemento `copias` veces, una página detrás de otra, en el orden de la libreta.** *Probe: test con un PDF de 2 páginas × 3 copias y una imagen × 2 → 8 páginas de cuerpo en el orden esperado (el texto extraído de cada página identifica su origen).*
+- [x] **C238 — Cada hoja del cuerpo lleva rótulo «<título> · hoja i de n»** (n = copias × páginas del elemento) **y número de página**, y la numeración empieza en `primera_pagina`. *Probe: `extract_text()` de cada página contiene el rótulo y el número esperados; con `primera_pagina=7` la primera hoja dice 7.*
+- [x] **C239 — Portada e índice opcionales**: con `portada` sale una primera página con título, subtítulo, «IES Martina Bescós» y líneas Nombre/Clase/Curso; con `indice` una página con cada elemento y su rango de páginas, calculado sobre la numeración real. *Probe: test que comprueba que el índice dice «3 – 8» cuando el cuerpo empieza en la 3 y el primer elemento tiene 6 hojas; sin portada ni índice el cuerpo empieza en la primera página.*
+- [x] **C240 — `hoja_nueva_por_seccion` rellena con página en blanco** cualquier sección de nº impar de páginas (y el bloque portada/índice), para que a doble cara cada elemento empiece en hoja nueva. *Probe: test con un elemento de 3 páginas → 4 en el PDF; con el flag apagado → 3.*
+- [x] **C241 — Hoja de pedido para la fotocopiadora** (`pedido.pdf`): tabla elemento × copias × hojas, total de hojas, e instrucciones (A4, doble cara, voltear por el lado largo). *Probe: test de texto extraído.*
+- [x] **C242 — Un alumno (usuario sin `es_profesor`) crea, compone y exporta su propia libreta** igual que un profesor; sin sesión, redirección al login. *Probe: tests con `UserFactory` sin grupos ni `is_staff`.*
+- [x] **C243 — En Chrome real, con la sesión de Jesús en local**: crear una libreta, añadir dos plantillas con 3 y 2 copias, una imagen y un texto, reordenar, exportar; el PDF descargado se abre y se ven las hojas A4 con su rótulo (captura de píxeles). *Probe: `mcp__claude-in-chrome__*` + el PDF renderizado y mirado.*
+- [x] **C244 — La suite entera pasa** salvo los cuatro fallos preexistentes de la fase 39. *Probe: `just test`.*
 
 ### Test Strategy
 
@@ -3930,3 +3930,37 @@ Nota real de 20,6 s grabada en clase «con follón, con ruido, música», conver
 - El filtro de voz (`vad_filter`) no cambia nada en ninguno de los dos.
 - **Conclusión:** con voz real, `small` acierta las palabras y `base` no. En un flujo donde Jesús corrige antes de aceptar, una palabra mal cuesta más que una coma que falta. `small` con un hilo tarda unos 10 s por nota y deja unos 500 MB libres: va, pero con el contenedor de Whisper limitado en memoria para que un exceso lo mate a él y no a otro stack.
 - **Pendiente:** borrar los restos de la prueba en el servidor (`~/whisper-bench/` con la grabación de Jesús dentro, e imagen `whisper-bench:prueba`). El borrado se denegó en la sesión; espera visto bueno.
+
+### Verificación (2026-09-25, local, Chrome con la sesión de Jesús, libreta local pk=1)
+
+- **C232** — `makemigrations` generó `libreta.0001_initial` (depende de `wagtaildocs.0014` y `wagtailimages.0027`, ya aplicadas en producción con Wagtail 7.3.1); `manage.py check` → 0 issues. `test_un_elemento_con_dos_contenidos_o_ninguno_no_se_guarda`, `test_solo_se_aceptan_documentos_pdf`.
+- **C233** — `test_el_compositor_ofrece_las_plantillas_y_anade_en_posicion` (tres PDF de tamaños distintos bajo `plantillas-para-escribir`; inserción `tras:<pk>` deja C · A · B). En Chrome: los nueve botones de la página real; «＋ no-clef-12», «＋ piano-diagram», «＋ guitar-diagram-horizontal» añadidos; la imagen subida con «Después de «no-clef-12»» quedó en la posición 2.
+- **C234** — `test_buscar_en_el_indice_devuelve_paginas_con_sus_pdf` («escala» encuentra «Escalas mayores» y no «Ritmos»; una letra no devuelve nada).
+- **C235** — `test_anadir_una_imagen_subida_y_un_texto` (la `Image` lleva `uploaded_by_user`), `test_una_subida_que_no_es_imagen_no_crea_nada`. En Chrome: `keyboard-diagram.png` subido con título «Teclado» y un texto de dos párrafos.
+- **C236** — `test_copias_titulo_orden_y_borrado_por_elemento`, `test_mover_intercambia_con_el_vecino_y_los_extremos_no_se_mueven`, `test_borrar_renumera`. En Chrome: copias 3 y 2, título «no-clef-12» → «Pentagrama», «Normas de la libreta» subida de la 5 a la 4, todo sin recargar (HTMX, cero JavaScript propio). Total de hojas recalculado a 8.
+- **C237** — `test_cada_elemento_se_repite_sus_copias_una_pagina_tras_otra`: 2 páginas × 3 + imagen × 2 = 8 páginas en el orden `DOS p1, DOS p2, …, Teclado, Teclado`.
+- **C238** — `test_el_pie_dice_hoja_i_de_n_y_numera_desde_primera_pagina` (con `primera_pagina=7`: «Pentagrama · hoja 1 de 3» y 7; «hoja 3 de 3» y 9). Píxeles: `pdftoppm` del PDF real de la libreta 1, pie «Pentagrama · hoja 1 de 3 · 3» legible.
+- **C239** — `test_portada_e_indice_con_rangos_sobre_la_numeracion_real` («3 – 8», «9 – 10»), `test_sin_portada_ni_indice_el_cuerpo_empieza_en_la_primera_pagina`. Píxeles: portada con título, «4º ESO», centro y las tres líneas; índice con puntos de guía y rangos 3 – 5 · 7 · 9 – 10 · 11 · 13.
+- **C240** — `test_hoja_nueva_por_seccion_rellena_las_secciones_impares` (3+1+2; apagado, 5), `test_solo_portada_tambien_se_rellena…`. En el PDF real: 8 hojas de contenido + portada + índice + 4 rellenos = 14 páginas.
+- **C241** — `test_la_hoja_de_pedido_resume_elementos_copias_y_total`. Píxeles de `pedido.pdf`: tabla, «Total 8», «El PDF tiene 14 páginas: 7 hojas por libreta». Corregido a mitad de fase: la primera versión decía «8 páginas (4 hojas)», sumando elementos y no lo que sale por la impresora.
+- **C242** — `test_un_alumno_compone_y_exporta_su_propia_libreta` (`es_profesor` falso), `test_sin_sesion_se_va_al_login`.
+- **C243** — Chrome, `mcp__claude-in-chrome__*`, sesión de Jesús en `localhost:8000`: creada la libreta «Libreta de música · 4º ESO», compuesta (3 plantillas, imagen, texto, copias, renombrado, reordenado), y `/libreta/1/libreta.pdf` abierto en el visor de Chrome («Libreta de música 4º ESO», 1/14). El visor de PDF de Chrome no se deja capturar en píxeles; las páginas se miraron rasterizadas con `pdftoppm` a partir de los mismos bytes (`Libreta.pdf()`).
+- **Anti-I** — `test_todas_las_paginas_salen_a4_vertical_aunque_la_fuente_sea_a5_o_apaisada`; en el PDF real, `guitar-diagram-horizontal` (750×554) sale girado con las cejillas arriba y `guitar-tab` (A5) escalado.
+- **Anti-H** — `test_la_libreta_de_otro_no_existe`, `test_el_elemento_de_otro_no_se_toca` (404 en editar, pdf, añadir y borrar).
+- **C244** — Suite completa: 1250 pasan, 4 fallan, los mismos cuatro preexistentes (`cms.test_frontend_integration` ×2, `incidencias.test_views` ×2). `ruff check libreta` limpio; `ruff format` aplicado.
+
+### Lo que queda
+
+- **Desplegar** (Anti-J): nada empujado. `git push` + `just deploy-production` cuando Jesús lo diga; la migración es solo dos tablas nuevas.
+- **Los títulos de las plantillas son nombres de fichero** («no-clef-12», «piano-diagram»): son los `title` de los documentos en el CMS. Se renombran en el CMS (Documentos) y salen bien en el compositor; mientras tanto el título del elemento se edita en la propia libreta.
+- **Cuatro plantillas son páginas A5 recortadas de la libreta del año pasado**, con su cabecera («Guitar Tab») y su número de página («32») impresos dentro del PDF: `guitar-tab`, `guitar-diagram-v`, `ukelele-diagram-v`, `ukelele-diagram-h`. Al salir en A4 llevan dos números: el viejo, dentro, y el nuevo, en el pie. Conviene sustituirlas en el CMS por versiones limpias en A4.
+- **No hay hoja punteada** (descartada) ni seguimiento/diario como el año pasado; si se quieren, se suben como PDF a `plantillas-para-escribir` y aparecen solas.
+
+### Log
+
+- 2026-09-25 · Medidos los nueve PDF de producción por su URL pública antes de escribir una línea: 4 A4, 4 A5, 1 apaisado. Sin esa medida la decisión «todo a A4» habría sido una suposición.
+- 2026-09-25 · La geometría de `pypdf` (`Transformation` rotate/scale/translate) se probó primero con un script suelto y se miró en píxeles antes de meterla en `pdf.py`; el orden de las transformaciones no es intuitivo.
+- 2026-09-25 · **Subir un fichero que no es imagen tumbaba la vista con 500**: Wagtail lee ancho y alto en `post_init`, así que `willow` revienta al CONSTRUIR el modelo, antes de `full_clean`. Se comprueba el formato con `willow.Image.open` antes de instanciar. Encontrado por el test negativo, no por el positivo.
+- 2026-09-25 · Siete de los nueve PDF de plantillas no estaban en `media/` local; se copiaron desde la URL pública (`media/` está en `.gitignore`).
+- 2026-09-25 · Sin auditoría cruzada, a conciencia: superficie autenticada, sin datos personales más allá del propio usuario, 28 tests propios incluidos los de privilegio, y verificación en navegador.
+- 2026-09-25 · Nada empujado ni desplegado (Anti-J).

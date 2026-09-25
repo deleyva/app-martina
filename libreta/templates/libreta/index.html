@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Libretas para fotocopiar{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6 max-w-3xl">
+  <h1 class="text-2xl font-bold mb-1">📒 Libretas para fotocopiar</h1>
+  <p class="text-sm opacity-70 mb-6">Elige plantillas, imágenes y textos, di cuántas copias de cada, y descarga un PDF A4 para la fotocopiadora.</p>
+
+  <form method="post" action="{% url 'libreta:crear' %}" class="card bg-base-200 p-4 mb-8 flex flex-col sm:flex-row gap-2 items-end">
+    {% csrf_token %}
+    <label class="form-control flex-1">
+      <span class="label-text text-xs">Título</span>
+      <input name="titulo" class="input input-bordered input-sm" placeholder="Libreta de música" />
+    </label>
+    <label class="form-control w-full sm:w-40">
+      <span class="label-text text-xs">Curso</span>
+      <input name="subtitulo" class="input input-bordered input-sm" placeholder="4º ESO" />
+    </label>
+    <button class="btn btn-primary btn-sm">Nueva libreta</button>
+  </form>
+
+  {% if libretas %}
+    <ul class="divide-y divide-base-300">
+      {% for libreta in libretas %}
+        <li class="py-3 flex items-center justify-between gap-3">
+          <a href="{% url 'libreta:editar' libreta.pk %}" class="link link-hover">
+            <span class="font-semibold">{{ libreta.titulo }}</span>
+            {% if libreta.subtitulo %}<span class="opacity-70">· {{ libreta.subtitulo }}</span>{% endif %}
+            <span class="text-xs opacity-60 ml-2">{{ libreta.elementos.count }} elemento{{ libreta.elementos.count|pluralize }} · {{ libreta.actualizada|date:"d/m/Y" }}</span>
+          </a>
+          <div class="flex gap-1">
+            <a href="{% url 'libreta:pdf' libreta.pk %}" class="btn btn-xs btn-outline" target="_blank">PDF</a>
+            <form method="post" action="{% url 'libreta:borrar' libreta.pk %}" onsubmit="return confirm('¿Borrar «{{ libreta.titulo|escapejs }}»?');">
+              {% csrf_token %}
+              <button class="btn btn-xs btn-ghost text-error" title="Borrar">✕</button>
+            </form>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="opacity-70">Todavía no tienes ninguna libreta.</p>
+  {% endif %}
+</div>
+{% endblock %}

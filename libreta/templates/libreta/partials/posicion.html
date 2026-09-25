@@ -1,0 +1,5 @@
+<select id="posicion" name="posicion" class="select select-bordered select-sm w-full" {% if oob %}hx-swap-oob="true"{% endif %}>
+  <option value="final">Al final</option>
+  <option value="inicio">Al principio</option>
+  {% for e in elementos %}<option value="tras:{{ e.pk }}">Después de «{{ e.titulo }}»</option>{% endfor %}
+</select>

@@ -134,6 +134,7 @@ LOCAL_APPS = [
     "programacion",  # Programación didáctica: planes por trimestre, cobertura y recomendaciones
     "repertorio",  # Catálogo de repertorio consultable (JamZone importado + propio)
     "calificaciones",  # Calificaciones: criterios × instrumentos, cuadro, modo clase y evidencias
+    "libreta",  # Libreta musical para fotocopiar: plantillas × copias → PDF A4
     # Your stuff: custom apps go here
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps

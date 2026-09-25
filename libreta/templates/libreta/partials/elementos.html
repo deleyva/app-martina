@@ -1,0 +1,40 @@
+{% comment %}
+La lista de elementos. La devuelven todas las acciones por HTMX y sustituye a
+`#elementos` entero; el selector de posición del panel de añadir viaja dentro
+con `hx-swap-oob` para que ofrezca los elementos que hay ahora.
+{% endcomment %}
+<div id="elementos">
+  {% if messages %}
+    {% for message in messages %}<div class="alert alert-{% if message.tags == 'error' %}error{% else %}success{% endif %} py-2 mb-2 text-sm">{{ message }}</div>{% endfor %}
+  {% endif %}
+  {% if elementos %}
+    <table class="table table-sm">
+      <thead><tr><th></th><th>Elemento</th><th class="text-right">Copias</th><th class="text-right">Páginas</th><th></th></tr></thead>
+      <tbody>
+        {% for e in elementos %}
+          <tr>
+            <td class="whitespace-nowrap opacity-60">{{ e.orden }}. {{ e.icono }}</td>
+            <td>
+              <input name="titulo" value="{{ e.titulo }}" class="input input-ghost input-sm w-full"
+                     hx-post="{% url 'libreta:elemento_guardar' e.pk %}" hx-trigger="change" hx-include="closest tr" hx-target="#elementos" hx-swap="outerHTML" />
+            </td>
+            <td class="text-right">
+              <input type="number" min="1" name="copias" value="{{ e.copias }}" class="input input-bordered input-sm w-20 text-right"
+                     hx-post="{% url 'libreta:elemento_guardar' e.pk %}" hx-trigger="change" hx-include="closest tr" hx-target="#elementos" hx-swap="outerHTML" />
+            </td>
+            <td class="text-right whitespace-nowrap">{{ e.paginas }}</td>
+            <td class="whitespace-nowrap text-right">
+              <button type="button" class="btn btn-xs btn-ghost" title="Subir" hx-post="{% url 'libreta:elemento_mover' e.pk %}" hx-vals='{"direccion": "arriba"}' hx-target="#elementos" hx-swap="outerHTML" {% if forloop.first %}disabled{% endif %}>↑</button>
+              <button type="button" class="btn btn-xs btn-ghost" title="Bajar" hx-post="{% url 'libreta:elemento_mover' e.pk %}" hx-vals='{"direccion": "abajo"}' hx-target="#elementos" hx-swap="outerHTML" {% if forloop.last %}disabled{% endif %}>↓</button>
+              <button type="button" class="btn btn-xs btn-ghost text-error" title="Quitar" hx-post="{% url 'libreta:elemento_borrar' e.pk %}" hx-target="#elementos" hx-swap="outerHTML" hx-confirm="¿Quitar «{{ e.titulo }}» de la libreta?">✕</button>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot><tr><th></th><th>Total</th><th></th><th class="text-right">{{ libreta.total_hojas }}</th><th></th></tr></tfoot>
+    </table>
+  {% else %}
+    <p class="text-sm opacity-70 py-4">La libreta está vacía. Añade plantillas, imágenes o textos desde el panel de abajo.</p>
+  {% endif %}
+  {% if htmx %}{% include "libreta/partials/posicion.html" with oob=True %}{% endif %}
+</div>
