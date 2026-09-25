@@ -43,6 +43,7 @@ CLAVES = (
     "gp_files",
     "enlaces",
     "external_links",
+    "chordpro",
 )
 
 # `enlaceexterno` y `externalresource` son dos modelos distintos con dos visores
@@ -54,6 +55,9 @@ POR_MODELO = {
     "recorte": "recortes",
     "enlaceexterno": "enlaces",
     "externalresource": "external_links",
+    # La letra con acordes de una canción. El texto vive en la `RecursoPage`;
+    # esto es solo el objeto al que puede apuntar un elemento de sesión.
+    "letraconacordes": "chordpro",
 }
 
 

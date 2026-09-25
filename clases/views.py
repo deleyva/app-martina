@@ -736,13 +736,18 @@ def class_session_present(request, pk):
     # sería pagarlo también en las que no llevan ninguna tablatura, así que se
     # mira aquí, en el bucle que ya recorre la sesión entera.
     tiene_gp = False
+    # Lo mismo con la letra con acordes, por la misma razón, aunque pesa menos.
+    tiene_chordpro = False
 
     playlist = []
     for item in items:
         if not item.content_object:
             continue
-        if medios.clave_de(item.content_object, item.content_type.model) == "gp_files":
+        clave = medios.clave_de(item.content_object, item.content_type.model)
+        if clave == "gp_files":
             tiene_gp = True
+        elif clave == "chordpro":
+            tiene_chordpro = True
         # `page_url` alimenta el botón de "ver la página entera": el elemento que
         # se estudia es un medio suelto —una imagen, un PDF—, y a veces hace
         # falta el texto que lo rodea. Se calcula aquí y no en el cliente porque
@@ -771,6 +776,7 @@ def class_session_present(request, pk):
             "playlist_json": json.dumps(playlist),
             "is_teacher": is_teacher and session.teacher == user,
             "tiene_gp": tiene_gp,
+            "tiene_chordpro": tiene_chordpro,
         },
     )
 
@@ -1301,6 +1307,21 @@ def group_library_item_viewer(request, group_id, pk):
     # EXCEPTO si estamos intentando ver un elemento específico (pdf/audio/image/embed)
     # de un attachment, en cuyo caso abrimos el visor fullscreen del elemento.
     _element_view_types = {"pdf", "audio", "image", "embed"}
+
+    # La letra con acordes de una canción: no está en `attachments` ni en el
+    # cuerpo, sale del campo `chordpro` a través de `LetraConAcordes`.
+    if content_type == "recursopage" and element_type == "chordpro":
+        return render(
+            request,
+            "clases/group_library/viewer.html",
+            {
+                "group": group,
+                "item": item,
+                "documents": medios.clasificar(content.obtener_letra_con_acordes()),
+                "score_media": None,
+            },
+        )
+
     if (
         content_type in ["recursopage", "dictadopage"]
         and element_type not in _element_view_types

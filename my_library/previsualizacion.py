@@ -72,6 +72,8 @@ def datos_de_miniatura(objeto, modelo=None):
         datos["tipo"] = "audio"
     elif clave == "gp_files":
         datos["tipo"] = "tablatura"
+    elif clave == "chordpro":
+        datos["tipo"] = "letra"
     elif clave in ("enlaces", "external_links"):
         datos["tipo"] = "enlace"
 

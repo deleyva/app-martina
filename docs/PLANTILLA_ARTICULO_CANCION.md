@@ -64,6 +64,16 @@ publicados; son las que cierran el hueco entre "correcto" y "lo terminan de leer
 | H3 | · Tutoriales (guitarra / piano / batería / voz) | Tutorials | si los hay |
 | H3 | · Partitura / leadsheet (embed de la `ScorePage`) | Score | si la hay |
 | H3 | · Backing track / playlist | Backing track | opcional |
+| — | Letra con acordes (ChordPro) | igual | opcional |
+
+**Letra con acordes.** No va en el cuerpo: va en un fichero ChordPro aparte
+(`~/Documents/articulos-ies/chordpro/<slug>.cho`) y el borrador lo señala con
+`chordpro: <ruta>` en la cabecera. El publicador lo sube al campo `chordpro` de
+la canción. Solo lo ve quien tiene sesión iniciada (una letra completa es
+material con derechos), y así se puede añadir como «Letra con acordes» a una
+sesión de clase o a una biblioteca, con transporte, tamaño de letra y
+desplazamiento automático. Escríbelo en la tonalidad que se toca en clase y
+dilo con `{comment: …}` si el disco suena en otra (cejilla, transporte).
 
 **Consistencia**: en `viva-la-vida` los tutoriales son `H2` sueltos y en `paseo`
 el videoclip cuelga de `Resources`. A partir de ahora, **todo lo audiovisual va

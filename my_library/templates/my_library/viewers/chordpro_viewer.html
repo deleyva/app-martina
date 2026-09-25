@@ -1,0 +1,226 @@
+{% load static %}
+{% comment %}
+Visor de letra con acordes (ChordPro): transporte, tamaño de letra y
+desplazamiento automático. Lo usan los tres visores (pantalla completa, sesión
+de estudio y modo proyector de clase), como el de Guitar Pro.
+
+Recibe:
+  letra   `musica.LetraConAcordes` (obligatorio). El texto se lee de
+          `letra.page.chordpro`, la única fuente: no hay copia que desincronizar.
+
+Teclas, solo mientras este visor está en pantalla y no se está escribiendo:
+  + / -      subir o bajar medio tono
+  < / >      letra más pequeña o más grande
+  espacio    desplazamiento automático sí/no
+
+Estilos en línea: ninguna de las tres páginas que lo incluyen carga Tailwind.
+Cada instancia guarda su estado en su propio closure, porque el modo proyector
+y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
+{% endcomment %}
+<style>
+    .cpv { min-height: 100%; background: #fff; color: #111; padding: 64px 24px 96px; box-sizing: border-box; overflow: auto; height: 100%; }
+    .cpv-titulo { font: 600 1.1rem system-ui, sans-serif; color: #555; margin: 0 auto 1.5rem; max-width: 60rem; }
+    .cpv-salida { max-width: 60rem; margin: 0 auto; }
+    .cpv-salida .chord-sheet { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; line-height: 1.35; }
+    .cpv-salida .paragraph { margin-bottom: 1.4em; }
+    .cpv-salida .row { display: flex; flex-wrap: wrap; align-items: flex-end; }
+    .cpv-salida .chord { font-weight: 700; color: #1d4ed8; min-height: 1.3em; white-space: pre; }
+    .cpv-salida .lyrics { white-space: pre; }
+    .cpv-salida .title, .cpv-salida .subtitle { display: none; }
+    .cpv-salida .comment { font-style: italic; opacity: .7; margin: .5em 0; }
+    .cpv-aviso { max-width: 40rem; margin: 20vh auto 0; text-align: center; color: #555; font: 1rem system-ui, sans-serif; }
+    .cpv-barra { position: fixed; left: 0; right: 0; bottom: 0; z-index: 9999; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; padding: 10px 12px; background: rgba(0,0,0,.9); color: #fff; font: 14px system-ui, sans-serif; }
+    .cpv-barra button { background: #333; color: #fff; border: 1px solid #555; border-radius: 6px; padding: 6px 12px; font: inherit; cursor: pointer; min-width: 40px; }
+    .cpv-barra button:hover { background: #444; }
+    .cpv-barra button[aria-pressed="true"] { background: #1d4ed8; border-color: #1d4ed8; }
+    .cpv-barra .cpv-dato { min-width: 7.5em; text-align: center; }
+    .cpv-barra .cpv-sep { width: 1px; height: 24px; background: #555; }
+    .cpv-barra select { background: #333; color: #fff; border: 1px solid #555; border-radius: 6px; padding: 5px; font: inherit; }
+</style>
+
+{% with page=letra.page %}
+<div class="cpv" data-chordpro-visor>
+    <p class="cpv-titulo">{{ page.title }}</p>
+    {% if page.chordpro %}
+        {{ page.chordpro|json_script:"cpv-fuente" }}
+        <div class="cpv-salida" style="font-size: 24px;"></div>
+        <p class="cpv-aviso" data-error hidden></p>
+    {% else %}
+        <p class="cpv-aviso">Esta canción ya no tiene letra con acordes.</p>
+    {% endif %}
+</div>
+
+{% if page.chordpro %}
+<div class="cpv-barra" data-chordpro-barra>
+    <button type="button" data-accion="bajar" title="Bajar medio tono (−)">−</button>
+    <span class="cpv-dato" data-tono>Tono original</span>
+    <button type="button" data-accion="subir" title="Subir medio tono (+)">+</button>
+    <button type="button" data-accion="original" title="Volver al tono original">Original</button>
+    <span class="cpv-sep"></span>
+    <button type="button" data-accion="menor" title="Letra más pequeña (&lt;)">A−</button>
+    <button type="button" data-accion="mayor" title="Letra más grande (&gt;)">A+</button>
+    <span class="cpv-sep"></span>
+    <button type="button" data-accion="desplazar" aria-pressed="false" title="Desplazamiento automático (espacio)">▶ Desplazar</button>
+    <select data-velocidad title="Velocidad del desplazamiento">
+        <option value="15">Lento</option>
+        <option value="30" selected>Medio</option>
+        <option value="55">Rápido</option>
+    </select>
+</div>
+
+<script>
+(function () {
+    // El marcador `data-montado` hace idempotente el montaje: el modo proyector
+    // vuelve a ejecutar los scripts del elemento, y dos montajes sobre el mismo
+    // visor pintarían dos veces y apilarían dos manejadores de teclado.
+    var visor = document.querySelector('[data-chordpro-visor]:not([data-montado])');
+    var barra = document.querySelector('[data-chordpro-barra]:not([data-montado])');
+    if (!visor || !barra) return;
+    visor.setAttribute('data-montado', '');
+    barra.setAttribute('data-montado', '');
+
+    var fuente = visor.querySelector('script[type="application/json"]');
+    var salida = visor.querySelector('.cpv-salida');
+    var errorEl = visor.querySelector('[data-error]');
+    var tonoEl = barra.querySelector('[data-tono]');
+    var botonDesplazar = barra.querySelector('[data-accion="desplazar"]');
+    var velocidad = barra.querySelector('[data-velocidad]');
+
+    var cancion = null;
+    var semitonos = 0;
+    var tamano = 24;
+    var temporizador = null;
+
+    function mostrarError(texto) {
+        errorEl.textContent = texto;
+        errorEl.hidden = false;
+        barra.style.display = 'none';
+    }
+
+    function pintar() {
+        salida.innerHTML = ChordPro.aHtml(cancion, semitonos);
+        tonoEl.textContent = ChordPro.etiquetaTono(semitonos);
+    }
+
+    function transponer(delta) {
+        semitonos = delta === 0 ? 0 : ChordPro.acotar(semitonos + delta);
+        pintar();
+    }
+
+    function redimensionar(delta) {
+        tamano = Math.max(14, Math.min(64, tamano + delta));
+        salida.style.fontSize = tamano + 'px';
+    }
+
+    // El contenedor que se desplaza: el propio visor si tiene su barra de
+    // scroll (sesión de estudio, proyector) o la página (pantalla completa).
+    function desplazable() {
+        return visor.scrollHeight > visor.clientHeight + 1 ? visor : document.scrollingElement;
+    }
+
+    function pararDesplazamiento() {
+        if (temporizador) cancelAnimationFrame(temporizador);
+        temporizador = null;
+        botonDesplazar.setAttribute('aria-pressed', 'false');
+        botonDesplazar.textContent = '▶ Desplazar';
+    }
+
+    // Por tiempo transcurrido y no por número de ticks: un `setInterval` en una
+    // pestaña que no está delante baja a un tick por segundo (medido en local,
+    // 5 px en 2 s en vez de 60) y la velocidad dependería de eso.
+    function alternarDesplazamiento() {
+        if (temporizador) { pararDesplazamiento(); return; }
+        botonDesplazar.setAttribute('aria-pressed', 'true');
+        botonDesplazar.textContent = '⏸ Parar';
+        var anterior = null;
+        var acumulado = 0;
+        function paso(ahora) {
+            // El modo proyector sobrescribe el contenedor al cambiar de
+            // elemento sin avisar a nadie. Sin esta comprobación el bucle
+            // seguiría vivo, desplazando la canción siguiente.
+            if (!visor.isConnected) { pararDesplazamiento(); return; }
+            if (anterior !== null) {
+                // Tope de 100 ms: al volver a una pestaña dormida no pega un salto.
+                var dt = Math.min(ahora - anterior, 100) / 1000;
+                acumulado += Number(velocidad.value) * dt;   // px por segundo
+                var pasos = Math.floor(acumulado);
+                if (pasos) {
+                    acumulado -= pasos;
+                    var caja = desplazable();
+                    var antes = caja.scrollTop;
+                    caja.scrollTop = antes + pasos;
+                    if (caja.scrollTop === antes) { pararDesplazamiento(); return; }  // final
+                }
+            }
+            anterior = ahora;
+            temporizador = requestAnimationFrame(paso);
+        }
+        temporizador = requestAnimationFrame(paso);
+    }
+
+    function escribiendo(el) {
+        return el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' ||
+            el.tagName === 'SELECT' || el.isContentEditable);
+    }
+
+    function teclado(e) {
+        if (!visor.isConnected) {
+            document.removeEventListener('keydown', teclado);
+            pararDesplazamiento();
+            return;
+        }
+        if (escribiendo(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
+        var acciones = {
+            '+': function () { transponer(1); },
+            '-': function () { transponer(-1); },
+            '<': function () { redimensionar(-2); },
+            '>': function () { redimensionar(2); },
+            ' ': alternarDesplazamiento
+        };
+        if (!acciones[e.key]) return;
+        e.preventDefault();
+        acciones[e.key]();
+    }
+
+    barra.addEventListener('click', function (e) {
+        var boton = e.target.closest('button[data-accion]');
+        if (!boton) return;
+        var accion = boton.getAttribute('data-accion');
+        if (accion === 'subir') transponer(1);
+        else if (accion === 'bajar') transponer(-1);
+        else if (accion === 'original') transponer(0);
+        else if (accion === 'mayor') redimensionar(2);
+        else if (accion === 'menor') redimensionar(-2);
+        else if (accion === 'desplazar') alternarDesplazamiento();
+    });
+
+    function arrancar() {
+        if (!window.ChordPro) { mostrarError('No se pudo cargar el visor de acordes.'); return; }
+        try {
+            cancion = ChordPro.parsear(JSON.parse(fuente.textContent));
+        } catch (e) {
+            console.error(e);
+            mostrarError(e.message);
+            return;
+        }
+        pintar();
+        document.addEventListener('keydown', teclado);
+    }
+
+    // Donde el visor entra por HTMX o por el modo proyector, un <script src>
+    // insertado no bloquea al script en línea que le sigue. Por eso las páginas
+    // que lo incluyen precargan el bundle en el <head>; si aun así falta, se
+    // carga aquí y se arranca al terminar.
+    if (window.ChordPro) {
+        arrancar();
+    } else {
+        var s = document.createElement('script');
+        s.src = "{% static 'js/chordpro.js' %}";
+        s.onload = arrancar;
+        s.onerror = function () { mostrarError('No se pudo cargar el visor de acordes.'); };
+        document.head.appendChild(s);
+    }
+})();
+</script>
+{% endif %}
+{% endwith %}

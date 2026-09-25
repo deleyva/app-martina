@@ -19,6 +19,9 @@
     {% endcomment %}
     <script src="{% static 'vendor/alphatab/alphaTab.min.js' %}"></script>
     {% endif %}
+    {% if tiene_chordpro %}
+    <script src="{% static 'js/chordpro.js' %}"></script>
+    {% endif %}
     {% if is_teacher %}
     <link rel="stylesheet" href="{% static 'clases/notas_de_voz.css' %}">
     <script src="{% static 'clases/notas_de_voz.js' %}"></script>
@@ -1068,7 +1071,17 @@
             if (!contenedor.contains(s)) cargados[s.src] = true;
         });
 
-        var pendientes = Array.prototype.slice.call(contenedor.querySelectorAll('script'));
+        // Solo los scripts ejecutables. Un bloque de datos (`json_script`,
+        // `type="application/json"`) se deja donde está: rehacerlo como aquí
+        // abajo le quita el `type` y el `id`, y el visor que lo lee se queda sin
+        // datos. Le pasó a la letra con acordes (2026-09-25).
+        var pendientes = Array.prototype.filter.call(
+            contenedor.querySelectorAll('script'),
+            function(s) {
+                var tipo = (s.getAttribute('type') || '').trim().toLowerCase();
+                return !tipo || tipo === 'text/javascript' || tipo === 'module';
+            }
+        );
 
         (function siguiente() {
             if (!pendientes.length) return;

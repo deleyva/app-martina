@@ -163,6 +163,11 @@
         {% elif documents.images %}
             <!-- Visor Imagen -->
             {% include "my_library/viewers/image_viewer.html" with images=documents.images %}
+        {% elif documents.gp_files %}
+            <!-- Tablatura: faltaba aquí y un .gp de la biblioteca de grupo no se veía -->
+            {% include "my_library/viewers/gp_viewer.html" with gp_file=documents.gp_files.0 songsterr_link=item.songsterr_link %}
+        {% elif documents.chordpro %}
+            {% include "my_library/viewers/chordpro_viewer.html" with letra=documents.chordpro.0 %}
         {% elif documents.audios %}
             <!-- Visor Audio -->
             {% include "my_library/viewers/audio_viewer.html" with audios=documents.audios %}

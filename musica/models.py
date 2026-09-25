@@ -2028,6 +2028,18 @@ class RecursoPage(AdjuntosMixin, Page):
             "exacto": False,
         }
 
+    def obtener_letra_con_acordes(self):
+        """El objeto al que apunta una sesión para enseñar la letra con acordes.
+
+        `None` si la canción no tiene ChordPro. Se crea al pedirlo (botón de
+        biblioteca, lista de elementos de una sesión) y no con una señal al
+        guardar, para que no nazcan filas de canciones que nadie usa.
+        """
+        if not (self.chordpro or "").strip():
+            return None
+        letra, _ = LetraConAcordes.objects.get_or_create(page=self)
+        return letra
+
     @cached_property
     def is_music_library_child(self):
         """Si esta ficha cuelga de la biblioteca musical.
@@ -2270,3 +2282,40 @@ class EnlaceExterno(models.Model):
         un caso especial en cada uno de esos sitios.
         """
         return self.titulo
+
+
+class LetraConAcordes(models.Model):
+    """La letra con acordes (ChordPro) de una canción, como material de sesión.
+
+    Las sesiones de clase y las bibliotecas personales apuntan a objetos con
+    clave primaria (`ClassSessionItem`, `LibraryItem`), y el ChordPro es un
+    campo de texto de `RecursoPage`, así que no había nada a lo que apuntar.
+    Esto es ese algo.
+
+    **El texto NO se copia aquí.** El visor lee siempre `page.chordpro`, que
+    sigue siendo la única fuente: corregir la letra en la canción la corrige
+    en todas las sesiones que ya la tienen.
+    """
+
+    page = models.OneToOneField(
+        "musica.RecursoPage",
+        on_delete=models.CASCADE,
+        related_name="letra_con_acordes",
+        verbose_name="Canción",
+    )
+
+    class Meta:
+        verbose_name = "Letra con acordes"
+        verbose_name_plural = "Letras con acordes"
+
+    def __str__(self):
+        return f"Letra con acordes — {self.page.title}"
+
+    @property
+    def title(self):
+        """Lo que el motor de libros y las sesiones piden a cualquier medio."""
+        return str(self)
+
+    @property
+    def chordpro(self):
+        return self.page.chordpro

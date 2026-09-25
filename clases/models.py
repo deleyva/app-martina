@@ -545,6 +545,8 @@ class GroupLibraryItem(models.Model):
             # Detectar PDFs
             elif filename.endswith(".pdf"):
                 return "Documento PDF"
+            elif filename.endswith((".gp", ".gp3", ".gp4", ".gp5", ".gpx")):
+                return "Tablatura"
             else:
                 return "Documento"
 
@@ -559,6 +561,7 @@ class GroupLibraryItem(models.Model):
             # lo que hace falta saber es a dónde te manda, no de qué clase es.
             "enlaceexterno": "Enlace externo",
             "recorte": "Recorte de PDF",
+            "letraconacordes": "Letra con acordes",
         }
         return mapping.get(model_name, model_name.title())
 
@@ -573,6 +576,8 @@ class GroupLibraryItem(models.Model):
                 return "🎵"
             elif filename.endswith(".pdf"):
                 return "📄"
+            elif filename.endswith((".gp", ".gp3", ".gp4", ".gp5", ".gpx")):
+                return "🎸"
 
         icons = {
             "scorepage": "🎼",
@@ -584,6 +589,7 @@ class GroupLibraryItem(models.Model):
             # lo abre en ventana con nombre, no lo incrusta.
             "enlaceexterno": "🔗",
             "recorte": "✂️",
+            "letraconacordes": "🎤",
         }
         return icons.get(model_name, "📁")
 
@@ -996,6 +1002,24 @@ class GroupLibraryItem(models.Model):
         document_ct = ContentType.objects.get_for_model(Document)
         image_ct = ContentType.objects.get_for_model(Image)
 
+        # --- 0) Letra con acordes ---
+        # El ChordPro es un campo de texto de la canción; `LetraConAcordes` es
+        # el objeto con pk al que puede apuntar un elemento de sesión.
+        letra = (
+            blogpage.obtener_letra_con_acordes()
+            if hasattr(blogpage, "obtener_letra_con_acordes")
+            else None
+        )
+        if letra:
+            elements.append({
+                "type": "chordpro",
+                "title": "Letra con acordes",
+                "object": letra,
+                "content_type_id": ContentType.objects.get_for_model(letra).id,
+                "tags": [],
+                "session_count": self.get_session_count_for_object(self.group, letra),
+            })
+
         # --- 1) Attachments StreamField ---
         # Reutilizar la caché de RecursoPage._parse_attachments() que ya
         # deserializa el StreamField una sola vez por instancia.
@@ -1379,6 +1403,8 @@ class ClassSessionItem(models.Model):
                 return "Audio"
             elif filename.endswith(".pdf"):
                 return "Documento PDF"
+            elif filename.endswith((".gp", ".gp3", ".gp4", ".gp5", ".gpx")):
+                return "Tablatura"
             else:
                 return "Documento"
 
@@ -1390,6 +1416,7 @@ class ClassSessionItem(models.Model):
             "embed": "Contenido Incrustado",
             "enlaceexterno": "Enlace externo",
             "recorte": "Recorte de PDF",
+            "letraconacordes": "Letra con acordes",
         }
         return mapping.get(model_name, model_name.title())
 
@@ -1403,6 +1430,8 @@ class ClassSessionItem(models.Model):
                 return "🎵"
             elif filename.endswith(".pdf"):
                 return "📄"
+            elif filename.endswith((".gp", ".gp3", ".gp4", ".gp5", ".gpx")):
+                return "🎸"
 
         icons = {
             "scorepage": "🎼",
@@ -1414,6 +1443,7 @@ class ClassSessionItem(models.Model):
             # lo abre en ventana con nombre, no lo incrusta.
             "enlaceexterno": "🔗",
             "recorte": "✂️",
+            "letraconacordes": "🎤",
         }
         return icons.get(model_name, "📁")
 

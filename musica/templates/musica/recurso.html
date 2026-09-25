@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load wagtailcore_tags wagtailimages_tags %}
+{% load static wagtailcore_tags wagtailimages_tags %}
 {% load cms_tags %}
 {% load library_tags %}
 
@@ -472,7 +472,11 @@
     que mantener. El origen va en un <script type="text/plain"> para que el
     navegador no interprete corchetes ni llaves.
     {% endcomment %}
-    {% if page.chordpro %}
+    {% comment %}
+    Solo con sesión iniciada: una letra completa es material con derechos, y el
+    artículo es público. Tampoco viaja en el `json_script` a un anónimo.
+    {% endcomment %}
+    {% if page.chordpro and user.is_authenticated %}
     <div id="chordpro" class="mb-12">
         <div class="flex items-center gap-2 mb-3 flex-wrap">
             <h2 class="text-xl font-bold mr-auto">🎤 Letra con acordes</h2>
@@ -482,6 +486,8 @@
                 <button type="button" id="cp-up" class="btn btn-sm join-item" title="Subir medio tono">+</button>
             </div>
             <button type="button" id="cp-reset" class="btn btn-sm btn-ghost">Reiniciar</button>
+            {# Añadir la letra a una biblioteca o, para profesores, a un grupo #}
+            {% library_button page.obtener_letra_con_acordes page %}
         </div>
         {# json_script escapa bien: un </script> dentro de la letra no rompe la pagina. #}
         {{ page.chordpro|json_script:"cp-source" }}
@@ -1007,75 +1013,6 @@
     });
     </script>
 
-    {# ChordSheetJS: renderiza la letra con acordes y transpone en cliente #}
-    {% if page.chordpro %}
-    <script src="https://cdn.jsdelivr.net/npm/chordsheetjs@16.2.2/lib/bundle.min.js"></script>
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        var sourceEl = document.getElementById('cp-source');
-        var outputEl = document.getElementById('cp-output');
-        var errorEl = document.getElementById('cp-error');
-        var stepsEl = document.getElementById('cp-steps');
-        if (!sourceEl || !outputEl) return;
-
-        if (typeof ChordSheetJS === 'undefined') {
-            errorEl.textContent = 'No se pudo cargar el renderizador de acordes.';
-            errorEl.style.display = 'block';
-            return;
-        }
-
-        // HtmlDivFormatter NO escapa la letra, y el resultado entra por innerHTML.
-        // Sin esto, un `<img src=x onerror=...>` escrito en el campo se ejecutaria
-        // para todo el que abra la pagina, y ademas la letra pierde el texto.
-        // Escapando antes de parsear, el formatter emite entidades e innerHTML las
-        // devuelve como texto literal, que es justo lo que se quiere ver.
-        function escaparHtml(texto) {
-            return texto
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;');
-        }
-
-        var song;
-        try {
-            song = new ChordSheetJS.ChordProParser().parse(escaparHtml(JSON.parse(sourceEl.textContent)));
-        } catch (e) {
-            console.error('ChordPro parse error:', e);
-            errorEl.textContent = 'La letra tiene un error de formato ChordPro: ' + e.message;
-            errorEl.style.display = 'block';
-            return;
-        }
-
-        var formatter = new ChordSheetJS.HtmlDivFormatter();
-        var steps = 0;
-
-        function render() {
-            var vista = song;
-            for (var i = 0; i < Math.abs(steps); i++) {
-                vista = steps > 0 ? vista.transposeUp() : vista.transposeDown();
-            }
-            outputEl.innerHTML = formatter.format(vista);
-            if (steps === 0) {
-                stepsEl.textContent = 'Tono original';
-            } else {
-                stepsEl.textContent = (steps > 0 ? '+' : '') + steps + (Math.abs(steps) === 1 ? ' semitono' : ' semitonos');
-            }
-        }
-
-        function mover(delta) {
-            // Mas de una octava arriba o abajo no aporta nada: vuelve al mismo sitio.
-            steps = Math.max(-11, Math.min(11, steps + delta));
-            render();
-        }
-
-        document.getElementById('cp-up').addEventListener('click', function() { mover(1); });
-        document.getElementById('cp-down').addEventListener('click', function() { mover(-1); });
-        document.getElementById('cp-reset').addEventListener('click', function() { steps = 0; render(); });
-
-        render();
-    });
-    </script>
-    {% endif %}
 
     {# alphaTab for Guitar Pro file rendering #}
     <script src="https://cdn.jsdelivr.net/npm/@coderline/alphatab@latest/dist/alphaTab.min.js"></script>
@@ -1143,6 +1080,57 @@
                 if (loadingDiv) loadingDiv.innerHTML = '<p class="text-xs text-error">Error loading Guitar Pro file</p>';
             });
         });
+    });
+    </script>
+    {% endif %}
+
+    {% comment %}
+    Fuera del `{% if page.attachments %}` de arriba a propósito: dentro, una
+    canción con letra pero sin adjuntos no cargaba el script y la letra no se
+    pintaba nunca (lo destapó `musica/test_letra_con_acordes.py`, 2026-09-25).
+    {% endcomment %}
+    {# Letra con acordes: el render y el transporte viven en static/js/src/chordpro.js #}
+    {% if page.chordpro and user.is_authenticated %}
+    <script src="{% static 'js/chordpro.js' %}"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var sourceEl = document.getElementById('cp-source');
+        var outputEl = document.getElementById('cp-output');
+        var errorEl = document.getElementById('cp-error');
+        var stepsEl = document.getElementById('cp-steps');
+        if (!sourceEl || !outputEl) return;
+
+        if (!window.ChordPro) {
+            errorEl.textContent = 'No se pudo cargar el renderizador de acordes.';
+            errorEl.style.display = 'block';
+            return;
+        }
+
+        var cancion;
+        try {
+            cancion = ChordPro.parsear(JSON.parse(sourceEl.textContent));
+        } catch (e) {
+            console.error(e);
+            errorEl.textContent = e.message;
+            errorEl.style.display = 'block';
+            return;
+        }
+
+        var steps = 0;
+        function render() {
+            outputEl.innerHTML = ChordPro.aHtml(cancion, steps);
+            stepsEl.textContent = ChordPro.etiquetaTono(steps);
+        }
+        function mover(delta) {
+            steps = ChordPro.acotar(steps + delta);
+            render();
+        }
+
+        document.getElementById('cp-up').addEventListener('click', function() { mover(1); });
+        document.getElementById('cp-down').addEventListener('click', function() { mover(-1); });
+        document.getElementById('cp-reset').addEventListener('click', function() { steps = 0; render(); });
+
+        render();
     });
     </script>
     {% endif %}

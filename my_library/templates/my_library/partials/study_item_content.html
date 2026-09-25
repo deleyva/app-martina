@@ -81,6 +81,11 @@ cambia con cada item, mientras que el flyout es estático.
         <div style="height: 100%; overflow: auto; background: #fff;">
             {% include "my_library/viewers/gp_viewer.html" with gp_file=documents.gp_files.0 songsterr_link=item.songsterr_link %}
         </div>
+    {% elif documents.chordpro %}
+        <!-- Letra con acordes: el mismo partial que el visor a pantalla completa -->
+        <div style="height: 100%; overflow: hidden;">
+            {% include "my_library/viewers/chordpro_viewer.html" with letra=documents.chordpro.0 %}
+        </div>
     {% elif documents.audios %}
         <!-- Audio Viewer -->
         <div style="display: flex; align-items: center; justify-content: center; height: 100%; background: #111; padding: 20px;">

@@ -212,6 +212,15 @@ def publicar(nombre, publicar_ya=False):
             payload[destino] = int(datos[campo])
     if datos.get("key_mode"):
         payload["key_mode"] = datos["key_mode"]
+    # Letra con acordes: `chordpro:` apunta a un fichero de texto ChordPro en tu
+    # disco. Un fichero y no una sección del borrador porque la sección inglesa
+    # se lee hasta el final y se tragaría cualquier sección puesta detrás. Solo
+    # la ve quien tiene sesión iniciada, y así sale en clase y en estudio.
+    if datos.get("chordpro"):
+        ruta_cho = Path(datos["chordpro"]).expanduser()
+        if not ruta_cho.is_file():
+            sys.exit(f"  No encuentro el ChordPro: {ruta_cho}")
+        payload["chordpro"] = ruta_cho.read_text(encoding="utf-8").strip()
     if datos.get("imagen"):
         payload["featured_image_id"] = subir_imagen(
             datos["imagen"], datos.get("imagen_titulo", datos["imagen"])

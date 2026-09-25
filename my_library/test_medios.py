@@ -96,3 +96,12 @@ def test_una_pagina_no_es_un_medio():
     documentos = medios.clasificar(object(), "scorepage")
 
     assert all(v == [] for v in documentos.values())
+
+
+def test_la_letra_con_acordes_tiene_cajon_propio():
+    """`LetraConAcordes` va a `chordpro`, no a ninguno de los visores de fichero."""
+    letra = object()
+    documentos = medios.clasificar(letra, "letraconacordes")
+
+    assert documentos["chordpro"] == [letra]
+    assert sum(len(v) for v in documentos.values()) == 1

@@ -13,6 +13,8 @@
     de antemano, cuando llega el partial la libreria ya existe.
     {% endcomment %}
     <script src="{% static 'vendor/alphatab/alphaTab.min.js' %}"></script>
+    {# La letra con acordes también entra por HTMX: mismo motivo que alphaTab. #}
+    <script src="{% static 'js/chordpro.js' %}"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -797,7 +799,15 @@
         .then(function(html) {
             container.innerHTML = html;
             // Re-execute scripts in the loaded content
-            var scripts = container.querySelectorAll('script');
+            // Solo los ejecutables: rehacer un bloque de datos (`json_script`)
+            // le quita `type` e `id` y el visor que lo lee se queda sin datos.
+            var scripts = Array.prototype.filter.call(
+                container.querySelectorAll('script'),
+                function(s) {
+                    var tipo = (s.getAttribute('type') || '').trim().toLowerCase();
+                    return !tipo || tipo === 'text/javascript' || tipo === 'module';
+                }
+            );
             scripts.forEach(function(oldScript) {
                 var newScript = document.createElement('script');
                 if (oldScript.src) {

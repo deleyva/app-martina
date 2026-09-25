@@ -320,6 +320,8 @@ class LibraryItem(models.Model):
             # Detectar PDFs
             elif filename.endswith(".pdf"):
                 return "Documento PDF"
+            elif filename.endswith((".gp", ".gp3", ".gp4", ".gp5", ".gpx")):
+                return "Tablatura"
             else:
                 return "Documento"
 
@@ -330,6 +332,7 @@ class LibraryItem(models.Model):
             "embed": "Contenido Incrustado",
             "externalresource": "Enlace Externo",
             "recorte": "Recorte de PDF",
+            "letraconacordes": "Letra con acordes",
         }
         return mapping.get(model_name, model_name.title())
 
@@ -344,6 +347,8 @@ class LibraryItem(models.Model):
                 return "🎵"
             elif filename.endswith(".pdf"):
                 return "📄"
+            elif filename.endswith((".gp", ".gp3", ".gp4", ".gp5", ".gpx")):
+                return "🎸"
 
         icons = {
             "scorepage": "🎼",
@@ -352,6 +357,7 @@ class LibraryItem(models.Model):
             "embed": "▶️",
             "externalresource": "🔗",
             "recorte": "✂️",
+            "letraconacordes": "🎤",
         }
         return icons.get(model_name, "📁")
 
