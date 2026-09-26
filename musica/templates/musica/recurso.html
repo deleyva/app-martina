@@ -1015,6 +1015,29 @@
         var gpContainers = document.querySelectorAll('[data-gp-url]');
         if (!gpContainers.length || typeof alphaTab === 'undefined') return;
 
+        // Colores según el tema. alphaTab pinta en negro por defecto y, con el
+        // tema oscuro, la tablatura quedaba gris oscuro sobre fondo oscuro.
+        // Se aplican al crear cada partitura y otra vez si alguien cambia de
+        // tema con la página abierta (atributo data-theme de <html>).
+        var COLORES = {
+            claro: { mainGlyphColor: '#000000', secondaryGlyphColor: '#00000064', scoreInfoColor: '#000000',
+                     staffLineColor: '#a5a5a5', barSeparatorColor: '#222211', barNumberColor: '#c80000' },
+            oscuro: { mainGlyphColor: '#e5e7eb', secondaryGlyphColor: '#e5e7eb80', scoreInfoColor: '#e5e7eb',
+                      staffLineColor: '#6b7280', barSeparatorColor: '#9ca3af', barNumberColor: '#f87171' }
+        };
+        function temaOscuro() { return document.documentElement.getAttribute('data-theme') === 'dark'; }
+        function coloresActuales() { return COLORES[temaOscuro() ? 'oscuro' : 'claro']; }
+        var apisTablatura = [];
+        new MutationObserver(function() {
+            var c = coloresActuales();
+            apisTablatura.forEach(function(api) {
+                var res = api.settings.display.resources;
+                Object.keys(c).forEach(function(k) { res[k] = alphaTab.model.Color.fromJson(c[k]); });
+                api.updateSettings();
+                api.render();
+            });
+        }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
         // Tamaño de la partitura, compartido con el visor de sesiones (misma
         // clave en este navegador). A más escala, menos compases por línea.
         var ESCALAS = [0.75, 1, 1.25, 1.5, 1.75, 2, 2.5];
@@ -1048,7 +1071,8 @@
                 display: {
                     layoutMode: alphaTab.LayoutMode.Page,
                     staveProfile: alphaTab.StaveProfile.Tab,
-                    scale: ESCALAS[escalaInicial]
+                    scale: ESCALAS[escalaInicial],
+                    resources: coloresActuales()
                 },
                 notation: {
                     elements: {
@@ -1064,6 +1088,7 @@
             };
 
             var api = new alphaTab.AlphaTabApi(contentDiv, settings);
+            apisTablatura.push(api);
 
             // Seguir al cursor solo mientras suena. alphaTab, al terminar cada
             // renderizado, coloca el cursor en el primer compás y, si el scroll está

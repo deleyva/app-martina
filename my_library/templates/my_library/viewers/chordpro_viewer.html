@@ -18,9 +18,12 @@ Cada instancia guarda su estado en su propio closure, porque el modo proyector
 y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
 {% endcomment %}
 <style>
-    .cpv { min-height: 100%; background: #fff; color: #111; padding: 64px 24px 96px; box-sizing: border-box; overflow: auto; height: 100%; }
-    .cpv-titulo { font: 600 1.1rem system-ui, sans-serif; color: #555; margin: 0 auto 1.5rem; max-width: 60rem; }
-    .cpv-salida { max-width: 60rem; margin: 0 auto; }
+    /* En la pizarra, todo el ancho: con 60rem de tope y letra grande, «follow
+       my lead» ya partía línea con sitio de sobra a los lados. Queda un margen
+       lateral pequeño y proporcional a la pantalla. */
+    .cpv { min-height: 100%; background: #fff; color: #111; padding: 56px 3vw 96px; box-sizing: border-box; overflow: auto; height: 100%; }
+    .cpv-titulo { font: 600 1.1rem system-ui, sans-serif; color: #555; margin: 0 0 1.25rem; }
+    .cpv-salida { margin: 0; }
     .cpv-salida .chord-sheet { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; line-height: 1.35; }
     .cpv-salida .paragraph { margin-bottom: 1.4em; }
     .cpv-salida .row { display: flex; flex-wrap: wrap; align-items: flex-end; }
@@ -35,10 +38,14 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
     .cpv-barra button[aria-pressed="true"] { background: #1d4ed8; border-color: #1d4ed8; }
     .cpv-barra .cpv-dato { min-width: 7.5em; text-align: center; }
     .cpv-barra .cpv-sep { width: 1px; height: 24px; background: #555; }
-    /* Imprimir: solo la letra, en el tono y tamaño que se ven. La barra y todo
-       lo que el visor tenga alrededor (cabecera, botones de la página) se
-       ocultan; el tamaño en pantalla se conserva tal cual. */
+    /* Imprimir: solo la letra, en el tono que se ve. La barra y todo lo que el
+       visor tenga alrededor se ocultan. Márgenes de página de verdad (antes
+       salía pegado al borde) y tamaño de papel fijo, sea cual sea el de la
+       pantalla: a 24 px la letra de Perfect ocupaba 7 páginas. */
+    @page { margin: 16mm 15mm; }
     @media print {
+        .cpv-salida { font-size: 11.5pt !important; }
+        .cpv-titulo { font-size: 13pt; color: #000; margin-bottom: 8pt; }
         body * { visibility: hidden !important; }
         .cpv, .cpv * { visibility: visible !important; }
         .cpv { position: absolute; left: 0; top: 0; width: 100%; height: auto !important;

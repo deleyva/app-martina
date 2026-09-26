@@ -75,6 +75,23 @@ function alteracionPara(cancion, pasos) {
   return MAYORES_CON_BEMOLES.has(mayor) ? "b" : "#";
 }
 
+// Cómo se escribe cada clase de altura en una tonalidad de bemoles o de
+// sostenidos. La grafía no se le deja a ChordSheetJS: forzándole "#" escribe
+// Do como Si# y Fa como Mi# (Sol +5 salía «B# Am E# G»), y sin forzar mezcla
+// (Sol −1 salía «Gb Ebm B Db» en vez de Fa# mayor). Con la tabla, las notas
+// naturales son siempre naturales.
+const GRAFIA = {
+  b: ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"],
+  "#": ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"],
+};
+
+function reescribir(nombre, alteracion) {
+  const tabla = GRAFIA[alteracion];
+  const nota = (raiz) => tabla[claseDeAltura(raiz)] ?? raiz;
+  return nombre.replace(/^([A-G][#b]?)(.*?)(?:\/([A-G][#b]?))?$/, (_, raiz, resto, bajo) =>
+    nota(raiz) + resto + (bajo ? "/" + nota(bajo) : ""));
+}
+
 // `normalizeChords: false` respeta la grafía del autor: sin ello «Dsus4» sale
 // como «Dsus».
 const FORMATO = { normalizeChords: false };
@@ -82,10 +99,12 @@ const FORMATO = { normalizeChords: false };
 // HTML de la canción transpuesta `semitonos` (positivo sube, negativo baja).
 function aHtml(cancion, semitonos) {
   const pasos = acotar(semitonos || 0);
-  const vista = pasos
-    ? cancion.transpose(pasos, { accidental: alteracionPara(cancion, pasos) })
-    : cancion;
-  return new HtmlDivFormatter(FORMATO).format(vista);
+  if (!pasos) return new HtmlDivFormatter(FORMATO).format(cancion);
+  const html = new HtmlDivFormatter(FORMATO).format(cancion.transpose(pasos));
+  const alteracion = alteracionPara(cancion, pasos);
+  if (!alteracion) return html;
+  // El texto del acorde ya viene escapado y sin etiquetas dentro del span.
+  return html.replace(/(class="chord">)([^<]+)(<)/g, (_, a, nombre, c) => a + reescribir(nombre, alteracion) + c);
 }
 
 function etiquetaTono(semitonos) {

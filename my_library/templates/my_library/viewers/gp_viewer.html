@@ -145,8 +145,7 @@ Recibe:
         <button type="button" id="gp-speed-up" class="gp-ctrl-btn">+</button>
         <span class="gp-ctrl-sep" aria-hidden="true"></span>
         <button type="button" id="gp-loop" class="gp-ctrl-btn" aria-pressed="false"
-                title="Repetir en bucle. Arrastra sobre la partitura para elegir los compases; sin selección, repite la canción entera">🔁 Bucle</button>
-        <button type="button" id="gp-loop-clear" class="gp-ctrl-btn" title="Quitar la selección de compases" disabled>✕</button>
+                title="Repetir unos compases: pulsa, toca el primer compás y luego el último. Otra vez para quitarlo">🔁 Bucle</button>
         <span class="gp-ctrl-sep" aria-hidden="true"></span>
         <button type="button" id="gp-zoom-out" class="gp-ctrl-btn" title="Notas más pequeñas">A−</button>
         <span id="gp-zoom-label" title="Tamaño de la partitura">100 %</span>
@@ -299,43 +298,76 @@ ademas de los hasheados, asi que la deduccion funciona sola.
         api.updateSettings();
         api.render();
     }
-    // Bucles, como en Songsterr. La selección la hace alphaTab: arrastrar sobre
-    // la partitura marca un tramo (`enableUserInteraction`) y lo convierte en
-    // `playbackRange` al soltar. Aquí solo se enciende la repetición y se borra
-    // el tramo.
+    // Bucles, como en Songsterr: 🔁, tocar el primer compás, tocar el último y
+    // suena en bucle; otro 🔁 lo quita. Por toques y no por arrastre: en la
+    // pizarra y en la tablet arrastrar el dedo desplaza la página en vez de
+    // seleccionar, y alphaTab solo escucha eventos de ratón (un toque sí los
+    // genera; un arrastre, no). Si ya hay un tramo arrastrado con el ratón,
+    // 🔁 lo repite directamente.
+    //
+    // Gotcha de alphaTab 1.8.4: un clic suelto sobre la partitura pasa por
+    // `applyPlaybackRangeFromHighlight` con inicio = fin y deja el tramo a
+    // null. Por eso el tramo se vuelve a aplicar DESPUÉS, en beatMouseUp, que
+    // alphaTab dispara tras su propio manejo.
     var loopBtn = document.getElementById('gp-loop');
-    var loopClearBtn = document.getElementById('gp-loop-clear');
-    loopBtn.addEventListener('click', function() {
-        api.isLooping = !api.isLooping;
-        loopBtn.setAttribute('aria-pressed', api.isLooping ? 'true' : 'false');
-    });
-    loopClearBtn.addEventListener('click', function() {
+    var modoBucle = 'off';            // off | inicio | fin | activo
+    var compasInicio = null;
+
+    function textoBucle(texto, pulsado) {
+        loopBtn.textContent = texto;
+        loopBtn.setAttribute('aria-pressed', pulsado ? 'true' : 'false');
+    }
+    function quitarBucle() {
+        modoBucle = 'off';
+        compasInicio = null;
+        api.isLooping = false;
         api.playbackRange = null;
         api.clearPlaybackRangeHighlight();
-        loopClearBtn.disabled = true;
-    });
-    api.playbackRangeChanged.on(function(e) {
-        loopClearBtn.disabled = !(e && e.playbackRange);
+        textoBucle('🔁 Bucle', false);
+    }
+    function primerGolpe(bar) { return bar.voices[0].beats[0]; }
+    function ultimoGolpe(bar) { var b = bar.voices[0].beats; return b[b.length - 1]; }
+    function activarBucle(barA, barB) {
+        var a = barA.index <= barB.index ? barA : barB;
+        var b = barA.index <= barB.index ? barB : barA;
+        api.highlightPlaybackRange(primerGolpe(a), ultimoGolpe(b));
+        api.applyPlaybackRangeFromHighlight();
+        api.isLooping = true;
+        modoBucle = 'activo';
+        textoBucle(a === b ? '🔁 Compás ' + (a.index + 1) : '🔁 Compases ' + (a.index + 1) + '–' + (b.index + 1), true);
+        if (api.playerState !== 1) api.play();
+    }
+
+    loopBtn.addEventListener('click', function() {
+        if (modoBucle !== 'off') { quitarBucle(); return; }
+        if (api.playbackRange) {
+            // Tramo ya marcado arrastrando con el ratón.
+            api.isLooping = true;
+            modoBucle = 'activo';
+            textoBucle('🔁 Tramo marcado', true);
+            if (api.playerState !== 1) api.play();
+            return;
+        }
+        modoBucle = 'inicio';
+        textoBucle('Toca el primer compás', true);
     });
 
-    // Transporte real (trastes, notas y sonido): static/js/transportar_tablatura.js
-    var tono = 0;
-    var tonoLabel = document.getElementById('gp-tono-label');
-    function cambiarTono(delta) {
-        if (!window.TransportarTablatura || !api.score) return;
-        tono = Math.max(-11, Math.min(11, tono + delta));
-        var fallos = TransportarTablatura.transportar(api, tono);
-        tonoLabel.textContent = TransportarTablatura.etiqueta(tono);
-        tonoLabel.title = TransportarTablatura.aviso(fallos) || 'Tono';
-        playPauseBtn.textContent = '▶ Play';
-        playPauseBtn.classList.remove('active');
-    }
-    document.getElementById('gp-tono-bajar').addEventListener('click', function() { cambiarTono(-1); });
-    document.getElementById('gp-tono-subir').addEventListener('click', function() { cambiarTono(1); });
-    // alphaTab abre una ventana propia preparada para A4 con la partitura
-    // tal como está (tono incluido). Necesita el clic del usuario: si no, el
-    // navegador bloquea la ventana.
-    document.getElementById('gp-imprimir').addEventListener('click', function() { api.print(); });
+    api.beatMouseUp.on(function(beat) {
+        if (!beat) return;
+        var bar = beat.voice.bar;
+        if (modoBucle === 'inicio') {
+            compasInicio = bar;
+            api.highlightPlaybackRange(primerGolpe(bar), ultimoGolpe(bar));
+            modoBucle = 'fin';
+            textoBucle('Toca el último compás', true);
+        } else if (modoBucle === 'fin') {
+            activarBucle(compasInicio, bar);
+        } else if (modoBucle === 'activo' && !api.playbackRange) {
+            // Un clic suelto con el bucle puesto borra el tramo (gotcha de
+            // arriba): se sale del bucle en vez de repetir la canción entera.
+            quitarBucle();
+        }
+    });
 
     zoomOutBtn.addEventListener('click', function() { aplicarEscala(-1); });
     zoomInBtn.addEventListener('click', function() { aplicarEscala(1); });
