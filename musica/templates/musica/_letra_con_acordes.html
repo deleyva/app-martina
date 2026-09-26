@@ -27,7 +27,10 @@ desplazamiento automático.
                 <button type="button" id="cp-mayor" class="btn btn-sm join-item" title="Letra más grande">A+</button>
             </div>
             <a href="{% url 'my_library:view_content_object' letra|content_type_id letra.pk %}?back={{ request.path|urlencode }}"
-               class="btn btn-sm btn-ghost" title="Solo la letra, a pantalla completa">⛶ Pantalla completa</a>
+               id="cp-completa" class="btn btn-sm btn-ghost" title="Solo la letra, a pantalla completa">⛶ Pantalla completa</a>
+            <button type="button" id="cp-imprimir" class="btn btn-sm btn-ghost"
+                    data-url="{% url 'my_library:view_content_object' letra|content_type_id letra.pk %}"
+                    title="Imprimir la letra en el tono elegido">🖨</button>
             {# Añadir la letra a una biblioteca o, para profesores, a un grupo #}
             {% library_button letra page %}
         </div>

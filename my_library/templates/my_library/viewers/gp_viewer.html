@@ -114,6 +114,7 @@ Recibe:
     .gp-ctrl-sep { width: 1px; height: 22px; background: #555; margin: 0 4px; }
     #gp-loop[aria-pressed="true"] { background: #1d4ed8; border-color: #1d4ed8; }
     .gp-ctrl-btn:disabled { opacity: .4; cursor: default; }
+    #gp-tono-label { min-width: 7em; text-align: center; font-size: 13px; }
     #gp-zoom-label { min-width: 3.5em; text-align: center; font-size: 13px; }
     #gp-speed-label {
         font-size: 12px;
@@ -150,6 +151,11 @@ Recibe:
         <button type="button" id="gp-zoom-out" class="gp-ctrl-btn" title="Notas más pequeñas">A−</button>
         <span id="gp-zoom-label" title="Tamaño de la partitura">100 %</span>
         <button type="button" id="gp-zoom-in" class="gp-ctrl-btn" title="Notas más grandes: menos compases por línea">A+</button>
+        <span class="gp-ctrl-sep" aria-hidden="true"></span>
+        <button type="button" id="gp-tono-bajar" class="gp-ctrl-btn" title="Bajar medio tono: cambia trastes, notas y sonido">♭</button>
+        <span id="gp-tono-label" title="Tono">Tono original</span>
+        <button type="button" id="gp-tono-subir" class="gp-ctrl-btn" title="Subir medio tono: cambia trastes, notas y sonido">♯</button>
+        <button type="button" id="gp-imprimir" class="gp-ctrl-btn" title="Imprimir la partitura (en el tono elegido)">🖨</button>
         <select id="gp-track-select" class="gp-ctrl-select"></select>
     </div>
 </div>
@@ -166,6 +172,7 @@ junto al script, y whitenoise conserva ahi los ficheros sin hash
 ademas de los hasheados, asi que la deduccion funciona sola.
 {% endcomment %}
 <script src="{% static 'vendor/alphatab/alphaTab.min.js' %}"></script>
+<script src="{% static 'js/transportar_tablatura.js' %}"></script>
 <script>
 (function() {
     var gpUrl = "{{ gp_file.file.url }}";
@@ -310,6 +317,25 @@ ademas de los hasheados, asi que la deduccion funciona sola.
     api.playbackRangeChanged.on(function(e) {
         loopClearBtn.disabled = !(e && e.playbackRange);
     });
+
+    // Transporte real (trastes, notas y sonido): static/js/transportar_tablatura.js
+    var tono = 0;
+    var tonoLabel = document.getElementById('gp-tono-label');
+    function cambiarTono(delta) {
+        if (!window.TransportarTablatura || !api.score) return;
+        tono = Math.max(-11, Math.min(11, tono + delta));
+        var fallos = TransportarTablatura.transportar(api, tono);
+        tonoLabel.textContent = TransportarTablatura.etiqueta(tono);
+        tonoLabel.title = TransportarTablatura.aviso(fallos) || 'Tono';
+        playPauseBtn.textContent = '▶ Play';
+        playPauseBtn.classList.remove('active');
+    }
+    document.getElementById('gp-tono-bajar').addEventListener('click', function() { cambiarTono(-1); });
+    document.getElementById('gp-tono-subir').addEventListener('click', function() { cambiarTono(1); });
+    // alphaTab abre una ventana propia preparada para A4 con la partitura
+    // tal como está (tono incluido). Necesita el clic del usuario: si no, el
+    // navegador bloquea la ventana.
+    document.getElementById('gp-imprimir').addEventListener('click', function() { api.print(); });
 
     zoomOutBtn.addEventListener('click', function() { aplicarEscala(-1); });
     zoomInBtn.addEventListener('click', function() { aplicarEscala(1); });

@@ -709,6 +709,12 @@
                                 <span class="btn btn-ghost btn-sm join-item no-animation pointer-events-none" data-zoom-label>100 %</span>
                                 <button type="button" class="btn btn-ghost btn-sm join-item" data-zoom="1" title="Notas más grandes: menos compases por línea">A+</button>
                             </div>
+                            <div class="join" data-gp-tono="alphatab-{{ forloop.counter }}">
+                                <button type="button" class="btn btn-ghost btn-sm join-item" data-tono="-1" title="Bajar medio tono: cambia trastes, notas y sonido">♭</button>
+                                <span class="btn btn-ghost btn-sm join-item no-animation pointer-events-none" data-tono-label>Tono original</span>
+                                <button type="button" class="btn btn-ghost btn-sm join-item" data-tono="1" title="Subir medio tono: cambia trastes, notas y sonido">♯</button>
+                            </div>
+                            <button type="button" class="btn btn-ghost btn-sm" data-gp-imprimir="alphatab-{{ forloop.counter }}" title="Imprimir la partitura (en el tono elegido)">🖨</button>
                             <a href="{% url 'my_library:view_content_object' block.value.pdf_file|content_type_id block.value.pdf_file.pk %}?back={{ request.path|urlencode }}" class="btn btn-ghost btn-sm" title="Open viewer">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
@@ -1003,6 +1009,7 @@
 
     {# alphaTab for Guitar Pro file rendering #}
     <script src="https://cdn.jsdelivr.net/npm/@coderline/alphatab@latest/dist/alphaTab.min.js"></script>
+    <script src="{% static 'js/transportar_tablatura.js' %}"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         var gpContainers = document.querySelectorAll('[data-gp-url]');
@@ -1086,6 +1093,22 @@
             api.renderStarted.on(function() {
                 if (loadingDiv) loadingDiv.style.display = 'none';
             });
+
+            var tonoGrupo = document.querySelector('[data-gp-tono="' + wrap.id + '"]');
+            if (tonoGrupo) {
+                var tono = 0;
+                var tonoEtiqueta = tonoGrupo.querySelector('[data-tono-label]');
+                tonoGrupo.addEventListener('click', function(e) {
+                    var boton = e.target.closest('[data-tono]');
+                    if (!boton || !window.TransportarTablatura || !api.score) return;
+                    tono = Math.max(-11, Math.min(11, tono + Number(boton.getAttribute('data-tono'))));
+                    var fallos = TransportarTablatura.transportar(api, tono);
+                    tonoEtiqueta.textContent = TransportarTablatura.etiqueta(tono);
+                    tonoEtiqueta.title = TransportarTablatura.aviso(fallos) || '';
+                });
+            }
+            var imprimir = document.querySelector('[data-gp-imprimir="' + wrap.id + '"]');
+            if (imprimir) imprimir.addEventListener('click', function() { api.print(); });
 
             var zoom = document.querySelector('[data-gp-zoom="' + wrap.id + '"]');
             if (zoom) {
@@ -1173,6 +1196,21 @@
         }
         document.getElementById('cp-menor').addEventListener('click', function() { redimensionar(-2); });
         document.getElementById('cp-mayor').addEventListener('click', function() { redimensionar(2); });
+
+        // Pantalla completa e imprimir llevan el tono que se esté viendo.
+        var completa = document.getElementById('cp-completa');
+        var baseCompleta = completa ? completa.getAttribute('href') : '';
+        function conTono(url) {
+            return url + (url.indexOf('?') >= 0 ? '&' : '?') + 'tono=' + steps;
+        }
+        function actualizarEnlaces() { if (completa) completa.setAttribute('href', conTono(baseCompleta)); }
+        document.getElementById('cp-up').addEventListener('click', actualizarEnlaces);
+        document.getElementById('cp-down').addEventListener('click', actualizarEnlaces);
+        document.getElementById('cp-reset').addEventListener('click', actualizarEnlaces);
+        var imprimirLetra = document.getElementById('cp-imprimir');
+        if (imprimirLetra) imprimirLetra.addEventListener('click', function() {
+            window.open(conTono(imprimirLetra.getAttribute('data-url')) + '&imprimir=1', '_blank');
+        });
 
         render();
     });

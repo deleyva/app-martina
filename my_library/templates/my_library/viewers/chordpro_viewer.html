@@ -35,6 +35,18 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
     .cpv-barra button[aria-pressed="true"] { background: #1d4ed8; border-color: #1d4ed8; }
     .cpv-barra .cpv-dato { min-width: 7.5em; text-align: center; }
     .cpv-barra .cpv-sep { width: 1px; height: 24px; background: #555; }
+    /* Imprimir: solo la letra, en el tono y tamaño que se ven. La barra y todo
+       lo que el visor tenga alrededor (cabecera, botones de la página) se
+       ocultan; el tamaño en pantalla se conserva tal cual. */
+    @media print {
+        body * { visibility: hidden !important; }
+        .cpv, .cpv * { visibility: visible !important; }
+        .cpv { position: absolute; left: 0; top: 0; width: 100%; height: auto !important;
+               overflow: visible !important; padding: 0 !important; }
+        .cpv-salida .chord { color: #000 !important; }
+        .cpv-salida .paragraph { break-inside: avoid; }
+        [data-chordpro-barra] { display: none !important; }
+    }
     .cpv-barra select { background: #333; color: #fff; border: 1px solid #555; border-radius: 6px; padding: 5px; font: inherit; }
 </style>
 
@@ -59,6 +71,8 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
     <span class="cpv-sep"></span>
     <button type="button" data-accion="menor" title="Letra más pequeña (&lt;)">A−</button>
     <button type="button" data-accion="mayor" title="Letra más grande (&gt;)">A+</button>
+    <span class="cpv-sep"></span>
+    <button type="button" data-accion="imprimir" title="Imprimir la letra en este tono y tamaño">🖨 Imprimir</button>
     <span class="cpv-sep"></span>
     <button type="button" data-accion="desplazar" aria-pressed="false" title="Desplazamiento automático (espacio)">▶ Desplazar</button>
     <select data-velocidad title="Velocidad del desplazamiento">
@@ -192,6 +206,7 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
         else if (accion === 'mayor') redimensionar(2);
         else if (accion === 'menor') redimensionar(-2);
         else if (accion === 'desplazar') alternarDesplazamiento();
+        else if (accion === 'imprimir') { pararDesplazamiento(); window.print(); }
     });
 
     function arrancar() {
@@ -203,8 +218,12 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
             mostrarError(e.message);
             return;
         }
+        var params = new URLSearchParams(location.search);
+        var tonoInicial = parseInt(params.get('tono'), 10);
+        if (tonoInicial) semitonos = ChordPro.acotar(tonoInicial);
         pintar();
         document.addEventListener('keydown', teclado);
+        if (params.get('imprimir') === '1') setTimeout(function () { window.print(); }, 300);
     }
 
     // Donde el visor entra por HTMX o por el modo proyector, un <script src>
