@@ -4154,7 +4154,7 @@ Las plantillas del CMS son para proyectar: A5 con cabecera y número de página 
 
 ---
 
-## Fase 47 — Diagramas de acordes sobre la letra (2026-09-26) · HECHA EN LOCAL, PENDIENTE DE DESPLIEGUE
+## Fase 47 — Diagramas de acordes sobre la letra (2026-09-26) · DESPLEGADA Y VERIFICADA EN PRODUCCIÓN (`c95636d`)
 
 > «Me gustaría poder mostrar esos acordes arriba, como hace Ultimate Guitar, en patrones elegibles entre ukelele, piano y guitarra. ¿Se podrían además editar qué disposición me gustaría que tuviera esos acordes en cada canción?» (Jesús, 2026-09-26)
 
@@ -4183,4 +4183,4 @@ Las plantillas del CMS son para proyectar: A5 con cabecera y número de página 
 - [x] **C268 — Una `{define}` del `.cho` manda sobre la base de datos**, por instrumento. *Probe: `{define-ukelele: G … 0 2 3 2}` y `{define-piano: C keys 0 4 7 12}` dibujados tal cual.*
 - [x] **C269 — El instrumento se recuerda en el navegador**, compartido por el artículo y la pantalla completa; los diagramas crecen con A+/A−. *Probe: elegido en la pantalla completa, el artículo abre con él.*
 - [ ] **C270** `[DEFERRED-VERIFY]` — Impresos con la letra (van en la tira, con `zoom 0.85` en papel): mismo motivo que C265.
-- [ ] **C271** — Desplegado y comprobado en producción.
+- [x] **C271 — Desplegado y comprobado en producción.** *Probe: Chrome con la sesión de Jesús, letra de Perfect en pantalla completa: 6 de 6 diagramas en guitarra, ukelele y piano; con +5 el ukelele dibuja C 0003, Am 2000, F 2010, G 0232.*
