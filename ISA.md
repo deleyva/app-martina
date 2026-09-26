@@ -4187,11 +4187,11 @@ Las plantillas del CMS son para proyectar: A5 con cabecera y número de página 
 
 ---
 
-## Fase 48 — Editar la letra desde la página y los visores, y el visor de estudio como el de clase (2026-09-26) · HECHA EN LOCAL, PENDIENTE DE DESPLIEGUE
+## Fase 48 — Editar la letra desde la página y los visores, y el visor de estudio como el de clase (2026-09-26) · DESPLEGADA Y VERIFICADA EN PRODUCCIÓN
 
 > «¿Podrías poner otro botón flotante para editar un ChordPro cuando se esté viendo tanto en la página de canción como en el viewer de sesión? También me gustaría que el viewer de "para estudiar" y el de "sesión" se parecieran más. Quita lo que no tenga sentido para una sesión de estudio personal, pero hereda el que usó en sesiones.» (Jesús)
 
 - [x] **C272 — ✎ Editar la letra** en el artículo (flotante, también sin letra todavía) y en el visor (carril izquierdo a 204 px, libre en clase y en estudio). Editor con vista previa en directo que no deja guardar un ChordPro ilegible; guarda por `musica:guardar_chordpro` con el permiso de Wagtail sobre la página y publica si puede publicar. *Probe: Chrome local, cambio guardado y repintado sin recargar, revisión del usuario 84 publicada; `GuardarChordProTest` (403 sin permiso y anónimo, 400 con datos malos, botón solo a quien puede editar).*
 - [x] **C273 — El editor no dispara las teclas del visor.** *Probe: `+` en el editor no transporta; flechas y M no cambian de elemento ni abren el menú en el proyector; Esc cierra solo el editor.*
 - [x] **C274 — Visor de estudio con los carriles de clase:** ✓ valorar, ✕ descartar, ← → a la derecha; contexto y encajar a la izquierda; menú con Salir, la lista de elementos (tachados los valorados) y notas, secciones y etiquetas. Fuera nota de voz, plantillas, «a casa» y finalizar clase. *Probe: Chrome local, ✓ abre la valoración, al valorar pasa al siguiente y tacha el anterior; límites de ← → correctos.*
-- [ ] **C275** — Desplegado y comprobado en producción.
+- [x] **C275 — Desplegado y comprobado en producción.** *Probe: Chrome con la sesión de Jesús: el ✎ de Perfect abre el editor con la letra (62 líneas, 174 acordes en la previa) y Esc lo cierra sin guardar; el visor de estudio tiene los carriles y, con la sesión vacía, solo el menú (arreglo desplegado aparte: los carriles salían alrededor de «No hay items para estudiar»).*
