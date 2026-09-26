@@ -466,35 +466,7 @@
     {% endif %}
     {% endwith %}
 
-    {% comment %}
-    Letra con acordes (ChordPro). El texto se guarda SIN transponer; ChordSheetJS
-    transpone en el navegador, asi que lo que se ve es una vista, no otro dato
-    que mantener. El origen va en un <script type="text/plain"> para que el
-    navegador no interprete corchetes ni llaves.
-    {% endcomment %}
-    {% comment %}
-    Solo con sesión iniciada: una letra completa es material con derechos, y el
-    artículo es público. Tampoco viaja en el `json_script` a un anónimo.
-    {% endcomment %}
-    {% if page.chordpro and user.is_authenticated %}
-    <div id="chordpro" class="mb-12">
-        <div class="flex items-center gap-2 mb-3 flex-wrap">
-            <h2 class="text-xl font-bold mr-auto">🎤 Letra con acordes</h2>
-            <div class="join">
-                <button type="button" id="cp-down" class="btn btn-sm join-item" title="Bajar medio tono">−</button>
-                <span id="cp-steps" class="btn btn-sm join-item no-animation pointer-events-none">Tono original</span>
-                <button type="button" id="cp-up" class="btn btn-sm join-item" title="Subir medio tono">+</button>
-            </div>
-            <button type="button" id="cp-reset" class="btn btn-sm btn-ghost">Reiniciar</button>
-            {# Añadir la letra a una biblioteca o, para profesores, a un grupo #}
-            {% library_button page.obtener_letra_con_acordes page %}
-        </div>
-        {# json_script escapa bien: un </script> dentro de la letra no rompe la pagina. #}
-        {{ page.chordpro|json_script:"cp-source" }}
-        <div id="cp-output" class="chordpro-sheet"></div>
-        <p id="cp-error" class="text-sm text-error" style="display:none;"></p>
-    </div>
-    {% endif %}
+    {# La letra con acordes vive en Resources: musica/_letra_con_acordes.html #}
 
     {% comment %}
     Material con licencia que vive fuera (Blink Learning). Va ANTES del cuerpo
@@ -684,10 +656,19 @@
     {# Tag autocomplete JS (shared with /resources) #}
     {% include "cms/_tag_autocomplete.html" %}
 
+    {# Sin adjuntos, la letra con acordes abre su propia sección Resources #}
+    {% if not page.attachments and page.chordpro and user.is_authenticated %}
+    <div class="mt-8 mb-8">
+        <h2 class="text-xl font-bold mb-4">Resources</h2>
+        {% include "musica/_letra_con_acordes.html" %}
+    </div>
+    {% endif %}
+
     {# Attachment cards (PDFs, audios, images) - same style as ScorePage #}
     {% if page.attachments %}
     <div class="mt-8 mb-8">
         <h2 class="text-xl font-bold mb-4">Resources</h2>
+        {% include "musica/_letra_con_acordes.html" %}
         <div class="attachment-grid">
             {% for block in page.attachments %}
                 {% if block.block_type == 'pdf_score' and block.value.pdf_file %}
@@ -1184,6 +1165,14 @@
         document.getElementById('cp-up').addEventListener('click', function() { mover(1); });
         document.getElementById('cp-down').addEventListener('click', function() { mover(-1); });
         document.getElementById('cp-reset').addEventListener('click', function() { steps = 0; render(); });
+
+        var tamano = 16;
+        function redimensionar(delta) {
+            tamano = Math.max(12, Math.min(40, tamano + delta));
+            outputEl.style.fontSize = tamano + 'px';
+        }
+        document.getElementById('cp-menor').addEventListener('click', function() { redimensionar(-2); });
+        document.getElementById('cp-mayor').addEventListener('click', function() { redimensionar(2); });
 
         render();
     });

@@ -1,7 +1,48 @@
 {% load wagtailimages_tags library_tags %}
 {# Annotation Panel — staff-only right sidebar for editing embed/image names and tags #}
 
-<aside class="annotation-panel hidden xl:block w-72 shrink-0 self-start">
+<style>
+    /* Por debajo de xl (tablet y móvil) el panel no ocupa columna: se abre como
+       cajón desde la derecha con el botón flotante, igual que el TOC a la
+       izquierda (cms/_toc_sidebar.html). */
+    .annotation-btn {
+        position: fixed; bottom: 5.5rem; right: 1.5rem; z-index: 40;
+        width: 3rem; height: 3rem; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); cursor: pointer;
+        transition: transform 0.2s ease;
+    }
+    .annotation-btn:hover { transform: scale(1.1); }
+    .annotation-overlay {
+        position: fixed; inset: 0; z-index: 45; background: rgba(0, 0, 0, 0.4);
+        opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+    .annotation-overlay.open { opacity: 1; visibility: visible; }
+    @media (max-width: 1279.98px) {
+        .annotation-panel.open {
+            display: block !important;
+            position: fixed; top: 0; right: 0; bottom: 0; z-index: 50;
+            width: 20rem; max-width: 85vw; overflow-y: auto; padding: 1.5rem;
+            /* La columna de escritorio le fija alto y tope; como cajón ocupa
+               la pantalla entera, de arriba abajo. */
+            height: 100vh !important; height: 100dvh !important; max-height: none !important;
+        }
+    }
+    @media (min-width: 1280px) {
+        .annotation-btn, .annotation-overlay { display: none !important; }
+    }
+</style>
+
+<button type="button" id="annotation-btn" class="annotation-btn bg-base-100 border border-base-300 text-base-content"
+        aria-label="Abrir anotaciones" aria-controls="annotation-panel" aria-expanded="false" title="Anotaciones">
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+        <line x1="15" y1="4" x2="15" y2="20"></line>
+    </svg>
+</button>
+<div id="annotation-overlay" class="annotation-overlay"></div>
+
+<aside id="annotation-panel" class="annotation-panel hidden xl:block w-72 shrink-0 self-start bg-base-100 xl:bg-transparent">
     <div class="text-xs font-semibold uppercase tracking-wide opacity-60 mb-3">Anotaciones</div>
 
     {% for embed_item in page.get_embeds %}
@@ -68,3 +109,29 @@
     <div class="text-xs opacity-50 text-center py-4">Sin embeds ni imágenes</div>
     {% endif %}
 </aside>
+
+<script>
+(function() {
+    var btn = document.getElementById('annotation-btn');
+    var panel = document.getElementById('annotation-panel');
+    var overlay = document.getElementById('annotation-overlay');
+    if (!btn || !panel || !overlay) return;
+    function abrir(si) {
+        panel.classList.toggle('open', si);
+        overlay.classList.toggle('open', si);
+        btn.setAttribute('aria-expanded', si ? 'true' : 'false');
+    }
+    btn.addEventListener('click', function() { abrir(!panel.classList.contains('open')); });
+    overlay.addEventListener('click', function() { abrir(false); });
+    // Al elegir una anotación la página baja hasta su vídeo o imagen: el cajón
+    // se aparta para que se vea. Los clics en «+ tags» no cuentan.
+    panel.addEventListener('click', function(e) {
+        if (!panel.classList.contains('open')) return;
+        if (e.target.closest('button, a, input, form')) return;
+        if (e.target.closest('.annotation-item')) abrir(false);
+    });
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && panel.classList.contains('open')) abrir(false);
+    });
+})();
+</script>

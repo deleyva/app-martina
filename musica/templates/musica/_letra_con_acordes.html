@@ -1,0 +1,41 @@
+{% load library_tags %}
+{% comment %}
+Letra con acordes (ChordPro) dentro de la sección Resources del artículo.
+
+Solo con sesión iniciada: una letra completa es material con derechos, y el
+artículo es público. Tampoco viaja en el `json_script` a un anónimo.
+
+El texto se guarda SIN transponer; `static/js/src/chordpro.js` transpone en el
+navegador. «Pantalla completa» abre el visor de sesiones
+(`my_library/viewers/chordpro_viewer.html`), que exige sesión y trae además el
+desplazamiento automático.
+{% endcomment %}
+{% if page.chordpro and user.is_authenticated %}
+{% with letra=page.obtener_letra_con_acordes %}
+<div id="chordpro" class="card bg-base-100 shadow-xl mb-6">
+    <div class="card-body p-4">
+        <div class="flex items-center gap-2 mb-3 flex-wrap">
+            <h3 class="card-title text-base mr-auto">🎤 Letra con acordes</h3>
+            <div class="join" title="Tono">
+                <button type="button" id="cp-down" class="btn btn-sm join-item" title="Bajar medio tono">−</button>
+                <span id="cp-steps" class="btn btn-sm join-item no-animation pointer-events-none">Tono original</span>
+                <button type="button" id="cp-up" class="btn btn-sm join-item" title="Subir medio tono">+</button>
+            </div>
+            <button type="button" id="cp-reset" class="btn btn-sm btn-ghost">Reiniciar</button>
+            <div class="join" title="Tamaño de la letra">
+                <button type="button" id="cp-menor" class="btn btn-sm join-item" title="Letra más pequeña">A−</button>
+                <button type="button" id="cp-mayor" class="btn btn-sm join-item" title="Letra más grande">A+</button>
+            </div>
+            <a href="{% url 'my_library:view_content_object' letra|content_type_id letra.pk %}?back={{ request.path|urlencode }}"
+               class="btn btn-sm btn-ghost" title="Solo la letra, a pantalla completa">⛶ Pantalla completa</a>
+            {# Añadir la letra a una biblioteca o, para profesores, a un grupo #}
+            {% library_button letra page %}
+        </div>
+        {# json_script escapa bien: un </script> dentro de la letra no rompe la pagina. #}
+        {{ page.chordpro|json_script:"cp-source" }}
+        <div id="cp-output" class="chordpro-sheet" style="font-size: 16px;"></div>
+        <p id="cp-error" class="text-sm text-error" style="display:none;"></p>
+    </div>
+</div>
+{% endwith %}
+{% endif %}

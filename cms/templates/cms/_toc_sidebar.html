@@ -77,7 +77,7 @@
         transform: scale(1.1);
     }
 
-    @media (min-width: 1024px) {
+    @media (min-width: 1280px) {
         .toc-mobile-btn {
             display: none;
         }
@@ -141,16 +141,16 @@
     }
 </style>
 
-<!-- Desktop TOC sidebar (hidden on mobile, shown lg+) -->
-<aside id="toc-desktop" class="toc-sidebar hidden lg:block w-56 shrink-0 self-start" aria-label="Tabla de contenidos">
+<!-- TOC fijo solo en escritorio (xl, 1280 px): en tablet, botón y cajón -->
+<aside id="toc-desktop" class="toc-sidebar hidden xl:block w-56 shrink-0 self-start" aria-label="Tabla de contenidos">
     <h2 class="text-xs font-bold uppercase tracking-widest mb-3 opacity-50">Contenidos</h2>
     <nav>
         <ul id="toc-list-desktop" class="toc-list"></ul>
     </nav>
 </aside>
 
-<!-- Mobile TOC button (shown on small screens, hidden lg+) -->
-<button id="toc-mobile-btn" class="toc-mobile-btn lg:hidden bg-base-100 border border-base-300 text-base-content" aria-label="Abrir tabla de contenidos" style="display:none;">
+<!-- Botón del TOC: móvil y tablet (oculto desde xl) -->
+<button id="toc-mobile-btn" class="toc-mobile-btn xl:hidden bg-base-100 border border-base-300 text-base-content" aria-label="Abrir tabla de contenidos" style="display:none;">
     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <line x1="3" y1="6" x2="21" y2="6"></line>
         <line x1="3" y1="12" x2="15" y2="12"></line>
@@ -159,8 +159,8 @@
 </button>
 
 <!-- Mobile TOC overlay + drawer -->
-<div id="toc-mobile-overlay" class="toc-mobile-overlay lg:hidden"></div>
-<div id="toc-mobile-drawer" class="toc-mobile-drawer lg:hidden bg-base-100 border-r border-base-300" role="dialog" aria-modal="true" aria-label="Tabla de contenidos">
+<div id="toc-mobile-overlay" class="toc-mobile-overlay xl:hidden"></div>
+<div id="toc-mobile-drawer" class="toc-mobile-drawer xl:hidden bg-base-100 border-r border-base-300" role="dialog" aria-modal="true" aria-label="Tabla de contenidos">
     <button class="toc-close-btn text-base-content/60 hover:text-base-content" id="toc-close-btn" aria-label="Cerrar">&times;</button>
     <h2 class="text-xs font-bold uppercase tracking-widest mb-4 opacity-50">Contenidos</h2>
     <nav>

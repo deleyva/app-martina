@@ -88,6 +88,10 @@ class LetraConAcordesTest(TestCase):
         # Con el almacenamiento de estáticos con manifiesto, el nombre lleva hash.
         self.assertRegex(html, r"/static/js/chordpro(\.[0-9a-f]+)?\.js")
         self.assertNotIn("cdn.jsdelivr.net/npm/chordsheetjs", html)
+        # Va en Resources, detrás del cuerpo, no al principio del artículo.
+        self.assertLess(html.index(">Resources</h2>"), html.index('id="chordpro"'))
+        self.assertLess(html.index("Cuerpo."), html.index('id="chordpro"'))
+        self.assertIn("Pantalla completa", html)
 
     # --- El visor de sesión ---
 
