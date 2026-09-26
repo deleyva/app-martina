@@ -4198,13 +4198,13 @@ Las plantillas del CMS son para proyectar: A5 con cabecera y número de página 
 
 ---
 
-## Fase 49 — La casita manda a casa sin esperar al visto, y los libros de Carmen para Raúl (2026-09-26) · HECHA EN LOCAL, PENDIENTE DE DESPLIEGUE
+## Fase 49 — La casita manda a casa sin esperar al visto, y los libros de Carmen para Raúl (2026-09-26) · DESPLEGADA
 
 > «Quiero que un elemento baje a la librería de un estudiante si lo he añadido en alguna clase y lo he marcado para casa. No quiero esperar a marcarlo como visto. Imagínate que vemos una partitura en clase y quiero seguir trabajándola otros días.» · «Quiero que le asignes los mismos libros a Raúl.» (Jesús)
 
 - [x] **C276 — Regla nueva: en una clase + casita = en la biblioteca del alumnado.** Baja al marcar la casita en clase (`marcar_a_casa`), al poner en una sesión algo que ya la tenía (`preparar_sesion`, `anadir_elementos` → `bajar_si_va_a_casa`) y al marcarla desde el libro o al preparar si el elemento ya está en alguna clase (`sincronizar_a_casa`). Quitar la casita retira lo intacto; quitar el visto ya no retira nada. *Probe: tests `test_marcar_a_casa_en_clase_baja_ya_sin_esperar_al_visto`, `test_poner_en_clase_algo_con_casita_lo_baja_ya`, `test_quitar_el_visto_no_retira_lo_que_tiene_casita`, `test_casita_desde_el_libro_baja_solo_si_ya_esta_en_una_clase`; C139, C140 y C143 reescritos a la regla nueva.*
 - [x] **C277 — Raúl (grupo 17) tiene los libros de Carmen (grupo 18).** Comando `copiar_libros_de_grupo` (ensayo por defecto, `--aplicar`): copia sección, modo, activo y la selección de elementos, sin el avance; lo que el destino ya tiene no se toca. *Probe: ensayo y aplicación en producción: 3 copiados (Canciones de primero de la ESO, Ukulele Aerobics, Lecturas rítmicas), 3 ya estaban; Chrome con la sesión de Jesús, «Libros de Raúl» con los seis. Ejecutado con la lógica del comando por stdin, antes de desplegarlo.*
-- [ ] **C278** — Regla de la casita desplegada y comprobada en producción.
+- [x] **C278 — Desplegada.** *Probe: `just deploy-production` exit 0, sin migraciones; en producción el ensayo de `copiar_libros_de_grupo --de 18 --a 17` responde «0 libros; 6 ya estaban»; la página de elegir elementos de un libro de Raúl dice «en cuanto esté en una clase» y ya no «cuando se dé por visto». La casita en una clase real no se ha probado en producción para no mandar nada al alumnado; la cubren los tests.*
 
 ### Decisiones
 
