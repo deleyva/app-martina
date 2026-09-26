@@ -7,11 +7,17 @@ herramientas de autoria, asi que necesitan ruta propia.
 
 from django.urls import path
 
-from musica import recortador, servido
+from musica import letras, recortador, servido
 
 app_name = "musica"
 
 urlpatterns = [
+    # Guardar la letra con acordes desde el botón ✎ (artículo y visores).
+    path(
+        "letras/<int:page_id>/chordpro/",
+        letras.guardar_chordpro,
+        name="guardar_chordpro",
+    ),
     # El PDF cortado al rango de un recorte. Es la unica via por la que sale
     # material de un documento restringido.
     path(

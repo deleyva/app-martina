@@ -1,4 +1,4 @@
-{% load static %}
+{% load static letras_tags %}
 {% comment %}
 Visor de letra con acordes (ChordPro): transporte, tamaño de letra y
 desplazamiento automático. Lo usan los tres visores (pantalla completa, sesión
@@ -40,6 +40,14 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
     .cpd figcaption { margin-bottom: 2px; }
     .cpd-dedo { fill: #fff; }
     .cpd-sin span { display: block; font-weight: 400; font-size: 11px; opacity: .6; padding-top: 1.5em; }
+    /* ✎ Editar la letra: mismo cuerpo que los botones flotantes de clase y
+       estudio, en el carril izquierdo a 204 px, que en los dos queda libre. */
+    .cpv-editar { position: fixed; left: 24px; bottom: 204px; z-index: 10000; width: 48px; height: 48px;
+                  border-radius: 50%; border: 1px solid rgba(255,255,255,.2); background: rgba(30,30,34,.85);
+                  color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center;
+                  box-shadow: 0 4px 20px rgba(0,0,0,.5); font-size: 20px; }
+    .cpv-editar:hover { transform: scale(1.1); background: rgba(60,60,68,.95); }
+    @media print { .cpv-editar { display: none !important; } }
     .cpv-aviso { max-width: 40rem; margin: 20vh auto 0; text-align: center; color: #555; font: 1rem system-ui, sans-serif; }
     .cpv-barra { position: fixed; left: 0; right: 0; bottom: 0; z-index: 9999; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; padding: 10px 12px; background: rgba(0,0,0,.9); color: #fff; font: 14px system-ui, sans-serif; }
     .cpv-barra button { background: #333; color: #fff; border: 1px solid #555; border-radius: 6px; padding: 6px 12px; font: inherit; cursor: pointer; min-width: 40px; }
@@ -82,6 +90,11 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
     {% endif %}
 </div>
 
+{% if page.chordpro and page|editable_por:request.user %}
+<button type="button" class="cpv-editar" data-chordpro-editar
+        data-url="{% url 'musica:guardar_chordpro' page.pk %}" data-csrf="{{ csrf_token }}"
+        title="Editar la letra con acordes">✎</button>
+{% endif %}
 {% if page.chordpro %}
 <div class="cpv-barra" data-chordpro-barra>
     <button type="button" data-accion="bajar" title="Bajar medio tono (−)">−</button>
@@ -128,6 +141,7 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
     var velocidad = barra.querySelector('[data-velocidad]');
 
     var cancion = null;
+    var textoActual = '';
     var semitonos = 0;
     var tamano = 24;
     var temporizador = null;
@@ -245,7 +259,8 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
     function arrancar() {
         if (!window.ChordPro) { mostrarError('No se pudo cargar el visor de acordes.'); return; }
         try {
-            cancion = ChordPro.parsear(JSON.parse(fuente.textContent));
+            textoActual = JSON.parse(fuente.textContent);
+            cancion = ChordPro.parsear(textoActual);
         } catch (e) {
             console.error(e);
             mostrarError(e.message);
@@ -255,11 +270,32 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
         refrescarDiagramas = ChordPro.montarDiagramas({
             tira: tira,
             selector: barra.querySelector('[data-instrumento]'),
-            texto: JSON.parse(fuente.textContent),
-            cancion: cancion,
+            texto: function () { return textoActual; },
+            cancion: function () { return cancion; },
             urls: { guitarra: tira.getAttribute('data-db-guitarra'), ukelele: tira.getAttribute('data-db-ukelele') },
             semitonos: function () { return semitonos; }
         });
+        // ✎ Editar: el botón está fuera del visor (es fijo) y puede haber uno
+        // viejo de un elemento anterior en el modo proyector; se toma el último.
+        var editores = document.querySelectorAll('[data-chordpro-editar]:not([data-montado])');
+        var editar = editores[editores.length - 1];
+        if (editar) {
+            editar.setAttribute('data-montado', '');
+            editar.addEventListener('click', function () {
+                pararDesplazamiento();
+                ChordPro.abrirEditor({
+                    texto: textoActual,
+                    url: editar.getAttribute('data-url'),
+                    csrf: editar.getAttribute('data-csrf'),
+                    alGuardar: function (nuevo) {
+                        textoActual = nuevo;
+                        cancion = ChordPro.parsear(nuevo);
+                        pintar();
+                    }
+                });
+            });
+        }
+
         var params = new URLSearchParams(location.search);
         var tonoInicial = parseInt(params.get('tono'), 10);
         if (tonoInicial) semitonos = ChordPro.acotar(tonoInicial);

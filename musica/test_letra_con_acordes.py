@@ -148,3 +148,62 @@ class LetraConAcordesTest(TestCase):
         self.cancion.save_revision().publish()
         html = self._html(self.alumna)
         self.assertNotIn("<img src=x onerror", html)
+
+
+@override_settings(ALLOWED_HOSTS=["*"])
+class GuardarChordProTest(TestCase):
+    """El ✎ guarda la letra con el permiso de Wagtail sobre la página."""
+
+    def setUp(self):
+        from django.urls import reverse
+
+        sitio = Site.objects.get(is_default_site=True)
+        biblioteca = MusicLibraryIndexPage(title="Biblioteca", slug="biblio-ed")
+        sitio.root_page.add_child(instance=biblioteca)
+        biblioteca.save_revision().publish()
+        self.cancion = RecursoPage(
+            title="Perfect", slug="perfect-ed", date="2026-09-26",
+            intro="x", body="<p>Cuerpo.</p>", chordpro=CHORDPRO,
+        )
+        biblioteca.add_child(instance=self.cancion)
+        self.cancion.save_revision().publish()
+        self.url = reverse("musica:guardar_chordpro", args=[self.cancion.pk])
+        self.admin = User.objects.create_superuser(email="admin-ed@example.com", password="x123456789")
+        self.alumna = User.objects.create_user(email="alumna-ed@example.com", password="x123456789")
+
+    def _post(self, cuerpo):
+        import json
+
+        return self.client.post(self.url, data=json.dumps(cuerpo), content_type="application/json")
+
+    def test_quien_puede_editar_la_pagina_guarda_y_publica(self):
+        self.client.force_login(self.admin)
+        r = self._post({"chordpro": "[A]Nueva\r\nlinea"})
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.json()["publicada"])
+        self.cancion.refresh_from_db()
+        self.assertEqual(self.cancion.chordpro, "[A]Nueva\nlinea")
+        self.assertFalse(self.cancion.has_unpublished_changes)
+
+    def test_sin_permiso_de_edicion_no_se_toca(self):
+        self.client.force_login(self.alumna)
+        self.assertEqual(self._post({"chordpro": "[A]Hackeo"}).status_code, 403)
+        self.client.logout()
+        self.assertEqual(self._post({"chordpro": "[A]Hackeo"}).status_code, 403)
+        self.cancion.refresh_from_db()
+        self.assertEqual(self.cancion.chordpro, CHORDPRO)
+
+    def test_datos_malos_dan_400(self):
+        self.client.force_login(self.admin)
+        self.assertEqual(self.client.post(self.url, data="no json", content_type="application/json").status_code, 400)
+        self.assertEqual(self._post({"otra": 1}).status_code, 400)
+        self.assertEqual(self._post({"chordpro": "x" * 50_001}).status_code, 400)
+
+    def test_el_boton_solo_sale_a_quien_puede_editar(self):
+        sitio = Site.objects.get(is_default_site=True)
+        self.client.force_login(self.alumna)
+        html = self.client.get(self.cancion.url, follow=True, HTTP_HOST=sitio.hostname).content.decode()
+        self.assertNotIn("cp-editar-flotante", html)
+        self.client.force_login(self.admin)
+        html = self.client.get(self.cancion.url, follow=True, HTTP_HOST=sitio.hostname).content.decode()
+        self.assertIn("cp-editar-flotante", html)

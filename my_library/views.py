@@ -509,6 +509,7 @@ def study_session_view(request):
                     "title": seccion.get_content_title(),
                     "detalle": getattr(seccion, "desambiguador", ""),
                     "type": seccion.item.get_content_type_name(),
+                    "icon": seccion.item.get_icon(),
                 })
         elif token.isdigit():
             item = por_pk.get(int(token))
@@ -519,6 +520,7 @@ def study_session_view(request):
                     "title": item.get_content_title(),
                     "detalle": getattr(item, "desambiguador", ""),
                     "type": item.get_content_type_name(),
+                    "icon": item.get_icon(),
                 })
 
     return render(request, "my_library/study_viewer.html", {

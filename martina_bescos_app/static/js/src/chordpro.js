@@ -141,14 +141,15 @@ function diagramasHtml(nombres, instrumento, indice, defs, semitonos) {
 // transportar.
 //   tira       elemento donde van los diagramas
 //   selector   <select> con valores "" (ocultos), guitarra, ukelele, piano
-//   texto      el ChordPro original (para leer sus {define})
-//   cancion    la canción ya parseada
+//   texto      el ChordPro original (para leer sus {define}), o una función
+//              que lo devuelva: tras editar la letra, el texto cambia
+//   cancion    la canción ya parseada, o una función que la devuelva
 //   urls       {guitarra, ukelele}: JSON de chords-db servidos por Django
 //   semitonos  función que devuelve el transporte actual
 const CLAVE_INSTRUMENTO = "cp-instrumento";
 
 function montarDiagramas({ tira, selector, texto, cancion, urls, semitonos }) {
-  const defs = leerDefiniciones(texto);
+  const leer = (v) => (typeof v === "function" ? v() : v);
   let instrumento = "";
   try { instrumento = localStorage.getItem(CLAVE_INSTRUMENTO) || ""; } catch (e) { /* sin almacenamiento */ }
   if (![...selector.options].some((o) => o.value === instrumento)) instrumento = "";
@@ -161,7 +162,8 @@ function montarDiagramas({ tira, selector, texto, cancion, urls, semitonos }) {
     const pasos = acotar(semitonos() || 0);
     const pintar = (indice) => {
       if (mio !== turno) return;
-      tira.innerHTML = diagramasHtml(acordes(cancion, pasos), instrumento, indice, defs, pasos);
+      tira.innerHTML = diagramasHtml(acordes(leer(cancion), pasos), instrumento, indice,
+                                     leerDefiniciones(leer(texto)), pasos);
       tira.hidden = false;
     };
     if (instrumento === "piano") { pintar(null); return; }
@@ -179,7 +181,106 @@ function montarDiagramas({ tira, selector, texto, cancion, urls, semitonos }) {
   return refrescar;
 }
 
+// Editor de la letra: ventana con el texto a la izquierda y la vista previa a
+// la derecha. No guarda si el ChordPro no se puede leer. Estilos en línea
+// porque se abre igual en el artículo (Tailwind) y en los visores (sin él).
+//   texto      ChordPro actual
+//   url        POST que guarda (musica:guardar_chordpro)
+//   csrf       token CSRF de la página
+//   alGuardar  recibe el texto guardado y la respuesta del servidor
+function abrirEditor({ texto, url, csrf, alGuardar }) {
+  const fondo = document.createElement("div");
+  fondo.setAttribute("data-editor-chordpro", "");
+  fondo.style.cssText = "position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px;";
+  fondo.innerHTML = `
+    <div style="background:#fff;color:#111;border-radius:12px;width:min(1200px,100%);height:min(90vh,900px);display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.4);font:14px system-ui,sans-serif;overflow:hidden;">
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid #e5e7eb;">
+        <strong style="margin-right:auto;">✎ Editar la letra con acordes</strong>
+        <span data-estado style="font-size:12px;color:#6b7280;"></span>
+        <button type="button" data-cancelar style="padding:6px 12px;border-radius:6px;border:1px solid #d1d5db;background:#fff;cursor:pointer;">Cancelar</button>
+        <button type="button" data-guardar style="padding:6px 14px;border-radius:6px;border:0;background:#2563eb;color:#fff;font-weight:600;cursor:pointer;">Guardar</button>
+      </div>
+      <div data-cuerpo style="display:flex;flex:1 1 0;min-height:0;">
+        <textarea data-texto spellcheck="false" style="flex:1 1 0;min-width:0;min-height:0;border:0;border-right:1px solid #e5e7eb;padding:12px;font:13px/1.5 ui-monospace,Menlo,monospace;resize:none;outline:none;color:#111;background:#fafafa;"></textarea>
+        <div style="flex:1 1 0;min-width:0;min-height:0;overflow:auto;padding:12px;">
+          <p data-error style="display:none;color:#b91c1c;margin:0 0 8px;"></p>
+          <div data-previa class="chordpro-sheet cpv-salida" style="font-size:14px;"></div>
+        </div>
+      </div>
+      <div style="padding:6px 14px;border-top:1px solid #e5e7eb;font-size:12px;color:#6b7280;">
+        Acordes entre corchetes antes de la sílaba: <code>[G]I found a [Em]love</code>. Secciones: <code>{start_of_verse: Estrofa}</code> … <code>{end_of_verse}</code>, igual con <code>chorus</code>. Comentarios: <code>{comment: …}</code>. Digitaciones: <code>{define-ukelele: G base-fret 1 frets 0 2 3 2}</code>.
+        Guardar: Ctrl/⌘+S · Cancelar: Esc.
+      </div>
+    </div>`;
+  const area = fondo.querySelector("[data-texto]");
+  const previa = fondo.querySelector("[data-previa]");
+  const error = fondo.querySelector("[data-error]");
+  const estado = fondo.querySelector("[data-estado]");
+  const botonGuardar = fondo.querySelector("[data-guardar]");
+  area.value = texto || "";
+  // Estrecho (móvil, tablet en vertical): texto arriba y vista previa abajo.
+  // Sin límite de alto en cada mitad, la previa empujaba la barra de Guardar
+  // fuera del cuadro.
+  if (window.innerWidth < 760) fondo.querySelector("[data-cuerpo]").style.flexDirection = "column";
+  let valido = true;
+  const original = area.value;
+
+  function refrescar() {
+    try {
+      previa.innerHTML = aHtml(parsear(area.value), 0);
+      error.style.display = "none";
+      valido = true;
+    } catch (e) {
+      error.textContent = e.message;
+      error.style.display = "block";
+      valido = false;
+    }
+    botonGuardar.disabled = !valido;
+    botonGuardar.style.opacity = valido ? "1" : ".5";
+  }
+  function cerrar() {
+    if (area.value !== original && !window.confirm("¿Descartar los cambios?")) return;
+    document.removeEventListener("keydown", teclas, true);
+    fondo.remove();
+  }
+  function guardar() {
+    if (!valido) return;
+    botonGuardar.disabled = true;
+    estado.textContent = "Guardando…";
+    fetch(url, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json", "X-CSRFToken": csrf },
+      body: JSON.stringify({ chordpro: area.value }),
+    })
+      .then((r) => (r.ok ? r.json() : r.text().then((t) => { throw new Error(t || "HTTP " + r.status); })))
+      .then((d) => {
+        document.removeEventListener("keydown", teclas, true);
+        fondo.remove();
+        if (alGuardar) alGuardar(d.chordpro, d);
+      })
+      .catch((e) => {
+        estado.textContent = "No se pudo guardar: " + e.message;
+        botonGuardar.disabled = false;
+      });
+  }
+  // En fase de captura y parando la propagación: los visores tienen teclas
+  // propias (+, -, espacio, flechas) que no deben dispararse al escribir.
+  function teclas(e) {
+    if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); cerrar(); return; }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); e.stopPropagation(); guardar(); return; }
+    if (fondo.contains(e.target)) e.stopPropagation();
+  }
+  document.addEventListener("keydown", teclas, true);
+  area.addEventListener("input", refrescar);
+  fondo.querySelector("[data-cancelar]").addEventListener("click", cerrar);
+  botonGuardar.addEventListener("click", guardar);
+  document.body.appendChild(fondo);
+  refrescar();
+  area.focus({ preventScroll: true });
+}
+
 window.ChordPro = {
   LIMITE, acotar, parsear, aHtml, etiquetaTono,
-  acordes, leerDefiniciones, cargarBase, diagramasHtml, montarDiagramas,
+  acordes, leerDefiniciones, cargarBase, diagramasHtml, montarDiagramas, abrirEditor,
 };

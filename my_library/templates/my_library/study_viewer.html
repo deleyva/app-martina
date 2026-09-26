@@ -63,6 +63,55 @@
             background: rgba(255, 255, 255, 0.15);
         }
 
+        /* ── Carriles de botones flotantes ──
+           Los mismos que el modo proyector de clase (present.html), que es el
+           visor que Jesús quiere como modelo (2026-09-26). Lo que se toca a
+           cada rato va fuera del menú: valorar, anterior y siguiente a la
+           derecha; contexto y encajar a la izquierda. De clase no se traen la
+           nota de voz, las plantillas ni «a casa»: no pintan nada estudiando
+           uno solo. */
+        .fab-izq, .fab-der {
+            position: fixed;
+            z-index: 10000;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(30, 30, 34, 0.85);
+            backdrop-filter: blur(10px);
+            color: #fff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            transition: transform 0.2s, background 0.2s;
+        }
+        .fab-izq { left: 24px; }
+        .fab-izq:hover, .fab-der:hover { transform: scale(1.1); background: rgba(60, 60, 68, 0.95); }
+        .fab-izq:disabled, .fab-der:disabled { opacity: 0.3; cursor: default; transform: none; }
+        #fab-contexto  { bottom: 24px; }
+        #fab-encajar   { bottom: 84px; }
+        #fab-siguiente { bottom: 84px; right: 24px; }
+        #fab-anterior  { bottom: 84px; right: 84px; }
+        #fab-descartar { bottom: 144px; right: 24px; }
+        #fab-valorar   { bottom: 144px; right: 84px; background: rgba(34, 197, 94, 0.35); border-color: rgba(34, 197, 94, 0.7); }
+        #fab-valorar:hover { background: rgba(34, 197, 94, 0.55); }
+
+        /* Lista de elementos de la sesión en el menú, como en clase. */
+        .flyout-syllabus { max-height: 40vh; overflow-y: auto; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+        .flyout-syllabus-item {
+            display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: none;
+            background: transparent; color: #fff; font-size: 13px; cursor: pointer; width: 100%;
+            text-align: left; transition: background 0.15s;
+        }
+        .flyout-syllabus-item:hover { background: rgba(255, 255, 255, 0.06); }
+        .flyout-syllabus-item.active { background: rgba(139, 92, 246, 0.2); border-left: 3px solid #8b5cf6; }
+        .flyout-syllabus-item.valorado .item-name { text-decoration: line-through; opacity: 0.55; }
+        .flyout-syllabus-item .item-icon { flex-shrink: 0; }
+        .flyout-syllabus-item .item-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .flyout-syllabus-item .item-num { flex-shrink: 0; font-size: 11px; opacity: 0.3; font-variant-numeric: tabular-nums; }
+
         /* ── Flyout Panel ── */
         /* Cuánto llevas de la sesión, siempre visible y sin estorbar.
            Pegado arriba y translúcido: se lee sobre una partitura blanca y
@@ -580,6 +629,46 @@
         </svg>
     </button>
 
+    {% comment %}
+    Carriles como en el modo proyector de clase. Son <button> de verdad, igual
+    que allí, para que ningún toque en ellos cuente además como toque en el
+    visor.
+    {% endcomment %}
+    <button id="fab-contexto" class="fab-izq" type="button" onclick="verContexto()"
+            title="Ver en contexto: lo que dice el capítulo del que sale este elemento">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+    </button>
+    <button id="fab-encajar" class="fab-izq" type="button" style="display: none"
+            onclick="if (window.toggleAjusteImagen) window.toggleAjusteImagen()" title="Encajar en pantalla">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4"/>
+        </svg>
+    </button>
+    <button id="fab-valorar" class="fab-der" type="button" onclick="toggleFlyout(false); showProficiencyOverlay();"
+            title="Valorar y pasar al siguiente">
+        <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+        </svg>
+    </button>
+    <button id="fab-descartar" class="fab-der" type="button" onclick="descartarDesdeBoton()"
+            title="Hoy no: quitar de esta sesión (D D). Se puede deshacer">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+    </button>
+    <button id="fab-anterior" class="fab-der" type="button" onclick="navigateItem(-1)" title="Anterior">
+        <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+        </svg>
+    </button>
+    <button id="fab-siguiente" class="fab-der" type="button" onclick="navigateItem(1)" title="Siguiente (sin valorar)">
+        <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+        </svg>
+    </button>
+
     <script>
         // El boton de encajar solo existe para las imagenes. El visor de
         // imagenes llama a esto al cargarse; para los demas tipos nadie llama y
@@ -589,16 +678,13 @@
         // y el visor anterior deja su `window.toggleAjusteImagen` puesta: sin
         // esto, el boton seguiria saliendo encima de un PDF.
         window.marcarAjusteImagen = function (encajado) {
-            var boton = document.getElementById('flyout-ajuste-btn');
-            var texto = document.getElementById('flyout-ajuste-texto');
+            var boton = document.getElementById('fab-encajar');
             if (!boton) return;
             boton.style.display = '';
-            if (texto) {
-                texto.textContent = encajado ? 'Ancho completo' : 'Encajar en pantalla';
-            }
+            boton.title = encajado ? 'Ancho completo' : 'Encajar en pantalla';
         };
         window.olvidarAjusteImagen = function () {
-            var boton = document.getElementById('flyout-ajuste-btn');
+            var boton = document.getElementById('fab-encajar');
             if (boton) boton.style.display = 'none';
             window.toggleAjusteImagen = null;
             window.hayAjusteImagen = false;
@@ -612,34 +698,11 @@
             <div class="flyout-counter" id="flyout-counter">-/-</div>
         </div>
         <div class="flyout-actions">
-            <button class="flyout-btn accent" onclick="showProficiencyOverlay(); toggleFlyout(false);">
-                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                </svg>
-                Valorar
-            </button>
-            <button class="flyout-btn" id="flyout-ajuste-btn"
-                    style="display: none"
-                    onclick="if (window.toggleAjusteImagen) window.toggleAjusteImagen()">
-                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4"></path>
-                </svg>
-                <span id="flyout-ajuste-texto">Encajar en pantalla</span>
-            </button>
-            <button class="flyout-btn" id="flyout-prev-btn" onclick="navigateItem(-1)">
-                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-                </svg>
-                Anterior
-            </button>
-            <button class="flyout-btn" id="flyout-next-btn" onclick="navigateItem(1)">
-                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                </svg>
-                Siguiente
-            </button>
-            <div class="flyout-divider"></div>
+            {% comment %}
+            Valorar, anterior, siguiente y encajar son ahora botones flotantes,
+            como en clase. El menú queda para salir, la lista de elementos y lo
+            propio del estudio: notas, secciones y etiquetas.
+            {% endcomment %}
             <a class="flyout-btn danger" href="{% url 'my_library:index' %}?show_all=1">
                 <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -647,6 +710,7 @@
                 Salir
             </a>
         </div>
+        <div class="flyout-syllabus" id="flyout-syllabus"></div>
         <!-- Audio controls placeholder — populated dynamically -->
         <div id="flyout-audio-section"></div>
         <div id="flyout-meta-section" class="flyout-meta"></div>
@@ -755,11 +819,42 @@
         // debería costar abrir un menú.
         document.getElementById('session-progress').textContent =
             (currentIndex + 1) + ' de ' + playlist.length;
-        // Disable prev/next at boundaries
-        var prevBtn = document.getElementById('flyout-prev-btn');
-        var nextBtn = document.getElementById('flyout-next-btn');
-        if (prevBtn) prevBtn.style.opacity = currentIndex === 0 ? '0.3' : '1';
-        if (nextBtn) nextBtn.style.opacity = currentIndex >= playlist.length - 1 ? '0.3' : '1';
+        document.getElementById('fab-anterior').disabled = currentIndex === 0;
+        document.getElementById('fab-siguiente').disabled = currentIndex >= playlist.length - 1;
+        pintarLista();
+    }
+
+    function escaparTexto(t) {
+        return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // La lista de elementos del menú, como la de clase. Tachado lo ya valorado.
+    function pintarLista() {
+        var html = '';
+        for (var i = 0; i < playlist.length; i++) {
+            var it = playlist[i];
+            html += '<button type="button" class="flyout-syllabus-item' + (i === currentIndex ? ' active' : '') +
+                (it.valorado ? ' valorado' : '') + '" onclick="irA(' + i + ')">' +
+                '<span class="item-icon">' + escaparTexto(it.icon || '') + '</span>' +
+                '<span class="item-name">' + escaparTexto(it.detalle ? it.title + ' · ' + it.detalle : it.title) + '</span>' +
+                '<span class="item-num">' + (i + 1) + '</span></button>';
+        }
+        document.getElementById('flyout-syllabus').innerHTML = html;
+    }
+
+    function irA(index) {
+        if (index < 0 || index >= playlist.length) return;
+        toggleFlyout(false);
+        loadItem(index);
+    }
+
+    function descartarDesdeBoton() {
+        var actual = playlist[currentIndex];
+        if (!actual) return;
+        ultimoDescartado = actual.pk;
+        mostrarAvisoDescarte(actual.title);
+        descartarItem();
     }
 
     function navigateItem(delta) {
@@ -1180,6 +1275,7 @@
         var title = playlist[currentIndex].title;
 
         ratings.push({ title: title, level: selectedLevel });
+        playlist[currentIndex].valorado = true;
 
         // Un solo POST: graba el repaso en el histórico, actualiza el nivel
         // y marca como visto.
