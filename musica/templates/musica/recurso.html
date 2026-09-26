@@ -722,6 +722,12 @@
                             </div>
                         </div>
                         <div class="card-actions justify-end mt-3">
+                            {# Tamaño de la partitura: lo maneja el script de alphaTab de abajo #}
+                            <div class="join mr-auto" data-gp-zoom="alphatab-{{ forloop.counter }}">
+                                <button type="button" class="btn btn-ghost btn-sm join-item" data-zoom="-1" title="Notas más pequeñas">A−</button>
+                                <span class="btn btn-ghost btn-sm join-item no-animation pointer-events-none" data-zoom-label>100 %</span>
+                                <button type="button" class="btn btn-ghost btn-sm join-item" data-zoom="1" title="Notas más grandes: menos compases por línea">A+</button>
+                            </div>
                             <a href="{% url 'my_library:view_content_object' block.value.pdf_file|content_type_id block.value.pdf_file.pk %}?back={{ request.path|urlencode }}" class="btn btn-ghost btn-sm" title="Open viewer">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
@@ -1021,6 +1027,16 @@
         var gpContainers = document.querySelectorAll('[data-gp-url]');
         if (!gpContainers.length || typeof alphaTab === 'undefined') return;
 
+        // Tamaño de la partitura, compartido con el visor de sesiones (misma
+        // clave en este navegador). A más escala, menos compases por línea.
+        var ESCALAS = [0.75, 1, 1.25, 1.5, 1.75, 2, 2.5];
+        var CLAVE_ESCALA = 'gp-escala';
+        var escalaInicial = 1;
+        try {
+            var guardada = ESCALAS.indexOf(parseFloat(localStorage.getItem(CLAVE_ESCALA)));
+            if (guardada >= 0) escalaInicial = guardada;
+        } catch (e) {}
+
         gpContainers.forEach(function(wrap) {
             var gpUrl = wrap.getAttribute('data-gp-url');
             var loadingDiv = wrap.querySelector('.at-loading');
@@ -1043,7 +1059,8 @@
                 },
                 display: {
                     layoutMode: alphaTab.LayoutMode.Page,
-                    staveProfile: alphaTab.StaveProfile.Tab
+                    staveProfile: alphaTab.StaveProfile.Tab,
+                    scale: ESCALAS[escalaInicial]
                 },
                 notation: {
                     elements: {
@@ -1088,6 +1105,30 @@
             api.renderStarted.on(function() {
                 if (loadingDiv) loadingDiv.style.display = 'none';
             });
+
+            var zoom = document.querySelector('[data-gp-zoom="' + wrap.id + '"]');
+            if (zoom) {
+                var idx = escalaInicial;
+                var etiqueta = zoom.querySelector('[data-zoom-label]');
+                var menos = zoom.querySelector('[data-zoom="-1"]');
+                var mas = zoom.querySelector('[data-zoom="1"]');
+                var pintarEscala = function() {
+                    etiqueta.textContent = Math.round(ESCALAS[idx] * 100) + ' %';
+                    menos.disabled = idx === 0;
+                    mas.disabled = idx === ESCALAS.length - 1;
+                };
+                zoom.addEventListener('click', function(e) {
+                    var boton = e.target.closest('[data-zoom]');
+                    if (!boton) return;
+                    idx = Math.max(0, Math.min(ESCALAS.length - 1, idx + Number(boton.getAttribute('data-zoom'))));
+                    pintarEscala();
+                    try { localStorage.setItem(CLAVE_ESCALA, String(ESCALAS[idx])); } catch (err) {}
+                    api.settings.display.scale = ESCALAS[idx];
+                    api.updateSettings();
+                    api.render();
+                });
+                pintarEscala();
+            }
 
             api.error.on(function(e) {
                 console.error('alphaTab error:', e);

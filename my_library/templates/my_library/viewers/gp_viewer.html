@@ -111,6 +111,8 @@ Recibe:
     #gp-viewer-container:hover #gp-songsterr {
         opacity: 1;
     }
+    .gp-ctrl-sep { width: 1px; height: 22px; background: #555; margin: 0 4px; }
+    #gp-zoom-label { min-width: 3.5em; text-align: center; font-size: 13px; }
     #gp-speed-label {
         font-size: 12px;
         opacity: 0.7;
@@ -138,6 +140,10 @@ Recibe:
         <button type="button" id="gp-speed-down" class="gp-ctrl-btn">−</button>
         <span id="gp-speed-label">1×</span>
         <button type="button" id="gp-speed-up" class="gp-ctrl-btn">+</button>
+        <span class="gp-ctrl-sep" aria-hidden="true"></span>
+        <button type="button" id="gp-zoom-out" class="gp-ctrl-btn" title="Notas más pequeñas">A−</button>
+        <span id="gp-zoom-label" title="Tamaño de la partitura">100 %</span>
+        <button type="button" id="gp-zoom-in" class="gp-ctrl-btn" title="Notas más grandes: menos compases por línea">A+</button>
         <select id="gp-track-select" class="gp-ctrl-select"></select>
     </div>
 </div>
@@ -166,6 +172,22 @@ ademas de los hasheados, asi que la deduccion funciona sola.
     var speedUpBtn = document.getElementById('gp-speed-up');
     var speedLabel = document.getElementById('gp-speed-label');
 
+    var zoomOutBtn = document.getElementById('gp-zoom-out');
+    var zoomInBtn = document.getElementById('gp-zoom-in');
+    var zoomLabel = document.getElementById('gp-zoom-label');
+
+    // Tamaño de la partitura. A más escala, notas más grandes y menos compases
+    // por línea: el ancho es el mismo y alphaTab reparte solo. Se recuerda en
+    // este navegador (misma clave que en el artículo), no se guarda en ningún
+    // sitio más; si el almacenamiento no está disponible, se empieza en 100 %.
+    var ESCALAS = [0.75, 1, 1.25, 1.5, 1.75, 2, 2.5];
+    var CLAVE_ESCALA = 'gp-escala';
+    var escalaIdx = 1;
+    try {
+        var guardada = ESCALAS.indexOf(parseFloat(localStorage.getItem(CLAVE_ESCALA)));
+        if (guardada >= 0) escalaIdx = guardada;
+    } catch (e) {}
+
     var speedSteps = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
     var currentSpeedIdx = 3; // 1×
 
@@ -185,7 +207,8 @@ ademas de los hasheados, asi que la deduccion funciona sola.
             soundFont: "{% static 'vendor/alphatab/soundfont/sonivox.sf2' %}"
         },
         display: {
-            layoutMode: alphaTab.LayoutMode.Page
+            layoutMode: alphaTab.LayoutMode.Page,
+            scale: ESCALAS[escalaIdx]
         },
         notation: {
             elements: {
@@ -251,6 +274,21 @@ ademas de los hasheados, asi que la deduccion funciona sola.
             playPauseBtn.classList.remove('active');
         }
     });
+
+    function aplicarEscala(delta) {
+        escalaIdx = Math.max(0, Math.min(ESCALAS.length - 1, escalaIdx + delta));
+        zoomLabel.textContent = Math.round(ESCALAS[escalaIdx] * 100) + ' %';
+        zoomOutBtn.disabled = escalaIdx === 0;
+        zoomInBtn.disabled = escalaIdx === ESCALAS.length - 1;
+        if (!delta) return;
+        try { localStorage.setItem(CLAVE_ESCALA, String(ESCALAS[escalaIdx])); } catch (e) {}
+        api.settings.display.scale = ESCALAS[escalaIdx];
+        api.updateSettings();
+        api.render();
+    }
+    zoomOutBtn.addEventListener('click', function() { aplicarEscala(-1); });
+    zoomInBtn.addEventListener('click', function() { aplicarEscala(1); });
+    aplicarEscala(0);
 
     playPauseBtn.addEventListener('click', function() {
         api.playPause();
