@@ -1356,6 +1356,8 @@
     if (playlist.length > 0) {
         loadItem(0);
     } else {
+        // Sin nada que estudiar, los carriles no pintan nada: solo el menú.
+        document.querySelectorAll('.fab-izq, .fab-der').forEach(function(b) { b.style.display = 'none'; });
         document.getElementById('study-content').innerHTML =
             '<div style="display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:12px;">' +
             '<div style="font-size:48px;">📚</div>' +
