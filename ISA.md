@@ -135,6 +135,8 @@ con el venv en 7.3.3 mientras el pin decía 7.3.1. El arreglo es alinear el venv
 
 8. **El botón de encajar está solo en el menú**, o sea dos toques. Un atajo de teclado es una línea, pero toca el manejador de `keydown` que ya se acumula en cada carga; arreglar esa deuda primero.
 
+9. **Diagramas de acordes sobre la letra, como Ultimate Guitar** (fase 47, pendiente, pedido por Jesús el 26/09 para otro día). Ver la fase 47 abajo: qué se quiere, qué se sabe ya y qué hay que decidir antes de construir.
+
 ### Deuda conocida, sin bloquear nada
 
 - **`{# … #}` de Django es de UNA línea, y en este proyecto ya se ha pintado en pantalla TRES veces** (fase 7, fase 16 y otra vez el 26/08 escribiendo la fase 19). Las dos primeras llegaron a producción; la tercera la cazó `test_el_selector_no_escupe_el_comentario_de_la_plantilla`. **La lección no es "acuérdate": es que hay que dejarlo cazado.** Hoy hay un test por plantilla tocada (`index.html` y `session_start.html`); cualquier plantilla nueva con un comentario largo debería llevar el suyo, o mejor, usar `{% comment %}` siempre. Anotado también en `AGENTS.md`.
@@ -4124,3 +4126,47 @@ Las plantillas del CMS son para proyectar: A5 con cabecera y número de página 
 - 2026-09-25 · **Despliegue** con el visto bueno de Jesús («empuja y despliega»): push `b7d541e..294442c`, que arrastró también `df86173` (ISA de la fase 45, de la otra sesión). `just deploy-production`: imagen `whisper` construida, volumen de modelos creado, seis contenedores arriba y `clases.0020_notas_de_voz_transcritas... OK`.
 - 2026-09-25 · **Verificado en producción:** Whisper descargó `small`; tope `943718400` bytes (900 MiB); 0 puertos publicados hacia fuera; 82 MB en reposo. Desde el contenedor de Huey, `POST http://whisper:9000/transcribir` con la nota sintética de 20 s → 200 en 18,1 s, con puntuación; 125 MB tras transcribir, `OOMKilled=false`, 0 reinicios; 1 245 MiB disponibles en el servidor. Ninguna nota creada en la base de producción. En Chrome con la sesión de Jesús, sesión 130: el visor tiene el micrófono (`alternarNotaDeVoz()`) y no el panel viejo; la pantalla de la sesión monta la lista (oculta sin notas), carga su CSS y su JS (200) y `notas/lista/` responde JSON.
 
+---
+
+## Fase 46 — Letra con acordes (ChordPro) y tablaturas de alphaTab para el aula (2026-09-25/26) · DESPLEGADA Y VERIFICADA EN PRODUCCIÓN
+
+> Pedido por Jesús a partir de «Perfect» (página 943): poder enseñar la letra con acordes en clase y en estudio, transportarla, imprimirla; y que la tablatura no haga saltar la página, se pueda ampliar, transportar, imprimir y repetir en bucle.
+
+- [x] **C259 — La letra con acordes es material de sesión.** Modelo `LetraConAcordes` (OneToOne con `RecursoPage`, migración `musica.0009`); el texto sigue solo en `RecursoPage.chordpro`. Visor `my_library/viewers/chordpro_viewer.html` en pantalla completa, estudio, proyector y biblioteca de grupo: tono, tamaño, desplazamiento automático e imprimir. *Probe: Chrome local en los cuatro visores; producción, `?tono=5` → «C Am F G C/E Gsus4».*
+- [x] **C260 — La letra solo viaja con sesión iniciada** y va en Resources, detrás del cuerpo (`musica/_letra_con_acordes.html`). *Probe: `musica/test_letra_con_acordes.py`; producción, petición sin cookies sin la letra.*
+- [x] **C261 — Transporte con grafía correcta**, decidida por nosotros y no por ChordSheetJS (`static/js/src/chordpro.js`). *Probe: bundle con los 23 transportes desde Sol, La m y Re: ningún Si#, Mi#, Do♭ ni Fa♭.*
+- [x] **C262 — La página ya no salta a la tablatura al entrar** (alphaTab arranca con `ScrollMode.Off` y lo enciende al dar al play). *Probe: producción, Perfect, `scroll 0` con la tablatura dibujada; antes 8282 px.*
+- [x] **C263 — Tablatura: tamaño A−/A+, transporte ♭/♯ que cambia trastes (o afinación si no caben), imprimir y bucle por toques** (`static/js/transportar_tablatura.js`, `gp_viewer.html`, `recurso.html`). *Probe: producción +2 → 3–5–3; local, bucle de los compases 3–4 repitiendo cinco veces en 16 s.*
+- [x] **C264 — Tablatura legible en modo oscuro** y paneles laterales plegables por debajo de 1280 px. *Probe: Chrome local, colores `#E5E7EB` en oscuro y de vuelta a los originales en claro; iframe de 1100 px sin columnas y con los dos cajones.*
+- [ ] **C265** `[DEFERRED-VERIFY]` — Imprimir de verdad (letra y tablatura) y el bucle con el dedo en la pizarra y la tablet. El diálogo de impresión bloquea el control de Chrome desde la sesión, y la pestaña de pruebas está oculta (sin audio).
+
+### Decisiones
+
+- **La letra es un campo de la canción, no ficheros `.cho` subidos.** El publicador lo lee de `chordpro: <ruta>` en la cabecera del borrador (fichero aparte porque la sección inglesa se lee hasta el final).
+- **`notation.transpositionPitches` de alphaTab no sirve para transportar una tablatura:** cambia el sonido y el pentagrama pero no el número de traste. Se recoloca cada nota; si una pista no cabe en el mástil, conserva los trastes y cambia de afinación.
+- **El bucle se marca con dos toques, no arrastrando.** En pizarra y tablet arrastrar desplaza la página y alphaTab solo escucha eventos de ratón.
+
+### Log
+
+- 2026-09-26 · Commits `24a6f22`, `8d2773f`, `00edce9`, `68e0d87`, `8c7d294`, `cadd4d0`, `8167920`, todos desplegados.
+- 2026-09-26 · Hallazgos por el camino: el visor de sesiones daba 500 con canciones y dictados (`from_view` sin asignar); el script de la letra estaba dentro de `{% if page.attachments %}`; `ejecutarScripts` del proyector y la recarga del modo estudio rehacían los `<script type="application/json">` sin `type` ni `id`.
+- 2026-09-26 · Deuda que queda: las páginas no llevan `Cache-Control` y Chrome sirvió una copia vieja al volver a la misma URL; `recurso.html` carga alphaTab como `@latest` desde el CDN (el visor lo tiene fijado en 1.8.4).
+
+---
+
+## Fase 47 — Diagramas de acordes sobre la letra (PENDIENTE, para otro día)
+
+> «Me gustaría poder mostrar esos acordes arriba, como hace Ultimate Guitar, en patrones elegibles entre ukelele, piano y guitarra. ¿Se podrían además editar qué disposición me gustaría que tuviera esos acordes en cada canción?» (Jesús, 2026-09-26)
+
+**Qué se quiere.** Encima de la letra (artículo y pantalla completa), una fila con un diagrama por cada acorde distinto de la canción, con un selector guitarra / ukelele / piano. Al transportar, los diagramas cambian con los acordes. Y poder fijar, canción a canción, la digitación de un acorde concreto.
+
+**Lo que ya se sabe.**
+- ChordPro trae de serie la directiva `{define: …}` para fijar la digitación de un acorde. Eso permite editarlo **en el propio `.cho` de cada canción**, sin campos nuevos en la base de datos. **Sin comprobar:** si ChordSheetJS 16.2.2 la parsea y la expone; si no, la leemos nosotros del texto.
+- Los acordes de la canción ya salen de la canción parseada en `static/js/src/chordpro.js`, con la grafía transportada correcta: son la lista de diagramas que hay que pintar.
+
+**Lo que hay que decidir antes de construir.**
+- De dónde salen las digitaciones por defecto de cada instrumento: una base de datos de acordes o una tabla propia de los acordes del repertorio de clase.
+- Cómo se dibujan: una librería de diagramas para guitarra y ukelele y un teclado propio en SVG para el piano, o todo propio.
+- Si una `{define}` vale para un instrumento o para todos, y cómo se escribe para el piano, que no tiene trastes.
+
+**Claims previstos** (sin numerar hasta que se apruebe el plan): diagramas de los acordes de la canción en los tres instrumentos; el selector se recuerda en el navegador; transportar cambia los diagramas; una `{define}` del `.cho` manda sobre la digitación por defecto; se imprimen con la letra.
