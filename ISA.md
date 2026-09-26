@@ -4213,9 +4213,9 @@ Las plantillas del CMS son para proyectar: A5 con cabecera y número de página 
 
 ---
 
-## Fase 50 — Descartar con confirmación, el globo que no se iba y el recorte de dos páginas (2026-09-26) · HECHA EN LOCAL, PENDIENTE DE DESPLIEGUE
+## Fase 50 — Descartar con confirmación, el globo que no se iba y el recorte de dos páginas (2026-09-26) · DESPLEGADA
 
 - [x] **C279 — La ✕ del visor de estudio pide confirmación.** Descartar saca el elemento de los repasos para siempre (`descartar_item`, reversible con «Deshacer»), y el título decía «hoy no». Primer toque arma (rojo + «Toca ✕ otra vez…»), el segundo en 3 s descarta; se desarma al cambiar de elemento. *Probe: Chrome local: un toque no descarta y se desarma solo; dos toques → `descartado=True`; «Deshacer» → `False`.*
 - [x] **C280 — El globo de ayuda de ‹ › ya no se queda fijo en clase.** Se abría también por foco, y tras un toque con el dedo el botón queda enfocado sin puntero que se aparte. Ahora solo con foco de teclado (`:focus-visible`) y se cierra al pulsar. *Probe: reproducido (foco sin ratón → visible a los 3 s); tras el arreglo, toque simulado + foco → oculto a los 2,5 s.*
 - [x] **C281 — Recorte de varias páginas: la siguiente abre arriba.** El borde superior del rectángulo se aplicaba a todas las páginas; ahora solo a la primera del recorte. *Probe: recorte local 60 (págs. 4–5) con `rect_y0=0.6`: antes la 2/2 abría en `scrollTop 1129/1129`; después en 0, con el principio de la página a la vista. Rectángulo de prueba retirado.*
-- [ ] **C282** — Desplegado y comprobado en producción.
+- [x] **C282 — Desplegado** (`2a4310e`, sin migraciones). *Probe: Chrome con la sesión de Jesús en el visor de estudio: un toque en ✕ la arma con el aviso y se desarma sola a los 3 s, sin descartar nada. El globo y el recorte van en el mismo commit; comprobados en local, no a mano en producción.*
