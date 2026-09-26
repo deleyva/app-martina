@@ -1239,7 +1239,16 @@
     document.querySelectorAll('[data-ayuda]').forEach(function(boton) {
         boton.addEventListener('mouseenter', function() { mostrarGlobo(boton); });
         boton.addEventListener('mouseleave', esconderGlobo);
-        boton.addEventListener('focus', function() { mostrarGlobo(boton); });
+        // Solo con el foco de TECLADO. Tras un toque con el dedo el botón se
+        // queda enfocado y, sin puntero que se aparte, el globo no se iba nunca:
+        // el de ‹ › («las flechas del teclado pasan páginas…») se quedaba toda la
+        // clase encima (2026-09-26).
+        boton.addEventListener('focus', function() {
+            if (boton.matches(':focus-visible')) mostrarGlobo(boton);
+        });
+        boton.addEventListener('click', function() {
+            if (!tragarClick) esconderGlobo();
+        });
         boton.addEventListener('blur', esconderGlobo);
 
         boton.addEventListener('pointerdown', function(e) {

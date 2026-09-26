@@ -97,6 +97,14 @@
         #fab-descartar { bottom: 144px; right: 24px; }
         #fab-valorar   { bottom: 144px; right: 84px; background: rgba(34, 197, 94, 0.35); border-color: rgba(34, 197, 94, 0.7); }
         #fab-valorar:hover { background: rgba(34, 197, 94, 0.55); }
+        /* ✕ armada: el primer toque solo avisa; el segundo descarta. */
+        #fab-descartar.armado { background: rgba(220, 38, 38, 0.9); border-color: rgba(252, 165, 165, 0.9); }
+        #descartar-confirma {
+            position: fixed; right: 84px; bottom: 150px; z-index: 10001; padding: 8px 12px;
+            border-radius: 10px; background: rgba(20, 20, 24, 0.95); border: 1px solid rgba(252, 165, 165, 0.6);
+            color: #fff; font-size: 13px; display: none; pointer-events: none;
+        }
+        #descartar-confirma.visible { display: block; }
 
         /* Lista de elementos de la sesión en el menú, como en clase. */
         .flyout-syllabus { max-height: 40vh; overflow-y: auto; border-top: 1px solid rgba(255, 255, 255, 0.08); }
@@ -653,11 +661,12 @@
         </svg>
     </button>
     <button id="fab-descartar" class="fab-der" type="button" onclick="descartarDesdeBoton()"
-            title="Hoy no: quitar de esta sesión (D D). Se puede deshacer">
+            title="Descartar: sacarlo de tus repasos para siempre (se conserva su historial y se puede deshacer). Pide confirmación. Atajo: D D">
         <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
         </svg>
     </button>
+    <div id="descartar-confirma" role="status">Toca ✕ otra vez para descartarlo de tus repasos</div>
     <button id="fab-anterior" class="fab-der" type="button" onclick="navigateItem(-1)" title="Anterior">
         <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
@@ -849,9 +858,27 @@
         loadItem(index);
     }
 
+    // Descartar saca el elemento de TUS REPASOS PARA SIEMPRE (`descartar_item`),
+    // no solo de hoy. Con un botón a la vista, un toque sin querer bastaba:
+    // ahora el primer toque solo arma y avisa, y el segundo, antes de 3 s,
+    // descarta. Después sigue saliendo el aviso con «Deshacer».
+    var descarteArmado = null;
+    function desarmarDescarte() {
+        clearTimeout(descarteArmado);
+        descarteArmado = null;
+        document.getElementById('fab-descartar').classList.remove('armado');
+        document.getElementById('descartar-confirma').classList.remove('visible');
+    }
     function descartarDesdeBoton() {
         var actual = playlist[currentIndex];
         if (!actual) return;
+        if (!descarteArmado) {
+            document.getElementById('fab-descartar').classList.add('armado');
+            document.getElementById('descartar-confirma').classList.add('visible');
+            descarteArmado = setTimeout(desarmarDescarte, 3000);
+            return;
+        }
+        desarmarDescarte();
         ultimoDescartado = actual.pk;
         mostrarAvisoDescarte(actual.title);
         descartarItem();
@@ -867,6 +894,8 @@
     // ── Core study flow ──
     function loadItem(index) {
         flushNotes();
+        // Una ✕ armada es para el elemento en que se armó, no para el siguiente.
+        if (typeof desarmarDescarte === 'function') desarmarDescarte();
         if (index >= playlist.length) {
             showSessionComplete();
             return;

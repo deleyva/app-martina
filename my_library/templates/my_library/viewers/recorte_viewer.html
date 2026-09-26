@@ -188,7 +188,11 @@ multilínea escrito así se pinta entero en la página. Por eso este bloque es
                 // DESPUÉS del render porque hasta que el canvas no tiene su
                 // tamaño definitivo, scrollTop se recorta contra la altura vieja.
                 if (RECT) {
-                    container.scrollTop = RECT.y0 * canvas.height;
+                    // El borde de arriba del recorte solo existe en su PRIMERA
+                    // página; en las siguientes el recorte sigue desde arriba.
+                    // Aplicarlo en todas dejaba la página 2 al fondo en los
+                    // recortes que empiezan a media página (2026-09-26).
+                    container.scrollTop = paginaActual === PAGINA_DESDE ? RECT.y0 * canvas.height : 0;
                     container.scrollLeft = RECT.x0 * canvas.width;
                 } else {
                     container.scrollTop = 0;

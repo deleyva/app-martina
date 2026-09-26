@@ -4210,3 +4210,12 @@ Las plantillas del CMS son para proyectar: A5 con cabecera y número de página 
 
 - **Tomado al pie de la letra:** si una sesión se prepara con días de antelación con elementos ya marcados, bajan al prepararla, no al dar la clase. Avisado a Jesús.
 - **No se ha hecho barrido de lo ya existente:** elementos que hoy estén en una clase con la casita pero sin visto no bajan hasta que se toque su casita. Hacerlo sería una migración de datos en producción; se pregunta antes.
+
+---
+
+## Fase 50 — Descartar con confirmación, el globo que no se iba y el recorte de dos páginas (2026-09-26) · HECHA EN LOCAL, PENDIENTE DE DESPLIEGUE
+
+- [x] **C279 — La ✕ del visor de estudio pide confirmación.** Descartar saca el elemento de los repasos para siempre (`descartar_item`, reversible con «Deshacer»), y el título decía «hoy no». Primer toque arma (rojo + «Toca ✕ otra vez…»), el segundo en 3 s descarta; se desarma al cambiar de elemento. *Probe: Chrome local: un toque no descarta y se desarma solo; dos toques → `descartado=True`; «Deshacer» → `False`.*
+- [x] **C280 — El globo de ayuda de ‹ › ya no se queda fijo en clase.** Se abría también por foco, y tras un toque con el dedo el botón queda enfocado sin puntero que se aparte. Ahora solo con foco de teclado (`:focus-visible`) y se cierra al pulsar. *Probe: reproducido (foco sin ratón → visible a los 3 s); tras el arreglo, toque simulado + foco → oculto a los 2,5 s.*
+- [x] **C281 — Recorte de varias páginas: la siguiente abre arriba.** El borde superior del rectángulo se aplicaba a todas las páginas; ahora solo a la primera del recorte. *Probe: recorte local 60 (págs. 4–5) con `rect_y0=0.6`: antes la 2/2 abría en `scrollTop 1129/1129`; después en 0, con el principio de la página a la vista. Rectángulo de prueba retirado.*
+- [ ] **C282** — Desplegado y comprobado en producción.
