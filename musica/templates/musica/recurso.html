@@ -1037,7 +1037,7 @@
                     enablePlayer: true,
                     enableCursor: true,
                     enableUserInteraction: true,
-                    scrollMode: alphaTab.ScrollMode.Continuous,
+                    scrollMode: alphaTab.ScrollMode.Off,  // se enciende al dar al play, ver abajo
                     scrollOffsetY: -100,
                     soundFont: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@latest/dist/soundfont/sonivox.sf2'
                 },
@@ -1060,7 +1060,21 @@
 
             var api = new alphaTab.AlphaTabApi(contentDiv, settings);
 
-            fetch(gpUrl)
+            // Seguir al cursor solo mientras suena. alphaTab, al terminar cada
+            // renderizado, coloca el cursor en el primer compás y, si el scroll está
+            // activo, lleva la página hasta él: al entrar en una canción con tablatura
+            // la página saltaba sola hasta Recursos (2026-09-26, Perfect: de 0 a 8282 px).
+            // Por eso arranca en `Off` y se enciende al dar al play.
+            api.playerStateChanged.on(function(e) {
+                var modo = e.state === 1 ? alphaTab.ScrollMode.Continuous : alphaTab.ScrollMode.Off;
+                if (api.settings.player.scrollMode === modo) return;
+                api.settings.player.scrollMode = modo;
+                // Con el mismo modo de reproductor solo recoloca cursores y el manejador
+                // de scroll: ni para la música ni vuelve a dibujar la partitura.
+                api.updateSettings();
+            });
+
+                        fetch(gpUrl)
                 .then(function(r) {
                     if (!r.ok) throw new Error('HTTP ' + r.status);
                     return r.arrayBuffer();
