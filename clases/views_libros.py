@@ -230,9 +230,13 @@ def _alternar_marca(group_book, tipo_id, objeto_id, campo):
         cambios = {}
 
     if cambios:
-        libros_de_grupo.excepcion(
+        item, _ = libros_de_grupo.excepcion(
             group_book, fila["objeto"], capitulo=fila["capitulo"], **cambios
         )
+        # La casita, marcada o quitada fuera de clase: si el elemento ya está en
+        # alguna clase del grupo, baja o se retira ya.
+        if "a_casa" in cambios:
+            libros_de_grupo.sincronizar_a_casa(item)
 
     return _fila_de(group_book, tipo_id, objeto_id)
 

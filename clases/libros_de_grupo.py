@@ -343,6 +343,7 @@ def preparar_sesion(session, secciones=None, por_libro=1):
                 order=orden,
             )
         )
+        bajar_si_va_a_casa(creados[-1])
         orden += 1
     return creados
 
@@ -436,6 +437,7 @@ def anadir_elementos(session, claves):
                 order=orden,
             )
         )
+        bajar_si_va_a_casa(creados[-1])
         orden += 1
     return creados
 
@@ -466,13 +468,14 @@ def marcar_visto(session_item, visto=True):
         visto_en=session_item.session if visto else None,
     )
 
-    # Y si el elemento está marcado para irse a casa, se va ahora: dar por visto
-    # es el único gesto que lo manda a las bibliotecas del alumnado.
-    if item.a_casa:
-        if visto:
-            bajar_a_las_bibliotecas(session_item, item)
-        else:
-            subir_de_las_bibliotecas(session_item, item)
+    # Desde el 2026-09-26 lo que manda a casa es la casita, no el visto: un
+    # elemento baja en cuanto está en una clase y marcado para casa (pedido de
+    # Jesús: «vemos una partitura en clase, no la he marcado como vista, pero
+    # quiero que empiece a estudiársela en casa»). Aquí solo se asegura el
+    # bañado, que es idempotente; quitar el visto NO lo retira, porque la
+    # casita sigue puesta.
+    if visto and item.a_casa:
+        bajar_a_las_bibliotecas(session_item, item)
 
     return item
 
@@ -589,13 +592,58 @@ def marcar_a_casa(session_item, a_casa):
         a_casa=a_casa,
     )
 
-    if item.estado == GroupBookItem.VISTO:
-        if a_casa:
-            bajar_a_las_bibliotecas(session_item, item)
-        else:
-            subir_de_las_bibliotecas(session_item, item)
+    # El elemento está en una clase (es un session_item), así que la casita
+    # decide sola: baja ahora, sin esperar al visto; quitarla retira lo que
+    # nadie ha abierto.
+    if a_casa:
+        bajar_a_las_bibliotecas(session_item, item)
+    else:
+        subir_de_las_bibliotecas(session_item, item)
 
     return item
+
+
+def bajar_si_va_a_casa(session_item):
+    """Al poner un elemento en una clase, si ya tenía la casita, baja ya.
+
+    Es la otra mitad de la regla: «está en una clase y marcado para casa». Da
+    igual el orden en que pasen las dos cosas.
+    """
+    if session_item.group_book_id is None:
+        return 0
+    fila = GroupBookItem.objects.filter(
+        group_book_id=session_item.group_book_id,
+        content_type_id=session_item.content_type_id,
+        object_id=session_item.object_id,
+        a_casa=True,
+    ).first()
+    return bajar_a_las_bibliotecas(session_item, fila) if fila else 0
+
+
+def sincronizar_a_casa(group_book_item):
+    """La casita marcada o quitada fuera de clase (página del libro, preparar).
+
+    Solo hace algo si el elemento ya está en alguna clase del grupo: la regla es
+    «en una clase y marcado para casa». Si no está en ninguna, la casita queda
+    apuntada y el elemento bajará cuando se ponga en una.
+    """
+    from clases.models import ClassSessionItem
+
+    en_clase = (
+        ClassSessionItem.objects.filter(
+            group_book=group_book_item.group_book,
+            content_type_id=group_book_item.content_type_id,
+            object_id=group_book_item.object_id,
+        )
+        .select_related("session")
+        .order_by("-session__date", "-pk")
+        .first()
+    )
+    if en_clase is None:
+        return 0
+    if group_book_item.a_casa:
+        return bajar_a_las_bibliotecas(en_clase, group_book_item)
+    return subir_de_las_bibliotecas(en_clase, group_book_item)
 
 
 def progreso(group_book):

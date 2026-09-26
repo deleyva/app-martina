@@ -373,7 +373,7 @@ def _montar_clase(grupo, profesor, a_casa):
 
 
 def test_lo_marcado_para_casa_baja_a_cada_alumno(db, profesor, django_user_model):
-    """C137. Dar por visto es el único gesto que manda material a casa."""
+    """C137. Lo marcado para casa baja a cada alumno del grupo."""
     from my_library.models import LibraryItem
 
     grupo = _grupo()
@@ -421,17 +421,18 @@ def test_marcar_visto_dos_veces_no_duplica_en_la_biblioteca(db, profesor, django
 
 
 def test_deshacer_retira_lo_intacto(db, profesor, django_user_model):
-    """C139. Un toque mal dado mete el elemento en treinta bibliotecas; deshacer
-    justo después tiene que limpiarlo."""
+    """C139. Una casita mal puesta mete el elemento en treinta bibliotecas;
+    quitarla justo después tiene que limpiarlo. (Desde el 2026-09-26 lo que
+    manda a casa es la casita, así que es la casita lo que se deshace.)"""
     from my_library.models import LibraryItem
 
     grupo = _grupo()
     grupo.teachers.add(profesor)
     alumnos = _matricular(grupo, django_user_model)
     _, item = _montar_clase(grupo, profesor, a_casa=True)
+    assert LibraryItem.objects.filter(user__in=alumnos).count() == 2
 
-    libros_de_grupo.marcar_visto(item)
-    libros_de_grupo.marcar_visto(item, visto=False)
+    libros_de_grupo.marcar_a_casa(item, False)
 
     assert LibraryItem.objects.filter(user__in=alumnos).count() == 0
 
@@ -447,13 +448,11 @@ def test_deshacer_respeta_lo_que_el_alumno_ya_practico(db, profesor, django_user
     alumnos = _matricular(grupo, django_user_model)
     _, item = _montar_clase(grupo, profesor, a_casa=True)
 
-    libros_de_grupo.marcar_visto(item)
-
     # Un alumno lo practica; el otro no lo ha abierto.
     practicado = LibraryItem.objects.get(user=alumnos[0])
     ReviewLog.objects.create(user=alumnos[0], item=practicado)
 
-    libros_de_grupo.marcar_visto(item, visto=False)
+    libros_de_grupo.marcar_a_casa(item, False)
 
     assert LibraryItem.objects.filter(user=alumnos[0]).count() == 1
     assert LibraryItem.objects.filter(user=alumnos[1]).count() == 0
@@ -579,8 +578,10 @@ def test_desmarcar_a_casa_con_el_elemento_ya_visto_lo_retira(
     assert LibraryItem.objects.filter(user__in=alumnos).count() == 0
 
 
-def test_marcar_a_casa_sin_verlo_no_baja_nada_todavia(db, profesor, django_user_model):
-    """C143. La casita sola no manda nada: lo que manda es darlo por visto."""
+def test_marcar_a_casa_en_clase_baja_ya_sin_esperar_al_visto(db, profesor, django_user_model):
+    """C276. «Vemos una partitura en clase, no la he marcado como vista, pero
+    quiero que empiece a estudiársela en casa» (Jesús, 2026-09-26). Antes la
+    casita sola no mandaba nada hasta darlo por visto."""
     from my_library.models import LibraryItem
 
     grupo = _grupo()
@@ -590,6 +591,60 @@ def test_marcar_a_casa_sin_verlo_no_baja_nada_todavia(db, profesor, django_user_
 
     libros_de_grupo.marcar_a_casa(item, True)
 
+    assert LibraryItem.objects.filter(user__in=alumnos).count() == 2
+    assert not item.visto
+
+
+def test_poner_en_clase_algo_con_casita_lo_baja_ya(db, profesor, django_user_model):
+    """C276. La otra mitad de la regla: marcado en el libro y luego puesto en
+    una clase. `_montar_clase` marca la casita ANTES de preparar la sesión."""
+    from my_library.models import LibraryItem
+
+    grupo = _grupo()
+    grupo.teachers.add(profesor)
+    alumnos = _matricular(grupo, django_user_model)
+    _montar_clase(grupo, profesor, a_casa=True)
+
+    assert LibraryItem.objects.filter(user__in=alumnos).count() == 2
+
+
+def test_quitar_el_visto_no_retira_lo_que_tiene_casita(db, profesor, django_user_model):
+    """C276. La casita ya no depende del visto: quitar el visto no se lo lleva."""
+    from my_library.models import LibraryItem
+
+    grupo = _grupo()
+    grupo.teachers.add(profesor)
+    alumnos = _matricular(grupo, django_user_model)
+    _, item = _montar_clase(grupo, profesor, a_casa=True)
+
+    libros_de_grupo.marcar_visto(item)
+    libros_de_grupo.marcar_visto(item, visto=False)
+
+    assert LibraryItem.objects.filter(user__in=alumnos).count() == 2
+
+
+def test_casita_desde_el_libro_baja_solo_si_ya_esta_en_una_clase(db, profesor, django_user_model):
+    """C276. Fuera de clase (página del libro o preparar), la casita baja el
+    elemento solo si ya está en alguna clase del grupo; si no, espera a que se
+    ponga en una."""
+    from my_library.models import LibraryItem
+
+    grupo = _grupo()
+    grupo.teachers.add(profesor)
+    alumnos = _matricular(grupo, django_user_model)
+    libro, _ = _libro_con_capitulos("Libro sync", f"libro-sync-{grupo.pk}", [("Cap", ["m1"])])
+    group_book = _asignar(grupo, libro, seccion="instrumento")
+    fila = libros_de_grupo.enumerar(group_book)[0]
+
+    gbi, _ = libros_de_grupo.excepcion(group_book, fila["objeto"], capitulo=fila["capitulo"], a_casa=True)
+    assert libros_de_grupo.sincronizar_a_casa(gbi) == 0
+    assert LibraryItem.objects.filter(user__in=alumnos).count() == 0
+
+    libros_de_grupo.preparar_sesion(_sesion(grupo, profesor))
+    assert LibraryItem.objects.filter(user__in=alumnos).count() == 2
+
+    gbi, _ = libros_de_grupo.excepcion(group_book, fila["objeto"], capitulo=fila["capitulo"], a_casa=False)
+    libros_de_grupo.sincronizar_a_casa(gbi)
     assert LibraryItem.objects.filter(user__in=alumnos).count() == 0
 
 
@@ -1039,3 +1094,42 @@ def test_por_capitulos_agrupa_sin_perder_nada(db):
     assert [b["capitulo"].title for b in bloques] == ["Capítulo 1", "Capítulo 2"]
     assert [len(b["filas"]) for b in bloques] == [2, 1]
     assert sum(len(b["filas"]) for b in bloques) == len(libros_de_grupo.enumerar(group_book))
+
+
+# =============================================================================
+# C277 · Copiar los libros de un grupo a otro
+# =============================================================================
+
+
+def test_copiar_libros_de_grupo_copia_configuracion_y_no_avance(db, profesor):
+    """C277. Raúl recibe los libros de Carmen con sus secciones, modos y
+    elementos elegidos, pero sin lo que Carmen ya ha visto."""
+    from django.core.management import call_command
+
+    origen, destino = _grupo("Carmen"), _grupo("Raúl")
+    libro, _ = _libro_con_capitulos("Copia", f"copia-{origen.pk}", [("Cap", ["m1", "m2"])])
+    otro, _ = _libro_con_capitulos("Ya", f"ya-{origen.pk}", [("Cap", ["x1"])])
+    gb = _asignar(origen, libro, seccion="ritmo_melodia")
+    gb.modo = GroupBook.EN_CURSO
+    gb.save()
+    _asignar(origen, otro, seccion="teoria")
+    ya_destino = _asignar(destino, otro, seccion="canciones")
+    f1, f2 = libros_de_grupo.enumerar(gb)[:2]
+    libros_de_grupo.excepcion(gb, f1["objeto"], capitulo=f1["capitulo"], incluido=False)
+    libros_de_grupo.excepcion(gb, f2["objeto"], capitulo=f2["capitulo"], a_casa=True,
+                              estado=GroupBookItem.VISTO)
+
+    call_command("copiar_libros_de_grupo", "--de", origen.pk, "--a", destino.pk)
+    assert destino.books.count() == 1  # ensayo: no escribe
+
+    call_command("copiar_libros_de_grupo", "--de", origen.pk, "--a", destino.pk, "--aplicar")
+    copia = destino.books.get(libro=libro)
+    assert (copia.seccion, copia.modo) == ("ritmo_melodia", GroupBook.EN_CURSO)
+    filas = {f.object_id: f for f in copia.items.all()}
+    assert filas[f1["objeto"].pk].incluido is False
+    assert filas[f2["objeto"].pk].a_casa is True
+    assert filas[f2["objeto"].pk].estado == GroupBookItem.PENDIENTE
+    # El que ya tenía, intacto.
+    ya_destino.refresh_from_db()
+    assert ya_destino.seccion == "canciones"
+    assert destino.books.count() == 2

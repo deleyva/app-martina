@@ -4195,3 +4195,18 @@ Las plantillas del CMS son para proyectar: A5 con cabecera y número de página 
 - [x] **C273 — El editor no dispara las teclas del visor.** *Probe: `+` en el editor no transporta; flechas y M no cambian de elemento ni abren el menú en el proyector; Esc cierra solo el editor.*
 - [x] **C274 — Visor de estudio con los carriles de clase:** ✓ valorar, ✕ descartar, ← → a la derecha; contexto y encajar a la izquierda; menú con Salir, la lista de elementos (tachados los valorados) y notas, secciones y etiquetas. Fuera nota de voz, plantillas, «a casa» y finalizar clase. *Probe: Chrome local, ✓ abre la valoración, al valorar pasa al siguiente y tacha el anterior; límites de ← → correctos.*
 - [x] **C275 — Desplegado y comprobado en producción.** *Probe: Chrome con la sesión de Jesús: el ✎ de Perfect abre el editor con la letra (62 líneas, 174 acordes en la previa) y Esc lo cierra sin guardar; el visor de estudio tiene los carriles y, con la sesión vacía, solo el menú (arreglo desplegado aparte: los carriles salían alrededor de «No hay items para estudiar»).*
+
+---
+
+## Fase 49 — La casita manda a casa sin esperar al visto, y los libros de Carmen para Raúl (2026-09-26) · HECHA EN LOCAL, PENDIENTE DE DESPLIEGUE
+
+> «Quiero que un elemento baje a la librería de un estudiante si lo he añadido en alguna clase y lo he marcado para casa. No quiero esperar a marcarlo como visto. Imagínate que vemos una partitura en clase y quiero seguir trabajándola otros días.» · «Quiero que le asignes los mismos libros a Raúl.» (Jesús)
+
+- [x] **C276 — Regla nueva: en una clase + casita = en la biblioteca del alumnado.** Baja al marcar la casita en clase (`marcar_a_casa`), al poner en una sesión algo que ya la tenía (`preparar_sesion`, `anadir_elementos` → `bajar_si_va_a_casa`) y al marcarla desde el libro o al preparar si el elemento ya está en alguna clase (`sincronizar_a_casa`). Quitar la casita retira lo intacto; quitar el visto ya no retira nada. *Probe: tests `test_marcar_a_casa_en_clase_baja_ya_sin_esperar_al_visto`, `test_poner_en_clase_algo_con_casita_lo_baja_ya`, `test_quitar_el_visto_no_retira_lo_que_tiene_casita`, `test_casita_desde_el_libro_baja_solo_si_ya_esta_en_una_clase`; C139, C140 y C143 reescritos a la regla nueva.*
+- [x] **C277 — Raúl (grupo 17) tiene los libros de Carmen (grupo 18).** Comando `copiar_libros_de_grupo` (ensayo por defecto, `--aplicar`): copia sección, modo, activo y la selección de elementos, sin el avance; lo que el destino ya tiene no se toca. *Probe: ensayo y aplicación en producción: 3 copiados (Canciones de primero de la ESO, Ukulele Aerobics, Lecturas rítmicas), 3 ya estaban; Chrome con la sesión de Jesús, «Libros de Raúl» con los seis. Ejecutado con la lógica del comando por stdin, antes de desplegarlo.*
+- [ ] **C278** — Regla de la casita desplegada y comprobada en producción.
+
+### Decisiones
+
+- **Tomado al pie de la letra:** si una sesión se prepara con días de antelación con elementos ya marcados, bajan al prepararla, no al dar la clase. Avisado a Jesús.
+- **No se ha hecho barrido de lo ya existente:** elementos que hoy estén en una clase con la casita pero sin visto no bajan hasta que se toque su casita. Hacerlo sería una migración de datos en producción; se pregunta antes.

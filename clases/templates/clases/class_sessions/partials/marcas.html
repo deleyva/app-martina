@@ -35,7 +35,7 @@ la clase.
           hx-vals='{"content_type": "{{ fila.tipo.pk }}", "object_id": "{{ fila.objeto.pk }}", "campo": "a_casa"}'
           hx-target="closest .marcas"
           hx-swap="outerHTML"
-          title="{% if item.a_casa %}Marcado para casa: bajará a la biblioteca del alumnado cuando lo des por visto EN CLASE. Tocar para quitarlo.{% else %}Marcar para que se lo lleven a casa.{% endif %}"
+          title="{% if item.a_casa %}Marcado para casa: baja a la biblioteca del alumnado en cuanto está en una clase, sin esperar al visto. Tocar para quitarlo.{% else %}Marcar para que se lo lleven a casa.{% endif %}"
           aria-pressed="{% if item.a_casa %}true{% else %}false{% endif %}">
     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" d="M3 10.5L12 3l9 7.5M5.25 9.75V20a1 1 0 001 1h11.5a1 1 0 001-1V9.75"/>

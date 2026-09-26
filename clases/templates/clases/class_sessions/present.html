@@ -1317,15 +1317,14 @@
         btn.setAttribute('aria-pressed', item.a_casa ? 'true' : 'false');
 
         // Dar por visto es el ÚNICO gesto que baja el material a las
-        // bibliotecas del alumnado (`libros_de_grupo.marcar_visto`), así que
-        // marcar la casita sin dar por visto todavía no manda nada. Decirlo.
+        // bibliotecas del alumnado en cuanto la casita está puesta y el
+        // elemento está en la clase (`libros_de_grupo.marcar_a_casa`), sin
+        // esperar al visto (2026-09-26).
         var ayuda;
         if (!item.tiene_libro) {
             ayuda = 'Este elemento es un extra suelto: no sale de ningún libro, así que no se puede mandar para casa.';
-        } else if (item.a_casa && item.visto) {
-            ayuda = 'Se manda para casa. Ya está en la biblioteca del alumnado. Tocar para no mandarlo (C).';
         } else if (item.a_casa) {
-            ayuda = 'Se manda para casa. Bajará a la biblioteca del alumnado en cuanto lo des por visto. Tocar para no mandarlo (C).';
+            ayuda = 'Se manda para casa. Ya está en la biblioteca del alumnado, aunque no esté dado por visto. Tocar para no mandarlo (C).';
         } else {
             ayuda = 'No se manda para casa. Tocar para que se lo lleven (C).';
         }
@@ -1351,7 +1350,7 @@
             item.tiene_libro = datos.aplicable;
             pintarACasa();
             avisar(item.a_casa
-                ? (item.visto ? 'Se manda para casa' : 'Se manda para casa al darlo por visto')
+                ? 'Se manda para casa: ya está en su biblioteca'
                 : 'Ya no se manda para casa');
         })
         .catch(function() {
