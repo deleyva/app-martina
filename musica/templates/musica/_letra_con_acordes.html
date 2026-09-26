@@ -1,4 +1,4 @@
-{% load library_tags %}
+{% load static library_tags %}
 {% comment %}
 Letra con acordes (ChordPro) dentro de la sección Resources del artículo.
 
@@ -26,6 +26,12 @@ desplazamiento automático.
                 <button type="button" id="cp-menor" class="btn btn-sm join-item" title="Letra más pequeña">A−</button>
                 <button type="button" id="cp-mayor" class="btn btn-sm join-item" title="Letra más grande">A+</button>
             </div>
+            <select id="cp-instrumento" class="select select-sm select-bordered w-auto" title="Diagramas de acordes">
+                <option value="">Acordes: no</option>
+                <option value="guitarra">Guitarra</option>
+                <option value="ukelele">Ukelele</option>
+                <option value="piano">Piano</option>
+            </select>
             <a href="{% url 'my_library:view_content_object' letra|content_type_id letra.pk %}?back={{ request.path|urlencode }}"
                id="cp-completa" class="btn btn-sm btn-ghost" title="Solo la letra, a pantalla completa">⛶ Pantalla completa</a>
             <button type="button" id="cp-imprimir" class="btn btn-sm btn-ghost"
@@ -36,6 +42,9 @@ desplazamiento automático.
         </div>
         {# json_script escapa bien: un </script> dentro de la letra no rompe la pagina. #}
         {{ page.chordpro|json_script:"cp-source" }}
+        <div id="cp-diagramas" class="cpd-tira" hidden
+             data-db-guitarra="{% static 'vendor/chords-db/guitar.json' %}"
+             data-db-ukelele="{% static 'vendor/chords-db/ukulele.json' %}"></div>
         <div id="cp-output" class="chordpro-sheet" style="font-size: 16px;"></div>
         <p id="cp-error" class="text-sm text-error" style="display:none;"></p>
     </div>

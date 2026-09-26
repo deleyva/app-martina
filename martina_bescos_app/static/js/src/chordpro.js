@@ -9,6 +9,7 @@
 // mantener, así que se hace aquí, en el navegador, cada vez que se pinta.
 
 import { ChordProParser, HtmlDivFormatter } from "chordsheetjs";
+import { leerDefiniciones, cargarBase, diagrama } from "./diagramas_acordes.js";
 
 // Más de una octava arriba o abajo vuelve al mismo sitio: no aporta nada.
 const LIMITE = 11;
@@ -114,4 +115,71 @@ function etiquetaTono(semitonos) {
   return signo + semitonos + unidad;
 }
 
-window.ChordPro = { LIMITE, acotar, parsear, aHtml, etiquetaTono };
+// Acordes distintos de la canción, en orden de aparición y con la misma
+// grafía que la letra transpuesta.
+function acordes(cancion, semitonos) {
+  const pasos = acotar(semitonos || 0);
+  if (!pasos) return cancion.getChords();
+  const alteracion = alteracionPara(cancion, pasos);
+  const vistos = [];
+  cancion.transpose(pasos).getChords().forEach((c) => {
+    const nombre = alteracion ? reescribir(c, alteracion) : c;
+    if (!vistos.includes(nombre)) vistos.push(nombre);
+  });
+  return vistos;
+}
+
+// Tira de diagramas. Las {define} de la canción solo valen en el tono
+// original: al transportar, el acorde es otro.
+function diagramasHtml(nombres, instrumento, indice, defs, semitonos) {
+  const propias = semitonos ? null : defs;
+  return nombres.map((n) => diagrama(n, instrumento, indice, propias)).join("");
+}
+
+// Monta la tira de diagramas y su selector de instrumento. Lo usan el artículo
+// y la pantalla completa; cada uno pone su HTML y llama a `refrescar()` al
+// transportar.
+//   tira       elemento donde van los diagramas
+//   selector   <select> con valores "" (ocultos), guitarra, ukelele, piano
+//   texto      el ChordPro original (para leer sus {define})
+//   cancion    la canción ya parseada
+//   urls       {guitarra, ukelele}: JSON de chords-db servidos por Django
+//   semitonos  función que devuelve el transporte actual
+const CLAVE_INSTRUMENTO = "cp-instrumento";
+
+function montarDiagramas({ tira, selector, texto, cancion, urls, semitonos }) {
+  const defs = leerDefiniciones(texto);
+  let instrumento = "";
+  try { instrumento = localStorage.getItem(CLAVE_INSTRUMENTO) || ""; } catch (e) { /* sin almacenamiento */ }
+  if (![...selector.options].some((o) => o.value === instrumento)) instrumento = "";
+  selector.value = instrumento;
+
+  let turno = 0;  // descarta respuestas viejas si se cambia deprisa
+  function refrescar() {
+    const mio = ++turno;
+    if (!instrumento) { tira.hidden = true; tira.innerHTML = ""; return; }
+    const pasos = acotar(semitonos() || 0);
+    const pintar = (indice) => {
+      if (mio !== turno) return;
+      tira.innerHTML = diagramasHtml(acordes(cancion, pasos), instrumento, indice, defs, pasos);
+      tira.hidden = false;
+    };
+    if (instrumento === "piano") { pintar(null); return; }
+    cargarBase(urls[instrumento]).then(pintar).catch((e) => {
+      console.error("Diagramas:", e);
+      if (mio === turno) { tira.textContent = "No se pudieron cargar los diagramas."; tira.hidden = false; }
+    });
+  }
+  selector.addEventListener("change", () => {
+    instrumento = selector.value;
+    try { localStorage.setItem(CLAVE_INSTRUMENTO, instrumento); } catch (e) { /* sin almacenamiento */ }
+    refrescar();
+  });
+  refrescar();
+  return refrescar;
+}
+
+window.ChordPro = {
+  LIMITE, acotar, parsear, aHtml, etiquetaTono,
+  acordes, leerDefiniciones, cargarBase, diagramasHtml, montarDiagramas,
+};

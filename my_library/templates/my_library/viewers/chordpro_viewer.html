@@ -31,6 +31,15 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
     .cpv-salida .lyrics { white-space: pre; }
     .cpv-salida .title, .cpv-salida .subtitle { display: none; }
     .cpv-salida .comment { font-style: italic; opacity: .7; margin: .5em 0; }
+    /* Diagramas de acordes (static/js/src/diagramas_acordes.js). Dibujan con
+       currentColor; el acento colorea las teclas del piano y el fondo va en
+       los números de dedo. */
+    .cpd-tira { display: flex; flex-wrap: wrap; gap: 10px 16px; margin: 0 0 1.5rem; color: #111;
+                --cpd-acento: #2563eb; }
+    .cpd { margin: 0; text-align: center; font: 700 13px system-ui, sans-serif; }
+    .cpd figcaption { margin-bottom: 2px; }
+    .cpd-dedo { fill: #fff; }
+    .cpd-sin span { display: block; font-weight: 400; font-size: 11px; opacity: .6; padding-top: 1.5em; }
     .cpv-aviso { max-width: 40rem; margin: 20vh auto 0; text-align: center; color: #555; font: 1rem system-ui, sans-serif; }
     .cpv-barra { position: fixed; left: 0; right: 0; bottom: 0; z-index: 9999; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; padding: 10px 12px; background: rgba(0,0,0,.9); color: #fff; font: 14px system-ui, sans-serif; }
     .cpv-barra button { background: #333; color: #fff; border: 1px solid #555; border-radius: 6px; padding: 6px 12px; font: inherit; cursor: pointer; min-width: 40px; }
@@ -45,6 +54,7 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
     @page { margin: 16mm 15mm; }
     @media print {
         .cpv-salida { font-size: 11.5pt !important; }
+        .cpd-tira { zoom: 0.85 !important; break-inside: avoid; margin-bottom: 10pt; }
         .cpv-titulo { font-size: 13pt; color: #000; margin-bottom: 8pt; }
         body * { visibility: hidden !important; }
         .cpv, .cpv * { visibility: visible !important; }
@@ -62,6 +72,9 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
     <p class="cpv-titulo">{{ page.title }}</p>
     {% if page.chordpro %}
         {{ page.chordpro|json_script:"cpv-fuente" }}
+        <div class="cpd-tira" data-diagramas hidden
+             data-db-guitarra="{% static 'vendor/chords-db/guitar.json' %}"
+             data-db-ukelele="{% static 'vendor/chords-db/ukulele.json' %}"></div>
         <div class="cpv-salida" style="font-size: 24px;"></div>
         <p class="cpv-aviso" data-error hidden></p>
     {% else %}
@@ -78,6 +91,13 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
     <span class="cpv-sep"></span>
     <button type="button" data-accion="menor" title="Letra más pequeña (&lt;)">A−</button>
     <button type="button" data-accion="mayor" title="Letra más grande (&gt;)">A+</button>
+    <span class="cpv-sep"></span>
+    <select data-instrumento title="Diagramas de acordes">
+        <option value="">Acordes: no</option>
+        <option value="guitarra">Guitarra</option>
+        <option value="ukelele">Ukelele</option>
+        <option value="piano">Piano</option>
+    </select>
     <span class="cpv-sep"></span>
     <button type="button" data-accion="imprimir" title="Imprimir la letra en este tono y tamaño">🖨 Imprimir</button>
     <span class="cpv-sep"></span>
@@ -118,9 +138,13 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
         barra.style.display = 'none';
     }
 
+    var refrescarDiagramas = null;
+    var tira = visor.querySelector('[data-diagramas]');
+
     function pintar() {
         salida.innerHTML = ChordPro.aHtml(cancion, semitonos);
         tonoEl.textContent = ChordPro.etiquetaTono(semitonos);
+        if (refrescarDiagramas) refrescarDiagramas();
     }
 
     function transponer(delta) {
@@ -131,6 +155,8 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
     function redimensionar(delta) {
         tamano = Math.max(14, Math.min(64, tamano + delta));
         salida.style.fontSize = tamano + 'px';
+        // Los diagramas crecen y encogen con la letra.
+        if (tira) tira.style.zoom = (tamano / 16).toFixed(2);
     }
 
     // El contenedor que se desplaza: el propio visor si tiene su barra de
@@ -225,6 +251,15 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
             mostrarError(e.message);
             return;
         }
+        tira.style.zoom = (tamano / 16).toFixed(2);
+        refrescarDiagramas = ChordPro.montarDiagramas({
+            tira: tira,
+            selector: barra.querySelector('[data-instrumento]'),
+            texto: JSON.parse(fuente.textContent),
+            cancion: cancion,
+            urls: { guitarra: tira.getAttribute('data-db-guitarra'), ukelele: tira.getAttribute('data-db-ukelele') },
+            semitonos: function () { return semitonos; }
+        });
         var params = new URLSearchParams(location.search);
         var tonoInicial = parseInt(params.get('tono'), 10);
         if (tonoInicial) semitonos = ChordPro.acotar(tonoInicial);

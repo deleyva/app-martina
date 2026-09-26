@@ -92,6 +92,10 @@ class LetraConAcordesTest(TestCase):
         self.assertLess(html.index(">Resources</h2>"), html.index('id="chordpro"'))
         self.assertLess(html.index("Cuerpo."), html.index('id="chordpro"'))
         self.assertIn("Pantalla completa", html)
+        # Diagramas de acordes: selector de instrumento y tira con las bases.
+        self.assertIn('id="cp-instrumento"', html)
+        self.assertIn("vendor/chords-db/guitar", html)
+        self.assertIn("vendor/chords-db/ukulele", html)
 
     # --- El visor de sesión ---
 
@@ -115,6 +119,8 @@ class LetraConAcordesTest(TestCase):
         ).content.decode()
         self.assertIn("data-chordpro-visor", html)
         self.assertIn("Letra corregida", html)
+        self.assertIn("data-diagramas", html)
+        self.assertIn("data-instrumento", html)
         self.assertNotIn("I found a", html)
 
     def test_si_se_vacia_el_chordpro_el_visor_lo_dice(self):

@@ -4154,7 +4154,7 @@ Las plantillas del CMS son para proyectar: A5 con cabecera y número de página 
 
 ---
 
-## Fase 47 — Diagramas de acordes sobre la letra (PENDIENTE, para otro día)
+## Fase 47 — Diagramas de acordes sobre la letra (2026-09-26) · HECHA EN LOCAL, PENDIENTE DE DESPLIEGUE
 
 > «Me gustaría poder mostrar esos acordes arriba, como hace Ultimate Guitar, en patrones elegibles entre ukelele, piano y guitarra. ¿Se podrían además editar qué disposición me gustaría que tuviera esos acordes en cada canción?» (Jesús, 2026-09-26)
 
@@ -4169,4 +4169,18 @@ Las plantillas del CMS son para proyectar: A5 con cabecera y número de página 
 - Cómo se dibujan: una librería de diagramas para guitarra y ukelele y un teclado propio en SVG para el piano, o todo propio.
 - Si una `{define}` vale para un instrumento o para todos, y cómo se escribe para el piano, que no tiene trastes.
 
-**Claims previstos** (sin numerar hasta que se apruebe el plan): diagramas de los acordes de la canción en los tres instrumentos; el selector se recuerda en el navegador; transportar cambia los diagramas; una `{define}` del `.cho` manda sobre la digitación por defecto; se imprimen con la letra.
+### Decidido al construir
+
+- **Digitaciones por defecto:** `@tombatossals/chords-db` 0.5.1 (MIT), servida en `static/vendor/chords-db/` con su licencia. Las de ChordSheetJS no valen: su Do es x-3-2-0-3-3 y le faltan Dsus4, Si♭ y La♭m.
+- **`{define}` la leemos nosotros**, no ChordSheetJS, que trata `{define-ukulele}` como guitarra y descarta en silencio `{define-piano: … keys …}`. Sintaxis en `docs/PLANTILLA_ARTICULO_CANCION.md`.
+- **Dibujo propio en SVG** con `currentColor` (claro, oscuro y papel); piano de dos octavas con las teclas del acorde en color de acento y el bajo de un acorde con barra marcado.
+- **Una `{define}` solo vale en el tono original.**
+
+### Claims
+
+- [x] **C266 — Diagramas de los acordes de la canción en guitarra, ukelele y piano**, encima de la letra, en el artículo y en la pantalla completa (`static/js/src/diagramas_acordes.js`). *Probe: Chrome local, Perfect: 6 de 6 con diagrama en los tres instrumentos; revisados a ojo (G 320003, C x32010, Dsus4 xx0233; ukelele Em 0432; piano Sol–Si–Re).*
+- [x] **C267 — Transportar cambia los diagramas**, con la misma grafía que la letra. *Probe: +1 → Ab Fm Db Eb Ab/C Ebsus4, +5 → C Am F G C/E Gsus4, ninguno «sin diagrama».*
+- [x] **C268 — Una `{define}` del `.cho` manda sobre la base de datos**, por instrumento. *Probe: `{define-ukelele: G … 0 2 3 2}` y `{define-piano: C keys 0 4 7 12}` dibujados tal cual.*
+- [x] **C269 — El instrumento se recuerda en el navegador**, compartido por el artículo y la pantalla completa; los diagramas crecen con A+/A−. *Probe: elegido en la pantalla completa, el artículo abre con él.*
+- [ ] **C270** `[DEFERRED-VERIFY]` — Impresos con la letra (van en la tira, con `zoom 0.85` en papel): mismo motivo que C265.
+- [ ] **C271** — Desplegado y comprobado en producción.

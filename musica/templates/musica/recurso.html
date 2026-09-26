@@ -46,6 +46,16 @@
         display: none;
     }
 
+    /* Diagramas de acordes: dibujan con currentColor, así siguen al tema. */
+    .cpd-tira { display: flex; flex-wrap: wrap; gap: 10px 16px; margin: 0 0 1.25rem;
+                --cpd-acento: #2563eb; }
+    /* DaisyUI pone los <figure> en fila: el nombre saldría al lado. */
+    .cpd { margin: 0; text-align: center; font-weight: 700; font-size: 13px;
+           display: flex; flex-direction: column; align-items: center; }
+    .cpd figcaption { margin-bottom: 2px; }
+    .cpd-dedo { fill: var(--color-base-100, #fff); }
+    .cpd-sin span { display: block; font-weight: 400; font-size: 11px; opacity: .6; padding-top: 1.5em; }
+
     .chordpro-sheet .comment {
         font-style: italic;
         opacity: 0.7;
@@ -1201,9 +1211,23 @@
         }
 
         var steps = 0;
+        var refrescarDiagramas = null;
         function render() {
             outputEl.innerHTML = ChordPro.aHtml(cancion, steps);
             stepsEl.textContent = ChordPro.etiquetaTono(steps);
+            if (refrescarDiagramas) refrescarDiagramas();
+        }
+        var tira = document.getElementById('cp-diagramas');
+        var selectorInstrumento = document.getElementById('cp-instrumento');
+        if (tira && selectorInstrumento) {
+            refrescarDiagramas = ChordPro.montarDiagramas({
+                tira: tira,
+                selector: selectorInstrumento,
+                texto: JSON.parse(sourceEl.textContent),
+                cancion: cancion,
+                urls: { guitarra: tira.getAttribute('data-db-guitarra'), ukelele: tira.getAttribute('data-db-ukelele') },
+                semitonos: function() { return steps; }
+            });
         }
         function mover(delta) {
             steps = ChordPro.acotar(steps + delta);
@@ -1218,6 +1242,8 @@
         function redimensionar(delta) {
             tamano = Math.max(12, Math.min(40, tamano + delta));
             outputEl.style.fontSize = tamano + 'px';
+            var t = document.getElementById('cp-diagramas');
+            if (t) t.style.zoom = (tamano / 16).toFixed(2);
         }
         document.getElementById('cp-menor').addEventListener('click', function() { redimensionar(-2); });
         document.getElementById('cp-mayor').addEventListener('click', function() { redimensionar(2); });

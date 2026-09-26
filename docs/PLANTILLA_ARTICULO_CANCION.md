@@ -75,6 +75,24 @@ sesión de clase o a una biblioteca, con transporte, tamaño de letra y
 desplazamiento automático. Escríbelo en la tonalidad que se toca en clase y
 dilo con `{comment: …}` si el disco suena en otra (cejilla, transporte).
 
+**Diagramas de acordes.** Encima de la letra se pueden mostrar diagramas de
+guitarra, ukelele o piano (selector «Acordes»). Por defecto salen de
+`@tombatossals/chords-db` (guitarra y ukelele) y, en el piano, de la fórmula
+del acorde. Para fijar la digitación de un acorde en una canción concreta,
+escríbela en el `.cho`:
+
+```
+{define: G base-fret 1 frets 3 2 0 0 3 3 fingers 2 1 0 0 3 4}
+{define-ukelele: G base-fret 1 frets 0 2 3 2 fingers 0 1 3 2}
+{define-piano: C keys 0 4 7 12}
+```
+
+Sin instrumento, 6 posiciones son guitarra y 4 ukelele. Los trastes son
+relativos a `base-fret`; `x` es cuerda muda y `0` al aire. En el piano, `keys`
+son semitonos contados desde el Do más grave del dibujo (dos octavas, 0–23).
+Solo valen en el tono original: al transportar, el acorde es otro y sale el de
+la base de datos.
+
 **Consistencia**: en `viva-la-vida` los tutoriales son `H2` sueltos y en `paseo`
 el videoclip cuelga de `Resources`. A partir de ahora, **todo lo audiovisual va
 dentro de `Recursos` como `H3`**. Así el índice lateral queda legible.
