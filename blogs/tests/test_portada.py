@@ -32,9 +32,13 @@ class ArbolConDosDepartamentos:
         root = Page.objects.filter(depth=1).first()
         self.portada = BlogIndexPage(title="Blogs", slug="portada-52")
         root.add_child(instance=self.portada)
-        self.mates = BlogIndexPage(title="Matemáticas", slug="mates-52")
+        self.mates = BlogIndexPage(
+            title="Matemáticas", slug="mates-52", ambito="ciencias"
+        )
         self.portada.add_child(instance=self.mates)
-        self.lengua = BlogIndexPage(title="Lengua", slug="lengua-52")
+        self.lengua = BlogIndexPage(
+            title="Lengua", slug="lengua-52", ambito="humanidades"
+        )
         self.portada.add_child(instance=self.lengua)
 
         sitio = Site.objects.get(is_default_site=True)
@@ -127,9 +131,22 @@ class MenuTest(ArbolConDosDepartamentos, TestCase):
         titulos = [d.title for d in self._contexto_menu("/")["blog_departments"]]
         self.assertEqual(titulos, ["Lengua", "Matemáticas"])
 
+    def test_los_ambitos_agrupan_y_el_del_departamento_actual_viene_abierto(self):
+        # Dos niveles: solo aparecen los ámbitos con departamentos, en el orden
+        # fijo de AMBITOS, y viene abierto el del departamento en el que estás.
+        ambitos = self._contexto_menu("/lengua-52/")["blog_ambitos"]
+        self.assertEqual(
+            [(a["clave"], [d.title for d in a["departamentos"]], a["activo"]) for a in ambitos],
+            [("ciencias", ["Matemáticas"], False), ("humanidades", ["Lengua"], True)],
+        )
+        self.assertFalse(any(a["activo"] for a in self._contexto_menu("/")["blog_ambitos"]))
+
     def test_la_pagina_subraya_el_departamento_actual(self):
         html = self.client.get("/mates-52/").content.decode()
         self.assertIn('aria-current="page"', html)
+        # Su ámbito viene abierto del servidor; el otro, cerrado.
+        self.assertIn('id="ambito-ciencias"\n         class="border-t border-gray-200 bg-gray-50 "', html)
+        self.assertIn('id="ambito-humanidades"\n         class="border-t border-gray-200 bg-gray-50 hidden"', html)
 
 
 class AdjuntosDelArticuloTest(ArbolConDosDepartamentos, TestCase):

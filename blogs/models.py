@@ -32,6 +32,20 @@ class ArticuloPageTag(TaggedItemBase):
     )
 
 
+# Los ámbitos del menú. Diecinueve departamentos del mismo peso no caben en
+# una fila y en tres filas no son un menú, son una lista. Seis ámbitos sí
+# caben, y cada uno abre una segunda fila con sus departamentos, nunca más de
+# cinco. El orden de esta lista es el orden del menú.
+AMBITOS = [
+    ("ciencias", "Ciencias"),
+    ("humanidades", "Humanidades"),
+    ("lenguas", "Lenguas"),
+    ("artes", "Artes y deporte"),
+    ("fp", "Formación Profesional"),
+    ("centro", "Centro"),
+]
+
+
 class BlogIndexPage(Page):
     """La portada de blogs y cada departamento.
 
@@ -75,6 +89,13 @@ class BlogIndexPage(Page):
         verbose_name="Privada",
         help_text="Solo el creador de la página puede verla. Las hijas heredan esta restricción.",
     )
+    ambito = models.CharField(
+        max_length=20,
+        choices=AMBITOS,
+        default="centro",
+        verbose_name="Ámbito",
+        help_text="Bajo qué ámbito aparece este departamento en el menú del sitio.",
+    )
 
     content_panels = Page.content_panels + [
         FieldPanel("intro"),
@@ -82,6 +103,7 @@ class BlogIndexPage(Page):
         MultiFieldPanel(
             [
                 FieldPanel("moderator"),
+                FieldPanel("ambito"),
             ],
             heading="Departamento",
         ),

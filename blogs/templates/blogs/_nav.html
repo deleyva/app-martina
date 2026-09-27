@@ -1,47 +1,78 @@
 {% load wagtailcore_tags %}
 {% comment %}
-  Menú de departamentos del subsite de blogs.
-  `blog_departments` y `blog_departamento_actual` los inyecta
+  Menú de departamentos del subsite de blogs, en dos niveles.
+  `blog_ambitos` y `blog_departamento_actual` los inyecta
   `blogs.context_processors.blog_navigation` en todas las páginas del sitio.
 
-  Cabe entero: antes era una sola fila deslizante que cortaba en «E…» con
-  diecinueve departamentos, y la portada repetía los diecinueve en una rejilla
-  de tarjetas para compensar. Ahora en escritorio el menú ocupa las filas que
-  necesite y en móvil es un desplegable; la rejilla ya no existe (fase 52).
-{% endcomment %}
-{% if blog_departments %}
-<nav class="blog-dept-nav border-t border-b border-black bg-white" aria-label="Departamentos">
-  <div class="container mx-auto px-4">
+  Diecinueve departamentos del mismo peso no caben en una fila, y en tres filas
+  no son un menú, son una lista. Aquí la primera fila son seis ámbitos, que
+  caben; al pulsar uno se abre debajo una segunda fila, más ligera, con sus
+  departamentos (nunca más de cinco). Dentro de un departamento su ámbito ya
+  viene abierto y él subrayado. Es el patrón de secciones de un periódico.
 
-    <details class="md:hidden py-3 font-sans text-xs uppercase tracking-widest">
-      <summary class="cursor-pointer list-none flex items-center justify-between font-bold text-black">
-        <span>Departamentos</span>
-        <span aria-hidden="true">▾</span>
-      </summary>
-      <ul class="grid grid-cols-2 gap-x-4 pt-3 pb-1">
-        {% for dept in blog_departments %}
+  Sin JavaScript sigue siendo usable: en un departamento la segunda fila viene
+  abierta del servidor, y en la portada «Últimas publicaciones» enlaza a cada
+  departamento. El script solo abre y cierra filas (fase 52·1).
+{% endcomment %}
+{% if blog_ambitos %}
+<nav class="blog-dept-nav border-t border-b border-black bg-white" aria-label="Departamentos" data-menu-ambitos>
+  <div class="container mx-auto px-4">
+    <ul class="flex flex-wrap justify-center font-sans text-xs md:text-sm uppercase tracking-widest">
+      {% for ambito in blog_ambitos %}
+        <li>
+          {# Las clases de tipografía van en el botón: el reset de Tailwind quita a los <button> lo que heredarían del <ul>. #}
+          <button type="button"
+                  class="inline-flex items-center gap-1 px-3 md:px-5 py-4 font-sans text-xs md:text-sm uppercase tracking-widest text-black hover:text-gray-500 transition-colors {% if ambito.activo %}font-bold{% endif %}"
+                  aria-expanded="{% if ambito.activo %}true{% else %}false{% endif %}"
+                  aria-controls="ambito-{{ ambito.clave }}"
+                  data-ambito="{{ ambito.clave }}">
+            <span>{{ ambito.nombre }}</span>
+            <span aria-hidden="true" class="text-gray-400 text-[0.7em]">▾</span>
+          </button>
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  {% for ambito in blog_ambitos %}
+    <div id="ambito-{{ ambito.clave }}"
+         class="border-t border-gray-200 bg-gray-50 {% if not ambito.activo %}hidden{% endif %}"
+         data-panel="{{ ambito.clave }}">
+      <ul class="container mx-auto px-4 flex flex-wrap justify-center font-sans text-xs uppercase tracking-widest">
+        {% for dept in ambito.departamentos %}
           <li>
             <a href="{% pageurl dept %}"
-               class="block py-2 text-black hover:text-gray-500 {% if dept.slug == blog_departamento_actual %}font-bold underline decoration-2 underline-offset-4{% endif %}">
+               class="inline-block px-4 md:px-5 py-3 text-black hover:text-gray-500 hover:underline decoration-2 underline-offset-4 transition-colors {% if dept.slug == blog_departamento_actual %}font-bold underline{% endif %}"
+               {% if dept.slug == blog_departamento_actual %}aria-current="page"{% endif %}>
               {{ dept.title }}
             </a>
           </li>
         {% endfor %}
       </ul>
-    </details>
-
-    <ul class="hidden md:flex flex-wrap justify-center font-sans text-xs lg:text-sm uppercase tracking-widest">
-      {% for dept in blog_departments %}
-        <li>
-          <a href="{% pageurl dept %}"
-             class="inline-block px-4 lg:px-5 py-3 text-black hover:text-gray-500 hover:underline decoration-2 underline-offset-4 transition-colors {% if dept.slug == blog_departamento_actual %}font-bold underline{% endif %}"
-             {% if dept.slug == blog_departamento_actual %}aria-current="page"{% endif %}>
-            {{ dept.title }}
-          </a>
-        </li>
-      {% endfor %}
-    </ul>
-
-  </div>
+    </div>
+  {% endfor %}
 </nav>
+<script>
+  (function () {
+    var nav = document.querySelector('[data-menu-ambitos]');
+    if (!nav) return;
+    var botones = nav.querySelectorAll('[data-ambito]');
+    var paneles = nav.querySelectorAll('[data-panel]');
+    botones.forEach(function (boton) {
+      boton.addEventListener('click', function () {
+        var clave = boton.getAttribute('data-ambito');
+        var abierto = boton.getAttribute('aria-expanded') === 'true';
+        botones.forEach(function (b) {
+          b.setAttribute('aria-expanded', 'false');
+          b.classList.remove('font-bold');
+        });
+        paneles.forEach(function (p) { p.classList.add('hidden'); });
+        if (abierto) return;
+        boton.setAttribute('aria-expanded', 'true');
+        boton.classList.add('font-bold');
+        nav.querySelector('[data-panel="' + clave + '"]').classList.remove('hidden');
+      });
+    });
+  })();
+</script>
 {% endif %}

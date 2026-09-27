@@ -17,7 +17,7 @@ def blog_navigation(request):
     """Inyecta `blog_departments` cuando se sirve el sitio de blogs; `{}` si no."""
     # Import local: `blogs.models` carga Wagtail, que puede pedir settings antes
     # de que Django esté listo.
-    from blogs.models import BlogIndexPage
+    from blogs.models import AMBITOS, BlogIndexPage
 
     site = Site.find_for_request(request)
     if site is None:
@@ -37,7 +37,26 @@ def blog_navigation(request):
     # `/<slug>/` y la de sus artículos `/<slug>/<articulo>/`, así que el primer
     # tramo basta y no cuesta ninguna consulta.
     tramos = request.path.strip("/").split("/")
+    actual = tramos[0] if tramos else ""
+
+    # Menú en dos niveles: ámbitos arriba, departamentos del ámbito abierto
+    # debajo. Un ámbito sin departamentos no aparece. El ámbito del
+    # departamento actual viene abierto.
+    por_ambito = {clave: [] for clave, _ in AMBITOS}
+    for d in departamentos:
+        por_ambito.setdefault(d.ambito or "centro", []).append(d)
+    ambitos = [
+        {
+            "clave": clave,
+            "nombre": nombre,
+            "departamentos": por_ambito[clave],
+            "activo": any(d.slug == actual for d in por_ambito[clave]),
+        }
+        for clave, nombre in AMBITOS
+        if por_ambito.get(clave)
+    ]
     return {
         "blog_departments": departamentos,
-        "blog_departamento_actual": tramos[0] if tramos else "",
+        "blog_departamento_actual": actual,
+        "blog_ambitos": ambitos,
     }
