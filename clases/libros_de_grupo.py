@@ -81,6 +81,8 @@ def describir(objeto):
     iconos = {
         "image": ("🖼️", "Imagen"),
         "embed": ("▶️", "Vídeo"),
+        # Sin esta fila salía «📁 Letraconacordes» en el selector de la sesión.
+        "letraconacordes": ("🎤", "Letra con acordes"),
     }
     icono, tipo = iconos.get(nombre, ("📁", nombre.title()))
     if nombre == "embed":

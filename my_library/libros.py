@@ -132,6 +132,26 @@ def _de_los_adjuntos(pagina):
     return salida
 
 
+def _letra_con_acordes(pagina):
+    """La letra con acordes (ChordPro) de una canción, si la tiene.
+
+    Es material de sesión desde la fase 46, pero solo lo sabía la biblioteca de
+    grupo: este recorrido, que es el que alimenta los libros de estudio y por
+    tanto el panel «Preparar desde los libros», no la miraba, y en el selector
+    de la sesión una canción con letra ofrecía los vídeos y el PDF pero no la
+    letra (visto en producción el 2026-09-27, «Al cantar»).
+
+    Por capacidad y no por tipo, como todo aquí. `obtener_letra_con_acordes`
+    devuelve `None` sin ChordPro y no crea nada, así que enumerar un libro no
+    siembra filas en canciones sin letra.
+    """
+    obtener = getattr(pagina, "obtener_letra_con_acordes", None)
+    if not callable(obtener):
+        return []
+    letra = obtener()
+    return [letra] if letra is not None else []
+
+
 def _enlaces_externos(pagina):
     """Los enlaces a material con licencia que vive fuera, en su orden.
 
@@ -187,6 +207,9 @@ def material_de(capitulo):
     objetos, vistos = [], set()
     fuentes = (
         list(_incrustado_en_el_cuerpo(capitulo))
+        # Entre el cuerpo y los adjuntos (decisión del principal, 2026-09-27):
+        # la letra sustituye en clase al cifrado PDF, que va justo detrás.
+        + list(_letra_con_acordes(capitulo))
         + list(_de_los_adjuntos(capitulo))
         # Al final y no al principio: en un capítulo propio el enlace es
         # material extra que se consulta después de la partitura. En un

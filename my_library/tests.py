@@ -2609,6 +2609,40 @@ def test_un_embed_del_cuerpo_es_material_de_estudio(db):
     assert material[0].url == url
 
 
+def test_la_letra_con_acordes_va_entre_el_cuerpo_y_los_adjuntos(db):
+    """C296. La letra con acordes es material de sesion desde la fase 46, pero
+    `material_de` no la miraba: en el selector de la sesion una cancion con
+    ChordPro ofrecia los videos y el PDF y no la letra (produccion, 2026-09-27).
+
+    Decision del principal: en el libro va entre el cuerpo y los adjuntos. Y una
+    pagina sin ChordPro no gana ninguna fila `LetraConAcordes` por enumerarla.
+    """
+    from wagtail.images import get_image_model
+
+    from clases.libros_de_grupo import describir
+    from musica.models import LetraConAcordes
+    from my_library.libros import material_de
+
+    Imagen = get_image_model()
+    dentro = Imagen.objects.create(title="cuerpo", file=_imagen_minima("cuerpo"))
+    adjunta = Imagen.objects.create(title="adjunta", file=_imagen_minima("adjunta"))
+    cuerpo = f'<p>t</p><embed embedtype="image" id="{dentro.pk}" alt="c" format="fullwidth"/>'
+
+    sin_letra = _pagina_blog_con_cuerpo("Sin letra", "sin-letra", cuerpo, adjunta)
+    assert [o.title for o in material_de(sin_letra)] == ["cuerpo", "adjunta"]
+    assert not LetraConAcordes.objects.filter(page=sin_letra).exists()
+
+    con_letra = _pagina_blog_con_cuerpo("Con letra", "con-letra", cuerpo, adjunta)
+    con_letra.chordpro = "[C]Al cantar me [G]puedo olvidar"
+    con_letra.save()
+
+    material = material_de(con_letra)
+
+    assert [type(o).__name__ for o in material] == ["Image", "LetraConAcordes", "Image"], material
+    assert [o.title for o in material] == ["cuerpo", "Letra con acordes — Con letra", "adjunta"]
+    assert describir(material[1]) == ("🎤", "Letra con acordes — Con letra", "Letra con acordes")
+
+
 def _pagina_blog_con_cuerpo(titulo, slug, cuerpo, imagen_adjunta):
     """Una `RecursoPage` con cuerpo y, si se pide, una imagen adjunta."""
     from musica.models import LibroPage, RecursoPage

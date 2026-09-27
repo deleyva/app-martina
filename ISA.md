@@ -1,10 +1,10 @@
 ---
 slug: app-martina
-phase: complete
+phase: build
 progress: true
-iteration: 52
+iteration: 53
 principal_stated_goal: "Necesito desarrollar en apps.iesmartinabescos.es Otra app de Django como la que tenemos en /incidencias. Está sí que debe de requerir login con Google porque ya tenemos implementado. Básicamente, es una aplicación en la que quiero que vayan solicitando la clave Wi-Fi. Pero para ello deben logearse y enviar la MAC de su dispositivo WIFI, la privada (real) no la aleatoria."
-updated: 2026-09-25
+updated: 2026-09-27
 ---
 
 # ISA — app-martina · Sistema de estudio de la biblioteca
@@ -4248,3 +4248,12 @@ Jesús, al ver las tres filas: «no me gusta esta solución de nombres apelotona
 - [x] **C294 — Primera fila de seis ámbitos, segunda fila con los departamentos del abierto.** `_nav.html` en dos niveles con un script de veinte líneas; dentro de un departamento su ámbito viene abierto del servidor y él subrayado, así que sin JavaScript sigue siendo usable. Las clases de tipografía van en el `<button>` porque el reset de Tailwind no las hereda del `<ul>` (visto en local: salía en minúscula y pequeño). *Probe: `MenuTest` (4 pruebas: agrupación, ámbito activo, orden, HTML con el panel del ámbito actual abierto y el otro oculto); Chrome local: portada con una sola fila; clic en «Ciencias» abre sus cuatro; `/matematicas/` con «Ciencias» en negrita y «Matemáticas» subrayado.*
 - [x] **C295 — Desplegado.** Gotcha del entorno local: el servidor de desarrollo cachea las plantillas y una edición de `_nav.html` no se sirvió hasta reiniciar el contenedor; el `curl` de la página mostraba las clases viejas.
 
+## Fase 53 — La letra con acordes entra en los libros de estudio (2026-09-27)
+
+Jesús, desde `/clases/sessions/132/edit/`: «¿Por qué no puedo añadir ese elemento chordpro en las sesiones?». Reproducido en su Chrome: al desplegar «Al cantar» en «Elegir más de Canciones de tercero» salen la foto, los tres vídeos y el cifrado PDF; la letra no. Causa: la fase 46 metió la letra en `GroupLibraryItem.get_blogpage_elements()` (biblioteca de grupo) pero no en `my_library.libros.material_de`, que es lo que enumeran los libros de estudio, y por tanto el panel «Preparar desde los libros», `meter_libro` y el progreso por libro. Decisión de Jesús: en el libro va **entre el cuerpo y los adjuntos**.
+
+- [x] **C296 — `material_de` devuelve la letra con acordes entre el cuerpo y los adjuntos**, solo cuando la canción tiene ChordPro; una página sin letra no cambia (`_letra_con_acordes` en `my_library/libros.py`, por capacidad). *Probe: `test_la_letra_con_acordes_va_entre_el_cuerpo_y_los_adjuntos` (cuerpo → letra → adjunto; sin ChordPro, cero filas `LetraConAcordes`); `my_library clases libreta musica/test_letra_con_acordes.py`: 459 passed.*
+- [x] **C297 — El selector de la sesión ofrece «Letra con acordes» con su icono 🎤 y tipo legible**, no «📁 Letraconacordes» (fila en `describir`, `clases/libros_de_grupo.py`). *Probe: el mismo test comprueba `describir(letra) == ("🎤", "Letra con acordes — Con letra", "Letra con acordes")`; la parte de Chrome en producción se cierra con C298.*
+- [ ] **C298 — Desplegado y verificado en producción** con el elemento visible en el visor de clase de la sesión.
+
+**Anti-claims:** la letra no entra en las fotocopias de la libreta (`libreta/fuentes.py` filtra a imagen y PDF, y así sigue); ninguna canción sin ChordPro gana una fila `LetraConAcordes` por enumerar el libro.
