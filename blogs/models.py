@@ -141,17 +141,23 @@ class BlogIndexPage(Page):
                 BlogIndexPage.objects.child_of(self).live(), request
             ).specific()
         )
+        visibles = filter_visible_pages(
+            ArticuloPage.objects.child_of(self).live(), request
+        ).specific()
+        # Los fijados van aparte y NO se repiten en la cronología: si
+        # «Criterios de calificación» está arriba, no hace falta que aparezca
+        # también como tercera tarjeta de septiembre. Se ordenan por título
+        # porque son documentos de referencia, no noticias: quien busca «la
+        # programación» la encuentra por el nombre, no por la fecha.
+        fijados = list(visibles.filter(is_pinned=True).order_by("title"))
         articulos = list(
-            filter_visible_pages(
-                ArticuloPage.objects.child_of(self).live(), request
-            )
-            .specific()
-            .order_by("-first_published_at")
+            visibles.filter(is_pinned=False).order_by("-first_published_at")
         )
 
         is_hub = len(department_pages) > 0
         context["is_hub"] = is_hub
         context["department_pages"] = department_pages
+        context["fijados"] = fijados
         # `blogpages` se mantiene como nombre de contexto porque lo usan las
         # plantillas heredadas; `articulos` es el nombre nuevo. Los dos apuntan
         # a la misma lista mientras dure la transición de plantillas.
@@ -196,6 +202,21 @@ class ArticuloPage(AdjuntosMixin, Page):
         default=False,
         verbose_name="Destacado",
         help_text="Marcar para mostrar en la portada del blog",
+    )
+    # Distinto de `is_featured`, y a propósito. «Destacado» es una noticia que
+    # merece la portada de todo el sitio durante unos días; «fijado» es lo que
+    # un departamento necesita tener siempre a mano —la programación, los
+    # criterios de calificación, las pendientes— y que sin esto se iba hundiendo
+    # en la cronología a cada artículo nuevo. Un fijado no sube a la portada:
+    # los criterios de Matemáticas no son noticia para nadie de fuera.
+    is_pinned = models.BooleanField(
+        default=False,
+        verbose_name="Fijado en el departamento",
+        help_text=(
+            "Siempre visible en la cabecera del departamento, por encima de la "
+            "cronología. Para la programación, los criterios de calificación "
+            "y lo que no debe quedarse atrás."
+        ),
     )
     is_protected = models.BooleanField(
         default=False,
@@ -244,6 +265,7 @@ class ArticuloPage(AdjuntosMixin, Page):
         FieldPanel("intro"),
         FieldPanel("featured_image"),
         FieldPanel("is_featured"),
+        FieldPanel("is_pinned"),
         FieldPanel("body"),
         FieldPanel("attachments", heading="Adjuntos"),
     ]
