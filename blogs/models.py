@@ -137,9 +137,9 @@ class BlogIndexPage(Page):
         un departamento y aquí solo van artículos.
 
         No es cosmético. Un blog anidado bajo un departamento quedaría
-        publicado y huérfano: ni `context_processors.blog_navigation` ni
-        `portada_editorial` lo verían nunca, porque los dos miran solo los hijos
-        directos de la raíz del sitio.
+        publicado y huérfano: ni `context_processors.blog_navigation` ni la
+        portada lo verían nunca, porque los dos miran solo los hijos directos
+        de la raíz del sitio.
         """
         if not super().can_create_at(parent):
             return False

@@ -101,9 +101,9 @@ class HomePage(Page):
 
     Tenía 100 líneas más: todo el contexto de una portada editorial para el sitio
     de blogs, detrás de `if _is_blog_request(request)`. Nunca se ejecutó — la raíz
-    del sitio de blogs es un `BlogIndexPage`, no una `HomePage`. Ese código y sus
-    plantillas están conservados y desconectados en `blogs/portada_editorial.py`,
-    con las instrucciones para encenderlo si Jesús quiere.
+    del sitio de blogs es un `BlogIndexPage`, no una `HomePage`. Ese código
+    vivió un tiempo desconectado en `blogs/portada_editorial.py` y se tiró en
+    la fase 52 (2026-09-27): la portada de blogs es `blogs/indice.html`.
     """
 
     hero_title = models.CharField(
