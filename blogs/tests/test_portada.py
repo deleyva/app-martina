@@ -158,3 +158,12 @@ class AdjuntosDelArticuloTest(ArbolConDosDepartamentos, TestCase):
         self.assertIn("Documentos", html)
         self.assertIn("Recuperación - Matemáticas I", html)
         self.assertIn(self.documento.url, html)
+
+    def test_ningun_comentario_de_plantilla_llega_a_la_pagina(self):
+        # `{# #}` es de una línea en Django; escrito en varias se imprime tal
+        # cual. Pasó dos veces el mismo día (portada y artículo) y la segunda
+        # llegó a producción. Se comprueban las tres páginas del sitio.
+        for ruta in ("/", "/mates-52/", "/mates-52/pendientes/"):
+            html = self.client.get(ruta).content.decode()
+            self.assertNotIn("{#", html, ruta)
+            self.assertNotIn("#}", html, ruta)

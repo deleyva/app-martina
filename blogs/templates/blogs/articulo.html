@@ -277,8 +277,12 @@
     });
     </script>
 
-    {# Documentos y enlaces adjuntos. Antes solo se pintaban los vídeos: un
-       profesor adjuntaba tres PDF de recuperación y nadie los veía (fase 52). #}
+    {% comment %}
+      Documentos y enlaces adjuntos. Antes solo se pintaban los vídeos: un
+      profesor adjuntaba tres PDF de recuperación y nadie los veía (fase 52).
+      `{# #}` es de UNA línea en Django: escrito en varias se imprime tal cual
+      en la página. Aquí pasó y llegó a producción durante unos minutos.
+    {% endcomment %}
     {% if page.get_pdf_blocks or page.get_external_links %}
     <section class="max-w-3xl mx-auto mt-12 mb-8" aria-labelledby="documentos-titulo">
         <h2 id="documentos-titulo" class="text-xs font-sans uppercase tracking-widest font-bold text-gray-500 mb-4">Documentos</h2>
