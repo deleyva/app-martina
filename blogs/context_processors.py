@@ -32,4 +32,12 @@ def blog_navigation(request):
     )
     if not departamentos:
         return {}
-    return {"blog_departments": departamentos}
+    # El departamento en el que estás, para subrayarlo en el menú. Se saca de
+    # la URL y no de `page.get_parent()`: la ruta de un departamento es
+    # `/<slug>/` y la de sus artículos `/<slug>/<articulo>/`, así que el primer
+    # tramo basta y no cuesta ninguna consulta.
+    tramos = request.path.strip("/").split("/")
+    return {
+        "blog_departments": departamentos,
+        "blog_departamento_actual": tramos[0] if tramos else "",
+    }

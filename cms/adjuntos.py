@@ -15,7 +15,11 @@ from wagtail.images.blocks import ImageChooserBlock
 from wagtail.snippets.blocks import SnippetChooserBlock
 
 
-def adjuntos_field(help_text="Archivos que se muestran como cards con descarga, visor y botón de librería"):
+def adjuntos_field(
+    help_text="Archivos que se muestran como cards con descarga, visor y botón de librería",
+    *,
+    musical=True,
+):
     """El StreamField de adjuntos. Función y no constante porque cada modelo
     necesita su propia instancia del campo.
 
@@ -24,14 +28,30 @@ def adjuntos_field(help_text="Archivos que se muestran como cards con descarga, 
     departamento no tiene librería ninguna. Prometer en el editor algo que la
     página no hace es lo que hizo que un profesor subiera un PDF y no lo viera
     nunca.
+
+    `musical=False` es el blog de departamento: el mismo bloque de documento
+    —misma clave `pdf_score`, para que los adjuntos ya guardados sigan
+    leyéndose— pero llamado «Documento» y sin mencionar Guitar Pro, y sin el
+    bloque de recorte, que es material de estudio de la biblioteca. Un
+    profesor de Matemáticas que adjunta tres PDF de recuperación no tiene por
+    qué leer «.gp3, .gp4, .gp5» (2026-09-27).
     """
-    return StreamField(
-        [
-            ("pdf_score", StructBlock([
-                ("pdf_file", DocumentChooserBlock(
-                    help_text="Seleccionar un PDF o un archivo Guitar Pro (.gp, .gp3, .gp4, .gp5, .gpx)"
-                )),
-            ], icon="doc-full-inverse", label="PDF / Guitar Pro")),
+    if musical:
+        documento = StructBlock([
+            ("pdf_file", DocumentChooserBlock(
+                help_text="Seleccionar un PDF o un archivo Guitar Pro (.gp, .gp3, .gp4, .gp5, .gpx)"
+            )),
+        ], icon="doc-full-inverse", label="PDF / Guitar Pro")
+    else:
+        documento = StructBlock([
+            ("pdf_file", DocumentChooserBlock(
+                label="Archivo",
+                help_text="Un PDF u otro documento para descargar",
+            )),
+        ], icon="doc-full-inverse", label="Documento")
+
+    bloques = [
+            ("pdf_score", documento),
             ("audio", StructBlock([
                 ("audio_file", DocumentChooserBlock(help_text="Seleccionar archivo audio")),
             ], icon="media", label="Audio")),
@@ -46,13 +66,18 @@ def adjuntos_field(help_text="Archivos que se muestran como cards con descarga, 
                 ("resource", SnippetChooserBlock("cms.ExternalResource")),
                 ("override_title", CharBlock(required=False, help_text="Título alternativo (opcional)")),
             ], icon="link", label="Enlace")),
-            # Un trozo con nombre de un PDF ya subido: "Sailing Boat, pp. 10-13".
-            # Adjuntar el recorte en vez del PDF entero es lo que evita tener
-            # que trocear el fichero para poder estudiar una parte.
+    ]
+    if musical:
+        # Un trozo con nombre de un PDF ya subido: "Sailing Boat, pp. 10-13".
+        # Adjuntar el recorte en vez del PDF entero es lo que evita tener
+        # que trocear el fichero para poder estudiar una parte.
+        bloques.append(
             ("recorte", StructBlock([
                 ("recorte", SnippetChooserBlock("musica.Recorte")),
             ], icon="cut", label="Recorte de PDF")),
-        ],
+        )
+    return StreamField(
+        bloques,
         blank=True,
         use_json_field=True,
         verbose_name="Archivos adjuntos",

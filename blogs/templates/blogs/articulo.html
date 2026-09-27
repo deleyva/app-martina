@@ -277,6 +277,56 @@
     });
     </script>
 
+    {# Documentos y enlaces adjuntos. Antes solo se pintaban los vídeos: un
+       profesor adjuntaba tres PDF de recuperación y nadie los veía (fase 52). #}
+    {% if page.get_pdf_blocks or page.get_external_links %}
+    <section class="max-w-3xl mx-auto mt-12 mb-8" aria-labelledby="documentos-titulo">
+        <h2 id="documentos-titulo" class="text-xs font-sans uppercase tracking-widest font-bold text-gray-500 mb-4">Documentos</h2>
+        <ul class="border-t border-b border-black divide-y divide-gray-200">
+            {% for doc in page.get_pdf_blocks %}
+            {% with doc.pdf_file as archivo %}
+            {% if archivo %}
+            <li>
+                <a href="{{ archivo.url }}" class="group flex items-baseline justify-between gap-6 py-4 px-2 hover:bg-gray-50 transition-colors" download>
+                    <span class="font-serif-title text-xl font-bold text-black group-hover:underline decoration-2 underline-offset-4">{{ archivo.title }}</span>
+                    <span class="flex-shrink-0 text-xs font-sans uppercase tracking-widest font-bold text-gray-500 group-hover:text-black">{{ archivo.file_extension|upper }} · Descargar</span>
+                </a>
+            </li>
+            {% endif %}
+            {% endwith %}
+            {% endfor %}
+            {% for enlace in page.get_external_links %}
+            {% with enlace.resource as recurso %}
+            {% if recurso %}
+            <li>
+                <a href="{{ recurso.url }}" class="group flex items-baseline justify-between gap-6 py-4 px-2 hover:bg-gray-50 transition-colors" target="_blank" rel="noopener">
+                    <span class="font-serif-title text-xl font-bold text-black group-hover:underline decoration-2 underline-offset-4">{{ enlace.override_title|default:recurso.title }}</span>
+                    <span class="flex-shrink-0 text-xs font-sans uppercase tracking-widest font-bold text-gray-500 group-hover:text-black">Enlace</span>
+                </a>
+            </li>
+            {% endif %}
+            {% endwith %}
+            {% endfor %}
+        </ul>
+    </section>
+    {% endif %}
+
+    {# Audios adjuntos #}
+    {% if page.get_audios %}
+    <div class="max-w-3xl mx-auto mt-12 mb-8">
+        {% for audio in page.get_audios %}
+        {% if audio.audio_file %}
+        <div class="mb-6">
+            <h3 class="font-serif-title text-xl font-bold mb-2">{{ audio.audio_file.title }}</h3>
+            <audio controls class="w-full" preload="metadata">
+                <source src="{{ audio.audio_file.url }}">
+            </audio>
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
+
     {# Videos adjuntos #}
     {% if page.get_videos %}
     <div class="max-w-3xl mx-auto mt-12 mb-8">

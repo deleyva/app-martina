@@ -171,13 +171,45 @@ class BlogIndexPage(Page):
                 .filter(is_featured=True)
                 .order_by("-first_published_at")
             )
-            context["featured_posts"] = filter_visible_pages(destacados, request)[:6]
+            featured_posts = list(filter_visible_pages(destacados, request)[:6])
+            context["featured_posts"] = featured_posts
+
+            # Lo último de todo el centro, sin repetir lo que ya va arriba en
+            # «Destacados» ni en «Siempre a mano». Es lo que una familia o un
+            # profesor viene a mirar: qué ha pasado esta semana, no qué
+            # departamentos existen (eso ya lo dice el menú). Fase 52.
+            ya_arriba = [p.pk for p in featured_posts] + [f.pk for f in fijados]
+            ultimas = (
+                filter_visible_pages(
+                    ArticuloPage.objects.descendant_of(self).live(), request
+                )
+                .exclude(pk__in=ya_arriba)
+                .order_by("-first_published_at")[:12]
+            )
+            context["ultimas"] = con_departamento(list(ultimas))
 
         return context
 
     class Meta:
         verbose_name = "Blog de departamento"
         verbose_name_plural = "Blogs de departamento"
+
+
+def con_departamento(articulos):
+    """Pone `departamento_titulo` en cada artículo, con UNA consulta.
+
+    En la plantilla `post.get_parent.specific.title` serían dos consultas por
+    artículo. El padre se saca de la ruta materializada del árbol: la ruta del
+    departamento es la del artículo menos el último tramo.
+    """
+    steplen = Page.steplen
+    rutas = {a.path[:-steplen] for a in articulos if len(a.path) > steplen}
+    titulos = dict(
+        Page.objects.filter(path__in=rutas).values_list("path", "title")
+    )
+    for a in articulos:
+        a.departamento_titulo = titulos.get(a.path[:-steplen], "")
+    return articulos
 
 
 class ArticuloPage(AdjuntosMixin, Page):
@@ -230,7 +262,11 @@ class ArticuloPage(AdjuntosMixin, Page):
     )
 
     attachments = adjuntos_field(
-        help_text="Archivos adjuntos al artículo. La página solo muestra los vídeos.",
+        help_text=(
+            "Documentos para descargar, audios y vídeos. Se muestran al final "
+            "del artículo, en ese orden."
+        ),
+        musical=False,
     )
 
     # De dónde vino, si vino de fuera. Lo escribe `import_blogspot` con el

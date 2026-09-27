@@ -87,6 +87,9 @@ class FijadosTest(TestCase):
         sitio = Site.objects.get(is_default_site=True)
         sitio.root_page = self.portada
         sitio.save()
+        # La caché de rutas raíz sobrevive al rollback; sin esto la siguiente
+        # prueba que sirva una página se encuentra un 404.
+        self.addCleanup(Site.clear_site_root_paths_cache)
         respuesta = self.client.get(f"/{self.departamento.slug}/")
         self.assertEqual(respuesta.status_code, 200)
         html = respuesta.content.decode()

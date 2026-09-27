@@ -58,9 +58,14 @@ class FormularioDeBlogTest(TestCase):
             reverse("wagtailadmin_pages:edit", args=[self.articulo.id])
         )
         self.assertEqual(respuesta.status_code, 200)
-        self.assertContains(respuesta, "Archivos adjuntos")
+        # Lo que promete la ayuda es lo que la página hace (fase 52): los
+        # documentos, audios y vídeos se ven al final del artículo.
+        self.assertContains(respuesta, "Se muestran al final del artículo")
         self.assertNotContains(respuesta, "botón de librería")
         self.assertNotContains(respuesta, "librería")
+        # Y nada de la biblioteca musical en el formulario de un artículo.
+        self.assertNotContains(respuesta, "Guitar Pro")
+        self.assertNotContains(respuesta, "Recorte de PDF")
 
 
 class SalidaEnLaMenchetaTest(TestCase):

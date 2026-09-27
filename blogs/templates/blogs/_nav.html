@@ -1,24 +1,47 @@
 {% load wagtailcore_tags %}
 {% comment %}
   Menú de departamentos del subsite de blogs.
-  `blog_departments` lo inyecta `cms.context_processors.blog_navigation` en
-  TODAS las páginas cuando el host es blogs.iesmartinabescos.es.
+  `blog_departments` y `blog_departamento_actual` los inyecta
+  `blogs.context_processors.blog_navigation` en todas las páginas del sitio.
+
+  Cabe entero: antes era una sola fila deslizante que cortaba en «E…» con
+  diecinueve departamentos, y la portada repetía los diecinueve en una rejilla
+  de tarjetas para compensar. Ahora en escritorio el menú ocupa las filas que
+  necesite y en móvil es un desplegable; la rejilla ya no existe (fase 52).
 {% endcomment %}
 {% if blog_departments %}
-<nav class="blog-dept-nav border-t border-b border-black bg-white">
+<nav class="blog-dept-nav border-t border-b border-black bg-white" aria-label="Departamentos">
   <div class="container mx-auto px-4">
-    <ul class="flex flex-nowrap items-center overflow-x-auto whitespace-nowrap font-sans text-xs md:text-sm uppercase tracking-widest mx-auto w-fit max-w-full">
+
+    <details class="md:hidden py-3 font-sans text-xs uppercase tracking-widest">
+      <summary class="cursor-pointer list-none flex items-center justify-between font-bold text-black">
+        <span>Departamentos</span>
+        <span aria-hidden="true">▾</span>
+      </summary>
+      <ul class="grid grid-cols-2 gap-x-4 pt-3 pb-1">
+        {% for dept in blog_departments %}
+          <li>
+            <a href="{% pageurl dept %}"
+               class="block py-2 text-black hover:text-gray-500 {% if dept.slug == blog_departamento_actual %}font-bold underline decoration-2 underline-offset-4{% endif %}">
+              {{ dept.title }}
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+    </details>
+
+    <ul class="hidden md:flex flex-wrap justify-center font-sans text-xs lg:text-sm uppercase tracking-widest">
       {% for dept in blog_departments %}
-        <li class="flex-shrink-0">
-          <a
-            href="{% pageurl dept %}"
-            class="inline-block px-4 md:px-6 py-4 text-black hover:text-gray-500 hover:underline decoration-2 underline-offset-4 transition-colors"
-          >
+        <li>
+          <a href="{% pageurl dept %}"
+             class="inline-block px-4 lg:px-5 py-3 text-black hover:text-gray-500 hover:underline decoration-2 underline-offset-4 transition-colors {% if dept.slug == blog_departamento_actual %}font-bold underline{% endif %}"
+             {% if dept.slug == blog_departamento_actual %}aria-current="page"{% endif %}>
             {{ dept.title }}
           </a>
         </li>
       {% endfor %}
     </ul>
+
   </div>
 </nav>
 {% endif %}

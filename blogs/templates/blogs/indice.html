@@ -93,55 +93,40 @@
         {% endif %}
 
         {# ── Department Cards Grid ── #}
-        <section>
-            <h2 class="text-2xl font-serif-title font-bold mb-10 tracking-wide uppercase text-center" style="letter-spacing: 0.15em; font-size: 0.875rem;">Departamentos</h2>
+        {# ── Siempre a mano: lo que es del centro, colgado de la portada ── #}
+        {% include "blogs/_fijados.html" %}
 
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {% for dept in department_pages %}
-                <a href="{% pageurl dept %}" class="group block border border-gray-200 p-8 hover:border-black transition-colors duration-300">
-                    <div class="flex items-start justify-between mb-4">
-                        <h3 class="text-2xl font-bold font-serif-title leading-tight group-hover:underline decoration-2 underline-offset-4">
-                            {{ dept.title }}
-                        </h3>
-                    </div>
-                    {% if dept.intro %}
-                    <div class="text-gray-600 text-base leading-relaxed mb-6 line-clamp-3">
-                        {{ dept.intro|richtext|striptags|truncatechars:120 }}
-                    </div>
-                    {% endif %}
-                    <span class="text-xs font-sans uppercase tracking-widest font-bold text-gray-500 group-hover:text-black transition-colors">
-                        Ver publicaciones →
-                    </span>
-                </a>
+        {# ── Últimas publicaciones de todo el centro (la rejilla de departamentos que había aquí repetía el menú; fase 52) ── #}
+        <section aria-labelledby="ultimas-titulo">
+            <h2 id="ultimas-titulo" class="text-2xl font-serif-title font-bold mb-8 tracking-wide uppercase text-center" style="letter-spacing: 0.15em; font-size: 0.875rem;">Últimas publicaciones</h2>
+
+            <ol class="border-t border-black divide-y divide-gray-200">
+                {% for post in ultimas %}
+                <li>
+                    <a href="{% pageurl post %}" class="group grid grid-cols-1 md:grid-cols-12 gap-2 md:gap-8 py-6 px-2 hover:bg-gray-50 transition-colors">
+                        <span class="md:col-span-3 flex md:flex-col gap-2 md:gap-1 text-xs font-sans tracking-widest text-gray-500 uppercase">
+                            {% if post.date %}<span>{{ post.date|date:"j M, Y" }}</span>{% endif %}
+                            {% if post.departamento_titulo %}<span class="text-black font-bold">{{ post.departamento_titulo }}</span>{% endif %}
+                        </span>
+                        <span class="md:col-span-9">
+                            <span class="block text-2xl md:text-3xl font-bold font-serif-title leading-tight text-black group-hover:underline decoration-2 underline-offset-4 mb-2">
+                                {{ post.title }}
+                            </span>
+                            {% if post.intro %}
+                            <span class="block text-gray-700 text-lg leading-relaxed">{{ post.intro|truncatechars:160 }}</span>
+                            {% endif %}
+                        </span>
+                    </a>
+                </li>
+                {% empty %}
+                <li class="text-gray-500 text-center py-16 italic text-xl">Aún no hay publicaciones.</li>
                 {% endfor %}
-            </div>
+            </ol>
         </section>
 
     {% else %}
         {# ── Fijados: lo que el departamento quiere siempre a mano ── #}
-        {% if fijados %}
-        <section class="mb-16" aria-labelledby="fijados-titulo">
-            <h2 id="fijados-titulo" class="text-2xl font-serif-title font-bold mb-8 tracking-wide uppercase text-center" style="letter-spacing: 0.15em; font-size: 0.875rem;">Siempre a mano</h2>
-
-            <ul class="border-t border-b border-black divide-y divide-gray-200">
-                {% for fijado in fijados %}
-                <li>
-                    <a href="{% pageurl fijado %}" class="group flex flex-col md:flex-row md:items-baseline gap-2 md:gap-8 py-5 px-2 hover:bg-gray-50 transition-colors">
-                        <span class="md:w-1/3 text-2xl font-bold font-serif-title leading-tight text-black group-hover:underline decoration-2 underline-offset-4">
-                            {{ fijado.title }}
-                        </span>
-                        {% if fijado.intro %}
-                        <span class="flex-1 text-gray-700 text-lg leading-relaxed">{{ fijado.intro|truncatechars:140 }}</span>
-                        {% endif %}
-                        <span class="md:ml-auto flex-shrink-0 text-xs font-sans uppercase tracking-widest font-bold text-gray-500 group-hover:text-black transition-colors">
-                            Abrir →
-                        </span>
-                    </a>
-                </li>
-                {% endfor %}
-            </ul>
-        </section>
-        {% endif %}
+        {% include "blogs/_fijados.html" %}
 
         {# ── Article Cards Grid (department-level view) ── #}
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
