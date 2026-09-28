@@ -4283,3 +4283,9 @@ Endpoints: `GET /` (filtros `estado` con `abiertas`, `urgencia`, `tecnico` por i
 - **`tecnico=<usuario>` filtra por `email istartswith "<usuario>@"`**, que es lo que el panel entiende por «usuario» (este `User` no tiene `username`).
 
 **Anti-claims:** ningún endpoint escribe; ninguna clave de API de un usuario sin perfil de técnico activo ve una incidencia privada; el router no toca ninguna vista ni plantilla de `incidencias`.
+
+## Fase 54 — El visor de letra con acordes deja sitio a los botones flotantes (2026-09-28) · DESPLEGADA (`d72ff38`)
+
+Jesús, viendo «Stand by Me» en clase y en el visor normal: «los botones de la izquierda se solapan un poco con la letra. ¿Podrías darle un poquito de margen por la izquierda, solo en el visor de archivos ChordPro?».
+
+- [x] **C299 — `.cpv` lleva `padding-left: max(3vw, 96px)`** en `my_library/viewers/chordpro_viewer.html`: el ✎ de editar y los botones de clase y estudio van a 24 px del borde y miden 48 px, así que 96 px los deja fuera de la letra; en pantallas muy anchas manda el 3vw de antes. Solo ese visor; la impresión sigue con `padding: 0`. *Probe: HTML del visor servido en producción con la sesión de Jesús contiene `max(3vw, 96px)`; la vista en píxeles queda para él (las capturas del grupo de pestañas salen en negro: pestaña `hidden`).*
