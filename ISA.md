@@ -1,6 +1,6 @@
 ---
 slug: app-martina
-phase: build
+phase: complete
 progress: true
 iteration: 56
 principal_stated_goal: "Necesito desarrollar en apps.iesmartinabescos.es Otra app de Django como la que tenemos en /incidencias. Está sí que debe de requerir login con Google porque ya tenemos implementado. Básicamente, es una aplicación en la que quiero que vayan solicitando la clave Wi-Fi. Pero para ello deben logearse y enviar la MAC de su dispositivo WIFI, la privada (real) no la aleatoria."
@@ -4290,7 +4290,7 @@ Jesús, viendo «Stand by Me» en clase y en el visor normal: «los botones de l
 
 - [x] **C304 — `.cpv` lleva `padding-left: max(3vw, 96px)`** en `my_library/viewers/chordpro_viewer.html`: el ✎ de editar y los botones de clase y estudio van a 24 px del borde y miden 48 px, así que 96 px los deja fuera de la letra; en pantallas muy anchas manda el 3vw de antes. Solo ese visor; la impresión sigue con `padding: 0`. *Probe: HTML del visor servido en producción con la sesión de Jesús contiene `max(3vw, 96px)`; la vista en píxeles queda para él (las capturas del grupo de pestañas salen en negro: pestaña `hidden`).*
 
-## Fase 56 — Derivaciones, página viva por servicio, «¿A quién va?», ámbito y API de escritura (2026-09-28) · EN CURSO
+## Fase 56 — Derivaciones, página viva por servicio, «¿A quién va?», ámbito y API de escritura (2026-09-28) · DESPLEGADA Y VERIFICADA EN PRODUCCIÓN (`7c1de6b`)
 
 Plan aprobado por Jesús en `~/.claude/plans/playful-wibbling-sutherland.md`. Lo que hoy vive en comentarios sueltos («Ya hemos enviado el email», «Avance visible en soporte.vitalinux…») pasa a ser dato: `Servicio` (la tabla de BookStack en base de datos, con enlace público no adivinable), `Derivacion` (máquina de estados borrador → enviada → respondida → cerrada, con el correo redactado dentro) y `Comunicacion` (histórico). `Incidencia.ambito` separa informática de mantenimiento y gestión. Decisiones fijadas: respuestas de los servicios a mano; alertas de Google sin tocar; entrega a secretaría en la app con «Copiar correo».
 
@@ -4310,7 +4310,7 @@ Plan aprobado por Jesús en `~/.claude/plans/playful-wibbling-sutherland.md`. Lo
 - [x] **C318 — La API de escritura rechaza con 403 a una clave que no es de técnico en las ocho rutas, sin tocar la base de datos; etiqueta desconocida 422; transición ilegal 409; PATCH solo toca lo enviado.** *Probe: tests de `test_api.py`.*
 - [x] **C319 — `/servicios` incluye `url_publica` y la lista trae `ambito` y `derivaciones`.** *Probe: `test_servicios_incluye_url_publica`, `test_lista_trae_ambito_y_derivaciones`.*
 - [x] **C320 — La suite pasa con los mismos cuatro fallos preexistentes.** *Probe: `pytest -q` en el contenedor.* *Cerrada: 1355 pasan, 4 fallan (los cuatro de siempre), 6 saltados.*
-- [ ] **C321 — Desplegado y verificado en producción**: migración aplicada, `curl -i` a `/api/incidencias/servicios` con `IES_API_KEY`, y Chrome de Jesús en `/incidencias/ayuda/`, en una página de servicio y en un detalle con «Derivar a…». *Probe: cabeceras 200 y capturas vistas.*
+- [x] **C321 — Desplegado y verificado en producción** (Jesús hizo push y deploy desde otra sesión; origin/main incluye `7c1de6b` y `d96553e`). *Probe: `curl -i` con `IES_API_KEY` a `/api/incidencias/servicios` → `HTTP/2 200` con los 9 servicios sembrados y `url_publica`; `/derivaciones` → 0 (ninguna aún); `lista` ya trae `ambito`. Chrome de Jesús: `/incidencias/ayuda/` con los tres pasos y la tabla; `/incidencias/205/` («Proyectar pantalla», Aula N12, crítica) con «📤 Derivar a…» en la barra y «❓ ¿A quién va?» en el menú. Sin sesión: la página pública del 4100 responde 200 («No hay nada pendiente») y un token inventado 404.*
 
 ### Evidencia de la verificación en Chrome (local, sesión de jlopez, 28/09)
 
