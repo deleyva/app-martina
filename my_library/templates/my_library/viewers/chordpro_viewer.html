@@ -21,7 +21,11 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
     /* En la pizarra, todo el ancho: con 60rem de tope y letra grande, «follow
        my lead» ya partía línea con sitio de sobra a los lados. Queda un margen
        lateral pequeño y proporcional a la pantalla. */
-    .cpv { min-height: 100%; background: #fff; color: #111; padding: 56px 3vw 96px; box-sizing: border-box; overflow: auto; height: 100%; }
+    /* A la izquierda, sitio para los botones flotantes: el ✎ de editar y los
+       de clase y estudio van a 24 px del borde y miden 48 px, y con 3vw la
+       letra quedaba debajo (Jesús, 2026-09-28: «se solapan un poco con la
+       letra»). 96 px los deja fuera; en pantallas muy anchas manda el 3vw. */
+    .cpv { min-height: 100%; background: #fff; color: #111; padding: 56px 3vw 96px max(3vw, 96px); box-sizing: border-box; overflow: auto; height: 100%; }
     .cpv-titulo { font: 600 1.1rem system-ui, sans-serif; color: #555; margin: 0 0 1.25rem; }
     .cpv-salida { margin: 0; }
     .cpv-salida .chord-sheet { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; line-height: 1.35; }
