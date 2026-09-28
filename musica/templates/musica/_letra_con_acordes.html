@@ -1,4 +1,4 @@
-{% load static library_tags %}
+{% load static library_tags letras_tags %}
 {% comment %}
 Letra con acordes (ChordPro) dentro de la sección Resources del artículo.
 
@@ -39,6 +39,19 @@ desplazamiento automático.
                     title="Imprimir la letra en el tono elegido">🖨</button>
             {# Añadir la letra a una biblioteca o, para profesores, a un grupo #}
             {% library_button letra page %}
+            {% comment %}
+            ✎ Editar, en la misma barra que Tono y Pantalla completa. El ✎
+            flotante de abajo a la izquierda sigue existiendo (sirve también sin
+            letra), pero aquí es donde se busca: Jesús no lo encontraba
+            (2026-09-28, «quiero poder editar los chordpro desde la página de
+            la canción también»). Delega en el flotante para no duplicar el
+            editor ni el guardado.
+            {% endcomment %}
+            {% if page|editable_por:request.user %}
+            <button type="button" id="cp-editar" class="btn btn-sm btn-outline"
+                    title="Editar la letra con acordes"
+                    onclick="var f=document.getElementById('cp-editar-flotante'); if (f) f.click();">✎ Editar</button>
+            {% endif %}
         </div>
         {# json_script escapa bien: un </script> dentro de la letra no rompe la pagina. #}
         {{ page.chordpro|json_script:"cp-source" }}

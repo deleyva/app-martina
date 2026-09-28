@@ -204,6 +204,9 @@ class GuardarChordProTest(TestCase):
         self.client.force_login(self.alumna)
         html = self.client.get(self.cancion.url, follow=True, HTTP_HOST=sitio.hostname).content.decode()
         self.assertNotIn("cp-editar-flotante", html)
+        # Y tampoco el «✎ Editar» de la barra de la letra (2026-09-28).
+        self.assertNotIn('id="cp-editar"', html)
         self.client.force_login(self.admin)
         html = self.client.get(self.cancion.url, follow=True, HTTP_HOST=sitio.hostname).content.decode()
         self.assertIn("cp-editar-flotante", html)
+        self.assertIn('id="cp-editar"', html, "el ✎ de la barra de la letra, junto a Tono y Pantalla completa")
