@@ -10,6 +10,38 @@ if TYPE_CHECKING:
 class UserManager(DjangoUserManager["User"]):
     """Custom manager for the User model."""
 
+    def precrear_del_centro(self, email: str, nombre: str = "", apellidos: str = ""):
+        """Un usuario que entrará con Google y todavía no ha entrado.
+
+        Devuelve `(usuario, creado)`. Si ya existe se devuelve tal cual, sin
+        tocarle el nombre: el nombre lo pisa Google en cada entrada
+        (`SocialAccountAdapter._nombre_de_google`) y lo que escribió la gestión
+        del centro no tiene por qué ganar a lo que ya había.
+
+        Sin contraseña utilizable, y con la `EmailAddress` verificada, que es lo
+        que allauth mira para enlazar la cuenta de Google al usuario existente
+        sin pedir nada.
+        """
+        from allauth.account.models import EmailAddress
+
+        email = self.normalize_email(email.strip())
+        existente = self.filter(email__iexact=email).first()
+        if existente is not None:
+            return existente, False
+
+        usuario = self.model(
+            email=email,
+            first_name=nombre.strip(),
+            last_name=apellidos.strip(),
+            name=f"{nombre.strip()} {apellidos.strip()}".strip(),
+        )
+        usuario.set_unusable_password()
+        usuario.save(using=self._db)
+        EmailAddress.objects.create(
+            user=usuario, email=email, verified=True, primary=True
+        )
+        return usuario, True
+
     def _create_user(self, email: str, password: str | None, **extra_fields):
         """
         Create and save a user with the given email and password.

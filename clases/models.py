@@ -202,6 +202,23 @@ class Group(models.Model):
         ).distinct()
         return grupos if incluir_archivados else grupos.filter(archivado=False)
 
+    def matricular(self, user):
+        """Mete a un usuario en este grupo y dice qué ha pasado.
+
+        Devuelve `nueva`, `reactivada` o `ya_estaba`. Una matrícula dada de baja
+        (`is_active=False`) se reactiva en vez de duplicarse: `unique_together`
+        no dejaría crear otra, y la baja fue una decisión del profesor que la
+        lista nueva del centro tiene derecho a deshacer.
+        """
+        matricula, creada = Enrollment.objects.get_or_create(user=user, group=self)
+        if creada:
+            return "nueva"
+        if matricula.is_active:
+            return "ya_estaba"
+        matricula.is_active = True
+        matricula.save(update_fields=["is_active"])
+        return "reactivada"
+
     def __str__(self):
         return f"{self.name} - {self.subject.name} ({self.academic_year})"
 
