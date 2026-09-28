@@ -3880,6 +3880,24 @@ def test_un_recorte_puede_ser_un_capitulo(db, pdf):
     assert [c.pk for c in capitulos_de(libro)] == [a.pk, b.pk]
 
 
+def test_las_facetas_de_un_libro_de_recortes_salen_de_sus_tags(db, pdf):
+    """El 26-09-2026 el recuento de la sesión cayó con `'Recorte' object has no
+    attribute 'faceted_tags'`: un recorte etiqueta en `tags`, y el libro tiene
+    que casar con la selección igual que uno de páginas."""
+    from my_library.libros import casa_con_la_seleccion, facetas_del_libro
+
+    a = _recorte(pdf, "Sailing Boat", 10, 13)
+    a.tags.add("concepto:acordes", "instrumento:piano")
+    b = _recorte(pdf, "Rain Rain", 14, 14)
+    libro = _libro_de_recortes("Piano Adventures", "piano-adv-facetas", [
+        ("recorte", a), ("recorte", b),
+    ])
+
+    assert facetas_del_libro(libro) == {"concepto:acordes", "instrumento:piano"}
+    assert casa_con_la_seleccion(libro, {"concepto": ["acordes", "tecnica"]})
+    assert not casa_con_la_seleccion(libro, {"concepto": ["ritmo"]})
+
+
 def test_un_libro_de_recortes_sale_en_orden_de_bloques(db, pdf):
     """El orden de los bloques ES el orden de estudio, igual que con paginas."""
     from my_library.libros import material_del_libro

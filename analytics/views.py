@@ -36,6 +36,23 @@ def resolve_visitor_id(data):
         return None
 
 
+def a_medida(modelo, campo, valor):
+    """Recorta `valor` a la anchura de la columna `campo` de `modelo`.
+
+    El navegador manda lo que tenga: un `<title>` de una entrada larga o un
+    `target_element` con la lista entera de clases de Tailwind pasan de 255
+    caracteres sin esfuerzo, y Postgres contesta `value too long for type
+    character varying(255)` con un 500 y un correo. Lo que se mide es dónde
+    ha pasado algo, no el texto entero, así que recortar no pierde nada útil.
+    Se lee el `max_length` del modelo para que cambiarlo en la migración
+    baste, sin un número repetido aquí.
+    """
+    if not isinstance(valor, str):
+        return valor
+    limite = modelo._meta.get_field(campo).max_length
+    return valor[:limite] if limite else valor
+
+
 @csrf_exempt
 def track_activity(request):
     if request.method == 'POST':
@@ -61,8 +78,8 @@ def track_activity(request):
         if event_type == 'pageview':
             PageVisit.objects.create(
                 session=user_session,
-                url=data.get('url'),
-                title=data.get('title'),
+                url=a_medida(PageVisit, 'url', data.get('url')),
+                title=a_medida(PageVisit, 'title', data.get('title')),
                 timestamp=timezone.now()
             )
         elif event_type in ['interaction', 'accordion_toggle', 'audio_play', 'audio_pause']:
@@ -84,8 +101,10 @@ def track_activity(request):
 
                 Interaction.objects.create(
                     visit=latest_visit,
-                    event_type=db_event_type,
-                    target_element=data.get('target_element'),
+                    event_type=a_medida(Interaction, 'event_type', db_event_type),
+                    target_element=a_medida(
+                        Interaction, 'target_element', data.get('target_element')
+                    ),
                     target_text=target_text,
                     x_coordinate=data.get('x'),
                     y_coordinate=data.get('y'),

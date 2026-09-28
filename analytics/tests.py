@@ -58,6 +58,26 @@ class AnalyticsTests(TestCase):
         self.assertEqual(interaction.target_element, 'button#submit')
         self.assertEqual(interaction.visit.url, 'http://testserver/home/')
 
+    def test_un_titulo_o_un_selector_largos_se_recortan_a_la_columna(self):
+        """El 27-09-2026 un `target_element` de más de 255 caracteres tumbó el
+        endpoint con `value too long for type character varying(255)`."""
+        visitor = str(uuid.uuid4())
+        titulo = 'T' * 600
+        self.post(payload('pageview', visitor_id=visitor, title=titulo))
+        response = self.post(payload(
+            'interaction',
+            visitor_id=visitor,
+            target_element='div.' + 'x' * 400,
+            target_text='y' * 300,
+        ))
+        self.assertEqual(response.status_code, 200)
+
+        visita = PageVisit.objects.get()
+        self.assertEqual(len(visita.title), 255)
+        interaccion = Interaction.objects.get()
+        self.assertEqual(len(interaccion.target_element), 255)
+        self.assertLessEqual(len(interaccion.target_text), 100)
+
     def test_same_visitor_reuses_one_row(self):
         visitor = str(uuid.uuid4())
         self.post(payload('pageview', visitor_id=visitor))

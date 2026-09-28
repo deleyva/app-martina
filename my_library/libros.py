@@ -468,14 +468,33 @@ def facetas_del_libro(libro):
     capítulos llevan `instrumento:piano`. Se suman también las del propio
     índice del libro si las tuviera, que hoy no es el caso de ningún tipo de
     página pero cuesta una línea y evita una sorpresa.
+
+    Un capítulo no es siempre una página: desde los libros de recortes puede
+    ser un `Recorte`, que etiqueta en `tags` como cualquier documento. Se mira
+    el campo que tenga cada uno, con la misma regla que
+    `LibraryDeck.etiquetas_por_item`. Preguntar solo por `faceted_tags` tumbaba
+    el recuento de la sesión en cuanto un objetivo era un libro de recortes.
     """
     etiquetas = set()
     propias = getattr(libro, "faceted_tags", None)
     if propias is not None:
         etiquetas |= {t.name.lower() for t in propias.all()}
     for capitulo in capitulos_de(libro):
-        etiquetas |= {t.name.lower() for t in capitulo.faceted_tags.all()}
+        etiquetas |= {t.name.lower() for t in _etiquetas_de(capitulo)}
     return etiquetas
+
+
+def _etiquetas_de(capitulo):
+    """Las etiquetas de un capítulo, esté donde estén.
+
+    Una página las guarda en `faceted_tags`; un recorte, un documento o una
+    imagen, en `tags`. Un capítulo sin ninguno de los dos no aporta ninguna.
+    """
+    for campo in ("faceted_tags", "tags"):
+        gestor = getattr(capitulo, campo, None)
+        if gestor is not None:
+            return list(gestor.all())
+    return []
 
 
 def casa_con_la_seleccion(libro, seleccion):

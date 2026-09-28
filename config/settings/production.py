@@ -164,10 +164,14 @@ LOGGING = {
             "level": "ERROR",
             "propagate": True,
         },
+        # Un `Host` que no está en ALLOWED_HOSTS no es un fallo del sitio: es
+        # un escáner probando `www1.example.com`, y Django ya contesta 400. Se
+        # queda en la consola y no propaga, para que no llegue un correo por
+        # cada barrido (el 27-09 fueron cinco en una tarde).
         "django.security.DisallowedHost": {
             "level": "ERROR",
-            "handlers": ["console", "mail_admins"],
-            "propagate": True,
+            "handlers": ["console"],
+            "propagate": False,
         },
         "allauth": {
             "level": "DEBUG",
