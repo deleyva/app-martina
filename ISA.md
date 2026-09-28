@@ -1,6 +1,6 @@
 ---
 slug: app-martina
-phase: verify
+phase: complete
 progress: true
 iteration: 54
 principal_stated_goal: "Necesito desarrollar en apps.iesmartinabescos.es Otra app de Django como la que tenemos en /incidencias. Está sí que debe de requerir login con Google porque ya tenemos implementado. Básicamente, es una aplicación en la que quiero que vayan solicitando la clave Wi-Fi. Pero para ello deben logearse y enviar la MAC de su dispositivo WIFI, la privada (real) no la aleatoria."
@@ -4263,7 +4263,7 @@ Jesús, desde `/clases/sessions/132/edit/`: «¿Por qué no puedo añadir ese el
 
 **Anti-claims:** la letra no entra en las fotocopias de la libreta (`libreta/fuentes.py` filtra a imagen y PDF, y así sigue); ninguna canción sin ChordPro gana una fila `LetraConAcordes` por enumerar el libro.
 
-## Fase 54 — API de lectura de incidencias, para la skill que reparte el juego (2026-09-28) · PENDIENTE DE PUSH Y DESPLIEGUE
+## Fase 54 — API de lectura de incidencias, para la skill que reparte el juego (2026-09-28) · DESPLEGADA Y VERIFICADA EN PRODUCCIÓN
 
 Jesús quiere una skill gestora de incidencias del IES que lea la app como única fuente de verdad («no trabajes con la copia de seguridad, hazlo por API o con Chrome»). Producción no exponía nada de `incidencias` en la API de ninja, así que el primer ladrillo es un router de **solo lectura** en `incidencias/api.py`, montado en `/api/incidencias/` y autenticado con la clave de API existente (`X-API-Key`). Como el panel enseña las incidencias privadas, la clave tiene que ser de un técnico activo o de un superusuario; cualquier otra clave válida recibe 403. La escritura (asignar, comentar, cambiar estado, derivar a un servicio externo) queda para la skill, cuando se sepa qué forma tiene.
 
@@ -4274,7 +4274,7 @@ Endpoints: `GET /` (filtros `estado` con `abiertas`, `urgencia`, `tecnico` por i
 - [x] **C301 — El detalle trae la conversación entera** (comentarios con autor, historial con nota y nombres de técnico, correos de origen) y 404 si no existe. *Probe: `test_el_detalle_trae_la_conversacion_entera`; curl local `/37` → «Terminar de configurar el Epoptes.», 3 comentarios, 1 asignación.*
 - [x] **C302 — Catálogos y resumen cuentan bien y señalan los huecos.** *Probe: `test_tecnicos_etiquetas_ubicaciones`, `test_el_resumen_cuenta_bien_y_senala_los_huecos`; curl local `/resumen` → 124 en total, 32 abiertas, 12 sin asignar, 15 sin ubicación, la más antigua del 2026-03-02.*
 - [x] **C302b — La suite pasa con los mismos cuatro fallos preexistentes.** *Probe: `pytest -q` en el contenedor local: 1306 pasan, 4 fallan (`cms.test_frontend_integration` ×2, `incidencias.test_views` ×2, los de siempre), 6 saltados.*
-- [ ] **C303 — Desplegado y probado en producción** con `curl -i` y la clave `IES_API_KEY` contra `/api/incidencias/resumen` y `/api/incidencias/?estado=abiertas`. *Probe: cabecera 200 y conteos coherentes con el panel (a 28/09 el panel enseña 24 pendientes y 20 en progreso).* **Bloqueado en el push: repo público, hace falta el visto bueno de Jesús.**
+- [x] **C303 — Desplegado y probado en producción** (Jesús hizo el push y el deploy). *Probe: `curl -i` con `IES_API_KEY` contra `/api/incidencias/resumen` → `HTTP/2 200`, 183 en total, 46 abiertas (26 pendientes + 20 en progreso, coherente con el panel), 25 sin asignar, 32 sin ubicación; sin clave → 401; `/tecnicos` enseña a Susana (`sgonzalez`) y «Personal de Secretaría» activos y a eartigas, ccuenca y Héctor de baja. Descargadas las 183 con detalle para el diseño de la skill.*
 
 ### Decisiones y gotchas
 
