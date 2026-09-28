@@ -1,8 +1,8 @@
 ---
 slug: app-martina
-phase: complete
+phase: build
 progress: true
-iteration: 55
+iteration: 56
 principal_stated_goal: "Necesito desarrollar en apps.iesmartinabescos.es Otra app de Django como la que tenemos en /incidencias. Está sí que debe de requerir login con Google porque ya tenemos implementado. Básicamente, es una aplicación en la que quiero que vayan solicitando la clave Wi-Fi. Pero para ello deben logearse y enviar la MAC de su dispositivo WIFI, la privada (real) no la aleatoria."
 updated: 2026-09-28
 ---
@@ -4289,3 +4289,35 @@ Endpoints: `GET /` (filtros `estado` con `abiertas`, `urgencia`, `tecnico` por i
 Jesús, viendo «Stand by Me» en clase y en el visor normal: «los botones de la izquierda se solapan un poco con la letra. ¿Podrías darle un poquito de margen por la izquierda, solo en el visor de archivos ChordPro?».
 
 - [x] **C304 — `.cpv` lleva `padding-left: max(3vw, 96px)`** en `my_library/viewers/chordpro_viewer.html`: el ✎ de editar y los botones de clase y estudio van a 24 px del borde y miden 48 px, así que 96 px los deja fuera de la letra; en pantallas muy anchas manda el 3vw de antes. Solo ese visor; la impresión sigue con `padding: 0`. *Probe: HTML del visor servido en producción con la sesión de Jesús contiene `max(3vw, 96px)`; la vista en píxeles queda para él (las capturas del grupo de pestañas salen en negro: pestaña `hidden`).*
+
+## Fase 56 — Derivaciones, página viva por servicio, «¿A quién va?», ámbito y API de escritura (2026-09-28) · EN CURSO
+
+Plan aprobado por Jesús en `~/.claude/plans/playful-wibbling-sutherland.md`. Lo que hoy vive en comentarios sueltos («Ya hemos enviado el email», «Avance visible en soporte.vitalinux…») pasa a ser dato: `Servicio` (la tabla de BookStack en base de datos, con enlace público no adivinable), `Derivacion` (máquina de estados borrador → enviada → respondida → cerrada, con el correo redactado dentro) y `Comunicacion` (histórico). `Incidencia.ambito` separa informática de mantenimiento y gestión. Decisiones fijadas: respuestas de los servicios a mano; alertas de Google sin tocar; entrega a secretaría en la app con «Copiar correo».
+
+- [ ] **C305 — `Servicio` nace con token único por fila y `slug` único.** *Probe: `test_regenerar_token_invalida_el_anterior`; dos `ServicioFactory()` seguidos tienen tokens distintos.*
+- [ ] **C306 — La semilla crea los 9 servicios de BookStack y es idempotente**; su inversa borra solo esos slugs y solo sin derivaciones. *Probe: `migrate incidencias 0007` dos veces sin duplicar; `SELECT count(*)` = 9; `migrate incidencias 0006` deja los que tengan derivaciones.*
+- [ ] **C307 — `Incidencia.ambito` existe con `informatica` por defecto y aparece en crear, editar, panel (filtro) y tarjeta (badge si ≠ informática).** *Probe: `test_panel_filtra_por_ambito`; migración aplicada sobre la copia local sin tocar las filas existentes.*
+- [ ] **C308 — La máquina de estados de `Derivacion` rechaza toda transición ilegal** (enviar dos veces, respuesta en borrador, cerrar sin resultado, editar cuerpo tras enviar, nada tras cerrada). *Probe: cinco tests con `pytest.raises(TransicionInvalida)`.*
+- [ ] **C309 — El asunto por defecto es `[INC-{id}] {aula|Sin aula} — {título}` y `texto_correo` es asunto + línea en blanco + cuerpo**, y ese texto exacto está en el `<textarea>` que copia el botón. *Probe: `test_asunto_por_defecto_lleva_inc_y_aula`, `test_texto_correo_es_asunto_linea_en_blanco_cuerpo`.*
+- [ ] **C310 — El cuerpo no escapa HTML** (`'` y `&` salen literales). *Probe: `test_cuerpo_no_escapa_html`.*
+- [ ] **C311 — Crear un borrador sube la incidencia de pendiente a en progreso pasando por `acciones.cambiar_estado`, que notifica.** *Probe: `test_crear_borrador_sube_pendiente_a_en_progreso_y_notifica` con mock.*
+- [ ] **C312 — Marcar enviada congela el cuerpo en una `Comunicacion(enviada)`; registrar respuesta guarda ticket y pasa a respondida.** *Probe: los dos tests homónimos.*
+- [ ] **C313 — Las vistas de derivación exigen técnico**: anónimo y profesor no cambian nada. *Probe: `test_vistas_derivacion_exigen_tecnico`.*
+- [ ] **C314 — La página pública responde 200 con token válido sin sesión, 404 con token inventado o servicio inactivo, y nunca enseña `reportero_nombre` ni comentarios; en privadas solo id, aula y asunto.** *Probe: `test_pagina_servicio.py` (9 tests).*
+- [ ] **C315 — La página pública lista solo derivaciones de ese servicio, agrupa por planta y aula, incluye el histórico en orden y esconde cerradas de más de 60 días.** *Probe: mismos tests.*
+- [ ] **C316 — `/incidencias/ayuda/` es pública y lista solo servicios activos desde la base de datos; el botón «❓ ¿A quién va?» está en el menú de escritorio y en el móvil, y el móvil enseña «Panel» a un técnico no-staff** (bug de `tecnico_set.exists`, verificado en `base_incidencias.html:164`). *Probe: `test_ayuda.py`, `test_navbar_movil_muestra_panel_a_tecnico`.*
+- [ ] **C317 — Asignar, cambiar estado y comentar viven una sola vez en `services/acciones.py`** y vistas HTML y API producen el mismo historial y las mismas notificaciones. *Probe: `test_asignar_por_api_crea_historial_igual_que_la_vista`, `test_estado_por_api_notifica_una_vez`, `test_comentar_por_api_notifica_y_autor_por_defecto_es_la_clave`; `rg "HistorialAsignacion.objects.create" incidencias/` da una sola línea.*
+- [ ] **C318 — La API de escritura rechaza con 403 a una clave que no es de técnico en las ocho rutas, sin tocar la base de datos; etiqueta desconocida 422; transición ilegal 409; PATCH solo toca lo enviado.** *Probe: tests de `test_api.py`.*
+- [ ] **C319 — `/servicios` incluye `url_publica` y la lista trae `ambito` y `derivaciones`.** *Probe: `test_servicios_incluye_url_publica`, `test_lista_trae_ambito_y_derivaciones`.*
+- [ ] **C320 — La suite pasa con los mismos cuatro fallos preexistentes.** *Probe: `pytest -q` en el contenedor.*
+- [ ] **C321 — Desplegado y verificado en producción**: migración aplicada, `curl -i` a `/api/incidencias/servicios` con `IES_API_KEY`, y Chrome de Jesús en `/incidencias/ayuda/`, en una página de servicio y en un detalle con «Derivar a…». *Probe: cabeceras 200 y capturas vistas.*
+
+**Anti-claims:** ningún correo sale de la app hacia un servicio externo; el parser de correo no cambia; una clave de API de un usuario sin perfil de técnico activo no crea, edita ni cierra nada; la página pública no enseña nombres de reporteros ni comentarios de incidencia bajo ningún token; la semilla no borra servicios editados a mano al revertir.
+
+## Fase 57 — «✎ Editar» en la barra de la letra con acordes (2026-09-28)
+
+Jesús: «quiero poder editar los chordpro desde la página de la canción también». Reproducido en su Chrome: el ✎ flotante existe (fijo a 24 px del borde izquierdo, 48 px, nada encima), pero es pequeño, sin contraste y lejos de la letra; lo que se busca es un botón en la barra de la tarjeta, junto a Tono, Reiniciar, A−/A+ y Pantalla completa.
+
+- [x] **C322 — «✎ Editar» en la barra de «Letra con acordes» para quien puede editar la página**, que abre el mismo editor con vista previa que el flotante (delega en `#cp-editar-flotante`, sin duplicar editor ni guardado). El flotante se queda para las canciones sin letra. *Probe: `test_el_boton_solo_sale_a_quien_puede_editar` ampliado (alumna sin `id="cp-editar"`, admin con él), 11 passed; desplegado `0c4ec5c` sin migraciones; Chrome de Jesús en «Stand by Me»: `#cp-editar` en la barra junto a cp-imprimir y el botón de biblioteca, un clic abre el editor (textarea de 1.657 caracteres, Cancelar/Guardar), Cancelar lo cierra.*
+
+> Nota de convivencia: este commit se hizo con otra sesión trabajando sin confirmar en `incidencias/` (fase 56, C305–C321); solo se confirmaron los dos ficheros de la letra y este texto del ISA quedó en el árbol de trabajo para que esa sesión lo lleve en su commit.

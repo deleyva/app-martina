@@ -1,0 +1,37 @@
+{% extends "incidencias/base_incidencias.html" %}
+{% block title %}Servicios externos — Panel{% endblock title %}
+
+{% block incidencias_content %}
+<div class="max-w-5xl mx-auto">
+  <div class="flex items-center justify-between mb-6 flex-wrap gap-4">
+    <div>
+      <h1 class="text-3xl font-bold">📤 Servicios externos</h1>
+      <p class="opacity-60">Cada servicio tiene una página pública con lo pendiente. El enlace es la llave: no lo publiques, va dentro de los correos.</p>
+    </div>
+    <a href="{% url 'incidencias:panel' %}" class="btn btn-ghost btn-sm">← Panel</a>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="table">
+      <thead><tr><th>Servicio</th><th>Activo</th><th>Abiertas</th><th>Página pública</th><th></th></tr></thead>
+      <tbody>
+        {% for s in servicios %}
+        <tr>
+          <td class="font-semibold">{{ s.nombre }}<div class="text-xs opacity-60">{{ s.correos }}{% if s.telefono %} · {{ s.telefono }}{% endif %}</div></td>
+          <td>{% if s.activo %}✅{% else %}—{% endif %}</td>
+          <td>{{ s.derivaciones.abiertas.count }}</td>
+          <td><a class="link text-xs break-all" href="{{ s.url_publica }}" target="_blank" rel="noopener">{{ s.url_publica }}</a></td>
+          <td>
+            <form method="post" onsubmit="return confirm('El enlace anterior dejará de funcionar. ¿Regenerar?')">
+              {% csrf_token %}
+              <input type="hidden" name="servicio_id" value="{{ s.pk }}">
+              <button class="btn btn-xs btn-ghost">🔁 Regenerar enlace</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="text-xs opacity-60 mt-4">Altas, bajas y contactos se editan en el <a class="link" href="/admin/incidencias/servicio/">admin</a>.</p>
+</div>
+{% endblock incidencias_content %}

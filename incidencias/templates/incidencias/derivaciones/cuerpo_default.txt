@@ -1,0 +1,20 @@
+{% autoescape off %}Buenos días.
+
+Desde el IES Martina Bescós (Zaragoza) les comunicamos la siguiente incidencia, referencia [INC-{{ incidencia.pk }}]:
+
+Ubicación: {% if ubicacion %}{{ ubicacion.nombre }}{% if ubicacion.grupo %} ({{ ubicacion.grupo }}){% endif %}, {{ ubicacion.get_planta_display|lower }}{% else %}por concretar{% endif %}
+Problema: {{ incidencia.titulo }}
+{% if incidencia.descripcion %}Descripción: {{ incidencia.descripcion }}
+{% endif %}Desde: {{ incidencia.created_at|date:"d/m/Y" }}
+{% if comentarios_tecnicos %}
+Lo que ya se ha comprobado en el centro:
+{% for c in comentarios_tecnicos %}- {{ c.created_at|date:"d/m/Y" }}: {{ c.texto }}
+{% endfor %}{% endif %}
+Persona de contacto: Secretaría del IES Martina Bescós{% if telefono_contacto %}, tel. {{ telefono_contacto }}{% endif %}.
+
+Tienen la lista completa y actualizada de lo pendiente en nuestro centro para su servicio en:
+{{ url_servicio }}
+Cuando vengan, pueden atender lo que esté ahí aunque no lo hayamos escrito.
+
+Gracias y un saludo.
+{% endautoescape %}

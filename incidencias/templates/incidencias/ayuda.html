@@ -1,0 +1,47 @@
+{% extends "incidencias/base_incidencias.html" %}
+{% block title %}¿A quién va cada incidencia? — IES Martina Bescós{% endblock title %}
+
+{% block incidencias_content %}
+<div class="max-w-5xl mx-auto">
+  <h1 class="text-3xl font-bold mb-2">❓ ¿A quién va cada incidencia?</h1>
+  <p class="opacity-70 mb-6">Tú solo tienes que <a class="link" href="{% url 'incidencias:crear' %}">abrir la incidencia</a> con el aula y lo que pasa. Esto es lo que ocurre después.</p>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+    <div class="card bg-base-100 shadow-sm"><div class="card-body p-4">
+      <h2 class="font-bold">1 · Primer vistazo</h2>
+      <p class="text-sm">Susana mira si se puede arreglar en el centro: un cable, un ajuste, una configuración. Si no, la pasa a quien corresponda.</p>
+    </div></div>
+    <div class="card bg-base-100 shadow-sm"><div class="card-body p-4">
+      <h2 class="font-bold">2 · Reparto</h2>
+      <p class="text-sm">Jesús (COFOTAP) decide a qué servicio externo va y deja el correo redactado en la incidencia. Lo de mantenimiento y obra va a secretaría y conserjería; lo de gestión interna (Google, AppGestión, cuentas) lo lleva él.</p>
+    </div></div>
+    <div class="card bg-base-100 shadow-sm"><div class="card-body p-4">
+      <h2 class="font-bold">3 · Envío y seguimiento</h2>
+      <p class="text-sm">Secretaría envía el correo desde la cuenta corporativa (si no, no lo atienden) y apunta en la incidencia lo que contestan. Todo queda aquí, no en el correo de nadie.</p>
+    </div></div>
+  </div>
+
+  <h2 class="text-xl font-bold mb-3">Servicios externos</h2>
+  <div class="overflow-x-auto">
+    <table class="table table-zebra">
+      <thead><tr><th>Servicio</th><th>Qué va aquí</th><th>Contacto</th></tr></thead>
+      <tbody>
+        {% for s in servicios %}
+        <tr>
+          <td class="font-semibold whitespace-nowrap">{{ s.nombre }}</td>
+          <td class="text-sm">{{ s.que_va_aqui|linebreaksbr }}</td>
+          <td class="text-sm">
+            {% for c in s.lista_correos %}<div><a class="link" href="mailto:{{ c }}">{{ c }}</a></div>{% endfor %}
+            {% if s.telefono %}<div>📞 {{ s.telefono }}</div>{% endif %}
+            {% if s.url_formulario %}<div><a class="link" href="{{ s.url_formulario }}" target="_blank" rel="noopener">{{ s.url_formulario|cut:"https://" }}</a></div>{% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="3" class="opacity-60">Todavía no hay servicios dados de alta.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="text-xs opacity-60 mt-4">La versión larga, con el porqué de cada cosa, está en <a class="link" href="https://docs.iesmartinabescos.es/books/gestion-informatica-del-ies-martina-bescos" target="_blank" rel="noopener">la documentación del IES</a>.</p>
+</div>
+{% endblock incidencias_content %}

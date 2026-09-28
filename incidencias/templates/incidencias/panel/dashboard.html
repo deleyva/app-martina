@@ -13,6 +13,9 @@
       <a href="{% url 'incidencias:panel_tecnicos' %}" class="btn btn-outline btn-sm gap-1">
         👷 Gestionar técnicos
       </a>
+      <a href="{% url 'incidencias:panel_servicios' %}" class="btn btn-outline btn-sm gap-1">
+        📤 Servicios externos
+      </a>
       <a href="{% url 'incidencias:landing' %}" class="btn btn-ghost btn-sm gap-1">
         🔧 Vista pública
       </a>
@@ -58,6 +61,15 @@
           <option value="sin_asignar" {% if filtro_tecnico == "sin_asignar" %}selected{% endif %}>Sin asignar</option>
           {% for t in tecnicos %}
             <option value="{{ t.id }}" {% if filtro_tecnico == t.id|stringformat:"d" %}selected{% endif %}>{{ t }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-control">
+        <label class="label label-text text-xs">Ámbito</label>
+        <select name="ambito" class="select select-bordered select-sm">
+          <option value="">Todos</option>
+          {% for value, label in ambitos %}
+            <option value="{{ value }}" {% if filtro_ambito == value %}selected{% endif %}>{{ label }}</option>
           {% endfor %}
         </select>
       </div>

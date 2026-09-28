@@ -318,6 +318,8 @@ EMAIL_TIMEOUT = 5
 
 DEFAULT_USER_EMAIL_DOMAIN = env("DJANGO_DEFAULT_USER_EMAIL_DOMAIN", default="iesmartinabescos.es")
 INCIDENCIAS_SITE_URL = env("DJANGO_INCIDENCIAS_SITE_URL", default="https://apps.iesmartinabescos.es/incidencias")
+# Teléfono que va en los correos de derivación a servicios externos (secretaría).
+INCIDENCIAS_TELEFONO_CONTACTO = env("DJANGO_INCIDENCIAS_TELEFONO_CONTACTO", default="")
 
 # WiFi — altas de dispositivos
 # ------------------------------------------------------------------------------

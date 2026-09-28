@@ -627,3 +627,36 @@ class TestEditarIncidenciaView:
         inc = IncidenciaFactory()
         response = client.get(reverse("incidencias:panel_editar", args=[inc.pk]))
         assert response.status_code == 302
+
+
+# =============================================================================
+# Fase 56: ámbito, badge de derivación, navbar móvil
+# =============================================================================
+
+
+@pytest.mark.django_db
+class TestFase56:
+    def test_panel_filtra_por_ambito(self, tecnico_client):
+        IncidenciaFactory(titulo="Radiador descolgado", ambito="mantenimiento")
+        IncidenciaFactory(titulo="Sin proyector", ambito="informatica")
+        html = tecnico_client.get(reverse("incidencias:panel"), {"ambito": "mantenimiento"}).content.decode()
+        assert "Radiador descolgado" in html
+        assert "Sin proyector" not in html
+        assert "Mantenimiento y obra" in html  # badge en la tarjeta
+
+    def test_tarjeta_muestra_badge_derivacion_abierta(self, tecnico_client):
+        from .factories import DerivacionFactory
+        from .factories import ServicioFactory
+
+        servicio = ServicioFactory(nombre="Redes y conectividad")
+        inc = IncidenciaFactory(titulo="Sin wifi")
+        DerivacionFactory(incidencia=inc, servicio=servicio)
+        html = tecnico_client.get(reverse("incidencias:panel")).content.decode()
+        assert "📤 Redes y conectividad" in html
+
+    def test_navbar_movil_muestra_panel_a_tecnico(self, tecnico_client, tecnico):
+        assert not tecnico.user.is_staff
+        html = tecnico_client.get(reverse("incidencias:landing")).content.decode()
+        # dos enlaces al panel: el del menú de escritorio y el del cajón móvil
+        assert html.count(f'href="{reverse("incidencias:panel")}"') >= 2
+        assert "¿A quién va?" in html

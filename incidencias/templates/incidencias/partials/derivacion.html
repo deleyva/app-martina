@@ -1,0 +1,137 @@
+{% comment %}
+Una derivación dentro del detalle. Espera: derivacion, incidencia, is_tecnico,
+respuesta_form, cerrar_form. Para quien no es técnico: estado + histórico, y
+nada del cuerpo si la incidencia es privada.
+{% endcomment %}
+<div class="card bg-base-100 border border-base-300 shadow-sm mb-4" id="derivacion-{{ derivacion.pk }}"
+     {% if is_tecnico %}x-data="correoCopiable()"{% endif %}>
+  <div class="card-body p-4">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="font-semibold">{{ derivacion.servicio.nombre }}</span>
+        <span class="badge {% if derivacion.estado == 'borrador' %}badge-ghost{% elif derivacion.estado == 'enviada' %}badge-info{% elif derivacion.estado == 'respondida' %}badge-warning{% else %}badge-success{% endif %} badge-sm">
+          {{ derivacion.get_estado_display }}{% if derivacion.resultado %} · {{ derivacion.get_resultado_display }}{% endif %}
+        </span>
+        {% if derivacion.ticket_externo %}<span class="badge badge-outline badge-sm">🎫 {{ derivacion.ticket_externo }}</span>{% endif %}
+      </div>
+      <div class="text-xs opacity-60">
+        creada {{ derivacion.created_at|date:"d/m/Y" }}{% if derivacion.enviada_at %} · enviada {{ derivacion.enviada_at|date:"d/m/Y H:i" }}{% if derivacion.enviada_por %} por {{ derivacion.enviada_por }}{% endif %}{% endif %}
+      </div>
+    </div>
+
+    {% if is_tecnico %}
+      {% if derivacion.estado == "borrador" %}
+        <form method="post" action="{% url 'incidencias:derivacion_editar' derivacion.pk %}" class="mt-3">
+          {% csrf_token %}
+          <label class="label py-1"><span class="label-text text-xs font-semibold">Asunto</span></label>
+          <input type="text" name="asunto" class="input input-bordered input-sm w-full font-mono text-sm" value="{{ derivacion.asunto }}" x-model="asunto">
+          <label class="label py-1"><span class="label-text text-xs font-semibold">Cuerpo</span></label>
+          <textarea name="cuerpo" rows="14" class="textarea textarea-bordered w-full font-mono text-sm" x-model="cuerpo">{{ derivacion.cuerpo }}</textarea>
+          <label class="label py-1"><span class="label-text text-xs font-semibold">Ticket (si ya lo hay)</span></label>
+          <input type="text" name="ticket_externo" class="input input-bordered input-sm w-full max-w-xs" value="{{ derivacion.ticket_externo }}">
+          <div class="flex flex-wrap gap-2 mt-3 items-center">
+            <button type="submit" class="btn btn-sm btn-outline">💾 Guardar cambios</button>
+          </div>
+        </form>
+
+        <textarea class="textarea textarea-bordered w-full mt-3 font-mono text-xs" rows="3" readonly x-ref="salida"
+                  @click="$refs.salida.select()" x-text="textoCorreo" title="Lo que se copia: asunto, línea en blanco, cuerpo">{{ derivacion.texto_correo }}</textarea>
+        <div class="flex flex-wrap gap-2 mt-2 items-center">
+          <button type="button" class="btn btn-sm btn-primary" @click="copiar()">
+            <span x-show="!copiado">📋 Copiar correo</span>
+            <span x-show="copiado" x-cloak>✓ Copiado</span>
+          </button>
+          <form method="post" action="{% url 'incidencias:derivacion_enviada' derivacion.pk %}" class="inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm" :class="copiado ? 'btn-success' : 'btn-disabled'" :disabled="!copiado">✅ Marcar como enviada</button>
+          </form>
+          <span class="text-xs opacity-60" x-show="!copiado">Copia primero, pega en Gmail y luego márcala como enviada.</span>
+          <form method="post" action="{% url 'incidencias:derivacion_cerrar' derivacion.pk %}" class="inline ml-auto">
+            {% csrf_token %}
+            <input type="hidden" name="resultado" value="duplicada">
+            <button type="submit" class="btn btn-ghost btn-xs text-error">Descartar (duplicada)</button>
+          </form>
+        </div>
+      {% else %}
+        <details class="mt-2">
+          <summary class="cursor-pointer text-sm opacity-70">Ver el correo enviado</summary>
+          <pre class="whitespace-pre-wrap text-xs bg-base-200 rounded p-3 mt-2">{{ derivacion.texto_correo }}</pre>
+        </details>
+        {% if derivacion.abierta %}
+        <div class="flex flex-wrap gap-2 mt-3">
+          <button type="button" class="btn btn-sm btn-outline btn-warning" onclick="document.getElementById('modal_respuesta_{{ derivacion.pk }}').showModal()">💬 Añadir respuesta</button>
+          <button type="button" class="btn btn-sm btn-outline btn-success" onclick="document.getElementById('modal_cerrar_{{ derivacion.pk }}').showModal()">✅ Cerrar derivación</button>
+          <form method="post" action="{% url 'incidencias:derivacion_editar' derivacion.pk %}" class="inline-flex items-center gap-1 ml-auto">
+            {% csrf_token %}
+            <input type="text" name="ticket_externo" class="input input-bordered input-xs w-32" placeholder="Nº ticket" value="{{ derivacion.ticket_externo }}">
+            <button type="submit" class="btn btn-xs btn-ghost">Guardar ticket</button>
+          </form>
+        </div>
+
+        <dialog id="modal_respuesta_{{ derivacion.pk }}" class="modal">
+          <div class="modal-box p-6">
+            <h3 class="font-bold text-lg mb-3">💬 Qué han contestado</h3>
+            <form method="post" action="{% url 'incidencias:derivacion_respuesta' derivacion.pk %}">
+              {% csrf_token %}
+              {{ respuesta_form.texto }}
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
+                <div><label class="label py-1"><span class="label-text text-xs">Cuándo</span></label>{{ respuesta_form.fecha }}</div>
+                <div><label class="label py-1"><span class="label-text text-xs">Canal</span></label>{{ respuesta_form.canal }}</div>
+                <div><label class="label py-1"><span class="label-text text-xs">Ticket</span></label>{{ respuesta_form.ticket_externo }}</div>
+              </div>
+              <div class="modal-action">
+                <button type="button" class="btn btn-sm" onclick="document.getElementById('modal_respuesta_{{ derivacion.pk }}').close()">Cancelar</button>
+                <button type="submit" class="btn btn-sm btn-warning">Apuntar respuesta</button>
+              </div>
+            </form>
+          </div>
+          <form method="dialog" class="modal-backdrop"><button>close</button></form>
+        </dialog>
+
+        <dialog id="modal_cerrar_{{ derivacion.pk }}" class="modal">
+          <div class="modal-box p-6">
+            <h3 class="font-bold text-lg mb-3">✅ Cerrar derivación</h3>
+            <form method="post" action="{% url 'incidencias:derivacion_cerrar' derivacion.pk %}">
+              {% csrf_token %}
+              <label class="label py-1"><span class="label-text text-xs">Cómo ha quedado</span></label>
+              {{ cerrar_form.resultado }}
+              <label class="label py-1"><span class="label-text text-xs">Nota</span></label>
+              {{ cerrar_form.nota }}
+              <div class="modal-action">
+                <button type="button" class="btn btn-sm" onclick="document.getElementById('modal_cerrar_{{ derivacion.pk }}').close()">Cancelar</button>
+                <button type="submit" class="btn btn-sm btn-success">Cerrar</button>
+              </div>
+            </form>
+          </div>
+          <form method="dialog" class="modal-backdrop"><button>close</button></form>
+        </dialog>
+        {% endif %}
+      {% endif %}
+    {% endif %}
+
+    {% if derivacion.comunicaciones.all %}
+    <div class="mt-4">
+      <h4 class="text-xs font-semibold uppercase opacity-60 mb-2">Comunicaciones</h4>
+      <ul class="timeline timeline-vertical timeline-compact">
+        {% for c in derivacion.comunicaciones.all %}
+        <li>
+          {% if not forloop.first %}<hr>{% endif %}
+          <div class="timeline-middle">{% if c.sentido == "enviada" %}📤{% elif c.sentido == "recibida" %}📥{% else %}📝{% endif %}</div>
+          <div class="timeline-end timeline-box text-sm w-full">
+            <div class="text-xs opacity-60 mb-1">{{ c.get_sentido_display }} · {{ c.get_canal_display }} · {{ c.fecha|date:"d/m/Y H:i" }}{% if c.autor_nombre %} · {{ c.autor_nombre }}{% endif %}</div>
+            {% if c.sentido == "enviada" and not is_tecnico and incidencia.es_privada %}
+              <span class="opacity-60">Correo enviado.</span>
+            {% elif c.sentido == "enviada" %}
+              <details><summary class="cursor-pointer opacity-70">Correo enviado</summary><pre class="whitespace-pre-wrap text-xs mt-1">{{ c.texto }}</pre></details>
+            {% else %}
+              {{ c.texto|linebreaksbr }}
+            {% endif %}
+          </div>
+          {% if not forloop.last %}<hr>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </div>
+</div>

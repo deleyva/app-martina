@@ -32,6 +32,12 @@
       {% if incidencia.ubicacion %}
         <span class="badge badge-outline badge-xs">📍 {{ incidencia.ubicacion.nombre }}</span>
       {% endif %}
+      {% if incidencia.ambito != "informatica" %}
+        <span class="badge badge-secondary badge-outline badge-xs">{{ incidencia.get_ambito_display }}</span>
+      {% endif %}
+      {% for d in incidencia.derivaciones_abiertas %}
+        <span class="badge badge-info badge-outline badge-xs" title="{{ d.get_estado_display }}">📤 {{ d.servicio.nombre|truncatechars:22 }}</span>
+      {% endfor %}
       {% for et in incidencia.etiquetas.all %}
         <span class="badge badge-ghost badge-xs">{{ et.nombre }}</span>
       {% endfor %}

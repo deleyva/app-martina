@@ -116,6 +116,7 @@
         <ul class="menu menu-horizontal gap-1">
           <li><a href="{% url 'incidencias:landing' %}">📋 Vista pública</a></li>
           <li><a href="{% url 'incidencias:crear' %}">➕ Nueva incidencia</a></li>
+          <li><a href="{% url 'incidencias:ayuda' %}" title="A quién va cada incidencia">❓ ¿A quién va?</a></li>
           {% if request.user.is_authenticated %}
             {% if request.user.is_staff or request.user.es_tecnico %}
               <li><a href="{% url 'incidencias:panel' %}">🖥️ Panel</a></li>
@@ -160,8 +161,9 @@
           <li class="menu-title">Navegación</li>
           <li><a href="{% url 'incidencias:landing' %}">📋 Vista pública</a></li>
           <li><a href="{% url 'incidencias:crear' %}">➕ Nueva incidencia</a></li>
+          <li><a href="{% url 'incidencias:ayuda' %}">❓ ¿A quién va?</a></li>
           {% if request.user.is_authenticated %}
-            {% if request.user.is_staff or request.user.tecnico_set.exists %}
+            {% if request.user.is_staff or request.user.es_tecnico %}
               <li><a href="{% url 'incidencias:panel' %}">🖥️ Panel</a></li>
             {% endif %}
             <li class="menu-title mt-4">Cuenta</li>

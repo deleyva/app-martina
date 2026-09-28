@@ -4,8 +4,11 @@ from django.utils.translation import gettext_lazy as _
 
 from .models import Adjunto
 from .models import Comentario
+from .models import Comunicacion
+from .models import Derivacion
 from .models import Etiqueta
 from .models import Incidencia
+from .models import Servicio
 from .models import Ubicacion
 
 
@@ -24,6 +27,7 @@ class IncidenciaForm(forms.ModelForm):
             "titulo",
             "descripcion",
             "urgencia",
+            "ambito",
             "reportero_nombre",
             "ubicacion",
             "es_privada",
@@ -40,6 +44,9 @@ class IncidenciaForm(forms.ModelForm):
                 "placeholder": "Describe con más detalle qué ha ocurrido...",
             }),
             "urgencia": forms.Select(attrs={
+                "class": "select select-bordered w-full",
+            }),
+            "ambito": forms.Select(attrs={
                 "class": "select select-bordered w-full",
             }),
             "reportero_nombre": forms.TextInput(attrs={
@@ -59,6 +66,11 @@ class IncidenciaForm(forms.ModelForm):
         self.fields["ubicacion"].queryset = Ubicacion.objects.all()
         self.fields["ubicacion"].empty_label = "Selecciona ubicación..."
         self.fields["reportero_nombre"].label = "¿Quién eres?"
+        # Sin ámbito en el POST (formularios antiguos, correo) → informática.
+        self.fields["ambito"].required = False
+
+    def clean_ambito(self):
+        return self.cleaned_data.get("ambito") or Incidencia.Ambito.INFORMATICA
 
         if self.instance and self.instance.pk:
             etiquetas = self.instance.etiquetas.all()
@@ -121,3 +133,64 @@ class AdjuntoForm(forms.ModelForm):
             msg = _("El archivo no puede superar los 10 MB.")
             raise ValidationError(msg)
         return archivo
+
+
+# =============================================================================
+# Derivaciones
+# =============================================================================
+
+
+class DerivacionForm(forms.Form):
+    """Elegir a qué servicio se deriva."""
+
+    servicio = forms.ModelChoiceField(
+        queryset=Servicio.objects.filter(activo=True),
+        empty_label="Elige un servicio…",
+        widget=forms.Select(attrs={"class": "select select-bordered w-full"}),
+    )
+
+
+class DerivacionEditarForm(forms.ModelForm):
+    """Asunto y cuerpo (solo en borrador) y ticket (siempre)."""
+
+    class Meta:
+        model = Derivacion
+        fields = ["asunto", "cuerpo", "ticket_externo"]
+        widgets = {
+            "asunto": forms.TextInput(attrs={"class": "input input-bordered w-full font-mono text-sm"}),
+            "cuerpo": forms.Textarea(attrs={"class": "textarea textarea-bordered w-full font-mono text-sm", "rows": 14}),
+            "ticket_externo": forms.TextInput(attrs={"class": "input input-bordered input-sm w-full", "placeholder": "Nº de ticket, si lo hay"}),
+        }
+
+
+class RespuestaForm(forms.Form):
+    """Lo que ha contestado el servicio, apuntado a mano."""
+
+    texto = forms.CharField(
+        widget=forms.Textarea(attrs={"class": "textarea textarea-bordered w-full", "rows": 4, "placeholder": "Qué han contestado…"}),
+    )
+    fecha = forms.DateTimeField(
+        required=False,
+        widget=forms.DateTimeInput(attrs={"type": "datetime-local", "class": "input input-bordered input-sm w-full"}),
+        help_text=_("Cuándo contestaron; en blanco, ahora"),
+    )
+    canal = forms.ChoiceField(
+        choices=Comunicacion.Canal.choices,
+        initial=Comunicacion.Canal.CORREO,
+        widget=forms.Select(attrs={"class": "select select-bordered select-sm w-full"}),
+    )
+    ticket_externo = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={"class": "input input-bordered input-sm w-full", "placeholder": "Nº de ticket, si lo dan"}),
+    )
+
+
+class CerrarDerivacionForm(forms.Form):
+    resultado = forms.ChoiceField(
+        choices=Derivacion.Resultado.choices,
+        widget=forms.Select(attrs={"class": "select select-bordered select-sm w-full"}),
+    )
+    nota = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={"class": "textarea textarea-bordered w-full", "rows": 2, "placeholder": "Cómo ha quedado (opcional)"}),
+    )

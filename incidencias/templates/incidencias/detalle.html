@@ -82,6 +82,11 @@
       Asignar
     </button>
 
+    <!-- Derivar -->
+    <button class="btn btn-sm btn-outline btn-info gap-1" onclick="document.getElementById('modal_derivar').showModal()">
+      📤 Derivar a…
+    </button>
+
     <!-- Edit -->
     <a href="{% url 'incidencias:panel_editar' incidencia.pk %}" class="btn btn-sm btn-outline gap-1">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
@@ -213,6 +218,37 @@
   {% endif %}
 
   <!-- Attachments -->
+  <!-- Derivaciones a servicios externos -->
+  {% if derivaciones %}
+  <div class="mb-6" id="derivaciones">
+    <h2 class="text-lg font-bold mb-3 flex items-center gap-2">📤 Derivaciones
+      <span class="badge badge-ghost">{{ derivaciones|length }}</span>
+    </h2>
+    {% for derivacion in derivaciones %}
+      {% include "incidencias/partials/derivacion.html" %}
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if is_tecnico %}
+  <dialog id="modal_derivar" class="modal">
+    <div class="modal-box p-6">
+      <h3 class="font-bold text-lg mb-2">📤 Derivar a un servicio externo</h3>
+      <p class="text-sm opacity-70 mb-4">Se crea un borrador de correo con los datos de esta incidencia. Nadie lo envía: secretaría lo copia y lo manda desde su cuenta corporativa.</p>
+      <form method="post" action="{% url 'incidencias:derivar' incidencia.pk %}">
+        {% csrf_token %}
+        {{ derivacion_form.servicio }}
+        <div class="modal-action">
+          <button type="button" class="btn btn-sm" onclick="document.getElementById('modal_derivar').close()">Cancelar</button>
+          <button type="submit" class="btn btn-sm btn-info">Crear borrador</button>
+        </div>
+      </form>
+      <p class="text-xs opacity-60 mt-3"><a class="link" href="{% url 'incidencias:ayuda' %}" target="_blank">¿A quién va cada cosa?</a></p>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  </dialog>
+  {% endif %}
+
   {% if adjuntos %}
   <div class="mb-8">
     <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
@@ -378,3 +414,39 @@
   </div>
 </div>
 {% endblock incidencias_content %}
+
+{% block extra_js %}
+<script>
+  // Mismo patrón que la app wifi (06/09/2026): copiar es SÍNCRONO dentro del
+  // gesto del usuario con execCommand, y la API moderna se lanza sin esperar
+  // su promesa, que en Chrome puede no resolverse nunca.
+  function correoCopiable() {
+    return {
+      asunto: '',
+      cuerpo: '',
+      copiado: false,
+      init() {
+        const form = this.$el.querySelector('form');
+        if (form) {
+          this.asunto = form.querySelector('[name=asunto]').value;
+          this.cuerpo = form.querySelector('[name=cuerpo]').value;
+        }
+      },
+      get textoCorreo() {
+        return this.asunto + '\n\n' + this.cuerpo;
+      },
+      copiar() {
+        const salida = this.$refs.salida;
+        salida.value = this.textoCorreo;
+        salida.focus();
+        salida.select();
+        try { document.execCommand('copy'); } catch (e) {}
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          try { navigator.clipboard.writeText(this.textoCorreo); } catch (e) {}
+        }
+        this.copiado = true;
+      },
+    };
+  }
+</script>
+{% endblock extra_js %}

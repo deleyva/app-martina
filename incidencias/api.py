@@ -6,14 +6,17 @@ clave de API (cabecera `X-API-Key`) en vez de con sesión. Como el panel enseña
 las incidencias privadas, la clave tiene que pertenecer a un técnico activo o a
 un superusuario; cualquier otra clave válida recibe 403.
 
-No hay escritura. Asignar, comentar, cambiar de estado o derivar a un servicio
-externo llegarán con la skill, cuando se sepa qué forma tienen.
+La escritura (asignar, comentar, cambiar de estado, editar, derivar) pasa por
+`services/acciones.py` y por los métodos del modelo `Derivacion`: la API no
+repite lógica de las vistas, la llama.
 """
 
 from datetime import date
 from datetime import datetime
 
+from django.db import transaction
 from django.db.models import Count
+from django.db.models import Prefetch
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from ninja import Router
@@ -22,10 +25,15 @@ from ninja.errors import HttpError
 
 from api_keys.auth import DatabaseApiKey
 
+from .models import Comunicacion
+from .models import Derivacion
 from .models import Etiqueta
 from .models import Incidencia
+from .models import Servicio
 from .models import Tecnico
+from .models import TransicionInvalida
 from .models import Ubicacion
+from .services import acciones
 
 router = Router(tags=["Incidencias"], auth=DatabaseApiKey())
 
@@ -45,6 +53,11 @@ def _exigir_tecnico(request):
     perfil = getattr(user, "perfil_tecnico", None)
     if perfil is None or not perfil.activo:
         raise HttpError(403, "La clave de API no pertenece a un técnico activo")
+
+
+def _tecnico_de(request) -> Tecnico | None:
+    """El perfil de técnico dueño de la clave (None para un superusuario sin perfil)."""
+    return getattr(request.user, "perfil_tecnico", None)
 
 
 def _usuario(user) -> str:
@@ -80,11 +93,20 @@ class TecnicoOut(Schema):
     abiertas: int
 
 
+class DerivacionBreveOut(Schema):
+    id: int
+    servicio: str
+    estado: str
+    ticket_externo: str
+    enviada_at: datetime | None
+
+
 class IncidenciaResumenOut(Schema):
     id: int
     titulo: str
     estado: str
     urgencia: str
+    ambito: str
     es_privada: bool
     reportero: str
     ubicacion: UbicacionOut | None
@@ -92,6 +114,7 @@ class IncidenciaResumenOut(Schema):
     asignado_a: TecnicoOut | None
     n_comentarios: int
     n_adjuntos: int
+    derivaciones: list[DerivacionBreveOut]
     created_at: datetime
     updated_at: datetime
     url: str
@@ -134,6 +157,93 @@ class IncidenciaDetalleOut(IncidenciaResumenOut):
     adjuntos: list[AdjuntoOut]
     historial_asignaciones: list[AsignacionOut]
     emails_origen: list[EmailOrigenOut]
+
+
+class ServicioOut(Schema):
+    id: int
+    slug: str
+    nombre: str
+    que_va_aqui: str
+    correos: list[str]
+    telefono: str
+    url_formulario: str
+    activo: bool
+    url_publica: str
+    abiertas: int
+
+
+class ComunicacionOut(Schema):
+    id: int
+    sentido: str
+    canal: str
+    autor: str
+    texto: str
+    fecha: datetime
+
+
+class DerivacionOut(Schema):
+    id: int
+    incidencia_id: int
+    incidencia_titulo: str
+    servicio: str
+    estado: str
+    resultado: str
+    asunto: str
+    cuerpo: str
+    texto_correo: str
+    ticket_externo: str
+    creada_por: str | None
+    enviada_por: str | None
+    enviada_at: datetime | None
+    comunicaciones: list[ComunicacionOut]
+    created_at: datetime
+    updated_at: datetime
+
+
+class AsignarIn(Schema):
+    tecnico: str | None = None  # id, usuario, o null para desasignar
+    nota: str = ""
+
+
+class ComentarIn(Schema):
+    texto: str
+    autor: str | None = None
+
+
+class EstadoIn(Schema):
+    estado: str
+
+
+class IncidenciaPatchIn(Schema):
+    ambito: str | None = None
+    urgencia: str | None = None
+    ubicacion_id: int | None = None
+    etiquetas: list[str] | None = None
+    es_privada: bool | None = None
+
+
+class DerivarIn(Schema):
+    servicio: str  # slug
+    asunto: str | None = None
+    cuerpo: str | None = None
+
+
+class DerivacionPatchIn(Schema):
+    asunto: str | None = None
+    cuerpo: str | None = None
+    ticket_externo: str | None = None
+
+
+class RespuestaIn(Schema):
+    texto: str
+    fecha: datetime | None = None
+    canal: str = "correo"
+    ticket_externo: str = ""
+
+
+class CerrarIn(Schema):
+    resultado: str
+    nota: str = ""
 
 
 class ListaOut(Schema):
@@ -221,6 +331,7 @@ def _resumen(request, i: Incidencia) -> dict:
         "titulo": i.titulo,
         "estado": i.estado,
         "urgencia": i.urgencia,
+        "ambito": i.ambito,
         "es_privada": i.es_privada,
         "reportero": i.reportero_nombre,
         "ubicacion": _ubicacion(i.ubicacion),
@@ -232,6 +343,16 @@ def _resumen(request, i: Incidencia) -> dict:
         if hasattr(i, "n_comentarios")
         else i.comentarios.count(),
         "n_adjuntos": i.n_adjuntos if hasattr(i, "n_adjuntos") else i.adjuntos.count(),
+        "derivaciones": [
+            {
+                "id": d.id,
+                "servicio": d.servicio.slug,
+                "estado": d.estado,
+                "ticket_externo": d.ticket_externo,
+                "enviada_at": d.enviada_at,
+            }
+            for d in (i.derivaciones_abiertas if hasattr(i, "derivaciones_abiertas") else i.derivaciones.abiertas().select_related("servicio"))
+        ],
         "created_at": i.created_at,
         "updated_at": i.updated_at,
         "url": request.build_absolute_uri(f"/incidencias/{i.id}/"),
@@ -280,12 +401,92 @@ def _detalle(request, i: Incidencia) -> dict:
 def _base_queryset():
     return (
         Incidencia.objects.select_related("ubicacion", "asignado_a__user")
-        .prefetch_related("etiquetas")
+        .prefetch_related(
+            "etiquetas",
+            Prefetch(
+                "derivaciones",
+                queryset=Derivacion.objects.abiertas().select_related("servicio"),
+                to_attr="derivaciones_abiertas",
+            ),
+        )
         .annotate(
             n_comentarios=Count("comentarios", distinct=True),
             n_adjuntos=Count("adjuntos", distinct=True),
         )
     )
+
+
+def _servicio(s: Servicio, abiertas: int | None = None) -> dict:
+    return {
+        "id": s.id,
+        "slug": s.slug,
+        "nombre": s.nombre,
+        "que_va_aqui": s.que_va_aqui,
+        "correos": s.lista_correos,
+        "telefono": s.telefono,
+        "url_formulario": s.url_formulario,
+        "activo": s.activo,
+        "url_publica": s.url_publica,
+        "abiertas": abiertas if abiertas is not None else s.derivaciones.abiertas().count(),
+    }
+
+
+def _derivacion(d: Derivacion) -> dict:
+    return {
+        "id": d.id,
+        "incidencia_id": d.incidencia_id,
+        "incidencia_titulo": d.incidencia.titulo,
+        "servicio": d.servicio.slug,
+        "estado": d.estado,
+        "resultado": d.resultado,
+        "asunto": d.asunto,
+        "cuerpo": d.cuerpo,
+        "texto_correo": d.texto_correo,
+        "ticket_externo": d.ticket_externo,
+        "creada_por": str(d.creada_por) if d.creada_por else None,
+        "enviada_por": str(d.enviada_por) if d.enviada_por else None,
+        "enviada_at": d.enviada_at,
+        "comunicaciones": [
+            {
+                "id": c.id,
+                "sentido": c.sentido,
+                "canal": c.canal,
+                "autor": c.autor_nombre,
+                "texto": c.texto,
+                "fecha": c.fecha,
+            }
+            for c in d.comunicaciones.all()
+        ],
+        "created_at": d.created_at,
+        "updated_at": d.updated_at,
+    }
+
+
+def _derivaciones_queryset():
+    return Derivacion.objects.select_related(
+        "incidencia", "servicio", "creada_por__user", "enviada_por__user",
+    ).prefetch_related("comunicaciones")
+
+
+def _cargar_derivacion(derivacion_id: int) -> Derivacion:
+    return get_object_or_404(_derivaciones_queryset(), pk=derivacion_id)
+
+
+def _resolver_tecnico(valor: str) -> Tecnico:
+    if valor.isdigit():
+        return get_object_or_404(Tecnico, pk=int(valor), activo=True)
+    tecnico = Tecnico.objects.filter(user__email__istartswith=f"{valor}@", activo=True).first()
+    if tecnico is None:
+        raise HttpError(404, f"No hay ningún técnico activo con usuario «{valor}»")
+    return tecnico
+
+
+def _transicion(fn):
+    """Ejecuta una transición de derivación y traduce la ilegal a 409."""
+    try:
+        return fn()
+    except TransicionInvalida as exc:
+        raise HttpError(409, str(exc)) from exc
 
 
 # ---------------------------------------------------------------------------
@@ -448,6 +649,90 @@ def listar_ubicaciones(request):
     return [_ubicacion(u) for u in Ubicacion.objects.all()]
 
 
+@router.get("/servicios", response=list[ServicioOut], url_name="incidencias_servicios")
+def listar_servicios(request, activos: bool | None = None):
+    """Servicios externos con su enlace público y cuántas derivaciones abiertas tienen."""
+    _exigir_tecnico(request)
+    qs = Servicio.objects.annotate(
+        n_abiertas=Count("derivaciones", filter=~Q(derivaciones__estado=Derivacion.Estado.CERRADA)),
+    )
+    if activos is not None:
+        qs = qs.filter(activo=activos)
+    return [_servicio(s, s.n_abiertas) for s in qs]
+
+
+@router.get("/derivaciones", response=list[DerivacionOut], url_name="incidencias_derivaciones")
+def listar_derivaciones(
+    request,
+    estado: str | None = None,
+    servicio: str | None = None,
+    incidencia: int | None = None,
+):
+    """Derivaciones. `estado` admite `abiertas` o valores separados por coma; `servicio` es el slug."""
+    _exigir_tecnico(request)
+    qs = _derivaciones_queryset()
+    if estado == "abiertas":
+        qs = qs.abiertas()
+    elif estado:
+        qs = qs.filter(estado__in=[e.strip() for e in estado.split(",") if e.strip()])
+    if servicio:
+        qs = qs.filter(servicio__slug=servicio)
+    if incidencia:
+        qs = qs.filter(incidencia_id=incidencia)
+    return [_derivacion(d) for d in qs.order_by("-created_at")]
+
+
+@router.get("/derivaciones/{int:derivacion_id}", response=DerivacionOut, url_name="incidencias_derivacion")
+def detalle_derivacion(request, derivacion_id: int):
+    _exigir_tecnico(request)
+    return _derivacion(_cargar_derivacion(derivacion_id))
+
+
+@router.patch("/derivaciones/{int:derivacion_id}", response=DerivacionOut, url_name="incidencias_derivacion_editar")
+def editar_derivacion(request, derivacion_id: int, payload: DerivacionPatchIn):
+    """Asunto y cuerpo solo en borrador; ticket siempre. Transición ilegal → 409."""
+    _exigir_tecnico(request)
+    d = _cargar_derivacion(derivacion_id)
+    _transicion(lambda: d.editar(**payload.dict(exclude_unset=True)))
+    return _derivacion(_cargar_derivacion(derivacion_id))
+
+
+@router.post("/derivaciones/{int:derivacion_id}/enviada", response=DerivacionOut, url_name="incidencias_derivacion_enviada")
+def marcar_enviada(request, derivacion_id: int):
+    _exigir_tecnico(request)
+    d = _cargar_derivacion(derivacion_id)
+    _transicion(lambda: d.marcar_enviada(_tecnico_de(request)))
+    return _derivacion(_cargar_derivacion(derivacion_id))
+
+
+@router.post("/derivaciones/{int:derivacion_id}/respuesta", response=DerivacionOut, url_name="incidencias_derivacion_respuesta")
+def registrar_respuesta(request, derivacion_id: int, payload: RespuestaIn):
+    _exigir_tecnico(request)
+    if payload.canal not in Comunicacion.Canal.values:
+        raise HttpError(422, f"canal debe ser uno de {Comunicacion.Canal.values}")
+    d = _cargar_derivacion(derivacion_id)
+    autor = str(_tecnico_de(request) or _usuario(request.user))
+    _transicion(
+        lambda: d.registrar_respuesta(
+            autor=autor,
+            texto=payload.texto,
+            fecha=payload.fecha,
+            canal=payload.canal,
+            ticket_externo=payload.ticket_externo,
+        ),
+    )
+    return _derivacion(_cargar_derivacion(derivacion_id))
+
+
+@router.post("/derivaciones/{int:derivacion_id}/cerrar", response=DerivacionOut, url_name="incidencias_derivacion_cerrar")
+def cerrar_derivacion(request, derivacion_id: int, payload: CerrarIn):
+    _exigir_tecnico(request)
+    d = _cargar_derivacion(derivacion_id)
+    autor = str(_tecnico_de(request) or _usuario(request.user))
+    _transicion(lambda: d.cerrar(resultado=payload.resultado, autor=autor, nota=payload.nota))
+    return _derivacion(_cargar_derivacion(derivacion_id))
+
+
 @router.get(
     "/{int:incidencia_id}",
     response=IncidenciaDetalleOut,
@@ -458,3 +743,81 @@ def detalle_incidencia(request, incidencia_id: int):
     _exigir_tecnico(request)
     i = get_object_or_404(_base_queryset(), pk=incidencia_id)
     return _detalle(request, i)
+
+
+# ---------------------------------------------------------------------------
+# Escritura sobre una incidencia (misma lógica que las vistas: services/acciones)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/{int:incidencia_id}/asignar", response=IncidenciaDetalleOut, url_name="incidencias_asignar")
+def asignar_incidencia(request, incidencia_id: int, payload: AsignarIn):
+    """`tecnico`: id, usuario (`secretaria`) o null para desasignar."""
+    _exigir_tecnico(request)
+    i = get_object_or_404(Incidencia, pk=incidencia_id)
+    tecnico = _resolver_tecnico(payload.tecnico) if payload.tecnico else None
+    acciones.asignar(i, tecnico, _tecnico_de(request), nota=payload.nota)
+    return _detalle(request, get_object_or_404(_base_queryset(), pk=incidencia_id))
+
+
+@router.post("/{int:incidencia_id}/comentar", response=IncidenciaDetalleOut, url_name="incidencias_comentar")
+def comentar_incidencia(request, incidencia_id: int, payload: ComentarIn):
+    """Comenta como el dueño de la clave, salvo que se dé `autor`."""
+    _exigir_tecnico(request)
+    if not payload.texto.strip():
+        raise HttpError(422, "El comentario no puede estar vacío")
+    i = get_object_or_404(Incidencia, pk=incidencia_id)
+    acciones.comentar(i, payload.autor or _usuario(request.user), payload.texto.strip())
+    return _detalle(request, get_object_or_404(_base_queryset(), pk=incidencia_id))
+
+
+@router.post("/{int:incidencia_id}/estado", response=IncidenciaDetalleOut, url_name="incidencias_estado")
+def cambiar_estado_incidencia(request, incidencia_id: int, payload: EstadoIn):
+    _exigir_tecnico(request)
+    if payload.estado not in Incidencia.Estado.values:
+        raise HttpError(422, f"estado debe ser uno de {Incidencia.Estado.values}")
+    i = get_object_or_404(Incidencia, pk=incidencia_id)
+    acciones.cambiar_estado(i, payload.estado)
+    return _detalle(request, get_object_or_404(_base_queryset(), pk=incidencia_id))
+
+
+@router.patch("/{int:incidencia_id}", response=IncidenciaDetalleOut, url_name="incidencias_editar")
+def editar_incidencia(request, incidencia_id: int, payload: IncidenciaPatchIn):
+    """Solo toca lo que viene en el cuerpo. `etiquetas` son slugs y sustituyen a las actuales."""
+    _exigir_tecnico(request)
+    i = get_object_or_404(Incidencia, pk=incidencia_id)
+    datos = payload.dict(exclude_unset=True)
+    with transaction.atomic():
+        if "ambito" in datos:
+            if datos["ambito"] not in Incidencia.Ambito.values:
+                raise HttpError(422, f"ambito debe ser uno de {Incidencia.Ambito.values}")
+            i.ambito = datos["ambito"]
+        if "urgencia" in datos:
+            if datos["urgencia"] not in Incidencia.Urgencia.values:
+                raise HttpError(422, f"urgencia debe ser uno de {Incidencia.Urgencia.values}")
+            i.urgencia = datos["urgencia"]
+        if "ubicacion_id" in datos:
+            i.ubicacion = get_object_or_404(Ubicacion, pk=datos["ubicacion_id"]) if datos["ubicacion_id"] else None
+        if "es_privada" in datos:
+            i.es_privada = bool(datos["es_privada"])
+        i.save()
+        if "etiquetas" in datos:
+            slugs = datos["etiquetas"] or []
+            etiquetas = list(Etiqueta.objects.filter(slug__in=slugs))
+            faltan = set(slugs) - {e.slug for e in etiquetas}
+            if faltan:
+                raise HttpError(422, f"Etiquetas desconocidas: {sorted(faltan)}")
+            i.etiquetas.set(etiquetas)
+    return _detalle(request, get_object_or_404(_base_queryset(), pk=incidencia_id))
+
+
+@router.post("/{int:incidencia_id}/derivar", response=DerivacionOut, url_name="incidencias_derivar")
+def derivar_incidencia(request, incidencia_id: int, payload: DerivarIn):
+    """Crea la derivación en borrador con asunto y cuerpo generados (o los dados)."""
+    _exigir_tecnico(request)
+    i = get_object_or_404(Incidencia.objects.select_related("ubicacion"), pk=incidencia_id)
+    servicio = Servicio.objects.filter(slug=payload.servicio, activo=True).first()
+    if servicio is None:
+        raise HttpError(404, f"No hay ningún servicio activo con slug «{payload.servicio}»")
+    d = acciones.derivar(i, servicio, _tecnico_de(request), asunto=payload.asunto, cuerpo=payload.cuerpo)
+    return _derivacion(_cargar_derivacion(d.pk))

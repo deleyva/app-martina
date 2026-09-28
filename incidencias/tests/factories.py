@@ -6,9 +6,12 @@ from martina_bescos_app.users.tests.factories import UserFactory
 
 from ..models import Adjunto
 from ..models import Comentario
+from ..models import Comunicacion
+from ..models import Derivacion
 from ..models import Etiqueta
 from ..models import HistorialAsignacion
 from ..models import Incidencia
+from ..models import Servicio
 from ..models import Tecnico
 from ..models import Ubicacion
 
@@ -111,3 +114,39 @@ class ProcessedEmailFactory(DjangoModelFactory):
     class Meta:
         model = "incidencias.ProcessedEmail"
 
+
+
+class ServicioFactory(DjangoModelFactory):
+    slug = factory.Sequence(lambda n: f"servicio-{n}")
+    nombre = factory.Sequence(lambda n: f"Servicio {n}")
+    que_va_aqui = "Cosas de este servicio"
+    correos = "uno@example.com, dos@example.com"
+    telefono = "976 000 000"
+    activo = True
+    orden = factory.Sequence(lambda n: n)
+
+    class Meta:
+        model = Servicio
+        django_get_or_create = ["slug"]
+
+
+class DerivacionFactory(DjangoModelFactory):
+    incidencia = factory.SubFactory(IncidenciaFactory)
+    servicio = factory.SubFactory(ServicioFactory)
+    asunto = factory.LazyAttribute(lambda o: Derivacion.asunto_por_defecto(o.incidencia))
+    cuerpo = "Cuerpo del correo"
+
+    class Meta:
+        model = Derivacion
+
+
+class ComunicacionFactory(DjangoModelFactory):
+    derivacion = factory.SubFactory(DerivacionFactory)
+    sentido = Comunicacion.Sentido.RECIBIDA
+    canal = Comunicacion.Canal.CORREO
+    autor_nombre = "secretaria"
+    texto = factory.Faker("sentence", locale="es_ES")
+    fecha = factory.LazyFunction(lambda: __import__("django.utils.timezone", fromlist=["now"]).now())
+
+    class Meta:
+        model = Comunicacion

@@ -1,0 +1,74 @@
+{% extends "incidencias/base_publica.html" %}
+{% block title %}Pendiente para {{ servicio.nombre }} — IES Martina Bescós{% endblock title %}
+
+{% block content %}
+<div class="flex flex-wrap items-start justify-between gap-3 mb-6">
+  <div>
+    <p class="text-sm opacity-60">IES Martina Bescós · Zaragoza</p>
+    <h1 class="text-2xl font-bold">Incidencias pendientes para {{ servicio.nombre }}</h1>
+    <p class="text-sm opacity-70 mt-1">Página actualizada al momento: generada el {{ generada|date:"d/m/Y H:i" }}. {{ total_pendientes }} pendiente{{ total_pendientes|pluralize }}.</p>
+  </div>
+  <button class="btn btn-sm btn-outline no-print" onclick="window.print()">🖨️ Imprimir hoja de visita</button>
+</div>
+
+{% if not grupos %}
+  <div class="alert">No hay nada pendiente para este servicio ahora mismo.</div>
+{% endif %}
+
+{% for planta, aulas in grupos %}
+  <h2 class="text-lg font-bold mt-6 mb-2 border-b border-base-300 pb-1">{{ planta }}</h2>
+  {% for aula, derivaciones in aulas %}
+    <h3 class="font-semibold mt-3 mb-2">📍 {{ aula }}</h3>
+    {% for d in derivaciones %}
+      <div class="card bg-base-100 shadow-sm mb-3">
+        <div class="card-body p-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="font-semibold">{{ d.asunto }}</div>
+            <div class="flex gap-1">
+              <span class="badge badge-sm {% if d.estado == 'respondida' %}badge-warning{% elif d.estado == 'enviada' %}badge-info{% else %}badge-ghost{% endif %}">{{ d.get_estado_display }}</span>
+              {% if d.ticket_externo %}<span class="badge badge-sm badge-outline">🎫 {{ d.ticket_externo }}</span>{% endif %}
+              <span class="badge badge-sm badge-outline">{{ d.incidencia.get_urgencia_display }}</span>
+            </div>
+          </div>
+          {% if not d.incidencia.es_privada %}
+            {% if d.incidencia.descripcion %}<p class="text-sm mt-2 whitespace-pre-line">{{ d.incidencia.descripcion }}</p>{% endif %}
+          {% endif %}
+          <div class="text-xs opacity-60 mt-2">
+            Comunicada el {{ d.incidencia.created_at|date:"d/m/Y" }}{% if d.enviada_at %} · enviada el {{ d.enviada_at|date:"d/m/Y" }}{% endif %}
+          </div>
+          {% if d.comunicaciones.all %}
+            <details class="mt-2">
+              <summary class="cursor-pointer text-sm opacity-70">Histórico de comunicaciones ({{ d.comunicaciones.all|length }})</summary>
+              <ul class="mt-2 space-y-2">
+                {% for c in d.comunicaciones.all %}
+                  <li class="text-sm">
+                    <span class="opacity-60">{{ c.fecha|date:"d/m/Y" }} · {% if c.sentido == "enviada" %}📤 enviado{% elif c.sentido == "recibida" %}📥 recibido{% else %}📝 nota{% endif %} · {{ c.get_canal_display }}</span>
+                    {% if c.sentido == "enviada" %}
+                      {% if d.incidencia.es_privada %}<div class="opacity-60">Correo enviado.</div>{% else %}<pre class="whitespace-pre-wrap text-xs bg-base-200 rounded p-2 mt-1">{{ c.texto }}</pre>{% endif %}
+                    {% else %}
+                      <div>{{ c.texto|linebreaksbr }}</div>
+                    {% endif %}
+                  </li>
+                {% endfor %}
+              </ul>
+            </details>
+          {% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  {% endfor %}
+{% endfor %}
+
+{% if cerradas %}
+  <h2 class="text-lg font-bold mt-8 mb-2 border-b border-base-300 pb-1">Resueltas o cerradas en los últimos 60 días</h2>
+  <ul class="text-sm space-y-1">
+    {% for d in cerradas %}
+      <li>✅ {{ d.asunto }} <span class="opacity-60">· {{ d.get_resultado_display }} · {{ d.updated_at|date:"d/m/Y" }}</span></li>
+    {% endfor %}
+  </ul>
+{% endif %}
+
+<div class="mt-8 text-sm opacity-70 no-print">
+  <p>Contacto: Secretaría del IES Martina Bescós. Esta página es la lista viva de lo pendiente para su servicio; si vienen al centro, pueden atender cualquiera de estas incidencias aunque no la hayamos comunicado por escrito.</p>
+</div>
+{% endblock content %}
