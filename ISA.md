@@ -1,10 +1,10 @@
 ---
 slug: app-martina
-phase: complete
+phase: verify
 progress: true
-iteration: 53
+iteration: 54
 principal_stated_goal: "Necesito desarrollar en apps.iesmartinabescos.es Otra app de Django como la que tenemos en /incidencias. Está sí que debe de requerir login con Google porque ya tenemos implementado. Básicamente, es una aplicación en la que quiero que vayan solicitando la clave Wi-Fi. Pero para ello deben logearse y enviar la MAC de su dispositivo WIFI, la privada (real) no la aleatoria."
-updated: 2026-09-27
+updated: 2026-09-28
 ---
 
 # ISA — app-martina · Sistema de estudio de la biblioteca
@@ -4262,3 +4262,24 @@ Jesús, desde `/clases/sessions/132/edit/`: «¿Por qué no puedo añadir ese el
 - `meter_libro` y el progreso por libro también cuentan la letra, porque todos salen del mismo recorrido. La libreta de fotocopias no: filtra a imagen y PDF (anti-claim comprobado en `libreta/fuentes.py`).
 
 **Anti-claims:** la letra no entra en las fotocopias de la libreta (`libreta/fuentes.py` filtra a imagen y PDF, y así sigue); ninguna canción sin ChordPro gana una fila `LetraConAcordes` por enumerar el libro.
+
+## Fase 54 — API de lectura de incidencias, para la skill que reparte el juego (2026-09-28) · PENDIENTE DE PUSH Y DESPLIEGUE
+
+Jesús quiere una skill gestora de incidencias del IES que lea la app como única fuente de verdad («no trabajes con la copia de seguridad, hazlo por API o con Chrome»). Producción no exponía nada de `incidencias` en la API de ninja, así que el primer ladrillo es un router de **solo lectura** en `incidencias/api.py`, montado en `/api/incidencias/` y autenticado con la clave de API existente (`X-API-Key`). Como el panel enseña las incidencias privadas, la clave tiene que ser de un técnico activo o de un superusuario; cualquier otra clave válida recibe 403. La escritura (asignar, comentar, cambiar estado, derivar a un servicio externo) queda para la skill, cuando se sepa qué forma tiene.
+
+Endpoints: `GET /` (filtros `estado` con `abiertas`, `urgencia`, `tecnico` por id/usuario/`sin_asignar`, `etiqueta`, `ubicacion`, `planta`, `sin_ubicacion`, `q`, `desde`, `hasta`, `orden`, paginación), `GET /{id}` (descripción, comentarios con adjuntos, adjuntos sueltos, historial de asignaciones, correos de origen), `GET /resumen` (conteos por estado, urgencia, técnico, etiqueta y planta sobre las abiertas, más huecos: sin asignar, sin ubicación, la abierta más antigua), `GET /tecnicos`, `GET /etiquetas`, `GET /ubicaciones`.
+
+- [x] **C299 — Sin clave 401; con clave de alguien que no es técnico activo, 403 y ni un título privado en la respuesta; superusuario sin perfil entra.** *Probe: `test_sin_clave_es_401`, `test_una_clave_que_no_es_de_tecnico_no_ve_nada`, `test_un_tecnico_dado_de_baja_tampoco`, `test_un_superusuario_sin_perfil_entra`; y `curl -i` local con una clave de profesor: `HTTP/1.1 403 Forbidden {"detail": "La clave de API no pertenece a un técnico activo"}`.*
+- [x] **C300 — La lista trae privadas y cada filtro devuelve exactamente lo que dice**, incluidos `estado=abiertas`, `tecnico=sin_asignar`, `tecnico=<usuario>`, `planta`, `sin_ubicacion`, `q`, `desde`/`hasta`, y `orden` fuera de la lista es 422. *Probe: `test_la_lista_trae_privadas_y_lo_que_hace_falta_para_repartir`, `test_los_filtros_devuelven_exactamente_lo_que_dicen`, `test_fechas_y_paginacion`; curl local `?estado=abiertas&tecnico=sin_asignar&limit=3` → 200, total 12.*
+- [x] **C301 — El detalle trae la conversación entera** (comentarios con autor, historial con nota y nombres de técnico, correos de origen) y 404 si no existe. *Probe: `test_el_detalle_trae_la_conversacion_entera`; curl local `/37` → «Terminar de configurar el Epoptes.», 3 comentarios, 1 asignación.*
+- [x] **C302 — Catálogos y resumen cuentan bien y señalan los huecos.** *Probe: `test_tecnicos_etiquetas_ubicaciones`, `test_el_resumen_cuenta_bien_y_senala_los_huecos`; curl local `/resumen` → 124 en total, 32 abiertas, 12 sin asignar, 15 sin ubicación, la más antigua del 2026-03-02.*
+- [x] **C302b — La suite pasa con los mismos cuatro fallos preexistentes.** *Probe: `pytest -q` en el contenedor local: 1306 pasan, 4 fallan (`cms.test_frontend_integration` ×2, `incidencias.test_views` ×2, los de siempre), 6 saltados.*
+- [ ] **C303 — Desplegado y probado en producción** con `curl -i` y la clave `IES_API_KEY` contra `/api/incidencias/resumen` y `/api/incidencias/?estado=abiertas`. *Probe: cabecera 200 y conteos coherentes con el panel (a 28/09 el panel enseña 24 pendientes y 20 en progreso).* **Bloqueado en el push: repo público, hace falta el visto bueno de Jesús.**
+
+### Decisiones y gotchas
+
+- **Los `choices` de Django son proxies perezosos de traducción y pydantic no los acepta como `str`.** `get_FOO_display()` ya devuelve `str`, pero `dict(Estado.choices)` no: hay que `str(v)` al construir el mapa. Lo delató el test del resumen, y el servidor local de desarrollo siguió sirviendo el código viejo tras el arreglo (watchdog detectó el cambio pero no recargó): `docker restart` del contenedor y listo.
+- **Permiso por perfil, no solo por clave.** `DatabaseApiKey` solo dice «esta clave es de este usuario»; la regla del panel (`_is_tecnico`) es la que decide quién ve privadas, y la API la repite en `_exigir_tecnico`.
+- **`tecnico=<usuario>` filtra por `email istartswith "<usuario>@"`**, que es lo que el panel entiende por «usuario» (este `User` no tiene `username`).
+
+**Anti-claims:** ningún endpoint escribe; ninguna clave de API de un usuario sin perfil de técnico activo ve una incidencia privada; el router no toca ninguna vista ni plantilla de `incidencias`.
