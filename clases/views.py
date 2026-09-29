@@ -1134,6 +1134,10 @@ def class_session_duplicate(request, pk):
             session=new_session,
             content_type=item.content_type,
             object_id=item.object_id,
+            # Sin la página de origen la copia pinta la tablatura sin el botón
+            # de Songsterr y sin el de «ver la página entera»: los dos salen de
+            # ella, no del documento.
+            source_page_id=item.source_page_id,
             order=item.order,
             notes=item.notes,
         )
