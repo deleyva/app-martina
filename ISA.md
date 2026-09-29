@@ -4402,7 +4402,7 @@ Plantillas con instrumentos distintos por evaluación (los de la 3ª de 4º del 
 - Sin auditoría externa: superficie de profesor autenticado, sin migración, solo caminos nuevos para crear planes; 15 tests nuevos y navegador real. Elegido a conciencia.
 - Visto de paso y no tocado: en el cuadro, a 1456 px de ancho, las columnas Cuaderno, Nota y Calif. quedan fuera de la vista y hay que desplazar en horizontal. Es anterior a esta fase.
 
-## Fase 60 — `notas` dentro de la app: la misma pantalla, con los datos de Django (2026-09-29) · VERIFICADA EN LOCAL, SIN DESPLEGAR (pendiente: cámara, micrófono e impresión)
+## Fase 60 — `notas` dentro de la app: la misma pantalla, con los datos de Django (2026-09-29) · DESPLEGADA Y VERIFICADA EN PRODUCCIÓN (`421cf27`) · pendiente de Jesús: cámara, micrófono e impresión
 
 **Goal (literal de Jesús, 2026-09-29):** «Puede quedar esa igual que la que tengo hecha en /Users/deleyva/Documents/notas ¿Que surge ahora en la aplicación de Django, es decir, me parece muy profuso. Yo solo quiero añadir evidencias tal cual están diseñadas en la aplicación de Notas. Por favor, copiala. Usa en vez de HTMLX, usa, en fin, haz lo que sea, pero que sea igual visualmente. Me gusta mucho esa forma de calificar, esa aplicación que hicimos.»
 
@@ -4488,4 +4488,7 @@ Notas de otras asignaturas (botón ℹ de Final y CSV de Info) · «TODOS» en e
 
 - Sin auditoría externa. Superficie de profesor autenticado con datos de menores: el segundo par de ojos fue la revisión del diseño con un agente en contexto limpio antes de construir, que encontró el agujero de `evidencia_ver` (servía en línea el tipo declarado por el navegador). Elegido a conciencia.
 - Dos migraciones, las dos aditivas: `0002_hueco_cuenta_cero` y `0003_evidencia_nombre_y_tamano`. **La 0002 cambia cifras que ya están en pantalla en producción:** todo plan existente pasa a contar los huecos como 0.
-- Nada empujado ni desplegado.
+- **2026-09-29, despliegue**, con permiso de Jesús («despliega»). Copia previa `production_backup_2026_09_29T15_56_04.sql.gz`, hecha sin la limpieza de copias antiguas de la receta. Push `a34dae3..421cf27`. `just deploy-production`: seis contenedores arriba, `calificaciones.0002_hueco_cuenta_cero` y `calificaciones.0003_evidencia_nombre_y_tamano` aplicadas.
+- **Producción, en Chrome con la sesión de Jesús:** la portada lista sus siete grupos, enlaza a `/calificaciones/grupo/<id>/?t=N` y ya no dice «Modo clase». `/calificaciones/grupo/11/?t=1` sirve la pantalla nueva (`registro.578b2b266488.js`, `output.816bb332058e.css`), con la barra y las cinco pestañas a 10 px y sin errores en consola (captura vista, de la pantalla de elegir instrumentos, que no lleva nombres). `/media/calificaciones/x.jpg` → 404.
+- **La migración 0002 no ha cambiado ninguna cifra:** ninguno de los cinco grupos de clase tenía plan ni notas en producción. Los cinco ven la pantalla de elegir instrumentos, cada uno con la plantilla de su nivel como recomendada (3º ESO para 3-FH, 3-C-BIL y 3-EG-BIL; 1º bilingüe para 1-G-BIL; 4º bilingüe para 4-AC-BIL).
+- Visto de paso: los dos grupos de 3º bilingüe reciben la plantilla de 3º ESO, porque no hay marco de 3º bilingüe cargado. Si su programación pesa distinto, hace falta ese marco.
