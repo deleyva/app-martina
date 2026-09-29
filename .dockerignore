@@ -13,6 +13,9 @@ venv
 
 # Frontend build artifacts / dependencies
 node_modules/
+# `node_modules/` solo casa en la raíz: la pantalla de calificaciones tiene el
+# suyo en calificaciones/frontend/.
+**/node_modules
 martina_bescos_app/static/css/output.css
 
 # Backups (evitar copiar al contexto de Docker)

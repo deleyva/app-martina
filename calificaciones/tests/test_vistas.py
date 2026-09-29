@@ -81,6 +81,9 @@ def test_el_menu_solo_lo_ve_el_profesorado(client, profesor, alumnos, group, pla
 
 @pytest.mark.django_db
 def test_guardar_nota_devuelve_la_fila_y_deja_historial(client, profesor, group, alumnos, plan):
+    """Con la regla de la fase 39 (un hueco no cuenta). La de ahora, en `test_politica.py`."""
+    plan.hueco_cuenta_cero = False
+    plan.save()
     client.force_login(profesor)
     url = reverse("calificaciones:nota_guardar", args=[group.pk])
     alumno = alumnos[0]

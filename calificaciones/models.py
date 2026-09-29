@@ -129,6 +129,16 @@ class Plan(models.Model):
     groups = models.ManyToManyField(
         Group, blank=True, related_name="planes_calificacion", verbose_name="Grupos"
     )
+    # La regla de los huecos (fase 60). Es del cálculo, no del dato: `Nota.valor`
+    # sigue siendo nulo cuando no hay nota, y aquí se decide si ese nulo vale 0
+    # o se salta. Quitar la marca devuelve el plan a la regla de la fase 39 sin
+    # tocar una sola nota.
+    hueco_cuenta_cero = models.BooleanField(
+        default=True,
+        db_default=True,
+        verbose_name="Una celda vacía cuenta como 0",
+        help_text="Sin marcar, lo que no tiene nota no cuenta y la media se hace con el resto",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -226,9 +236,23 @@ class Plan(models.Model):
         )
 
     @transaction.atomic
+    def pasar_a_letras(self, escala: list[dict]):
+        """Todos los instrumentos a la misma lista de opciones. Las notas no se tocan.
+
+        Una nota antigua que no sea ninguna de las opciones (un 7 en una escala
+        A-D) se sigue viendo y contando como lo que es, hasta que se cambie.
+        """
+        self.instrumentos.update(escala=Instrumento.ESCALA_OPCIONES, opciones=[dict(o) for o in escala])
+
+    @transaction.atomic
     def copiar(self, trimestre: int, nombre: str) -> "Plan":
         """Un plan nuevo con los mismos instrumentos y reparto, sin grupos ni pruebas."""
-        nuevo = Plan.objects.create(marco=self.marco, trimestre=trimestre, nombre=nombre)
+        nuevo = Plan.objects.create(
+            marco=self.marco,
+            trimestre=trimestre,
+            nombre=nombre,
+            hueco_cuenta_cero=self.hueco_cuenta_cero,
+        )
         for instrumento in self.instrumentos.all():
             copia = Instrumento.objects.create(
                 plan=nuevo,
@@ -249,6 +273,15 @@ class Plan(models.Model):
 
     # ----- las notas -------------------------------------------------------
 
+    def pruebas_activas(self) -> list["Prueba"]:
+        """Las columnas del registro: las pruebas activas, por instrumento y fecha."""
+        return [
+            p
+            for i in self.instrumentos.prefetch_related("pruebas")
+            for p in i.pruebas.all()
+            if p.activa
+        ]
+
     def resultados(self, alumnos) -> dict[int, calculo.Resultado]:
         """La nota de cada alumno en este trimestre, en dos consultas."""
         instrumentos = list(self.instrumentos.prefetch_related("pruebas"))
@@ -260,18 +293,19 @@ class Plan(models.Model):
         valor = {(n.prueba_id, n.alumno_id): n.valor for n in notas}
 
         celdas = self.celdas()
-        pesos = self.marco.pesos_criterio()
+        criterios = list(self.marco.criterios.all())
+        pesos = {c.pk: c.peso for c in criterios}
+        competencia_de = {c.pk: c.competencia for c in criterios}
+        agregaciones = {i.pk: i.agregacion for i in instrumentos}
         salida = {}
         for alumno in alumnos:
-            por_instrumento = {}
-            for instrumento in instrumentos:
-                valores = [
-                    valor.get((p.pk, alumno.pk)) for p in pruebas_por_instrumento[instrumento.pk]
-                ]
-                por_instrumento[instrumento.pk] = calculo.nota_instrumento(
-                    valores, instrumento.agregacion
-                )
-            salida[alumno.pk] = calculo.calcular(celdas, pesos, por_instrumento)
+            pruebas = {
+                i.pk: [valor.get((p.pk, alumno.pk)) for p in pruebas_por_instrumento[i.pk]]
+                for i in instrumentos
+            }
+            salida[alumno.pk] = calculo.calcular_alumno(
+                celdas, pesos, competencia_de, pruebas, agregaciones, self.hueco_cuenta_cero
+            )
         return salida
 
     def resultado_de(self, alumno) -> calculo.Resultado:
@@ -384,6 +418,53 @@ class Instrumento(models.Model):
         activas = [p for p in self.pruebas.all() if p.activa]
         return activas[0] if len(activas) == 1 else None
 
+    @staticmethod
+    def limpiar_opciones(opciones: list[dict]) -> list[dict]:
+        """Las opciones listas para guardar, o `ValueError` si se pisan entre sí.
+
+        Dos opciones con la misma etiqueta (sin mirar mayúsculas ni acentos) no
+        se pueden teclear; dos con el mismo valor no se pueden distinguir al
+        leer la nota, porque lo que se guarda es el valor.
+        """
+        import unicodedata
+
+        def clave(texto):
+            sin_acentos = unicodedata.normalize("NFD", str(texto))
+            return "".join(c for c in sin_acentos if unicodedata.category(c) != "Mn").strip().upper()
+
+        salida, etiquetas, valores = [], set(), set()
+        for opcion in opciones:
+            etiqueta = str(opcion.get("etiqueta", "")).strip()
+            valor = Decimal(str(opcion["valor"]))
+            if not etiqueta:
+                raise ValueError("Cada opción necesita una etiqueta")
+            if not (0 <= valor <= 10):
+                raise ValueError(f"«{etiqueta}» vale {valor}: tiene que estar entre 0 y 10")
+            if clave(etiqueta) in etiquetas:
+                raise ValueError(f"La etiqueta «{etiqueta}» está repetida")
+            if valor in valores:
+                raise ValueError(f"Hay dos opciones que valen {valor}")
+            etiquetas.add(clave(etiqueta))
+            valores.add(valor)
+            salida.append({"etiqueta": etiqueta, "valor": float(valor)})
+        return salida
+
+    def admite(self, valor: Decimal | None) -> bool:
+        """Si esa nota se puede guardar aquí. En una lista de opciones, solo las de la lista."""
+        if valor is None or self.escala != self.ESCALA_OPCIONES:
+            return True
+        return any(o["valor"] == valor for o in self.opciones_normalizadas())
+
+    def etiqueta_de(self, valor: Decimal | None) -> str:
+        """Cómo se lee esa nota: la letra si la hay, y si no el número."""
+        if valor is None:
+            return ""
+        if self.escala == self.ESCALA_OPCIONES:
+            for opcion in self.opciones_normalizadas():
+                if opcion["valor"] == valor:
+                    return opcion["etiqueta"]
+        return CambioNota.texto(valor)
+
     def opciones_normalizadas(self) -> list[dict]:
         return [
             {"etiqueta": str(o.get("etiqueta", o.get("valor"))), "valor": Decimal(str(o["valor"]))}
@@ -486,13 +567,14 @@ def ruta_evidencia(instance, filename):
 
 
 class Evidencia(models.Model):
-    FOTO, AUDIO, VIDEO, TEXTO, ENLACE = "foto", "audio", "video", "texto", "enlace"
+    FOTO, AUDIO, VIDEO, TEXTO, ENLACE, ARCHIVO = "foto", "audio", "video", "texto", "enlace", "archivo"
     TIPOS = [
         (FOTO, "Foto"),
         (AUDIO, "Audio"),
         (VIDEO, "Vídeo"),
         (TEXTO, "Nota de texto"),
         (ENLACE, "Enlace"),
+        (ARCHIVO, "Archivo"),
     ]
     PENDIENTE, PROCESANDO, LISTO, FALLIDO = "pendiente", "procesando", "listo", "fallido"
     ESTADOS = [
@@ -510,6 +592,10 @@ class Evidencia(models.Model):
     archivo = models.FileField(upload_to=ruta_evidencia, blank=True, max_length=255)
     archivo_comprimido = models.FileField(upload_to=ruta_evidencia, blank=True, max_length=255)
     tipo_mime = models.CharField(max_length=80, blank=True)
+    # Cómo se llamaba el fichero al subirlo y cuánto pesa. El nombre en disco es
+    # un uuid a propósito; este es solo para enseñarlo y para la descarga.
+    nombre_original = models.CharField(max_length=255, blank=True)
+    tamano = models.PositiveBigIntegerField(default=0)
     estado = models.CharField(max_length=10, choices=ESTADOS, default=LISTO)
     error = models.TextField(blank=True)
     texto = models.TextField(blank=True)
@@ -539,6 +625,7 @@ class Evidencia(models.Model):
             self.VIDEO: "🎥",
             self.TEXTO: "✏️",
             self.ENLACE: "🔗",
+            self.ARCHIVO: "📎",
         }[self.tipo]
 
     def delete(self, *args, **kwargs):

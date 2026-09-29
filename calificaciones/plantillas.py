@@ -26,24 +26,26 @@ from django.db import transaction
 
 from .models import Instrumento, MarcoEvaluacion, Plan, Reparto
 
-CUADERNO = [
-    {"etiqueta": "Sin cuaderno", "valor": 0},
-    {"etiqueta": "Incompleto", "valor": 3},
-    {"etiqueta": "Bien", "valor": 6},
-    {"etiqueta": "Muy bien", "valor": 9},
+# La escala del curso 26-27 (decisión de Jesús, 2026-09-29): se califica con
+# letra. El valor es la nota 0-10 con la que entra en el cálculo.
+ESCALA_AD = [
+    {"etiqueta": "A", "valor": 10},
+    {"etiqueta": "B", "valor": 8},
+    {"etiqueta": "C", "valor": 6},
+    {"etiqueta": "D", "valor": 4},
 ]
 
 # Los nueve instrumentos. (nombre, abreviatura, escala, opciones)
 INSTRUMENTOS = [
-    ("Teoría", "Teoría", "numerica", []),
-    ("Sensorialidad", "Sensor.", "numerica", []),
-    ("Dictado rítmico", "D. rít.", "numerica", []),
-    ("Dictado melódico", "D. mel.", "numerica", []),
-    ("Lectura rítmica", "L. rít.", "numerica", []),
-    ("Lectura melódica", "L. mel.", "numerica", []),
-    ("Interpretación instrumental", "Interp.", "numerica", []),
-    ("Composición / trabajo", "Compos.", "numerica", []),
-    ("Cuaderno", "Cuad.", "opciones", CUADERNO),
+    ("Teoría", "Teoría", "opciones", ESCALA_AD),
+    ("Sensorialidad", "Sensor.", "opciones", ESCALA_AD),
+    ("Dictado rítmico", "D. rít.", "opciones", ESCALA_AD),
+    ("Dictado melódico", "D. mel.", "opciones", ESCALA_AD),
+    ("Lectura rítmica", "L. rít.", "opciones", ESCALA_AD),
+    ("Lectura melódica", "L. mel.", "opciones", ESCALA_AD),
+    ("Interpretación instrumental", "Interp.", "opciones", ESCALA_AD),
+    ("Composición / trabajo", "Compos.", "opciones", ESCALA_AD),
+    ("Cuaderno", "Cuad.", "opciones", ESCALA_AD),
 ]
 
 # Reparto de partida. Cada instrumento: {criterio: porcentaje}. Cada
@@ -148,7 +150,7 @@ class Plantilla:
                 abreviatura=abreviatura,
                 orden=orden,
                 escala=escala,
-                opciones=opciones,
+                opciones=[dict(o) for o in opciones],
             )
             Reparto.objects.bulk_create(
                 [

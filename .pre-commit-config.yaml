@@ -1,4 +1,6 @@
-exclude: '^docs/|/migrations/|devcontainer.json'
+# El paquete de calificaciones lleva la huella del código en su primera línea:
+# si un hook lo retoca, deja de corresponder.
+exclude: '^docs/|/migrations/|devcontainer.json|^calificaciones/static/calificaciones/registro\.js$'
 default_stages: [pre-commit]
 minimum_pre_commit_version: "3.2.0"
 

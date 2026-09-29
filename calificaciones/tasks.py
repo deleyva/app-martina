@@ -47,9 +47,12 @@ def comprimir_video(evidencia_id):
         original = evidencia.archivo.path
         evidencia.archivo.delete(save=False)
         evidencia.tipo_mime = "video/mp4"
+        evidencia.tamano = evidencia.archivo_comprimido.size
         evidencia.estado = Evidencia.LISTO
         evidencia.error = ""
-        evidencia.save(update_fields=["archivo", "archivo_comprimido", "tipo_mime", "estado", "error"])
+        evidencia.save(
+            update_fields=["archivo", "archivo_comprimido", "tipo_mime", "tamano", "estado", "error"]
+        )
         if os.path.exists(original):
             os.remove(original)
     except Exception as e:  # noqa: BLE001

@@ -1,0 +1,51 @@
+/* Lo que la pantalla de calificaciones necesita y Tailwind no genera solo.
+ *
+ * Este fichero va SIN capa (`@layer`) a propósito: así gana a las reglas de
+ * raíz de DaisyUI, que viven en `@layer base` dentro de output.css. */
+
+/* DaisyUI pinta la raíz con su tema: color de texto, fondo y barras de
+ * desplazamiento. Los menús flotantes se cuelgan de <body>, fuera del <div>
+ * que lleva los colores de la pantalla, así que heredarían los de DaisyUI. */
+:root {
+  scrollbar-color: auto;
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+@media print {
+  body {
+    background: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+/* La grabadora: las barras que suben y bajan. */
+@keyframes wave-bar {
+  0%, 100% { transform: scaleY(0.3); }
+  50% { transform: scaleY(1); }
+}
+
+/* Los menús flotantes al aparecer. */
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(4px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes fade-in-scale {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.animate-in {
+  animation: fade-in-up 0.15s ease-out;
+}
+
+.animate-in.zoom-in-95 {
+  animation: fade-in-scale 0.2s ease-out;
+}
+
+/* El hueco de abajo en los móviles con barra de gestos. */
+.safe-area-bottom {
+  padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+}

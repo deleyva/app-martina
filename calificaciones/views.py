@@ -16,14 +16,15 @@ from pathlib import Path
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.db.models import Count
-from django.http import FileResponse, Http404, HttpResponse, JsonResponse
+from django.db import transaction
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods, require_POST
 
 from clases.models import Group
 from martina_bescos_app.users.permisos import es_profesor, grupo_del_profesor
 
-from . import calculo, plantillas
+from . import calculo, estado, ficheros, plantillas
 from .models import (
     CambioNota,
     Evidencia,
@@ -35,19 +36,6 @@ from .models import (
     alumnos_del_grupo,
 )
 
-TIPO_MIME = {
-    ".webm": "video/webm",
-    ".mp4": "video/mp4",
-    ".m4a": "audio/mp4",
-    ".mp3": "audio/mpeg",
-    ".ogg": "audio/ogg",
-    ".wav": "audio/wav",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".png": "image/png",
-    ".webp": "image/webp",
-    ".heic": "image/heic",
-}
 TAMANO_MAXIMO = 50 * 1024 * 1024
 
 
@@ -80,6 +68,11 @@ def _decimal(texto) -> Decimal | None:
     return valor.quantize(Decimal("0.01"))
 
 
+def _pide_json(request) -> bool:
+    """La pantalla nueva se identifica con esta cabecera; un formulario de los de antes, no."""
+    return request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
+
 def _alumno_del_grupo(group, alumno_id):
     alumno = alumnos_del_grupo(group).filter(pk=alumno_id).first()
     if alumno is None:
@@ -110,6 +103,48 @@ def index(request):
         "planes_calificacion"
     )
     return render(request, "calificaciones/index.html", {"grupos": grupos})
+
+
+@login_required
+@user_passes_test(es_profesor)
+def registro(request, group_id):
+    """La pantalla de calificaciones: la de `notas`, a pantalla completa.
+
+    No hereda de `base.html`: lleva su propia barra. Los avisos pendientes se
+    recogen aquí y viajan en la configuración; si no, el «ya puedes poner notas»
+    de `plan_adoptar` aparecería más tarde en una página que no tiene nada que ver.
+    """
+    group = grupo_del_profesor(request.user, group_id)
+    config = {
+        "grupo": group.pk,
+        "trimestre": _trimestre(request),
+        "base": f"/calificaciones/grupo/{group.pk}/",
+        # Dónde está esta misma pantalla para otro grupo: `{id}` lo pone el navegador.
+        "ruta_grupo": "/calificaciones/grupo/{id}/registro/",
+        "inicio": "/calificaciones/",
+        "avisos": [str(m) for m in messages.get_messages(request)],
+    }
+    respuesta = render(request, "calificaciones/registro.html", {"group": group, "config": config})
+    respuesta["Cache-Control"] = "no-store"
+    return respuesta
+
+
+@login_required
+@user_passes_test(es_profesor)
+def estado_json(request, group_id):
+    group = grupo_del_profesor(request.user, group_id)
+    respuesta = JsonResponse(estado.estado(group, request.user))
+    respuesta["Cache-Control"] = "no-store"
+    return respuesta
+
+
+@login_required
+@user_passes_test(es_profesor)
+def historial_json(request, group_id):
+    group = grupo_del_profesor(request.user, group_id)
+    respuesta = JsonResponse({"cambios": estado.historial(group)})
+    respuesta["Cache-Control"] = "no-store"
+    return respuesta
 
 
 @login_required
@@ -156,6 +191,8 @@ def plan_adoptar(request, group_id):
         plan = plantillas.empezar(group, trimestre, request.POST["plantilla"])
         if plan is None:
             raise Http404("No existe esa plantilla para la materia y el curso de este grupo.")
+        if _pide_json(request):
+            return JsonResponse({"plan": plan.pk})
         messages.success(request, "Listo: ya puedes poner notas. Los instrumentos se cambian en «Plan y reparto».")
         return redirect(f"/calificaciones/grupo/{group.pk}/?t={trimestre}")
     if request.POST.get("copiar_de"):
@@ -167,6 +204,8 @@ def plan_adoptar(request, group_id):
     else:
         plan = get_object_or_404(Plan.elegibles_para(group, trimestre), pk=request.POST.get("plan_id"))
     plan.groups.add(group)
+    if _pide_json(request):
+        return JsonResponse({"plan": plan.pk})
     messages.success(request, f"El grupo usa ahora el plan «{plan.nombre}».")
     return redirect(f"/calificaciones/grupo/{group.pk}/?t={trimestre}")
 
@@ -175,26 +214,45 @@ def plan_adoptar(request, group_id):
 @user_passes_test(es_profesor)
 @require_POST
 def nota_guardar(request, group_id):
-    """Autoguardado de una celda. Devuelve la fila recalculada."""
+    """Autoguardado. Una celda, o varias del mismo alumno de una vez.
+
+    Varias: `prueba` y `valor` repetidos, emparejados por orden. Es lo que manda
+    la pantalla cuando se rellena una fila deprisa. O se guardan todas o
+    ninguna: se valida todo antes de escribir nada.
+    """
     group = grupo_del_profesor(request.user, group_id)
-    prueba = _prueba_del_grupo(group, request.POST.get("prueba"))
     alumno = _alumno_del_grupo(group, request.POST.get("alumno"))
-    try:
-        valor = _decimal(request.POST.get("valor"))
-    except ValueError as e:
-        return JsonResponse({"error": str(e)}, status=400)
+    ids, textos = request.POST.getlist("prueba"), request.POST.getlist("valor")
+    if not ids or len(ids) != len(textos):
+        return JsonResponse({"error": "Falta la prueba o la nota"}, status=400)
+    celdas = []
+    for prueba_id, texto in zip(ids, textos):
+        prueba = _prueba_del_grupo(group, prueba_id)
+        try:
+            valor = _decimal(texto)
+        except ValueError as e:
+            return JsonResponse({"error": str(e)}, status=400)
+        if not prueba.instrumento.admite(valor):
+            etiquetas = ", ".join(o["etiqueta"] for o in prueba.instrumento.opciones_normalizadas())
+            return JsonResponse({"error": f"Aquí solo vale: {etiquetas}"}, status=400)
+        celdas.append((prueba, valor))
     comentario = request.POST.get("comentario")
-    Nota.poner(prueba, alumno, valor, request.user, comentario)
+    with transaction.atomic():
+        for prueba, valor in celdas:
+            Nota.poner(prueba, alumno, valor, request.user, comentario)
+    prueba, valor = celdas[-1]
     plan = prueba.instrumento.plan
     resultado = plan.resultado_de(alumno)
     return JsonResponse(
         {
             "valor": CambioNota.texto(valor),
+            "etiqueta": prueba.instrumento.etiqueta_de(valor),
             "instrumento": prueba.instrumento_id,
             "nota_instrumento": _num(resultado.instrumentos.get(prueba.instrumento_id)),
             "trimestre": _num(resultado.trimestre),
             "cualitativa": resultado.cualitativa,
             "faltan": resultado.faltan,
+            "alumno": estado.bloque_alumno(group, alumno),
         }
     )
 
@@ -239,7 +297,7 @@ def nota_manual_guardar(request, group_id):
         return JsonResponse({"error": "Ámbito desconocido"}, status=400)
     if calificacion == "":
         NotaManual.objects.filter(group=group, alumno=alumno, ambito=ambito).delete()
-        return JsonResponse({"calificacion": ""})
+        return JsonResponse({"calificacion": "", "alumno": estado.bloque_alumno(group, alumno)})
     if calificacion not in calculo.CUALITATIVAS:
         return JsonResponse({"error": "Calificación desconocida"}, status=400)
     NotaManual.objects.update_or_create(
@@ -252,7 +310,7 @@ def nota_manual_guardar(request, group_id):
             "updated_by": request.user,
         },
     )
-    return JsonResponse({"calificacion": calificacion})
+    return JsonResponse({"calificacion": calificacion, "alumno": estado.bloque_alumno(group, alumno)})
 
 
 # =============================================================================
@@ -316,26 +374,54 @@ def reparto_guardar(request, plan_id):
 @login_required
 @user_passes_test(es_profesor)
 @require_POST
+def plan_ajustes(request, plan_id):
+    """La regla de los huecos, y pasar todo el plan a letras."""
+    plan = _plan_del_profesor(request.user, plan_id)
+    if "a_letras" in request.POST:
+        plan.pasar_a_letras(plantillas.ESCALA_AD)
+        messages.success(request, "Todos los instrumentos se califican ahora con A, B, C y D.")
+    else:
+        plan.hueco_cuenta_cero = request.POST.get("hueco_cuenta_cero") == "on"
+        plan.save(update_fields=["hueco_cuenta_cero"])
+        if plan.hueco_cuenta_cero:
+            messages.success(request, "Una celda vacía cuenta como 0.")
+        else:
+            messages.success(request, "Una celda vacía no cuenta: la media se hace con el resto.")
+    return redirect("calificaciones:plan", plan_id=plan.pk)
+
+
+@login_required
+@user_passes_test(es_profesor)
+@require_POST
 def instrumento_crear(request, plan_id):
     plan = _plan_del_profesor(request.user, plan_id)
     nombre = (request.POST.get("nombre") or "").strip()
     if not nombre:
         messages.error(request, "El instrumento necesita un nombre.")
         return redirect("calificaciones:plan", plan_id=plan.pk)
+    escala = request.POST.get("escala") or Instrumento.ESCALA_NUMERICA
+    try:
+        opciones = _opciones(request.POST.get("opciones"))
+    except ValueError as e:
+        messages.error(request, str(e))
+        return redirect("calificaciones:plan", plan_id=plan.pk)
+    if escala == Instrumento.ESCALA_OPCIONES and not opciones:
+        # Una lista de opciones sin opciones: se le da la escala de letras del curso.
+        opciones = [dict(o) for o in plantillas.ESCALA_AD]
     Instrumento.objects.create(
         plan=plan,
         nombre=nombre,
         abreviatura=(request.POST.get("abreviatura") or "")[:12],
         orden=plan.instrumentos.count(),
-        escala=request.POST.get("escala") or Instrumento.ESCALA_NUMERICA,
-        opciones=_opciones(request.POST.get("opciones")),
+        escala=escala,
+        opciones=opciones,
     )
     messages.success(request, f"Instrumento «{nombre}» creado. Ahora repártele porcentaje.")
     return redirect("calificaciones:plan", plan_id=plan.pk)
 
 
 def _opciones(texto) -> list:
-    """`Etiqueta=valor` por línea, o vacío."""
+    """`Etiqueta=valor` por línea, o vacío. `ValueError` si dos opciones se pisan."""
     salida = []
     for linea in (texto or "").splitlines():
         if "=" not in linea:
@@ -345,7 +431,7 @@ def _opciones(texto) -> list:
             salida.append({"etiqueta": etiqueta.strip(), "valor": float(valor.strip().replace(",", "."))})
         except ValueError:
             continue
-    return salida
+    return Instrumento.limpiar_opciones(salida)
 
 
 @login_required
@@ -366,7 +452,11 @@ def instrumento_editar(request, pk):
     if request.POST.get("agregacion") in dict(Instrumento.AGREGACIONES):
         instrumento.agregacion = request.POST["agregacion"]
     if "opciones" in request.POST:
-        instrumento.opciones = _opciones(request.POST.get("opciones"))
+        try:
+            instrumento.opciones = _opciones(request.POST.get("opciones"))
+        except ValueError as e:
+            messages.error(request, f"{instrumento.nombre}: {e}. No se ha guardado nada.")
+            return redirect("calificaciones:plan", plan_id=plan.pk)
     try:
         instrumento.orden = int(request.POST.get("orden", instrumento.orden))
     except ValueError:
@@ -412,6 +502,8 @@ def prueba_editar(request, pk):
         prueba.fecha = request.POST["fecha"]
     prueba.activa = request.POST.get("activa", "on") == "on"
     prueba.save()
+    if _pide_json(request):
+        return JsonResponse({"id": prueba.pk, "nombre": prueba.nombre, "activa": prueba.activa})
     return redirect("calificaciones:plan", plan_id=plan.pk)
 
 
@@ -490,12 +582,18 @@ def evidencia_subir(request, group_id):
             return JsonResponse({"error": "Falta el archivo"}, status=400)
         if fichero.size > TAMANO_MAXIMO:
             return JsonResponse({"error": "Archivo demasiado grande (máximo 50 MB)"}, status=400)
-        evidencia.tipo_mime = fichero.content_type or ""
+        # Qué es lo decide la extensión, no lo que diga el navegador.
+        evidencia.tipo = ficheros.clasificar(tipo, fichero.name)
+        if evidencia.tipo is None:
+            return JsonResponse({"error": f"Ese fichero no es de tipo «{tipo}»"}, status=400)
+        evidencia.nombre_original = Path(fichero.name).name[:255]
+        evidencia.tamano = fichero.size
+        evidencia.tipo_mime = ficheros.tipo_de_contenido(evidencia.tipo, fichero.name) or ""
         evidencia.archivo = fichero
-        if tipo == Evidencia.VIDEO:
+        if evidencia.tipo == Evidencia.VIDEO:
             evidencia.estado = Evidencia.PENDIENTE
     evidencia.save()
-    if tipo == Evidencia.VIDEO:
+    if evidencia.tipo == Evidencia.VIDEO:
         from .tasks import comprimir_video
 
         comprimir_video(evidencia.pk)
@@ -507,6 +605,7 @@ def evidencia_subir(request, group_id):
             "url": f"/calificaciones/evidencia/{evidencia.pk}/",
             "texto": evidencia.texto,
             "total": Evidencia.objects.filter(prueba=prueba, alumno=alumno).count(),
+            "evidencia": estado.evidencia_json(evidencia),
         }
     )
 
@@ -533,13 +632,7 @@ def evidencia_ver(request, pk):
     fichero = evidencia.fichero
     if not fichero:
         raise Http404("Esta evidencia no tiene fichero.")
-    extension = Path(fichero.name).suffix.lower()
-    tipo = evidencia.tipo_mime or TIPO_MIME.get(extension, "application/octet-stream")
-    if evidencia.archivo_comprimido:
-        tipo = "video/mp4"
-    respuesta = FileResponse(fichero.open("rb"), content_type=tipo)
-    respuesta["Cache-Control"] = "private, max-age=3600"
-    return respuesta
+    return ficheros.servir(request, fichero, evidencia.tipo, evidencia.nombre_original)
 
 
 @login_required
@@ -588,8 +681,13 @@ def cambio_revertir(request, pk):
     cambio = get_object_or_404(
         CambioNota.objects.select_related("nota__prueba__instrumento__plan"), pk=pk
     )
-    _plan_del_profesor(request.user, cambio.nota.prueba.instrumento.plan_id)
+    plan = _plan_del_profesor(request.user, cambio.nota.prueba.instrumento.plan_id)
     cambio.revertir(request.user)
+    if _pide_json(request):
+        # El grupo desde el que se mira; si el plan es de varios, el primero del profesor.
+        grupos = plan.groups.all() if request.user.is_staff else plan.groups.filter(teachers=request.user)
+        group = grupos.filter(pk=request.POST.get("grupo")).first() or grupos.first()
+        return JsonResponse({"alumno": estado.bloque_alumno(group, cambio.nota.alumno)})
     messages.success(request, "Nota devuelta a su valor anterior.")
     return redirect(request.POST.get("next") or "/calificaciones/")
 

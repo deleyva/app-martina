@@ -1,0 +1,21 @@
+{
+  "name": "calificaciones-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "description": "La pantalla de calificaciones: el Registro de notas, servido por Django",
+  "type": "module",
+  "scripts": {
+    "build": "bun build.mjs",
+    "watch": "bun build.mjs --watch",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "lucide-react": "0.577.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "recharts": "3.8.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.10"
+  }
+}

@@ -8,6 +8,9 @@ urlpatterns = [
     path("", views.index, name="index"),
     # El cuadro de un grupo (?t=1|2|3)
     path("grupo/<int:group_id>/", views.cuadro, name="cuadro"),
+    path("grupo/<int:group_id>/registro/", views.registro, name="registro"),
+    path("grupo/<int:group_id>/estado/", views.estado_json, name="estado"),
+    path("grupo/<int:group_id>/historial.json", views.historial_json, name="historial_json"),
     path("grupo/<int:group_id>/plan/adoptar/", views.plan_adoptar, name="plan_adoptar"),
     path("grupo/<int:group_id>/nota/", views.nota_guardar, name="nota_guardar"),
     path("grupo/<int:group_id>/nota-manual/", views.nota_manual_guardar, name="nota_manual_guardar"),
@@ -23,6 +26,7 @@ urlpatterns = [
     # El plan: instrumentos, reparto y pruebas
     path("plan/<int:plan_id>/", views.plan, name="plan"),
     path("plan/<int:plan_id>/reparto/", views.reparto_guardar, name="reparto_guardar"),
+    path("plan/<int:plan_id>/ajustes/", views.plan_ajustes, name="plan_ajustes"),
     path("plan/<int:plan_id>/instrumento/", views.instrumento_crear, name="instrumento_crear"),
     path("instrumento/<int:pk>/", views.instrumento_editar, name="instrumento_editar"),
     path("instrumento/<int:instrumento_id>/prueba/", views.prueba_crear, name="prueba_crear"),

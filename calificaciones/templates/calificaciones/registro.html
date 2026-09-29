@@ -1,0 +1,30 @@
+{% load static %}<!DOCTYPE html>
+{% comment %}
+La pantalla de calificaciones, a pantalla completa. No hereda de `base.html` a
+propósito: es la SPA del curso pasado (`notas`) copiada, y lleva su propia
+barra. El aspecto lo pone `calificaciones/frontend/` (React); aquí solo están el
+sitio donde se monta, la configuración y el token CSRF, que JavaScript no puede
+leer de la cookie porque `CSRF_COOKIE_HTTPONLY` está puesto.
+{% endcomment %}
+<html lang="es" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <title>{{ group.name }} · Calificaciones</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="referrer" content="no-referrer" />
+    <link rel="icon" href="{% static 'images/favicons/favicon.ico' %}" sizes="32x32" />
+    <link href="{% static 'css/output.css' %}" rel="stylesheet" />
+    <link href="{% static 'calificaciones/registro.css' %}" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="root">
+      <div class="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div class="text-slate-400 text-sm font-bold animate-pulse">Cargando datos...</div>
+      </div>
+    </div>
+    <form class="hidden">{% csrf_token %}</form>
+    {{ config|json_script:"config" }}
+    <script src="{% static 'calificaciones/registro.js' %}"></script>
+  </body>
+</html>
