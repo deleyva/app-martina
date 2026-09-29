@@ -2,9 +2,9 @@
 slug: app-martina
 phase: complete
 progress: true
-iteration: 56
-principal_stated_goal: "Necesito desarrollar en apps.iesmartinabescos.es Otra app de Django como la que tenemos en /incidencias. Está sí que debe de requerir login con Google porque ya tenemos implementado. Básicamente, es una aplicación en la que quiero que vayan solicitando la clave Wi-Fi. Pero para ello deben logearse y enviar la MAC de su dispositivo WIFI, la privada (real) no la aleatoria."
-updated: 2026-09-28
+iteration: 57
+principal_stated_goal: "Quiero que me simplificar el proceso... Por favor, haz las plantillas necesarias. Estaba contento con lo que desarrollé en /Users/deleyva/Documents/notas"
+updated: 2026-09-29
 ---
 
 # ISA — app-martina · Sistema de estudio de la biblioteca
@@ -4342,3 +4342,62 @@ Jesús: en la sesión de clase no se ve el botón de Songsterr sobre la tablatur
 - [x] **C325 — Las copias que ya existen recuperan su página.** Comando `recuperar_origen_de_copias` (ensayo por defecto, `--aplicar` para escribir): asigna la página de los gemelos del mismo grupo solo si todos coinciden. *Cerrada el 29/09 con permiso de Jesús («despliega y pasa el comando»): copia previa `backup_2026_09_29T12_28_38.sql.gz`; ensayo en producción 224 elementos en 43 clases, 1 ambiguo; aplicado, 224 recuperados; segundo ensayo, 0. Quedan 292 sin gemelo y 1 ambiguo, intactos. En Chrome contra producción, clase 135, elemento 27: «🎼 Songsterr» visible arriba a la derecha de la tablatura (captura vista), enlace exacto a la canción.*
 
 **Sin decidir:** el duplicado tampoco copia `seccion` ni `group_book`. Copiar `group_book` haría que dar por visto algo en la copia mueva la progresión del libro; es decisión de Jesús, no un efecto colateral de este arreglo.
+
+## Fase 59 — Calificaciones: empezar a calificar con un clic, como en `notas` (2026-09-29) · VERIFICADA EN LOCAL, SIN CONFIRMAR NI DESPLEGAR
+
+**Goal (literal de Jesús, 2026-09-29):** «Quiero que me simplificar el proceso... Por favor, haz las plantillas necesarias. Estaba contento con lo que desarrollé en /Users/deleyva/Documents/notas». Lo dijo después de preguntar «¿Cómo establezco los items de evaluación/calificación? ¿Cómo funciona el flujo para evaluar?» y recibir una explicación de cinco pasos con una rejilla de 10 × 9.
+
+**Lo que tenía `notas` y la app no.** En `notas` los instrumentos de cada evaluación venían puestos (`TERM_CONFIGS` en `src/lib/grading.js`): abrías y calificabas. Aquí, un grupo sin plan cae en dos desplegables («usar un plan que ya existe» / «copiar un plan») que no dicen qué instrumentos trae cada uno, solo hay plan sembrado para la 1ª evaluación, y «usar» comparte el plan —y sus pruebas— con otros grupos sin avisar.
+
+**Interpretación elegida (⚠️ revisable):** «plantillas» = plantillas de plan de calificación (instrumentos con su % y su reparto ya cuadrado), no ficheros HTML. Una por nivel con marco cargado, válida para cualquier evaluación. Las plantillas viven en código (`calificaciones/plantillas.py`), como `TERM_CONFIGS` en `notas`: sin migración y con test.
+
+### Antecedente de la sensación buscada
+
+Lo que hacía agradable `notas` era **cero decisiones antes de la primera nota**. El antecedente aquí: desde `/calificaciones/` hasta la rejilla lista para escribir hay un solo clic con contenido a la vista (qué instrumentos y cuánto cuenta cada uno), y ninguna pantalla pide un porcentaje.
+
+### Out of Scope
+
+Plantillas con instrumentos distintos por evaluación (los de la 3ª de 4º del curso pasado: BandLab, intervalos, acordes): su reparto entre criterios es decisión pedagógica de Jesús · nota final de curso en pantalla · renombrar o desactivar una prueba desde la interfaz · importar `data.json` · desplegar.
+
+### Claims
+
+- [x] **C326** — Hay una plantilla por cada marco cargado (1º ESO bilingüe, 3º ESO, 4º ESO bilingüe) y **toda** plantilla cuadra fila a fila con los pesos legales de su marco. *Evidencia: `test_hay_una_plantilla_por_marco_y_todas_cuadran` recorre `PLANTILLAS` × tres trimestres; `test_una_celda_cambiada_descuadra` demuestra que el test puede fallar (mover el cuaderno de 4.2 a 4.1 suma 100 y aun así no cuadra).*
+- [x] **C327** — La siembra y las plantillas leen los mismos datos: no hay dos tablas de reparto en el repo. *Evidencia: `test_no_hay_dos_tablas_de_reparto`; `test_cargar_marcos_musica_cuadra_y_es_idempotente` pasa sin tocarlo.*
+- [x] **C328** — Un grupo sin plan empieza con un clic: `POST plan_adoptar` con `plantilla=<clave>` crea un plan **propio** del grupo con los instrumentos y el reparto de la plantilla, en el trimestre pedido. *Evidencia: `test_empezar_por_plantilla_crea_un_plan_propio[1|2|3]`.*
+- [x] **C329** — Un grupo que ya calificó una evaluación sigue en la siguiente con un clic. *Evidencia: `test_la_siguiente_evaluacion_ofrece_seguir_con_lo_mismo` (la nota de la 1ª se queda en la 1ª; la 2ª nace con cero notas) y `test_plan_anterior_mira_primero_hacia_atras`.*
+- [x] **C330** — La pantalla de un grupo sin plan enseña, antes de elegir, qué instrumentos trae cada opción y cuánto cuenta cada uno; los desplegables de antes siguen, plegados. *Evidencia: Chrome, sesión de Jesús, `localhost:8000/calificaciones/grupo/14/?t=2`: tarjeta «Lo mismo que en la 1ª evaluación · recomendado» con las nueve etiquetas y su %, debajo las tres plantillas, y al final «Otras opciones» plegado (dos capturas vistas).*
+- [x] **C331** — Del clic a la primera nota. *Evidencia: Chrome, 3ª evaluación del grupo 14: «Empezar con esta» en la plantilla de 3º ESO aterriza en el cuadro con el aviso verde y las nueve columnas (captura vista); un 8 en Teoría de la primera alumna, Enter, recarga: la celda sigue en 8, nota 8, NT, «faltan 8».*
+- [x] **C332** — La página del plan dice primero lo que se dice en clase, y la rejilla queda plegada mientras cuadra y abierta cuando no. *Evidencia: Chrome, `/calificaciones/plan/5/`: resumen arriba, «✅ Suma 100 %», `#rejilla.open === false` (captura vista). Bajando una celda de 10 a 8 y guardando: aviso rojo «Suma 98 %», Teoría pasa a 13 %, `#rejilla.open === true` (captura vista). Devuelta a 10: vuelve a plegarse. Consola sin errores. Test `test_el_plan_dice_primero_lo_que_cuenta_cada_instrumento`.*
+- [x] **C333** — Un profesor ajeno no puede crear planes en un grupo que no es suyo, tampoco por plantilla. *Evidencia: `test_otro_profesor_no_empieza_en_grupo_ajeno` (404, sin plan creado); `test_plantilla_que_no_existe_es_404`.*
+- [x] **C334** — La suite de `calificaciones` pasa entera y la suite completa no tiene fallos nuevos respecto a `main`. *Evidencia: `pytest calificaciones` → 49 passed (34 de antes + 15 nuevos). Suite completa: 1382 passed, 6 skipped, 4 failed; los cuatro son los mismos que la fase 39 ya dejó escritos como anteriores (`cms.test_frontend_integration` × 2, `incidencias.test_views` × 2) y ninguno toca `calificaciones`.*
+
+### Anti-claims
+
+- **Anti-A** — Ningún plan, nota ni evidencia existente cambia: la fase solo añade caminos para crear planes nuevos. *Falsador: no hay migración nueva (`makemigrations --check`); los tests de antes pasan sin tocarlos.*
+- **Anti-B** — No se despliega ni se hace push sin visto bueno explícito de Jesús.
+- **Anti-C** — La plantilla nunca se comparte entre grupos por accidente: empezar por plantilla crea siempre un plan nuevo.
+
+### Test Strategy
+
+`pytest calificaciones` dentro del contenedor local. Web en Chrome real con la sesión de Jesús contra `localhost:8000`, grupo de prueba `3º ESO T (prueba local)` (pk 14), evaluaciones 2ª y 3ª, que están sin plan.
+
+### Verificación de los anti-claims
+
+- **Anti-A** — `makemigrations --check --dry-run` → «No changes detected»; `manage.py check` → 0 issues. Los 34 tests anteriores pasan sin modificar. `test_con_plan_ya_puesto_la_plantilla_no_lo_pisa`: pedir una plantilla sobre un grupo que ya tiene plan deja el plan, sus cuatro instrumentos y su nota como estaban.
+- **Anti-B** — Nada empujado ni desplegado. Cambios sin confirmar en el árbol de trabajo.
+- **Anti-C** — `test_dos_grupos_con_la_misma_plantilla_no_comparten_plan`.
+
+### Decisiones
+
+- **Plantillas en código, no en la base.** Como `TERM_CONFIGS` en `notas`. Sin migración, y un test las recorre todas contra los pesos legales. El precio: añadir una plantilla es un commit, no un clic. «Copiar un plan cualquiera» sigue ahí para lo que no esté en plantilla.
+- **Una plantilla por nivel, válida para las tres evaluaciones**, con los nueve instrumentos acordados en la fase 39. No he inventado plantillas distintas para la 2ª y la 3ª: qué instrumentos caen en cada evaluación y a qué criterios alimentan es decisión pedagógica de Jesús. La continuidad la da «lo mismo que en la evaluación anterior».
+- **Empezar por plantilla crea siempre plan propio.** Compartir plan comparte también las pruebas; ahora hay que elegirlo a propósito, en «Otras opciones», y la pantalla lo avisa.
+- **El nivel del grupo solo ordena las sugerencias.** Se mira la cifra del nombre y la lengua del grupo para poner primero la plantilla que más se parece; nunca decide ni oculta ninguna (coherente con la fase 32: el nivel no es esquema).
+- **Una plantilla cuyo marco ha perdido algún criterio no se ofrece** (`marco_de` devuelve `None`), en vez de reventar con `KeyError` al pulsar.
+- **Los tres «Plan por defecto» sembrados en producción se quedan.** Ya no hacen falta para empezar, pero siguen en «Otras opciones». Borrarlos es decisión de Jesús.
+
+### Log
+
+- Base local: el grupo de prueba 14 tiene ahora plan en la 3ª evaluación (plan 5, creado desde la plantilla al verificar C331, con un 8 en Teoría de la primera alumna). La 2ª sigue sin plan, para que Jesús pruebe la pantalla nueva.
+- Sin auditoría externa: superficie de profesor autenticado, sin migración, solo caminos nuevos para crear planes; 15 tests nuevos y navegador real. Elegido a conciencia.
+- Visto de paso y no tocado: en el cuadro, a 1456 px de ancho, las columnas Cuaderno, Nota y Calif. quedan fuera de la vista y hay que desplazar en horizontal. Es anterior a esta fase.

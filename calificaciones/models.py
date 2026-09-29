@@ -206,6 +206,13 @@ class Plan(models.Model):
             "cuadra": total == self.marco.peso_total and all(f["cuadra"] for f in filas),
         }
 
+    def resumen(self) -> list[dict]:
+        """Lo que se dice en clase: cada instrumento y cuánto cuenta."""
+        return [
+            {"nombre": i.nombre, "peso": i.peso}
+            for i in self.instrumentos.prefetch_related("repartos")
+        ]
+
     @transaction.atomic
     def guardar_reparto(self, valores: dict[tuple[int, int], Decimal]):
         """Sustituye el reparto entero por `valores`; una celda a cero desaparece."""

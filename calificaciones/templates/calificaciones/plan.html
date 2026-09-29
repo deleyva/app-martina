@@ -12,6 +12,20 @@
     </p>
   </div>
 
+  <div class="card bg-base-100 shadow-sm mb-4">
+    <div class="card-body p-4 gap-2">
+      <h2 class="font-semibold">Lo que cuenta cada instrumento</h2>
+      {% include "calificaciones/partials/resumen.html" with resumen=plan.resumen %}
+      {% if cuadre.cuadra %}
+        <p class="text-sm text-success">✅ Suma {{ cuadre.total|floatformat:"-2" }} % y cada criterio coincide con la programación. No hay nada que tocar para calificar.</p>
+      {% else %}
+        <p class="text-sm text-error">⚠️ Suma {{ cuadre.total|floatformat:"-2" }} %: el reparto no coincide con la programación. Ajústalo en la rejilla de abajo.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <details class="mb-4" id="rejilla" {% if not cuadre.cuadra %}open{% endif %}>
+    <summary class="cursor-pointer font-semibold py-2">Reparto entre criterios (la rejilla completa)</summary>
   <div class="alert text-sm mb-4">
     <div>
       <p><strong>Una tabla, dos lecturas.</strong> Cada celda es el % de la nota que un instrumento aporta a un criterio. La suma de la <strong>columna</strong> es lo que cuenta ese instrumento («la lectura rítmica cuenta un {{ cuadre.columnas.0|default:"10"|floatformat:"-2" }} %»); la suma de la <strong>fila</strong> tiene que ser el peso del criterio en la programación. Marca criterios y pulsa «repartir» para partir el % de un instrumento a partes iguales, o escribe en las celdas.</p>
@@ -69,6 +83,7 @@
       <span id="estado-cuadre" class="text-sm"></span>
     </div>
   </form>
+  </details>
 
   <div class="divider">Instrumentos</div>
 

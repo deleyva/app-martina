@@ -23,7 +23,7 @@ from django.views.decorators.http import require_http_methods, require_POST
 from clases.models import Group
 from martina_bescos_app.users.permisos import es_profesor, grupo_del_profesor
 
-from . import calculo
+from . import calculo, plantillas
 from .models import (
     CambioNota,
     Evidencia,
@@ -125,6 +125,7 @@ def cuadro(request, group_id):
         "plan": plan,
     }
     if plan is None:
+        contexto.update(plantillas.opciones_para_empezar(group, trimestre))
         contexto["elegibles"] = Plan.elegibles_para(group, trimestre)
         contexto["copiables"] = Plan.objects.filter(
             marco__subject=group.subject, marco__academic_year=group.academic_year
@@ -145,11 +146,17 @@ def cuadro(request, group_id):
 @user_passes_test(es_profesor)
 @require_POST
 def plan_adoptar(request, group_id):
-    """El grupo empieza a usar un plan: uno existente tal cual, o una copia."""
+    """El grupo empieza a usar un plan: desde una plantilla, una copia, o uno existente tal cual."""
     group = grupo_del_profesor(request.user, group_id)
     trimestre = _trimestre(request)
     if Plan.para_grupo(group, trimestre):
         messages.info(request, "Este grupo ya tiene plan para ese trimestre.")
+        return redirect(f"/calificaciones/grupo/{group.pk}/?t={trimestre}")
+    if request.POST.get("plantilla"):
+        plan = plantillas.empezar(group, trimestre, request.POST["plantilla"])
+        if plan is None:
+            raise Http404("No existe esa plantilla para la materia y el curso de este grupo.")
+        messages.success(request, "Listo: ya puedes poner notas. Los instrumentos se cambian en «Plan y reparto».")
         return redirect(f"/calificaciones/grupo/{group.pk}/?t={trimestre}")
     if request.POST.get("copiar_de"):
         origen = get_object_or_404(

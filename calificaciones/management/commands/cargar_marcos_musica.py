@@ -18,7 +18,8 @@ from decimal import Decimal
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from calificaciones.models import Criterio, Instrumento, MarcoEvaluacion, Plan, Reparto
+from calificaciones.models import Criterio, MarcoEvaluacion
+from calificaciones.plantillas import POR_CLAVE
 from clases.models import Subject
 
 CRITERIOS_PRIMER_CICLO = [
@@ -51,67 +52,12 @@ PESOS_1ESO = [15, 15, 10, 5, 5, 15, 15, 10, 5, 5]
 PESOS_3ESO = [10] * 10
 PESOS_4ESO = [30, 10, 5, 5, 20, 10, 10, 5, 5]
 
-# Los nueve instrumentos. (nombre, abreviatura, escala, opciones)
-CUADERNO = [
-    {"etiqueta": "Sin cuaderno", "valor": 0},
-    {"etiqueta": "Incompleto", "valor": 3},
-    {"etiqueta": "Bien", "valor": 6},
-    {"etiqueta": "Muy bien", "valor": 9},
-]
-INSTRUMENTOS = [
-    ("Teoría", "Teoría", "numerica", []),
-    ("Sensorialidad", "Sensor.", "numerica", []),
-    ("Dictado rítmico", "D. rít.", "numerica", []),
-    ("Dictado melódico", "D. mel.", "numerica", []),
-    ("Lectura rítmica", "L. rít.", "numerica", []),
-    ("Lectura melódica", "L. mel.", "numerica", []),
-    ("Interpretación instrumental", "Interp.", "numerica", []),
-    ("Composición / trabajo", "Compos.", "numerica", []),
-    ("Cuaderno", "Cuad.", "opciones", CUADERNO),
-]
-
-# Reparto de partida. Cada instrumento: {criterio: porcentaje}. Cada
-# marco tiene el suyo porque los pesos legales por criterio cambian.
-REPARTO_3ESO = {
-    "Teoría": {"1.2": 10, "1.3": 5},
-    "Sensorialidad": {"1.1": 5, "1.3": 5},
-    "Dictado rítmico": {"1.1": 5, "3.1": 5},
-    "Dictado melódico": {"3.1": 5, "2.2": 5},
-    "Lectura rítmica": {"3.2": 5, "3.3": 5},
-    "Lectura melódica": {"3.2": 5, "3.3": 5},
-    "Interpretación instrumental": {"2.1": 5, "2.2": 5},
-    "Composición / trabajo": {"4.1": 10, "2.1": 5},
-    "Cuaderno": {"4.2": 10},
-}
-# 1º: 1.1 15 · 1.2 15 · 1.3 10 · 2.1 5 · 2.2 5 · 3.1 15 · 3.2 15 · 3.3 10 · 4.1 5 · 4.2 5
-REPARTO_1ESO = {
-    "Teoría": {"1.2": 15, "1.3": 5},
-    "Sensorialidad": {"1.1": 5, "1.3": 5},
-    "Dictado rítmico": {"1.1": 5, "3.1": 5},
-    "Dictado melódico": {"1.1": 5, "3.1": 5},
-    "Lectura rítmica": {"3.1": 5, "3.2": 5},
-    "Lectura melódica": {"3.2": 5, "3.3": 5},
-    "Interpretación instrumental": {"3.2": 5, "3.3": 5},
-    "Composición / trabajo": {"2.1": 5, "2.2": 5, "4.1": 5},
-    "Cuaderno": {"4.2": 5},
-}
-# 4º: 1.1 30 · 1.2 10 · 2.1 5 · 2.2 5 · 3.1 20 · 3.2 10 · 3.3 10 · 4.1 5 · 4.2 5
-REPARTO_4ESO = {
-    "Teoría": {"1.1": 10, "1.2": 10},
-    "Sensorialidad": {"1.1": 10},
-    "Dictado rítmico": {"1.1": 5, "3.1": 5},
-    "Dictado melódico": {"1.1": 5, "3.1": 5},
-    "Lectura rítmica": {"3.1": 5, "3.2": 5},
-    "Lectura melódica": {"3.1": 5, "3.3": 5},
-    "Interpretación instrumental": {"3.2": 5, "3.3": 5},
-    "Composición / trabajo": {"2.1": 5, "2.2": 5, "4.1": 5},
-    "Cuaderno": {"4.2": 5},
-}
-
+# Los instrumentos y el reparto de partida de cada nivel viven en
+# `calificaciones/plantillas.py`: aquí solo se dice qué plantilla siembra cada marco.
 MARCOS = [
-    ("1º ESO", "bilingüe", CRITERIOS_PRIMER_CICLO, PESOS_1ESO, {}, REPARTO_1ESO),
-    ("3º ESO", "", CRITERIOS_PRIMER_CICLO, PESOS_3ESO, {"1": 20, "2": 30, "3": 50}, REPARTO_3ESO),
-    ("4º ESO", "bilingüe", CRITERIOS_CUARTO, PESOS_4ESO, {}, REPARTO_4ESO),
+    ("1º ESO", "bilingüe", CRITERIOS_PRIMER_CICLO, PESOS_1ESO, {}, "1eso-bil"),
+    ("3º ESO", "", CRITERIOS_PRIMER_CICLO, PESOS_3ESO, {"1": 20, "2": 30, "3": 50}, "3eso"),
+    ("4º ESO", "bilingüe", CRITERIOS_CUARTO, PESOS_4ESO, {}, "4eso-bil"),
 ]
 
 
@@ -129,7 +75,7 @@ class Command(BaseCommand):
             subject = Subject.objects.create(name=options["materia"], code="MUS")
             self.stdout.write(f"Creada la asignatura {subject.name}")
 
-        for nivel, modalidad, criterios, pesos, trimestres, reparto in MARCOS:
+        for nivel, modalidad, criterios, pesos, trimestres, plantilla in MARCOS:
             marco, creado = MarcoEvaluacion.objects.get_or_create(
                 subject=subject,
                 nivel=nivel,
@@ -140,9 +86,8 @@ class Command(BaseCommand):
             if creado and trimestres:
                 marco.peso_trimestres = trimestres
                 marco.save(update_fields=["peso_trimestres"])
-            por_codigo = {}
             for orden, ((codigo, competencia, texto), peso) in enumerate(zip(criterios, pesos)):
-                criterio, _ = Criterio.objects.update_or_create(
+                Criterio.objects.update_or_create(
                     marco=marco,
                     codigo=codigo,
                     defaults={
@@ -152,29 +97,13 @@ class Command(BaseCommand):
                         "orden": orden,
                     },
                 )
-                por_codigo[codigo] = criterio
             assert marco.peso_total == 100, f"{marco}: los pesos suman {marco.peso_total}"
 
             nombre_plan = f"Plan por defecto · {nivel}{' ' + modalidad if modalidad else ''}"
             if marco.planes.filter(nombre=nombre_plan).exists():
                 self.stdout.write(f"{marco}: plan por defecto ya existía")
                 continue
-            plan = Plan.objects.create(marco=marco, trimestre=1, nombre=nombre_plan)
-            for orden, (nombre, abreviatura, escala, opciones) in enumerate(INSTRUMENTOS):
-                instrumento = Instrumento.objects.create(
-                    plan=plan,
-                    nombre=nombre,
-                    abreviatura=abreviatura,
-                    orden=orden,
-                    escala=escala,
-                    opciones=opciones,
-                )
-                Reparto.objects.bulk_create(
-                    [
-                        Reparto(instrumento=instrumento, criterio=por_codigo[codigo], porcentaje=Decimal(pct))
-                        for codigo, pct in reparto[nombre].items()
-                    ]
-                )
+            plan = POR_CLAVE[plantilla].crear_plan(marco, 1, nombre_plan)
             cuadre = plan.cuadre()
             estado = "cuadra" if cuadre["cuadra"] else "NO CUADRA"
             self.stdout.write(f"{marco}: plan por defecto creado, {cuadre['total']} % · {estado}")

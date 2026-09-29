@@ -33,44 +33,78 @@
   </div>
 
   {% if not plan %}
-    <div class="card bg-base-100 shadow max-w-2xl">
-      <div class="card-body">
-        <h2 class="card-title">Este grupo no tiene plan para la {{ trimestre }}ª evaluación</h2>
-        <p class="text-sm opacity-70">Un plan es la lista de instrumentos (lectura rítmica, dictado, cuaderno…) y cómo reparten su porcentaje entre los criterios de la programación. Varios grupos pueden compartir el mismo plan.</p>
-
-        {% if elegibles %}
-        <form method="post" action="{% url 'calificaciones:plan_adoptar' group.pk %}?t={{ trimestre }}" class="mt-4">
-          {% csrf_token %}
-          <label class="form-control">
-            <span class="label-text font-semibold">Usar un plan que ya existe para la {{ trimestre }}ª evaluación</span>
-            <select name="plan_id" class="select select-bordered">
-              {% for p in elegibles %}<option value="{{ p.pk }}">{{ p.nombre }} — {{ p.marco }}</option>{% endfor %}
-            </select>
-          </label>
-          <button class="btn btn-primary mt-2">Usar este plan</button>
-        </form>
-        {% endif %}
-
-        {% if copiables %}
-        <div class="divider">o</div>
-        <form method="post" action="{% url 'calificaciones:plan_adoptar' group.pk %}?t={{ trimestre }}">
-          {% csrf_token %}
-          <label class="form-control">
-            <span class="label-text font-semibold">Copiar un plan (instrumentos y reparto) para este grupo</span>
-            <select name="copiar_de" class="select select-bordered">
-              {% for p in copiables %}<option value="{{ p.pk }}">{{ p.nombre }} ({{ p.get_trimestre_display }}) — {{ p.marco }}</option>{% endfor %}
-            </select>
-          </label>
-          <label class="form-control mt-2">
-            <span class="label-text">Nombre del nuevo plan</span>
-            <input name="nombre" class="input input-bordered" placeholder="{{ group.name }} · {{ trimestre }}ª ev." />
-          </label>
-          <button class="btn btn-outline mt-2">Copiar y usar</button>
-        </form>
-        {% else %}
-          <div class="alert alert-warning mt-4">No hay ningún marco de evaluación para {{ group.subject.name }} en {{ group.academic_year }}. Pídele al administrador que ejecute <code>cargar_marcos_musica</code>.</div>
-        {% endif %}
+    <div class="max-w-3xl space-y-4" id="empezar">
+      <div>
+        <h2 class="text-xl font-bold">Elige con qué instrumentos calificas la {{ trimestre }}ª evaluación</h2>
+        <p class="text-sm opacity-70">Un clic y ya puedes poner notas. Los porcentajes vienen repartidos entre los criterios de la programación; luego puedes quitar, añadir o cambiar lo que quieras.</p>
       </div>
+
+      {% if anterior %}
+      <form method="post" action="{% url 'calificaciones:plan_adoptar' group.pk %}?t={{ trimestre }}" class="card bg-base-100 shadow border border-primary">
+        {% csrf_token %}
+        <input type="hidden" name="copiar_de" value="{{ anterior.pk }}" />
+        <div class="card-body p-4 gap-3">
+          <h3 class="card-title text-base">Lo mismo que en la {{ anterior.trimestre }}ª evaluación <span class="badge badge-primary badge-sm">recomendado</span></h3>
+          {% include "calificaciones/partials/resumen.html" with resumen=anterior_resumen %}
+          <p class="text-xs opacity-70">Mismos instrumentos y mismos porcentajes, sin notas. Lo de la {{ anterior.trimestre }}ª no se toca.</p>
+          <div class="card-actions justify-end"><button class="btn btn-primary">Seguir con estos</button></div>
+        </div>
+      </form>
+      {% endif %}
+
+      {% for p in plantillas %}
+      <form method="post" action="{% url 'calificaciones:plan_adoptar' group.pk %}?t={{ trimestre }}" class="card bg-base-100 shadow {% if p.recomendada and not anterior %}border border-primary{% endif %}">
+        {% csrf_token %}
+        <input type="hidden" name="plantilla" value="{{ p.plantilla.clave }}" />
+        <div class="card-body p-4 gap-3">
+          <h3 class="card-title text-base">Plantilla de {{ p.plantilla.nombre }} {% if p.recomendada and not anterior %}<span class="badge badge-primary badge-sm">recomendada</span>{% endif %}</h3>
+          {% include "calificaciones/partials/resumen.html" with resumen=p.resumen %}
+          <div class="card-actions justify-end"><button class="btn {% if p.recomendada and not anterior %}btn-primary{% else %}btn-outline{% endif %}">Empezar con esta</button></div>
+        </div>
+      </form>
+      {% endfor %}
+
+      {% if not plantillas and not copiables %}
+        <div class="alert alert-warning">No hay ningún marco de evaluación para {{ group.subject.name }} en {{ group.academic_year }}. Pídele al administrador que ejecute <code>cargar_marcos_musica</code>.</div>
+      {% endif %}
+
+      {% if elegibles or copiables %}
+      <details class="collapse collapse-arrow bg-base-100 shadow-sm">
+        <summary class="collapse-title text-sm font-semibold">Otras opciones: compartir plan con otro grupo o copiar uno cualquiera</summary>
+        <div class="collapse-content">
+          {% if elegibles %}
+          <form method="post" action="{% url 'calificaciones:plan_adoptar' group.pk %}?t={{ trimestre }}">
+            {% csrf_token %}
+            <label class="form-control">
+              <span class="label-text font-semibold">Compartir un plan que ya existe para la {{ trimestre }}ª evaluación</span>
+              <select name="plan_id" class="select select-bordered">
+                {% for p in elegibles %}<option value="{{ p.pk }}">{{ p.nombre }} — {{ p.marco }}</option>{% endfor %}
+              </select>
+            </label>
+            <p class="text-xs opacity-70 mt-1">Compartir es compartir todo: las pruebas que crees y los cambios de porcentaje valen para todos los grupos del plan.</p>
+            <button class="btn btn-outline btn-sm mt-2">Compartir este plan</button>
+          </form>
+          <div class="divider">o</div>
+          {% endif %}
+          {% if copiables %}
+          <form method="post" action="{% url 'calificaciones:plan_adoptar' group.pk %}?t={{ trimestre }}">
+            {% csrf_token %}
+            <label class="form-control">
+              <span class="label-text font-semibold">Copiar un plan (instrumentos y reparto) para este grupo</span>
+              <select name="copiar_de" class="select select-bordered">
+                {% for p in copiables %}<option value="{{ p.pk }}">{{ p.nombre }} ({{ p.get_trimestre_display }}) — {{ p.marco }}</option>{% endfor %}
+              </select>
+            </label>
+            <label class="form-control mt-2">
+              <span class="label-text">Nombre del nuevo plan</span>
+              <input name="nombre" class="input input-bordered" placeholder="{{ group.name }} · {{ trimestre }}ª ev." />
+            </label>
+            <button class="btn btn-outline btn-sm mt-2">Copiar y usar</button>
+          </form>
+          {% endif %}
+        </div>
+      </details>
+      {% endif %}
     </div>
   {% else %}
 

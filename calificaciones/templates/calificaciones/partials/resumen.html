@@ -1,0 +1,9 @@
+{% comment %}
+Lo que cuenta cada instrumento, como se dice en clase. `resumen` es una lista de
+{nombre, peso}; la dan `Plan.resumen()` y `Plantilla.resumen()`.
+{% endcomment %}
+<ul class="flex flex-wrap gap-1.5">
+  {% for r in resumen %}
+    <li class="badge badge-outline gap-1 h-auto py-1">{{ r.nombre }} <strong>{{ r.peso|floatformat:"-2" }} %</strong></li>
+  {% endfor %}
+</ul>
