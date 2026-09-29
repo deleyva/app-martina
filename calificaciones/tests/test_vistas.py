@@ -27,30 +27,31 @@ def test_un_alumno_no_entra(client, alumnos, plan):
     respuesta = client.get(reverse("calificaciones:index"))
     assert respuesta.status_code == 302
     assert respuesta["Location"].startswith("/accounts/login/")
-    respuesta = client.get(reverse("calificaciones:cuadro", args=[plan.groups.first().pk]))
+    respuesta = client.get(reverse("calificaciones:registro", args=[plan.groups.first().pk]))
     assert respuesta.status_code == 302
     assert respuesta["Location"].startswith("/accounts/login/")
 
 
 @pytest.mark.django_db
-def test_el_profesor_ve_su_cuadro(client, profesor, group, alumnos, plan):
+def test_el_profesor_ve_su_registro(client, profesor, group, alumnos, plan):
+    """La página es solo el sitio donde se monta la pantalla; los datos van por `estado`."""
     client.force_login(profesor)
-    respuesta = client.get(reverse("calificaciones:cuadro", args=[group.pk]) + "?t=1")
+    respuesta = client.get(reverse("calificaciones:registro", args=[group.pk]) + "?t=1")
     assert respuesta.status_code == 200
-    html = respuesta.content.decode()
-    assert "{#" not in html
-    assert "Alumno 0" in html
-    assert "L.rít" in html
+    assert "{#" not in respuesta.content.decode()
+    estado = client.get(reverse("calificaciones:estado", args=[group.pk])).json()
+    assert [a["nombre"] for a in estado["alumnos"]] == ["Alumno 0", "Alumno 1", "Alumno 2"]
+    assert [c["corto"] for c in estado["trimestres"]["1"]["columnas"]] == ["Teo", "L.rít", "Dict", "Cuad"]
 
 
 @pytest.mark.django_db
 def test_otro_profesor_recibe_404_en_todo(client, otro_profesor, otro_group, group, alumnos, plan):
     client.force_login(otro_profesor)
     prueba = _prueba(plan, "Teoría")
-    assert client.get(reverse("calificaciones:cuadro", args=[group.pk])).status_code == 404
+    assert client.get(reverse("calificaciones:registro", args=[group.pk])).status_code == 404
     assert client.get(reverse("calificaciones:plan", args=[plan.pk])).status_code == 404
-    assert client.get(reverse("calificaciones:clase", args=[group.pk])).status_code == 404
-    assert client.get(reverse("calificaciones:historial", args=[group.pk])).status_code == 404
+    assert client.get(reverse("calificaciones:estado", args=[group.pk])).status_code == 404
+    assert client.get(reverse("calificaciones:historial_json", args=[group.pk])).status_code == 404
     r = client.post(
         reverse("calificaciones:nota_guardar", args=[group.pk]),
         {"prueba": prueba.pk, "alumno": alumnos[0].pk, "valor": "7"},
@@ -134,13 +135,16 @@ def test_deshacer_escribe_el_valor_anterior_y_no_borra(client, profesor, group, 
     reversion = CambioNota.objects.filter(revertido_de=ultimo).get()
     assert (reversion.antes, reversion.despues) == ("9", "4")
 
-    html = client.get(reverse("calificaciones:historial", args=[group.pk])).content.decode()
-    assert "{#" not in html
-    assert "deshacer" in html
+    cambios = client.get(reverse("calificaciones:historial_json", args=[group.pk])).json()["cambios"]
+    assert [(c["antes"], c["despues"], c["es_deshacer"]) for c in cambios] == [
+        ("9", "4", True),
+        ("4", "9", False),
+        ("", "4", False),
+    ]
 
 
 @pytest.mark.django_db
-def test_el_cuadro_con_varias_pruebas_agrega(client, profesor, group, alumnos, plan):
+def test_con_varias_pruebas_el_instrumento_agrega_y_cada_una_es_una_columna(client, profesor, group, alumnos, plan):
     client.force_login(profesor)
     instrumento = plan.instrumentos.get(nombre="Lectura rítmica")
     segunda = Prueba.objects.create(instrumento=instrumento, nombre="Lectura rítmica 2")
@@ -149,8 +153,8 @@ def test_el_cuadro_con_varias_pruebas_agrega(client, profesor, group, alumnos, p
     client.post(url, {"prueba": segunda.pk, "alumno": alumnos[1].pk, "valor": "8"})
     resultado = plan.resultado_de(alumnos[1])
     assert resultado.instrumentos[instrumento.pk] == D(6)
-    html = client.get(reverse("calificaciones:cuadro", args=[group.pk])).content.decode()
-    assert "nota-agregada" in html  # con dos pruebas, la celda no es editable en línea
+    columnas = client.get(reverse("calificaciones:estado", args=[group.pk])).json()["trimestres"]["1"]["columnas"]
+    assert [c["corto"] for c in columnas] == ["Teo", "L.rít 1", "L.rít 2", "Dict", "Cuad"]
 
 
 # ----- evidencias (C217) ---------------------------------------------------------

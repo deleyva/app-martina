@@ -21,9 +21,8 @@
           <p class="text-sm opacity-70">{{ group.subject.name }} · {{ group.academic_year }} · {{ group.active_enrollment_count }} alumnos</p>
           <div class="card-actions justify-end mt-2">
             {% for t in "123" %}
-              <a href="{% url 'calificaciones:cuadro' group.pk %}?t={{ t }}" class="btn btn-sm btn-outline">{{ t }}ª ev.</a>
+              <a href="{% url 'calificaciones:registro' group.pk %}?t={{ t }}" class="btn btn-sm {% if forloop.first %}btn-primary{% else %}btn-outline{% endif %}">{{ t }}ª ev.</a>
             {% endfor %}
-            <a href="{% url 'calificaciones:clase' group.pk %}" class="btn btn-sm btn-primary">🎤 Modo clase</a>
           </div>
         </div>
       </div>

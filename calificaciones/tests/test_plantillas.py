@@ -85,10 +85,10 @@ def test_empezar_por_plantilla_crea_un_plan_propio(client, profesor, group, marc
     assert plan.cuadre()["cuadra"] is True
     assert plan.instrumentos.filter(nombre="Sensorialidad").exists()
     assert Prueba.objects.filter(instrumento__plan=plan).count() == 9
-    # Y el cuadro ya está para escribir.
-    html = client.get(reverse("calificaciones:cuadro", args=[group.pk]) + f"?t={trimestre}").content.decode()
-    assert "Sensor." in html
-    assert 'id="empezar"' not in html
+    # Y el registro ya está para escribir.
+    bloque = client.get(reverse("calificaciones:estado", args=[group.pk])).json()["trimestres"][str(trimestre)]
+    assert "Sensor." in [c["corto"] for c in bloque["columnas"]]
+    assert bloque["empezar"] is None
 
 
 @pytest.mark.django_db
@@ -105,18 +105,15 @@ def test_dos_grupos_con_la_misma_plantilla_no_comparten_plan(client, profesor, g
 @pytest.mark.django_db
 def test_la_pantalla_sin_plan_ensena_lo_que_trae_cada_plantilla(client, profesor, group, marcos):
     client.force_login(profesor)
-    respuesta = client.get(reverse("calificaciones:cuadro", args=[group.pk]) + "?t=1")
-    html = respuesta.content.decode()
-    assert "{#" not in html
-    assert 'id="empezar"' in html
-    ofrecidas = respuesta.context["plantillas"]
-    assert [o["plantilla"].clave for o in ofrecidas][0] == "3eso"  # «3º ESO T», en castellano
-    assert ofrecidas[0]["recomendada"] is True
-    assert [o["recomendada"] for o in ofrecidas[1:]] == [False, False]
-    assert "Plantilla de 3º ESO" in html
-    assert "Sensorialidad <strong>10 %</strong>" in html
-    assert "Teoría <strong>15 %</strong>" in html
-    assert respuesta.context["anterior"] is None
+    empezar = client.get(reverse("calificaciones:estado", args=[group.pk])).json()["trimestres"]["1"]["empezar"]
+    ofrecidas = empezar["plantillas"]
+    assert [o["clave"] for o in ofrecidas][0] == "3eso"  # «3º ESO T», en castellano
+    assert [o["recomendada"] for o in ofrecidas] == [True, False, False]
+    assert ofrecidas[0]["nombre"] == "3º ESO"
+    resumen = {r["nombre"]: r["peso"] for r in ofrecidas[0]["resumen"]}
+    assert resumen["Sensorialidad"] == "10"
+    assert resumen["Teoría"] == "15"
+    assert empezar["anterior"] is None
 
 
 @pytest.mark.django_db
@@ -150,12 +147,12 @@ def test_con_plan_ya_puesto_la_plantilla_no_lo_pisa(client, profesor, group, alu
 def test_la_siguiente_evaluacion_ofrece_seguir_con_lo_mismo(client, profesor, group, alumnos, plan):
     client.force_login(profesor)
     Nota.poner(Prueba.objects.filter(instrumento__plan=plan).first(), alumnos[0], D(7), profesor)
-    respuesta = client.get(reverse("calificaciones:cuadro", args=[group.pk]) + "?t=2")
-    html = respuesta.content.decode()
-    assert respuesta.context["anterior"] == plan
-    assert "Lo mismo que en la 1ª evaluación" in html
-    assert "Lectura rítmica <strong>20 %</strong>" in html
-    assert f'name="copiar_de" value="{plan.pk}"' in html
+    empezar = client.get(reverse("calificaciones:estado", args=[group.pk])).json()["trimestres"]["2"]["empezar"]
+    assert empezar["anterior"]["id"] == plan.pk
+    assert empezar["anterior"]["trimestre"] == 1
+    assert {"nombre": "Lectura rítmica", "peso": "20"} in empezar["anterior"]["resumen"]
+    # Habiendo una evaluación anterior, la recomendada es seguir con lo mismo.
+    assert not any(o["recomendada"] for o in empezar["plantillas"])
 
     assert _adoptar(client, group, 2, copiar_de=plan.pk).status_code == 302
     segundo = Plan.para_grupo(group, 2)

@@ -116,8 +116,30 @@ test('un fallo se ve, y volver a escribir lo reintenta', async () => {
   expect(cola.estado()).toBe('error');
   expect(fallos).toEqual([{ alumno: 1, celdas: [['teoria', '10']] }]);
 
-  cola.poner(1, 'teoria', '10', { yaMismo: true });
+  // Lo que falló no se ha perdido: sale con lo siguiente que se escriba.
+  cola.poner(1, 'dictado', '6', { yaMismo: true });
+  expect(enviadas[1].celdas).toEqual([['teoria', '10'], ['dictado', '6']]);
   enviadas[1].resolver('ok');
   await respirar();
   expect(cola.estado()).toBe('saved');
+});
+
+test('lo tecleado después de un fallo gana a lo que falló', async () => {
+  const { cola, enviadas, respirar } = montar();
+  cola.poner(1, 'teoria', '10', { yaMismo: true });
+  cola.poner(1, 'teoria', '4', { yaMismo: true });
+  enviadas[0].rechazar(new Error('sin red'));
+  await respirar();
+  cola.vaciar(1);
+  expect(enviadas[1].celdas).toEqual([['teoria', '4']]);
+});
+
+test('un no del servidor no se repite', async () => {
+  const { cola, enviadas, respirar } = montar();
+  cola.poner(1, 'teoria', '7', { yaMismo: true });
+  enviadas[0].rechazar(Object.assign(new Error('Aquí solo vale: A, B, C, D'), { status: 400 }));
+  await respirar();
+  expect(cola.estado()).toBe('error');
+  cola.vaciar(1);
+  expect(enviadas).toHaveLength(1);
 });

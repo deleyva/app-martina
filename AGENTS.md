@@ -83,6 +83,8 @@ Las vistas deben ser extremadamente delgadas:
 
 -   **`FormData.append(clave, valor, nombre)` con tres argumentos exige un `Blob`.** Con un texto lanza `TypeError: parameter 2 is not of type 'Blob'` y se lo traga el `.then`: el botón no hace nada y no hay aviso. Para texto, dos argumentos. (2026-09-23, modo clase de `calificaciones`.)
 
+-   **El servidor local no siempre recarga el Python que acabas de cambiar.** El 29/09/2026, tras editar `calificaciones/views.py`, el contenedor siguió sirviendo el código anterior: la vista leía `request.POST.get("prueba")` donde el fichero ya decía `getlist`, y de nueve notas enviadas guardaba una. Los tests pasaban, porque pytest sí lee el fichero. Si el navegador contradice a los tests, `docker compose -f docker-compose.local.yml restart django` antes de buscar el fallo en el código.
+
 -   **`just up` falla al final del primer build** con `image ... already exists`: `django` y `huey_consumer` exportan el mismo tag a la vez. La imagen queda bien construida; basta con repetir `docker compose up -d`.
 
 * * *
@@ -147,6 +149,20 @@ Las vistas deben ser extremadamente delgadas:
     Convertir
 </button>
 ```
+
+### La excepción: la pantalla de calificaciones es React
+
+`/calificaciones/grupo/<id>/` es una isla de React (fase 60, decisión de Jesús: «haz lo que sea, pero que sea igual visualmente» que su SPA del curso pasado). Todo lo de arriba sigue valiendo para el resto del sitio.
+
+-   **El código está en `calificaciones/frontend/src/`** y tiene su propio `package.json`. El de la raíz no sabe nada de React, así que ni la imagen de producción ni el contenedor local lo instalan.
+-   **Construir:** `cd calificaciones/frontend && bun install && bun run build`. Deja `calificaciones/static/calificaciones/registro.js`.
+-   **El paquete construido se confirma en git.** La imagen de producción solo se queda con el CSS de su fase de Node (`compose/production/django/Dockerfile`, línea 77); el JavaScript que sirve es el del repo. `test_el_bundle_esta_y_esta_al_dia` falla si cambias el JSX y no reconstruyes.
+-   **Nunca `sourcemap`.** Con el almacenamiento con manifiesto, una línea `//# sourceMappingURL` sin su `.map` tumba `collectstatic` y el contenedor no arranca.
+-   **Nada de carpetas `lib/`, `dist/` o `build/`.** Están en `.gitignore`: lo que haya dentro ni se confirma ni lo lee Tailwind.
+-   **Las clases de Tailwind, enteras.** Tailwind las genera leyendo el código: `bg-${color}-600` no existe para él.
+-   **El navegador no calcula notas.** Todas las cifras salen de `calificaciones/estado.py` ya redondeadas y como texto. 8,35 es «8.4» en Python y «8.3» con `toFixed(1)`.
+-   **El token CSRF va escrito en la página** (`registro.html`): `CSRF_COOKIE_HTTPONLY` está puesto y JavaScript no puede leer la cookie.
+-   **Tests de JavaScript:** `cd calificaciones/frontend && bun test`.
 
 * * *
 

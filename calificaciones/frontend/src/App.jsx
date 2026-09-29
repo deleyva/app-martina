@@ -17,6 +17,9 @@ import Info from './Info.jsx';
 import Informes from './Informes.jsx';
 import Final from './Final.jsx';
 
+// Cómo se distingue en la cola una calificación puesta a mano de una celda.
+const MANUAL = 'manual:';
+
 const PESTANAS = [
   { id: 'registro', label: 'REGISTRO', icon: FileText },
   { id: 'informes', label: 'INFORMES', icon: BookOpen },
@@ -70,28 +73,52 @@ export default function App() {
   const colaRef = useRef(null);
   if (colaRef.current === null) {
     colaRef.current = crearCola({
-      enviar: (alumno, celdas) => api.guardarNotas(alumno, celdas),
+      // Todo lo de un alumno va por la misma cola, también la calificación
+      // puesta a mano: si fueran por caminos distintos, el bloque de cifras de
+      // una respuesta podría pisar al de otra más nueva.
+      enviar: async (alumno, lote) => {
+        const notas = lote.filter(([clave]) => !String(clave).startsWith(MANUAL));
+        const manuales = lote.filter(([clave]) => String(clave).startsWith(MANUAL));
+        let respuesta = null;
+        if (notas.length) respuesta = await api.guardarNotas(alumno, notas);
+        for (const [clave, calificacion] of manuales) {
+          respuesta = await api.guardarManual(alumno, clave.slice(MANUAL.length), calificacion);
+        }
+        return respuesta;
+      },
       alRecibir: (alumno, respuesta, quedan) => {
+        setError(null);
         // Si ese alumno tiene todavía algo por mandar, este bloque ya es viejo.
         if (!quedan) ponerAlumno(respuesta.alumno);
       },
-      alFallar: (alumno, celdas, e) => atender(e),
+      alFallar: (alumno, celdas, e) => {
+        if (e instanceof SesionCaducada) { setCaducada(true); return; }
+        setError(e.status ? e.message : 'No se ha podido guardar. Lo escrito sigue aqui y se enviara con el siguiente cambio.');
+      },
       alCambiar: setEstadoGuardado,
     });
   }
   const cola = colaRef.current;
 
   const guardarNota = useCallback((alumno, prueba, valor, opciones) => {
-    setError(null);
     cola.poner(alumno, prueba, valor, opciones);
   }, [cola]);
 
   const guardarManual = useCallback((alumno, ambito, calificacion) => {
-    setEstadoGuardado('saving');
-    api.guardarManual(alumno, ambito, calificacion)
-      .then((r) => { ponerAlumno(r.alumno); setEstadoGuardado(cola.estado()); })
-      .catch((e) => { atender(e); setEstadoGuardado('error'); });
-  }, [ponerAlumno, atender, cola]);
+    // Se pinta ya, como en `notas`; el servidor lo confirma al contestar.
+    setDatos((previo) => previo && {
+      ...previo,
+      alumnos: previo.alumnos.map((a) => {
+        if (a.id !== alumno) return a;
+        if (ambito === 'curso') return { ...a, curso: { ...a.curso, manual: calificacion } };
+        return {
+          ...a,
+          trimestres: { ...a.trimestres, [ambito]: { ...a.trimestres[ambito], manual: calificacion } },
+        };
+      }),
+    });
+    cola.poner(alumno, `${MANUAL}${ambito}`, calificacion, { yaMismo: true });
+  }, [cola]);
 
   // ── Evidencias ──
   const conSubida = useCallback(async (promesa) => {

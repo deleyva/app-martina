@@ -311,3 +311,48 @@ def test_los_mensajes_no_se_quedan_en_cola(client, profesor, group, alumnos, mar
     html = client.get(reverse("calificaciones:registro", args=[group.pk])).content.decode()
     assert "ya puedes poner notas" in html
     assert "ya puedes poner notas" not in client.get(reverse("calificaciones:index")).content.decode()
+
+
+@pytest.mark.django_db
+def test_empezar_desde_la_pantalla_no_deja_mensajes(client, profesor, group, alumnos, marcos):
+    """La pantalla pide por JSON y no recarga: un mensaje encolado saldría después, en otra página."""
+    client.force_login(profesor)
+    r = client.post(
+        reverse("calificaciones:plan_adoptar", args=[group.pk]) + "?t=1",
+        {"plantilla": "3eso"},
+        HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+    )
+    assert r.status_code == 200
+    assert r.json()["plan"] == Plan.para_grupo(group, 1).pk
+    assert "ya puedes poner notas" not in client.get(reverse("calificaciones:index")).content.decode()
+
+
+@pytest.mark.django_db
+def test_las_pantallas_viejas_ya_no_existen(client, profesor, group, plan):
+    """C355: ni el cuadro, ni el panel, ni el historial en HTML, ni el modo clase."""
+    from pathlib import Path
+
+    client.force_login(profesor)
+    for ruta in ("clase/", "historial/", "registro/", "instrumento/1/alumno/1/"):
+        assert client.get(f"/calificaciones/grupo/{group.pk}/{ruta}").status_code == 404, ruta
+    app = Path(__file__).parents[1]
+    plantillas = {p.name for p in (app / "templates").rglob("*.html")}
+    assert plantillas == {"index.html", "plan.html", "registro.html", "resumen.html"}
+    for fichero in list((app / "templates").rglob("*.html")) + [app / "views.py", app / "urls.py"]:
+        texto = fichero.read_text(encoding="utf-8")
+        for nombre in ("calificaciones:cuadro", "calificaciones:clase", "calificaciones:panel", "calificaciones:historial'"):
+            assert nombre not in texto, f"{fichero.name}: {nombre}"
+    inicio = client.get(reverse("calificaciones:index")).content.decode()
+    assert "Modo clase" not in inicio
+    assert f"/calificaciones/grupo/{group.pk}/?t=1" in inicio
+
+
+@pytest.mark.django_db
+def test_el_plan_deja_cambiar_la_regla_y_pasar_a_letras(client, profesor, group, plan):
+    client.force_login(profesor)
+    html = client.get(reverse("calificaciones:plan", args=[plan.pk])).content.decode()
+    assert "{#" not in html
+    assert "Una celda vacía cuenta como 0" in html
+    assert 'name="hueco_cuenta_cero" class="checkbox checkbox-sm" checked' in html
+    assert "Calificar todo con A · B · C · D" in html
+    assert f"/calificaciones/grupo/{group.pk}/?t=1#info" in html

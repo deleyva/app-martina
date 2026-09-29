@@ -8,7 +8,7 @@
     <a href="{% url 'calificaciones:index' %}" class="text-sm link link-hover">← Calificaciones</a>
     <h1 class="text-2xl sm:text-3xl font-bold">⚖️ {{ plan.nombre }}</h1>
     <p class="text-sm opacity-70">{{ plan.marco }} · {{ plan.get_trimestre_display }}
-      {% if grupos %}· lo usan: {% for g in grupos %}<a class="link" href="{% url 'calificaciones:cuadro' g.pk %}?t={{ plan.trimestre }}">{{ g.name }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}
+      {% if grupos %}· lo usan: {% for g in grupos %}<a class="link" href="{% url 'calificaciones:registro' g.pk %}?t={{ plan.trimestre }}#info">{{ g.name }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}
     </p>
   </div>
 
@@ -21,6 +21,25 @@
       {% else %}
         <p class="text-sm text-error">⚠️ Suma {{ cuadre.total|floatformat:"-2" }} %: el reparto no coincide con la programación. Ajústalo en la rejilla de abajo.</p>
       {% endif %}
+    </div>
+  </div>
+
+  <div class="card bg-base-100 shadow-sm mb-4" id="ajustes">
+    <div class="card-body p-4 gap-3">
+      <h2 class="font-semibold">Cómo se califica</h2>
+      <form method="post" action="{% url 'calificaciones:plan_ajustes' plan.pk %}" class="flex flex-wrap items-center gap-3">
+        {% csrf_token %}
+        <label class="label cursor-pointer gap-2">
+          <input type="checkbox" name="hueco_cuenta_cero" class="checkbox checkbox-sm" {% if plan.hueco_cuenta_cero %}checked{% endif %} onchange="this.form.submit()" />
+          <span class="label-text">Una celda vacía cuenta como 0</span>
+        </label>
+        <span class="text-xs opacity-70">Sin marcar, lo que no tiene nota no cuenta y la media se hace con el resto. Cambiarlo no toca ninguna nota.</span>
+      </form>
+      <form method="post" action="{% url 'calificaciones:plan_ajustes' plan.pk %}" class="flex flex-wrap items-center gap-3">
+        {% csrf_token %}
+        <button name="a_letras" value="1" class="btn btn-sm btn-outline">Calificar todo con A · B · C · D</button>
+        <span class="text-xs opacity-70">A = 10, B = 8, C = 6, D = 4. Pone esa escala en todos los instrumentos; las notas que ya hay se quedan como están.</span>
+      </form>
     </div>
   </div>
 

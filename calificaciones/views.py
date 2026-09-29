@@ -1,4 +1,8 @@
-"""Vistas de calificaciones. TINY VIEWS: la lógica vive en `models.py` y `calculo.py`.
+"""Vistas de calificaciones. TINY VIEWS: la lógica vive en `models.py`, `calculo.py` y `estado.py`.
+
+La pantalla es una sola (`registro`), a pantalla completa y pintada por React
+(`calificaciones/frontend/`). El resto de vistas son lo que esa pantalla lee y
+escribe, más la página del plan, que sigue siendo una plantilla de Django.
 
 Todas exigen `es_profesor`, y cada grupo pasa por `grupo_del_profesor`, que
 devuelve 404 y no 403 a propósito (un 403 confirma que el grupo existe). Un
@@ -15,7 +19,6 @@ from pathlib import Path
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.db.models import Count
 from django.db import transaction
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -120,7 +123,7 @@ def registro(request, group_id):
         "trimestre": _trimestre(request),
         "base": f"/calificaciones/grupo/{group.pk}/",
         # Dónde está esta misma pantalla para otro grupo: `{id}` lo pone el navegador.
-        "ruta_grupo": "/calificaciones/grupo/{id}/registro/",
+        "ruta_grupo": "/calificaciones/grupo/{id}/",
         "inicio": "/calificaciones/",
         "avisos": [str(m) for m in messages.get_messages(request)],
     }
@@ -145,36 +148,6 @@ def historial_json(request, group_id):
     respuesta = JsonResponse({"cambios": estado.historial(group)})
     respuesta["Cache-Control"] = "no-store"
     return respuesta
-
-
-@login_required
-@user_passes_test(es_profesor)
-def cuadro(request, group_id):
-    group = grupo_del_profesor(request.user, group_id)
-    trimestre = _trimestre(request)
-    plan = Plan.para_grupo(group, trimestre)
-    contexto = {
-        "group": group,
-        "trimestre": trimestre,
-        "trimestres": [1, 2, 3],
-        "plan": plan,
-    }
-    if plan is None:
-        contexto.update(plantillas.opciones_para_empezar(group, trimestre))
-        contexto["elegibles"] = Plan.elegibles_para(group, trimestre)
-        contexto["copiables"] = Plan.objects.filter(
-            marco__subject=group.subject, marco__academic_year=group.academic_year
-        ).select_related("marco")
-        return render(request, "calificaciones/cuadro.html", contexto)
-
-    alumnos = list(alumnos_del_grupo(group))
-    contexto.update(plan.filas_cuadro(group, alumnos))
-    contexto["manuales"] = {
-        m.alumno_id: m
-        for m in NotaManual.objects.filter(group=group, alumno__in=alumnos, ambito=str(trimestre))
-    }
-    contexto["cualitativas"] = NotaManual.CALIFICACIONES
-    return render(request, "calificaciones/cuadro.html", contexto)
 
 
 @login_required
@@ -259,30 +232,6 @@ def nota_guardar(request, group_id):
 
 def _num(valor):
     return None if valor is None else f"{valor:.2f}".rstrip("0").rstrip(".")
-
-
-@login_required
-@user_passes_test(es_profesor)
-def panel(request, group_id, instrumento_id, alumno_id):
-    """Las pruebas de un instrumento para un alumno, con sus evidencias."""
-    group = grupo_del_profesor(request.user, group_id)
-    instrumento = get_object_or_404(Instrumento, pk=instrumento_id, plan__groups=group)
-    alumno = _alumno_del_grupo(group, alumno_id)
-    pruebas = list(instrumento.pruebas.all())
-    notas = {n.prueba_id: n for n in Nota.objects.filter(prueba__in=pruebas, alumno=alumno)}
-    evidencias = Evidencia.objects.filter(prueba__in=pruebas, alumno=alumno).select_related("prueba")
-    return render(
-        request,
-        "calificaciones/partials/panel.html",
-        {
-            "group": group,
-            "instrumento": instrumento,
-            "alumno": alumno,
-            "filas": [(p, notas.get(p.pk)) for p in pruebas],
-            "evidencias": evidencias,
-            "opciones": instrumento.opciones_normalizadas(),
-        },
-    )
 
 
 @login_required
@@ -508,57 +457,8 @@ def prueba_editar(request, pk):
 
 
 # =============================================================================
-# MODO CLASE Y EVIDENCIAS
+# EVIDENCIAS
 # =============================================================================
-
-
-@login_required
-@user_passes_test(es_profesor)
-def clase(request, group_id):
-    group = grupo_del_profesor(request.user, group_id)
-    trimestre = _trimestre(request)
-    plan = Plan.para_grupo(group, trimestre)
-    if plan is None:
-        messages.info(request, "Este grupo aún no tiene plan de calificación para ese trimestre.")
-        return redirect(f"/calificaciones/grupo/{group.pk}/?t={trimestre}")
-    pruebas = list(
-        Prueba.objects.filter(instrumento__plan=plan, activa=True)
-        .select_related("instrumento")
-        .order_by("instrumento__orden", "fecha", "pk")
-    )
-    prueba = None
-    if request.GET.get("prueba"):
-        prueba = next((p for p in pruebas if str(p.pk) == request.GET["prueba"]), None)
-    if prueba is None and pruebas:
-        # La última en la que se puso una nota, o la primera.
-        ultima = (
-            Nota.objects.filter(prueba__in=pruebas).order_by("-updated_at").values_list("prueba_id", flat=True).first()
-        )
-        prueba = next((p for p in pruebas if p.pk == ultima), pruebas[0])
-    alumnos = list(alumnos_del_grupo(group))
-    notas = prueba.notas_de(alumnos) if prueba else {}
-    recuento = {}
-    if prueba:
-        for fila in (
-            Evidencia.objects.filter(prueba=prueba, alumno__in=alumnos)
-            .values("alumno_id")
-            .annotate(n=Count("id"))
-        ):
-            recuento[fila["alumno_id"]] = fila["n"]
-    return render(
-        request,
-        "calificaciones/clase.html",
-        {
-            "group": group,
-            "trimestre": trimestre,
-            "plan": plan,
-            "pruebas": pruebas,
-            "prueba": prueba,
-            "instrumentos": plan.instrumentos.all(),
-            "alumnos": [(a, notas.get(a.pk), recuento.get(a.pk, 0)) for a in alumnos],
-            "opciones": prueba.instrumento.opciones_normalizadas() if prueba else [],
-        },
-    )
 
 
 @login_required
@@ -648,30 +548,6 @@ def evidencia_borrar(request, pk):
 # =============================================================================
 # HISTORIAL Y EXPORTACIÓN
 # =============================================================================
-
-
-@login_required
-@user_passes_test(es_profesor)
-def historial(request, group_id):
-    group = grupo_del_profesor(request.user, group_id)
-    cambios = (
-        CambioNota.objects.filter(nota__prueba__instrumento__plan__groups=group)
-        .select_related("nota__alumno", "nota__prueba__instrumento", "user", "revertido_de")
-        .distinct()
-    )
-    alumno_id = request.GET.get("alumno")
-    if alumno_id:
-        cambios = cambios.filter(nota__alumno_id=alumno_id)
-    return render(
-        request,
-        "calificaciones/historial.html",
-        {
-            "group": group,
-            "cambios": cambios[:300],
-            "alumnos": alumnos_del_grupo(group),
-            "alumno_id": alumno_id,
-        },
-    )
 
 
 @login_required

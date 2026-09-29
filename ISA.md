@@ -1,6 +1,6 @@
 ---
 slug: app-martina
-phase: build
+phase: verify
 progress: true
 iteration: 58
 principal_stated_goal: "Yo solo quiero añadir evidencias tal cual están diseñadas en la aplicación de Notas. Por favor, copiala. Usa en vez de HTMLX, usa, en fin, haz lo que sea, pero que sea igual visualmente. Me gusta mucho esa forma de calificar, esa aplicación que hicimos."
@@ -4402,7 +4402,7 @@ Plantillas con instrumentos distintos por evaluación (los de la 3ª de 4º del 
 - Sin auditoría externa: superficie de profesor autenticado, sin migración, solo caminos nuevos para crear planes; 15 tests nuevos y navegador real. Elegido a conciencia.
 - Visto de paso y no tocado: en el cuadro, a 1456 px de ancho, las columnas Cuaderno, Nota y Calif. quedan fuera de la vista y hay que desplazar en horizontal. Es anterior a esta fase.
 
-## Fase 60 — `notas` dentro de la app: la misma pantalla, con los datos de Django (2026-09-29)
+## Fase 60 — `notas` dentro de la app: la misma pantalla, con los datos de Django (2026-09-29) · VERIFICADA EN LOCAL, SIN DESPLEGAR (pendiente: cámara, micrófono e impresión)
 
 **Goal (literal de Jesús, 2026-09-29):** «Puede quedar esa igual que la que tengo hecha en /Users/deleyva/Documents/notas ¿Que surge ahora en la aplicación de Django, es decir, me parece muy profuso. Yo solo quiero añadir evidencias tal cual están diseñadas en la aplicación de Notas. Por favor, copiala. Usa en vez de HTMLX, usa, en fin, haz lo que sea, pero que sea igual visualmente. Me gusta mucho esa forma de calificar, esa aplicación que hicimos.»
 
@@ -4430,28 +4430,28 @@ Notas de otras asignaturas (botón ℹ de Final y CSV de Info) · «TODOS» en e
 
 ### Claims
 
-- [ ] **C335** — El paquete de React se construye con un comando, vive en `calificaciones/static/calificaciones/registro.js`, está en git y corresponde al código fuente; no trae mapa de fuentes. *Falsador: test que recalcula la huella de `frontend/src/**` y la compara con la del paquete; test que busca `sourceMappingURL`.*
-- [ ] **C336** — El `package.json` de la raíz no cambia: ni la imagen de producción ni el contenedor local instalan React. *Falsador: `git diff main -- package.json package-lock.json` vacío; `collectstatic` con ajustes de producción termina sin error.*
-- [ ] **C337** — Una celda vacía cuenta como 0 en la nota y no se guarda como 0: para todo plan con el interruptor puesto, la nota es la que saldría de escribir un 0 en cada celda vacía, y la base no tiene ni una `Nota` nueva. Con el interruptor quitado, todo resultado es el de antes. *Falsador: tests de `calculo.py` y de `Plan.resultados`.*
-- [ ] **C338** — En «última» y «mejor», una prueba vacía no hunde el instrumento si hay otra con nota. *Falsador: test.*
-- [ ] **C339** — Una evaluación sin ninguna nota no entra en la nota final de curso. *Falsador: test.*
-- [ ] **C340** — Las plantillas nacen con los nueve instrumentos en escala A–D (10, 8, 6, 4), y un instrumento de opciones solo guarda valores que son una de sus opciones. *Falsador: test; `POST` de un 7 a un instrumento A–D da 400 y no guarda nada.*
-- [ ] **C341** — Hay un solo cálculo: el bloque que devuelve cada escritura es idéntico al que da el estado, y las cifras del estado son las del CSV. *Falsador: tests que comparan los tres.*
-- [ ] **C342** — El estado, el historial y todas las escrituras exigen ser profesor del grupo: otro profesor recibe 404 y un alumno es enviado al login. *Falsador: test sobre cada URL nueva.*
-- [ ] **C343** — Ninguna evidencia se sirve en línea con un tipo que ejecute código: el tipo sale de la extensión, no de lo que declara el navegador, y lo que no es imagen, audio, vídeo o PDF baja como adjunto. *Falsador: test que sube un `.html` declarándolo `image/jpeg`.*
-- [ ] **C344** — Las evidencias de audio y vídeo responden a peticiones de rango con 206. *Falsador: test con cabecera `Range`.*
-- [ ] **C345** — Un audio grabado no pasa por ffmpeg; un vídeo sí. *Falsador: test con la tarea parcheada.*
-- [ ] **C346** — **Registro**: la pantalla de un grupo es la de `notas` — barra con «Guardado» y pestañas, tarjetas de promedio, banda de ponderación, tabla con celdas de color, clip, nota y Obs. *Falsador: navegador real, captura vista junto a la de `notas`.*
-- [ ] **C347** — Calificar con letra: teclear A, B, C o D guarda y colorea; Enter baja al siguiente alumno; un carácter que no es opción no se guarda y la celda lo avisa; la nota sobrevive a recargar. *Falsador: navegador real y `CambioNota`.*
-- [ ] **C348** — El clip abre el menú de `notas` con cinco elementos, y subir archivo, comentario, galería y borrar funcionan contra Django. *Falsador: navegador real; filas en `Evidencia` y fichero en disco.*
-- [ ] **C349** — Foto con recorte, audio y vídeo se graban desde el navegador y se reproducen desde la galería. *Falsador: navegador real con cámara y micrófono.*
-- [ ] **C350** — **Historial** lista los cambios con antes y después y deshace uno. *Falsador: navegador real y test del JSON.*
-- [ ] **C351** — **Info** explica la ponderación de cada evaluación a partir del plan real y enlaza con la edición del plan. *Falsador: navegador real.*
-- [ ] **C352** — **Informes** pinta la ficha de un alumno con el radar de competencias y se imprime. *Falsador: navegador real y vista de impresión.*
-- [ ] **C353** — **Final** ordena por nota final, deja mover los pesos de las evaluaciones y guarda la nota final manual. *Falsador: navegador real; `NotaManual` con ámbito `curso`.*
-- [ ] **C354** — Un grupo sin plan en una evaluación ve, dentro de la pantalla nueva, las opciones de la fase 59 y empieza con un clic. *Falsador: navegador real.*
-- [ ] **C355** — Las pantallas viejas (cuadro, panel, historial, modo clase) ya no existen y nada enlaza a ellas. *Falsador: `grep` de sus nombres de URL en plantillas y código; suite completa.*
-- [ ] **C356** — La suite de `calificaciones` pasa entera y la suite completa no tiene fallos nuevos respecto a `main`.
+- [x] **C335** — El paquete de React se construye con un comando, vive en `calificaciones/static/calificaciones/registro.js`, está en git y corresponde al código fuente; no trae mapa de fuentes. *Evidencia: `test_el_bundle_esta_y_esta_al_dia`, `test_el_bundle_no_trae_source_map`, `test_el_bundle_es_el_de_produccion`. 654 KB, 198 KB comprimido.*
+- [x] **C336** — El `package.json` de la raíz no cambia. *Evidencia: `test_la_raiz_no_sabe_nada_de_react`; `collectstatic` con `CompressedManifestStaticFilesStorage` en una carpeta temporal termina en 1 s y deja `registro.578b2b266488.js`; la fase `node-builder` del Dockerfile de producción, construida en local, genera un `output.css` con las clases nuevas (`text-[10px]`, `z-[100]`, `bg-red-100/60`, `ring-red-500`…).*
+- [x] **C337** — Una celda vacía cuenta como 0 en la nota y no se guarda como 0. *Evidencia: `test_vacio_da_lo_mismo_que_escribir_un_cero` (la propiedad, sobre cuatro alumnos), `test_celda_vacia_cuenta_cero_y_no_se_guarda` (en la base solo está el 8 escrito), `test_sin_politica_todo_sigue_igual`, `test_quitar_la_marca_devuelve_la_regla_antigua_sin_tocar_notas`.*
+- [x] **C338** — En «última» y «mejor», una prueba vacía no hunde el instrumento si hay otra con nota. *Evidencia: `test_ultima_y_mejor_no_se_hunden_por_una_columna_nueva`.*
+- [x] **C339** — Una evaluación sin ninguna nota no entra en la nota final de curso. *Evidencia: `test_trimestre_sin_datos_no_entra_en_el_curso`, `test_el_curso_solo_cuenta_las_evaluaciones_con_notas`.*
+- [x] **C340** — Las plantillas nacen en A–D y un instrumento de opciones solo guarda valores de su lista. *Evidencia: `test_las_plantillas_nacen_con_escala_ad`, `test_letra_que_no_es_opcion_da_400`, `test_opciones_que_se_pisan_no_se_guardan`.*
+- [x] **C341** — Hay un solo cálculo. *Evidencia: `test_guardar_devuelve_el_mismo_bloque_que_estado`, `test_los_numeros_del_estado_son_los_del_csv`. En Chrome: fila A·B·A·A·C·B·A·B·A → 8,9 y fila C·B·C·D·C·B·C·C·B → 6,4, las dos iguales al cálculo a mano.*
+- [x] **C342** — El estado, el historial y todas las escrituras exigen ser profesor del grupo. *Evidencia: `test_estado_exige_profesor_del_grupo`, `test_otro_profesor_recibe_404_en_todo`.*
+- [x] **C343** — Ninguna evidencia se sirve en línea con un tipo que ejecute código. *Evidencia: `test_html_disfrazado_baja_como_adjunto`, `test_nada_que_ejecute_se_sirve_en_linea` (svg, htm, js, sin extensión), `test_mime_del_cliente_no_manda`.*
+- [x] **C344** — Las evidencias de audio y vídeo responden a peticiones de rango con 206. *Evidencia: `test_rango_de_bytes_devuelve_206` (rango cerrado, abierto, sufijo y 416).*
+- [x] **C345** — Un audio grabado no pasa por ffmpeg; un vídeo sí. *Evidencia: `test_audio_webm_no_va_a_ffmpeg`, `test_video_va_a_la_cola`.*
+- [x] **C346** — **Registro**: la pantalla de un grupo es la de `notas`. *Evidencia: Chrome, sesión de Jesús, `localhost:8000/calificaciones/grupo/20/?t=1`, grupo de alumnos inventados. Captura vista y comparada con la captura de `notas` que mandó Jesús: barra con «Guardado» y las cinco pestañas, tarjetas de promedio, banda de ponderación, celdas de color, clip, nota y Obs. El marcado y las clases son los de `notas`, copiados. **No** se ha hecho la comparación con `notas` corriendo al lado.*
+- [x] **C347** — Calificar con letra. *Evidencia: Chrome: a, b, c, d con Enter dejan A verde, B azul, C amarillo, D rojo y bajan de fila; «x» y «z» ponen anillo rojo, no se guardan y Enter no baja; al salir la celda vuelve a vacía; tras recargar, las cuatro letras siguen. Desplegable: con «Siempre desplegable» la celda es un `<select>` con 0, A, B, C, D y guarda.*
+- [x] **C348** — El clip abre el menú de `notas` con cinco elementos, y subir archivo, comentario y galería funcionan. *Evidencia: Chrome: menú con Subir archivo, Hacer foto, Grabar audio, Grabar video y Comentario (captura vista); comentario guardado; PNG subido por el campo de fichero del clip; el clip marca 2; galería con la imagen y el comentario (captura vista). Borrar: `test_comentario_y_borrado`; en navegador no se ha pulsado.*
+- [~] **C349** `[DEFERRED-VERIFY]` — Foto con recorte, audio y vídeo se graban desde el navegador y se reproducen desde la galería. *El código es el de `notas` (editor de foto copiado sin tocar) más la grabación de vídeo. La automatización no puede contestar al permiso de cámara y micrófono. **Tarea para Jesús:** desde el móvil, en una celda, hacer una foto y recortarla, grabar un audio y grabar un vídeo; abrirlos desde la galería en el iPhone.*
+- [x] **C350** — **Historial** lista los cambios y deshace uno. *Evidencia: Chrome: 22 cambios con antes y después en letras; deshacer «Composición: 0 → C» añade una entrada REVERTIDO y la nota de ese alumno pasa de 6,4 a 5,5. `test_historial_en_letras_y_deshacer_por_json`.*
+- [x] **C351** — **Info** explica la ponderación a partir del plan real. *Evidencia: Chrome: cuatro tarjetas CE.MU.1–4 con 30/20/30/20 % y sus instrumentos, los nueve pesos, la escala A·B·C·D → 10·8·6·4 y el conmutador de entrada (captura vista).*
+- [~] **C352** `[DEFERRED-VERIFY]` — **Informes** pinta la ficha de un alumno con el radar y se imprime. *Evidencia: Chrome: ficha, registro detallado en letras, radar dibujado y cuatro competencias (capturas vistas). **La impresión no se ha probado:** abrir el diálogo de imprimir bloquea la automatización. Tarea para Jesús: pulsar Imprimir en un informe.*
+- [x] **C353** — **Final** ordena por nota final, deja mover los pesos y guarda la nota final manual. *Evidencia: Chrome: pesos 20/30/50 de la programación; al cambiar uno, la columna dice «simulada»; nota final manual guardada (`curso.manual` = NT en el servidor y en pantalla); gráfico de distribución dibujado.*
+- [x] **C354** — Un grupo sin plan ve las opciones y empieza con un clic. *Evidencia: Chrome: en la 1ª, «Empezar con esta» sobre la plantilla de 3º ESO aterriza en la rejilla; en la 2ª aparece «Lo mismo que en la 1a Evaluacion · recomendado» (captura vista).*
+- [x] **C355** — Las pantallas viejas ya no existen. *Evidencia: `test_las_pantallas_viejas_ya_no_existen`; en Chrome la portada enlaza a `/calificaciones/grupo/20/?t=1` y no dice «Modo clase».*
+- [x] **C356** — La suite pasa. *Evidencia: `pytest calificaciones` → 124 passed; suite completa → 1457 passed, 6 skipped, 4 failed, los mismos cuatro de `cms` e `incidencias` que ya constaban como anteriores en la fase 39. `bun test` → 22 pass.*
 
 ### Anti-claims
 
@@ -4463,3 +4463,29 @@ Notas de otras asignaturas (botón ℹ de Final y CSV de Info) · «TODOS» en e
 ### Test Strategy
 
 `pytest calificaciones` dentro del contenedor local. `bun test` en `calificaciones/frontend` para los módulos puros. Navegador: Chrome con la sesión de Jesús contra `localhost:8000`, grupo de prueba 14. Cámara, micrófono y reproducción en iPhone: Jesús.
+
+### Lo que encontró el navegador (y no encontraron los tests)
+
+1. **Rellenar una fila deprisa tardaba.** Con una petición por celda y por turno, nueve celdas eran nueve viajes. Ahora todo lo pendiente de un alumno sale en una sola petición (`nota_guardar` acepta varias celdas y guarda todas o ninguna).
+2. **El servidor local servía código viejo.** Tras ese cambio, de nueve notas se guardaban una o dos. No era el programa: el contenedor no había recargado `views.py`. Reiniciado, las nueve. Está en `AGENTS.md`.
+3. **Un guardado fallido se perdía en silencio.** El aviso de error se borraba al teclear la celda siguiente, y lo que no se había podido enviar no se reintentaba. Ahora vuelve a la cola, por detrás de lo que se teclee después, y el aviso dura hasta que algo se guarda.
+4. **Dos calificaciones a mano seguidas se pisaban.** La respuesta de la primera podía llegar después que la de la segunda y devolver la pantalla al valor anterior. Van por la misma cola que las notas.
+5. **Lo que no vale no se veía con el foco puesto.** El anillo del foco tapaba el rojo. La celda inválida lleva ahora su propio borde.
+
+### Decisiones
+
+- **Todo lo de un alumno va por una cola, una petición en vuelo.** Notas y calificaciones a mano. Es lo que hace imposible que una respuesta vieja pise a una nueva.
+- **La política de huecos es un campo del plan**, no una constante. El día que un 0 por defecto vuelva a hundir la media de quien aún no ha hecho la prueba, se apaga en la página del plan.
+- **Las competencias se enseñan con su código** (CE.MU.1). El modelo no tiene nombres y ponérselos es decisión de Jesús.
+- **«Media simple»** es la media de las celdas activas, con la misma regla de huecos.
+- **El grupo de prueba con alumnos inventados** (`3º ESO Inventado`, pk 20, solo en la base local) existe para que ninguna captura lleve nombres reales.
+
+### Verificación de los anti-claims
+
+- **Anti-A** — `test_celda_vacia_cuenta_cero_y_no_se_guarda`. **Anti-B** — nada empujado ni desplegado. **Anti-C** — la única aritmética de notas en `frontend/src` está en `queSiPasa.js` y en los recuentos de `Registro.jsx`. **Anti-D** — todas las capturas de esta fase son del grupo inventado. *Roto una vez, antes de escribir este anti-claim:* al mirar la estructura de los ficheros de contexto de `notas`, un comando imprimió una treintena de nombres de alumnos en el transcript. Se le dijo a Jesús en el momento.
+
+### Log
+
+- Sin auditoría externa. Superficie de profesor autenticado con datos de menores: el segundo par de ojos fue la revisión del diseño con un agente en contexto limpio antes de construir, que encontró el agujero de `evidencia_ver` (servía en línea el tipo declarado por el navegador). Elegido a conciencia.
+- Dos migraciones, las dos aditivas: `0002_hueco_cuenta_cero` y `0003_evidencia_nombre_y_tamano`. **La 0002 cambia cifras que ya están en pantalla en producción:** todo plan existente pasa a contar los huecos como 0.
+- Nada empujado ni desplegado.

@@ -311,60 +311,6 @@ class Plan(models.Model):
     def resultado_de(self, alumno) -> calculo.Resultado:
         return self.resultados([alumno])[alumno.pk]
 
-    def filas_cuadro(self, group, alumnos) -> dict:
-        """Todo lo que pinta el cuadro: una fila por alumno, una celda por instrumento.
-
-        Una celda es editable en línea solo si su instrumento tiene UNA prueba
-        activa; con varias, enseña la nota agregada y se califica prueba a
-        prueba desde el panel.
-        """
-        from django.db.models import Count
-
-        instrumentos = list(self.instrumentos.prefetch_related("pruebas"))
-        resultados = self.resultados(alumnos)
-        unicas = {i.pk: i.prueba_unica() for i in instrumentos}
-        opciones = {i.pk: i.opciones_normalizadas() for i in instrumentos}
-        ids_prueba = [p.pk for i in instrumentos for p in i.pruebas.all()]
-        notas_unica = {
-            (n.prueba_id, n.alumno_id): n
-            for n in Nota.objects.filter(
-                prueba_id__in=[p.pk for p in unicas.values() if p], alumno__in=alumnos
-            )
-        }
-        recuento = {}
-        for fila in (
-            Evidencia.objects.filter(prueba_id__in=ids_prueba, alumno__in=alumnos)
-            .values("prueba__instrumento_id", "alumno_id")
-            .annotate(n=Count("id"))
-        ):
-            recuento[(fila["prueba__instrumento_id"], fila["alumno_id"])] = fila["n"]
-        filas = []
-        for alumno in alumnos:
-            r = resultados[alumno.pk]
-            celdas = []
-            for i in instrumentos:
-                prueba = unicas[i.pk]
-                nota = notas_unica.get((prueba.pk, alumno.pk)) if prueba else None
-                celdas.append(
-                    {
-                        "instrumento": i,
-                        "prueba": prueba,
-                        "valor": r.instrumentos.get(i.pk),
-                        "texto": CambioNota.texto(nota.valor) if nota else "",
-                        "evidencias": recuento.get((i.pk, alumno.pk), 0),
-                        "opciones": opciones[i.pk],
-                    }
-                )
-            filas.append({"alumno": alumno, "resultado": r, "celdas": celdas})
-        return {
-            "instrumentos": [
-                {"obj": i, "prueba": unicas[i.pk], "opciones": opciones[i.pk]}
-                for i in instrumentos
-            ],
-            "filas": filas,
-            "criterios": list(self.marco.criterios.all()),
-        }
-
 
 class Instrumento(models.Model):
     ESCALA_NUMERICA = "numerica"

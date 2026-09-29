@@ -22,7 +22,7 @@ export function crearCola({ enviar, alRecibir, alFallar, alCambiar, espera = 600
   let fallo = false;
 
   function estado() {
-    if (fallo) return 'error';
+    if (fallo && enVuelo.size === 0) return 'error';
     if (enVuelo.size > 0) return 'saving';
     if (pendientes.size > 0) return 'unsaved';
     return 'saved';
@@ -52,7 +52,17 @@ export function crearCola({ enviar, alRecibir, alFallar, alCambiar, espera = 600
     } catch (error) {
       enVuelo.delete(alumno);
       fallo = true;
+      // Sin red o con el servidor caído, lo escrito no se tira: vuelve a la
+      // cola, por detrás de lo que se haya tecleado después. Un 4xx es un no
+      // del servidor y repetirlo daría lo mismo.
+      if (!error || !error.status || error.status >= 500) {
+        if (!pendientes.has(alumno)) pendientes.set(alumno, new Map());
+        const celdas = pendientes.get(alumno);
+        lote.forEach(([celda, valor]) => { if (!celdas.has(celda)) celdas.set(celda, valor); });
+      }
       if (alFallar) alFallar(alumno, lote, error);
+      avisar();
+      return; // se reintenta con el siguiente cambio o al pedirlo, no en bucle
     }
     avisar();
     if (pendientes.has(alumno) && !temporizadores.has(alumno)) vaciar(alumno);
@@ -61,7 +71,6 @@ export function crearCola({ enviar, alRecibir, alFallar, alCambiar, espera = 600
   function poner(alumno, celda, valor, { yaMismo = false } = {}) {
     if (!pendientes.has(alumno)) pendientes.set(alumno, new Map());
     pendientes.get(alumno).set(celda, valor);
-    fallo = false;
     reloj.clearTimeout(temporizadores.get(alumno));
     if (yaMismo) {
       temporizadores.delete(alumno);
