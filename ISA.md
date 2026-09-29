@@ -1,9 +1,9 @@
 ---
 slug: app-martina
-phase: complete
+phase: build
 progress: true
-iteration: 57
-principal_stated_goal: "Quiero que me simplificar el proceso... Por favor, haz las plantillas necesarias. Estaba contento con lo que desarrollé en /Users/deleyva/Documents/notas"
+iteration: 58
+principal_stated_goal: "Yo solo quiero añadir evidencias tal cual están diseñadas en la aplicación de Notas. Por favor, copiala. Usa en vez de HTMLX, usa, en fin, haz lo que sea, pero que sea igual visualmente. Me gusta mucho esa forma de calificar, esa aplicación que hicimos."
 updated: 2026-09-29
 ---
 
@@ -4401,3 +4401,65 @@ Plantillas con instrumentos distintos por evaluación (los de la 3ª de 4º del 
 - Base local: el grupo de prueba 14 tiene ahora plan en la 3ª evaluación (plan 5, creado desde la plantilla al verificar C331, con un 8 en Teoría de la primera alumna). La 2ª sigue sin plan, para que Jesús pruebe la pantalla nueva.
 - Sin auditoría externa: superficie de profesor autenticado, sin migración, solo caminos nuevos para crear planes; 15 tests nuevos y navegador real. Elegido a conciencia.
 - Visto de paso y no tocado: en el cuadro, a 1456 px de ancho, las columnas Cuaderno, Nota y Calif. quedan fuera de la vista y hay que desplazar en horizontal. Es anterior a esta fase.
+
+## Fase 60 — `notas` dentro de la app: la misma pantalla, con los datos de Django (2026-09-29)
+
+**Goal (literal de Jesús, 2026-09-29):** «Puede quedar esa igual que la que tengo hecha en /Users/deleyva/Documents/notas ¿Que surge ahora en la aplicación de Django, es decir, me parece muy profuso. Yo solo quiero añadir evidencias tal cual están diseñadas en la aplicación de Notas. Por favor, copiala. Usa en vez de HTMLX, usa, en fin, haz lo que sea, pero que sea igual visualmente. Me gusta mucho esa forma de calificar, esa aplicación que hicimos.»
+
+Plan aprobado: `~/.claude/plans/eager-squishing-dream.md`.
+
+### Decisiones de Jesús (por pregunta directa, 2026-09-29)
+
+| Pregunta | Respuesta |
+|---|---|
+| Alcance | Las cinco pestañas: Registro, Informes, Historial, Final, Info |
+| Celda vacía | Roja con 0, y cuenta como 0. **Deshace la decisión de la fase 39** («un hueco no es un cero») |
+| Marco | Pantalla completa, con su propia barra; sin la barra de la web |
+| Escala | Se califica con letra: A = 10 · B = 8 · C = 6 · D = 4 |
+| Entrada | Teclear la letra en el ordenador; desplegable en el móvil |
+| Modo clase | Se retira; el clip gana un quinto elemento, «Grabar vídeo» |
+| Otras asignaturas | Fuera. Dijo que sí y lo retiró: son notas de menores de otras materias |
+
+### Antecedente de la sensación buscada
+
+Lo que le gusta de `notas` es calificar sin salir de la rejilla: la nota y la evidencia se ponen en la misma celda, y todo lo demás está a una pestaña. El antecedente aquí es que **sea el mismo código**: los componentes de `notas` pasan casi literales, y lo que cambia es de dónde salen los datos.
+
+### Out of Scope
+
+Notas de otras asignaturas (botón ℹ de Final y CSV de Info) · «TODOS» en el selector de grupo y ranking entre grupos · notas por encima de 10 · historial de los cambios de Obs. y de nota final manual · nombres propios para las competencias · desplegar.
+
+### Claims
+
+- [ ] **C335** — El paquete de React se construye con un comando, vive en `calificaciones/static/calificaciones/registro.js`, está en git y corresponde al código fuente; no trae mapa de fuentes. *Falsador: test que recalcula la huella de `frontend/src/**` y la compara con la del paquete; test que busca `sourceMappingURL`.*
+- [ ] **C336** — El `package.json` de la raíz no cambia: ni la imagen de producción ni el contenedor local instalan React. *Falsador: `git diff main -- package.json package-lock.json` vacío; `collectstatic` con ajustes de producción termina sin error.*
+- [ ] **C337** — Una celda vacía cuenta como 0 en la nota y no se guarda como 0: para todo plan con el interruptor puesto, la nota es la que saldría de escribir un 0 en cada celda vacía, y la base no tiene ni una `Nota` nueva. Con el interruptor quitado, todo resultado es el de antes. *Falsador: tests de `calculo.py` y de `Plan.resultados`.*
+- [ ] **C338** — En «última» y «mejor», una prueba vacía no hunde el instrumento si hay otra con nota. *Falsador: test.*
+- [ ] **C339** — Una evaluación sin ninguna nota no entra en la nota final de curso. *Falsador: test.*
+- [ ] **C340** — Las plantillas nacen con los nueve instrumentos en escala A–D (10, 8, 6, 4), y un instrumento de opciones solo guarda valores que son una de sus opciones. *Falsador: test; `POST` de un 7 a un instrumento A–D da 400 y no guarda nada.*
+- [ ] **C341** — Hay un solo cálculo: el bloque que devuelve cada escritura es idéntico al que da el estado, y las cifras del estado son las del CSV. *Falsador: tests que comparan los tres.*
+- [ ] **C342** — El estado, el historial y todas las escrituras exigen ser profesor del grupo: otro profesor recibe 404 y un alumno es enviado al login. *Falsador: test sobre cada URL nueva.*
+- [ ] **C343** — Ninguna evidencia se sirve en línea con un tipo que ejecute código: el tipo sale de la extensión, no de lo que declara el navegador, y lo que no es imagen, audio, vídeo o PDF baja como adjunto. *Falsador: test que sube un `.html` declarándolo `image/jpeg`.*
+- [ ] **C344** — Las evidencias de audio y vídeo responden a peticiones de rango con 206. *Falsador: test con cabecera `Range`.*
+- [ ] **C345** — Un audio grabado no pasa por ffmpeg; un vídeo sí. *Falsador: test con la tarea parcheada.*
+- [ ] **C346** — **Registro**: la pantalla de un grupo es la de `notas` — barra con «Guardado» y pestañas, tarjetas de promedio, banda de ponderación, tabla con celdas de color, clip, nota y Obs. *Falsador: navegador real, captura vista junto a la de `notas`.*
+- [ ] **C347** — Calificar con letra: teclear A, B, C o D guarda y colorea; Enter baja al siguiente alumno; un carácter que no es opción no se guarda y la celda lo avisa; la nota sobrevive a recargar. *Falsador: navegador real y `CambioNota`.*
+- [ ] **C348** — El clip abre el menú de `notas` con cinco elementos, y subir archivo, comentario, galería y borrar funcionan contra Django. *Falsador: navegador real; filas en `Evidencia` y fichero en disco.*
+- [ ] **C349** — Foto con recorte, audio y vídeo se graban desde el navegador y se reproducen desde la galería. *Falsador: navegador real con cámara y micrófono.*
+- [ ] **C350** — **Historial** lista los cambios con antes y después y deshace uno. *Falsador: navegador real y test del JSON.*
+- [ ] **C351** — **Info** explica la ponderación de cada evaluación a partir del plan real y enlaza con la edición del plan. *Falsador: navegador real.*
+- [ ] **C352** — **Informes** pinta la ficha de un alumno con el radar de competencias y se imprime. *Falsador: navegador real y vista de impresión.*
+- [ ] **C353** — **Final** ordena por nota final, deja mover los pesos de las evaluaciones y guarda la nota final manual. *Falsador: navegador real; `NotaManual` con ámbito `curso`.*
+- [ ] **C354** — Un grupo sin plan en una evaluación ve, dentro de la pantalla nueva, las opciones de la fase 59 y empieza con un clic. *Falsador: navegador real.*
+- [ ] **C355** — Las pantallas viejas (cuadro, panel, historial, modo clase) ya no existen y nada enlaza a ellas. *Falsador: `grep` de sus nombres de URL en plantillas y código; suite completa.*
+- [ ] **C356** — La suite de `calificaciones` pasa entera y la suite completa no tiene fallos nuevos respecto a `main`.
+
+### Anti-claims
+
+- **Anti-A** — Nada guarda un 0 donde el profesor no ha puesto nota. La política es del cálculo, no del dato.
+- **Anti-B** — No se despliega ni se hace push sin visto bueno explícito de Jesús.
+- **Anti-C** — El navegador no calcula la nota legal. La única aritmética en JavaScript son los pesos «y si…» de Final y los recuentos de grupo.
+- **Anti-D** — Ningún nombre de alumno real sale en una captura ni en el transcript: la comparación con `notas` se hace con alumnos inventados.
+
+### Test Strategy
+
+`pytest calificaciones` dentro del contenedor local. `bun test` en `calificaciones/frontend` para los módulos puros. Navegador: Chrome con la sesión de Jesús contra `localhost:8000`, grupo de prueba 14. Cámara, micrófono y reproducción en iPhone: Jesús.
