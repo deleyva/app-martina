@@ -140,3 +140,26 @@ def test_lo_que_no_es_un_enlace_se_queda_como_esta():
 
 def test_un_enlace_no_deja_etiquetas_cruzadas():
     assert _cruzadas(_en_linea("**Toca [esta canción](page:875) hoy**")) == []
+
+
+def test_vineta_envuelta_en_varias_lineas_es_un_solo_li():
+    """Una viñeta partida a 80 columnas no puede escupir párrafos sueltos.
+
+    El 2026-09-30 «antiguedad-3-eso» salió en producción con las segundas
+    líneas de cada viñeta pintadas como `<p>` DELANTE de la lista: frases
+    cortadas y la lista después, con solo la primera línea de cada punto.
+    """
+    md = (
+        "- **Primera** — empieza aquí\n"
+        "  y sigue en la línea de abajo.\n"
+        "- **Segunda** — corta.\n"
+        "\n"
+        "Párrafo normal.\n"
+    )
+    html = markdown_a_richtext(md)
+    assert html == (
+        "<ul><li><b>Primera</b> — empieza aquí y sigue en la línea de abajo.</li>"
+        "<li><b>Segunda</b> — corta.</li></ul>"
+        "<p>Párrafo normal.</p>"
+    )
+    assert not _cruzadas(html)

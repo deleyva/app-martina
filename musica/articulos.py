@@ -221,6 +221,12 @@ def markdown_a_richtext(texto, resolver_imagen=None):
             continue
         if linea.startswith("> "):
             continue  # notas para el profesor, no van a la página
+        if lista and linea[:1].isspace():
+            # Línea de continuación de una viñeta envuelta a 80 columnas. Sin
+            # esto acababa como párrafo suelto, pintado DELANTE de la lista
+            # entera (2026-09-30, «antiguedad-3-eso» en producción).
+            lista[-1] = f"{lista[-1]} {linea.strip()}"
+            continue
         if re.match(r"^\d+\.\s", linea):
             cerrar_parrafo()
             lista.append(re.sub(r"^\d+\.\s", "", linea).strip())
