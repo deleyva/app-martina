@@ -712,7 +712,7 @@
             como en clase. El menú queda para salir, la lista de elementos y lo
             propio del estudio: notas, secciones y etiquetas.
             {% endcomment %}
-            <a class="flyout-btn danger" href="{% url 'my_library:index' %}?show_all=1">
+            <a class="flyout-btn danger" href="{{ url_vuelta }}">
                 <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                 </svg>
@@ -784,7 +784,7 @@
                 </div>
             </div>
             <div class="session-items-list" id="summary-items"></div>
-            <a href="{% url 'my_library:index' %}?show_all=1" class="back-to-library-btn">Volver a biblioteca</a>
+            <a href="{{ url_vuelta }}" class="back-to-library-btn">Empezar otra sesión</a>
         </div>
     </div>
 
@@ -1322,7 +1322,10 @@
             method: 'POST',
             headers: { 'X-CSRFToken': csrfToken },
             body: body,
-            credentials: 'same-origin'
+            credentials: 'same-origin',
+            // Que el repaso llegue aunque se salga del visor justo después
+            // de valorar el último elemento.
+            keepalive: true
         });
 
         // Stop any playing audio
@@ -1371,7 +1374,7 @@
             } else if (flyoutOpen) {
                 toggleFlyout(false);
             } else {
-                window.location.href = '{% url "my_library:index" %}?show_all=1';
+                window.location.href = '{{ url_vuelta|escapejs }}';
             }
         }
         if (e.key === 'm' || e.key === 'M') {
@@ -1391,7 +1394,7 @@
             '<div style="display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:12px;">' +
             '<div style="font-size:48px;">📚</div>' +
             '<div>No hay items para estudiar</div>' +
-            '<a href="{% url "my_library:index" %}" style="color:#8b5cf6;">Volver a biblioteca</a>' +
+            '<a href="{{ url_vuelta|escapejs }}" style="color:#8b5cf6;">Empezar a estudiar</a>' +
             '</div>';
     }
     </script>

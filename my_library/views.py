@@ -4,11 +4,11 @@ import uuid
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, JsonResponse, QueryDict
 from django.contrib.contenttypes.models import ContentType
 from django.template.loader import render_to_string
 from django.urls import reverse
-from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.http import url_has_allowed_host_and_scheme, urlencode
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_protect
 from django.contrib import messages
@@ -465,10 +465,25 @@ def _tokens_de_sesion(unidades):
     return ",".join(tokens)
 
 
+def _url_de_vuelta(request):
+    """Adónde se vuelve al salir del visor: a «empezar», con la misma selección.
+
+    Antes se volvía a la lista completa con `show_all=1`, que en producción
+    tardaba 8 s y pesaba 1,7 MB (medido el 2026-10-01). Lo que se quiere al
+    acabar una sesión es poder lanzar otra, así que se vuelve al selector con
+    las facetas con que se lanzó (`vuelta`). Se rehace con `QueryDict` y se
+    pega a la ruta propia: el parámetro nunca puede sacar del sitio.
+    """
+    base = reverse("my_library:session_start")
+    seleccion = QueryDict(request.GET.get("vuelta", "")).urlencode()
+    return f"{base}?{seleccion}" if seleccion else base
+
+
 @login_required
 def study_session_view(request):
     """Renderiza study_viewer.html con la playlist de unidades."""
     crudos = [t.strip() for t in request.GET.get("items", "").split(",") if t.strip()]
+    url_vuelta = _url_de_vuelta(request)
 
     secciones_pks = [int(t[1:]) for t in crudos if t.startswith("s") and t[1:].isdigit()]
     item_pks = [int(t) for t in crudos if t.isdigit()]
@@ -481,6 +496,7 @@ def study_session_view(request):
             "playlist_json": "[]",
             "total_items": 0,
             "deck_pk": deck_pk,
+            "url_vuelta": url_vuelta,
         })
 
     por_pk = {
@@ -527,6 +543,7 @@ def study_session_view(request):
         "playlist_json": json.dumps(playlist),
         "total_items": len(playlist),
         "deck_pk": deck_pk,
+        "url_vuelta": url_vuelta,
     })
 
 
@@ -1052,8 +1069,11 @@ def session_launch(request):
     # estudiado, y si contara, abrir la pantalla movería el turno sin más.
     sellar_novedad(request.user, sesion)
 
+    # La selección viaja con la sesión para volver a ella al terminar.
+    vuelta = urlencode({"vuelta": request.GET.urlencode()}) if request.GET else ""
     return redirect(
         f"{reverse('my_library:study_session')}?items={_tokens_de_sesion(sesion)}"
+        + (f"&{vuelta}" if vuelta else "")
     )
 
 

@@ -4269,3 +4269,48 @@ def test_la_herencia_precargada_da_lo_mismo_que_sin_precargar(db, user):
 
     assert sin == con
     assert any("concepto:caged" in v for v in con.values())
+
+
+# === Salir del visor vuelve a «empezar» (2026-10-01) ===
+
+
+def test_al_terminar_la_sesion_se_vuelve_a_empezar_con_la_misma_seleccion(client, db, user):
+    """Volver a la lista completa con `show_all=1` tardaba 8 s en producción.
+    Lo que se quiere al acabar es lanzar otra sesión con las mismas facetas."""
+    for n in range(3):
+        _item(user, f"g-{n}", tags=["instrumento:guitarra"])
+    client.force_login(user)
+
+    lanzada = client.get(
+        reverse("my_library:session_launch"), {"instrumento": "guitarra"}
+    )
+    visor = client.get(lanzada.url)
+    html = visor.content.decode()
+
+    esperada = f"{reverse('my_library:session_start')}?instrumento=guitarra"
+    assert visor.context["url_vuelta"] == esperada
+    assert "Empezar otra sesión" in html
+    assert "show_all=1" not in html, "ningún botón del visor vuelve a la lista entera"
+
+
+def test_sin_seleccion_el_visor_vuelve_a_empezar_a_secas(client, library_item, user):
+    client.force_login(user)
+
+    visor = client.get(
+        reverse("my_library:study_session"), {"items": str(library_item.pk)}
+    )
+
+    assert visor.context["url_vuelta"] == reverse("my_library:session_start")
+
+
+def test_la_vuelta_no_puede_sacar_del_sitio(client, library_item, user):
+    client.force_login(user)
+
+    visor = client.get(
+        reverse("my_library:study_session"),
+        {"items": str(library_item.pk), "vuelta": "//malo.example/x"},
+    )
+
+    assert visor.context["url_vuelta"].startswith(
+        reverse("my_library:session_start") + "?"
+    )

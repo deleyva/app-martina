@@ -7,8 +7,9 @@ app_name = "my_library"
 urlpatterns = [
     # La puerta de la biblioteca es «empezar a estudiar»: es el flujo que el
     # principal usa (2026-10-01). La lista completa sigue en `todo/` con su
-    # nombre de siempre, así que «Mi biblioteca» y «Volver a biblioteca» no
-    # cambian de destino.
+    # nombre de siempre, así que «Mi biblioteca» no cambia de destino. Salir
+    # del visor de estudio, en cambio, vuelve a «empezar» con la misma
+    # selección (2026-10-01, ver `views._url_de_vuelta`).
     path(
         "",
         RedirectView.as_view(pattern_name="my_library:session_start", query_string=True),
