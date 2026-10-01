@@ -4133,3 +4133,139 @@ def test_la_biblioteca_abre_en_empezar_y_la_lista_sigue_en_todo(client, db, user
 
     assert reverse("my_library:index") == "/my-library/todo/"
     assert client.get(reverse("my_library:index")).status_code == 200
+
+
+# === Herencia de etiquetas hasta el libro (2026-10-01) ===
+
+
+def _hija(padre, modelo, titulo, slug, **extra):
+    pagina = modelo(title=titulo, slug=slug, **extra)
+    padre.add_child(instance=pagina)
+    pagina.save()
+    return pagina
+
+
+def _etiquetar(pagina, *nombres):
+    for nombre in nombres:
+        pagina.faceted_tags.add(nombre)
+    pagina.save()
+
+
+def _capitulo(padre, slug):
+    from musica.models import RecursoPage
+
+    return _hija(
+        padre, RecursoPage, f"Cap {slug}", slug,
+        date=timezone.now().date(), intro="intro",
+    )
+
+
+def _nombres(item):
+    return {t.name for t in item.get_content_tags()}
+
+
+def test_el_libro_exterior_llega_al_elemento_a_traves_del_sublibro(db, user):
+    """Libro → sublibro → capítulo → elemento. Etiquetar solo el libro de
+    fuera tiene que bastar: es la petición entera."""
+    from musica.models import LibroPage
+
+    libro = _pagina("CAGED", "her-1", LibroPage)
+    sublibro = _hija(libro, LibroPage, "Parte 1", "her-1-p1")
+    item = _item_de_pagina(user, _capitulo(sublibro, "her-1-c1"))
+    _etiquetar(libro, "concepto:caged")
+    _etiquetar(sublibro, "estilo:blues")
+
+    assert {"concepto:caged", "estilo:blues"} <= _nombres(item)
+
+
+def test_filtrar_por_la_etiqueta_del_libro_selecciona_el_elemento(db, user):
+    """Lo que el principal ve: pinchar `caged` en empezar trae lo del libro."""
+    from musica.models import LibroPage
+    from my_library.session import facetas_disponibles, filtrar_por_facetas
+
+    libro = _pagina("CAGED", "her-2", LibroPage)
+    dentro = _item_de_pagina(user, _capitulo(libro, "her-2-c1"))
+    fuera = _item_de_pagina(user, _pagina("Suelta", "her-2-s"), "suelta")
+    _etiquetar(libro, "concepto:caged")
+
+    items = list(LibraryItem.objects.filter(user=user))
+    assert dict(facetas_disponibles(items)["concepto"]) == {"caged": 1}
+    elegidos = filtrar_por_facetas(items, {"concepto": ["caged"]})
+    assert [i.pk for i in elegidos] == [dentro.pk]
+    assert fuera.pk not in [i.pk for i in elegidos]
+
+
+def test_la_herencia_se_para_en_el_libro(db, user):
+    """Por encima del libro no se hereda: si no, todo lo de la biblioteca
+    llevaría las etiquetas del índice. Falsador: una página etiquetada encima
+    del libro."""
+    from musica.models import LibroPage, ScorePage
+
+    encima = _pagina("Encima", "her-3", ScorePage)
+    libro = _hija(encima, LibroPage, "Libro", "her-3-l")
+    item = _item_de_pagina(user, _capitulo(libro, "her-3-c1"))
+    _etiquetar(encima, "estilo:rock")
+    _etiquetar(libro, "concepto:caged")
+
+    assert "concepto:caged" in _nombres(item)
+    assert "estilo:rock" not in _nombres(item)
+
+
+def test_sin_libro_solo_hereda_de_su_pagina(db, user):
+    """Un elemento suelto se queda como estaba: su página y nada más."""
+    from musica.models import ScorePage
+
+    padre = _pagina("Padre", "her-4", ScorePage)
+    pagina = _hija(padre, ScorePage, "Hija", "her-4-h")
+    item = _item_de_pagina(user, pagina)
+    _etiquetar(padre, "estilo:rock")
+    _etiquetar(pagina, "estilo:jazz")
+
+    assert _nombres(item) == {"estilo:jazz"}
+
+
+def test_el_libro_por_referencia_tambien_hereda(db, user):
+    """El capítulo vive en otro sitio del árbol: el libro llega por `libro`."""
+    from musica.models import LibroDeEstudioPage
+
+    capitulo = _capitulo(_pagina("Canciones", "her-5"), "her-5-c")
+    libro = _pagina(
+        "4º ESO", "her-5-l", LibroDeEstudioPage, capitulos=[("pagina", capitulo)]
+    )
+    _etiquetar(libro, "curso:4-eso")
+    item = _item_de_pagina(user, capitulo)
+    item.libro = libro
+    item.save()
+
+    assert "curso:4-eso" in _nombres(item)
+
+
+def test_la_misma_etiqueta_en_capitulo_y_libro_sale_una_vez(db, user):
+    from musica.models import LibroPage
+
+    libro = _pagina("CAGED", "her-6", LibroPage)
+    capitulo = _capitulo(libro, "her-6-c")
+    _etiquetar(libro, "concepto:caged")
+    _etiquetar(capitulo, "concepto:caged")
+    item = _item_de_pagina(user, capitulo)
+
+    nombres = [t.name for t in item.get_content_tags()]
+    assert nombres.count("concepto:caged") == 1
+
+
+def test_la_herencia_precargada_da_lo_mismo_que_sin_precargar(db, user):
+    from musica.models import LibroPage
+
+    libro = _pagina("CAGED", "her-7", LibroPage)
+    sublibro = _hija(libro, LibroPage, "Parte", "her-7-p")
+    _etiquetar(libro, "concepto:caged")
+    _item_de_pagina(user, _capitulo(sublibro, "her-7-c1"))
+    _item_de_pagina(user, _pagina("Suelta", "her-7-s"), "suelta")
+
+    sin = {i.pk: sorted(_nombres(i)) for i in LibraryItem.objects.filter(user=user)}
+    items = list(LibraryItem.objects.filter(user=user))
+    LibraryDeck.precargar_etiquetas_de_pagina(items)
+    con = {i.pk: sorted(_nombres(i)) for i in items}
+
+    assert sin == con
+    assert any("concepto:caged" in v for v in con.values())

@@ -64,29 +64,73 @@ class LibraryDeck(models.Model):
 
     @staticmethod
     def precargar_etiquetas_de_pagina(items):
-        """Carga en bloque las etiquetas facetadas de las páginas de origen.
+        """Carga en bloque las etiquetas que un elemento hereda de su libro.
 
-        `get_content_tags` sube a `source_page.specific` para leerlas, y eso son
-        unas 3 consultas por elemento: la página, su subclase concreta y sus
-        etiquetas. Medido sobre la biblioteca real: 51 elementos pasaban de 107
-        a 254 consultas y de 74 a 222 ms, y eso crece en línea recta — a 500
-        elementos serían más de dos segundos en la página con la que se arranca
-        cada sesión.
+        **Herencia hasta el libro** (petición del principal, 2026-10-01): un
+        elemento lleva las etiquetas de su página de origen y las de cada página
+        por encima de ella hasta el libro MÁS EXTERIOR — un `LibroPage` puede
+        colgar de otro, y etiquetar el libro grande tiene que llegar a todo lo
+        de dentro. Se para ahí: por encima del libro está el índice de la
+        biblioteca, y heredar de él sería etiquetar todo con todo. Un elemento
+        sin libro en su ascendencia hereda solo de su página, como antes.
 
-        Esto lo baja a dos consultas para toda la lista. Deja las etiquetas
-        colgadas de cada elemento en `_etiquetas_de_pagina`; sin precarga,
-        `get_content_tags` sigue funcionando igual, solo que consulta una a una.
+        Los libros por REFERENCIA no están en la ascendencia del capítulo —el
+        capítulo vive en otro sitio del árbol—, así que el libro se mira por
+        `item.libro`, que solo se guarda en esos.
+
+        Es lo que hace que `get_content_tags` no cueste una subida al árbol por
+        elemento: medido sobre la biblioteca real, 51 elementos pasaban de 74 a
+        222 ms sin precarga. Deja el resultado en `_etiquetas_de_pagina`, de la
+        más cercana a la más lejana.
         """
         from wagtail.models import Page
 
-        pks = {item.source_page_id for item in items if item.source_page_id}
-        por_pagina = {}
-        if pks:
-            for pagina in Page.objects.filter(pk__in=pks).specific():
-                if hasattr(pagina, "faceted_tags"):
-                    por_pagina[pagina.pk] = list(pagina.faceted_tags.all())
+        from musica.models import LibroPage
+
+        paso = Page.steplen
+        origenes = {
+            p.pk: p.path
+            for p in Page.objects.filter(
+                pk__in={i.source_page_id for i in items if i.source_page_id}
+            ).only("path")
+        }
+        de_referencia = {
+            i.libro_id for i in items if getattr(i, "libro_id", None)
+        }
+        caminos = {
+            path[:n] for path in origenes.values() for n in range(paso, len(path) + 1, paso)
+        }
+        paginas = list(
+            Page.objects.filter(
+                models.Q(path__in=caminos) | models.Q(pk__in=de_referencia)
+            ).specific()
+        )
+        por_path = {p.path: p for p in paginas}
+        etiquetas = {
+            p.pk: list(p.faceted_tags.all()) if hasattr(p, "faceted_tags") else []
+            for p in paginas
+        }
+
+        def cadena(path):
+            """Página de origen y, si cuelga de un libro, todo hasta el libro
+            más exterior. De la más cercana a la más lejana."""
+            subida = [
+                por_path[path[:n]]
+                for n in range(len(path), 0, -paso)
+                if path[:n] in por_path
+            ]
+            libros = [n for n, p in enumerate(subida) if isinstance(p, LibroPage)]
+            return subida[: libros[-1] + 1] if libros else subida[:1]
+
         for item in items:
-            item._etiquetas_de_pagina = por_pagina.get(item.source_page_id, [])
+            heredadas = []
+            path = origenes.get(item.source_page_id)
+            if path:
+                for pagina in cadena(path):
+                    heredadas += etiquetas[pagina.pk]
+            if getattr(item, "libro_id", None) in etiquetas:
+                heredadas += etiquetas[item.libro_id]
+            item._etiquetas_de_pagina = heredadas
 
     @staticmethod
     def build_tag_map(items_qs):
@@ -475,23 +519,21 @@ class LibraryItem(models.Model):
             # Reserva: etiquetas del propio LibraryItem (embeds y demás)
             propias = list(self.tags.all())
 
-        de_pagina = getattr(self, "_etiquetas_de_pagina", None)
-        if de_pagina is None:
-            # Sin precarga: se sube a la página una por una. Correcto pero caro;
-            # cualquier bucle sobre elementos debería llamar antes a
+        if getattr(self, "_etiquetas_de_pagina", None) is None:
+            # Sin precarga: la misma subida, para este elemento solo. Correcto
+            # pero caro; cualquier bucle sobre elementos debería llamar antes a
             # `precargar_etiquetas_de_pagina`.
-            de_pagina = []
-            if self.source_page_id and self.source_page:
-                specific = self.source_page.specific
-                if hasattr(specific, "faceted_tags"):
-                    de_pagina = list(specific.faceted_tags.all())
+            LibraryDeck.precargar_etiquetas_de_pagina([self])
+        de_pagina = self._etiquetas_de_pagina
 
+        # El capítulo y su libro pueden llevar la misma: sale una vez.
         vistas = {etiqueta.name.lower() for etiqueta in propias}
-        return propias + [
-            etiqueta
-            for etiqueta in de_pagina
-            if etiqueta.name.lower() not in vistas
-        ]
+        heredadas = []
+        for etiqueta in de_pagina:
+            if etiqueta.name.lower() not in vistas:
+                vistas.add(etiqueta.name.lower())
+                heredadas.append(etiqueta)
+        return propias + heredadas
 
     @property
     def songsterr_link(self):

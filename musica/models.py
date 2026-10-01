@@ -89,6 +89,18 @@ class RecursoPageTag(TaggedItemBase):
     )
 
 
+class LibroPageTag(TaggedItemBase):
+    content_object = ParentalKey(
+        "musica.LibroPage", on_delete=models.CASCADE, related_name="tagged_items"
+    )
+
+
+class LibroDeEstudioPageTag(TaggedItemBase):
+    content_object = ParentalKey(
+        "musica.LibroDeEstudioPage", on_delete=models.CASCADE, related_name="tagged_items"
+    )
+
+
 class AudioDictadoBlock(StructBlock):
     # Renombrado al partir la app: se llamaba `AudioBlock` igual que el de
     # partituras (mas abajo), que lo pisaba. Funcionaba solo porque DictadoPage
@@ -1570,10 +1582,21 @@ class LibroDeEstudioPage(Page):
         help_text="Solo el creador de la página puede verla.",
     )
 
+    faceted_tags = ClusterTaggableManager(
+        through="musica.LibroDeEstudioPageTag",
+        blank=True,
+        verbose_name="Etiquetas facetadas",
+        help_text=(
+            "Las heredan todos los elementos de la biblioteca que salen de este "
+            "libro: etiquetar aquí «concepto:caged» vale por etiquetar cada capítulo."
+        ),
+    )
+
     content_panels = Page.content_panels + [
         FieldPanel("intro"),
         FieldPanel("cover_image"),
         FieldPanel("capitulos"),
+        FieldPanel("faceted_tags", heading="Etiquetas facetadas"),
     ]
 
     settings_panels = Page.settings_panels + [
@@ -1695,9 +1718,20 @@ class LibroPage(Page):
         help_text="Solo el creador puede verlo. Los capítulos heredan la restricción.",
     )
 
+    faceted_tags = ClusterTaggableManager(
+        through="musica.LibroPageTag",
+        blank=True,
+        verbose_name="Etiquetas facetadas",
+        help_text=(
+            "Las heredan todos los elementos de la biblioteca que salen de este "
+            "libro: etiquetar aquí «concepto:caged» vale por etiquetar cada capítulo."
+        ),
+    )
+
     content_panels = Page.content_panels + [
         FieldPanel("intro"),
         FieldPanel("cover_image"),
+        FieldPanel("faceted_tags", heading="Etiquetas facetadas"),
     ]
 
     settings_panels = Page.settings_panels + [
