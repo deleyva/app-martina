@@ -4508,4 +4508,7 @@ Notas de otras asignaturas (botón ℹ de Final y CSV de Info) · «TODOS» en e
 
 Lo que encontró el navegador: el botón «Ver otras plantillas» quedó dentro del componente equivocado (una sustitución de texto casó con el primer `))}` del fichero) y la pantalla se quedaba en blanco con `escondidas is not defined`. Los 125 tests de Python pasaban porque no ejecutan el JSX. Arreglado y visto.
 
-`pytest calificaciones`: 125 passed. `bun test`: 23 pass. Sin desplegar.
+`pytest calificaciones`: 125 passed. `bun test`: 23 pass.
+
+- **2026-10-01, despliegue** («despliega»): push `f3e4da9..77c5903`, `just deploy-production`, sin migraciones. Producción en Chrome con la sesión de Jesús: `/calificaciones/grupo/13/?t=1` enseña solo «Plantilla de 4º ESO bilingüe» con teoría 15, sensorialidad 15, composición 10 y cuaderno 10, el texto «SB, NT, BI, SU o IN» y «Ver otras plantillas (2)» (captura vista, sin nombres); `registro.94116dea7f25.js`; consola sin errores. Los tres grupos de 3º ofrecen la de 3º; el de 4º, la de 4º.
+- **Encontrado al verificar:** `1-G-BIL` ya tiene plan (pk 4, «1-G-BIL · 1ª ev.»), creado entre los dos despliegues con la plantilla anterior: escala A·B·C·D y teoría 20 / cuaderno 5. **Sin ninguna nota ni evidencia.** Borrarlo es decisión de Jesús; preguntado.
