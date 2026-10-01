@@ -1,10 +1,20 @@
 from django.urls import path
+from django.views.generic import RedirectView
 from . import views
 
 app_name = "my_library"
 
 urlpatterns = [
-    path("", views.my_library_index, name="index"),
+    # La puerta de la biblioteca es «empezar a estudiar»: es el flujo que el
+    # principal usa (2026-10-01). La lista completa sigue en `todo/` con su
+    # nombre de siempre, así que «Mi biblioteca» y «Volver a biblioteca» no
+    # cambian de destino.
+    path(
+        "",
+        RedirectView.as_view(pattern_name="my_library:session_start", query_string=True),
+        name="inicio",
+    ),
+    path("todo/", views.my_library_index, name="index"),
     path("add/", views.add_to_library, name="add"),
     path("remove/<int:pk>/", views.remove_from_library, name="remove"),
     path("remove-by-content/", views.remove_by_content, name="remove_by_content"),

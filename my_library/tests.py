@@ -4122,3 +4122,14 @@ def test_por_referencia_tambien_reconoce_una_page_base(db, pdf):
     ])
 
     assert _por_referencia(Page.objects.get(pk=libro.pk))
+
+
+def test_la_biblioteca_abre_en_empezar_y_la_lista_sigue_en_todo(client, db, user):
+    client.force_login(user)
+
+    response = client.get("/my-library/")
+    assert response.status_code == 302
+    assert response.url == reverse("my_library:session_start")
+
+    assert reverse("my_library:index") == "/my-library/todo/"
+    assert client.get(reverse("my_library:index")).status_code == 200
