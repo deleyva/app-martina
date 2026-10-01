@@ -327,8 +327,8 @@ def plan_ajustes(request, plan_id):
     """La regla de los huecos, y pasar todo el plan a letras."""
     plan = _plan_del_profesor(request.user, plan_id)
     if "a_letras" in request.POST:
-        plan.pasar_a_letras(plantillas.ESCALA_AD)
-        messages.success(request, "Todos los instrumentos se califican ahora con A, B, C y D.")
+        plan.pasar_a_letras(plantillas.ESCALA)
+        messages.success(request, "Todos los instrumentos se califican ahora con SB, NT, BI, SU e IN.")
     else:
         plan.hueco_cuenta_cero = request.POST.get("hueco_cuenta_cero") == "on"
         plan.save(update_fields=["hueco_cuenta_cero"])
@@ -356,7 +356,7 @@ def instrumento_crear(request, plan_id):
         return redirect("calificaciones:plan", plan_id=plan.pk)
     if escala == Instrumento.ESCALA_OPCIONES and not opciones:
         # Una lista de opciones sin opciones: se le da la escala de letras del curso.
-        opciones = [dict(o) for o in plantillas.ESCALA_AD]
+        opciones = [dict(o) for o in plantillas.ESCALA]
     Instrumento.objects.create(
         plan=plan,
         nombre=nombre,

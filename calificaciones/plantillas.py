@@ -26,26 +26,32 @@ from django.db import transaction
 
 from .models import Instrumento, MarcoEvaluacion, Plan, Reparto
 
-# La escala del curso 26-27 (decisión de Jesús, 2026-09-29): se califica con
-# letra. El valor es la nota 0-10 con la que entra en el cálculo.
-ESCALA_AD = [
-    {"etiqueta": "A", "valor": 10},
-    {"etiqueta": "B", "valor": 8},
-    {"etiqueta": "C", "valor": 6},
-    {"etiqueta": "D", "valor": 4},
+# La escala del curso 26-27 (decisión de Jesús, 2026-10-01): cada celda se
+# califica con la calificación de siempre, SB · NT · BI · SU · IN. El valor es
+# la nota 0-10 con la que entra en el cálculo, y está en el centro de su tramo
+# (IN hasta 4,9 · SU 5-5,9 · BI 6-6,9 · NT 7-8,9 · SB 9-10): quien saca siempre
+# la misma letra recibe esa misma letra de media, y las mezclas caen en la de
+# arriba. El IN vale 4, no 2,5: un mal día no hunde el trimestre, y una celda
+# vacía ya cuenta 0. Antes (2026-09-29) fue A 10 · B 8 · C 6 · D 4.
+ESCALA = [
+    {"etiqueta": "SB", "valor": 9.5},
+    {"etiqueta": "NT", "valor": 8},
+    {"etiqueta": "BI", "valor": 6.5},
+    {"etiqueta": "SU", "valor": 5.5},
+    {"etiqueta": "IN", "valor": 4},
 ]
 
 # Los nueve instrumentos. (nombre, abreviatura, escala, opciones)
 INSTRUMENTOS = [
-    ("Teoría", "Teoría", "opciones", ESCALA_AD),
-    ("Sensorialidad", "Sensor.", "opciones", ESCALA_AD),
-    ("Dictado rítmico", "D. rít.", "opciones", ESCALA_AD),
-    ("Dictado melódico", "D. mel.", "opciones", ESCALA_AD),
-    ("Lectura rítmica", "L. rít.", "opciones", ESCALA_AD),
-    ("Lectura melódica", "L. mel.", "opciones", ESCALA_AD),
-    ("Interpretación instrumental", "Interp.", "opciones", ESCALA_AD),
-    ("Composición / trabajo", "Compos.", "opciones", ESCALA_AD),
-    ("Cuaderno", "Cuad.", "opciones", ESCALA_AD),
+    ("Teoría", "Teoría", "opciones", ESCALA),
+    ("Sensorialidad", "Sensor.", "opciones", ESCALA),
+    ("Dictado rítmico", "D. rít.", "opciones", ESCALA),
+    ("Dictado melódico", "D. mel.", "opciones", ESCALA),
+    ("Lectura rítmica", "L. rít.", "opciones", ESCALA),
+    ("Lectura melódica", "L. mel.", "opciones", ESCALA),
+    ("Interpretación instrumental", "Interp.", "opciones", ESCALA),
+    ("Composición / trabajo", "Compos.", "opciones", ESCALA),
+    ("Cuaderno", "Cuad.", "opciones", ESCALA),
 ]
 
 # Reparto de partida. Cada instrumento: {criterio: porcentaje}. Cada
@@ -62,28 +68,31 @@ REPARTO_3ESO = {
     "Cuaderno": {"4.2": 10},
 }
 # 1º: 1.1 15 · 1.2 15 · 1.3 10 · 2.1 5 · 2.2 5 · 3.1 15 · 3.2 15 · 3.3 10 · 4.1 5 · 4.2 5
+# Teoría 15 y cuaderno 10 como en 3º (Jesús, 2026-10-01); para que cuadre con
+# esta programación, sensorialidad sube a 15 y composición baja a 10.
 REPARTO_1ESO = {
-    "Teoría": {"1.2": 15, "1.3": 5},
-    "Sensorialidad": {"1.1": 5, "1.3": 5},
+    "Teoría": {"1.2": 10, "1.3": 5},
+    "Sensorialidad": {"1.1": 5, "1.2": 5, "1.3": 5},
     "Dictado rítmico": {"1.1": 5, "3.1": 5},
     "Dictado melódico": {"1.1": 5, "3.1": 5},
     "Lectura rítmica": {"3.1": 5, "3.2": 5},
     "Lectura melódica": {"3.2": 5, "3.3": 5},
     "Interpretación instrumental": {"3.2": 5, "3.3": 5},
-    "Composición / trabajo": {"2.1": 5, "2.2": 5, "4.1": 5},
-    "Cuaderno": {"4.2": 5},
+    "Composición / trabajo": {"2.1": 5, "2.2": 5},
+    "Cuaderno": {"4.1": 5, "4.2": 5},
 }
 # 4º: 1.1 30 · 1.2 10 · 2.1 5 · 2.2 5 · 3.1 20 · 3.2 10 · 3.3 10 · 4.1 5 · 4.2 5
+# Misma decisión que en 1º: teoría 15, cuaderno 10, sensorialidad 15, composición 10.
 REPARTO_4ESO = {
-    "Teoría": {"1.1": 10, "1.2": 10},
-    "Sensorialidad": {"1.1": 10},
+    "Teoría": {"1.1": 5, "1.2": 10},
+    "Sensorialidad": {"1.1": 15},
     "Dictado rítmico": {"1.1": 5, "3.1": 5},
     "Dictado melódico": {"1.1": 5, "3.1": 5},
     "Lectura rítmica": {"3.1": 5, "3.2": 5},
     "Lectura melódica": {"3.1": 5, "3.3": 5},
     "Interpretación instrumental": {"3.2": 5, "3.3": 5},
-    "Composición / trabajo": {"2.1": 5, "2.2": 5, "4.1": 5},
-    "Cuaderno": {"4.2": 5},
+    "Composición / trabajo": {"2.1": 5, "2.2": 5},
+    "Cuaderno": {"4.1": 5, "4.2": 5},
 }
 
 
@@ -189,6 +198,9 @@ def opciones_para_empezar(group, trimestre: int) -> dict:
             {
                 "plantilla": plantilla,
                 "resumen": plantilla.resumen(),
+                # `encaja`: es la de su nivel. `recomendada`: además no hay una
+                # evaluación anterior que seguir, que manda sobre la plantilla.
+                "encaja": plantilla.encaja_con(group) >= 2,
                 "recomendada": plantilla.encaja_con(group) >= 2,
             }
         )

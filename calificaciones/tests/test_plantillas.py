@@ -29,6 +29,16 @@ def _adoptar(client, group, trimestre, **datos):
 
 
 @pytest.mark.django_db
+def test_teoria_15_y_cuaderno_10_en_los_tres_niveles(marcos):
+    """Decisión de Jesús (2026-10-01): los mismos porcentajes que le gustan de 3º, en todos."""
+    for plantilla in plantillas.PLANTILLAS:
+        pesos = {r["nombre"]: r["peso"] for r in plantilla.resumen()}
+        assert pesos["Teoría"] == 15, plantilla.clave
+        assert pesos["Cuaderno"] == 10, plantilla.clave
+        assert sum(pesos.values()) == 100, plantilla.clave
+
+
+@pytest.mark.django_db
 def test_hay_una_plantilla_por_marco_y_todas_cuadran(marcos):
     assert {(p.nivel, p.modalidad) for p in plantillas.PLANTILLAS} == set(marcos)
     for plantilla in plantillas.PLANTILLAS:
@@ -109,6 +119,7 @@ def test_la_pantalla_sin_plan_ensena_lo_que_trae_cada_plantilla(client, profesor
     ofrecidas = empezar["plantillas"]
     assert [o["clave"] for o in ofrecidas][0] == "3eso"  # «3º ESO T», en castellano
     assert [o["recomendada"] for o in ofrecidas] == [True, False, False]
+    assert [o["encaja"] for o in ofrecidas] == [True, False, False]
     assert ofrecidas[0]["nombre"] == "3º ESO"
     resumen = {r["nombre"]: r["peso"] for r in ofrecidas[0]["resumen"]}
     assert resumen["Sensorialidad"] == "10"
@@ -152,7 +163,8 @@ def test_la_siguiente_evaluacion_ofrece_seguir_con_lo_mismo(client, profesor, gr
     assert empezar["anterior"]["trimestre"] == 1
     assert {"nombre": "Lectura rítmica", "peso": "20"} in empezar["anterior"]["resumen"]
     # Habiendo una evaluación anterior, la recomendada es seguir con lo mismo.
-    assert not any(o["recomendada"] for o in empezar["plantillas"])
+    # (El marco de la fixture tiene cuatro criterios: ninguna plantilla cuadra con él.)
+    assert empezar["plantillas"] == []
 
     assert _adoptar(client, group, 2, copiar_de=plan.pk).status_code == 302
     segundo = Plan.para_grupo(group, 2)

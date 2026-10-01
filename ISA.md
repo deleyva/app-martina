@@ -4492,3 +4492,20 @@ Notas de otras asignaturas (botón ℹ de Final y CSV de Info) · «TODOS» en e
 - **Producción, en Chrome con la sesión de Jesús:** la portada lista sus siete grupos, enlaza a `/calificaciones/grupo/<id>/?t=N` y ya no dice «Modo clase». `/calificaciones/grupo/11/?t=1` sirve la pantalla nueva (`registro.578b2b266488.js`, `output.816bb332058e.css`), con la barra y las cinco pestañas a 10 px y sin errores en consola (captura vista, de la pantalla de elegir instrumentos, que no lleva nombres). `/media/calificaciones/x.jpg` → 404.
 - **La migración 0002 no ha cambiado ninguna cifra:** ninguno de los cinco grupos de clase tenía plan ni notas en producción. Los cinco ven la pantalla de elegir instrumentos, cada uno con la plantilla de su nivel como recomendada (3º ESO para 3-FH, 3-C-BIL y 3-EG-BIL; 1º bilingüe para 1-G-BIL; 4º bilingüe para 4-AC-BIL).
 - Visto de paso: los dos grupos de 3º bilingüe reciben la plantilla de 3º ESO, porque no hay marco de 3º bilingüe cargado. Si su programación pesa distinto, hace falta ese marco.
+
+### Fase 60·1 — La escala pasa a SB · NT · BI · SU · IN y una sola plantilla por grupo (2026-10-01)
+
+**Jesús:** «quiero cambiar el sistema de calificación. En vez de letras A, B, C, D, quiero poner SB, NT, BI, SU e IN […] dame opciones y explícame hacia dónde tendería en las notas» y «quiero que me propongas solo la plantilla de tercero de la ESO, es decir, solo una plantilla. Me gusta más que el cuaderno cuente 10% y la teoría 15%».
+
+**Decidido con él, por pregunta directa:**
+
+- **Valores: SB 9,5 · NT 8 · BI 6,5 · SU 5,5 · IN 4.** El centro de cada tramo: quien saca siempre la misma letra recibe esa letra de media; las mezclas de dos letras vecinas caen en la de arriba. El IN vale 4 y no 2,5 para que un mal día no hunda el trimestre, dado que una celda vacía ya cuenta 0. Descartadas: «exigente» (cada letra en el mínimo de su tramo: toda mezcla cae a la letra de abajo), «generosa» (casi el máximo: mitad SB y mitad NT es SB) y los escalones iguales de ABCD (SU valdría 4, insuficiente en número).
+- **Una sola plantilla por grupo, la de su nivel**; las demás, detrás de «Ver otras plantillas». Teoría 15 y cuaderno 10 en los tres niveles. En 1º y 4º eso obliga, para cuadrar con su programación, a sensorialidad 15 y composición 10.
+
+- [x] **C357** — Las tres plantillas nacen en SB·NT·BI·SU·IN con esos valores, y en las tres teoría pesa 15 y cuaderno 10. *Evidencia: `test_las_plantillas_nacen_con_la_escala_cualitativa`, `test_teoria_15_y_cuaderno_10_en_los_tres_niveles`, `test_hay_una_plantilla_por_marco_y_todas_cuadran`.*
+- [x] **C358** — Se teclea la calificación: una letra basta salvo con la S, que necesita la segunda. *Evidencia: `entrada.test.js` (n→NT, b→BI, i→IN, s→no vale, sb/su); en Chrome, local: sb, nt, b, su, i dejan SB verde, NT azul, BI y SU amarillo, IN rojo; «s» sola, anillo rojo con «Opciones: SB, NT, BI, SU, IN» (captura vista).*
+- [x] **C359** — Un grupo sin plan ve una sola plantilla, la de su nivel, y «Ver otras plantillas (2)». *Evidencia: Chrome, local, grupo 20, 2ª evaluación (captura vista). `encaja` en el estado: `test_la_pantalla_sin_plan_ensena_lo_que_trae_cada_plantilla`.*
+
+Lo que encontró el navegador: el botón «Ver otras plantillas» quedó dentro del componente equivocado (una sustitución de texto casó con el primer `))}` del fichero) y la pantalla se quedaba en blanco con `escondidas is not defined`. Los 125 tests de Python pasaban porque no ejecutan el JSX. Arreglado y visto.
+
+`pytest calificaciones`: 125 passed. `bun test`: 23 pass. Sin desplegar.

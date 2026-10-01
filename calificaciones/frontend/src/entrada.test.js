@@ -60,6 +60,27 @@ test('los acentos no cuentan', () => {
   expect(resolverEntrada('É', CON_ACENTO).opcion.valor).toBe('5');
 });
 
+const CUALITATIVA = [
+  { etiqueta: 'SB', valor: '9.5' },
+  { etiqueta: 'NT', valor: '8' },
+  { etiqueta: 'BI', valor: '6.5' },
+  { etiqueta: 'SU', valor: '5.5' },
+  { etiqueta: 'IN', valor: '4' },
+];
+
+test('con SB·NT·BI·SU·IN, la primera letra basta salvo con la S', () => {
+  expect(resolverEntrada('n', CUALITATIVA).opcion.etiqueta).toBe('NT');
+  expect(resolverEntrada('b', CUALITATIVA).opcion.etiqueta).toBe('BI');
+  expect(resolverEntrada('i', CUALITATIVA).opcion.etiqueta).toBe('IN');
+  expect(resolverEntrada('s', CUALITATIVA)).toEqual({ tipo: 'invalido' }); // SB o SU
+  expect(resolverEntrada('sb', CUALITATIVA).opcion.etiqueta).toBe('SB');
+  expect(resolverEntrada('su', CUALITATIVA).opcion.etiqueta).toBe('SU');
+  expect(resolverEntrada('nt', CUALITATIVA).opcion.etiqueta).toBe('NT');
+  expect(resolverEntrada('9.5', CUALITATIVA).opcion.etiqueta).toBe('SB');
+  expect(resolverEntrada('a', CUALITATIVA)).toEqual({ tipo: 'invalido' });
+  expect(esDeUnaTecla(CUALITATIVA)).toBe(false);
+});
+
 test('una tecla es una nota entera solo si todas las etiquetas son de un carácter', () => {
   expect(esDeUnaTecla(AD)).toBe(true);
   expect(esDeUnaTecla(CUADERNO)).toBe(false);

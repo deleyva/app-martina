@@ -39,16 +39,17 @@ def _guardar(client, group, prueba, alumno, valor):
 
 
 @pytest.mark.django_db
-def test_las_plantillas_nacen_con_escala_ad(marcos, group):
+def test_las_plantillas_nacen_con_la_escala_cualitativa(marcos, group):
     for plantilla in plantillas.PLANTILLAS:
         plan = plantilla.crear_plan(plantilla.marco_de(group), 1, plantilla.clave)
         for instrumento in plan.instrumentos.all():
             assert instrumento.escala == Instrumento.ESCALA_OPCIONES, instrumento.nombre
             assert [(o["etiqueta"], o["valor"]) for o in instrumento.opciones_normalizadas()] == [
-                ("A", D(10)),
-                ("B", D(8)),
-                ("C", D(6)),
-                ("D", D(4)),
+                ("SB", D("9.5")),
+                ("NT", D(8)),
+                ("BI", D("6.5")),
+                ("SU", D("5.5")),
+                ("IN", D(4)),
             ]
 
 
@@ -59,8 +60,8 @@ def test_los_instrumentos_de_una_plantilla_no_comparten_la_lista(marcos, group):
     primero = plan.instrumentos.first()
     primero.opciones[0]["valor"] = 9
     primero.save()
-    assert plantillas.ESCALA_AD[0]["valor"] == 10
-    assert plan.instrumentos.last().opciones[0]["valor"] == 10
+    assert plantillas.ESCALA[0]["valor"] == 9.5
+    assert plan.instrumentos.last().opciones[0]["valor"] == 9.5
 
 
 @pytest.mark.django_db
@@ -68,7 +69,7 @@ def test_letra_que_no_es_opcion_da_400(client, group, alumnos, plan_letras):
     teoria = Prueba.objects.get(instrumento__plan=plan_letras, instrumento__nombre="Teoría")
     r = _guardar(client, group, teoria, alumnos[0], "7")
     assert r.status_code == 400
-    assert "A, B, C, D" in r.json()["error"]
+    assert "SB, NT, BI, SU, IN" in r.json()["error"]
     assert not Nota.objects.filter(valor__isnull=False).exists()
     assert not CambioNota.objects.exists()
 
@@ -78,9 +79,9 @@ def test_una_letra_se_guarda_como_su_valor_y_se_lee_como_letra(client, group, al
     teoria = Prueba.objects.get(instrumento__plan=plan_letras, instrumento__nombre="Teoría")
     r = _guardar(client, group, teoria, alumnos[0], "8")
     assert r.status_code == 200
-    assert r.json()["etiqueta"] == "B"
+    assert r.json()["etiqueta"] == "NT"
     celda = r.json()["alumno"]["trimestres"]["1"]["notas"][str(teoria.pk)]
-    assert celda == {"valor": "8", "etiqueta": "B"}
+    assert celda == {"valor": "8", "etiqueta": "NT"}
     assert Nota.objects.get(prueba=teoria, alumno=alumnos[0]).valor == D(8)
     # Teoría pesa 15 de 100 en 3º y lo demás está vacío: 8 · 0,15 = 1,2.
     assert r.json()["alumno"]["trimestres"]["1"]["nota"] == "1.2"
@@ -93,10 +94,10 @@ def test_una_letra_se_guarda_como_su_valor_y_se_lee_como_letra(client, group, al
 def test_una_nota_antigua_que_no_es_opcion_se_lee_como_numero(profesor, alumnos, plan):
     teoria = Instrumento.objects.get(plan=plan, nombre="Teoría")
     Nota.poner(teoria.pruebas.get(), alumnos[0], D(7), profesor)
-    plan.pasar_a_letras(plantillas.ESCALA_AD)
+    plan.pasar_a_letras(plantillas.ESCALA)
     teoria.refresh_from_db()
     assert teoria.etiqueta_de(D(7)) == "7"
-    assert teoria.etiqueta_de(D(8)) == "B"
+    assert teoria.etiqueta_de(D(8)) == "NT"
     assert plan.resultado_de(alumnos[0]).instrumentos[teoria.pk] == D(7)
 
 
@@ -131,20 +132,21 @@ def test_una_fila_entera_en_un_viaje_o_todo_o_nada(client, group, alumnos, plan_
     url = reverse("calificaciones:nota_guardar", args=[group.pk])
     r = client.post(
         url,
-        {"alumno": alumnos[0].pk, "prueba": [p.pk for p in pruebas], "valor": ["10", "8", "10", "10", "6", "8", "10", "8", "10"]},
+        {"alumno": alumnos[0].pk, "prueba": [p.pk for p in pruebas], "valor": ["9.5", "8", "9.5", "9.5", "6.5", "8", "9.5", "8", "9.5"]},
     )
     assert r.status_code == 200
-    # 15·10 + 10·8 + 10·10 + 10·10 + 10·6 + 10·8 + 10·10 + 15·8 + 10·10 = 890
-    assert r.json()["alumno"]["trimestres"]["1"]["nota"] == "8.9"
+    # 15·9,5 + 10·8 + 10·9,5 + 10·9,5 + 10·6,5 + 10·8 + 10·9,5 + 15·8 + 10·9,5 = 867,5 → 8,675 → 8,7
+    assert r.json()["alumno"]["trimestres"]["1"]["nota"] == "8.7"
+    assert r.json()["alumno"]["trimestres"]["1"]["nota2"] == "8.68"
     assert Nota.objects.filter(alumno=alumnos[0], valor__isnull=False).count() == 9
     assert CambioNota.objects.count() == 9
 
     # Una que no vale en medio: no se guarda ninguna.
-    r = client.post(url, {"alumno": alumnos[1].pk, "prueba": [p.pk for p in pruebas[:3]], "valor": ["10", "7", "8"]})
+    r = client.post(url, {"alumno": alumnos[1].pk, "prueba": [p.pk for p in pruebas[:3]], "valor": ["9.5", "7", "8"]})
     assert r.status_code == 400
     assert not Nota.objects.filter(alumno=alumnos[1]).exists()
     # Y si las listas no casan, tampoco.
-    assert client.post(url, {"alumno": alumnos[1].pk, "prueba": [pruebas[0].pk], "valor": ["10", "8"]}).status_code == 400
+    assert client.post(url, {"alumno": alumnos[1].pk, "prueba": [pruebas[0].pk], "valor": ["9.5", "8"]}).status_code == 400
     assert client.post(url, {"alumno": alumnos[1].pk}).status_code == 400
 
 
@@ -154,10 +156,10 @@ def test_una_fila_entera_en_un_viaje_o_todo_o_nada(client, group, alumnos, plan_
 @pytest.mark.django_db
 def test_guardar_devuelve_el_mismo_bloque_que_estado(client, profesor, group, alumnos, plan_letras):
     pruebas = list(Prueba.objects.filter(instrumento__plan=plan_letras).order_by("pk"))
-    for prueba, valor in zip(pruebas, ["10", "8", "6", "4", "10", "8"]):
+    for prueba, valor in zip(pruebas, ["9.5", "8", "6.5", "5.5", "9.5", "8"]):
         r = _guardar(client, group, prueba, alumnos[0], valor)
     NotaManual.objects.create(group=group, alumno=alumnos[0], ambito="1", calificacion="NT")
-    r = _guardar(client, group, pruebas[6], alumnos[0], "6")
+    r = _guardar(client, group, pruebas[6], alumnos[0], "4")
     leido = client.get(reverse("calificaciones:estado", args=[group.pk])).json()
     del_estado = next(a for a in leido["alumnos"] if a["id"] == alumnos[0].pk)
     assert r.json()["alumno"] == del_estado
@@ -168,7 +170,7 @@ def test_guardar_devuelve_el_mismo_bloque_que_estado(client, profesor, group, al
 @pytest.mark.django_db
 def test_los_numeros_del_estado_son_los_del_csv(client, profesor, group, alumnos, plan_letras):
     pruebas = list(Prueba.objects.filter(instrumento__plan=plan_letras).order_by("pk"))
-    for alumno, valores in zip(alumnos, [["10", "8", "6"], ["4"], []]):
+    for alumno, valores in zip(alumnos, [["9.5", "8", "6.5"], ["4"], []]):
         for prueba, valor in zip(pruebas, valores):
             _guardar(client, group, prueba, alumno, valor)
     leido = client.get(reverse("calificaciones:estado", args=[group.pk])).json()
@@ -191,6 +193,7 @@ def test_el_estado_trae_columnas_competencias_y_curso(client, profesor, group, a
     assert {c["tipo"] for c in primero["columnas"]} == {"opciones"}
     assert [c["codigo"] for c in primero["competencias"]] == ["CE.MU.1", "CE.MU.2", "CE.MU.3", "CE.MU.4"]
     assert [c["peso"] for c in primero["competencias"]] == ["30", "20", "30", "20"]
+    assert [p["encaja"] for p in leido["trimestres"]["2"]["empezar"]["plantillas"]] == [True, False, False]
     assert sum(D(c["peso"]) for c in primero["competencias"]) == D(100)
     assert primero["plan"]["cuadra"] is True
     # La 2ª no tiene plan: ofrece seguir con lo de la 1ª y las plantillas.
@@ -267,10 +270,10 @@ def test_estado_exige_profesor_del_grupo(client, otro_profesor, otro_group, grou
 @pytest.mark.django_db
 def test_historial_en_letras_y_deshacer_por_json(client, group, alumnos, plan_letras):
     teoria = Prueba.objects.get(instrumento__plan=plan_letras, instrumento__nombre="Teoría")
-    _guardar(client, group, teoria, alumnos[0], "10")
-    _guardar(client, group, teoria, alumnos[0], "6")
+    _guardar(client, group, teoria, alumnos[0], "9.5")
+    _guardar(client, group, teoria, alumnos[0], "6.5")
     cambios = client.get(reverse("calificaciones:historial_json", args=[group.pk])).json()["cambios"]
-    assert [(c["antes"], c["despues"]) for c in cambios] == [("A", "C"), ("", "A")]
+    assert [(c["antes"], c["despues"]) for c in cambios] == [("SB", "BI"), ("", "SB")]
     assert cambios[0]["trimestre"] == 1
     assert cambios[0]["columna"] == "Teoría"
 
@@ -280,9 +283,9 @@ def test_historial_en_letras_y_deshacer_por_json(client, group, alumnos, plan_le
         HTTP_X_REQUESTED_WITH="XMLHttpRequest",
     )
     assert r.status_code == 200
-    assert r.json()["alumno"]["trimestres"]["1"]["notas"][str(teoria.pk)]["etiqueta"] == "A"
+    assert r.json()["alumno"]["trimestres"]["1"]["notas"][str(teoria.pk)]["etiqueta"] == "SB"
     cambios = client.get(reverse("calificaciones:historial_json", args=[group.pk])).json()["cambios"]
-    assert [(c["antes"], c["despues"], c["es_deshacer"]) for c in cambios][0] == ("C", "A", True)
+    assert [(c["antes"], c["despues"], c["es_deshacer"]) for c in cambios][0] == ("BI", "SB", True)
 
 
 # ----- la página ------------------------------------------------------------------------------
@@ -354,5 +357,5 @@ def test_el_plan_deja_cambiar_la_regla_y_pasar_a_letras(client, profesor, group,
     assert "{#" not in html
     assert "Una celda vacía cuenta como 0" in html
     assert 'name="hueco_cuenta_cero" class="checkbox checkbox-sm" checked' in html
-    assert "Calificar todo con A · B · C · D" in html
+    assert "Calificar todo con SB · NT · BI · SU · IN" in html
     assert f"/calificaciones/grupo/{group.pk}/?t=1#info" in html

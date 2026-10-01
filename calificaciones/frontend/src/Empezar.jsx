@@ -22,6 +22,13 @@ function Resumen({ filas }) {
 
 export default function Empezar({ trimestre, opciones, grupo, onHecho, onError }) {
   const [enviando, setEnviando] = useState(false);
+  const [todas, setTodas] = useState(false);
+
+  // Solo la plantilla de su nivel. Las demás quedan a un clic, por si el
+  // nombre del grupo no dice de qué nivel es.
+  const delNivel = opciones.plantillas.filter((p) => p.encaja);
+  const visibles = todas || delNivel.length === 0 ? opciones.plantillas : delNivel;
+  const escondidas = opciones.plantillas.length - visibles.length;
 
   const elegir = (campos) => {
     setEnviando(true);
@@ -78,7 +85,7 @@ export default function Empezar({ trimestre, opciones, grupo, onHecho, onError }
         </div>
       )}
 
-      {opciones.plantillas.map((p) => (
+      {visibles.map((p) => (
         <div
           key={p.clave}
           className={`bg-white rounded-2xl border shadow-sm overflow-hidden ${p.recomendada ? 'border-indigo-300' : 'border-slate-200'}`}
@@ -92,7 +99,7 @@ export default function Empezar({ trimestre, opciones, grupo, onHecho, onError }
           <div className="p-4 space-y-3">
             <Resumen filas={p.resumen} />
             <div className="flex items-center justify-between gap-3">
-              <p className="text-[11px] text-slate-400">Se califica con letra: A, B, C o D.</p>
+              <p className="text-[11px] text-slate-400">Cada celda se califica con SB, NT, BI, SU o IN.</p>
               <button
                 disabled={enviando}
                 onClick={() => elegir({ plantilla: p.clave })}
@@ -108,6 +115,15 @@ export default function Empezar({ trimestre, opciones, grupo, onHecho, onError }
           </div>
         </div>
       ))}
+
+      {escondidas > 0 && (
+        <button
+          onClick={() => setTodas(true)}
+          className="text-[11px] font-bold text-slate-400 hover:text-indigo-600 transition-colors px-1"
+        >
+          Ver otras plantillas ({escondidas})
+        </button>
+      )}
     </div>
   );
 }

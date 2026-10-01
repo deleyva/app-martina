@@ -157,6 +157,7 @@ def _empezar(group, trimestre: int) -> dict:
                 {
                     "clave": o["plantilla"].clave,
                     "nombre": o["plantilla"].nombre,
+                    "encaja": o["encaja"],
                     "recomendada": o["recomendada"] and anterior is None,
                     "resumen": resumen(o["resumen"]),
                 }
