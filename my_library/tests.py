@@ -4362,3 +4362,49 @@ def test_todo_lo_pendiente_ignora_los_chips_marcados(client, db, user):
     pks = {int(p) for p in respuesta.url.split("items=")[1].split("&")[0].split(",")}
     assert pks == {guitarra.pk, piano.pk}
     assert "instrumento" not in respuesta.url, "se vuelve sin el filtro que no se usó"
+
+
+# === Consultas que no crecen con la biblioteca (2026-10-02) ===
+
+
+def _consultas_de(client, url, datos=None):
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    with CaptureQueriesContext(connection) as capturadas:
+        respuesta = client.get(url, datos or {})
+    assert respuesta.status_code == 200
+    return len(capturadas)
+
+
+def test_empezar_no_hace_una_consulta_por_elemento(client, db, user):
+    """Las facetas, el filtro y la vista previa leían el contenido, sus
+    etiquetas, sus secciones y su último repaso de uno en uno: 269 consultas
+    con 54 elementos. Con el doble de elementos tiene que costar lo mismo."""
+    from my_library.models import ReviewLog
+
+    def anadir(n, desde):
+        for i in range(desde, desde + n):
+            item = _item(user, f"g-{i}", tags=["instrumento:guitarra"])
+            ReviewLog.log(item, source=ReviewLog.SOURCE_STUDY)
+
+    anadir(4, 0)
+    client.force_login(user)
+    url_empezar = reverse("my_library:session_start")
+    url_recuento = reverse("my_library:session_count")
+    filtro = {"instrumento": "guitarra"}
+    _consultas_de(client, url_empezar, filtro)  # calienta cachés de primera vez
+    pocos = (
+        _consultas_de(client, url_empezar),
+        _consultas_de(client, url_empezar, filtro),
+        _consultas_de(client, url_recuento, filtro),
+    )
+
+    anadir(8, 4)
+    muchos = (
+        _consultas_de(client, url_empezar),
+        _consultas_de(client, url_empezar, filtro),
+        _consultas_de(client, url_recuento, filtro),
+    )
+
+    assert muchos == pocos, f"con 4 elementos {pocos}, con 12 {muchos}"

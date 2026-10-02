@@ -26,6 +26,7 @@ from .session import (
     sellar_novedad,
     facetas_disponibles,
     filtrar_por_facetas,
+    precargar_dias_desde_repaso,
 )
 
 
@@ -831,9 +832,10 @@ def _items_del_usuario(user):
     notas— pero el principal dijo que no se los ofrezcan más. Se siguen viendo
     en el índice de la biblioteca, así que un descarte es recuperable.
     """
+    # `sections`: montar la sesión mira las secciones de cada elemento.
     return LibraryItem.objects.filter(user=user, descartado=False).select_related(
         "content_type", "source_page"
-    ).prefetch_related("tags")
+    ).prefetch_related("tags", "sections")
 
 
 def _objetivos_de(request):
@@ -1005,6 +1007,7 @@ def _resumen_seleccion(
             incluir_nuevos=incluir_nuevos,
         )
     )
+    precargar_dias_desde_repaso(sesion)
     return {
         "coincidencias": len(coincidencias),
         "sesion": sesion,

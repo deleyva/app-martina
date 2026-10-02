@@ -99,6 +99,44 @@ def unidades_de_practica(items):
     return unidades
 
 
+def precargar_dias_desde_repaso(unidades):
+    """Deja calculado `days_since_last_review` en bloque, para pintar la lista.
+
+    Misma regla que la propiedad, no la de `_dias_sin_practicar`: cualquier
+    origen de repaso, y para un elemento solo los repasos del elemento entero.
+    La plantilla de la vista previa la pregunta hasta tres veces por fila; sin
+    esto eran 39 consultas para 15 filas (2026-10-02).
+    """
+    from django.db.models import Max
+    from django.utils import timezone
+
+    from .models import ItemSection, ReviewLog
+
+    ahora = timezone.now()
+    guardadas = [u for u in unidades if (u.pk or 0) > 0]
+    items = [u for u in guardadas if not isinstance(u, ItemSection)]
+    secciones = [u for u in guardadas if isinstance(u, ItemSection)]
+    ultimos = {}
+    if items:
+        for fila in (
+            ReviewLog.objects.filter(item__in=items, section__isnull=True)
+            .values("item")
+            .annotate(ultimo=Max("reviewed_at"))
+        ):
+            ultimos[("item", fila["item"])] = fila["ultimo"]
+    if secciones:
+        for fila in (
+            ReviewLog.objects.filter(section__in=secciones)
+            .values("section")
+            .annotate(ultimo=Max("reviewed_at"))
+        ):
+            ultimos[("seccion", fila["section"])] = fila["ultimo"]
+    for u in guardadas:
+        clave = ("seccion" if isinstance(u, ItemSection) else "item", u.pk)
+        ultimo = ultimos.get(clave)
+        u._dias_desde_repaso = (ahora - ultimo).days if ultimo else None
+
+
 def _dias_sin_practicar(unidades):
     """{clave: días} en dos consultas, en vez de una por unidad.
 
@@ -212,12 +250,12 @@ def facetas_disponibles(items):
     de FACETAS_DE_FILTRO: filtrar por `evaluacion` o `tema` no tiene sentido
     para practicar.
     """
-    # Sin esto son ~3 consultas por elemento subiendo a la página de origen:
-    # 51 elementos pasaban de 74 a 222 ms, y crece en línea recta.
+    # Sin esto son varias consultas por elemento: el contenido, sus etiquetas
+    # y la subida a la página de origen. Crece en línea recta con la biblioteca.
     from my_library.models import LibraryDeck
 
     items = list(items)
-    LibraryDeck.precargar_etiquetas_de_pagina(items)
+    LibraryDeck.precargar_etiquetas(items)
 
     cuentas = {}
     for item in items:
@@ -249,6 +287,10 @@ def filtrar_por_facetas(items, seleccion):
     if not seleccion:
         return list(items)
 
+    from my_library.models import LibraryDeck
+
+    items = list(items)
+    LibraryDeck.precargar_etiquetas(items)
     resultado = []
     for item in items:
         del_item = facets.por_faceta(_etiquetas(item))

@@ -63,6 +63,48 @@ class LibraryDeck(models.Model):
         return [pk for pk, item_tags in tag_map.items() if all(t in item_tags for t in tags)]
 
     @staticmethod
+    def precargar_etiquetas(items):
+        """Todo lo que lee `get_content_tags`, en bloque y no elemento a elemento.
+
+        Tres cosas que antes costaban una consulta por elemento: el contenido
+        (la imagen, el documento, la página), las etiquetas de ese contenido y
+        las de las páginas de las que hereda. Con 56 elementos en local eran 140
+        consultas solo para pintar las facetas de «empezar» (2026-10-02). Ahora
+        son unas pocas por tipo de contenido, no por elemento.
+        """
+        from collections import defaultdict
+
+        from django.db.models import prefetch_related_objects
+
+        # Lo ya precargado no se repite: «empezar» pinta las facetas y luego
+        # filtra sobre los mismos objetos. Los elementos sin guardar (los que
+        # la vista previa promete crear) no están en la base: se quedan en el
+        # camino de uno en uno de `get_content_tags`.
+        items = [
+            i
+            for i in items
+            if not getattr(i, "_etiquetas_precargadas", False) and (i.pk or 0) > 0
+        ]
+        if not items:
+            return
+        prefetch_related_objects(items, "content_object")
+        por_clase = defaultdict(list)
+        for item in items:
+            obj = item.content_object
+            if obj is not None:
+                por_clase[type(obj)].append(obj)
+        for objetos in por_clase.values():
+            # El mismo orden que `get_content_tags`: una página etiqueta en
+            # `faceted_tags`; un documento o una imagen, en `tags`.
+            for campo in ("faceted_tags", "tags"):
+                if hasattr(objetos[0], campo):
+                    prefetch_related_objects(objetos, campo)
+                    break
+        LibraryDeck.precargar_etiquetas_de_pagina(items)
+        for item in items:
+            item._etiquetas_precargadas = True
+
+    @staticmethod
     def precargar_etiquetas_de_pagina(items):
         """Carga en bloque las etiquetas que un elemento hereda de su libro.
 
@@ -106,6 +148,13 @@ class LibraryDeck(models.Model):
             ).specific()
         )
         por_path = {p.path: p for p in paginas}
+        # Una consulta por tipo de página, no por página.
+        por_tipo = {}
+        for p in paginas:
+            if hasattr(p, "faceted_tags"):
+                por_tipo.setdefault(type(p), []).append(p)
+        for grupo in por_tipo.values():
+            models.prefetch_related_objects(grupo, "faceted_tags")
         etiquetas = {
             p.pk: list(p.faceted_tags.all()) if hasattr(p, "faceted_tags") else []
             for p in paginas
@@ -590,6 +639,10 @@ class LibraryItem(models.Model):
 
         None significa máxima prioridad para un futuro planificador, no cero.
         """
+        # Lo deja `session.precargar_dias_desde_repaso` para no hacer una
+        # consulta por elemento al pintar la vista previa.
+        if "_dias_desde_repaso" in self.__dict__:
+            return self._dias_desde_repaso
         last = self.last_review
         if last is None:
             return None
@@ -849,6 +902,8 @@ class ItemSection(models.Model):
 
     @property
     def days_since_last_review(self):
+        if "_dias_desde_repaso" in self.__dict__:
+            return self._dias_desde_repaso
         ultimo = self.last_review
         if ultimo is None:
             return None
