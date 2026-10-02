@@ -580,6 +580,12 @@ def construir_sesion(items, tamano=TAMANO_SESION_POR_DEFECTO, incluir_nuevos=Tru
     La sesión puede salir vacía si todo lo que casa está sin tocar; eso es
     información honesta, y la pantalla lo dice.
     """
+    # Agrupar por temática lee las etiquetas de cada elemento: en bloque, o
+    # es una consulta por elemento (2026-10-02). Lo ya precargado no se repite.
+    from my_library.models import LibraryDeck, LibraryItem
+
+    items = list(items)
+    LibraryDeck.precargar_etiquetas([i for i in items if isinstance(i, LibraryItem)])
     unidades = unidades_de_practica(items)
     if not unidades:
         return []

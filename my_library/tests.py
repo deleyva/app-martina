@@ -4321,32 +4321,21 @@ def test_la_vuelta_no_puede_sacar_del_sitio(client, library_item, user):
     )
 
 
-# === «Empezar» sin filtro no calcula la vista previa (2026-10-02) ===
+# === «Empezar» sin filtro enseña la vista previa (2026-10-02) ===
 
 
-def test_sin_filtro_empezar_no_calcula_la_vista_previa(client, db, user, monkeypatch):
-    """La vista previa era la parte cara de abrir la pantalla. Sin nada
-    elegido no se llama, ni al entrar ni en el recuento en vivo."""
-    from my_library import views
-
-    _item(user, "g", tags=["instrumento:guitarra"])
-    llamadas = []
-    original = views._resumen_seleccion
-    monkeypatch.setattr(
-        views, "_resumen_seleccion", lambda *a, **k: llamadas.append(1) or original(*a, **k)
-    )
+def test_sin_filtro_empezar_ensena_la_sesion_de_todo_lo_pendiente(client, db, user):
+    """Se quitó por cara y volvió al dejar de leer elemento a elemento."""
+    guitarra = _item(user, "g", tags=["instrumento:guitarra"])
+    piano = _item(user, "p", tags=["instrumento:piano"])
     client.force_login(user)
 
     pantalla = client.get(reverse("my_library:session_start"))
     recuento = client.get(reverse("my_library:session_count"))
 
-    assert llamadas == [], "sin filtro no se calcula nada"
-    assert pantalla.context["hay_seleccion"] is False
-    assert "empieza con todo lo pendiente" in recuento.content.decode()
+    assert {u.pk for u in pantalla.context["sesion"]} == {guitarra.pk, piano.pk}
+    assert "Hoy te tocaría esto" in recuento.content.decode()
     assert 'name="todo" value="1"' in pantalla.content.decode()
-
-    client.get(reverse("my_library:session_count"), {"instrumento": "guitarra"})
-    assert llamadas == [1], "con filtro, sí"
 
 
 def test_todo_lo_pendiente_ignora_los_chips_marcados(client, db, user):
@@ -4398,6 +4387,7 @@ def test_empezar_no_hace_una_consulta_por_elemento(client, db, user):
         _consultas_de(client, url_empezar),
         _consultas_de(client, url_empezar, filtro),
         _consultas_de(client, url_recuento, filtro),
+        _consultas_de(client, url_recuento),
     )
 
     anadir(8, 4)
@@ -4405,6 +4395,7 @@ def test_empezar_no_hace_una_consulta_por_elemento(client, db, user):
         _consultas_de(client, url_empezar),
         _consultas_de(client, url_empezar, filtro),
         _consultas_de(client, url_recuento, filtro),
+        _consultas_de(client, url_recuento),
     )
 
     assert muchos == pocos, f"con 4 elementos {pocos}, con 12 {muchos}"

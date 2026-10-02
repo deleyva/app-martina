@@ -947,31 +947,19 @@ def session_start(request):
 
 
 def _resumen_de_la_pantalla(request, items):
-    """La vista previa, solo si hay algo elegido.
+    """La vista previa de «empezar», con lo elegido en la URL.
 
-    Sin filtro no se calcula nada (2026-10-02, petición del principal): la
-    vista previa era la parte cara de abrir «empezar», y sin selección lo que
-    se quiere es elegir o lanzar con todo lo pendiente, no leer una lista.
+    Sin filtro también se calcula. El 2026-10-02 se quitó por cara y volvió
+    el mismo día, al dejar de leer cada elemento de uno en uno: sin filtro
+    pasó de 160 consultas a 37.
     """
-    seleccion = _seleccion_de(request)
-    claves = _claves_elegidas(request)
-    incluir_nuevos = _incluir_nuevos(request)
-    if not seleccion and not claves:
-        return {
-            "coincidencias": 0,
-            "sesion": [],
-            "por_crear": 0,
-            "hay_seleccion": False,
-            "incluir_nuevos": incluir_nuevos,
-            "todo_sin_tocar": False,
-        }
     return _resumen_seleccion(
         items,
-        seleccion,
-        claves,
+        _seleccion_de(request),
+        _claves_elegidas(request),
         user=request.user,
         solo_libros=[o.libro_id for o in _objetivos_de(request)],
-        incluir_nuevos=incluir_nuevos,
+        incluir_nuevos=_incluir_nuevos(request),
     )
 
 
