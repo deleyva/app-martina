@@ -942,9 +942,24 @@
             grabadora.start();
             pintarGrabacion();
             avisar('🎤 Grabando…');
-        }).catch(function() {
-            avisar('No se ha podido usar el micrófono.');
+        }).catch(function(err) {
+            // El motivo, no un «no se ha podido» genérico: en el iPad, desde la
+            // pantalla de inicio, no había forma de saber si era el permiso,
+            // el micrófono o la grabadora (2026-10-02).
+            avisar(motivoMicrofono(err), 8000);
         });
+    }
+
+    function motivoMicrofono(err) {
+        var nombre = (err && err.name) || 'Error';
+        var motivos = {
+            NotAllowedError: 'El micrófono está bloqueado para esta app. Permite el micrófono en los ajustes del iPad para este sitio, o cierra la app del todo y vuelve a abrirla para que lo pregunte.',
+            NotFoundError: 'No se encuentra ningún micrófono.',
+            NotReadableError: 'El micrófono lo está usando otra app.',
+            SecurityError: 'El navegador no deja usar el micrófono en esta página.',
+            NotSupportedError: 'Este navegador no puede grabar en este formato.'
+        };
+        return '🎤 ' + (motivos[nombre] || 'No se ha podido usar el micrófono.') + ' (' + nombre + ')';
     }
 
     function extensionDe(tipo) {
@@ -1192,13 +1207,13 @@
     // error: antes se metía en el `textContent` del botón del menú, que tenía
     // sitio para una frase. Esto lo dice en el centro y se va solo.
     var avisoTimer = null;
-    function avisar(mensaje) {
+    function avisar(mensaje, duracion) {
         var caja = document.getElementById('aviso');
         if (!caja) return;
         caja.textContent = mensaje;
         caja.classList.add('visible');
         clearTimeout(avisoTimer);
-        avisoTimer = setTimeout(function() { caja.classList.remove('visible'); }, 2500);
+        avisoTimer = setTimeout(function() { caja.classList.remove('visible'); }, duracion || 2500);
     }
 
     // ── Globos de ayuda ──
