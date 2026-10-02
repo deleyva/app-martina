@@ -55,8 +55,15 @@
                            value="{{ o.id }}"
                            class="peer sr-only"
                            {% if o.seleccionado %}checked{% endif %}>
+                    {% comment %}
+                       `badge-outline` deja el fondo transparente, y con
+                       `badge-secondary` + `text-secondary-content` salía
+                       texto claro sobre transparente: el chip marcado parecía
+                       apagado. Fondo y borde explícitos (2026-10-02).
+                    {% endcomment %}
                     <span class="badge badge-lg badge-outline gap-1
-                                 peer-checked:badge-secondary
+                                 peer-checked:bg-secondary
+                                 peer-checked:border-secondary
                                  peer-checked:text-secondary-content
                                  hover:border-secondary transition-colors">
                         🎯 {{ o.titulo }}
@@ -84,7 +91,8 @@
                                class="peer sr-only"
                                {% if v.seleccionado %}checked{% endif %}>
                         <span class="badge badge-lg badge-outline gap-1
-                                     peer-checked:badge-primary
+                                     peer-checked:bg-primary
+                                     peer-checked:border-primary
                                      peer-checked:text-primary-content
                                      hover:border-primary transition-colors">
                             {{ v.valor }}
@@ -127,9 +135,19 @@
                 {% include "my_library/partials/session_count.html" %}
             </div>
 
-            <button type="submit" class="btn btn-primary">
-                Empezar sesión
-            </button>
+            <div class="flex flex-col gap-2 items-stretch">
+                <button type="submit" class="btn btn-primary">
+                    Empezar sesión
+                </button>
+                {% comment %}
+                   Sin filtro: todo lo que toca repasar, sin calcular antes la
+                   vista previa. Va por el mismo formulario para respetar la
+                   casilla de nuevos; la vista ignora libros y facetas.
+                {% endcomment %}
+                <button type="submit" name="todo" value="1" class="btn btn-outline btn-primary">
+                    Todo lo pendiente
+                </button>
+            </div>
         </div>
     </form>
 

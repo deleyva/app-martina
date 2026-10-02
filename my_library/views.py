@@ -939,15 +939,37 @@ def session_start(request):
             "objetivos": _chips_de_objetivo(request, items),
             "total_biblioteca": len(items),
             "tamano_sesion": TAMANO_SESION_POR_DEFECTO,
-            **_resumen_seleccion(
-                items,
-                seleccion,
-                _claves_elegidas(request),
-                user=request.user,
-                solo_libros=[o.libro_id for o in _objetivos_de(request)],
-                incluir_nuevos=_incluir_nuevos(request),
-            ),
+            **_resumen_de_la_pantalla(request, items),
         },
+    )
+
+
+def _resumen_de_la_pantalla(request, items):
+    """La vista previa, solo si hay algo elegido.
+
+    Sin filtro no se calcula nada (2026-10-02, petición del principal): la
+    vista previa era la parte cara de abrir «empezar», y sin selección lo que
+    se quiere es elegir o lanzar con todo lo pendiente, no leer una lista.
+    """
+    seleccion = _seleccion_de(request)
+    claves = _claves_elegidas(request)
+    incluir_nuevos = _incluir_nuevos(request)
+    if not seleccion and not claves:
+        return {
+            "coincidencias": 0,
+            "sesion": [],
+            "por_crear": 0,
+            "hay_seleccion": False,
+            "incluir_nuevos": incluir_nuevos,
+            "todo_sin_tocar": False,
+        }
+    return _resumen_seleccion(
+        items,
+        seleccion,
+        claves,
+        user=request.user,
+        solo_libros=[o.libro_id for o in _objetivos_de(request)],
+        incluir_nuevos=incluir_nuevos,
     )
 
 
@@ -1006,14 +1028,7 @@ def session_count(request):
         "my_library/partials/session_count.html",
         {
             "tamano_sesion": TAMANO_SESION_POR_DEFECTO,
-            **_resumen_seleccion(
-                items,
-                _seleccion_de(request),
-                _claves_elegidas(request),
-                user=request.user,
-                solo_libros=[o.libro_id for o in _objetivos_de(request)],
-                incluir_nuevos=_incluir_nuevos(request),
-            ),
+            **_resumen_de_la_pantalla(request, items),
         },
     )
 
@@ -1027,8 +1042,11 @@ def session_launch(request):
     # La selección se lee ANTES de crear: desde el 2026-08-26 el filtro frena
     # también la creación, para no acumular material sin tocar de los libros
     # que hoy no se están estudiando.
-    seleccion = _seleccion_de(request)
-    objetivos = _objetivos_de(request)
+    # «Todo lo pendiente» lanza sin filtro aunque haya chips marcados, pero
+    # respeta la casilla de nuevos: es el mismo formulario.
+    todo = request.GET.get("todo") == "1"
+    seleccion = {} if todo else _seleccion_de(request)
+    objetivos = [] if todo else _objetivos_de(request)
     incluir_nuevos = _incluir_nuevos(request)
     # Con la novedad apagada no se crea nada: la creación perezosa existe para
     # alimentar la cuota de novedad, y si esa cuota es cero, crear material
@@ -1070,7 +1088,14 @@ def session_launch(request):
     sellar_novedad(request.user, sesion)
 
     # La selección viaja con la sesión para volver a ella al terminar.
-    vuelta = urlencode({"vuelta": request.GET.urlencode()}) if request.GET else ""
+    # Tras «todo lo pendiente» se vuelve sin filtro, que es lo que se usó.
+    seleccion_usada = request.GET.copy()
+    if todo:
+        seleccion_usada = QueryDict(mutable=True)
+        seleccion_usada.setlist("nuevos", request.GET.getlist("nuevos"))
+    vuelta = (
+        urlencode({"vuelta": seleccion_usada.urlencode()}) if seleccion_usada else ""
+    )
     return redirect(
         f"{reverse('my_library:study_session')}?items={_tokens_de_sesion(sesion)}"
         + (f"&{vuelta}" if vuelta else "")

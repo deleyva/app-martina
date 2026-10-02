@@ -2801,12 +2801,14 @@ def test_la_vista_previa_ensena_la_sesion_que_se_va_a_servir(client, db, user):
     LibraryGoal.objects.create(user=user, libro=libro)
     client.force_login(user)
 
-    previa = client.get(reverse("my_library:session_start"))
+    # Con el libro elegido: sin filtro ya no hay vista previa (2026-10-02).
+    filtro = {"libro": str(libro.pk)}
+    previa = client.get(reverse("my_library:session_start"), filtro)
     prometidos = [str(u) for u in previa.context["sesion"]]
     assert previa.context["por_crear"] == 3, "los tres huecos son del libro"
     assert len(prometidos) == 3, prometidos
 
-    respuesta = client.get(reverse("my_library:session_launch"))
+    respuesta = client.get(reverse("my_library:session_launch"), filtro)
     pks = [int(p) for p in respuesta.url.split("items=")[1].split("&")[0].split(",")]
     servidos = [str(i) for i in LibraryItem.objects.filter(pk__in=pks)]
 
@@ -2941,10 +2943,13 @@ def test_todo_sin_tocar_y_la_novedad_apagada_lo_dice_en_vez_de_mentir(client, db
     esa combinacion", que es falso y manda a quitar facetas en vez de a marcar
     la casilla."""
     for n in range(3):
-        _item(user, f"nuevo-{n}")
+        _item(user, f"nuevo-{n}", tags=["instrumento:guitarra"])
 
     client.force_login(user)
-    respuesta = client.get(reverse("my_library:session_count"), {"nuevos": ["0"]})
+    respuesta = client.get(
+        reverse("my_library:session_count"),
+        {"nuevos": ["0"], "instrumento": "guitarra"},
+    )
 
     assert respuesta.context["todo_sin_tocar"] is True
     assert respuesta.context["coincidencias"] == 3, "casan: lo que pasa es otra cosa"
@@ -4314,3 +4319,46 @@ def test_la_vuelta_no_puede_sacar_del_sitio(client, library_item, user):
     assert visor.context["url_vuelta"].startswith(
         reverse("my_library:session_start") + "?"
     )
+
+
+# === «Empezar» sin filtro no calcula la vista previa (2026-10-02) ===
+
+
+def test_sin_filtro_empezar_no_calcula_la_vista_previa(client, db, user, monkeypatch):
+    """La vista previa era la parte cara de abrir la pantalla. Sin nada
+    elegido no se llama, ni al entrar ni en el recuento en vivo."""
+    from my_library import views
+
+    _item(user, "g", tags=["instrumento:guitarra"])
+    llamadas = []
+    original = views._resumen_seleccion
+    monkeypatch.setattr(
+        views, "_resumen_seleccion", lambda *a, **k: llamadas.append(1) or original(*a, **k)
+    )
+    client.force_login(user)
+
+    pantalla = client.get(reverse("my_library:session_start"))
+    recuento = client.get(reverse("my_library:session_count"))
+
+    assert llamadas == [], "sin filtro no se calcula nada"
+    assert pantalla.context["hay_seleccion"] is False
+    assert "empieza con todo lo pendiente" in recuento.content.decode()
+    assert 'name="todo" value="1"' in pantalla.content.decode()
+
+    client.get(reverse("my_library:session_count"), {"instrumento": "guitarra"})
+    assert llamadas == [1], "con filtro, sí"
+
+
+def test_todo_lo_pendiente_ignora_los_chips_marcados(client, db, user):
+    guitarra = _item(user, "g", tags=["instrumento:guitarra"])
+    piano = _item(user, "p", tags=["instrumento:piano"])
+    client.force_login(user)
+
+    respuesta = client.get(
+        reverse("my_library:session_launch"),
+        {"instrumento": "guitarra", "todo": "1"},
+    )
+
+    pks = {int(p) for p in respuesta.url.split("items=")[1].split("&")[0].split(",")}
+    assert pks == {guitarra.pk, piano.pk}
+    assert "instrumento" not in respuesta.url, "se vuelve sin el filtro que no se usó"

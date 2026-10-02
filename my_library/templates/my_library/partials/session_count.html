@@ -10,6 +10,15 @@ el lanzamiento servía otra cosa: se prometía "1 nuevo" y llegaban 3.
 {% endcomment %}
 
 <div class="flex flex-col gap-3">
+    {% if not hay_seleccion %}
+    {% comment %}
+       Sin filtro no se calcula la vista previa (2026-10-02): era lo caro.
+    {% endcomment %}
+    <p class="text-sm opacity-60">
+        Elige un libro o una faceta para ver qué entraría en la sesión, o
+        empieza con todo lo pendiente.
+    </p>
+    {% else %}
     <div class="flex items-baseline gap-2 flex-wrap">
         <span class="text-3xl font-bold">{{ coincidencias }}</span>
         <span class="text-sm opacity-70">
@@ -70,9 +79,10 @@ el lanzamiento servía otra cosa: se prometía "1 nuevo" y llegaban 3.
         Todo lo que casa está sin tocar, y has apagado los elementos nuevos.
         Marca «incluir elementos nuevos» o elige otra combinación.
     </p>
-    {% elif hay_seleccion %}
+    {% else %}
     <p class="text-sm opacity-60">
         Nada casa con esa combinación. Quita alguna faceta.
     </p>
+    {% endif %}
     {% endif %}
 </div>
