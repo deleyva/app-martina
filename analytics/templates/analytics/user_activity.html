@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% load i18n humanize %}
+
+{% block title %}{{ usuario.name|default:usuario.email }} · Analytics{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <a href="{% url 'analytics:dashboard' %}" class="btn btn-ghost btn-sm mb-4">← {% translate "Volver a la analítica" %}</a>
+    <h1 class="text-3xl font-bold">{{ usuario.name|default:usuario.email }}</h1>
+    {% if usuario.name %}<p class="opacity-60 mb-8">{{ usuario.email }}</p>{% else %}<div class="mb-8"></div>{% endif %}
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div class="stats shadow">
+            <div class="stat">
+                <div class="stat-title">{% translate "Páginas vistas" %}</div>
+                <div class="stat-value text-primary">{{ total_visits|intcomma }}</div>
+            </div>
+        </div>
+        <div class="stats shadow">
+            <div class="stat">
+                <div class="stat-title">{% translate "Última visita" %}</div>
+                <div class="stat-value text-lg">{% if visits %}{{ visits.0.timestamp|naturaltime }}{% else %}—{% endif %}</div>
+            </div>
+        </div>
+        <div class="stats shadow">
+            <div class="stat">
+                <div class="stat-title">{% translate "Primera visita registrada" %}</div>
+                <div class="stat-value text-lg">{{ first_visit|date:"j M Y"|default:"—" }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div class="card bg-base-100 shadow-xl lg:col-span-2">
+            <div class="card-body">
+                <h2 class="card-title">{% translate "Qué ha visto" %}</h2>
+                <div class="overflow-x-auto">
+                    <table class="table table-compact w-full">
+                        <thead>
+                            <tr>
+                                <th>{% translate "Time" %}</th>
+                                <th>{% translate "Page" %}</th>
+                                <th>{% translate "Clics" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% include "analytics/partials/user_visits_rows.html" %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title">{% translate "Sus páginas más vistas" %}</h2>
+                <table class="table w-full">
+                    <tbody>
+                        {% for page in top_pages %}
+                        <tr>
+                            <td title="{{ page.url }}">
+                                <a class="link link-hover font-bold" href="{{ page.url }}">{{ page.title|default:page.url }}</a>
+                            </td>
+                            <td class="font-bold">{{ page.views }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td>{% translate "Sin visitas" %}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

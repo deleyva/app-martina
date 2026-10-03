@@ -257,3 +257,68 @@ class AppModeMiddlewareTests(TestCase):
         self.middleware._remember(session, 'incidencias')
         self.middleware._remember(session, 'main')
         self.assertNotIn('app_mode', session)
+
+
+class AtribucionDeUsuarioTests(TestCase):
+    """La sesión de analítica nace anónima en el login; las visitas posteriores
+    con sesión iniciada tienen que quedar atribuidas al usuario."""
+
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        self.ana = User.objects.create_user(email='ana@x.es', password='x', name='Ana')
+        self.luis = User.objects.create_user(email='luis@x.es', password='x')
+        self.staff = User.objects.create_user(email='staff@x.es', password='x', is_staff=True)
+        self.track_url = reverse('analytics:track_activity')
+        self.visitor = str(uuid.uuid4())
+
+    def pageview(self, url='http://testserver/home/'):
+        return self.client.post(
+            self.track_url, payload('pageview', visitor_id=self.visitor, url=url),
+            content_type='application/json',
+        )
+
+    def test_visita_tras_login_queda_atribuida(self):
+        self.pageview('http://testserver/accounts/login/')
+        self.client.force_login(self.ana)
+        self.pageview('http://testserver/my-library/')
+
+        anonima, autenticada = PageVisit.objects.order_by('id')
+        self.assertIsNone(anonima.user)
+        self.assertEqual(autenticada.user, self.ana)
+        self.assertEqual(UserSession.objects.get().user, self.ana)
+
+    def test_navegador_compartido_atribuye_cada_visita_a_su_usuario(self):
+        self.client.force_login(self.ana)
+        self.pageview()
+        self.client.logout()
+        self.client.force_login(self.luis)
+        self.pageview()
+
+        self.assertEqual(
+            [v.user for v in PageVisit.objects.order_by('id')], [self.ana, self.luis]
+        )
+
+    def test_ranking_y_detalle_de_usuario(self):
+        self.client.force_login(self.ana)
+        for _ in range(3):
+            self.pageview('http://testserver/canciones/')
+        self.client.force_login(self.luis)
+        self.pageview()
+
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse('analytics:dashboard'))
+        ranking = response.context['top_users']
+        self.assertEqual([f['user'] for f in ranking], [self.ana.pk, self.luis.pk])
+        self.assertEqual(ranking[0]['visits'], 3)
+        self.assertContains(response, reverse('analytics:user_activity', args=[self.ana.pk]))
+
+        detalle = self.client.get(reverse('analytics:user_activity', args=[self.ana.pk]))
+        self.assertEqual(detalle.status_code, 200)
+        self.assertEqual(detalle.context['total_visits'], 3)
+        self.assertContains(detalle, 'http://testserver/canciones/')
+
+    def test_detalle_de_usuario_solo_para_staff(self):
+        self.client.force_login(self.ana)
+        response = self.client.get(reverse('analytics:user_activity', args=[self.ana.pk]))
+        self.assertEqual(response.status_code, 302)

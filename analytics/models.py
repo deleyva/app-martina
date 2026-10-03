@@ -25,6 +25,17 @@ class UserSession(models.Model):
 
 class PageVisit(models.Model):
     session = models.ForeignKey(UserSession, on_delete=models.CASCADE, related_name='page_visits')
+    #: Quién estaba autenticado al registrar ESTA visita. No basta con
+    #: `session.user`: la fila de sesión nace en la primera visita, que casi
+    #: siempre es `/accounts/login` aún anónima, y en los ordenadores
+    #: compartidos del centro el mismo navegador pasa por varios usuarios.
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='analytics_visits'
+    )
     url = models.URLField(max_length=500)
     title = models.CharField(max_length=255, null=True, blank=True)
     timestamp = models.DateTimeField(auto_now_add=True)

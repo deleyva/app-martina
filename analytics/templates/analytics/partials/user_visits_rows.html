@@ -1,0 +1,25 @@
+{% load i18n humanize %}
+{% for visit in visits %}
+<tr>
+    <td class="text-xs whitespace-nowrap" title="{{ visit.timestamp }}">{{ visit.timestamp|date:"j M H:i" }}</td>
+    <td class="text-xs" title="{{ visit.url }}">
+        <a class="link link-hover font-bold" href="{{ visit.url }}">{{ visit.title|default:"No Title" }}</a>
+        <div class="opacity-50 break-all">{{ visit.url }}</div>
+    </td>
+    <td class="text-xs">{{ visit.clicks|default:"" }}</td>
+</tr>
+{% if forloop.last and has_more %}
+<tr id="load-more-user-visits">
+    <td colspan="3" class="text-center p-2">
+        <button class="btn btn-sm btn-ghost w-full"
+                hx-get="{% url 'analytics:user_activity' usuario.pk %}?offset={{ next_offset }}"
+                hx-target="#load-more-user-visits"
+                hx-swap="outerHTML">
+            {% translate "Show more" %}
+        </button>
+    </td>
+</tr>
+{% endif %}
+{% empty %}
+<tr><td colspan="3" class="text-center">{% translate "Sin visitas registradas" %}</td></tr>
+{% endfor %}

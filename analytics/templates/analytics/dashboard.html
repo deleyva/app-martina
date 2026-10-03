@@ -27,6 +27,7 @@
             <div class="stat">
                 <div class="stat-title">{% translate "Total Pageviews" %}</div>
                 <div class="stat-value text-primary">{{ total_pageviews|intcomma }}</div>
+                <div class="stat-desc">{% blocktranslate with n=anonymous_pageviews|intcomma %}{{ n }} sin sesión iniciada{% endblocktranslate %}</div>
             </div>
         </div>
         <div class="stats shadow">
@@ -38,6 +39,47 @@
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- Ranking de usuarios -->
+        <div class="card bg-base-100 shadow-xl lg:col-span-2">
+            <div class="card-body">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <h2 class="card-title">{% translate "Usuarios que más visitan" %}</h2>
+                    <div class="join">
+                        {% for valor, etiqueta in periodos %}
+                        <a href="?days={{ valor }}" class="btn btn-sm join-item {% if valor == days %}btn-active{% endif %}">{{ etiqueta }}</a>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="table w-full">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>{% translate "User" %}</th>
+                                <th>{% translate "Páginas vistas" %}</th>
+                                <th>{% translate "Última visita" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for fila in top_users %}
+                            <tr class="hover">
+                                <td>{{ forloop.counter }}</td>
+                                <td>
+                                    <a class="link link-hover font-bold" href="{% url 'analytics:user_activity' fila.user %}">{{ fila.user__name|default:fila.user__email }}</a>
+                                    {% if fila.user__name %}<div class="text-xs opacity-50">{{ fila.user__email }}</div>{% endif %}
+                                </td>
+                                <td class="font-bold">{{ fila.visits|intcomma }}</td>
+                                <td class="text-xs">{{ fila.last_visit|naturaltime }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="4" class="text-center">{% translate "Sin visitas de usuarios identificados en este periodo" %}</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
         <!-- Recent Activity -->
         <div class="card bg-base-100 shadow-xl">
             <div class="card-body">

@@ -5,8 +5,10 @@ from .models import UserSession, PageVisit, Interaction
 import json
 import uuid
 from django.contrib.admin.views.decorators import staff_member_required
-from django.shortcuts import render
-from django.db.models import Count, Avg, F, Q
+from django.shortcuts import get_object_or_404, render
+from django.contrib.auth import get_user_model
+from django.db.models import Count, Avg, F, Max, Q
+from datetime import timedelta
 
 
 def resolve_visitor_id(data):
@@ -66,18 +68,26 @@ def track_activity(request):
                 status=202,
             )
 
+        user = request.user if request.user.is_authenticated else None
         user_session, created = UserSession.objects.get_or_create(
             visitor_id=visitor_id,
             defaults={
-                'user': request.user if request.user.is_authenticated else None,
+                'user': user,
                 'ip_address': request.META.get('REMOTE_ADDR'),
                 'user_agent': request.META.get('HTTP_USER_AGENT')
             }
         )
+        # La sesión nace casi siempre anónima, en la página de login. Se
+        # actualiza al último usuario autenticado visto; la atribución fiable
+        # es la de cada visita (`PageVisit.user`).
+        if user is not None and user_session.user_id != user.pk:
+            user_session.user = user
+            user_session.save(update_fields=['user'])
 
         if event_type == 'pageview':
             PageVisit.objects.create(
                 session=user_session,
+                user=user,
                 url=a_medida(PageVisit, 'url', data.get('url')),
                 title=a_medida(PageVisit, 'title', data.get('title')),
                 timestamp=timezone.now()
@@ -125,14 +135,14 @@ def analytics_dashboard(request):
     
     # User filtering
     user_query = request.GET.get('user', '')
-    visits_queryset = PageVisit.objects.select_related('session', 'session__user')
+    visits_queryset = PageVisit.objects.select_related('user')
     
     if user_query:
         visits_queryset = visits_queryset.filter(
-            Q(session__user__email__icontains=user_query) |
-            Q(session__user__name__icontains=user_query) |
-            Q(session__user__first_name__icontains=user_query) |
-            Q(session__user__last_name__icontains=user_query)
+            Q(user__email__icontains=user_query) |
+            Q(user__name__icontains=user_query) |
+            Q(user__first_name__icontains=user_query) |
+            Q(user__last_name__icontains=user_query)
         )
 
     # Pagination parameters
@@ -186,9 +196,14 @@ def analytics_dashboard(request):
             'is_htmx': True
         })
 
+    days = periodo(request)
     context = {
         'total_sessions': total_sessions,
         'total_pageviews': total_pageviews,
+        'anonymous_pageviews': PageVisit.objects.filter(user__isnull=True).count(),
+        'top_users': ranking_usuarios(days),
+        'days': days,
+        'periodos': PERIODOS,
         'total_interactions': total_interactions,
         'recent_visits': recent_visits_list,
         'top_pages': top_pages,
@@ -200,3 +215,62 @@ def analytics_dashboard(request):
         'next_hotspots_offset': hotspots_offset + HOTSPOTS_PER_PAGE,
     }
     return render(request, 'analytics/dashboard.html', context)
+
+
+#: Periodos del ranking, en días; 0 = todo el histórico.
+PERIODOS = [(7, '7 días'), (30, '30 días'), (0, 'Todo')]
+
+
+def periodo(request):
+    """Días del ranking pedidos en `?days=`; 30 si falta o no es válido."""
+    try:
+        days = int(request.GET.get('days', 30))
+    except ValueError:
+        return 30
+    return days if days in dict(PERIODOS) else 30
+
+
+def ranking_usuarios(days, limite=20):
+    """Usuarios con más páginas vistas en los últimos `days` días (0 = siempre)."""
+    visitas = PageVisit.objects.filter(user__isnull=False)
+    if days:
+        visitas = visitas.filter(timestamp__gte=timezone.now() - timedelta(days=days))
+    return list(
+        visitas.values('user', 'user__email', 'user__name')
+        .annotate(visits=Count('id'), last_visit=Max('timestamp'))
+        .order_by('-visits')[:limite]
+    )
+
+
+@staff_member_required
+def user_activity(request, pk):
+    """Lo que ha visto un usuario: sus visitas, de la más reciente a la más antigua."""
+    usuario = get_object_or_404(get_user_model(), pk=pk)
+    visitas = PageVisit.objects.filter(user=usuario)
+
+    PER_PAGE = 50
+    try:
+        offset = max(int(request.GET.get('offset', 0)), 0)
+    except ValueError:
+        offset = 0
+    pagina = list(
+        visitas.annotate(clicks=Count('interactions'))
+        .order_by('-timestamp')[offset:offset + PER_PAGE + 1]
+    )
+    has_more = len(pagina) > PER_PAGE
+    context = {
+        'usuario': usuario,
+        'visits': pagina[:PER_PAGE],
+        'has_more': has_more,
+        'next_offset': offset + PER_PAGE,
+    }
+    if request.headers.get('HX-Request') and 'offset' in request.GET:
+        return render(request, 'analytics/partials/user_visits_rows.html', context)
+
+    context.update({
+        'total_visits': visitas.count(),
+        'first_visit': visitas.order_by('timestamp').values_list('timestamp', flat=True).first(),
+        'top_pages': visitas.values('url', 'title')
+            .annotate(views=Count('id')).order_by('-views')[:10],
+    })
+    return render(request, 'analytics/user_activity.html', context)

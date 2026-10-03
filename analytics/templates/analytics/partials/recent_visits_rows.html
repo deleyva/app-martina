@@ -3,8 +3,8 @@
 <tr>
     <td class="text-xs">{{ visit.timestamp|naturaltime }}</td>
     <td class="text-xs">
-        {% if visit.session.user %}
-            {{ visit.session.user.email }}
+        {% if visit.user %}
+            <a class="link link-hover" href="{% url 'analytics:user_activity' visit.user.pk %}">{{ visit.user.name|default:visit.user.email }}</a>
         {% else %}
             <span class="text-gray-400">Anonymous</span>
         {% endif %}
