@@ -490,6 +490,54 @@ def class_session_book_picker(request, pk):
     )
 
 
+POR_TANDA = 3
+
+
+@login_required
+@user_passes_test(es_profesor)
+def class_session_book_next(request, pk):
+    """Los pendientes que siguen a lo propuesto de un libro, de tres en tres.
+
+    Salen ya desplegados bajo cada fila de «Preparar», empezando donde va el
+    grupo: antes había que abrir el libro entero y adivinar el capítulo para
+    coger un segundo elemento (2026-10-03). «3 más» vuelve aquí con `desde`.
+
+    Llega en una segunda petición al pintarse la fila (`hx-trigger="load"`),
+    no en la primera carga: enumerar un libro parsea cada capítulo, y la
+    vista previa tiene que seguir saliendo al instante.
+    """
+    session = get_object_or_404(ClassSession, pk=pk, teacher=request.user)
+    group_book = get_object_or_404(
+        GroupBook.objects.select_related("libro"),
+        pk=request.GET.get("group_book"),
+        group=session.group,
+    )
+    desde_raw = request.GET.get("desde", "0")
+    desde = int(desde_raw) if desde_raw.isdigit() else 0
+    saltar = {
+        f"{tipo}:{objeto}" for tipo, objeto in libros_de_grupo.ya_en_la_sesion(session)
+    }
+    if request.GET.get("propuesto"):
+        saltar.add(request.GET["propuesto"])
+    filas, hay_mas = libros_de_grupo.pendientes_tras(
+        group_book, saltar=saltar, desde=desde, cuantos=POR_TANDA
+    )
+    return render(
+        request,
+        "clases/class_sessions/partials/siguientes_del_libro.html",
+        {
+            "session": session,
+            "group_book": group_book,
+            "filas": filas,
+            "hay_mas": hay_mas,
+            "siguiente_desde": desde + POR_TANDA,
+            "es_primera_tanda": desde == 0,
+            "propuesto": request.GET.get("propuesto", ""),
+            "por_tanda": POR_TANDA,
+        },
+    )
+
+
 @login_required
 @user_passes_test(es_profesor)
 @require_http_methods(["POST"])

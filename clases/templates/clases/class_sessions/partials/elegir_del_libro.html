@@ -38,36 +38,7 @@ recorrerlos todos para mirar, casi siempre, ninguno.
                   {% if fila.clave == propuesto %}propuesto arriba{% else %}ya en la clase{% endif %}
                 </span>
               {% else %}
-                <label class="flex items-center gap-2 min-w-0 flex-1 cursor-pointer">
-                  <input type="checkbox" name="elementos"
-                         value="{{ group_book.pk }}:{{ fila.tipo.pk }}:{{ fila.objeto.pk }}"
-                         class="checkbox checkbox-xs checkbox-primary">
-                  {% miniatura fila.objeto fila.tipo.model compacta=True %}
-                  <span class="min-w-0 flex-1 truncate text-xs">{{ fila.titulo }}</span>
-                </label>
-
-                {% if fila.item and fila.item.estado == "visto" %}
-                  <span class="badge badge-ghost badge-xs shrink-0" title="Este grupo ya lo vio">visto</span>
-                {% elif fila.item and not fila.item.incluido %}
-                  <span class="badge badge-ghost badge-xs shrink-0" title="Apagado en la configuración del libro">apagado</span>
-                {% endif %}
-
-                {% include "clases/class_sessions/partials/marcas.html" with group_book=group_book fila=fila %}
-
-                {# El ojo, igual que en la propuesta: mirarlo antes de meterlo. #}
-                <button type="button"
-                        class="btn btn-ghost btn-xs btn-square shrink-0"
-                        title="Ver «{{ fila.titulo }}»"
-                        aria-label="Ver {{ fila.titulo }}"
-                        hx-get="{% url 'clases:class_session_preview_content' session.pk %}?content_type={{ fila.tipo.pk }}&object_id={{ fila.objeto.pk }}"
-                        hx-target="#cuerpo-vistazo"
-                        hx-swap="innerHTML"
-                        onclick="abrirVistazo('{{ fila.titulo|escapejs }}')">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                  </svg>
-                </button>
+                {% include "clases/class_sessions/partials/fila_elegible.html" %}
               {% endif %}
             </div>
           {% endfor %}

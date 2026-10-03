@@ -65,7 +65,19 @@ cuanto uno de los dos cambiara.
             </div>
 
             {% comment %}
-            El desplegable del libro. `hx-trigger="toggle once"` lo trae al
+            Lo que sigue en el libro, ya desplegado desde donde va el grupo
+            (2026-10-03). Llega en una segunda petición nada más pintarse
+            (`load`): la primera carga sigue sin enumerar ningún libro.
+            {% endcomment %}
+            <div class="ml-9"
+                 hx-get="{% url 'clases:class_session_book_next' session.pk %}?group_book={{ fila.group_book.pk }}&propuesto={{ fila.tipo.pk }}:{{ fila.objeto.pk }}"
+                 hx-trigger="load"
+                 hx-swap="innerHTML">
+              <div class="py-1"><span class="loading loading-dots loading-xs"></span></div>
+            </div>
+
+            {% comment %}
+            El libro entero, para ir hacia atrás o saltar lejos. `hx-trigger="toggle once"` lo trae al
             abrirlo y no al pintar la pantalla: enumerar un libro parsea el
             StreamField de cada capítulo, y un cuarto de ESO tiene siete libros.
             {% endcomment %}
@@ -75,7 +87,7 @@ cuanto uno de los dos cambiara.
                      hx-target="find .cuerpo-del-libro"
                      hx-swap="innerHTML">
               <summary class="text-xs text-primary cursor-pointer select-none py-1">
-                Elegir más de «{{ fila.group_book.libro.title }}»
+                Ver el libro entero «{{ fila.group_book.libro.title }}»
               </summary>
               <div class="cuerpo-del-libro">
                 <div class="py-2"><span class="loading loading-dots loading-sm"></span></div>

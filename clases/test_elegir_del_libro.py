@@ -53,7 +53,7 @@ def test_la_vista_previa_no_enumera_el_libro(client, profesor, sesion, group_boo
     assert "cartel" in html, "lo propuesto sí sale"
     assert "foto" not in html, "lo demás del capítulo, no"
     assert "Los sesenta" not in html, "ni los otros capítulos"
-    assert "Elegir más de" in html, "pero la puerta está"
+    assert "Ver el libro entero" in html, "pero la puerta está"
 
 
 def test_el_desplegable_trae_los_capitulos_con_sus_elementos(
@@ -157,3 +157,68 @@ def test_un_libro_sin_nada_pendiente_conserva_su_desplegable(
 
     assert "Sin nada pendiente que proponer" in html
     assert "Elegir de «Historia de la música moderna»" in html
+
+
+# ── Lo que sigue, ya desplegado desde donde va el grupo (2026-10-03) ─────────
+
+
+def _siguientes(client, sesion, group_book, **extra):
+    datos = {"group_book": group_book.pk, **extra}
+    return client.get(
+        reverse("clases:class_session_book_next", args=[sesion.pk]), datos
+    )
+
+
+def _clave_de(group_book, posicion):
+    fila = libros_de_grupo.enumerar(group_book)[posicion]
+    return f"{fila['tipo'].pk}:{fila['objeto'].pk}"
+
+
+def test_la_preparacion_trae_lo_que_sigue_sin_pedirlo(client, profesor, sesion, group_book):
+    """La fila pide sus siguientes al pintarse, no al abrir un desplegable."""
+    client.force_login(profesor)
+
+    html = client.get(
+        reverse("clases:class_session_prepare_preview", args=[sesion.pk])
+    ).content.decode()
+
+    assert reverse("clases:class_session_book_next", args=[sesion.pk]) in html
+    assert 'hx-trigger="load"' in html
+
+
+def test_lo_que_sigue_empieza_tras_lo_propuesto(client, profesor, sesion, group_book):
+    client.force_login(profesor)
+    propuesto = _clave_de(group_book, 0)
+
+    html = _siguientes(client, sesion, group_book, propuesto=propuesto).content.decode()
+
+    assert "cartel" not in html, "lo propuesto ya sale arriba"
+    assert "foto" in html and "portada" in html, "lo de después, aunque cambie de capítulo"
+    assert 'name="elementos"' in html, "y se puede marcar para la clase"
+
+
+def test_lo_que_sigue_salta_lo_visto(client, profesor, sesion, group_book):
+    client.force_login(profesor)
+    foto = libros_de_grupo.enumerar(group_book)[1]
+    libros_de_grupo.excepcion(group_book, foto["objeto"], capitulo=foto["capitulo"], estado="visto")
+
+    html = _siguientes(
+        client, sesion, group_book, propuesto=_clave_de(group_book, 0)
+    ).content.decode()
+
+    assert "foto" not in html, "lo dado por visto no está pendiente"
+    assert "portada" in html
+
+
+def test_lo_que_sigue_va_de_tres_en_tres(client, profesor, sesion, group_book, monkeypatch):
+    from clases import views_libros
+
+    monkeypatch.setattr(views_libros, "POR_TANDA", 1)
+    client.force_login(profesor)
+
+    primera = _siguientes(client, sesion, group_book).content.decode()
+    segunda = _siguientes(client, sesion, group_book, desde="1").content.decode()
+
+    assert "cartel" in primera and "foto" not in primera
+    assert "1 más" in primera and "desde=1" in primera
+    assert "foto" in segunda and "cartel" not in segunda

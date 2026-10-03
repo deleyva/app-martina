@@ -196,6 +196,11 @@ urlpatterns = [
         name="class_session_book_picker",
     ),
     path(
+        "sessions/<int:pk>/preparar/siguientes/",
+        views_libros.class_session_book_next,
+        name="class_session_book_next",
+    ),
+    path(
         "sessions/<int:pk>/preparar/contenido/",
         views_libros.class_session_preview_content,
         name="class_session_preview_content",

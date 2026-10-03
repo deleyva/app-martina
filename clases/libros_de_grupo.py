@@ -154,6 +154,28 @@ def siguientes(group_book, cuantos=1):
     return salida
 
 
+def pendientes_tras(group_book, saltar=(), desde=0, cuantos=3):
+    """Los pendientes que vienen DESPUÉS de lo propuesto, de `cuantos` en `cuantos`.
+
+    Es lo que sale ya desplegado bajo cada fila de «Preparar» (petición del
+    principal, 2026-10-03): antes, para coger un segundo elemento había que
+    abrir el libro entero y adivinar por qué capítulo iba el grupo. Pendiente
+    significa lo mismo que en `siguientes` —ni apagado ni visto—, y `saltar`
+    quita las claves `"tipo:objeto"` que ya están en pantalla: lo propuesto
+    arriba y lo que ya está en la clase.
+
+    Devuelve `(filas, hay_mas)`.
+    """
+    saltar = set(saltar)
+    pendientes = [
+        fila
+        for fila in enumerar(group_book)
+        if (fila["item"] is None or fila["item"].propuesto)
+        and f"{fila['tipo'].pk}:{fila['objeto'].pk}" not in saltar
+    ]
+    return pendientes[desde : desde + cuantos], len(pendientes) > desde + cuantos
+
+
 def excepcion(group_book, objeto, capitulo=None, **campos):
     """La fila de excepción de un elemento, creándola solo si hace falta.
 

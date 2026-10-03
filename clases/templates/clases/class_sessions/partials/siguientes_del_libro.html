@@ -1,0 +1,30 @@
+{% comment %}
+Lo que sigue a lo propuesto de un libro, ya desplegado bajo su fila de
+«Preparar» (2026-10-03). Empieza donde va el grupo y se amplía de tres en
+tres con «3 más», que sustituye este bloque por el mismo bloque con la tanda
+siguiente debajo. Las casillas viven dentro del formulario de «Preparar», así
+que entran en el mismo envío que la propuesta.
+{% endcomment %}
+{% if filas %}
+  <div class="flex flex-col gap-0.5">
+    {% if es_primera_tanda %}
+      <p class="text-xs text-base-content/50 px-1">Y después:</p>
+    {% endif %}
+    {% for fila in filas %}
+      <div class="flex items-center gap-2 py-0.5 px-1 rounded hover:bg-base-300/40 fila-preparar">
+        {% include "clases/class_sessions/partials/fila_elegible.html" %}
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+{% if hay_mas %}
+  <div class="siguientes-del-libro">
+    <button type="button"
+            class="btn btn-ghost btn-xs text-primary px-1"
+            hx-get="{% url 'clases:class_session_book_next' session.pk %}?group_book={{ group_book.pk }}&propuesto={{ propuesto }}&desde={{ siguiente_desde }}"
+            hx-target="closest .siguientes-del-libro"
+            hx-swap="outerHTML">
+      {{ por_tanda }} más
+    </button>
+  </div>
+{% endif %}
