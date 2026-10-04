@@ -1162,3 +1162,22 @@ def profesorado_revocar(request, user_id):
     else:
         messages.success(request, f"{persona.email} ya no puede entrar como profesor.")
     return redirect("clases:profesorado")
+
+
+@login_required
+@user_passes_test(es_profesor)
+@require_http_methods(["POST"])
+def tono_de_grupo_guardar(request, group_id, letra_id):
+    """Guarda el tono que se ve como tono de clase del grupo (fase 63). 0 lo quita."""
+    from django.http import JsonResponse
+
+    from clases.models import TonoDeGrupo
+    from musica.models import LetraConAcordes
+
+    group = _grupo_del_profesor(request, group_id)
+    letra = get_object_or_404(LetraConAcordes, pk=letra_id)
+    try:
+        semitonos = TonoDeGrupo.guardar(group, letra, request.POST.get("semitonos", ""), request.user)
+    except (TypeError, ValueError) as error:
+        return JsonResponse({"error": str(error) or "El tono tiene que ser un número"}, status=400)
+    return JsonResponse({"ok": True, "semitonos": semitonos})

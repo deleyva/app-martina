@@ -106,6 +106,11 @@ urlpatterns = [
         name="evaluar_grabacion",
     ),
     path(
+        "grupos/<int:group_id>/tono/<int:letra_id>/",
+        views_libros.tono_de_grupo_guardar,
+        name="tono_de_grupo_guardar",
+    ),
+    path(
         "lectura/",
         views_libros.lectura_profesor,
         name="lectura",

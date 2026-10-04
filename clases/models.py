@@ -1899,6 +1899,72 @@ class GroupBook(models.Model):
         return claves.index(self.seccion) if self.seccion in claves else len(claves)
 
 
+class TonoDeGrupo(models.Model):
+    """El tono en que un grupo canta una canción con acordes (fase 63).
+
+    Es por GRUPO (decisión de Jesús, 2026-10-04): 1º y 4º no cantan en la misma
+    tonalidad. Sin fila, la canción se ve en su tono original. El ChordPro no
+    se toca: esto es solo cuántos semitonos se transporta al abrirla.
+    """
+
+    MAXIMO = 11
+
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="tonos")
+    letra = models.ForeignKey(
+        "musica.LetraConAcordes", on_delete=models.CASCADE, related_name="tonos_de_grupo"
+    )
+    semitonos = models.SmallIntegerField()
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+"
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ["group", "letra"]
+        verbose_name = "Tono de una canción para un grupo"
+        verbose_name_plural = "Tonos de canciones por grupo"
+
+    def __str__(self):
+        return f"{self.group.name} · {self.letra.page.title}: {self.semitonos:+d}"
+
+    @staticmethod
+    def de(group, letra) -> int:
+        """Los semitonos guardados, o 0 (la original)."""
+        if group is None or letra is None:
+            return 0
+        fila = TonoDeGrupo.objects.filter(group=group, letra=letra).only("semitonos").first()
+        return fila.semitonos if fila else 0
+
+    @staticmethod
+    def guardar(group, letra, semitonos: int, user) -> int:
+        """Guarda el tono del grupo; 0 borra la fila. Devuelve lo que queda."""
+        semitonos = int(semitonos)
+        if not -TonoDeGrupo.MAXIMO <= semitonos <= TonoDeGrupo.MAXIMO:
+            raise ValueError(f"El tono va de -{TonoDeGrupo.MAXIMO} a +{TonoDeGrupo.MAXIMO} semitonos")
+        if semitonos == 0:
+            TonoDeGrupo.objects.filter(group=group, letra=letra).delete()
+            return 0
+        TonoDeGrupo.objects.update_or_create(
+            group=group, letra=letra, defaults={"semitonos": semitonos, "updated_by": user}
+        )
+        return semitonos
+
+    @staticmethod
+    def grupo_para(user, explicito=None):
+        """El grupo cuyo tono manda en este visor.
+
+        El de la página si lo hay (la clase, la biblioteca del grupo). Si no, el
+        del alumno cuando está matriculado en UN solo grupo; con varios no se
+        adivina y sale la original.
+        """
+        if explicito is not None:
+            return explicito
+        if not getattr(user, "is_authenticated", False):
+            return None
+        grupos = list(Group.matriculados_de(user)[:2])
+        return grupos[0] if len(grupos) == 1 else None
+
+
 class LibroOcultoEnLectura(models.Model):
     """Un libro que un profesor no quiere ver en su lista de lectura.
 

@@ -4670,3 +4670,22 @@ Lo que encontró el navegador: el botón «Ver otras plantillas» quedó dentro 
 - `pytest calificaciones clases my_library/tests.py incidencias wifi`: 893 passed, 2 failed. Los dos fallos (`incidencias … test_filter_by_planta` y `… test_panel_has_custom_title`) fallan igual sin este cambio: **ya estaban rotos antes, sin investigar.**
 - De paso: la página que controla el navegador automatizado estaba en `visibilityState: hidden`. Eso explica los clics que se perdían en las fases 62 y 62·1.
 
+
+## Fase 63 — Tono de clase de cada canción, por grupo (2026-10-04)
+
+**Jesús:** «los archivos Code Pro vienen con su tonalidad original. Eso me parece bien, pero en clase muchas veces tengo una tonalidad preferida para cantar con los niños que no es la original. Me gustaría poder guardarla como predeterminada. Así no tendría que estar transportándola en todas las sesiones.» Decidido con él, por pregunta directa: **por grupo** (frente a «para todos» y «solo para mí»).
+
+**Diseño:** `TonoDeGrupo(grupo, letra, semitonos)`: una fila por grupo y canción, y sin fila es la tonalidad original. El grupo del visor es el de la sesión en clase, el de la biblioteca del grupo, o el del alumno cuando solo está matriculado en uno. «Original» sigue a un toque, y un `?tono=` en la URL sigue mandando.
+
+- [x] **C388** — Un profesor del grupo guarda el tono actual del visor como tono de clase de ese grupo para esa canción; guardar 0 lo quita. Otro profesor o un alumno no pueden. *Falsador: test.* *Evidencia: `test_guardar_y_quitar`, `test_guardar_por_la_vista_y_permisos` (otro profesor → 404, alumna → redirección al login); Chrome, local: «Guardar +2 para 3º ESO T» → «✓ Tono de 3º ESO T»; «Volver a la original» lo quita.*
+- [x] **C389** — El visor de ChordPro abre la canción en el tono guardado del grupo: en la clase (presentación), en la biblioteca del grupo, y en la biblioteca de un alumno de un solo grupo. Otro grupo la ve en la original. *Falsador: test por cada camino.* *Evidencia: `test_en_clase_abre_en_el_tono_del_grupo` (presentación: 3 en su grupo, 0 en otro), `test_un_alumno_de_un_solo_grupo_la_ve_en_su_tono` (−4; otro grupo 0; con dos grupos 0), `test_la_etiqueta_usa_el_grupo_de_la_pagina` (biblioteca del grupo); Chrome, local: al recargar la sesión 120 abre en +2 (G→A, Em→F#m, diagramas también; captura vista).*
+- [x] **C390** — El botón «Guardar tono para <grupo>» solo sale al profesorado de ese grupo y dice si el tono a la vista ya es el guardado. *Falsador: test + Chrome.* *Evidencia: tests anteriores (el alumnado no recibe el botón) y Chrome: «Original en …» desactivado cuando no hay tono, «Guardar +2 para …», y «✓ Tono de …» cuando lo que se ve es el guardado.*
+- **Anti-G** — El ChordPro de la canción no se toca: el tono es solo un número al lado. *Falsador: test que compara `page.chordpro` antes y después.*
+
+### Log
+- Anti-G: `test_guardar_por_la_vista_y_permisos` compara `page.chordpro` antes y después.
+- Lo que encontraron los tests: el grupo se sacaba de una variable `session` que no existe en `render_item_content` (el ayudante compartido): `NameError` y 500 en la presentación. Ahora se lee del elemento.
+- Migración aditiva `clases.0023_tono_de_grupo` (tabla nueva). Sin ciclo: `musica` no depende de `clases`. Aplicada solo en local. `pytest calificaciones clases my_library/tests.py musica`: 682 passed.
+- Visto en la captura: los comentarios escritos dentro del ChordPro («Tonalidad de Sol. Cejilla en el traste 1…») no se transportan, porque son texto.
+- La canción local se devolvió a su tono original al terminar.
+

@@ -1,4 +1,4 @@
-{% load static letras_tags %}
+{% load static letras_tags tono_tags %}
 {% comment %}
 Visor de letra con acordes (ChordPro): transporte, tamaño de letra y
 desplazamiento automático. Lo usan los tres visores (pantalla completa, sesión
@@ -7,6 +7,10 @@ de estudio y modo proyector de clase), como el de Guitar Pro.
 Recibe:
   letra   `musica.LetraConAcordes` (obligatorio). El texto se lee de
           `letra.page.chordpro`, la única fuente: no hay copia que desincronizar.
+
+Tono de clase (fase 63): abre en el tono que tiene guardado el grupo de la
+página (`grupo_tono`: la clase o la biblioteca del grupo) o el del alumno si
+solo tiene uno. El profesorado de ese grupo lo guarda desde la barra.
 
 Teclas, solo mientras este visor está en pantalla y no se está escribiendo:
   + / -      subir o bajar medio tono
@@ -100,11 +104,17 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
         title="Editar la letra con acordes">✎</button>
 {% endif %}
 {% if page.chordpro %}
-<div class="cpv-barra" data-chordpro-barra>
+{% tono_de_clase letra as tono %}
+<div class="cpv-barra" data-chordpro-barra data-tono-grupo="{{ tono.semitonos }}">
     <button type="button" data-accion="bajar" title="Bajar medio tono (−)">−</button>
     <span class="cpv-dato" data-tono>Tono original</span>
     <button type="button" data-accion="subir" title="Subir medio tono (+)">+</button>
     <button type="button" data-accion="original" title="Volver al tono original">Original</button>
+    {% if tono.puede_guardar %}
+    <button type="button" data-accion="guardar-tono" data-grupo="{{ tono.grupo.name }}"
+            data-url="{% url 'clases:tono_de_grupo_guardar' tono.grupo.pk letra.pk %}" data-csrf="{{ csrf_token }}"
+            title="Que {{ tono.grupo.name }} abra siempre esta canción en el tono que se ve">Guardar tono</button>
+    {% endif %}
     <span class="cpv-sep"></span>
     <button type="button" data-accion="menor" title="Letra más pequeña (&lt;)">A−</button>
     <button type="button" data-accion="mayor" title="Letra más grande (&gt;)">A+</button>
@@ -147,6 +157,9 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
     var cancion = null;
     var textoActual = '';
     var semitonos = 0;
+    // El tono de clase del grupo (fase 63): con el que se abre la canción.
+    var tonoGrupo = parseInt(barra.getAttribute('data-tono-grupo'), 10) || 0;
+    var botonGuardarTono = barra.querySelector('[data-accion="guardar-tono"]');
     var tamano = 24;
     var temporizador = null;
 
@@ -162,7 +175,46 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
     function pintar() {
         salida.innerHTML = ChordPro.aHtml(cancion, semitonos);
         tonoEl.textContent = ChordPro.etiquetaTono(semitonos);
+        pintarGuardarTono();
         if (refrescarDiagramas) refrescarDiagramas();
+    }
+
+    // Dice si lo que se ve ya es el tono del grupo. Guardar «original» quita
+    // el tono de clase.
+    function pintarGuardarTono() {
+        if (!botonGuardarTono) return;
+        var grupo = botonGuardarTono.getAttribute('data-grupo');
+        if (semitonos === tonoGrupo) {
+            botonGuardarTono.textContent = tonoGrupo ? '✓ Tono de ' + grupo : 'Original en ' + grupo;
+            botonGuardarTono.disabled = true;
+        } else {
+            botonGuardarTono.textContent = semitonos
+                ? 'Guardar ' + (semitonos > 0 ? '+' : '') + semitonos + ' para ' + grupo
+                : 'Volver a la original en ' + grupo;
+            botonGuardarTono.disabled = false;
+        }
+    }
+
+    function guardarTono() {
+        var valor = semitonos;
+        botonGuardarTono.disabled = true;
+        var datos = new URLSearchParams();
+        datos.append('semitonos', valor);
+        fetch(botonGuardarTono.getAttribute('data-url'), {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'X-CSRFToken': botonGuardarTono.getAttribute('data-csrf'), 'X-Requested-With': 'XMLHttpRequest' },
+            body: datos
+        }).then(function (r) {
+            return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || r.status); return j; });
+        }).then(function (j) {
+            tonoGrupo = j.semitonos;
+            barra.setAttribute('data-tono-grupo', tonoGrupo);
+            pintarGuardarTono();
+        }).catch(function (e) {
+            botonGuardarTono.disabled = false;
+            botonGuardarTono.textContent = 'No se ha guardado: ' + e.message;
+        });
     }
 
     function transponer(delta) {
@@ -258,6 +310,7 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
         else if (accion === 'menor') redimensionar(-2);
         else if (accion === 'desplazar') alternarDesplazamiento();
         else if (accion === 'imprimir') { pararDesplazamiento(); window.print(); }
+        else if (accion === 'guardar-tono') guardarTono();
     });
 
     function arrancar() {
@@ -302,7 +355,8 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
 
         var params = new URLSearchParams(location.search);
         var tonoInicial = parseInt(params.get('tono'), 10);
-        if (tonoInicial) semitonos = ChordPro.acotar(tonoInicial);
+        // `?tono=` manda (un enlace hecho a propósito); si no, el del grupo.
+        semitonos = tonoInicial ? ChordPro.acotar(tonoInicial) : ChordPro.acotar(tonoGrupo);
         pintar();
         document.addEventListener('keydown', teclado);
         if (params.get('imprimir') === '1') setTimeout(function () { window.print(); }, 300);

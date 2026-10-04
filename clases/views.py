@@ -861,6 +861,9 @@ def render_item_content(request, item):
             "item": item,
             "documents": documents,
             "score_media": score_media,
+            # El tono de clase de las canciones con acordes es el de ESTE
+            # grupo (fase 63).
+            "grupo_tono": getattr(getattr(item, "session", None), "group", None),
         },
     )
 
@@ -1478,6 +1481,7 @@ def group_library_item_viewer(request, group_id, pk):
         "clases/group_library/viewer.html",
         {
             "group": group,
+            "grupo_tono": group,
             "item": item,
             "documents": documents,
             "score_media": score_media,
