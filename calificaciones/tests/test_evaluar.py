@@ -677,3 +677,22 @@ def test_una_grabacion_vacia_no_se_guarda(group, profesor, alumnos, lectura):
     with pytest.raises(ValueError, match="vacía"):
         evaluar.guardar_grabacion(group=group, instrumento=lectura, alumnos=alumnos[:2], fichero=vacio, tipo="audio", user=profesor)
     assert not Evidencia.objects.exists()
+
+
+# =============================================================================
+# Pantalla encendida (2026-10-04)
+# =============================================================================
+
+
+def test_la_pantalla_no_se_apaga_en_la_app(client, profesor, group, plan, elemento):
+    """El script de Wake Lock va en las páginas de la app: base, presentación y registro."""
+    client.force_login(profesor)
+    paginas = [
+        reverse("clases:class_session_present", args=[elemento.session_id]),
+        reverse("calificaciones:registro", args=[group.pk]),
+        reverse("clases:lectura"),
+    ]
+    for url in paginas:
+        html = client.get(url).content.decode()
+        assert html.count("js/pantalla_encendida.js") == 1, url
+        assert html.index("pantalla_encendida.js") < html.index("</head>"), url

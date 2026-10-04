@@ -4657,3 +4657,16 @@ Lo que encontró el navegador: el botón «Ver otras plantillas» quedó dentro 
 - El fichero compartido vive en la carpeta del primer alumno del grupo (`calificaciones/<plan>/<alumno>/`). Es solo una ruta, sin efecto en el acceso: el permiso se mira por la evidencia.
 - Visto de paso, ya existía antes: el navegador cachea `evidencia_ver`, así que tras borrar una evidencia el mismo navegador la siguió sirviendo de su caché hasta pedirla con `no-store`. Solo afecta al navegador del propio profesor. Sin tocar.
 
+#### Fase 62·3 — La pantalla no se apaga mientras la app está abierta (2026-10-04)
+
+**Jesús:** «cuando alguien abra esta web app en su tablet, en su móvil o donde sea, esta web app mantenga el brillo de la pantalla y que no permita el apagado mientras que esta pestaña esté abierta». Trajo una receta de Gemini con la Screen Wake Lock API.
+
+**La receta, corregida:** solo reintentaba si ya tenía un bloqueo (`wakeLock !== null`), así que un primer intento rechazado no se recuperaba nunca. Tampoco miraba `released`. Ahora se reintenta al volver a la pestaña y en cada toque o tecla, sin hacer nada si ya está activo. **No controla el brillo:** evita que la pantalla se atenúe y se apague, pero subir o fijar el brillo solo lo hace el sistema.
+
+**Alcance, decidido por mí:** todas las páginas de la app (`base.html` y las 9 plantillas con su propio `<html>`), y NO el sitio público `blogs.`. Coste: los móviles del alumnado con la app abierta tampoco apagan la pantalla, y eso gasta batería.
+
+- [x] **C386** — `js/pantalla_encendida.js` va en el `<head>` de todas las páginas de la app, fuera de `{% block javascript %}` para que ninguna página lo quite al sustituir el bloque. *Evidencia: `test_la_pantalla_no_se_apaga_en_la_app` (presentación, registro y lista de lectura); `blogs/base.html` sin él (grep: 0).*
+- [x] **C387** — Lo pide al cargar si la página se ve; si no se ve, espera; si se rechaza, reintenta al primer toque; si el sistema lo suelta, lo recupera al volver; activo, no pide otro; sin la API no rompe. *Evidencia: 6 tests con `bun` sobre el script real con `navigator` y `document` simulados (en el scratchpad, no en el repo: el directorio `static` se publica). Chrome, local: con la pestaña oculta, `navigator.wakeLock.request` da «NotAllowedError: The requesting page is not visible» y el script no lo pide, que es lo esperado.* [DEFERRED-VERIFY] **la concesión real**: la ventana del navegador automatizado nunca estuvo visible. Pendiente de Jesús: dejar la tablet en la presentación más tiempo que el bloqueo automático.
+- `pytest calificaciones clases my_library/tests.py incidencias wifi`: 893 passed, 2 failed. Los dos fallos (`incidencias … test_filter_by_planta` y `… test_panel_has_custom_title`) fallan igual sin este cambio: **ya estaban rotos antes, sin investigar.**
+- De paso: la página que controla el navegador automatizado estaba en `visibilityState: hidden`. Eso explica los clics que se perdían en las fases 62 y 62·1.
+
