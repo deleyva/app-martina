@@ -1,6 +1,6 @@
 ---
 slug: app-martina
-phase: verify
+phase: complete
 progress: true
 iteration: 59
 principal_stated_goal: "Yo solo quiero añadir evidencias tal cual están diseñadas en la aplicación de Notas. Por favor, copiala. Usa en vez de HTMLX, usa, en fin, haz lo que sea, pero que sea igual visualmente. Me gusta mucho esa forma de calificar, esa aplicación que hicimos."
@@ -4513,7 +4513,7 @@ Lo que encontró el navegador: el botón «Ver otras plantillas» quedó dentro 
 - **2026-10-01, despliegue** («despliega»): push `f3e4da9..77c5903`, `just deploy-production`, sin migraciones. Producción en Chrome con la sesión de Jesús: `/calificaciones/grupo/13/?t=1` enseña solo «Plantilla de 4º ESO bilingüe» con teoría 15, sensorialidad 15, composición 10 y cuaderno 10, el texto «SB, NT, BI, SU o IN» y «Ver otras plantillas (2)» (captura vista, sin nombres); `registro.94116dea7f25.js`; consola sin errores. Los tres grupos de 3º ofrecen la de 3º; el de 4º, la de 4º.
 - **Encontrado al verificar:** `1-G-BIL` ya tiene plan (pk 4, «1-G-BIL · 1ª ev.»), creado entre los dos despliegues con la plantilla anterior: escala A·B·C·D y teoría 20 / cuaderno 5. **Sin ninguna nota ni evidencia.** Borrado el 2026-10-01 con permiso de Jesús («borra el plan de 1º»), tras comprobar en el mismo comando que seguía sin notas ni evidencias: 38 filas (1 plan, 9 instrumentos, 9 pruebas, 18 repartos, 1 vínculo con el grupo). `1-G-BIL` vuelve a ver la pantalla de elegir instrumentos.
 
-## Fase 61 — Lista de lectura del profesor: lo que estoy viendo y lo que viene en cada grupo (2026-10-04)
+## Fase 61 — Lista de lectura del profesor: lo que estoy viendo y lo que viene en cada grupo (2026-10-04) · DESPLEGADA Y VERIFICADA EN PRODUCCIÓN (`1c3e088`)
 
 **Jesús:** «Me gustaría tener una pantalla parecida a la de "Empezar a estudiar" […] pero que tuviera los elementos que estoy viendo en clase con cada grupo y aquellos que van a venir dentro de poco en cada clase, para que me los vaya leyendo/estudiando. Quería que me saliera una lista de artículos con etiquetas de en qué grupo o con algún chip de en qué grupo estoy viendo cada cosa […] que salieran listas de artículos y de elementos, es decir, partituras, embeds y demás.» Y, decidido: «lista de lectura, con posibilidad de ocultar libros de esa lista (por ejemplo las lecturas rítmicas y melódicas las tengo controladas y no las necesito en esa lista de lectura)».
 
@@ -4549,4 +4549,10 @@ Lo que encontró el navegador: el botón «Ver otras plantillas» quedó dentro 
 - Para verla en Chrome en local, creé una sesión de Django de una hora para el profesor local en vez de teclear contraseñas.
 - Sin auditoría externa: es una pantalla de solo lectura para profesores, más una tabla por profesor. Lo único que escribe es el POST de ocultar, que tiene test de permisos y de redirección.
 - Horizonte (21 días atrás, 3 por libro) elegido por mí; constantes al principio de `clases/lectura.py`.
+- **2026-10-04, despliegue** («despliega»). Copia previa `production_backup_2026_10_04T13_03_08.sql.gz`. Push `2eb7b62..d539905`, `just deploy-production`, aplicada `clases.0021_libro_oculto_en_lectura`.
+- **Producción, en Chrome con la sesión de Jesús:** `/clases/lectura/` lista sus siete grupos con recuento, 34 artículos y 132 elementos con chips «visto»/«en clase» por grupo.
+- **Lo que encontró el navegador, C363 roto en producción:** con «Lecturas rítmicas» y «Lecturas melódicas» ocultas (a petición de Jesús), seguían saliendo «Capítulo 1 — El compás de dos tiempos», «Capítulo 2 — El compás de cuatro tiempos» y «Capítulo 1 — El pentagrama sin clave». Ese material estaba en clases **sin libro asociado**, y el filtro solo miraba `item.group_book`. Los tests pasaban porque el montaje ponía siempre el libro. *Conjetura refutada:* «ocultar por el libro por el que entró basta». *Criterio ahora:* ocultar un libro oculta todo su material, entre como entre. Arreglado en `1c3e088` (`_material_oculto`); el test se reescribió con el caso de producción y falla con el código anterior. Desplegado sin migraciones.
+- **Tras el arreglo, en producción:** cero enlaces a `lecturas-ritmicas` o `lecturas-melodicas` en la página, artículos 34 → 31, los dos libros con botón «Mostrar», consola sin errores (salvo el aviso de accesibilidad de la barra de Wagtail, que no es de esta pantalla). **Los dos libros quedan ocultos en la cuenta de Jesús**, que era lo que pidió.
+- Paso en falso mío durante la verificación: el segundo clic de ocultar cayó en otra fila, porque la fila oculta salta al final de la lista y la referencia del navegador había quedado vieja. Se arregló repitiéndolo. Una persona que pulse rápido dos «Ocultar» seguidos podría tropezar con lo mismo.
+- Visto de paso: hay artículos con el mismo título en libros distintos («1. Sound», «Índex» salen dos veces). Son páginas distintas; para distinguirlas habría que enseñar el libro de cada una.
 
