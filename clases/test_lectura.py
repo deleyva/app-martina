@@ -214,12 +214,17 @@ def test_ocultar_un_libro_y_volver_a_mostrarlo(db, profesor, otro_profesor, libr
     GroupBook.objects.create(group=tres, libro=_libro, seccion="ritmo_melodia")
     sesion = _sesion(uno, profesor, -1, [a1], cap1)
     sesion.items.update(group_book=gb_uno)
-    # Un extra suelto, sin libro: no lo oculta nadie.
+    # El caso de producción: material del libro en una clase SIN libro
+    # asociado. Ocultar el libro también lo oculta.
     _sesion(uno, profesor, -1, [a2], cap1)
+    # Un extra suelto que no es de ningún libro oculto: sigue saliendo.
+    _otro, otros = _libro_con_capitulos("Otro", "otro-lectura", [("Suelto", ["s1"])])
+    cap_otro, (s1,) = otros[0]
+    _sesion(uno, profesor, -1, [s1], cap_otro)
 
     assert lectura.alternar_oculto(profesor, _libro) is True
     datos = lectura.lista_de_lectura(profesor, hoy=HOY)
-    assert _titulos(datos) == ["a2"]
+    assert _titulos(datos) == ["s1"]
     assert [l["oculto"] for l in datos["libros"]] == [True]
     assert datos["libros"][0]["grupos"] == ["1º A", "3º C"]
 

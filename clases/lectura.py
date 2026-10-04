@@ -110,12 +110,30 @@ def _poner_chip(chips, group, estado, fecha):
         chips[group.pk] = nuevo
 
 
+def _material_oculto(ocultos):
+    """{(content_type_id, object_id)} de todo lo que hay en los libros ocultos.
+
+    **Ocultar un libro oculta su material, no solo lo que entró por él.** Mirar
+    `item.group_book` no basta: en producción hay elementos de las lecturas
+    rítmicas en clases sin libro asociado (preparadas antes de asignar libros, o
+    añadidas sueltas), y se colaban en la lista con el libro oculto (encontrado
+    al verificar el despliegue, 2026-10-04).
+    """
+    claves = set()
+    for libro in Page.objects.filter(pk__in=ocultos):
+        for _capitulo, objeto in material_del_libro(libro):
+            tipo, pk = libros_de_grupo._clave(objeto)
+            claves.add((tipo.pk, pk))
+    return claves
+
+
 def _de_las_sesiones(acumulador, grupos, ocultos, hoy):
     """Lo que ya está en una clase: de hace `DIAS_ATRAS` días en adelante.
 
     Una sesión con fecha futura es una clase ya preparada, así que lo suyo es
     «próximo», no «en clase».
     """
+    material_oculto = _material_oculto(ocultos)
     items = (
         ClassSessionItem.objects.filter(
             session__group__in=grupos,
@@ -127,6 +145,8 @@ def _de_las_sesiones(acumulador, grupos, ocultos, hoy):
     )
     for item in items:
         if item.group_book is not None and item.group_book.libro_id in ocultos:
+            continue
+        if (item.content_type_id, item.object_id) in material_oculto:
             continue
         objeto = item.content_object
         if objeto is None:
