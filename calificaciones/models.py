@@ -596,6 +596,10 @@ class Evidencia(models.Model):
     estado = models.CharField(max_length=10, choices=ESTADOS, default=LISTO)
     error = models.TextField(blank=True)
     texto = models.TextField(blank=True)
+    # Las evidencias de UNA grabación de grupo (fase 62·2): hasta tres alumnos
+    # que leen a la vez y comparten el mismo fichero en disco, una sola copia
+    # (petición de Jesús, 2026-10-04). Nulo = evidencia suelta, con su fichero.
+    grabacion = models.UUIDField(null=True, blank=True, db_index=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+"
     )
@@ -625,9 +629,20 @@ class Evidencia(models.Model):
             self.ARCHIVO: "📎",
         }[self.tipo]
 
+    def hermanas(self):
+        """Las otras evidencias de la misma grabación de grupo, que comparten fichero."""
+        if self.grabacion is None:
+            return Evidencia.objects.none()
+        return Evidencia.objects.filter(grabacion=self.grabacion).exclude(pk=self.pk)
+
     def delete(self, *args, **kwargs):
+        # Un fichero compartido solo se borra con la ÚLTIMA evidencia que lo
+        # usa: borrar la de un alumno no puede dejar a los otros sin grabación.
+        en_uso = set()
+        for otra in self.hermanas():
+            en_uso.update(n for n in (otra.archivo.name, otra.archivo_comprimido.name) if n)
         for campo in (self.archivo, self.archivo_comprimido):
-            if campo:
+            if campo and campo.name not in en_uso:
                 campo.delete(save=False)
         return super().delete(*args, **kwargs)
 

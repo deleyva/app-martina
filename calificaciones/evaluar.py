@@ -209,11 +209,13 @@ def guardar_grabacion(*, group, instrumento: Instrumento, alumnos, fichero, tipo
     Evaluar en grupo (fase 62·1): se graba UNA vez mientras leen los tres, y la
     grabación queda en la ficha de cada uno, en la columna del instrumento.
 
-    **Una copia del fichero por alumno.** `Evidencia.delete()` borra su fichero:
-    si las tres evidencias compartieran uno, borrar la de un alumno dejaría a
-    los otros dos sin grabación. Cuesta espacio (y tres compresiones en un
-    vídeo), pero cada evidencia sigue siendo independiente.
+    **Una sola copia del fichero** (fase 62·2, petición de Jesús: «no quiero
+    tres copias de lo mismo»). Se guarda una vez y las evidencias del grupo
+    comparten `grabacion` y fichero. `Evidencia.delete()` solo borra el fichero
+    con la última que lo usa, y `comprimir_video` comprime una vez para todas.
     """
+    import uuid
+
     from django.core.files.base import ContentFile
 
     from . import ficheros
@@ -244,6 +246,7 @@ def guardar_grabacion(*, group, instrumento: Instrumento, alumnos, fichero, tipo
     if not contenido:
         raise ValueError("La grabación ha llegado vacía")
     nombre = Path(fichero.name).name[:255]
+    grupo_id = uuid.uuid4()
     creadas = []
     for alumno in alumnos:
         evidencia = Evidencia(
@@ -254,16 +257,22 @@ def guardar_grabacion(*, group, instrumento: Instrumento, alumnos, fichero, tipo
             tamano=len(contenido),
             tipo_mime=ficheros.tipo_de_contenido(clase, nombre) or "",
             estado=Evidencia.PENDIENTE if clase == Evidencia.VIDEO else Evidencia.LISTO,
+            grabacion=grupo_id,
             created_by=user,
         )
-        evidencia.archivo.save(nombre, ContentFile(contenido), save=False)
+        if not creadas:
+            # El fichero se escribe una vez, con la primera evidencia...
+            evidencia.archivo.save(nombre, ContentFile(contenido), save=False)
+        else:
+            # ...y las demás apuntan al mismo, sin copiarlo.
+            evidencia.archivo.name = creadas[0].archivo.name
         evidencia.save()
         creadas.append(evidencia)
 
     if clase == Evidencia.VIDEO:
         from .tasks import comprimir_video
 
-        # Tras confirmar: la tarea lee la fila desde otro proceso.
-        for evidencia in creadas:
-            transaction.on_commit(lambda pk=evidencia.pk: comprimir_video(pk))
+        # Una compresión para todo el grupo, tras confirmar: la tarea lee las
+        # filas desde otro proceso.
+        transaction.on_commit(lambda pk=creadas[0].pk: comprimir_video(pk))
     return creadas

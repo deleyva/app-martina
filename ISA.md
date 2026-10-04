@@ -4639,3 +4639,21 @@ Lo que encontró el navegador: el botón «Ver otras plantillas» quedó dentro 
 - **C379 en el navegador:** se sustituyó `getUserMedia` por el `captureStream` de un `<canvas>` animado. El `MediaRecorder`, la subida y el servidor son los reales. Resultado: vista previa durante la grabación, «🎥 Grabación guardada para 2 alumno(s)», y dos evidencias de vídeo de 7.026 bytes (Gala y Fabio, prueba 59). La cámara y el micrófono de verdad del iPad siguen pendientes de Jesús.
 - **Arreglos de la revisión, comprobados en Chrome** con la subida forzada a 400: salen «Reintentar la subida» y «Descartar la grabación»; empezar otro grupo se bloquea; para descartar pide «Sí, tirar la grabación». Quitar al último durante la grabación se bloquea. Abrir otro elemento para la grabación y la sube una vez.
 
+#### Fase 62·2 — Una sola copia de la grabación para todo el grupo (2026-10-04)
+
+**Jesús:** «me gustaría que un vídeo (una copia) enlazara a tres. No quiero tres copias de lo mismo». **Revoca la decisión de la 62·1** (una copia por alumno).
+
+**Cómo:** `Evidencia.grabacion` (UUID, nulo) agrupa las evidencias que comparten fichero. El fichero se guarda UNA vez. Borrar una evidencia del grupo solo borra el fichero si es la última que lo usa. La compresión se hace una vez y deja las del grupo apuntando al mismo MP4. Las evidencias sueltas del registro (sin `grabacion`) siguen exactamente como estaban.
+
+- [x] **C383** — Una grabación de 1 a 3 alumnos crea UN fichero en disco y una evidencia por alumno apuntando a él. *Falsador: test que cuenta ficheros en el almacenamiento.* *Evidencia: `test_una_grabacion_para_tres_es_un_solo_fichero` (1 fichero en el almacenamiento); Chrome, local, con vídeo de `<canvas>`: dos evidencias (Fabio 9, Gala 10) y un único fichero de 5.704 bytes en `calificaciones/7/341/`.*
+- [x] **C384** — Borrar la evidencia de un alumno no borra el fichero mientras otra lo use; borrar la última sí. *Falsador: test.* *Evidencia: `test_borrar_la_de_uno_no_deja_a_los_otros_sin_grabacion`; Chrome, local: borrada la 10 (Gala) → 404 sin caché, la 9 (Fabio) sigue sirviendo 5.704 bytes y el fichero sigue en disco.*
+- [x] **C385** — Un vídeo compartido se comprime una vez: todas las del grupo acaban en el mismo MP4, con el original borrado; si falla, todas quedan en «fallido». *Falsador: test con ffmpeg simulado.* *Evidencia: `test_un_video_de_grupo_se_comprime_una_vez` (ffmpeg simulado, una llamada, las tres en el mismo MP4, el original borrado), `test_si_ffmpeg_falla_fallan_todas`; en local, la cola de huey real dejó un solo `.mp4` y ningún `.webm`.*
+- **Anti-F** — Una evidencia suelta (sin grupo) se borra y se comprime igual que antes. *Falsador: los tests de `test_evidencias.py` siguen en verde.*
+
+##### Log
+- Anti-F: `test_evidencias.py` sigue en verde y `test_una_evidencia_suelta_sigue_borrando_su_fichero`.
+- Tres mutaciones (borrar sin contar a las hermanas, una copia por alumno, comprimir solo la primera): cada una la caza su test, y se deshicieron.
+- Migración aditiva `calificaciones.0005_evidencia_grabacion` (UUID nulo con índice). Aplicada solo en local. `pytest calificaciones clases my_library/tests.py`: 598 passed.
+- El fichero compartido vive en la carpeta del primer alumno del grupo (`calificaciones/<plan>/<alumno>/`). Es solo una ruta, sin efecto en el acceso: el permiso se mira por la evidencia.
+- Visto de paso, ya existía antes: el navegador cachea `evidencia_ver`, así que tras borrar una evidencia el mismo navegador la siguió sirviendo de su caché hasta pedirla con `no-store`. Solo afecta al navegador del propio profesor. Sin tocar.
+

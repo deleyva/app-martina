@@ -8,6 +8,7 @@ cientos de tiradas, no con un ejemplo.
 import itertools
 import json
 import random
+from unittest import mock
 from decimal import Decimal
 from fractions import Fraction
 
@@ -521,24 +522,106 @@ def _audio(nombre="clase-grupo.webm"):
     return SimpleUploadedFile(nombre, b"\x1aE\xdf\xa3audio-de-tres", content_type="audio/webm")
 
 
-def test_una_grabacion_para_tres_deja_una_evidencia_independiente_por_alumno(group, profesor, alumnos, lectura):
-    """C379: una por alumno, cada una con su fichero; borrar una no toca las otras."""
+def _ficheros_en_disco(settings):
+    import os
+
+    raiz = os.path.join(settings.MEDIA_ROOT, "calificaciones")
+    return sorted(
+        os.path.join(d, f) for d, _, fs in os.walk(raiz) for f in fs
+    ) if os.path.isdir(raiz) else []
+
+
+def test_una_grabacion_para_tres_es_un_solo_fichero(settings, group, profesor, alumnos, lectura):
+    """C383: un fichero en disco, tres evidencias que lo comparten (fase 62·2)."""
     creadas = evaluar.guardar_grabacion(
         group=group, instrumento=lectura, alumnos=alumnos, fichero=_audio(), tipo="audio", user=profesor
     )
     prueba = lectura.prueba_para_evaluar()
     assert [e.alumno_id for e in creadas] == [a.pk for a in alumnos]
     assert all(e.prueba_id == prueba.pk and e.tipo == "audio" for e in creadas)
-    nombres = {e.archivo.name for e in creadas}
-    assert len(nombres) == 3, "cada evidencia lleva su propio fichero"
-    for e in creadas:
+    assert len({e.archivo.name for e in creadas}) == 1
+    assert len({e.grabacion for e in creadas}) == 1 and creadas[0].grabacion is not None
+    assert len(_ficheros_en_disco(settings)) == 1
+    for e in Evidencia.objects.all():
         with e.archivo.open("rb") as f:
             assert f.read() == b"\x1aE\xdf\xa3audio-de-tres"
 
+
+def test_borrar_la_de_uno_no_deja_a_los_otros_sin_grabacion(settings, group, profesor, alumnos, lectura):
+    """C384: el fichero compartido se borra con la ÚLTIMA evidencia, no antes."""
+    creadas = evaluar.guardar_grabacion(
+        group=group, instrumento=lectura, alumnos=alumnos, fichero=_audio(), tipo="audio", user=profesor
+    )
+    nombre = creadas[0].archivo.name
     creadas[0].delete()
-    for e in creadas[1:]:
-        e.refresh_from_db()
-        assert e.archivo.storage.exists(e.archivo.name)
+    creadas[1].delete()
+    assert creadas[2].archivo.storage.exists(nombre)
+    creadas[2].delete()
+    assert _ficheros_en_disco(settings) == []
+
+
+def test_una_evidencia_suelta_sigue_borrando_su_fichero(settings, group, profesor, alumnos, lectura):
+    """Anti-F: sin grabación de grupo, borrar es como siempre."""
+    from django.core.files.base import ContentFile
+
+    suelta = Evidencia(prueba=lectura.prueba_para_evaluar(), alumno=alumnos[0], tipo="audio", created_by=profesor)
+    suelta.archivo.save("suelta.webm", ContentFile(b"x"), save=True)
+    suelta.delete()
+    assert _ficheros_en_disco(settings) == []
+
+
+def _ffmpeg_que_funciona(comando, **_):
+    from types import SimpleNamespace
+
+    with open(comando[-1], "wb") as f:
+        f.write(b"mp4-comprimido")
+    return SimpleNamespace(returncode=0, stderr="")
+
+
+def test_un_video_de_grupo_se_comprime_una_vez(settings, group, profesor, alumnos, lectura):
+    """C385: una pasada de ffmpeg, las tres en el mismo MP4, el original borrado."""
+    from calificaciones.tasks import comprimir_video
+
+    video = SimpleUploadedFile("clase.webm", b"video-de-tres", content_type="video/webm")
+    with mock.patch("calificaciones.tasks.comprimir_video"):
+        creadas = evaluar.guardar_grabacion(
+            group=group, instrumento=lectura, alumnos=alumnos, fichero=video, tipo="video", user=profesor
+        )
+    assert all(e.estado == Evidencia.PENDIENTE for e in creadas)
+    original = creadas[0].archivo.name
+
+    with mock.patch("calificaciones.tasks.subprocess.run", side_effect=_ffmpeg_que_funciona) as ffmpeg:
+        comprimir_video.call_local(creadas[0].pk)
+
+    assert ffmpeg.call_count == 1
+    finales = list(Evidencia.objects.order_by("pk"))
+    assert {e.archivo_comprimido.name for e in finales} != {""}
+    assert len({e.archivo_comprimido.name for e in finales}) == 1
+    assert all(not e.archivo and e.estado == Evidencia.LISTO and e.tipo_mime == "video/mp4" for e in finales)
+    assert not finales[0].archivo_comprimido.storage.exists(original)
+    assert len(_ficheros_en_disco(settings)) == 1
+    with finales[2].fichero.open("rb") as f:
+        assert f.read() == b"mp4-comprimido"
+
+    finales[0].delete()
+    finales[1].delete()
+    assert finales[2].fichero.storage.exists(finales[2].fichero.name)
+
+
+def test_si_ffmpeg_falla_fallan_todas(group, profesor, alumnos, lectura):
+    """C385: el fallo se ve en las tres, no solo en la primera."""
+    from types import SimpleNamespace
+
+    from calificaciones.tasks import comprimir_video
+
+    video = SimpleUploadedFile("clase.webm", b"video-de-tres", content_type="video/webm")
+    with mock.patch("calificaciones.tasks.comprimir_video"):
+        creadas = evaluar.guardar_grabacion(
+            group=group, instrumento=lectura, alumnos=alumnos, fichero=video, tipo="video", user=profesor
+        )
+    with mock.patch("calificaciones.tasks.subprocess.run", return_value=SimpleNamespace(returncode=1, stderr="roto")):
+        comprimir_video.call_local(creadas[0].pk)
+    assert set(Evidencia.objects.values_list("estado", flat=True)) == {Evidencia.FALLIDO}
 
 
 def test_la_grabacion_de_grupo_tiene_limites(group, profesor, alumnos, lectura, otro_group):
