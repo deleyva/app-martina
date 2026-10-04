@@ -192,3 +192,41 @@ def evaluar_guardar(request, pk):
             "prueba": nota.prueba_id,
         }
     )
+
+
+@login_required
+@user_passes_test(es_profesor)
+@require_POST
+def evaluar_grabacion(request, pk):
+    """La grabación de un grupo de 1 a 3 alumnos: `alumnos` (repetido), `tipo`, `archivo`.
+
+    Se sube UNA vez y queda como evidencia de cada alumno del grupo en la
+    columna del instrumento (fase 62·1).
+    """
+    from calificaciones.views import TAMANO_MAXIMO
+
+    item, group = _elemento(request, pk)
+    instrumento = _instrumento_de(item, group)
+    fichero = request.FILES.get("archivo")
+    if fichero is None:
+        return _error("Falta el archivo")
+    if fichero.size > TAMANO_MAXIMO:
+        return _error("Archivo demasiado grande (máximo 50 MB)")
+    ids = [x for x in request.POST.getlist("alumnos") if str(x).isdigit()]
+    alumnos = list(get_user_model().objects.filter(pk__in=ids))
+    if len(alumnos) != len(ids):
+        return _error("Algún alumno no existe")
+    try:
+        creadas = evaluar.guardar_grabacion(
+            group=group,
+            instrumento=instrumento,
+            alumnos=alumnos,
+            fichero=fichero,
+            tipo=request.POST.get("tipo", ""),
+            user=request.user,
+        )
+    except ValueError as error:
+        return _error(str(error))
+    return JsonResponse(
+        {"ok": True, "evidencias": [{"id": e.pk, "alumno": e.alumno_id, "tipo": e.tipo} for e in creadas]}
+    )

@@ -101,6 +101,11 @@ urlpatterns = [
         name="evaluar_guardar",
     ),
     path(
+        "sessions/items/<int:pk>/evaluar/grabacion/",
+        views_evaluar.evaluar_grabacion,
+        name="evaluar_grabacion",
+    ),
+    path(
         "lectura/",
         views_libros.lectura_profesor,
         name="lectura",

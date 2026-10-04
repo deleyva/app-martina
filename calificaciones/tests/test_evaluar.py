@@ -510,3 +510,87 @@ def test_una_peticion_mal_formada_da_400_y_no_500(client, profesor, alumnos, ele
     if r.status_code == 200:
         # Lo único que puede valer de estos: un comentario numérico se guarda como texto.
         assert Nota.objects.get(alumno=alumnos[0]).comentario == "5"
+
+
+# =============================================================================
+# Fase 62·1 · evaluar en grupo de hasta tres, una sola grabación
+# =============================================================================
+
+
+def _audio(nombre="clase-grupo.webm"):
+    return SimpleUploadedFile(nombre, b"\x1aE\xdf\xa3audio-de-tres", content_type="audio/webm")
+
+
+def test_una_grabacion_para_tres_deja_una_evidencia_independiente_por_alumno(group, profesor, alumnos, lectura):
+    """C379: una por alumno, cada una con su fichero; borrar una no toca las otras."""
+    creadas = evaluar.guardar_grabacion(
+        group=group, instrumento=lectura, alumnos=alumnos, fichero=_audio(), tipo="audio", user=profesor
+    )
+    prueba = lectura.prueba_para_evaluar()
+    assert [e.alumno_id for e in creadas] == [a.pk for a in alumnos]
+    assert all(e.prueba_id == prueba.pk and e.tipo == "audio" for e in creadas)
+    nombres = {e.archivo.name for e in creadas}
+    assert len(nombres) == 3, "cada evidencia lleva su propio fichero"
+    for e in creadas:
+        with e.archivo.open("rb") as f:
+            assert f.read() == b"\x1aE\xdf\xa3audio-de-tres"
+
+    creadas[0].delete()
+    for e in creadas[1:]:
+        e.refresh_from_db()
+        assert e.archivo.storage.exists(e.archivo.name)
+
+
+def test_la_grabacion_de_grupo_tiene_limites(group, profesor, alumnos, lectura, otro_group):
+    """C378 y C382: de 1 a 3, sin repetidos, del grupo, y solo audio o vídeo."""
+    cuarto = UserFactory()
+    Enrollment.objects.create(user=cuarto, group=group)
+    casos = [
+        ([], "audio", "entre 1 y 3"),
+        (alumnos + [cuarto], "audio", "entre 1 y 3"),
+        ([alumnos[0], alumnos[0]], "audio", "repetido"),
+        ([alumnos[0], UserFactory()], "audio", "no es de este grupo"),
+        ([alumnos[0]], "foto", "audio o vídeo"),
+    ]
+    for lista, tipo, mensaje in casos:
+        with pytest.raises(ValueError, match=mensaje):
+            evaluar.guardar_grabacion(group=group, instrumento=lectura, alumnos=lista, fichero=_audio(), tipo=tipo, user=profesor)
+    assert not Evidencia.objects.exists()
+
+
+def test_la_grabacion_de_grupo_por_http(client, profesor, otro_profesor, otro_group, alumnos, elemento):
+    """C379, C382 y C377, por la misma puerta que usa la franja."""
+    url = reverse("clases:evaluar_grabacion", args=[elemento.pk])
+    client.force_login(profesor)
+    r = client.post(url, {"alumnos": [alumnos[0].pk, alumnos[2].pk], "tipo": "audio", "archivo": _audio()})
+    assert r.status_code == 200
+    assert sorted(e["alumno"] for e in r.json()["evidencias"]) == sorted([alumnos[0].pk, alumnos[2].pk])
+
+    r = client.post(url, {"alumnos": [a.pk for a in alumnos] + [UserFactory().pk], "tipo": "audio", "archivo": _audio()})
+    assert r.status_code == 400
+
+    client.force_login(otro_profesor)
+    assert client.post(url, {"alumnos": [alumnos[0].pk], "tipo": "audio", "archivo": _audio()}).status_code == 404
+
+    client.force_login(profesor)
+    elemento.instrumento = None
+    elemento.save()
+    assert client.post(url, {"alumnos": [alumnos[0].pk], "tipo": "audio", "archivo": _audio()}).status_code == 404
+    assert Evidencia.objects.count() == 2
+
+
+def test_la_franja_es_pequena(client, profesor, elemento):
+    """C381: la franja no pasa de 12 px de letra ni del 45 % de alto."""
+    client.force_login(profesor)
+    html = client.get(reverse("clases:class_session_present", args=[elemento.session_id])).content.decode()
+    estilo = html[html.index("#panel-evaluar {"):html.index("#panel-evaluar.abierto")]
+    assert "font-size: 12px" in estilo and "max-height: 45vh" in estilo and "bottom: 8px" in estilo
+    assert "evaluar/grabacion/" in html
+
+
+def test_una_grabacion_vacia_no_se_guarda(group, profesor, alumnos, lectura):
+    """Visto en el navegador: un MediaRecorder sin datos dejaba evidencias de 0 bytes."""
+    vacio = SimpleUploadedFile("clase.webm", b"", content_type="audio/webm")
+    with pytest.raises(ValueError, match="vacía"):
+        evaluar.guardar_grabacion(group=group, instrumento=lectura, alumnos=alumnos[:2], fichero=vacio, tipo="audio", user=profesor)
+    assert not Evidencia.objects.exists()

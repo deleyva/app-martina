@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import random
 from decimal import Decimal
+from pathlib import Path
 
 from django.db import transaction
 
@@ -196,3 +197,73 @@ def evaluar(
     Nota.objects.filter(pk=nota.pk).update(rubrica=detalle)
     nota.rubrica = detalle
     return nota
+
+
+MAXIMO_POR_GRUPO = 3
+
+
+@transaction.atomic
+def guardar_grabacion(*, group, instrumento: Instrumento, alumnos, fichero, tipo: str, user) -> list:
+    """Una grabación de un grupo de 1 a 3 alumnos, como evidencia de cada uno.
+
+    Evaluar en grupo (fase 62·1): se graba UNA vez mientras leen los tres, y la
+    grabación queda en la ficha de cada uno, en la columna del instrumento.
+
+    **Una copia del fichero por alumno.** `Evidencia.delete()` borra su fichero:
+    si las tres evidencias compartieran uno, borrar la de un alumno dejaría a
+    los otros dos sin grabación. Cuesta espacio (y tres compresiones en un
+    vídeo), pero cada evidencia sigue siendo independiente.
+    """
+    from django.core.files.base import ContentFile
+
+    from . import ficheros
+    from .models import Evidencia
+
+    alumnos = list(alumnos)
+    if not 1 <= len(alumnos) <= MAXIMO_POR_GRUPO:
+        raise ValueError(f"Se graba a entre 1 y {MAXIMO_POR_GRUPO} alumnos a la vez")
+    if len({a.pk for a in alumnos}) != len(alumnos):
+        raise ValueError("Hay un alumno repetido")
+    del_grupo = set(alumnos_del_grupo(group).filter(pk__in=[a.pk for a in alumnos]).values_list("pk", flat=True))
+    if len(del_grupo) != len(alumnos):
+        raise ValueError("Algún alumno no es de este grupo")
+    if tipo not in (Evidencia.AUDIO, Evidencia.VIDEO):
+        raise ValueError("Solo se graba audio o vídeo")
+    clase = ficheros.clasificar(tipo, fichero.name)
+    if clase is None:
+        raise ValueError(f"Ese fichero no es de tipo «{tipo}»")
+    prueba = instrumento.prueba_para_evaluar()
+    if prueba is None:
+        raise ValueError("Este instrumento no tiene ninguna columna activa en el registro")
+
+    fichero.seek(0)
+    contenido = fichero.read()
+    # Una grabación vacía (el navegador no llegó a capturar nada) no es una
+    # evidencia: guardarla dejaba en la ficha un audio de 0 bytes que no suena
+    # (visto en el navegador, 2026-10-04).
+    if not contenido:
+        raise ValueError("La grabación ha llegado vacía")
+    nombre = Path(fichero.name).name[:255]
+    creadas = []
+    for alumno in alumnos:
+        evidencia = Evidencia(
+            prueba=prueba,
+            alumno=alumno,
+            tipo=clase,
+            nombre_original=nombre,
+            tamano=len(contenido),
+            tipo_mime=ficheros.tipo_de_contenido(clase, nombre) or "",
+            estado=Evidencia.PENDIENTE if clase == Evidencia.VIDEO else Evidencia.LISTO,
+            created_by=user,
+        )
+        evidencia.archivo.save(nombre, ContentFile(contenido), save=False)
+        evidencia.save()
+        creadas.append(evidencia)
+
+    if clase == Evidencia.VIDEO:
+        from .tasks import comprimir_video
+
+        # Tras confirmar: la tarea lee la fila desde otro proceso.
+        for evidencia in creadas:
+            transaction.on_commit(lambda pk=evidencia.pk: comprimir_video(pk))
+    return creadas
