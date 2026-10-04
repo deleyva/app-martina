@@ -170,3 +170,37 @@ def test_la_etiqueta_usa_el_grupo_de_la_pagina(primero, letra, profesor):
         "{% load tono_tags %}{% tono_de_clase letra as t %}{{ t.semitonos }}|{{ t.puede_guardar }}|{{ t.grupo.name }}"
     ).render(Context({"letra": letra, "request": peticion, "grupo_tono": primero}))
     assert salida == "5|True|1-G-BIL"
+
+
+# =============================================================================
+# Diagramas por defecto según el curso (2026-10-04)
+# =============================================================================
+
+
+@pytest.mark.parametrize(
+    "nombre, curso, instrumento",
+    [
+        ("1-G-BIL", 1, "ukelele"),
+        ("3-FH", 3, "ukelele"),
+        ("3º ESO T", 3, "ukelele"),
+        ("4-AC-BIL", 4, "piano"),
+        ("4AG", 4, "piano"),
+        ("Carmen", None, ""),
+        ("Coro", None, ""),
+    ],
+)
+def test_el_curso_sale_del_nombre(nombre, curso, instrumento):
+    grupo = Group(name=nombre)
+    assert grupo.curso == curso
+    assert grupo.instrumento_de_acordes == instrumento
+
+
+def test_el_visor_trae_el_instrumento_del_curso(client, primero, cuarto, letra, profesor):
+    tipo = ContentType.objects.get_for_model(letra)
+    client.force_login(profesor)
+    for grupo, esperado in ((primero, "ukelele"), (cuarto, "piano")):
+        sesion = ClassSession.objects.create(teacher=profesor, group=grupo, date=timezone.localdate(), title="Clase")
+        item = ClassSessionItem.objects.create(session=sesion, content_type=tipo, object_id=letra.pk, order=0)
+        html = client.get(reverse("clases:class_session_item_content", args=[sesion.pk, item.pk])).content.decode()
+        assert f'data-instrumento-defecto="{esperado}"' in html
+        assert f'data-grupo-id="{grupo.pk}"' in html

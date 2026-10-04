@@ -146,13 +146,19 @@ function diagramasHtml(nombres, instrumento, indice, defs, semitonos) {
 //   cancion    la canción ya parseada, o una función que la devuelva
 //   urls       {guitarra, ukelele}: JSON de chords-db servidos por Django
 //   semitonos  función que devuelve el transporte actual
+//   porDefecto instrumento si no hay nada elegido (2026-10-04: ukelele en 1º y
+//              3º, piano en 4º, según el grupo de la página)
+//   clave      dónde se recuerda lo elegido. Con grupo, una por grupo: lo que
+//              se elige en 4º no cambia lo que sale en 1º
 const CLAVE_INSTRUMENTO = "cp-instrumento";
 
-function montarDiagramas({ tira, selector, texto, cancion, urls, semitonos }) {
+function montarDiagramas({ tira, selector, texto, cancion, urls, semitonos, porDefecto = "", clave = CLAVE_INSTRUMENTO }) {
   const leer = (v) => (typeof v === "function" ? v() : v);
-  let instrumento = "";
-  try { instrumento = localStorage.getItem(CLAVE_INSTRUMENTO) || ""; } catch (e) { /* sin almacenamiento */ }
-  if (![...selector.options].some((o) => o.value === instrumento)) instrumento = "";
+  const valido = (v) => [...selector.options].some((o) => o.value === v);
+  let instrumento = null;
+  try { instrumento = localStorage.getItem(clave); } catch (e) { /* sin almacenamiento */ }
+  // `null` es «nunca elegido» (manda el defecto); "" es «elegido: ninguno».
+  if (instrumento === null || !valido(instrumento)) instrumento = valido(porDefecto) ? porDefecto : "";
   selector.value = instrumento;
 
   let turno = 0;  // descarta respuestas viejas si se cambia deprisa
@@ -174,11 +180,21 @@ function montarDiagramas({ tira, selector, texto, cancion, urls, semitonos }) {
   }
   selector.addEventListener("change", () => {
     instrumento = selector.value;
-    try { localStorage.setItem(CLAVE_INSTRUMENTO, instrumento); } catch (e) { /* sin almacenamiento */ }
+    try { localStorage.setItem(clave, instrumento); } catch (e) { /* sin almacenamiento */ }
     refrescar();
   });
   refrescar();
   return refrescar;
+}
+
+// Un acorde suelto, para la ventana que sale al tocarlo en la canción
+// (2026-10-04). Devuelve una promesa con el HTML del diagrama. `nombre` es el
+// acorde tal como se ve (ya transportado); las {define} de la canción solo
+// valen sin transporte, igual que en la tira.
+function diagramaDe({ nombre, instrumento, urls, texto, semitonos }) {
+  const propias = semitonos ? null : leerDefiniciones(texto);
+  if (instrumento === "piano") return Promise.resolve(diagrama(nombre, instrumento, null, propias));
+  return cargarBase(urls[instrumento]).then((indice) => diagrama(nombre, instrumento, indice, propias));
 }
 
 // Editor de la letra: ventana con el texto a la izquierda y la vista previa a
@@ -282,5 +298,5 @@ function abrirEditor({ texto, url, csrf, alGuardar }) {
 
 window.ChordPro = {
   LIMITE, acotar, parsear, aHtml, etiquetaTono,
-  acordes, leerDefiniciones, cargarBase, diagramasHtml, montarDiagramas, abrirEditor,
+  acordes, leerDefiniciones, cargarBase, diagramasHtml, montarDiagramas, abrirEditor, diagramaDe,
 };

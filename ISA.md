@@ -4689,3 +4689,16 @@ Lo que encontró el navegador: el botón «Ver otras plantillas» quedó dentro 
 - Visto en la captura: los comentarios escritos dentro del ChordPro («Tonalidad de Sol. Cejilla en el traste 1…») no se transportan, porque son texto.
 - La canción local se devolvió a su tono original al terminar.
 
+
+## Fase 64 — Diagramas de acordes por curso y diagrama al tocar un acorde (2026-10-04)
+
+**Jesús:** «en el visor de archivos de Core Pro se podrían mostrar arriba los diagramas de los acordes con un desplegable para poder mostrarlos en ukelele, guitarra y piano? Estamos en clases de primero o tercero de la ESO. Me gustaría que, por defecto, se mostraran los diagramas de ukelele. Si no, en el cuarto, me gustaría que se mostraran los diagramas de piano. Además, me gustaría que, si pincho en un acorde en mitad de la canción, salga un pop-up con el diagrama del acorde.»
+
+La tira de arriba con el desplegable ya existía. Hoy por defecto no mostraba nada y recordaba una sola elección para todo el navegador.
+
+- [x] **C391** — El curso sale del nombre del grupo («1-G-BIL» → 1, «4AG» → 4; sin número, ninguno). Por defecto: ukelele en 1º-3º, piano en 4º. *Evidencia: `test_el_curso_sale_del_nombre` (7 nombres, todos los de los datos locales), `test_el_visor_trae_el_instrumento_del_curso`.*
+- [x] **C392** — Lo elegido a mano se recuerda POR GRUPO (`cp-instrumento:g<id>`): elegir piano en 4º no cambia 1º. Sin grupo, la clave general de antes. *Evidencia: Chrome, local, sesión 120 (3º ESO T): abre en ukelele sin nada guardado (6 diagramas de 4 cuerdas, captura vista); al elegir piano se guarda solo `cp-instrumento:g14`, y al recargar abre en piano.*
+- [x] **C393** — Tocar un acorde de la letra abre una ventana pequeña con su diagrama (el instrumento del desplegable; con la tira apagada, el del curso, y si no hay, ukelele), ya transportado. Se cierra tocando fuera, desplazando o con Escape, y Escape **no** saca de la clase. *Evidencia: Chrome: Em → ventana «Em · ukelele» con diagrama (captura vista); con piano, C → teclado de 24 teclas; Escape la cierra y seguimos en `/present/`.*
+- `ChordPro.diagramaDe` es nueva en el paquete (fuente en `static/js/src/chordpro.js`, compilado con el esbuild 0.25.10 del proyecto). La imagen de producción lo vuelve a compilar con `npm run build`.
+- `pytest calificaciones clases my_library/tests.py musica`: en verde (ver commit). La preferencia de prueba del navegador se borró al terminar.
+- No incluido: la ventana del acorde en el artículo público de la canción (`musica/_letra_con_acordes`), que usa otra plantilla. Solo el visor.

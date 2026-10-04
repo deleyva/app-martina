@@ -48,6 +48,13 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
     .cpd figcaption { margin-bottom: 2px; }
     .cpd-dedo { fill: #fff; }
     .cpd-sin span { display: block; font-weight: 400; font-size: 11px; opacity: .6; padding-top: 1.5em; }
+    /* Tocar un acorde de la canción abre su diagrama (2026-10-04). */
+    .cpv-salida .chord:not(:empty) { cursor: pointer; }
+    .cpv-pop { position: fixed; z-index: 100001; background: #fff; color: #111; border-radius: 10px;
+               box-shadow: 0 8px 28px rgba(0,0,0,.35); padding: 10px 12px 8px; text-align: center; }
+    .cpv-pop .cpd { zoom: 1.6; }
+    .cpv-pop small { display: block; font: 11px system-ui, sans-serif; opacity: .6; margin-top: 2px; }
+    @media print { .cpv-pop { display: none !important; } }
     /* ✎ Editar la letra: mismo cuerpo que los botones flotantes de clase y
        estudio, en el carril izquierdo a 204 px, que en los dos queda libre. */
     .cpv-editar { position: fixed; left: 24px; bottom: 204px; z-index: 10000; width: 48px; height: 48px;
@@ -105,7 +112,8 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
 {% endif %}
 {% if page.chordpro %}
 {% tono_de_clase letra as tono %}
-<div class="cpv-barra" data-chordpro-barra data-tono-grupo="{{ tono.semitonos }}">
+<div class="cpv-barra" data-chordpro-barra data-tono-grupo="{{ tono.semitonos }}"
+     data-instrumento-defecto="{{ tono.instrumento }}"{% if tono.grupo %} data-grupo-id="{{ tono.grupo.pk }}"{% endif %}>
     <button type="button" data-accion="bajar" title="Bajar medio tono (−)">−</button>
     <span class="cpv-dato" data-tono>Tono original</span>
     <button type="button" data-accion="subir" title="Subir medio tono (+)">+</button>
@@ -299,6 +307,65 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
         acciones[e.key]();
     }
 
+    function urlsDiagramas() {
+        return { guitarra: tira.getAttribute('data-db-guitarra'), ukelele: tira.getAttribute('data-db-ukelele') };
+    }
+
+    // ── Tocar un acorde: su diagrama en una ventana pequeña ──
+    // Con el instrumento elegido arriba; si la tira está apagada, el del curso
+    // del grupo, y si no hay, ukelele.
+    var pop = null;
+    function cerrarPop() { if (pop) { pop.remove(); pop = null; } }
+    function abrirPop(acorde) {
+        cerrarPop();
+        var nombre = acorde.textContent.trim();
+        if (!nombre) return;
+        var instrumento = barra.querySelector('[data-instrumento]').value ||
+            barra.getAttribute('data-instrumento-defecto') || 'ukelele';
+        var caja = document.createElement('div');
+        caja.className = 'cpv-pop';
+        caja.setAttribute('role', 'dialog');
+        caja.setAttribute('aria-label', 'Diagrama de ' + nombre);
+        caja.textContent = '…';
+        document.body.appendChild(caja);
+        pop = caja;
+        var r = acorde.getBoundingClientRect();
+        function colocar() {
+            var w = caja.offsetWidth, h = caja.offsetHeight;
+            var x = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), window.innerWidth - w - 8);
+            var y = r.bottom + 8 + h > window.innerHeight ? r.top - h - 8 : r.bottom + 8;
+            caja.style.left = x + 'px';
+            caja.style.top = Math.max(8, y) + 'px';
+        }
+        colocar();
+        ChordPro.diagramaDe({
+            nombre: nombre, instrumento: instrumento, urls: urlsDiagramas(),
+            texto: textoActual, semitonos: semitonos
+        }).then(function (html) {
+            if (pop !== caja) return;
+            var nombres = { guitarra: 'guitarra', ukelele: 'ukelele', piano: 'piano' };
+            caja.innerHTML = html + '<small>' + nombres[instrumento] + '</small>';
+            colocar();
+        }).catch(function () {
+            if (pop === caja) caja.textContent = 'No se pudo cargar el diagrama.';
+        });
+    }
+    salida.addEventListener('click', function (e) {
+        var acorde = e.target.closest('.chord');
+        if (!acorde || !acorde.textContent.trim()) return;
+        e.stopPropagation();
+        abrirPop(acorde);
+    });
+    document.addEventListener('click', function (e) {
+        if (pop && !pop.contains(e.target)) cerrarPop();
+    });
+    // En `window` y en captura: va antes que el Escape de la presentación,
+    // que si no sacaría de la clase en vez de cerrar solo el diagrama.
+    window.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && pop) { e.stopPropagation(); e.preventDefault(); cerrarPop(); }
+    }, true);
+    visor.addEventListener('scroll', cerrarPop);
+
     barra.addEventListener('click', function (e) {
         var boton = e.target.closest('button[data-accion]');
         if (!boton) return;
@@ -324,13 +391,18 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
             return;
         }
         tira.style.zoom = (tamano / 16).toFixed(2);
+        var grupoId = barra.getAttribute('data-grupo-id');
         refrescarDiagramas = ChordPro.montarDiagramas({
             tira: tira,
             selector: barra.querySelector('[data-instrumento]'),
             texto: function () { return textoActual; },
             cancion: function () { return cancion; },
-            urls: { guitarra: tira.getAttribute('data-db-guitarra'), ukelele: tira.getAttribute('data-db-ukelele') },
-            semitonos: function () { return semitonos; }
+            urls: urlsDiagramas(),
+            semitonos: function () { return semitonos; },
+            // Por curso: ukelele en 1º-3º, piano en 4º. Lo que se elija a mano
+            // se recuerda por grupo, para no arrastrarlo de 4º a 1º.
+            porDefecto: barra.getAttribute('data-instrumento-defecto') || '',
+            clave: grupoId ? 'cp-instrumento:g' + grupoId : undefined
         });
         // ✎ Editar: el botón está fuera del visor (es fijo) y puede haber uno
         // viejo de un elemento anterior en el modo proyector; se toma el último.

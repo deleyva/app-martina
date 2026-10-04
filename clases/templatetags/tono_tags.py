@@ -7,7 +7,7 @@ register = template.Library()
 
 @register.simple_tag(takes_context=True)
 def tono_de_clase(context, letra):
-    """`{grupo, semitonos, puede_guardar}` para el visor de ChordPro.
+    """`{grupo, semitonos, puede_guardar, instrumento}` para el visor de ChordPro.
 
     El grupo es el de la página (`grupo_tono`: la clase, la biblioteca del
     grupo) o el del alumno si solo tiene uno. Solo el profesorado de ese grupo
@@ -24,4 +24,10 @@ def tono_de_clase(context, letra):
         and user.is_authenticated
         and (user.is_staff or grupo.teachers.filter(pk=user.pk).exists())
     )
-    return {"grupo": grupo, "semitonos": TonoDeGrupo.de(grupo, letra), "puede_guardar": puede}
+    return {
+        "grupo": grupo,
+        "semitonos": TonoDeGrupo.de(grupo, letra),
+        "puede_guardar": puede,
+        # Los diagramas por defecto según el curso: ukelele en 1º-3º, piano en 4º.
+        "instrumento": grupo.instrumento_de_acordes if grupo is not None else "",
+    }

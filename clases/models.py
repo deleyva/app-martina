@@ -194,6 +194,30 @@ class Group(models.Model):
         grupos = user.teaching_groups.all()
         return grupos if incluir_archivados else grupos.filter(archivado=False)
 
+    @property
+    def curso(self):
+        """El curso de ESO del grupo, sacado de su nombre: «3-FH» → 3, «4-AC-BIL» → 4.
+
+        No hay campo de nivel en el grupo; los nombres del centro empiezan por
+        el curso. Sin número delante, `None`.
+        """
+        import re
+
+        m = re.match(r"\s*([1-4])\b|\s*([1-4])\D", self.name or "")
+        return int(m.group(1) or m.group(2)) if m else None
+
+    @property
+    def instrumento_de_acordes(self):
+        """Los diagramas que salen por defecto en las canciones con acordes.
+
+        Ukelele en 1º, 2º y 3º; piano en 4º (decisión de Jesús, 2026-10-04).
+        Sin curso conocido, ninguno: se elige a mano como antes.
+        """
+        curso = self.curso
+        if curso is None:
+            return ""
+        return "piano" if curso == 4 else "ukelele"
+
     @staticmethod
     def matriculados_de(user, incluir_archivados=False):
         """Igual, para el alumnado: un grupo archivado desaparece también para ellos."""
