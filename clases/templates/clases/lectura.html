@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block title %}Lista de lectura{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto p-4">
+
+  <div class="flex items-center justify-between mb-1 flex-wrap gap-2">
+    <h1 class="text-xl font-bold flex items-center gap-2">📖 Lista de lectura</h1>
+    <div class="flex gap-1">
+      <a href="{% url 'clases:progreso' %}" class="btn btn-ghost btn-xs">Por dónde va cada clase</a>
+      <a href="{% url 'clases:class_session_list' %}" class="btn btn-ghost btn-xs">Sesiones</a>
+    </div>
+  </div>
+  <p class="text-sm opacity-60 mb-6">
+    Lo que has dado en clase en los últimos {{ dias_atras }} días y lo que viene:
+    las clases ya preparadas y los {{ proximos_por_libro }} siguientes de cada libro.
+    Abrir algo aquí no lo da por visto en ningún grupo.
+  </p>
+
+  {% comment %}
+    GET, como en «Empezar»: lo elegido vive en la URL y se puede guardar en
+    marcadores. Cada cambio envía el formulario.
+  {% endcomment %}
+  <form method="get" action="{% url 'clases:lectura' %}" id="filtros" onchange="this.submit()">
+    <div class="text-xs uppercase tracking-wide opacity-50 mb-2">Grupos</div>
+    <div class="flex flex-wrap gap-2 mb-4">
+      {% for g in grupos %}
+      <label class="cursor-pointer">
+        <input type="checkbox" name="grupo" value="{{ g.group.pk }}" class="peer sr-only"
+               {% if g.seleccionado %}checked{% endif %}>
+        <span class="badge badge-lg badge-outline gap-1
+                     peer-checked:bg-secondary
+                     peer-checked:border-secondary
+                     peer-checked:text-secondary-content
+                     hover:border-secondary transition-colors">
+          {{ g.group.name }}
+          {% if g.cuantos is not None %}<span class="opacity-50 text-xs">{{ g.cuantos }}</span>{% endif %}
+        </span>
+      </label>
+      {% empty %}
+      <span class="text-sm opacity-60">No das clase a ningún grupo todavía.</span>
+      {% endfor %}
+    </div>
+
+    <div class="text-xs uppercase tracking-wide opacity-50 mb-2">Cuándo</div>
+    <div class="flex flex-wrap gap-2">
+      <label class="cursor-pointer">
+        <input type="radio" name="cuando" value="" class="peer sr-only" {% if not cuando %}checked{% endif %}>
+        <span class="badge badge-lg badge-outline peer-checked:bg-primary peer-checked:border-primary peer-checked:text-primary-content hover:border-primary transition-colors">Todo</span>
+      </label>
+      <label class="cursor-pointer">
+        <input type="radio" name="cuando" value="{{ EN_CLASE }}" class="peer sr-only" {% if cuando == EN_CLASE %}checked{% endif %}>
+        <span class="badge badge-lg badge-outline peer-checked:bg-primary peer-checked:border-primary peer-checked:text-primary-content hover:border-primary transition-colors">En clase</span>
+      </label>
+      <label class="cursor-pointer">
+        <input type="radio" name="cuando" value="{{ PROXIMO }}" class="peer sr-only" {% if cuando == PROXIMO %}checked{% endif %}>
+        <span class="badge badge-lg badge-outline peer-checked:bg-primary peer-checked:border-primary peer-checked:text-primary-content hover:border-primary transition-colors">Próximo</span>
+      </label>
+    </div>
+    <noscript><button class="btn btn-sm mt-3">Filtrar</button></noscript>
+  </form>
+
+  <div class="divider my-6"></div>
+
+  <details open class="mb-6">
+    <summary class="cursor-pointer text-lg font-semibold mb-3">
+      📰 Artículos <span class="opacity-50 text-sm font-normal">{{ articulos|length }}</span>
+    </summary>
+    <ul class="flex flex-col divide-y divide-base-200">
+      {% for a in articulos %}
+      <li class="py-2.5 flex flex-col gap-1">
+        <div class="flex items-baseline gap-2 flex-wrap">
+          <a href="{{ a.pagina.url }}" class="font-medium link link-hover">{{ a.pagina.title }}</a>
+          <span class="text-xs opacity-50">{{ a.elementos }} elemento{{ a.elementos|pluralize }}</span>
+        </div>
+        <div class="flex flex-wrap gap-1">
+          {% for chip in a.chips %}{% include "clases/partials/chip_lectura.html" %}{% endfor %}
+        </div>
+      </li>
+      {% empty %}
+      <li class="py-2 text-sm opacity-60">Nada que leer con estos filtros.</li>
+      {% endfor %}
+    </ul>
+  </details>
+
+  <details open class="mb-6">
+    <summary class="cursor-pointer text-lg font-semibold mb-3">
+      🎼 Elementos <span class="opacity-50 text-sm font-normal">{{ elementos|length }}</span>
+    </summary>
+    <ul class="flex flex-col divide-y divide-base-200">
+      {% for e in elementos %}
+      <li class="py-2.5 flex flex-col gap-1">
+        <div class="flex items-baseline gap-2 flex-wrap">
+          <span aria-hidden="true">{{ e.icono }}</span>
+          <a href="{% url 'my_library:view_content_object' e.tipo.pk e.objeto.pk %}?back={{ aqui|urlencode }}"
+             class="font-medium link link-hover">{{ e.titulo }}</a>
+          <span class="text-xs opacity-50">{{ e.tipo_legible }}{% if e.articulo %} · {{ e.articulo.title }}{% endif %}</span>
+        </div>
+        <div class="flex flex-wrap gap-1">
+          {% for chip in e.chips %}{% include "clases/partials/chip_lectura.html" %}{% endfor %}
+        </div>
+      </li>
+      {% empty %}
+      <li class="py-2 text-sm opacity-60">Nada que leer con estos filtros.</li>
+      {% endfor %}
+    </ul>
+  </details>
+
+  <div class="divider my-6"></div>
+
+  {% comment %}
+    Ocultar es por profesor y por libro: lo quita de tu lista en todos tus
+    grupos y no toca nada del grupo ni de otros profesores.
+  {% endcomment %}
+  <details {% if not libros %}open{% endif %}>
+    <summary class="cursor-pointer font-semibold mb-3">📚 Libros en la lista</summary>
+    <ul class="flex flex-col divide-y divide-base-200">
+      {% for l in libros %}
+      <li class="py-2 flex items-center justify-between gap-3 {% if l.oculto %}opacity-50{% endif %}">
+        <div class="min-w-0">
+          <div class="font-medium truncate">{{ l.libro.title }}</div>
+          <div class="text-xs opacity-60">{{ l.seccion }} · {{ l.grupos|join:", " }}</div>
+        </div>
+        <form method="post" action="{% url 'clases:lectura_alternar_libro' l.libro.pk %}">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ aqui }}">
+          <button class="btn btn-xs {% if l.oculto %}btn-outline{% else %}btn-ghost{% endif %}">
+            {% if l.oculto %}Mostrar{% else %}Ocultar{% endif %}
+          </button>
+        </form>
+      </li>
+      {% empty %}
+      <li class="py-2 text-sm opacity-60">Tus grupos no tienen libros activos.</li>
+      {% endfor %}
+    </ul>
+  </details>
+
+</div>
+{% endblock %}

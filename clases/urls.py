@@ -77,6 +77,16 @@ urlpatterns = [
         name="progreso",
     ),
     path(
+        "lectura/",
+        views_libros.lectura_profesor,
+        name="lectura",
+    ),
+    path(
+        "lectura/libro/<int:libro_id>/",
+        views_libros.lectura_alternar_libro,
+        name="lectura_alternar_libro",
+    ),
+    path(
         "profesorado/",
         views_libros.profesorado,
         name="profesorado",

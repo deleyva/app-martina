@@ -2,9 +2,9 @@
 slug: app-martina
 phase: verify
 progress: true
-iteration: 58
+iteration: 59
 principal_stated_goal: "Yo solo quiero añadir evidencias tal cual están diseñadas en la aplicación de Notas. Por favor, copiala. Usa en vez de HTMLX, usa, en fin, haz lo que sea, pero que sea igual visualmente. Me gusta mucho esa forma de calificar, esa aplicación que hicimos."
-updated: 2026-09-29
+updated: 2026-10-04
 ---
 
 # ISA — app-martina · Sistema de estudio de la biblioteca
@@ -4512,3 +4512,41 @@ Lo que encontró el navegador: el botón «Ver otras plantillas» quedó dentro 
 
 - **2026-10-01, despliegue** («despliega»): push `f3e4da9..77c5903`, `just deploy-production`, sin migraciones. Producción en Chrome con la sesión de Jesús: `/calificaciones/grupo/13/?t=1` enseña solo «Plantilla de 4º ESO bilingüe» con teoría 15, sensorialidad 15, composición 10 y cuaderno 10, el texto «SB, NT, BI, SU o IN» y «Ver otras plantillas (2)» (captura vista, sin nombres); `registro.94116dea7f25.js`; consola sin errores. Los tres grupos de 3º ofrecen la de 3º; el de 4º, la de 4º.
 - **Encontrado al verificar:** `1-G-BIL` ya tiene plan (pk 4, «1-G-BIL · 1ª ev.»), creado entre los dos despliegues con la plantilla anterior: escala A·B·C·D y teoría 20 / cuaderno 5. **Sin ninguna nota ni evidencia.** Borrado el 2026-10-01 con permiso de Jesús («borra el plan de 1º»), tras comprobar en el mismo comando que seguía sin notas ni evidencias: 38 filas (1 plan, 9 instrumentos, 9 pruebas, 18 repartos, 1 vínculo con el grupo). `1-G-BIL` vuelve a ver la pantalla de elegir instrumentos.
+
+## Fase 61 — Lista de lectura del profesor: lo que estoy viendo y lo que viene en cada grupo (2026-10-04)
+
+**Jesús:** «Me gustaría tener una pantalla parecida a la de "Empezar a estudiar" […] pero que tuviera los elementos que estoy viendo en clase con cada grupo y aquellos que van a venir dentro de poco en cada clase, para que me los vaya leyendo/estudiando. Quería que me saliera una lista de artículos con etiquetas de en qué grupo o con algún chip de en qué grupo estoy viendo cada cosa […] que salieran listas de artículos y de elementos, es decir, partituras, embeds y demás.» Y, decidido: «lista de lectura, con posibilidad de ocultar libros de esa lista (por ejemplo las lecturas rítmicas y melódicas las tengo controladas y no las necesito en esa lista de lectura)».
+
+**Visión.** Una pantalla de profesor que cruza todos sus grupos. Nada nuevo que mantener a mano: «ahora» sale de las sesiones ya registradas y «lo que viene» del mismo motor que «Preparar». Es una lista de lectura, no repetición espaciada: abrir algo no escribe nada.
+
+**Fuera de alcance.** Repetición espaciada para el profesor (descartada por Jesús). Marcar como visto para el grupo desde aquí. Tocar «Empezar» del alumnado.
+
+**Horizonte por defecto, elegido por mí:** sesiones de los últimos 21 días y los 3 siguientes pendientes de cada libro activo. Constantes en un sitio, para cambiarlas con una línea.
+
+### Claims
+
+- [x] **C360** — Por profesor y cruzando sus grupos no archivados: «en clase» son los elementos de sus sesiones de los últimos 21 días (con fecha, y «visto» si se marcó); «próximo» son los de sesiones con fecha futura más los 3 siguientes pendientes de cada libro activo. *Falsador: test con dos grupos, una sesión pasada, una futura, una de hace 30 días y un libro con pendientes.* *Evidencia: `test_en_clase_proximo_y_horizonte`, `test_proximos_por_libro_se_corta`, `test_solo_tus_grupos_no_archivados`.*
+- [x] **C361** — Un elemento sale una sola vez aunque esté en varios grupos, con un chip por grupo y su estado. *Falsador: test, la misma imagen en dos grupos → 1 fila, 2 chips.* *Evidencia: `test_una_fila_y_un_chip_por_grupo`.*
+- [x] **C362** — Dos listas: **artículos** (la página de donde sale cada elemento, una vez, con los chips de sus elementos) y **elementos** (con el icono y el tipo de `describir()`). *Falsador: test.* *Evidencia: `test_articulos_una_vez_con_los_chips_de_sus_elementos`.*
+- [x] **C363** — Ocultar un libro lo quita de la lista de ese profesor en todos sus grupos y se puede volver a mostrar; los extras sueltos sin libro siguen saliendo. *Falsador: test de ida y vuelta.* *Evidencia: `test_ocultar_un_libro_y_volver_a_mostrarlo`, `test_ocultar_por_la_vista` (incluye que un `next` de otro dominio no redirige fuera). En Chrome NO se ha probado: en la base local ningún grupo de ese profesor tiene libros activos.*
+- [x] **C364** — Filtros por URL: chips de grupo y «en clase / próximo». *Falsador: test.* *Evidencia: `test_filtros_de_grupo_y_cuando`; en Chrome, local: «Próximo» y el chip de grupo dejan la URL en `?grupo=14&cuando=proximo` (captura vista).*
+- [x] **C365** — Cada elemento abre en el visor que ya existe (`view_content_object`) con vuelta a la lista; cada artículo abre su página. *Falsador: test de los `href` + Chrome.* *Evidencia: `test_la_pantalla_enlaza_al_visor_y_no_escribe_nada`; en Chrome, local: el PDF «popurrí-navideño» abre en el visor con `?back=/clases/lectura/` y ESC vuelve a la lista (capturas vistas, sin errores en consola).*
+- [x] **C366** — Un mismo libro asignado a varios grupos se recorre una sola vez por petición. *Falsador: test que cuenta llamadas a `material_del_libro`.* *Evidencia: `test_un_libro_en_varios_grupos_se_recorre_una_vez` (una llamada a `material_del_libro` con el libro en tres grupos).*
+- [x] **C367** — Se ve en Chrome, en local, con datos locales, y se llega desde «Sesiones» y desde «Por dónde va cada clase». *Falsador: captura vista.* *Evidencia: Chrome, local, `/clases/lectura/` con los grupos del profesor, dos elementos con chip «en clase 25 Sep» y la sección de libros (capturas vistas). Botones añadidos en «Sesiones» y «Por dónde va cada clase». La base local trae poco material: sin artículos ni libros activos para ese profesor.*
+
+### Anti-claims
+
+- **Anti-A** — Abrir la lista, filtrarla o abrir un elemento no escribe nada en `GroupBookItem`, `ClassSessionItem`, `ClassSession` ni `LibraryItem`. *Falsador: test que cuenta filas antes y después.*
+- **Anti-B** — Ocultar un libro no cambia nada para otro profesor del mismo grupo ni para el grupo (`GroupBook.activo` intacto). *Falsador: test.*
+- **Anti-C** — Ni push ni despliegue sin que Jesús lo diga.
+- **Anti-D** — Ningún `{#` se pinta en la página. *Falsador: `assert "{#" not in html`.*
+
+### Log
+
+- **Anti-A** cumplido: el mismo test cuenta filas de `GroupBookItem`, `ClassSessionItem`, `ClassSession` y `LibraryItem` antes y después de abrir la lista y el visor. **Anti-B**: en `test_ocultar_un_libro_y_volver_a_mostrarlo`. **Anti-C**: ni push ni despliegue. **Anti-D**: `assert "{#" not in html`.
+- Tests: `pytest clases/test_lectura.py` 11 passed; `pytest clases` 188 passed. Tres mutaciones hechas a propósito (quitar el filtro de ocultos, quitar el salto de lo ya puesto en clase, quitar la memoria por libro): cada una la caza su test, y se deshicieron después.
+- Una migración, aditiva: `clases.0021_libro_oculto_en_lectura` (tabla nueva, nada se reescribe). Generada en el contenedor con wagtail 7.3.1, el mismo que producción. Aplicada solo en local.
+- Para verla en Chrome en local, creé una sesión de Django de una hora para el profesor local en vez de teclear contraseñas.
+- Sin auditoría externa: es una pantalla de solo lectura para profesores, más una tabla por profesor. Lo único que escribe es el POST de ocultar, que tiene test de permisos y de redirección.
+- Horizonte (21 días atrás, 3 por libro) elegido por mí; constantes al principio de `clases/lectura.py`.
+

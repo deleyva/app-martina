@@ -12,7 +12,10 @@
         Lo que toca a continuación en cada grupo, para decidir la siguiente sesión.
       </p>
     </div>
-    <a href="{% url 'clases:class_session_list' %}" class="btn btn-ghost btn-sm">Sesiones</a>
+    <div class="flex gap-2">
+      <a href="{% url 'clases:lectura' %}" class="btn btn-ghost btn-sm">📖 Lista de lectura</a>
+      <a href="{% url 'clases:class_session_list' %}" class="btn btn-ghost btn-sm">Sesiones</a>
+    </div>
   </div>
 
   <div class="flex flex-col gap-5">

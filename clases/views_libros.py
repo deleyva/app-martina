@@ -693,6 +693,49 @@ def progreso(request):
 
 @login_required
 @user_passes_test(es_profesor)
+def lectura_profesor(request):
+    """Lo que estás viendo en cada grupo y lo que viene, para irlo leyendo."""
+    from clases import lectura
+
+    cuando = request.GET.get("cuando")
+    if cuando not in (lectura.EN_CLASE, lectura.PROXIMO):
+        cuando = None
+    grupos = [g for g in request.GET.getlist("grupo") if g.isdigit()]
+    return render(
+        request,
+        "clases/lectura.html",
+        {
+            **lectura.lista_de_lectura(request.user, grupos, cuando),
+            "cuando": cuando,
+            "EN_CLASE": lectura.EN_CLASE,
+            "PROXIMO": lectura.PROXIMO,
+            "VISTO": lectura.VISTO,
+            "aqui": request.get_full_path(),
+        },
+    )
+
+
+@login_required
+@user_passes_test(es_profesor)
+@require_http_methods(["POST"])
+def lectura_alternar_libro(request, libro_id):
+    """Oculta o vuelve a mostrar un libro en tu lista de lectura."""
+    from django.utils.http import url_has_allowed_host_and_scheme
+
+    from clases import lectura
+
+    libro = get_object_or_404(Page, pk=libro_id)
+    lectura.alternar_oculto(request.user, libro)
+    volver = request.POST.get("next")
+    if not volver or not url_has_allowed_host_and_scheme(
+        volver, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        volver = "clases:lectura"
+    return redirect(volver)
+
+
+@login_required
+@user_passes_test(es_profesor)
 @require_http_methods(["POST"])
 def class_session_item_a_casa(request, pk):
     """Alterna, desde el visor, si el elemento se lo llevan a casa.

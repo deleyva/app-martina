@@ -1886,6 +1886,37 @@ class GroupBook(models.Model):
         return claves.index(self.seccion) if self.seccion in claves else len(claves)
 
 
+class LibroOcultoEnLectura(models.Model):
+    """Un libro que un profesor no quiere ver en su lista de lectura.
+
+    **Es por PROFESOR, al revés que `GroupBook`.** La lista de lectura es para
+    que el profesor se prepare, no estado de la clase: que Jesús tenga
+    controladas las lecturas rítmicas no dice nada de lo que necesita otro
+    profesor del mismo grupo. Y por libro, no por asignación: ocultarlo una vez
+    lo quita de todos sus grupos.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="libros_ocultos_en_lectura",
+    )
+    libro = models.ForeignKey(
+        "wagtailcore.Page",
+        on_delete=models.CASCADE,
+        related_name="+",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ["user", "libro"]
+        verbose_name = "Libro oculto en la lista de lectura"
+        verbose_name_plural = "Libros ocultos en la lista de lectura"
+
+    def __str__(self):
+        return f"{self.user.email} · {self.libro.title}"
+
+
 class GroupBookItem(models.Model):
     """Lo que el grupo ha hecho con UN elemento de un libro. Fila de excepción.
 
