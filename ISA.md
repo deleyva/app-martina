@@ -1,6 +1,6 @@
 ---
 slug: app-martina
-phase: build
+phase: complete
 progress: true
 iteration: 60
 principal_stated_goal: "Yo solo quiero añadir evidencias tal cual están diseñadas en la aplicación de Notas. Por favor, copiala. Usa en vez de HTMLX, usa, en fin, haz lo que sea, pero que sea igual visualmente. Me gusta mucho esa forma de calificar, esa aplicación que hicimos."
@@ -4702,3 +4702,15 @@ La tira de arriba con el desplegable ya existía. Hoy por defecto no mostraba na
 - `ChordPro.diagramaDe` es nueva en el paquete (fuente en `static/js/src/chordpro.js`, compilado con el esbuild 0.25.10 del proyecto). La imagen de producción lo vuelve a compilar con `npm run build`.
 - `pytest calificaciones clases my_library/tests.py musica`: en verde (ver commit). La preferencia de prueba del navegador se borró al terminar.
 - No incluido: la ventana del acorde en el artículo público de la canción (`musica/_letra_con_acordes`), que usa otra plantilla. Solo el visor.
+
+## Despliegue de las fases 62, 62·1, 62·2, 62·3, 63 y 64 (2026-10-04) · DESPLEGADO Y VERIFICADO EN PRODUCCIÓN (`f038f9b`)
+
+- «despliega» de Jesús. Copia previa `production_backup_2026_10_04T17_08_11.sql.gz`. Push `1c3e088..f038f9b` (seis commits), `just deploy-production`. Migraciones aplicadas, todas aditivas: `calificaciones.0004_rubrica`, `calificaciones.0005_evidencia_grabacion`, `clases.0022_evaluable_con_instrumento`, `clases.0023_tono_de_grupo`.
+- **Producción, en Chrome con la sesión de Jesús, sin evaluar a nadie y sin capturas con alumnado:**
+  - La sesión 147 (24 elementos) tiene 24 botones «evaluable», y su popup ofrece los 9 instrumentos de la 1ª evaluación.
+  - La presentación lleva el botón «Evaluar», la franja de grupo, la ruta de la grabación compartida y el script de pantalla encendida.
+  - En la clase de 4-AC-BIL, «Sweet Home Alabama» abre con 5 diagramas de **piano** por defecto, con el botón «Original en 4-AC-BIL» (captura vista, solo partitura). Consola sin errores.
+  - El registro del grupo 13 sirve un paquete con `/mover/`, «Antes» y «Después» (escapado `Despu\xE9s`), y el script de pantalla encendida.
+  - El plan 5 tiene los 9 campos de rúbrica.
+- **Queda pendiente de Jesús, en clase con el iPad:** grabar una vez con dos o tres alumnos (micrófono y cámara reales: C375/C379), comprobar que la pantalla no se apaga (C387), y escribir las rúbricas de los instrumentos que vaya a evaluar en la página del plan.
+
