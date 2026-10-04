@@ -1,0 +1,18 @@
+{% comment %}
+  Los instrumentos de un plan dentro del popup de «evaluable».
+{% endcomment %}
+<div class="px-1 pt-1 text-[10px] opacity-60">{{ p.plan.get_trimestre_display }}</div>
+<ul class="menu menu-xs p-0">
+  {% for i in p.instrumentos %}
+    <li>
+      <button type="button"
+              class="{% if item.instrumento_id == i.pk %}active{% endif %}"
+              hx-post="{% url 'clases:item_evaluable' item.pk %}"
+              hx-vals='{"instrumento": "{{ i.pk }}"}'
+              hx-target="closest details.evaluable"
+              hx-swap="outerHTML">
+        {{ i.nombre }}{% if i.rubrica %} <span class="opacity-50">· rúbrica de {{ i.rubrica|length }}</span>{% endif %}
+      </button>
+    </li>
+  {% endfor %}
+</ul>

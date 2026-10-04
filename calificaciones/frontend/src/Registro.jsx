@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, ChevronRight, EyeOff, Info, Plus, TrendingUp } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ChevronDown, ChevronRight, EyeOff, Info, Plus, TrendingUp } from 'lucide-react';
 import { api } from './api.js';
 import Celda from './Celda.jsx';
 import BotonEvidencia from './evidencias/BotonEvidencia.jsx';
@@ -81,6 +81,8 @@ export default function Registro({
                     key={columna.prueba}
                     columna={columna}
                     instrumento={bloque.instrumentos.find((i) => i.id === columna.instrumento)}
+                    posicion={bloque.instrumentos.findIndex((i) => i.id === columna.instrumento)}
+                    total={bloque.instrumentos.length}
                     onRecargar={onRecargar}
                     onError={onError}
                   />
@@ -168,7 +170,7 @@ export default function Registro({
 // ─────────────────────────────────────────────
 // La cabecera de una columna, y sus pruebas
 // ─────────────────────────────────────────────
-function Cabecera({ columna, instrumento, onRecargar, onError }) {
+function Cabecera({ columna, instrumento, posicion, total, onRecargar, onError }) {
   const [abierto, setAbierto] = useState(false);
   const [estilo, setEstilo] = useState({});
   const [nombre, setNombre] = useState(columna.nombre);
@@ -233,6 +235,28 @@ function Cabecera({ columna, instrumento, onRecargar, onError }) {
             </button>
           </div>
           <div className="border-t border-slate-100 my-1" />
+          {/* Reordenar (fase 62). Mueve el instrumento entero, con todas sus
+              columnas, y el orden es del plan: cambia en todos sus grupos. */}
+          <div className="flex gap-1">
+            <button
+              onClick={() => hacer(api.moverInstrumento(instrumento.id, -1))}
+              disabled={posicion <= 0}
+              className="flex-1 flex items-center justify-center gap-1 px-2 py-2 rounded-lg text-[11px] font-medium text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
+              title={`Poner ${instrumento.corto} antes`}
+            >
+              <ArrowLeft size={13} className="text-indigo-500" />
+              Antes
+            </button>
+            <button
+              onClick={() => hacer(api.moverInstrumento(instrumento.id, 1))}
+              disabled={posicion < 0 || posicion >= total - 1}
+              className="flex-1 flex items-center justify-center gap-1 px-2 py-2 rounded-lg text-[11px] font-medium text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
+              title={`Poner ${instrumento.corto} después`}
+            >
+              Después
+              <ArrowRight size={13} className="text-indigo-500" />
+            </button>
+          </div>
           <button
             onClick={() => hacer(api.crearPrueba(instrumento.id, ''))}
             className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-[11px] font-medium text-slate-700 hover:bg-slate-50 transition-colors"

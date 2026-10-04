@@ -1,4 +1,4 @@
-{% load library_tags %}
+{% load library_tags evaluar_tags %}
 {% if item.content_object %}
 <div class="session-item p-4 bg-base-200 rounded-lg hover:bg-base-300 transition-colors"
      data-item-id="{{ item.pk }}">
@@ -29,6 +29,8 @@
                     <span class="badge badge-ghost badge-xs" title="Añadido a mano: no mueve la progresión de ningún libro">extra</span>
                 {% endif %}
                 {% include "clases/class_sessions/partials/visto.html" with item=item %}
+                {% planes_evaluables session as planes %}
+                {% include "clases/class_sessions/partials/evaluable.html" with item=item planes=planes %}
             </div>
             
             <!-- Página de origen (FK explícita `source_page`; nunca se infiere) -->

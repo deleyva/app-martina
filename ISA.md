@@ -1,8 +1,8 @@
 ---
 slug: app-martina
-phase: complete
+phase: build
 progress: true
-iteration: 59
+iteration: 60
 principal_stated_goal: "Yo solo quiero añadir evidencias tal cual están diseñadas en la aplicación de Notas. Por favor, copiala. Usa en vez de HTMLX, usa, en fin, haz lo que sea, pero que sea igual visualmente. Me gusta mucho esa forma de calificar, esa aplicación que hicimos."
 updated: 2026-10-04
 ---
@@ -4555,4 +4555,59 @@ Lo que encontró el navegador: el botón «Ver otras plantillas» quedó dentro 
 - **Tras el arreglo, en producción:** cero enlaces a `lecturas-ritmicas` o `lecturas-melodicas` en la página, artículos 34 → 31, los dos libros con botón «Mostrar», consola sin errores (salvo el aviso de accesibilidad de la barra de Wagtail, que no es de esta pantalla). **Los dos libros quedan ocultos en la cuenta de Jesús**, que era lo que pidió.
 - Paso en falso mío durante la verificación: el segundo clic de ocultar cayó en otra fila, porque la fila oculta salta al final de la lista y la referencia del navegador había quedado vieja. Se arregló repitiéndolo. Una persona que pulse rápido dos «Ocultar» seguidos podría tropezar con lo mismo.
 - Visto de paso: hay artículos con el mismo título en libros distintos («1. Sound», «Índex» salen dos veces). Son páginas distintas; para distinguirlas habría que enseñar el libro de cada una.
+
+
+## Fase 62 — Evaluar en clase: elementos evaluables, rúbrica 1-3, alumno al azar, grabación; y reordenar instrumentos (2026-10-04)
+
+**Jesús:** «Necesito ir calificando ya en clase. Quiero, cuando creo la sesión de clase, poder ir seleccionando con un botón (como los de visto, a casa...) con un botón de "evaluable" y que salga, con un popup pequeño seleccionando a qué instrumento de evaluación pertenece. Durante la sesión, querré darle al botón evaluar (por la izquierda) que sólo aparecerá en items evaluables, que me permita elegir un alumno del grupo o seleccionar uno al azar de entre los que aún no tienen nota en ese apartado de la evaluación. Me gustaría además poder introducir una rúbrica de 1 a 3 de varios valores para que calcule SB, NT, BI, SU o IN, y un comentario. También querría grabar en audio o vídeo esas intervenciones. Este botón lo usaré para pruebas representativas (instrumento, lecturas, melódicas y rítmicas). También quiero poder reordenar las filas en las que aparecen los instrumentos de evaluación en […]/calificaciones/grupo/13/?t=1#registro». Y: «Esta tarea considero que es difícil. Esfuérzate al máximo».
+
+**Decidido con él, por pregunta directa (2026-10-04):**
+
+- **La nota cae en la columna que ya tiene el instrumento**, una por alumno y trimestre. «Al azar» elige entre quienes no tienen nota ahí. Evaluar otra vez sustituye la nota y queda en el historial. Descartado crear una columna por ejercicio: con «celda vacía = 0», todo el que no saliera en ese ejercicio tendría un 0.
+- **La rúbrica es fija por instrumento**, definida en la página del plan. Sin rúbrica, se elige la letra directamente.
+- **Cortes: media 3 → SB · ≥2,5 → NT · ≥2 → BI · ≥1,5 → SU · menos → IN.** La letra propuesta siempre se puede cambiar antes de guardar.
+
+**Decidido por mí:** si el instrumento tiene varias columnas activas, la nota va a la más reciente. En el registro los instrumentos son columnas, no filas («las filas» del mensaje); moverlos cambia su `orden`, así que se reordenan a la vez las columnas del registro y las filas del plan. **El plan es compartido**: reordenar en un grupo reordena en todos los que usan ese plan.
+
+### Claims
+
+- [x] **C368** — Cada instrumento tiene una rúbrica (lista de apartados), que se edita en la página del plan con un apartado por línea. Vacía = sin rúbrica. *Evidencia: `test_la_rubrica_se_limpia`, `test_la_rubrica_se_guarda_desde_el_plan`; Chrome, local: guardada desde la tarjeta del plan 7.*
+- [x] **C369** — En la sesión, cada elemento lleva un botón «evaluable» junto al de visto. Abre un popup pequeño con los instrumentos de los planes de ESE grupo, agrupados por trimestre, y la opción de quitarlo. Un instrumento de un plan ajeno se rechaza. *Evidencia: `test_marcar_y_desmarcar_evaluable`, `test_la_fila_de_la_sesion_lleva_el_boton`, `test_el_trimestre_de_la_sesion_va_arriba`; Chrome, local: «✓ evaluable · L. rít.» desde el popup (captura vista).*
+- [x] **C370** — En la clase (presentación), el botón «Evaluar», a la izquierda, solo aparece en los elementos evaluables. *Evidencia: `test_el_boton_evaluar_solo_en_lo_evaluable` (y el alumnado no lo ve); Chrome, local: visible en el elemento 0, escondido en el 1.*
+- [x] **C371** — El panel deja elegir cualquier alumno del grupo, o uno al azar entre quienes no tienen nota en ese instrumento. El azar nunca devuelve a alguien que ya tiene nota; si todos la tienen, lo dice. Se puede volver a tirar (alumno ausente). *Evidencia: `test_el_azar_nunca_devuelve_a_quien_ya_tiene_nota` (400 tiradas), `test_el_azar_salta_a_los_ausentes`; Chrome, local: «Al azar» → Gala y «Otro» → Hugo, ninguno con nota.*
+- [x] **C372** — La rúbrica de 1 a 3 se convierte en letra con los cortes acordados, en aritmética exacta. *Falsador: test exhaustivo de todas las combinaciones de 1 a 5 apartados contra una referencia con `Fraction`.* *Evidencia: `test_la_rubrica_da_la_letra_en_todas_las_combinaciones` (363 casos contra `Fraction`), `test_la_tabla_acordada_con_tres_apartados`; la revisión independiente comprobó que `letraDe` en JS y `CORTES` coinciden.*
+- [x] **C373** — Guardar escribe la nota en la columna del instrumento, con el valor de la letra en su escala (SB 9,5…), el comentario y los puntos de la rúbrica; deja `CambioNota`. Evaluar otra vez sustituye. *Evidencia: `test_evaluar_escribe_en_la_columna_del_instrumento`, `test_evaluar_otra_vez_sustituye`, `test_con_varias_columnas_va_a_la_mas_reciente`; Chrome, local: Hugo NT (8) en la celda del registro.*
+- [x] **C374** — La letra se puede poner a mano: sin rúbrica, o cambiando la propuesta. *Evidencia: `test_la_letra_a_mano_manda`; Chrome, local: Carla con SU elegida a mano → SU (5,5) en el registro.*
+- [~] **C375** — Lo grabado en audio o vídeo en el panel se sube como `Evidencia` de ese alumno y esa columna, la misma que se ve en el registro. *Evidencia: `test_el_panel_evalua_de_punta_a_punta` (subida `.webm` como audio → `Evidencia`). [DEFERRED-VERIFY] grabar en el navegador: permiso de micrófono y cámara en «preguntar», pendiente de Jesús en el iPad.*
+- [x] **C376** — En el registro, el menú de la cabecera de una columna mueve su instrumento antes o después. El orden queda guardado y se ve en el registro y en el plan. *Evidencia: `test_mover_un_instrumento` (con empates), `test_mover_por_la_vista_y_se_ve_en_el_registro`; Chrome, local: «Antes» en L. rít. y el orden sigue tras recargar.*
+- [x] **C377** — Permisos: solo el profesorado del grupo marca, evalúa y mueve. Un alumno de otro grupo y un instrumento de otro plan se rechazan. *Evidencia: `test_evaluable_solo_con_instrumentos_del_grupo`, `test_evaluar_rechaza_lo_ajeno`, `test_rubrica_incompleta_o_alumno_ajeno_se_rechazan`, `test_mover_por_la_vista…` (otro profesor → 404).*
+
+### Anti-claims
+
+- **Anti-A** — Evaluar no crea columnas ni toca la nota de nadie más. *Falsador: test que cuenta `Prueba` y `Nota` antes y después.*
+- **Anti-B** — Ni nombres ni notas de alumnado real en el transcript ni en capturas: la verificación en navegador se hace con el grupo inventado local (pk 20). En producción solo se abren pantallas, no se evalúa a nadie.
+- **Anti-C** — El bundle del registro se reconstruye (`test_el_bundle_esta_y_esta_al_dia` en verde).
+- **Anti-D** — Ningún `{#` se pinta en la página. Ni push ni despliegue sin «despliega».
+
+### Log
+- **Lo que encontró el navegador (Chrome, local, grupo inventado pk 20, sesión de prueba 124):**
+  1. *El popup de «evaluable» ofrecía arriba la 2ª evaluación*, porque los planes se ordenaban del trimestre más alto al más bajo. En octubre, un toque descuidado metía la nota en otro trimestre. *Criterio ahora:* el plan del trimestre de la fecha de la sesión va arriba y los demás, plegados en «Otros trimestres» (`evaluar.trimestre_de`; test `test_el_trimestre_de_la_sesion_va_arriba`).
+  2. *El botón «Evaluar» salía escondido si el PRIMER elemento de la clase era evaluable*: el parcial del panel se carga después del script principal, que ya había pintado el elemento 0 cuando `pintarEvaluar` no existía. Arreglado llamándola al final del parcial.
+  3. Sortable usaba la fila entera como asa: se añadió `filter: '.evaluable'` con `preventOnFilter: false`, para que arrastrar desde el popup no reordene la sesión. *Conjetura refutada:* que Sortable impidiera abrir el popup. La causa de los clics perdidos era la herramienta de automatización: el PRIMER clic tras cargar cualquier página no llegaba al documento (ningún `pointerdown` en captura), incluido el registro, que no tiene iframe. En la página quieta, tres clics seguidos abren, cierran y abren el popup.
+  4. «Mover después» se partía en dos líneas en el menú de la columna: ahora dice «Antes» y «Después».
+  5. El botón «Evaluar» no tenía nombre accesible: `aria-label="Evaluar"`.
+- **Recorrido completo en Chrome, local:** rúbrica «Pulso · Precisión rítmica · Fluidez» y escala SB…IN guardadas desde la página del plan 7 (con su formulario). Libro asignado al grupo inventado y dos ejercicios metidos con «Preparar». El primero, marcado «✓ evaluable · L. rít.» desde su popup (1ª evaluación arriba, «rúbrica de 3»). En la presentación, «Evaluar» sale en el elemento 0, se esconde en el 1 y vuelve en el 0. Panel: 6 sin nota; Ana y Bruno con ✓ y sin letra a la vista; «Al azar» → Gala; «Otro» → Hugo; 3·3·2 → «La rúbrica da NT»; comentario; «Guardado: Hugo Ejemplo Ocho · NT»; quedan 5. En el registro, la celda de Hugo en Lectura rítmica vale NT (8). En el registro, «Antes» en Lectura rítmica la pone delante de Dictado melódico, y el orden sigue tras recargar. Capturas vistas, consola sin errores propios (solo el aviso de accesibilidad de la barra de Wagtail).
+- **Grabar audio o vídeo NO se ha probado en el navegador:** el micrófono y la cámara de localhost están en «preguntar», y aceptar el permiso del navegador no lo hago yo. La subida está probada por HTTP (`test_el_panel_evalua_de_punta_a_punta`, con un `.webm` como audio). **Pendiente de Jesús: grabar una vez en el iPad.**
+- Un clic mío por coordenadas cayó en «Otra prueba de D. rít.» y creó la prueba 74 en el plan local del grupo inventado. Se borró sin notas (con el mismo envío que el botón 🗑). Al pasar Lectura rítmica del plan local a SB…IN, las «C» antiguas de dos alumnos inventados se ven como «6». Solo en la base local.
+- Tests: `pytest calificaciones clases my_library/tests.py` 581 passed; `bun test` 23 pass. Cuatro mutaciones (corte de NT, filtro de «sin nota» del azar, instrumento de otro plan, renumerar al mover): cada una la caza un test, y se deshicieron.
+- Migraciones, las dos aditivas: `calificaciones.0004_rubrica` (dos JSON con valor por defecto) y `clases.0022_evaluable_con_instrumento` (FK nula, `SET_NULL`). Generadas con wagtail 7.3.1. Sin ciclo: `calificaciones.0001` depende de `clases.0018`, y `clases.0022` de `calificaciones.0004`.
+- **Segunda mirada: revisión en contexto limpio** (agente revisor, solo lectura) sobre el diff entero. Cinco hallazgos, **los cinco adoptados**:
+  1. *Cerrar el panel mientras se abría el micrófono o la cámara dejaba una grabación escondida que nada podía parar.* Ahora cada grabación se ata a su propio estado (`mio`); si al abrirse el panel está cerrado o es otro, se cancela; y `onstop` y el reloj ya no tocan el `ev` global.
+  2. *Guardar durante una grabación escondía el botón de parar.* Ahora «Guardar» está desactivado mientras se graba («Para la grabación antes de guardar») y la grabación en marcha se pinta antes que «elige alumno».
+  3. *Unos puntos de rúbrica viejos proponían la letra anterior y deshacían un cambio hecho en el registro.* Ahora los puntos solo se precargan si la nota sigue siendo la que dieron. `evaluar()` va en `transaction.atomic`. Test `test_los_puntos_viejos_no_se_ofrecen_si_el_registro_cambio_la_nota`.
+  4. *XSS guardado entre profesores:* el JSON de la presentación va en un `<script>` con `|safe`, y un nombre de instrumento con `</script>` cerraba el bloque. Ya pasaba con los títulos; ahora `<`, `>` y `&` se escapan. Test `test_un_nombre_con_script_no_rompe_la_presentacion`.
+  5. *Un cuerpo JSON mal formado daba 500.* Ahora da 400. Test parametrizado con seis cuerpos.
+  Los tres tests nuevos del servidor fallan con el código anterior (comprobado deshaciendo los arreglos) y pasan con el nuevo. Los dos de la grabación no se pueden ejecutar sin conceder el micrófono: se corrigieron leyendo el código y se volvió a recorrer el panel en Chrome (Carla, SU a mano → SU 5,5 en el registro).
+- Herramienta: en la pestaña nueva del navegador, los clics por referencia dejaron de llegar al documento (registro de clics vacío) y la ventana cambió de tamaño a mitad. Se terminó con clics por coordenadas, calculadas desde `getBoundingClientRect` justo antes de cada clic.
+- `pytest calificaciones clases my_library/tests.py`: 589 passed. Una pasada anterior falló en `my_library/tests.py::test_mover_una_pagina_tambien_recoloca` (no tocado en esta fase); pasa solo dos veces seguidas y en la siguiente pasada completa. **Inestable, sin investigar.**
 

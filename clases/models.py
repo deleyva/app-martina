@@ -1388,6 +1388,19 @@ class ClassSessionItem(models.Model):
     # vuelvan a proponer". Un extra suelto solo puede tener el primero.
     visto = models.BooleanField(default=False, verbose_name="Visto en clase")
 
+    # Evaluable: con qué instrumento de calificación se evalúa en clase este
+    # elemento (fase 62). Nulo = no se evalúa. Va en el elemento de la SESIÓN y
+    # no en el del libro porque el instrumento es de un plan, y el plan es de un
+    # trimestre: el mismo ejercicio en otro trimestre se evalúa con otro.
+    instrumento = models.ForeignKey(
+        "calificaciones.Instrumento",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="elementos_de_clase",
+        verbose_name="Evaluable con",
+    )
+
     class Meta:
         db_table = "evaluations_classsessionitem"  # Mantener tabla existente
         ordering = ["order"]

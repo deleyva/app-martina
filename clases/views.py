@@ -765,6 +765,13 @@ def class_session_present(request, pk):
                 "a_casa": item.pk in con_casita,
                 "page_url": pagina.get_url() if pagina else "",
                 "page_title": pagina.title if pagina else "",
+                # Evaluable (fase 62). Solo para el profesor: el alumnado ve la
+                # misma presentación y no tiene botón de evaluar.
+                "instrumento": (
+                    {"id": item.instrumento_id, "nombre": item.instrumento.nombre}
+                    if is_teacher and item.instrumento_id
+                    else None
+                ),
             }
         )
 
@@ -773,7 +780,13 @@ def class_session_present(request, pk):
         "clases/class_sessions/present.html",
         {
             "session": session,
-            "playlist_json": json.dumps(playlist),
+            # `<`, `>` y `&` escapados: el JSON va dentro de un <script> con
+            # `|safe`, y un título o un nombre de instrumento con `</script>`
+            # cerraba el bloque (revisión independiente, 2026-10-04).
+            "playlist_json": json.dumps(playlist)
+            .replace("<", "\\u003c")
+            .replace(">", "\\u003e")
+            .replace("&", "\\u0026"),
             "is_teacher": is_teacher and session.teacher == user,
             "tiene_gp": tiene_gp,
             "tiene_chordpro": tiene_chordpro,

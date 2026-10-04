@@ -70,6 +70,9 @@
         #fab-pagina { bottom: 24px; }
         #fab-plantillas { bottom: 84px; }
         #fab-notas { bottom: 144px; }
+        #fab-evaluar { bottom: 204px; background: rgba(217, 70, 239, 0.85); }
+        #fab-evaluar:hover { background: rgba(217, 70, 239, 1); }
+        #fab-evaluar[hidden] { display: none; }
 
         /* ── Grabando una nota de voz ──
            Rojo y latiendo: tiene que verse de reojo, con la clase delante, que
@@ -587,6 +590,18 @@
         </svg>
     </button>
     {% endif %}
+    {% if is_teacher %}
+    {% comment %}
+      Evaluar (fase 62). Solo existe en los elementos marcados como evaluables:
+      `pintarEvaluar` lo enseña o lo esconde al cambiar de elemento.
+    {% endcomment %}
+    <button id="fab-evaluar" class="fab-izq" type="button" onclick="abrirEvaluar()" hidden aria-label="Evaluar"
+            data-ayuda="Evaluar (E). Elige un alumno o uno al azar entre los que aún no tienen nota, puntúa la rúbrica y graba si quieres.">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+        </svg>
+    </button>
+    {% endif %}
     <button id="fab-plantillas" class="fab-izq" onclick="abrirPlantillas()"
             data-ayuda="Plantillas para escribir (P). Pentagramas, cuadrículas y papeles en blanco para proyectar y escribir encima.">
         <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
@@ -736,6 +751,7 @@
         if (btnPagina) btnPagina.disabled = !item.page_url;
         pintarVisto();
         pintarACasa();
+        if (window.pintarEvaluar) pintarEvaluar();
         updateSyllabusActive();
     }
 
@@ -1392,7 +1408,7 @@
 
     function esControl(el) {
         return !!(el && el.closest &&
-            el.closest('button, a, input, select, textarea, label, [role="button"], #study-flyout, #lienzo'));
+            el.closest('button, a, input, select, textarea, label, [role="button"], #study-flyout, #lienzo, #panel-evaluar'));
     }
 
     document.addEventListener('click', function(e) {
@@ -1418,7 +1434,9 @@
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
             // De dentro afuera: primero lo que esté tapando la clase.
-            if (lienzoAbierto()) {
+            if (window.evaluarAbierto && evaluarAbierto()) {
+                cerrarEvaluar();
+            } else if (lienzoAbierto()) {
                 cerrarLienzo();
             } else if (flyoutOpen) {
                 toggleFlyout(false);
@@ -1429,6 +1447,7 @@
         }
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
         if (lienzoAbierto()) return;
+        if (window.evaluarAbierto && evaluarAbierto()) return;
 
         // Con un visor con páginas delante, las flechas son del visor: pasa
         // de página y no de elemento. Sin él (audio, enlace, tablatura),
@@ -1444,6 +1463,7 @@
         if (e.key === 'd' || e.key === 'D') { alternarVisto(); return; }
         if (e.key === 'c' || e.key === 'C') { alternarACasa(); return; }
         if (e.key === 'n' || e.key === 'N') { e.preventDefault(); alternarNotaDeVoz(); return; }
+        if (e.key === 'e' || e.key === 'E') { if (playlist[currentIndex] && playlist[currentIndex].instrumento) abrirEvaluar(); return; }
         {% endif %}
     }, true);
 
@@ -1460,5 +1480,6 @@
             '</div>';
     }
     </script>
+    {% if is_teacher %}{% include "clases/class_sessions/partials/evaluar_panel.html" %}{% endif %}
 </body>
 </html>

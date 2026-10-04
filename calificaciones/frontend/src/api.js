@@ -75,6 +75,8 @@ export const api = {
   crearPrueba: (instrumento, nombre, fecha) =>
     enviar(`/calificaciones/instrumento/${instrumento}/prueba/`, fecha ? { nombre, fecha } : { nombre }),
   editarPrueba: (id, campos) => enviar(`/calificaciones/prueba/${id}/`, campos),
+  // `paso`: -1 lo adelanta un puesto, 1 lo atrasa. El orden es del plan.
+  moverInstrumento: (id, paso) => enviar(`/calificaciones/instrumento/${id}/mover/`, { paso }),
 };
 
 export const rutaGrupo = (id, trimestre) => `${config.ruta_grupo.replace('{id}', id)}?t=${trimestre}`;

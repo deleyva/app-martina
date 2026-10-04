@@ -148,6 +148,12 @@ cabecera.
             const sortable = new Sortable(sessionItems, {
                 animation: 150,
                 handle: '.session-item',
+                // El desplegable de «evaluable» es un <details>: con la fila
+                // entera como asa, Sortable se quedaba el clic y el <summary>
+                // no se abría nunca (fase 62). `preventOnFilter: false` deja
+                // pasar el clic al control.
+                filter: '.evaluable',
+                preventOnFilter: false,
                 ghostClass: 'sortable-ghost',
                 dragClass: 'sortable-drag',
                 onEnd: function(evt) {

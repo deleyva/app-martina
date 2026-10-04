@@ -406,6 +406,8 @@ def instrumento_editar(request, pk):
         except ValueError as e:
             messages.error(request, f"{instrumento.nombre}: {e}. No se ha guardado nada.")
             return redirect("calificaciones:plan", plan_id=plan.pk)
+    if "rubrica" in request.POST:
+        instrumento.rubrica = Instrumento.limpiar_rubrica(request.POST.get("rubrica"))
     try:
         instrumento.orden = int(request.POST.get("orden", instrumento.orden))
     except ValueError:
@@ -414,6 +416,26 @@ def instrumento_editar(request, pk):
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         return JsonResponse({"ok": True})
     return redirect("calificaciones:plan", plan_id=plan.pk)
+
+
+@login_required
+@user_passes_test(es_profesor)
+@require_POST
+def instrumento_mover(request, pk):
+    """Adelanta o atrasa un instrumento un puesto: `paso=-1` o `paso=1`.
+
+    Lo usa la cabecera de las columnas del registro. El orden es del PLAN, así
+    que cambia en todos los grupos que lo comparten.
+    """
+    instrumento = get_object_or_404(Instrumento, pk=pk)
+    _plan_del_profesor(request.user, instrumento.plan_id)
+    try:
+        paso = int(request.POST.get("paso", 0))
+    except ValueError:
+        paso = 0
+    if paso not in (-1, 1):
+        return JsonResponse({"error": "El paso es -1 o 1"}, status=400)
+    return JsonResponse({"ok": True, "movido": instrumento.mover(paso)})
 
 
 @login_required

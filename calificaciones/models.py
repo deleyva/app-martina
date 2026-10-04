@@ -333,6 +333,11 @@ class Instrumento(models.Model):
     agregacion = models.CharField(
         max_length=10, choices=AGREGACIONES, default=calculo.AGREGACION_MEDIA
     )
+    # Los apartados de la rúbrica de 1 a 3 con la que se evalúa en clase
+    # (fase 62): ["Pulso", "Precisión", "Fluidez"]. Vacía = se elige la letra
+    # directamente. Es del instrumento y no de cada evaluación para que todo el
+    # alumnado se mida con los mismos apartados.
+    rubrica = models.JSONField(default=list, blank=True)
 
     class Meta:
         ordering = ["plan", "orden", "pk"]
@@ -358,6 +363,48 @@ class Instrumento(models.Model):
 
     def criterios_ids(self) -> set[int]:
         return set(self.repartos.values_list("criterio_id", flat=True))
+
+    def prueba_para_evaluar(self):
+        """La columna donde cae lo que se evalúa en clase: la activa más reciente.
+
+        Con una sola columna es esa (el caso normal: una nota por alumno e
+        instrumento en el trimestre, decisión de Jesús 2026-10-04). Con varias,
+        la última que se abrió, que es la que se está rellenando.
+        """
+        return self.pruebas.filter(activa=True).order_by("-fecha", "-pk").first()
+
+    @transaction.atomic
+    def mover(self, paso: int) -> bool:
+        """Lo adelanta (`-1`) o lo atrasa (`+1`) un puesto en su plan.
+
+        Renumera el plan entero de 0 en adelante antes de intercambiar: el
+        `orden` de los instrumentos viejos puede tener huecos o empates (el
+        formulario del plan deja escribir cualquier número), y un intercambio
+        sobre empates no movería nada. Devuelve si se movió.
+        """
+        hermanos = list(
+            Instrumento.objects.select_for_update().filter(plan_id=self.plan_id).order_by("orden", "pk")
+        )
+        indice = next(i for i, h in enumerate(hermanos) if h.pk == self.pk)
+        destino = indice + paso
+        if paso not in (-1, 1) or not 0 <= destino < len(hermanos):
+            return False
+        hermanos[indice], hermanos[destino] = hermanos[destino], hermanos[indice]
+        for posicion, instrumento in enumerate(hermanos):
+            if instrumento.orden != posicion:
+                Instrumento.objects.filter(pk=instrumento.pk).update(orden=posicion)
+        self.orden = destino
+        return True
+
+    @staticmethod
+    def limpiar_rubrica(texto: str) -> list[str]:
+        """Un apartado por línea, sin vacíos ni repetidos."""
+        salida = []
+        for linea in (texto or "").splitlines():
+            apartado = linea.strip()[:60]
+            if apartado and apartado.lower() not in {a.lower() for a in salida}:
+                salida.append(apartado)
+        return salida
 
     def prueba_unica(self):
         """La prueba si solo hay una activa; si hay varias, `None` (se califica por prueba)."""
@@ -472,6 +519,10 @@ class Nota(models.Model):
         help_text="Vacío = sin nota. No es lo mismo que cero",
     )
     comentario = models.TextField(blank=True)
+    # Cómo se sacó la nota cuando se evalúa en clase con rúbrica (fase 62):
+    # {"apartados": [...], "puntos": [3, 2, 2], "propuesta": "BI",
+    #  "elemento": "Lectura 12", "sesion": 41}. Vacío si se tecleó en el registro.
+    rubrica = models.JSONField(default=dict, blank=True)
     updated_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+"
     )

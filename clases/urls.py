@@ -3,6 +3,7 @@ from django.views.generic import RedirectView
 from . import views
 from . import views_libros
 from . import views_study_cards
+from . import views_evaluar
 
 app_name = "clases"
 
@@ -75,6 +76,29 @@ urlpatterns = [
         "progreso/",
         views_libros.progreso,
         name="progreso",
+    ),
+    # =============================================================================
+    # EVALUAR EN CLASE (fase 62)
+    # =============================================================================
+    path(
+        "sessions/items/<int:pk>/evaluable/",
+        views_evaluar.item_evaluable,
+        name="item_evaluable",
+    ),
+    path(
+        "sessions/items/<int:pk>/evaluar/",
+        views_evaluar.evaluar_estado,
+        name="evaluar_estado",
+    ),
+    path(
+        "sessions/items/<int:pk>/evaluar/azar/",
+        views_evaluar.evaluar_azar,
+        name="evaluar_azar",
+    ),
+    path(
+        "sessions/items/<int:pk>/evaluar/guardar/",
+        views_evaluar.evaluar_guardar,
+        name="evaluar_guardar",
     ),
     path(
         "lectura/",

@@ -1,0 +1,44 @@
+{% comment %}
+  El botón «evaluable» de un elemento de la sesión y su popup (fase 62).
+
+  Marca con qué instrumento de calificación se evalúa este elemento en clase.
+  Se intercambia el bloque entero, como las marcas de visto y a casa: el estado
+  sale del servidor y no hay copia en JavaScript que se desincronice.
+  `planes` llega de la vista o de la etiqueta `planes_evaluables`.
+{% endcomment %}
+<details class="evaluable dropdown dropdown-end" data-item="{{ item.pk }}">
+  <summary class="btn btn-xs {% if item.instrumento_id %}btn-secondary{% else %}btn-ghost{% endif %}"
+           title="{% if item.instrumento_id %}Evaluable con «{{ item.instrumento.nombre }}». Tocar para cambiarlo.{% else %}Marcar como evaluable en clase{% endif %}">
+    {% if item.instrumento_id %}✓ evaluable · {{ item.instrumento.abreviatura }}{% else %}evaluable{% endif %}
+  </summary>
+  <div class="dropdown-content z-30 mt-1 w-64 rounded-box border border-base-300 bg-base-100 p-2 shadow-lg">
+    <div class="px-1 pb-1 text-[10px] font-bold uppercase tracking-wide opacity-50">¿Con qué instrumento se evalúa?</div>
+    {% comment %}
+      El trimestre de la fecha de la sesión va abierto; los demás, plegados en
+      «Otros trimestres». Si ningún plan es del trimestre de la fecha, se
+      enseñan todos abiertos.
+    {% endcomment %}
+    {% for p in planes %}
+      {% if p.actual or not planes.0.actual %}
+        {% include "clases/class_sessions/partials/evaluable_plan.html" %}
+      {% endif %}
+    {% empty %}
+      <p class="px-1 py-2 text-xs opacity-70">Este grupo no tiene plan de calificación todavía.</p>
+    {% endfor %}
+    {% if planes.0.actual and planes|length > 1 %}
+      <details class="mt-1">
+        <summary class="px-1 text-[10px] cursor-pointer opacity-60">Otros trimestres</summary>
+        {% for p in planes %}{% if not p.actual %}{% include "clases/class_sessions/partials/evaluable_plan.html" %}{% endif %}{% endfor %}
+      </details>
+    {% endif %}
+    {% if item.instrumento_id %}
+      <div class="border-t border-base-200 mt-1 pt-1">
+        <button type="button" class="btn btn-ghost btn-xs w-full justify-start text-error"
+                hx-post="{% url 'clases:item_evaluable' item.pk %}"
+                hx-vals='{"instrumento": ""}'
+                hx-target="closest .evaluable"
+                hx-swap="outerHTML">No evaluable</button>
+      </div>
+    {% endif %}
+  </div>
+</details>

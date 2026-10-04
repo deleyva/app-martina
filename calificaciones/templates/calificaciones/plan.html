@@ -125,6 +125,15 @@
           </select>
           <span class="opacity-60">{{ i.peso|floatformat:"-2" }} %</span>
         </div>
+        {% comment %}
+          La rúbrica de evaluar en clase (fase 62). Cada apartado se puntúa de
+          1 a 3 y la media da la letra. Vacía: en clase se elige la letra a mano.
+        {% endcomment %}
+        <label class="text-xs">
+          <span class="opacity-70">Rúbrica para evaluar en clase (un apartado por línea, de 1 a 3)</span>
+          <textarea name="rubrica" class="textarea textarea-bordered textarea-xs w-full mt-1" rows="3" placeholder="Pulso&#10;Precisión rítmica&#10;Fluidez">{% for a in i.rubrica %}{{ a }}
+{% endfor %}</textarea>
+        </label>
         <details>
           <summary class="text-xs cursor-pointer opacity-70">Opciones (solo escala de lista) y pruebas</summary>
           <textarea name="opciones" class="textarea textarea-bordered textarea-xs w-full mt-1" rows="3" placeholder="Etiqueta=valor por línea, ej.  Bien=6">{% for o in i.opciones %}{{ o.etiqueta }}={{ o.valor|floatformat:"-2" }}

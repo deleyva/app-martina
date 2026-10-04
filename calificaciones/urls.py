@@ -21,6 +21,7 @@ urlpatterns = [
     path("plan/<int:plan_id>/ajustes/", views.plan_ajustes, name="plan_ajustes"),
     path("plan/<int:plan_id>/instrumento/", views.instrumento_crear, name="instrumento_crear"),
     path("instrumento/<int:pk>/", views.instrumento_editar, name="instrumento_editar"),
+    path("instrumento/<int:pk>/mover/", views.instrumento_mover, name="instrumento_mover"),
     path("instrumento/<int:instrumento_id>/prueba/", views.prueba_crear, name="prueba_crear"),
     path("prueba/<int:pk>/", views.prueba_editar, name="prueba_editar"),
     # Evidencias e historial

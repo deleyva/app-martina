@@ -1,0 +1,431 @@
+{% comment %}
+  El panel de evaluar en clase (fase 62). Solo para el profesor.
+
+  Se abre con el botón de la izquierda, que solo existe en los elementos
+  marcados como evaluables. Elige alumno (o uno al azar entre los que aún no
+  tienen nota en ese instrumento), puntúa la rúbrica de 1 a 3, deja comentario
+  y graba audio o vídeo. La nota cae en la columna del instrumento del registro
+  de calificaciones; la grabación, como evidencia de ese alumno en esa columna.
+
+  **Se proyecta.** La clase suele estar mirando esta pantalla, así que la lista
+  de alumnos NO enseña las notas de los demás: solo una marca de «ya tiene
+  nota». La letra anterior se ve únicamente del alumno elegido.
+
+  Usa del script principal: `playlist`, `currentIndex`, `csrfToken`, `avisar`.
+{% endcomment %}
+<style>
+  #panel-evaluar {
+    position: fixed; inset: 0; z-index: 20001; display: none;
+    background: rgba(10, 10, 12, 0.96); backdrop-filter: blur(8px);
+    color: #f4f4f5; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    font-family: inherit;
+  }
+  #panel-evaluar.abierto { display: block; }
+  #panel-evaluar .ev-caja { max-width: 760px; margin: 0 auto; padding: 16px 16px 40px; }
+  #panel-evaluar .ev-barra { display: flex; align-items: center; gap: 12px; position: sticky; top: 0; padding: 8px 0 12px; background: rgba(10, 10, 12, 0.96); z-index: 2; }
+  #panel-evaluar .ev-titulo { flex: 1; min-width: 0; }
+  #panel-evaluar .ev-titulo b { display: block; font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #panel-evaluar .ev-titulo span { font-size: 12px; opacity: 0.6; }
+  #panel-evaluar .ev-cerrar { width: 40px; height: 40px; border-radius: 50%; border: none; background: rgba(255,255,255,0.1); color: #fff; font-size: 18px; cursor: pointer; flex-shrink: 0; }
+  #panel-evaluar h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.55; margin: 18px 0 8px; font-weight: 700; }
+  #panel-evaluar .ev-elegido { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px; border-radius: 14px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); }
+  #panel-evaluar .ev-nombre { font-size: 22px; font-weight: 800; flex: 1; min-width: 180px; }
+  #panel-evaluar .ev-nombre.vacio { font-size: 15px; font-weight: 500; opacity: 0.6; }
+  #panel-evaluar button.ev-btn { border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); color: #fff; border-radius: 10px; padding: 10px 14px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  #panel-evaluar button.ev-btn:hover { background: rgba(255,255,255,0.16); }
+  #panel-evaluar button.ev-btn:disabled { opacity: 0.35; cursor: default; }
+  #panel-evaluar button.ev-primario { background: #a21caf; border-color: #d946ef; }
+  #panel-evaluar button.ev-primario:hover { background: #c026d3; }
+  #panel-evaluar .ev-lista { display: flex; flex-wrap: wrap; gap: 6px; }
+  #panel-evaluar .ev-alumno { border: 1px solid rgba(255,255,255,0.18); background: transparent; color: #e4e4e7; border-radius: 999px; padding: 7px 12px; font-size: 13px; cursor: pointer; }
+  #panel-evaluar .ev-alumno.tiene { opacity: 0.55; }
+  #panel-evaluar .ev-alumno.tiene::after { content: " ✓"; color: #4ade80; }
+  #panel-evaluar .ev-alumno.activo { background: #a21caf; border-color: #e879f9; opacity: 1; color: #fff; }
+  #panel-evaluar .ev-fila { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.07); }
+  #panel-evaluar .ev-apartado { flex: 1; font-size: 15px; }
+  #panel-evaluar .ev-puntos { display: flex; gap: 6px; }
+  #panel-evaluar .ev-punto { width: 52px; height: 44px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.05); color: #fff; font-size: 18px; font-weight: 800; cursor: pointer; }
+  #panel-evaluar .ev-punto.si[data-v="1"] { background: #dc2626; border-color: #f87171; }
+  #panel-evaluar .ev-punto.si[data-v="2"] { background: #d97706; border-color: #fbbf24; }
+  #panel-evaluar .ev-punto.si[data-v="3"] { background: #16a34a; border-color: #4ade80; }
+  #panel-evaluar .ev-letras { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  #panel-evaluar .ev-letra { min-width: 58px; height: 48px; border-radius: 12px; border: 2px solid rgba(255,255,255,0.18); background: transparent; color: #fff; font-size: 18px; font-weight: 900; cursor: pointer; }
+  #panel-evaluar .ev-letra.si[data-l="SB"] { background: #16a34a; border-color: #4ade80; }
+  #panel-evaluar .ev-letra.si[data-l="NT"] { background: #2563eb; border-color: #60a5fa; }
+  #panel-evaluar .ev-letra.si[data-l="BI"], #panel-evaluar .ev-letra.si[data-l="SU"] { background: #ca8a04; border-color: #facc15; }
+  #panel-evaluar .ev-letra.si[data-l="IN"] { background: #dc2626; border-color: #f87171; }
+  #panel-evaluar .ev-propuesta { font-size: 12px; opacity: 0.7; margin-left: 4px; }
+  #panel-evaluar textarea { width: 100%; min-height: 70px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.05); color: #fff; padding: 10px; font-size: 15px; font-family: inherit; }
+  #panel-evaluar .ev-grabar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  #panel-evaluar .ev-grabando { color: #f87171; font-weight: 700; font-variant-numeric: tabular-nums; }
+  #panel-evaluar video.ev-vista { width: 100%; max-height: 42vh; border-radius: 12px; background: #000; margin-top: 8px; }
+  #panel-evaluar .ev-pie { display: flex; gap: 10px; margin-top: 22px; flex-wrap: wrap; }
+  #panel-evaluar .ev-nota { font-size: 13px; opacity: 0.75; }
+  #panel-evaluar .ev-error { color: #fca5a5; font-size: 14px; padding: 12px 0; }
+</style>
+
+<div id="panel-evaluar" role="dialog" aria-modal="true" aria-label="Evaluar">
+  <div class="ev-caja">
+    <div class="ev-barra">
+      <div class="ev-titulo"><b id="ev-instrumento">Evaluar</b><span id="ev-elemento"></span></div>
+      <button type="button" class="ev-cerrar" onclick="cerrarEvaluar()" aria-label="Cerrar">✕</button>
+    </div>
+    <div id="ev-cuerpo"><div class="ev-nota">Cargando…</div></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var URL_ESTADO = '{% url "clases:evaluar_estado" 0 %}';
+  var URL_AZAR = '{% url "clases:evaluar_azar" 0 %}';
+  var URL_GUARDAR = '{% url "clases:evaluar_guardar" 0 %}';
+  var URL_EVIDENCIA = '{% url "calificaciones:evidencia_subir" 0 %}';
+  // El vídeo se para solo antes de los 50 MB que acepta el servidor, como en el
+  // registro: mejor un corte que perder la grabación entera al subirla.
+  var BITS_DE_VIDEO = 2500000;
+  var TOPE_DE_VIDEO = 45 * 1024 * 1024;
+
+  var ev = null;  // el estado del panel mientras está abierto
+
+  function url(plantilla, pk) { return plantilla.replace('/0/', '/' + pk + '/'); }
+
+  function esc(texto) {
+    var d = document.createElement('div');
+    d.textContent = texto == null ? '' : String(texto);
+    return d.innerHTML;
+  }
+
+  function item() { return playlist[currentIndex]; }
+
+  window.pintarEvaluar = function () {
+    var btn = document.getElementById('fab-evaluar');
+    if (!btn) return;
+    var it = item();
+    btn.hidden = !(it && it.instrumento);
+    if (it && it.instrumento) {
+      btn.setAttribute('data-ayuda', 'Evaluar «' + it.instrumento.nombre + '» (E). Elige un alumno o uno al azar entre los que aún no tienen nota, puntúa la rúbrica y graba si quieres.');
+    }
+  };
+
+  window.evaluarAbierto = function () {
+    return document.getElementById('panel-evaluar').classList.contains('abierto');
+  };
+
+  window.abrirEvaluar = function () {
+    var it = item();
+    if (!it || !it.instrumento) return;
+    ev = { pk: it.pk, datos: null, alumno: null, puntos: [], letra: null, excluir: [], grab: null };
+    document.getElementById('panel-evaluar').classList.add('abierto');
+    document.getElementById('ev-instrumento').textContent = 'Evaluar · ' + it.instrumento.nombre;
+    document.getElementById('ev-elemento').textContent = it.title;
+    document.getElementById('ev-cuerpo').innerHTML = '<div class="ev-nota">Cargando…</div>';
+    fetch(url(URL_ESTADO, it.pk), { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || r.status); return j; }); })
+      .then(function (datos) { ev.datos = datos; pintar(); })
+      .catch(function (e) {
+        document.getElementById('ev-cuerpo').innerHTML = '<div class="ev-error">No he podido abrir la evaluación: ' + esc(e.message) + '</div>';
+      });
+  };
+
+  window.cerrarEvaluar = function () {
+    // Una grabación en marcha no se tira: se para y se sube igual. Una que aún
+    // está abriendo el micrófono o la cámara se cancela: sin esto, al resolver
+    // `getUserMedia` con el panel cerrado se quedaba grabando a escondidas
+    // (revisión independiente, 2026-10-04).
+    if (ev && ev.grab && ev.grab.preparando) ev.grab.cancelado = true;
+    if (ev && ev.grab && ev.grab.recorder && ev.grab.recorder.state === 'recording') {
+      ev.grab.recorder.stop();
+    }
+    document.getElementById('panel-evaluar').classList.remove('abierto');
+  };
+
+  // ── La letra de la rúbrica: los MISMOS cortes que `calificaciones.evaluar` ──
+  // media 3 → SB · ≥2,5 → NT · ≥2 → BI · ≥1,5 → SU · menos → IN, comparados sin
+  // dividir. El servidor la vuelve a calcular; esto es solo para verla al momento.
+  function letraDe(puntos) {
+    if (!puntos.length || puntos.some(function (p) { return !p; })) return null;
+    var s = puntos.reduce(function (a, b) { return a + b; }, 0), n = puntos.length;
+    if (s >= 3 * n) return 'SB';
+    if (2 * s >= 5 * n) return 'NT';
+    if (s >= 2 * n) return 'BI';
+    if (2 * s >= 3 * n) return 'SU';
+    return 'IN';
+  }
+
+  function rubrica() { return (ev.datos && ev.datos.instrumento.rubrica) || []; }
+  function propuesta() { return rubrica().length ? letraDe(ev.puntos) : null; }
+  function letraFinal() { return ev.letra || propuesta(); }
+  function alumnoDe(id) { return ev.datos.alumnos.find(function (a) { return a.id === id; }); }
+
+  function pintar() {
+    var d = ev.datos, a = ev.alumno ? alumnoDe(ev.alumno) : null;
+    var sinNota = d.alumnos.filter(function (x) { return !x.letra; }).length;
+    var h = '';
+
+    h += '<h3>Alumno</h3><div class="ev-elegido">';
+    if (a) {
+      h += '<div class="ev-nombre">' + esc(a.nombre) + '</div>';
+      if (a.letra) h += '<span class="ev-nota">Ya tiene ' + esc(a.letra) + ': guardar la sustituye</span>';
+      h += '<button type="button" class="ev-btn" onclick="evOtro()" ' + (sinNota ? '' : 'disabled') + '>🎲 Otro</button>';
+    } else {
+      h += '<div class="ev-nombre vacio">Elige abajo, o al azar entre los ' + sinNota + ' que aún no tienen nota</div>';
+      h += '<button type="button" class="ev-btn ev-primario" onclick="evAzar()" ' + (sinNota ? '' : 'disabled') + '>🎲 Al azar</button>';
+    }
+    h += '</div>';
+    if (!sinNota) h += '<div class="ev-nota" style="margin-top:6px;">Todo el grupo tiene ya nota en «' + esc(d.prueba_nombre) + '».</div>';
+
+    h += '<div class="ev-lista" style="margin-top:10px;">';
+    d.alumnos.forEach(function (x) {
+      h += '<button type="button" class="ev-alumno' + (x.letra ? ' tiene' : '') + (x.id === ev.alumno ? ' activo' : '') +
+           '" onclick="evElegir(' + x.id + ')">' + esc(x.nombre) + '</button>';
+    });
+    if (!d.alumnos.length) h += '<div class="ev-nota">No hay alumnado matriculado en este grupo.</div>';
+    h += '</div>';
+
+    if (rubrica().length) {
+      h += '<h3>Rúbrica · 1 no lo consigue · 2 con errores · 3 lo consigue</h3>';
+      rubrica().forEach(function (apartado, i) {
+        h += '<div class="ev-fila"><div class="ev-apartado">' + esc(apartado) + '</div><div class="ev-puntos">';
+        [1, 2, 3].forEach(function (v) {
+          h += '<button type="button" class="ev-punto' + (ev.puntos[i] === v ? ' si' : '') + '" data-v="' + v +
+               '" onclick="evPunto(' + i + ',' + v + ')">' + v + '</button>';
+        });
+        h += '</div></div>';
+      });
+    }
+
+    var p = propuesta(), f = letraFinal();
+    h += '<h3>Calificación</h3><div class="ev-letras">';
+    d.letras.forEach(function (l) {
+      h += '<button type="button" class="ev-letra' + (f === l ? ' si' : '') + '" data-l="' + l + '" onclick="evLetra(\'' + l + '\')">' + l + '</button>';
+    });
+    if (p) h += '<span class="ev-propuesta">La rúbrica da ' + p + (ev.letra && ev.letra !== p ? ' · la has cambiado a ' + ev.letra : '') + '</span>';
+    else if (rubrica().length) h += '<span class="ev-propuesta">Puntúa todos los apartados, o elige la letra a mano</span>';
+    h += '</div>';
+
+    h += '<h3>Comentario</h3><textarea id="ev-comentario" placeholder="Qué ha salido bien, qué hay que trabajar…">' +
+         esc(ev.comentario || '') + '</textarea>';
+
+    h += '<h3>Grabar la intervención</h3><div class="ev-grabar" id="ev-grabar"></div>';
+
+    h += '<div class="ev-pie">' +
+         '<button type="button" class="ev-btn ev-primario" id="ev-guardar" onclick="evGuardar()" ' + (a && f && !ev.grab ? '' : 'disabled') + '>' + (ev.grab ? 'Para la grabación antes de guardar' : 'Guardar ' + (f || '')) + '</button>' +
+         '<button type="button" class="ev-btn" onclick="cerrarEvaluar()">Cerrar</button></div>';
+
+    document.getElementById('ev-cuerpo').innerHTML = h;
+    pintarGrabar();
+  }
+
+  // El comentario vive en el DOM mientras se escribe; se recoge antes de repintar.
+  function recogerComentario() {
+    var t = document.getElementById('ev-comentario');
+    if (t) ev.comentario = t.value;
+  }
+
+  window.evElegir = function (id) {
+    recogerComentario();
+    if (ev.grab) { avisar('Para la grabación antes de cambiar de alumno'); return; }
+    var a = alumnoDe(id);
+    ev.alumno = id;
+    // Si ya tiene nota, se parte de lo que se guardó: evaluar otra vez es corregir.
+    ev.puntos = (a && a.puntos && a.puntos.length === rubrica().length) ? a.puntos.slice() : [];
+    ev.letra = null;
+    ev.comentario = a ? a.comentario : '';
+    pintar();
+  };
+
+  function traerAzar() {
+    var excluir = ev.excluir.join(',');
+    return fetch(url(URL_AZAR, ev.pk) + '?excluir=' + encodeURIComponent(excluir), {
+      credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    }).then(function (r) { return r.json(); });
+  }
+
+  window.evAzar = function () {
+    traerAzar().then(function (j) {
+      if (!j.alumno) {
+        // Todos los que quedaban se han saltado: se vuelve a empezar la ronda.
+        if (ev.excluir.length) { ev.excluir = []; avisar('No queda nadie más sin nota: vuelvo a empezar con los que había saltado'); return evAzar(); }
+        avisar('Todo el grupo tiene ya nota');
+        return;
+      }
+      evElegir(j.alumno.id);
+    }).catch(function () { avisar('No he podido sortear'); });
+  };
+
+  // «Otro»: el que ha salido no está o no le toca. Se le salta sin ponerle nada.
+  window.evOtro = function () {
+    if (ev.alumno && ev.excluir.indexOf(ev.alumno) < 0) ev.excluir.push(ev.alumno);
+    evAzar();
+  };
+
+  window.evPunto = function (i, v) {
+    recogerComentario();
+    while (ev.puntos.length < rubrica().length) ev.puntos.push(0);
+    ev.puntos[i] = v;
+    ev.letra = null;  // al tocar la rúbrica manda otra vez la rúbrica
+    pintar();
+  };
+
+  window.evLetra = function (l) {
+    recogerComentario();
+    ev.letra = (ev.letra === l && !propuesta()) ? null : l;
+    pintar();
+  };
+
+  window.evGuardar = function () {
+    recogerComentario();
+    var a = alumnoDe(ev.alumno), f = letraFinal();
+    if (!a || !f || ev.grab) return;
+    var btn = document.getElementById('ev-guardar');
+    if (btn) btn.disabled = true;
+    var cuerpo = { alumno: a.id, comentario: ev.comentario || '' };
+    if (rubrica().length && letraDe(ev.puntos)) cuerpo.puntos = ev.puntos;
+    if (ev.letra || !cuerpo.puntos) cuerpo.letra = f;
+    fetch(url(URL_GUARDAR, ev.pk), {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json' },
+      body: JSON.stringify(cuerpo)
+    })
+      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || r.status); return j; }); })
+      .then(function (j) {
+        a.letra = j.letra;
+        a.puntos = cuerpo.puntos || [];
+        a.comentario = cuerpo.comentario;
+        avisar('Guardado: ' + a.nombre + ' · ' + j.letra);
+        ev.alumno = null; ev.puntos = []; ev.letra = null; ev.comentario = '';
+        pintar();
+      })
+      .catch(function (e) { avisar('No se ha guardado: ' + e.message, 4000); if (btn) btn.disabled = false; });
+  };
+
+  // ── Grabar audio o vídeo ──
+  // Lo grabado se sube como evidencia del alumno elegido en la columna del
+  // instrumento, la misma que abre el clip del registro. Sin alumno elegido no
+  // se graba: no habría a quién atarlo.
+  function elegirTipo(candidatos) {
+    return candidatos.find(function (t) { return window.MediaRecorder && MediaRecorder.isTypeSupported(t); }) || '';
+  }
+  function extensionDe(tipo) { return tipo.indexOf('mp4') >= 0 ? 'mp4' : tipo.indexOf('ogg') >= 0 ? 'ogg' : 'webm'; }
+  function reloj(s) { return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+
+  function pintarGrabar() {
+    var caja = document.getElementById('ev-grabar');
+    if (!caja) return;
+    var g = ev.grab, h = '';
+    if (!g && !ev.alumno) {
+      h = '<span class="ev-nota">Elige primero a quién evaluar.</span>';
+    } else if (!g) {
+      h = '<button type="button" class="ev-btn" onclick="evGrabar(\'audio\')">🎤 Audio</button>' +
+          '<button type="button" class="ev-btn" onclick="evGrabar(\'video\')">🎥 Vídeo</button>' +
+          (ev.subidas ? '<span class="ev-nota">' + ev.subidas + ' grabación(es) guardada(s) hoy</span>' : '');
+    } else if (g.preparando) {
+      h = '<span class="ev-nota">Abriendo ' + (g.tipo === 'video' ? 'la cámara' : 'el micrófono') + '…</span>';
+    } else {
+      h = '<span class="ev-grabando">● ' + reloj(g.segundos) + '</span>' +
+          '<button type="button" class="ev-btn ev-primario" onclick="evParar()">■ Parar y guardar</button>';
+    }
+    caja.innerHTML = h;
+    if (g && g.tipo === 'video' && g.stream) {
+      var v = document.createElement('video');
+      v.className = 'ev-vista'; v.muted = true; v.playsInline = true; v.autoplay = true;
+      v.srcObject = g.stream;
+      caja.appendChild(v);
+    }
+  }
+
+  window.evGrabar = function (tipo) {
+    if (!ev.alumno || ev.grab) return;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
+      avisar('Este navegador no puede grabar aquí', 4000);
+      return;
+    }
+    recogerComentario();
+    // `mio`: el panel en el que empezó la grabación. Cerrar y volver a abrir
+    // crea otro `ev`; todo lo de esta grabación sigue apuntando al suyo.
+    var mio = ev;
+    var alumno = mio.alumno, prueba = mio.datos.prueba, grupo = mio.datos.grupo;
+    var grab = { tipo: tipo, preparando: true, segundos: 0 };
+    mio.grab = grab;
+    pintarGrabar();
+    var restricciones = tipo === 'video'
+      ? { video: { facingMode: 'environment', width: { ideal: 1280 } }, audio: true }
+      : { audio: true };
+    navigator.mediaDevices.getUserMedia(restricciones).then(function (stream) {
+      if (grab.cancelado || ev !== mio || !evaluarAbierto()) {
+        stream.getTracks().forEach(function (t) { t.stop(); });
+        if (mio.grab === grab) mio.grab = null;
+        return;
+      }
+      var mime = tipo === 'video'
+        ? elegirTipo(['video/webm;codecs=vp9,opus', 'video/webm', 'video/mp4'])
+        : elegirTipo(['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4']);
+      var opciones = tipo === 'video' ? { videoBitsPerSecond: BITS_DE_VIDEO } : {};
+      if (mime) opciones.mimeType = mime;
+      var recorder = new MediaRecorder(stream, opciones);
+      var trozos = [], peso = 0;
+      recorder.ondataavailable = function (e) {
+        if (!e.data.size) return;
+        trozos.push(e.data); peso += e.data.size;
+        if (tipo === 'video' && peso > TOPE_DE_VIDEO && recorder.state === 'recording') {
+          avisar('Vídeo cortado al llegar al tamaño máximo');
+          recorder.stop();
+        }
+      };
+      recorder.onstop = function () {
+        stream.getTracks().forEach(function (t) { t.stop(); });
+        clearInterval(grab.timer);
+        if (mio.grab === grab) mio.grab = null;
+        if (ev === mio) pintar();
+        var real = recorder.mimeType || mime || (tipo === 'video' ? 'video/webm' : 'audio/webm');
+        var blob = new Blob(trozos, { type: real });
+        subir(grupo, prueba, alumno, tipo, blob, real);
+      };
+      grab.preparando = false;
+      grab.recorder = recorder;
+      grab.stream = stream;
+      grab.timer = setInterval(function () {
+        grab.segundos += 1;
+        var r = ev === mio && document.querySelector('#ev-grabar .ev-grabando');
+        if (r) r.textContent = '● ' + reloj(grab.segundos);
+      }, 1000);
+      recorder.start(1000);
+      if (ev === mio) pintar();
+    }).catch(function (e) {
+      if (mio.grab === grab) mio.grab = null;
+      if (ev === mio) pintarGrabar();
+      avisar((tipo === 'video' ? '🎥 ' : '🎤 ') + 'No he podido usar ' + (tipo === 'video' ? 'la cámara' : 'el micrófono') + ' (' + (e && e.name || 'error') + ')', 5000);
+    });
+  };
+
+  window.evParar = function () {
+    if (ev.grab && ev.grab.recorder && ev.grab.recorder.state === 'recording') ev.grab.recorder.stop();
+  };
+
+  function subir(grupo, prueba, alumno, tipo, blob, mime) {
+    var fd = new FormData();
+    fd.append('prueba', prueba);
+    fd.append('alumno', alumno);
+    fd.append('tipo', tipo);
+    fd.append('archivo', new File([blob], 'clase-' + Date.now() + '.' + extensionDe(mime), { type: mime }));
+    avisar('Subiendo la grabación…', 8000);
+    fetch(url(URL_EVIDENCIA, grupo), {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
+      body: fd
+    })
+      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || r.status); return j; }); })
+      .then(function () {
+        if (ev) { ev.subidas = (ev.subidas || 0) + 1; if (evaluarAbierto()) pintarGrabar(); }
+        avisar((tipo === 'video' ? '🎥' : '🎤') + ' Grabación guardada en el registro');
+      })
+      .catch(function (e) { avisar('No se ha podido subir la grabación: ' + e.message, 6000); });
+  }
+
+  // Este script va DESPUÉS del principal, que ya ha pintado el primer
+  // elemento cuando `pintarEvaluar` aún no existía: sin esta línea, si el
+  // primer elemento era evaluable el botón salía escondido (visto en el
+  // navegador, 2026-10-04).
+  window.pintarEvaluar();
+})();
+</script>
