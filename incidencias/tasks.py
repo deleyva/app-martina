@@ -403,30 +403,32 @@ def send_new_comment_notification(incidencia_id: int, comentario_id: int):
         return
 
     emails = IncidenciaNotificationService.get_participant_emails(incidencia)
-    # Exclude the commenter
     comentarista_email = _username_to_email(comentario.autor_nombre)
+    # Citado con @ en este comentario: recibe este aviso y solo este (no pasa a participante).
+    mencionados = [e for e in comentario.correos_mencionados() if e not in emails and e != comentarista_email]
+    # Exclude the commenter
     if comentarista_email and comentarista_email in emails:
         emails.remove(comentarista_email)
 
-    if not emails:
-        return
-
     url = f"{settings.INCIDENCIAS_SITE_URL}/{incidencia.pk}/"
-    subject = f"[Incidencias] Nuevo comentario en: {incidencia.titulo}"
-    body = render_to_string(
-        "incidencias/emails/incidencia_new_comment.txt",
-        {
-            "incidencia": incidencia,
-            "comentario": comentario,
-            "url": url,
-        },
-    )
+    contexto = {"incidencia": incidencia, "comentario": comentario, "url": url}
 
-    send_mail(
-        subject,
-        body,
-        settings.DEFAULT_FROM_EMAIL,
-        emails,
-        fail_silently=True,
-    )
-    logger.info(f"Notificación de nuevo comentario enviada a {len(emails)} participantes para incidencia #{incidencia.pk}")
+    if emails:
+        send_mail(
+            f"[Incidencias] Nuevo comentario en: {incidencia.titulo}",
+            render_to_string("incidencias/emails/incidencia_new_comment.txt", contexto),
+            settings.DEFAULT_FROM_EMAIL,
+            emails,
+            fail_silently=True,
+        )
+        logger.info(f"Notificación de nuevo comentario enviada a {len(emails)} participantes para incidencia #{incidencia.pk}")
+
+    if mencionados:
+        send_mail(
+            f"[Incidencias] {comentario.autor_nombre} te menciona en: {incidencia.titulo}",
+            render_to_string("incidencias/emails/incidencia_mencion.txt", contexto),
+            settings.DEFAULT_FROM_EMAIL,
+            mencionados,
+            fail_silently=True,
+        )
+        logger.info(f"Aviso de mención enviado a {len(mencionados)} personas para incidencia #{incidencia.pk}")

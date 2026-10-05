@@ -4752,3 +4752,29 @@ Citar usuarios en comentarios (segunda petición de la 219, pendiente de Jesús)
 - Anti-A: los tests de la fase 56 (`test_derivaciones.py`, `test_pagina_servicio.py`, `test_api.py`) pasan sin cambios. Anti-B: `test_pagina_publica_de_oficio…`. Anti-C: ni push ni despliegue.
 - Sin auditoría externa: cambio aditivo en superficie de técnicos, con la página pública cubierta por tests de no-fuga. Elegido a conciencia.
 - **Tutorial publicado (2026-10-05)**, a petición de Jesús: BookStack página 36, «Avisar a oficios (electricista, carpintería…) desde la app de incidencias», en Gestión Informática, con 7 capturas (imágenes 86–92) tomadas en local con incidencias de demostración (138 y 139, reportero «Conserjería») y los tokens de las páginas públicas tapados. Verificado en Chrome con sesión: 7 imágenes cargadas y 6 apartados. Sin sesión da 404, igual que todo el libro. Al hacer las capturas apareció «📤 enviado» en el histórico público de un oficio, y se corrigió a «📞 aviso» (`18a776f`).
+
+## Fase 66 — Citar con @usuario en un comentario avisa a esa persona (2026-10-05) · VERIFICADA EN LOCAL, SIN DESPLEGAR
+
+**Goal (literal de Jesús, 2026-10-05):** «hazla y que la persona mencionada reciba sólo el aviso si se nombra en el comentario». Es la segunda petición de la incidencia 219. Antes de la fase, reproducido en local: un comentario con `@pruebamencion` en la 138 solo avisó al reportero, porque el aviso va a una lista fija (reportero, asignado y comentaristas previos) y nadie mira el texto.
+
+### Claims
+
+- [x] **C402** — Un `@usuario` en el texto de un comentario envía el aviso de ese comentario a `usuario@<dominio>`, siempre que exista un usuario activo con ese correo. *Probe: test con mail.outbox.* *Cerrada: `test_mencion_avisa_a_la_persona_citada`; en Chrome, comentario por el formulario web en la 138 con `@jlopez` → mailpit: «[Incidencias] secretaria te menciona en: Enchufe que chispea…» a jlopez y el aviso normal a la reportera, por separado.*
+- [x] **C403** — Solo ese aviso: la persona mencionada no pasa a participante, y el siguiente comentario sin mención no le llega. *Probe: test con dos comentarios seguidos.* *Cerrada: `test_mencionada_no_recibe_los_siguientes`. El correo de mención le dice que solo recibe ese aviso y que comente si quiere seguirla.*
+- [x] **C404** — No avisa a nadie inexistente o inactivo, no confunde un correo escrito en el texto (`jlopez@iesmartinabescos.es`) con una mención, no duplica a quien ya es participante y no se avisa al propio autor. *Probe: tests.* *Cerrada: `test_usuarios_citados` (5 casos, el correo escrito en el texto incluido), `test_solo_usuarios_activos_que_existen`, `test_sin_duplicados_ni_autoaviso`, `test_mencion_inexistente_no_manda_nada_fuera`.*
+- [x] **C405** — La mención funciona igual por la web y por la API, porque las dos pasan por `acciones.comentar` (el correo entrante crea incidencias, no comentarios: `rg "Comentario.objects.create"` da una sola línea, la de `acciones`). *Probe: test de la API.* *Cerrada: `test_mencion_por_api`.*
+- [x] **C406** — En el detalle, cada `@usuario` reconocido sale resaltado, el texto sigue escapado (sin inyección de HTML) y el formulario de comentario explica la mención. *Probe: test de plantilla con `<script>`; Chrome.* *Cerrada: `test_detalle_resalta_menciones_y_escapa` (`<script>` sale como `&lt;script&gt;`), `test_mencion_a_quien_no_existe_no_se_resalta`; en Chrome, en la 138 solo sale resaltado `@jlopez` y `@pruebamencion` (que no existe) queda como texto (captura vista); la ayuda «Para avisar a alguien, escribe @…» aparece bajo el comentario.*
+- [x] **C407** — La suite de `incidencias` no tiene fallos nuevos. *Probe: pytest.* *Cerrada: `pytest incidencias` → 224 passed, 2 failed (los dos de siempre).*
+
+### Anti-claims
+
+- **Anti-A** — Ningún correo sale hacia fuera del dominio del centro por una mención.
+- **Anti-B** — Los avisos de cambio de estado no cambian.
+- **Anti-C** — Ni push ni despliegue sin «despliega».
+
+### Log
+- Sin migración: la mención se lee del texto en cada aviso, no se guarda.
+- Decisión: solo se avisa a usuarios activos que existen en la app (211 del dominio en la copia local), para que un error al escribir no mande correo a una dirección inventada. El precio: quien no haya entrado nunca en la app no recibe la mención.
+- Encontrado en el navegador y no en los tests: la primera versión resaltaba también `@pruebamencion`, que no existe, y daba a entender que le había llegado. Ahora solo se resalta a quien recibió el correo.
+- Visto de paso y no tocado: el aviso de comentario normal (`incidencia_new_comment.txt`) pasa por el autoescape, así que un apóstrofo sale como `&#x27;` en el correo. Es anterior a esta fase; la plantilla nueva de mención ya lleva `autoescape off`.
+- Anti-A: `test_mencion_inexistente_no_manda_nada_fuera` (todo destinatario termina en el dominio del centro). Anti-B: los tests de `test_notifications.py` pasan sin tocarlos. Anti-C: ni push ni despliegue.

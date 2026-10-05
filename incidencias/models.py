@@ -1,7 +1,9 @@
 # ruff: noqa: ERA001, E501
+import re
 import secrets
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.core.validators import FileExtensionValidator
 from django.db import models
 from django.utils import timezone
@@ -161,6 +163,30 @@ class Comentario(models.Model):
 
     def __str__(self):
         return f"{self.autor_nombre}: {self.texto[:50]}"
+
+    # «@jlopez» sí; «jlopez@iesmartinabescos.es» no (la @ va pegada a una letra);
+    # un punto final de frase no forma parte del usuario.
+    PATRON_MENCION = re.compile(r"(?<![\w.@])@([a-z0-9](?:[a-z0-9._-]*[a-z0-9])?)", re.IGNORECASE)
+
+    @classmethod
+    def usuarios_citados(cls, texto: str) -> list[str]:
+        """Los `@usuario` del texto, en minúsculas y sin repetir, existan o no."""
+        return list(dict.fromkeys(m.lower() for m in cls.PATRON_MENCION.findall(texto)))
+
+    def correos_mencionados(self) -> list[str]:
+        """Correos del centro de los usuarios activos citados con @ en este comentario.
+
+        Solo usuarios que existen en la app: un error al escribir no manda correo a nadie.
+        """
+        dominio = getattr(settings, "DEFAULT_USER_EMAIL_DOMAIN", "iesmartinabescos.es")
+        candidatos = [f"{u}@{dominio}" for u in self.usuarios_citados(self.texto)]
+        if not candidatos:
+            return []
+        q = models.Q()
+        for c in candidatos:
+            q |= models.Q(email__iexact=c)
+        existentes = {e.lower() for e in get_user_model().objects.filter(q, is_active=True).values_list("email", flat=True)}
+        return [c for c in candidatos if c in existentes]
 
 
 def adjunto_upload_path(instance, filename):

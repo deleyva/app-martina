@@ -1,4 +1,5 @@
 {% extends "incidencias/base_incidencias.html" %}
+{% load menciones %}
 {% load static i18n %}
 
 {% block incidencias_content %}
@@ -313,7 +314,7 @@
                 <time class="text-xs opacity-50 ml-1">{{ comentario.created_at|date:"d M Y, H:i" }}</time>
               </div>
               <div class="chat-bubble chat-bubble-ghost">
-                {{ comentario.texto|linebreaksbr }}
+                {{ comentario|con_menciones }}
                 
                 {% if comentario.adjuntos.exists %}
                   <div class="flex flex-wrap gap-2 mt-3 p-2 bg-base-100/50 rounded-xl border border-base-200/50">
@@ -367,6 +368,7 @@
         </div>
         <div class="form-control mb-3">
           {{ comentario_form.texto }}
+          <label class="label pb-0"><span class="label-text-alt opacity-60">Para avisar a alguien, escribe <strong>@</strong> y su usuario del IES (por ejemplo <strong>@jlopez</strong>): le llega este comentario por correo.</span></label>
         </div>
         <div class="flex justify-end">
           <button type="submit" class="btn btn-primary btn-sm gap-1">
