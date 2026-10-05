@@ -42,7 +42,7 @@
               <ul class="mt-2 space-y-2">
                 {% for c in d.comunicaciones.all %}
                   <li class="text-sm">
-                    <span class="opacity-60">{{ c.fecha|date:"d/m/Y" }} · {% if c.sentido == "enviada" %}📤 enviado{% elif c.sentido == "recibida" %}📥 recibido{% else %}📝 nota{% endif %} · {{ c.get_canal_display }}</span>
+                    <span class="opacity-60">{{ c.fecha|date:"d/m/Y" }} · {% if c.sentido == "enviada" and c.canal != "correo" %}📞 aviso{% elif c.sentido == "enviada" %}📤 enviado{% elif c.sentido == "recibida" %}📥 recibido{% else %}📝 nota{% endif %} · {{ c.get_canal_display }}</span>
                     {% if c.sentido == "enviada" and c.canal != "correo" %}
                       <div>{{ c.texto|linebreaksbr }}</div>
                     {% elif c.sentido == "enviada" %}
