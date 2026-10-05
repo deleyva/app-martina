@@ -4714,3 +4714,40 @@ La tira de arriba con el desplegable ya existía. Hoy por defecto no mostraba na
   - El plan 5 tiene los 9 campos de rúbrica.
 - **Queda pendiente de Jesús, en clase con el iPad:** grabar una vez con dos o tres alumnos (micrófono y cámara reales: C375/C379), comprobar que la pantalla no se apaga (C387), y escribir las rúbricas de los instrumentos que vaya a evaluar en la página del plan.
 
+
+## Fase 65 — Oficios en la lista: electricista, carpintería y los que hagan falta (2026-10-05) · VERIFICADA EN LOCAL, SIN DESPLEGAR
+
+**Goal (literal de Jesús, 2026-10-05):** «¿Podemos implementar esta mejora? https://apps.iesmartinabescos.es/incidencias/219/ … yo creo que ya está casi hecha, porque sería ir cargando en una web accesible a cualquiera, para que el secretario o la persona que atienda al electricista o al de las ventanas que venga pueda enseñársela o imprimir las incidencias que no están hechas. Es decir, que se vaya marcando con etiqueta o dirigiendo a electricista, carpintería o los equipos que se creen necesarios para cuando haya suficientes, llamar a esa persona para que venga.»
+
+La incidencia 219 (de `@secretaria`) pide dos cosas: derivar también a oficios (electricista, mantenimiento, ventanas) y **citar usuarios en los comentarios para que les llegue el correo**. Jesús solo se ha pronunciado sobre la primera; la segunda queda fuera de esta fase y se le pregunta.
+
+**Lo que ya existía (fase 56):** `Servicio` con página pública por token, imprimible, agrupada por planta y aula, y el recuento de abiertas en `/panel/servicios/`. **Lo que faltaba:** (1) dar de alta un servicio exigía el admin de Django, al que secretaría no entra; (2) toda derivación era un correo — borrador, «Copiar correo», «Marcar como enviada» —, y a un electricista no se le escribe: se le apunta y se le llama cuando hay bastante; (3) una derivación en borrador solo se podía cerrar como duplicada, así que lo arreglado en una visita no podía cerrarse como resuelto sin fingir un envío.
+
+### Out of Scope
+
+Citar usuarios en comentarios (segunda petición de la 219, pendiente de Jesús) · avisar automáticamente al oficio cuando se pasa un umbral · enviar correos desde la app.
+
+### Claims
+
+- [x] **C394** — `Servicio.modo` existe con dos valores, `correo` (por defecto, todo lo de antes) y `visita` («se apunta y se le llama»); la migración no cambia los 9 servicios existentes. *Probe: `makemigrations --check`; SELECT de `modo` en la copia local tras migrar = 9 × `correo`.* *Cerrada: `makemigrations --check` → «No changes detected»; tras `migrate` en local, `Counter(modo)` = 9 `correo` + 2 `visita` (los oficios sembrados por `0009_seed_oficios`, cada uno con token propio).*
+- [x] **C395** — Derivar a un servicio `visita` crea la derivación sin cuerpo de correo y la deja «En la lista»; derivar a uno `correo` sigue generando el correo. *Probe: tests de `acciones.derivar` para ambos modos.* *Cerrada: `test_derivar_a_oficio_no_redacta_correo_y_queda_en_la_lista`; en Chrome, derivar la 136 a Electricista dejó la derivación con `cuerpo=""` y la tarjeta «Electricista · En la lista», sin editor ni «Copiar correo».*
+- [x] **C396** — Una derivación `visita` se cierra como resuelta o sin solución directamente desde «En la lista» y también tras «Avisado»; una `correo` en borrador sigue rechazando todo cierre salvo duplicada. *Probe: tests con `pytest.raises(TransicionInvalida)` en el caso correo.* *Cerrada: `test_oficio_se_cierra_desde_la_lista[resuelta|sin_solucion|duplicada]` y `test_correo_en_borrador_sigue_sin_poder_cerrarse[resuelta|sin_solucion]` (TransicionInvalida); en Chrome, «Hecho / cerrar» → `cerrada resuelta` en la base.*
+- [x] **C397** — «📞 Marcar como avisado» pasa una derivación `visita` a avisado y deja una comunicación por teléfono con la fecha; el detalle de una `visita` no enseña editor de correo ni «Copiar correo». *Probe: test de vista + Chrome.* *Cerrada: `test_avisar_a_oficio_deja_llamada_por_telefono`, `test_detalle_de_oficio_sin_correo_y_con_avisar`; en Chrome, «Marcar como avisado» → comunicación «Aviso · Teléfono · 05/10/2026 · jlopez — Avisado para que venga: [INC-136] …» (captura vista).*
+- [x] **C398** — Un técnico (secretaría incluida) da de alta y edita servicios desde `/incidencias/panel/servicios/`, sin admin; el slug se deriva del nombre y no choca; un no técnico recibe redirección y no crea nada. *Probe: tests de vista; Chrome.* *Cerrada: `test_tecnico_da_de_alta_un_oficio_desde_el_panel`, `test_tecnico_edita_un_servicio`, `test_no_tecnico_no_crea_servicios`, `test_slug_sale_del_nombre_y_no_choca`; en Chrome, «➕ Nuevo servicio» → formulario con los dos modos (captura vista) → «Fontanería (prueba local) guardado.» y fila nueva en la tabla (borrada después).*
+- [x] **C399** — La página pública de un servicio `visita` dice «En la lista» / «Avisado» en vez de Borrador/Enviada, sigue sin enseñar reporteros ni comentarios, y se imprime. *Probe: `test_pagina_servicio.py` ampliado; Chrome sin sesión.* *Cerrada: `test_pagina_publica_de_oficio_dice_en_la_lista_y_avisado` (sin reporteros, sin descripción de la privada); en Chrome, la página pública del electricista: «Incidencias pendientes para Electricista», «Sin ubicación › Por concretar › [INC-136] … En la lista · Media» y el botón «Imprimir hoja de visita» (captura vista).*
+- [x] **C400** — La API de servicios incluye `modo`. *Probe: test de `test_api.py`.* *Cerrada: `test_api_servicios_trae_modo`.*
+- [x] **C401** — La suite de `incidencias` pasa salvo los dos fallos preexistentes de `test_views`. *Probe: `pytest incidencias`.* *Cerrada: `pytest incidencias` → 211 passed, 2 failed (`test_filter_by_planta`, `test_panel_has_custom_title`, los dos ya anotados como anteriores en la fase 59).*
+
+### Anti-claims
+
+- **Anti-A** — Ningún servicio, derivación ni incidencia existente cambia de comportamiento: el modo por defecto es `correo` y su máquina de estados queda idéntica. *Falsador: los tests de la fase 56 pasan sin tocarlos.*
+- **Anti-B** — La página pública sigue sin enseñar reporteros, comentarios ni el cuerpo de una privada.
+- **Anti-C** — Ni push ni despliegue sin «despliega» de Jesús.
+
+### Log
+- Migraciones: `0008_servicio_modo` (columna nueva con valor por defecto, aditiva) y `0009_seed_oficios` (siembra Electricista y Carpintería y ventanas, sin contacto; la inversa solo borra los que no tengan derivaciones).
+- Además de lo previsto: el modal «Derivar a…» explicaba solo el caso correo y su botón decía «Crear borrador»; ahora explica los dos casos, el botón dice «Derivar» y los oficios salen con 📞 en el desplegable.
+- En Chrome, tres clics seguidos sobre «Crear borrador» no hicieron POST (el log de Django lo confirma); `requestSubmit()` sobre el mismo formulario sí. Era la herramienta de clic, no la app: la fase 56 verificó ese botón a mano.
+- Base local: la incidencia 136 queda «en progreso» con la derivación 2 al electricista, cerrada como resuelta.
+- Anti-A: los tests de la fase 56 (`test_derivaciones.py`, `test_pagina_servicio.py`, `test_api.py`) pasan sin cambios. Anti-B: `test_pagina_publica_de_oficio…`. Anti-C: ni push ni despliegue.
+- Sin auditoría externa: cambio aditivo en superficie de técnicos, con la página pública cubierta por tests de no-fuga. Elegido a conciencia.

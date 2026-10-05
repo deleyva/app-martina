@@ -93,13 +93,16 @@ def derivar(
     asunto: str | None = None,
     cuerpo: str | None = None,
 ) -> Derivacion:
-    """Crea la derivación en borrador y saca la incidencia de «pendiente»."""
+    """Crea la derivación en borrador y saca la incidencia de «pendiente».
+
+    A un oficio (`modo=visita`) no se le escribe: queda apuntada en su lista, sin correo.
+    """
     derivacion = Derivacion.objects.create(
         incidencia=incidencia,
         servicio=servicio,
         creada_por=por,
         asunto=asunto or Derivacion.asunto_por_defecto(incidencia),
-        cuerpo=cuerpo if cuerpo is not None else cuerpo_por_defecto(incidencia, servicio),
+        cuerpo=cuerpo if cuerpo is not None else ("" if servicio.es_por_visita else cuerpo_por_defecto(incidencia, servicio)),
     )
     if incidencia.estado == Incidencia.Estado.PENDIENTE:
         cambiar_estado(incidencia, Incidencia.Estado.EN_PROGRESO)

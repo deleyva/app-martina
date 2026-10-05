@@ -8,7 +8,10 @@
       <h1 class="text-3xl font-bold">📤 Servicios externos</h1>
       <p class="opacity-60">Cada servicio tiene una página pública con lo pendiente. El enlace es la llave: no lo publiques, va dentro de los correos.</p>
     </div>
-    <a href="{% url 'incidencias:panel' %}" class="btn btn-ghost btn-sm">← Panel</a>
+    <div class="flex gap-2">
+      <a href="{% url 'incidencias:panel_servicio_nuevo' %}" class="btn btn-primary btn-sm">➕ Nuevo servicio</a>
+      <a href="{% url 'incidencias:panel' %}" class="btn btn-ghost btn-sm">← Panel</a>
+    </div>
   </div>
   <div class="overflow-x-auto">
     <table class="table">
@@ -16,7 +19,11 @@
       <tbody>
         {% for s in servicios %}
         <tr>
-          <td class="font-semibold">{{ s.nombre }}<div class="text-xs opacity-60">{{ s.correos }}{% if s.telefono %} · {{ s.telefono }}{% endif %}</div></td>
+          <td class="font-semibold">
+            <a class="link link-hover" href="{% url 'incidencias:panel_servicio_editar' s.pk %}">{{ s.nombre }}</a>
+            {% if s.es_por_visita %}<span class="badge badge-sm badge-outline ml-1" title="Se apunta y se le llama para que venga">📞 visita</span>{% endif %}
+            <div class="text-xs opacity-60 font-normal">{{ s.correos }}{% if s.telefono %} · {{ s.telefono }}{% endif %}</div>
+          </td>
           <td>{% if s.activo %}✅{% else %}—{% endif %}</td>
           <td>{{ s.derivaciones.abiertas.count }}</td>
           <td><a class="link text-xs break-all" href="{{ s.url_publica }}" target="_blank" rel="noopener">{{ s.url_publica }}</a></td>
@@ -32,6 +39,6 @@
       </tbody>
     </table>
   </div>
-  <p class="text-xs opacity-60 mt-4">Altas, bajas y contactos se editan en el <a class="link" href="/admin/incidencias/servicio/">admin</a>.</p>
+  <p class="text-xs opacity-60 mt-4">Pulsa el nombre de un servicio para cambiar sus contactos o darlo de baja. Los oficios (📞 visita) no reciben correos: su página se va llenando y, cuando hay bastante, se les llama y se les enseña o imprime.</p>
 </div>
 {% endblock incidencias_content %}

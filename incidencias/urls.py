@@ -31,4 +31,6 @@ urlpatterns = [
     path("panel/eliminar/<int:pk>/", views.EliminarIncidenciaView.as_view(), name="panel_eliminar"),
     path("panel/tecnicos/", views.GestionTecnicosView.as_view(), name="panel_tecnicos"),
     path("panel/servicios/", views.GestionServiciosView.as_view(), name="panel_servicios"),
+    path("panel/servicios/nuevo/", views.EditarServicioView.as_view(), name="panel_servicio_nuevo"),
+    path("panel/servicios/<int:pk>/", views.EditarServicioView.as_view(), name="panel_servicio_editar"),
 ]

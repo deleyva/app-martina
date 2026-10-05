@@ -140,10 +140,15 @@ class AdjuntoForm(forms.ModelForm):
 # =============================================================================
 
 
+class _ServicioChoiceField(forms.ModelChoiceField):
+    def label_from_instance(self, obj):
+        return f"📞 {obj.nombre}" if obj.es_por_visita else obj.nombre
+
+
 class DerivacionForm(forms.Form):
     """Elegir a qué servicio se deriva."""
 
-    servicio = forms.ModelChoiceField(
+    servicio = _ServicioChoiceField(
         queryset=Servicio.objects.filter(activo=True),
         empty_label="Elige un servicio…",
         widget=forms.Select(attrs={"class": "select select-bordered w-full"}),
@@ -194,3 +199,21 @@ class CerrarDerivacionForm(forms.Form):
         required=False,
         widget=forms.Textarea(attrs={"class": "textarea textarea-bordered w-full", "rows": 2, "placeholder": "Cómo ha quedado (opcional)"}),
     )
+
+
+class ServicioForm(forms.ModelForm):
+    """Alta y edición de un servicio desde el panel, sin admin. El slug sale del nombre."""
+
+    class Meta:
+        model = Servicio
+        fields = ["nombre", "modo", "que_va_aqui", "telefono", "correos", "url_formulario", "activo", "orden"]
+        widgets = {
+            "nombre": forms.TextInput(attrs={"class": "input input-bordered w-full", "placeholder": "Electricista, Fontanería…"}),
+            "modo": forms.RadioSelect(attrs={"class": "radio radio-sm"}),
+            "que_va_aqui": forms.Textarea(attrs={"class": "textarea textarea-bordered w-full", "rows": 3}),
+            "telefono": forms.TextInput(attrs={"class": "input input-bordered w-full"}),
+            "correos": forms.TextInput(attrs={"class": "input input-bordered w-full"}),
+            "url_formulario": forms.URLInput(attrs={"class": "input input-bordered w-full"}),
+            "activo": forms.CheckboxInput(attrs={"class": "checkbox checkbox-sm"}),
+            "orden": forms.NumberInput(attrs={"class": "input input-bordered input-sm w-24"}),
+        }

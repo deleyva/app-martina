@@ -1,0 +1,55 @@
+{% extends "incidencias/base_incidencias.html" %}
+{% block title %}{% if servicio %}{{ servicio.nombre }}{% else %}Nuevo servicio{% endif %} — Panel{% endblock title %}
+
+{% block incidencias_content %}
+<div class="max-w-2xl mx-auto">
+  <div class="flex items-center justify-between mb-6 gap-4">
+    <h1 class="text-2xl font-bold">{% if servicio %}✏️ {{ servicio.nombre }}{% else %}➕ Nuevo servicio{% endif %}</h1>
+    <a href="{% url 'incidencias:panel_servicios' %}" class="btn btn-ghost btn-sm">← Servicios</a>
+  </div>
+  <form method="post" class="card bg-base-100 shadow-sm">
+    {% csrf_token %}
+    <div class="card-body gap-4">
+      {% if form.non_field_errors %}<div class="alert alert-error text-sm">{{ form.non_field_errors }}</div>{% endif %}
+      <label class="form-control">
+        <span class="label-text font-semibold mb-1">Nombre</span>
+        {{ form.nombre }}
+        {% for e in form.nombre.errors %}<span class="text-error text-xs">{{ e }}</span>{% endfor %}
+      </label>
+      <fieldset>
+        <legend class="label-text font-semibold mb-1">Cómo se le avisa</legend>
+        {% for radio in form.modo %}
+          <label class="flex items-center gap-2 py-1 cursor-pointer">{{ radio.tag }} <span>{{ radio.choice_label }}</span></label>
+        {% endfor %}
+        <p class="text-xs opacity-60 mt-1">A un oficio no se le escribe: sus incidencias se van apuntando en su página, y cuando hay bastantes se le llama y se le enseña o se le imprime la lista.</p>
+      </fieldset>
+      <label class="form-control">
+        <span class="label-text font-semibold mb-1">Qué va aquí</span>
+        {{ form.que_va_aqui }}
+      </label>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <label class="form-control">
+          <span class="label-text font-semibold mb-1">Teléfono</span>
+          {{ form.telefono }}
+        </label>
+        <label class="form-control">
+          <span class="label-text font-semibold mb-1">Correos <span class="opacity-60 font-normal">(separados por coma)</span></span>
+          {{ form.correos }}
+        </label>
+      </div>
+      <label class="form-control">
+        <span class="label-text font-semibold mb-1">Formulario o web</span>
+        {{ form.url_formulario }}
+        {% for e in form.url_formulario.errors %}<span class="text-error text-xs">{{ e }}</span>{% endfor %}
+      </label>
+      <div class="flex flex-wrap items-center gap-6">
+        <label class="flex items-center gap-2 cursor-pointer">{{ form.activo }} <span>Activo</span></label>
+        <label class="flex items-center gap-2">Orden {{ form.orden }}</label>
+      </div>
+      <div class="card-actions justify-end">
+        <button type="submit" class="btn btn-primary btn-sm">💾 Guardar</button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock incidencias_content %}

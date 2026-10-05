@@ -234,13 +234,14 @@
   <dialog id="modal_derivar" class="modal">
     <div class="modal-box p-6">
       <h3 class="font-bold text-lg mb-2">📤 Derivar a un servicio externo</h3>
-      <p class="text-sm opacity-70 mb-4">Se crea un borrador de correo con los datos de esta incidencia. Nadie lo envía: secretaría lo copia y lo manda desde su cuenta corporativa.</p>
+      <p class="text-sm opacity-70 mb-2">A un servicio por correo se le deja un borrador con los datos de esta incidencia. Nadie lo envía: secretaría lo copia y lo manda desde su cuenta corporativa.</p>
+      <p class="text-sm opacity-70 mb-4">A un oficio (📞) no se le escribe: la incidencia se apunta en su lista, y cuando haya bastantes se le llama.</p>
       <form method="post" action="{% url 'incidencias:derivar' incidencia.pk %}">
         {% csrf_token %}
         {{ derivacion_form.servicio }}
         <div class="modal-action">
           <button type="button" class="btn btn-sm" onclick="document.getElementById('modal_derivar').close()">Cancelar</button>
-          <button type="submit" class="btn btn-sm btn-info">Crear borrador</button>
+          <button type="submit" class="btn btn-sm btn-info">Derivar</button>
         </div>
       </form>
       <p class="text-xs opacity-60 mt-3"><a class="link" href="{% url 'incidencias:ayuda' %}" target="_blank">¿A quién va cada cosa?</a></p>

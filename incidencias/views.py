@@ -14,6 +14,7 @@ from django.http import Http404
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect
+from django.shortcuts import render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -31,6 +32,7 @@ from .forms import DerivacionEditarForm
 from .forms import DerivacionForm
 from .forms import IncidenciaForm
 from .forms import RespuestaForm
+from .forms import ServicioForm
 from .models import Derivacion
 from .models import Etiqueta
 from .models import Incidencia
@@ -633,6 +635,25 @@ class GestionServiciosView(TecnicoRequiredMixin, TemplateView):
         servicio = get_object_or_404(Servicio, pk=request.POST.get("servicio_id", "0") or 0)
         servicio.regenerar_token()
         messages.success(request, f"Enlace de {servicio} regenerado; el anterior ya no funciona.")
+        return redirect("incidencias:panel_servicios")
+
+
+class EditarServicioView(TecnicoRequiredMixin, View):
+    """Alta (sin pk) y edición de un servicio: secretaría da de alta los oficios sin pasar por el admin."""
+
+    template_name = "incidencias/panel/servicio_form.html"
+
+    def get(self, request, pk=None):
+        servicio = get_object_or_404(Servicio, pk=pk) if pk else None
+        return render(request, self.template_name, {"form": ServicioForm(instance=servicio), "servicio": servicio})
+
+    def post(self, request, pk=None):
+        servicio = get_object_or_404(Servicio, pk=pk) if pk else None
+        form = ServicioForm(request.POST, instance=servicio)
+        if not form.is_valid():
+            return render(request, self.template_name, {"form": form, "servicio": servicio})
+        servicio = form.save()
+        messages.success(request, f"{servicio} guardado.")
         return redirect("incidencias:panel_servicios")
 
 

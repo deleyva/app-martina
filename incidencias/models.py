@@ -5,6 +5,7 @@ from django.conf import settings
 from django.core.validators import FileExtensionValidator
 from django.db import models
 from django.utils import timezone
+from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 
 
@@ -372,8 +373,16 @@ class Servicio(models.Model):
     solo sitio. El token da la página pública del servicio.
     """
 
+    class Modo(models.TextChoices):
+        CORREO = "correo", _("Se le escribe un correo")
+        VISITA = "visita", _("Se apunta y se le llama para que venga")
+
     slug = models.SlugField(_("Slug"), max_length=60, unique=True)
     nombre = models.CharField(_("Nombre"), max_length=120)
+    modo = models.CharField(
+        _("Cómo se le avisa"), max_length=10, choices=Modo.choices, default=Modo.CORREO,
+        help_text=_("Un oficio (electricista, carpintería…) se apunta en su lista y se le llama cuando hay bastante"),
+    )
     que_va_aqui = models.TextField(_("Qué va aquí"), blank=True, default="")
     correos = models.CharField(
         _("Correos"), max_length=255, blank=True, default="",
@@ -394,12 +403,28 @@ class Servicio(models.Model):
         return self.nombre
 
     @property
+    def es_por_visita(self) -> bool:
+        return self.modo == self.Modo.VISITA
+
+    @property
     def lista_correos(self) -> list[str]:
         return [c.strip() for c in self.correos.split(",") if c.strip()]
 
     @property
     def url_publica(self) -> str:
         return f"{settings.INCIDENCIAS_SITE_URL}/servicio/{self.token}/"
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = self._slug_libre()
+        super().save(*args, **kwargs)
+
+    def _slug_libre(self) -> str:
+        base = slugify(self.nombre)[:55] or "servicio"
+        slug, n = base, 2
+        while Servicio.objects.filter(slug=slug).exclude(pk=self.pk).exists():
+            slug, n = f"{base}-{n}", n + 1
+        return slug
 
     def regenerar_token(self) -> None:
         self.token = nuevo_token()
@@ -476,6 +501,16 @@ class Derivacion(models.Model):
         return self.estado != self.Estado.CERRADA
 
     @property
+    def estado_texto(self) -> str:
+        """Lo que se lee: a un oficio no se le «envía» nada, se le apunta y se le avisa."""
+        if self.servicio.es_por_visita:
+            if self.estado == self.Estado.BORRADOR:
+                return _("En la lista")
+            if self.estado == self.Estado.ENVIADA:
+                return _("Avisado")
+        return self.get_estado_display()
+
+    @property
     def texto_correo(self) -> str:
         """Lo que copia el botón: asunto, línea en blanco, cuerpo."""
         return f"{self.asunto}\n\n{self.cuerpo}"
@@ -499,16 +534,18 @@ class Derivacion(models.Model):
         self.save()
 
     def marcar_enviada(self, tecnico: "Tecnico | None") -> "Comunicacion":
-        self._exigir(self.Estado.BORRADOR, accion="marcar como enviada")
+        """Correo enviado o, a un oficio, aviso por teléfono para que venga."""
+        por_visita = self.servicio.es_por_visita
+        self._exigir(self.Estado.BORRADOR, accion="marcar como avisada" if por_visita else "marcar como enviada")
         self.estado = self.Estado.ENVIADA
         self.enviada_por = tecnico
         self.enviada_at = timezone.now()
         self.save()
         return self.comunicaciones.create(
             sentido=Comunicacion.Sentido.ENVIADA,
-            canal=Comunicacion.Canal.CORREO,
+            canal=Comunicacion.Canal.TELEFONO if por_visita else Comunicacion.Canal.CORREO,
             autor_nombre=str(tecnico) if tecnico else "",
-            texto=self.texto_correo,
+            texto=f"Avisado para que venga: {self.asunto}" if por_visita else self.texto_correo,
             fecha=self.enviada_at,
         )
 
@@ -546,7 +583,8 @@ class Derivacion(models.Model):
         if resultado not in self.Resultado.values:
             msg = "Para cerrar una derivación hace falta un resultado"
             raise TransicionInvalida(msg)
-        if resultado == self.Resultado.DUPLICADA:
+        if resultado == self.Resultado.DUPLICADA or self.servicio.es_por_visita:
+            # Un oficio puede venir sin que se le haya llamado: se cierra desde la lista.
             self._exigir(self.Estado.BORRADOR, self.Estado.ENVIADA, self.Estado.RESPONDIDA, accion="cerrar")
         else:
             self._exigir(self.Estado.ENVIADA, self.Estado.RESPONDIDA, accion="cerrar")

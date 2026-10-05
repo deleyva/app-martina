@@ -25,7 +25,7 @@
           <div class="flex flex-wrap items-center justify-between gap-2">
             <div class="font-semibold">{{ d.asunto }}</div>
             <div class="flex gap-1">
-              <span class="badge badge-sm {% if d.estado == 'respondida' %}badge-warning{% elif d.estado == 'enviada' %}badge-info{% else %}badge-ghost{% endif %}">{{ d.get_estado_display }}</span>
+              <span class="badge badge-sm {% if d.estado == 'respondida' %}badge-warning{% elif d.estado == 'enviada' %}badge-info{% else %}badge-ghost{% endif %}">{{ d.estado_texto }}</span>
               {% if d.ticket_externo %}<span class="badge badge-sm badge-outline">🎫 {{ d.ticket_externo }}</span>{% endif %}
               <span class="badge badge-sm badge-outline">{{ d.incidencia.get_urgencia_display }}</span>
             </div>
@@ -34,7 +34,7 @@
             {% if d.incidencia.descripcion %}<p class="text-sm mt-2 whitespace-pre-line">{{ d.incidencia.descripcion }}</p>{% endif %}
           {% endif %}
           <div class="text-xs opacity-60 mt-2">
-            Comunicada el {{ d.incidencia.created_at|date:"d/m/Y" }}{% if d.enviada_at %} · enviada el {{ d.enviada_at|date:"d/m/Y" }}{% endif %}
+            Comunicada el {{ d.incidencia.created_at|date:"d/m/Y" }}{% if d.enviada_at %} · {% if servicio.es_por_visita %}avisado{% else %}enviada{% endif %} el {{ d.enviada_at|date:"d/m/Y" }}{% endif %}
           </div>
           {% if d.comunicaciones.all %}
             <details class="mt-2">
@@ -43,7 +43,9 @@
                 {% for c in d.comunicaciones.all %}
                   <li class="text-sm">
                     <span class="opacity-60">{{ c.fecha|date:"d/m/Y" }} · {% if c.sentido == "enviada" %}📤 enviado{% elif c.sentido == "recibida" %}📥 recibido{% else %}📝 nota{% endif %} · {{ c.get_canal_display }}</span>
-                    {% if c.sentido == "enviada" %}
+                    {% if c.sentido == "enviada" and c.canal != "correo" %}
+                      <div>{{ c.texto|linebreaksbr }}</div>
+                    {% elif c.sentido == "enviada" %}
                       {% if d.incidencia.es_privada %}<div class="opacity-60">Correo enviado.</div>{% else %}<pre class="whitespace-pre-wrap text-xs bg-base-200 rounded p-2 mt-1">{{ c.texto }}</pre>{% endif %}
                     {% else %}
                       <div>{{ c.texto|linebreaksbr }}</div>

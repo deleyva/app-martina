@@ -163,6 +163,7 @@ class ServicioOut(Schema):
     id: int
     slug: str
     nombre: str
+    modo: str
     que_va_aqui: str
     correos: list[str]
     telefono: str
@@ -421,6 +422,7 @@ def _servicio(s: Servicio, abiertas: int | None = None) -> dict:
         "id": s.id,
         "slug": s.slug,
         "nombre": s.nombre,
+        "modo": s.modo,
         "que_va_aqui": s.que_va_aqui,
         "correos": s.lista_correos,
         "telefono": s.telefono,
