@@ -159,3 +159,12 @@ def test_enlaces_se_pueden_pulsar(ana, incidencia):
     assert '<a href="https://b.es/@ana"' in html  # la @ de la URL no es mención
     assert 'onmouseover=alert(1)"' not in html
     assert 'rel="noopener noreferrer"' in html
+
+
+@pytest.mark.django_db
+def test_la_mencion_a_uno_mismo_no_se_resalta(incidencia):
+    User.objects.create_user(email=f"jlopez@{DOMINIO}", password="x")
+    Comentario.objects.create(incidencia=incidencia, autor_nombre="jlopez", texto="Por ejemplo @jlopez")
+    html = Client().get(reverse("incidencias:detalle", args=[incidencia.pk])).content.decode()
+    assert "Por ejemplo @jlopez" in html
+    assert ">@jlopez</span>" not in html

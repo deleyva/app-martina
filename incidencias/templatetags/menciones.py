@@ -23,7 +23,9 @@ def con_menciones(comentario: Comentario) -> str:
     Un @ a alguien que no está en la app se queda como texto: resaltarlo diría que le ha llegado.
     Un @ dentro de una URL es parte de la URL, no una mención.
     """
-    avisados = {c.split("@")[0] for c in comentario.correos_mencionados()}
+    # Al autor no se le avisa de su propio comentario: su @ no se resalta.
+    autor = (comentario.autor_nombre or "").strip().lower().split("@")[0]
+    avisados = {c.split("@")[0] for c in comentario.correos_mencionados()} - {autor}
     texto = comentario.texto or ""
     trozos, pos = [], 0
     for m in PATRON.finditer(texto):
