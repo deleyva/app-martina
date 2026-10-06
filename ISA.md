@@ -4792,3 +4792,22 @@ Lo pidió Jesús («haz que los enlaces se puedan pulsar y despliega»). El fall
 - [x] **C408** — Toda URL `http(s)://` de un comentario se pinta como enlace que abre en otra pestaña (`rel="noopener noreferrer"`); la puntuación final (punto, paréntesis) queda fuera; el texto y el `href` van escapados, así que una comilla no puede abrir atributos; y una `@` dentro de una URL no se toma por mención. *Evidencia: `test_enlaces_se_pueden_pulsar` (14/14 en `test_menciones.py`); `pytest incidencias` → 225 passed, 2 failed (los de siempre); Chrome, en local, la 138: el enlace a la guía de oficios subrayado, `target=_blank`, `elementFromPoint` en su centro devuelve el propio enlace, y el punto final fuera (captura vista).*
 - [x] **C409** — La mención a uno mismo no se resalta, porque al autor no se le avisa. Lo delató la 219 en producción: el `@jlopez` de ejemplo de un comentario escrito por jlopez salía como «Le ha llegado este comentario por correo» sin haber salido ningún correo. *Evidencia: `test_la_mencion_a_uno_mismo_no_se_resalta`; `pytest incidencias` → 226 passed, 2 failed (los de siempre); Chrome en producción tras desplegar (abajo).*
 - **Desplegada y verificada en producción (2026-10-06).** Copia previa `production_backup_2026_10_06T07_46_44.sql.gz`; dos despliegues sin migraciones (el enlace, y luego la corrección de C409). En Chrome, la `/incidencias/219/`: los dos enlaces a docs se pueden pulsar (`target=_blank`, `elementFromPoint` en su centro devuelve el propio enlace) y el `@jlopez` de ejemplo ya no sale resaltado (0 menciones resaltadas; captura vista).
+
+## Fase 68 — Tratado o saltado en clase, aparte del visto, y recuento al preparar (2026-10-06) · VERIFICADA EN LOCAL, SIN DESPLEGAR
+
+**Goal (literal de Jesús, 2026-10-06):** «cuando preparo la clase añado mucho material luego hay veces que en clase no me da tiempo y no lo veo pero queda añadido. Me gustaría poder marcar lo que sí que he trabajado de lo que me he saltado […] Querría que en la lista de elementos sugeridos para clase hubiera algún tipo de contador de las veces que […] lo he marcado como tratado en clase. Estos estados de "tratado en clase" y "no tratado en clase" no quiero que se mezclen con el estado de "visto". Ese estado de "visto" es para marcar que no quiero volver a ver ese material.»
+
+### Claims
+
+- [x] **C410** — `ClassSessionItem.tratado` (nulo = sin marcar, `True` tratado, `False` saltado); migración `clases.0024_tratado_en_clase`, aditiva y nullable. *Cerrada: `makemigrations --check` → «No changes detected»; aplicada en local.*
+- [x] **C411** — Marcar tratado no toca `visto` ni el `GroupBookItem`, y dar por visto no toca `tratado`; lo tratado se sigue proponiendo. *Cerrada: `test_tratado_no_toca_el_visto_ni_el_libro`; en Chrome, la sesión 124 enseña «dar por visto» sin marcar junto a «✓ tratado» y «⤼ saltado».*
+- [x] **C412** — En el visor del profesor, pasar hacia delante (botón, zona lateral, flecha, índice o al cierre) desde un elemento sin marcar pregunta «¿Lo habéis trabajado en clase?» con Sí (T) / No (S) / Seguir en este (Esc); solo avanza si la marca se guarda. Hacia atrás no pregunta; T y S fuera de la pregunta corrigen la marca; el índice enseña ✓ o ⤼. El alumnado no ve nada de esto. *Cerrada: en Chrome, «siguiente» abrió la pregunta (captura vista); responder guardó y avanzó; la tecla S real marcó saltado y llevó al cierre; «Seguir en este» cierra sin marcar ni avanzar.*
+- [x] **C413** — En «Preparar» (propuesta, «Y después» y libro entero) cada elemento lleva cuántas veces se trató en clase con ESTE grupo (✓n) y, si alguna vez se saltó, ⤼n con el detalle en el globo. Lo sin marcar no cuenta. *Cerrada: `test_recuento_cuenta_lo_tratado_por_grupo`, `test_preparar_ensena_el_recuento`; en Chrome, sesión nueva del mismo grupo: «✓1» en E001 y «⤼1» en E003 (captura vista).*
+- [x] **C414** — Solo el profesor de la sesión puede marcar. *Cerrada: `test_otro_profesor_no_puede_marcar`.*
+- [x] **C415** — Suite de `clases` sin fallos. *Cerrada: `pytest clases` → 207 passed (los 6 tests nuevos fallan sin el cambio).*
+
+### Log
+- La pantalla de la sesión lleva también los dos botones, para corregir después de clase.
+- En Chrome, el primer clic «a Sí» cayó en «Seguir en este» por la escala de coordenadas de la herramienta; el registro de eventos lo confirmó (`click:quedarse`). No era la app.
+- Datos de prueba locales retirados (sesión 125 borrada, marcas de la 124 a nulo).
+- Ni push ni despliegue sin «despliega».

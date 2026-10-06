@@ -29,6 +29,7 @@
                     <span class="badge badge-ghost badge-xs" title="Añadido a mano: no mueve la progresión de ningún libro">extra</span>
                 {% endif %}
                 {% include "clases/class_sessions/partials/visto.html" with item=item %}
+                {% include "clases/class_sessions/partials/tratado.html" with item=item %}
                 {% planes_evaluables session as planes %}
                 {% include "clases/class_sessions/partials/evaluable.html" with item=item planes=planes %}
             </div>

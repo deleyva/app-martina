@@ -761,6 +761,7 @@ def class_session_present(request, pk):
                 "type": item.get_content_type_name(),
                 "seccion": item.get_seccion_display() if item.seccion else "",
                 "visto": item.visto,
+                "tratado": item.tratado,
                 "tiene_libro": item.group_book_id is not None,
                 "a_casa": item.pk in con_casita,
                 "page_url": pagina.get_url() if pagina else "",

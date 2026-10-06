@@ -423,6 +423,9 @@ def class_session_prepare_preview(request, pk):
     """Qué metería el botón de preparar, antes de pulsarlo."""
     session = get_object_or_404(ClassSession, pk=pk, teacher=request.user)
     propuesta = libros_de_grupo.previsualizar_sesion(session.group, session=session)
+    libros_de_grupo.anotar_recuento(
+        propuesta, libros_de_grupo.recuento_en_clase(session.group)
+    )
 
     # Un libro terminado, o cuyo siguiente ya está en la clase, desaparece de la
     # propuesta. Sin esto se llevaba por delante su desplegable, y con él la
@@ -466,7 +469,9 @@ def class_session_book_picker(request, pk):
     # La clave de cada fila se arma aquí: en la plantilla habría que encadenar
     # `stringformat` y `add`, que concatena por accidente cuando el `add`
     # numérico falla. Una clave mal armada no da error, solo deja de casar.
+    recuento = libros_de_grupo.recuento_en_clase(session.group)
     for bloque in bloques:
+        libros_de_grupo.anotar_recuento(bloque["filas"], recuento)
         for fila in bloque["filas"]:
             fila["clave"] = f"{fila['tipo'].pk}:{fila['objeto'].pk}"
 
@@ -522,6 +527,7 @@ def class_session_book_next(request, pk):
     filas, hay_mas = libros_de_grupo.pendientes_tras(
         group_book, saltar=saltar, desde=desde, cuantos=POR_TANDA
     )
+    libros_de_grupo.anotar_recuento(filas, libros_de_grupo.recuento_en_clase(session.group))
     return render(
         request,
         "clases/class_sessions/partials/siguientes_del_libro.html",
@@ -550,6 +556,28 @@ def class_session_item_visto(request, pk):
     return render(
         request,
         "clases/class_sessions/partials/visto.html",
+        {"item": item},
+    )
+
+
+@login_required
+@user_passes_test(es_profesor)
+@require_http_methods(["POST"])
+def class_session_item_tratado(request, pk):
+    """Apunta si el elemento se trabajó hoy en clase: `valor` = si, no o vacío.
+
+    Lo usan el visor, al pasar de elemento, y la pantalla de la sesión, para
+    corregir después. Las dos reciben el mismo botón pintado; el visor solo mira
+    que la respuesta sea 200.
+    """
+    item = get_object_or_404(
+        ClassSessionItem.objects.select_related("session"), pk=pk, session__teacher=request.user
+    )
+    valor = {"si": True, "no": False}.get(request.POST.get("valor", ""))
+    libros_de_grupo.marcar_tratado(item, valor)
+    return render(
+        request,
+        "clases/class_sessions/partials/tratado.html",
         {"item": item},
     )
 

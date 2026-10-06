@@ -1,0 +1,16 @@
+{% comment %}
+Cuántas veces se ha trabajado este elemento en clase con este grupo (fase 68).
+
+Cuenta lo marcado como tratado al pasar de elemento en la clase, no lo que se
+metió en una sesión: al preparar entra más de lo que da tiempo a dar. Lo saltado
+va en el globo, que es el dato para decidir si vuelve a entrar.
+Necesita `fila.en_clase`, que pone `libros_de_grupo.anotar_recuento`.
+{% endcomment %}
+{% with n=fila.en_clase.tratado|default:0 s=fila.en_clase.saltado|default:0 %}
+  {% if n or s %}
+    <span class="badge badge-xs shrink-0 {% if n %}badge-info{% else %}badge-ghost{% endif %}"
+          title="Tratado en clase {{ n }} {% if n == 1 %}vez{% else %}veces{% endif %} con este grupo{% if s %}; saltado {{ s }} {% if s == 1 %}vez{% else %}veces{% endif %}{% endif %}">
+      {% if n %}✓{{ n }}{% endif %}{% if n and s %} · {% endif %}{% if s %}⤼{{ s }}{% endif %}
+    </span>
+  {% endif %}
+{% endwith %}

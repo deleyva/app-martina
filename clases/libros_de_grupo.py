@@ -670,6 +670,57 @@ def sincronizar_a_casa(group_book_item):
     return subir_de_las_bibliotecas(en_clase, group_book_item)
 
 
+def marcar_tratado(session_item, valor):
+    """Apunta si este elemento se trabajó hoy en clase: True, False o None.
+
+    Solo escribe en la sesión. **No toca `visto` ni el libro**: que se trabaje
+    algo en clase no quiere decir que no haya que volver a proponerlo, y
+    saltárselo tampoco lo saca de la cola. Son preguntas distintas y Jesús pidió
+    que no se mezclaran (fase 68).
+    """
+    session_item.tratado = valor
+    session_item.save(update_fields=["tratado"])
+    return session_item
+
+
+def recuento_en_clase(group):
+    """{(content_type_id, object_id): {"tratado": n, "saltado": m}} del grupo.
+
+    Cuenta las clases de ESTE grupo en las que cada elemento se marcó como
+    tratado o como saltado. Lo sin marcar no cuenta: estar metido en una clase no
+    es haberlo dado, que es justo el ruido que esta cuenta existe para quitar.
+
+    Una sola consulta para toda la pantalla: «Preparar» pinta decenas de filas y
+    preguntar por cada una serían decenas de viajes a la base.
+    """
+    from django.db.models import Count, Q
+
+    filas = (
+        ClassSessionItem.objects.filter(session__group=group, tratado__isnull=False)
+        .values("content_type_id", "object_id")
+        # `veces_*` y no `tratado`: una anotación con el nombre del campo pisa
+        # el campo dentro del propio `filter=Q(...)`, y Postgres lo rechaza.
+        .annotate(
+            veces_tratado=Count("pk", filter=Q(tratado=True)),
+            veces_saltado=Count("pk", filter=Q(tratado=False)),
+        )
+    )
+    return {
+        (f["content_type_id"], f["object_id"]): {
+            "tratado": f["veces_tratado"],
+            "saltado": f["veces_saltado"],
+        }
+        for f in filas
+    }
+
+
+def anotar_recuento(filas, recuento):
+    """Le pone a cada fila su `en_clase` del recuento; {} si nunca se marcó."""
+    for fila in filas:
+        fila["en_clase"] = recuento.get((fila["tipo"].pk, fila["objeto"].pk), {})
+    return filas
+
+
 def progreso(group_book):
     """(vistos, total) de este libro para este grupo, para la barra de avance."""
     filas = enumerar(group_book)

@@ -199,6 +199,46 @@
         #pista-lados .der { right: 18px; }
 
         .flyout-syllabus-item.visto .item-name { text-decoration: line-through; opacity: 0.55; }
+        .flyout-syllabus-item .item-tratado { margin-left: 6px; font-size: 12px; opacity: 0.85; }
+
+        /* ── ¿Se trabajó en clase? (fase 68) ──
+           Sale al pasar hacia delante desde un elemento sin marcar. Va centrada
+           y grande porque se contesta con el dedo, de pie, delante del grupo. */
+        #pregunta-tratado {
+            position: fixed;
+            inset: 0;
+            z-index: 10004;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.55);
+        }
+        #pregunta-tratado.abierta { display: flex; }
+        #pregunta-tratado .caja {
+            max-width: 420px;
+            margin: 16px;
+            padding: 22px;
+            border-radius: 16px;
+            background: rgba(24, 24, 28, 0.98);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            text-align: center;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+        }
+        #pregunta-tratado .titulo { font-size: 13px; opacity: 0.7; margin: 6px 0 18px; overflow-wrap: anywhere; }
+        #pregunta-tratado .botones { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+        #pregunta-tratado button {
+            padding: 12px 18px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+            font-size: 15px;
+            cursor: pointer;
+        }
+        #pregunta-tratado button.si { background: rgba(14, 165, 233, 0.35); border-color: rgba(14, 165, 233, 0.8); }
+        #pregunta-tratado button.no { background: rgba(245, 158, 11, 0.3); border-color: rgba(245, 158, 11, 0.8); }
+        #pregunta-tratado button.quedarse { background: transparent; font-size: 13px; opacity: 0.7; margin-top: 12px; }
 
         /* ── Botones flotantes de la derecha ──
            Las cuatro cosas que se tocan CADA DOS MINUTOS dando clase: cambiar de
@@ -648,6 +688,20 @@
         </svg>
     </button>
 
+    {% if is_teacher %}
+    <div id="pregunta-tratado" role="dialog" aria-modal="true" aria-labelledby="pregunta-tratado-texto">
+        <div class="caja">
+            <div id="pregunta-tratado-texto" style="font-size:17px;font-weight:600;">¿Lo habéis trabajado en clase?</div>
+            <div class="titulo" id="pregunta-tratado-titulo"></div>
+            <div class="botones">
+                <button type="button" class="si" onclick="responderTratado(true)">Sí, tratado (T)</button>
+                <button type="button" class="no" onclick="responderTratado(false)">No, me lo salto (S)</button>
+            </div>
+            <button type="button" class="quedarse" onclick="cerrarPreguntaTratado()">Seguir en este (Esc)</button>
+        </div>
+    </div>
+    {% endif %}
+
     <div id="aviso" role="status" aria-live="polite"></div>
     <div id="globo" role="tooltip"></div>
 
@@ -716,6 +770,8 @@
             html += '<button class="flyout-syllabus-item' + (i === currentIndex ? ' active' : '') + (playlist[i].visto ? ' visto' : '') + '" data-index="' + i + '" onclick="goToItem(' + i + ')">';
             html += '<span class="item-icon">' + item.icon + '</span>';
             html += '<span class="item-name">' + item.title + '</span>';
+            if (item.tratado === true) html += '<span class="item-tratado" title="Tratado en clase">✓</span>';
+            if (item.tratado === false) html += '<span class="item-tratado" title="Saltado">⤼</span>';
             html += '<span class="item-num">' + (i + 1) + '</span>';
             html += '</button>';
         }
@@ -763,13 +819,92 @@
         // visor con la flecha; ahora la flecha no cambia de elemento.
         if (newIndex < 0 || newIndex > playlist.length) return;
         toggleFlyout(false);
+        if (hayQuePreguntarTratado(newIndex)) { preguntarTratado(newIndex); return; }
         loadItem(newIndex);
     }
 
     function goToItem(index) {
         if (index < 0 || index >= playlist.length) return;
         toggleFlyout(false);
+        if (hayQuePreguntarTratado(index)) { preguntarTratado(index); return; }
         loadItem(index);
+    }
+
+    // ── ¿Se trabajó en clase? (fase 68) ──
+    //
+    // Al preparar entra más de lo que da tiempo a dar, y lo que no se llega a
+    // ver se quedaba en la sesión como si se hubiera dado. Por eso, al pasar
+    // HACIA DELANTE desde un elemento sin marcar, se pregunta antes de cambiar.
+    // Hacia atrás no: volver a mirar algo no es haber terminado con él. Y no es
+    // el visto: el visto dice «no me lo vuelvas a proponer» y esto, qué pasó hoy.
+    var esProfesor = {% if is_teacher %}true{% else %}false{% endif %};
+    var destinoTratado = null;
+
+    function hayQuePreguntarTratado(destino) {
+        var item = playlist[currentIndex];
+        return esProfesor && destino > currentIndex && !!item && item.tratado === null
+            && !cierreAbierto();
+    }
+
+    function cierreAbierto() {
+        return document.getElementById('session-complete').classList.contains('active');
+    }
+
+    function preguntaTratadoAbierta() {
+        var caja = document.getElementById('pregunta-tratado');
+        return !!caja && caja.classList.contains('abierta');
+    }
+
+    function preguntarTratado(destino) {
+        destinoTratado = destino;
+        document.getElementById('pregunta-tratado-titulo').textContent = playlist[currentIndex].title;
+        document.getElementById('pregunta-tratado').classList.add('abierta');
+    }
+
+    function cerrarPreguntaTratado() {
+        destinoTratado = null;
+        document.getElementById('pregunta-tratado').classList.remove('abierta');
+    }
+
+    function guardarTratado(item, valor) {
+        var cuerpo = new URLSearchParams();
+        cuerpo.append('valor', valor === true ? 'si' : (valor === false ? 'no' : ''));
+        return fetch('/clases/sessions/items/' + item.pk + '/tratado/', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'X-CSRFToken': csrfToken },
+            body: cuerpo
+        }).then(function(r) {
+            if (!r.ok) throw new Error(r.status);
+            item.tratado = valor;
+            buildSyllabus();
+            updateSyllabusActive();
+        });
+    }
+
+    // Contestar a la pregunta: se guarda y, solo si se guardó, se pasa. Si falla
+    // la red se queda en el elemento, para no perder la marca sin enterarse.
+    function responderTratado(valor) {
+        var destino = destinoTratado;
+        var item = playlist[currentIndex];
+        if (destino === null || !item) return;
+        cerrarPreguntaTratado();
+        guardarTratado(item, valor)
+            .then(function() { loadItem(destino); })
+            .catch(function() { avisar('No se ha podido guardar. Sigues en este elemento.'); });
+    }
+
+    // T y S fuera de la pregunta: corregir la marca del elemento que se ve.
+    // Repetir la misma tecla lo deja sin marcar.
+    function marcarTratado(valor) {
+        var item = playlist[currentIndex];
+        if (!item) return;
+        var nuevo = item.tratado === valor ? null : valor;
+        guardarTratado(item, nuevo)
+            .then(function() {
+                avisar(nuevo === true ? 'Tratado en clase' : (nuevo === false ? 'Saltado' : 'Sin marcar'));
+            })
+            .catch(function() { avisar('No se ha podido guardar'); });
     }
 
     // ── Core presentation flow ──
@@ -1409,11 +1544,11 @@
 
     function esControl(el) {
         return !!(el && el.closest &&
-            el.closest('button, a, input, select, textarea, label, [role="button"], #study-flyout, #lienzo, #panel-evaluar'));
+            el.closest('button, a, input, select, textarea, label, [role="button"], #study-flyout, #lienzo, #panel-evaluar, #pregunta-tratado'));
     }
 
     document.addEventListener('click', function(e) {
-        if (lienzoAbierto() || flyoutOpen) return;
+        if (lienzoAbierto() || flyoutOpen || preguntaTratadoAbierta()) return;
         if (esControl(e.target)) return;
         var margen = window.innerWidth * ANCHO_ZONA;
         if (e.clientX <= margen) {
@@ -1433,6 +1568,15 @@
     // Keyboard: Escape to exit, M to toggle menu
 
     document.addEventListener('keydown', function(e) {
+        // Con la pregunta delante, solo valen sus tres respuestas.
+        if (preguntaTratadoAbierta()) {
+            if (e.key === 'Escape') cerrarPreguntaTratado();
+            else if (e.key === 't' || e.key === 'T') responderTratado(true);
+            else if (e.key === 's' || e.key === 'S') responderTratado(false);
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+        }
         if (e.key === 'Escape') {
             // De dentro afuera: primero lo que esté tapando la clase.
             if (window.evaluarAbierto && evaluarAbierto()) {
@@ -1463,6 +1607,8 @@
         // los botones tampoco existen para el alumnado.
         if (e.key === 'd' || e.key === 'D') { alternarVisto(); return; }
         if (e.key === 'c' || e.key === 'C') { alternarACasa(); return; }
+        if (e.key === 't' || e.key === 'T') { marcarTratado(true); return; }
+        if (e.key === 's' || e.key === 'S') { marcarTratado(false); return; }
         if (e.key === 'n' || e.key === 'N') { e.preventDefault(); alternarNotaDeVoz(); return; }
         if (e.key === 'e' || e.key === 'E') { if (playlist[currentIndex] && playlist[currentIndex].instrumento) abrirEvaluar(); return; }
         {% endif %}

@@ -1412,6 +1412,25 @@ class ClassSessionItem(models.Model):
     # vuelvan a proponer". Un extra suelto solo puede tener el primero.
     visto = models.BooleanField(default=False, verbose_name="Visto en clase")
 
+    # Si de verdad se trabajó en clase (fase 68). Tres valores: sin marcar,
+    # tratado y saltado.
+    #
+    # **No es `visto`, y no se toca con él.** Al preparar se mete más material
+    # del que da tiempo a dar, y lo que no se llega a ver se queda en la sesión
+    # como si se hubiera dado. `visto` sigue diciendo «no me lo vuelvas a
+    # proponer»; esto dice «hoy lo trabajamos» o «hoy me lo salté», y de aquí sale
+    # el recuento que se ve al preparar la siguiente clase. Pedido de Jesús, que
+    # quiso explícitamente que los dos estados no se mezclaran.
+    #
+    # Nulo = sin marcar, que no es lo mismo que saltado: lo que no se llegó ni a
+    # abrir no se cuenta para nada.
+    tratado = models.BooleanField(
+        null=True,
+        blank=True,
+        default=None,
+        verbose_name="Tratado en clase",
+    )
+
     # Evaluable: con qué instrumento de calificación se evalúa en clase este
     # elemento (fase 62). Nulo = no se evalúa. Va en el elemento de la SESIÓN y
     # no en el del libro porque el instrumento es de un plan, y el plan es de un

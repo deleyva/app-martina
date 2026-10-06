@@ -1,0 +1,25 @@
+{% comment %}
+Si el elemento se trabajó en clase: tratado, saltado o sin marcar (fase 68).
+
+No es el visto. El visto dice «no me lo vuelvas a proponer»; esto dice qué pasó
+hoy, y alimenta el recuento que se ve al preparar la siguiente clase. Cada botón
+se desmarca tocándolo otra vez, que deja el elemento sin marcar.
+{% endcomment %}
+<span id="tratado-{{ item.pk }}" class="join">
+  <button class="btn btn-xs join-item {% if item.tratado is True %}btn-info{% else %}btn-ghost{% endif %}"
+          title="{% if item.tratado is True %}Tratado en clase. Tocar para dejarlo sin marcar.{% else %}Marcar que se trabajó en clase{% endif %}"
+          hx-post="{% url 'clases:class_session_item_tratado' item.pk %}"
+          hx-vals='{"valor": "{% if item.tratado is True %}{% else %}si{% endif %}"}'
+          hx-target="#tratado-{{ item.pk }}"
+          hx-swap="outerHTML">
+    {% if item.tratado is True %}✓ {% endif %}tratado
+  </button>
+  <button class="btn btn-xs join-item {% if item.tratado is False %}btn-warning{% else %}btn-ghost{% endif %}"
+          title="{% if item.tratado is False %}Saltado: no dio tiempo. Tocar para dejarlo sin marcar.{% else %}Marcar que no dio tiempo a verlo{% endif %}"
+          hx-post="{% url 'clases:class_session_item_tratado' item.pk %}"
+          hx-vals='{"valor": "{% if item.tratado is False %}{% else %}no{% endif %}"}'
+          hx-target="#tratado-{{ item.pk }}"
+          hx-swap="outerHTML">
+    {% if item.tratado is False %}⤼ {% endif %}saltado
+  </button>
+</span>
