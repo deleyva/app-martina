@@ -4811,3 +4811,5 @@ Lo pidió Jesús («haz que los enlaces se puedan pulsar y despliega»). El fall
 - En Chrome, el primer clic «a Sí» cayó en «Seguir en este» por la escala de coordenadas de la herramienta; el registro de eventos lo confirmó (`click:quedarse`). No era la app.
 - Datos de prueba locales retirados (sesión 125 borrada, marcas de la 124 a nulo).
 - Ni push ni despliegue sin «despliega».
+
+**Desplegada y verificada en producción (2026-10-06).** Lo pidió Jesús («despliega»). Copia previa `production_backup_2026_10_06T09_23_08.sql.gz`; push `f2c0c35..874217d` y `just deploy-production`; migración aplicada: `clases.0024_tratado_en_clase` (columna nueva vacía). En Chrome con la sesión de Jesús: la sesión 153 enseña «tratado» y «saltado» en sus 15 elementos, junto a «✓ visto» intacto (captura vista); en el visor, «›» abre «¿Lo habéis trabajado en clase?» (captura vista) y Esc la cierra sin avanzar ni marcar (15/15 siguen sin marcar). Contadores en «Preparar»: 0, como corresponde a que aún no se ha marcado nada.
