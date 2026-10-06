@@ -141,3 +141,21 @@ def test_mencion_a_quien_no_existe_no_se_resalta(incidencia):
     html = Client().get(reverse("incidencias:detalle", args=[incidencia.pk])).content.decode()
     assert "Hola @fulanito" in html
     assert ">@fulanito</span>" not in html
+
+
+@pytest.mark.django_db
+def test_enlaces_se_pueden_pulsar(ana, incidencia):
+    Comentario.objects.create(
+        incidencia=incidencia,
+        autor_nombre="jlopez",
+        texto='Guía: https://docs.iesmartinabescos.es/books/x/page/y. Y otra (https://a.es/?p=1&q=2), @ana mira https://b.es/@ana"onmouseover=alert(1)',
+    )
+    html = Client().get(reverse("incidencias:detalle", args=[incidencia.pk])).content.decode()
+    assert '<a href="https://docs.iesmartinabescos.es/books/x/page/y" class="link' in html
+    assert 'page/y</a>.' in html  # el punto final se queda fuera
+    assert '<a href="https://a.es/?p=1&amp;q=2"' in html
+    assert '2</a>)' in html  # el paréntesis de cierre también
+    assert 'title="Le ha llegado este comentario por correo">@ana</span> mira' in html
+    assert '<a href="https://b.es/@ana"' in html  # la @ de la URL no es mención
+    assert 'onmouseover=alert(1)"' not in html
+    assert 'rel="noopener noreferrer"' in html
