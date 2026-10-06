@@ -486,8 +486,12 @@ def test_alternar_la_restriccion_desde_la_pantalla(client, profe, pdf):
 # === Aligerar el PDF al subirlo ===
 
 
-def _pdf_con_imagen(ancho=2000, alto=2600, paginas=3):
-    """Un PDF con imagenes de verdad, que es lo unico que se puede aligerar."""
+def _pdf_con_imagen(ancho=2000, alto=2600, paginas=3, mascara=False):
+    """Un PDF con imagenes de verdad, que es lo unico que se puede aligerar.
+
+    Con `mascara`, cada imagen lleva una `/SMask`: como los PNG con
+    transparencia que exporta Chrome (los cuadernillos de Musihacks).
+    """
     import io
 
     import pikepdf
@@ -518,6 +522,14 @@ def _pdf_con_imagen(ancho=2000, alto=2600, paginas=3):
         stream.ColorSpace = pikepdf.Name.DeviceRGB
         stream.BitsPerComponent = 8
         stream.Filter = pikepdf.Name.DCTDecode
+        if mascara:
+            alfa = pikepdf.Stream(pdf, bytes([255]) * (ancho * alto))
+            alfa.Type = pikepdf.Name.XObject
+            alfa.Subtype = pikepdf.Name.Image
+            alfa.Width, alfa.Height = ancho, alto
+            alfa.ColorSpace = pikepdf.Name.DeviceGray
+            alfa.BitsPerComponent = 8
+            stream.SMask = alfa
         pagina.add_resource(stream, pikepdf.Name.XObject, pikepdf.Name("/Im0"))
     salida = io.BytesIO()
     pdf.save(salida)
@@ -546,6 +558,31 @@ def test_aligerar_conserva_las_paginas(db):
     salida, _ = optimizar(datos)
 
     assert len(PdfReader(io.BytesIO(salida)).pages) == 3
+
+
+def test_aligerar_respeta_las_imagenes_con_transparencia(db):
+    """La imagen se recomprimia y la `/SMask` se quedaba por el camino.
+
+    Los PDF de Musihacks pintan cada pagina como una imagen negra de arriba
+    abajo cuya mascara dice que es opaco; debajo hay un fondo blanco. Sin
+    mascara la imagen tapa el fondo y la pagina sale negra en el recortador
+    (2026-10-06, "Piano Melodias"). Una imagen con mascara se deja como esta.
+    """
+    import io
+
+    import pikepdf
+
+    from musica.optimizar import optimizar
+
+    datos = _pdf_con_imagen(mascara=True)
+    salida, _ = optimizar(datos)
+
+    pdf = pikepdf.open(io.BytesIO(salida))
+    imagenes = [pagina.Resources.XObject["/Im0"] for pagina in pdf.pages]
+    assert imagenes
+    for imagen in imagenes:
+        assert "/SMask" in imagen
+        assert imagen.Width == 2000
 
 
 def test_un_pdf_ligero_no_se_toca(db):

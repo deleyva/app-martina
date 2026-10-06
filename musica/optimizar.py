@@ -76,11 +76,18 @@ def _recomprimir(pdf, pagina, nombre, obj):
     import pikepdf
     from PIL import Image
 
+    # Con transparencia, no se toca. El stream nuevo no hereda la `/SMask`, y
+    # sin ella la imagen pasa a ser opaca: los PDF de Musihacks pintan cada
+    # página como una imagen negra cuya máscara dice qué se ve, así que salían
+    # en negro. Pillow las lee sin quejarse, por eso no basta con el `except`.
+    if "/SMask" in obj or "/Mask" in obj:
+        return None
+
     try:
         original = bytes(obj.read_raw_bytes())
         pil = pikepdf.PdfImage(obj).as_pil_image()
     except Exception:
-        # Imágenes con filtros raros (JBIG2, CCITT, máscaras) se dejan como
+        # Imágenes con filtros raros (JBIG2, CCITT) se dejan como
         # están: hacerlas pasar por Pillow las estropearía más de lo que pesan.
         return None
 
