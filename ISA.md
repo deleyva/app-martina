@@ -4778,3 +4778,9 @@ Citar usuarios en comentarios (segunda petición de la 219, pendiente de Jesús)
 - Encontrado en el navegador y no en los tests: la primera versión resaltaba también `@pruebamencion`, que no existe, y daba a entender que le había llegado. Ahora solo se resalta a quien recibió el correo.
 - Visto de paso y no tocado: el aviso de comentario normal (`incidencia_new_comment.txt`) pasa por el autoescape, así que un apóstrofo sale como `&#x27;` en el correo. Es anterior a esta fase; la plantilla nueva de mención ya lleva `autoescape off`.
 - Anti-A: `test_mencion_inexistente_no_manda_nada_fuera` (todo destinatario termina en el dominio del centro). Anti-B: los tests de `test_notifications.py` pasan sin tocarlos. Anti-C: ni push ni despliegue.
+
+## Despliegue de las fases 65 y 66 (2026-10-06) · DESPLEGADO Y VERIFICADO EN PRODUCCIÓN (`4aedcf0`)
+
+- Lo pidió Jesús («Despliega»). Copia previa `production_backup_2026_10_06T07_37_27.sql.gz`. Push `790243e..4aedcf0` (cuatro commits) y `just deploy-production`. Migraciones aplicadas, las dos aditivas: `incidencias.0008_servicio_modo` e `incidencias.0009_seed_oficios`.
+- Producción: la API `/servicios` devuelve `modo` (9 `correo` y 2 `visita`: electricista y carpinteria-y-ventanas). En Chrome con la sesión de Jesús: `/panel/servicios/` tiene «➕ Nuevo servicio» y los dos oficios con 📞 visita; en la `/incidencias/219/`, el desplegable de derivar ofrece «📞 Electricista» y «📞 Carpintería y ventanas», con el botón «Derivar», y la ayuda de menciones se ve bajo el comentario (captura vista).
+- Tutorial de menciones: BookStack página 37, «Citar a alguien con @ en los comentarios de una incidencia», con una captura (imagen 94). Comprobado por la API: publicada, 1 imagen, 3 apartados, la cita del correo y el enlace a la página 36. **[DEFERRED-VERIFY]**: la sesión de BookStack en Chrome había caducado y no se entró en nombre de Jesús. Falta que él la abra.
