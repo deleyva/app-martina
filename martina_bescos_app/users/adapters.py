@@ -149,6 +149,26 @@ class AccountAdapter(DefaultAccountAdapter):
         # En caso contrario, retornar None para deshabilitar el registro manual
         return None
 
+    def get_login_redirect_url(self, request):
+        """Tras entrar sin `next`, quien no es de música va a incidencias.
+
+        El destino por defecto es su perfil, que en `apps.` se pinta con la
+        plantilla de la app de música. Para un profesor de otro departamento
+        eso era la puerta por la que acababa dentro (2026-10-06). Si venía de
+        `/wifi/`, vuelve a wifi.
+        """
+        from django.urls import reverse
+
+        from martina_bescos_app.middleware import es_host_de_apps
+        from martina_bescos_app.users.permisos import puede_usar_apps
+
+        candado = getattr(settings, "APPS_CANDADO", True)
+        if candado and es_host_de_apps(request) and not puede_usar_apps(request.user):
+            if request.session.get("app_mode") == "wifi":
+                return reverse("wifi:solicitar")
+            return reverse("incidencias:landing")
+        return super().get_login_redirect_url(request)
+
     def get_logout_redirect_url(self, request):
         """
         Retorna la URL de redirección después del logout.

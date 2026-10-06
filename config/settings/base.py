@@ -217,7 +217,12 @@ MIDDLEWARE = [
     "allauth.account.middleware.AccountMiddleware",
     "wagtail.contrib.redirects.middleware.RedirectMiddleware",
     "martina_bescos_app.middleware.AppModeMiddleware",
+    "martina_bescos_app.middleware.AppsAccessMiddleware",
 ]
+
+#: Candado de la app de música (`AppsAccessMiddleware`): en `apps.`, solo quien
+#: `puede_usar_apps` pasa de la app; el resto va a incidencias, blogs o wifi.
+APPS_CANDADO = True
 
 # STATIC
 # ------------------------------------------------------------------------------

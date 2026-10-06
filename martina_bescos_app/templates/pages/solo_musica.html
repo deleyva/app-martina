@@ -1,0 +1,38 @@
+{% load static %}<!DOCTYPE html>
+<html lang="es" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <title>Esta es la app de música · IES Martina Bescós</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" href="{% static 'images/favicons/favicon.ico' %}" sizes="32x32" />
+    <link href="{% static 'css/output.css' %}" rel="stylesheet" />
+  </head>
+  {# Sin `base.html` a propósito: esa plantilla carga la analítica y el menú de #}
+  {# la app de música, que es justo de lo que esta página deja fuera. #}
+  <body class="min-h-screen bg-base-200">
+    <main class="container mx-auto px-4 py-10 max-w-2xl">
+      <div class="card bg-base-100 shadow">
+        <div class="card-body gap-4">
+          <h1 class="card-title text-2xl">Esta parte es la app de música</h1>
+          <p>
+            La usan el departamento de música y su alumnado. Con tu cuenta
+            tienes abierto todo lo demás:
+          </p>
+          <div class="flex flex-col gap-2">
+            <a class="btn btn-primary" href="{% url 'incidencias:landing' %}">Incidencias</a>
+            <a class="btn btn-outline" href="https://blogs.iesmartinabescos.es/">Blogs de los departamentos</a>
+            <a class="btn btn-outline" href="{% url 'wifi:solicitar' %}">Wi-Fi</a>
+          </div>
+          <p class="text-sm opacity-70">
+            Si das clase de música y ves esto, pide acceso a Jesús López.
+          </p>
+          <form method="post" action="{% url 'account_logout' %}" class="text-sm">
+            {% csrf_token %}
+            <button type="submit" class="link">Cerrar sesión ({{ request.user.email }})</button>
+          </form>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

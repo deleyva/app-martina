@@ -95,3 +95,35 @@ def alumno_del_profesor(user, student):
         return student
 
     raise Http404("Ese alumno no está en ninguno de tus grupos.")
+
+
+def puede_usar_apps(user):
+    """Si puede usar la app de música de `apps.`.
+
+    **Por qué existe.** `apps.` aloja dos cosas que no tienen el mismo público:
+    la app de música, que es del departamento de música y su alumnado, y
+    `/incidencias/` y `/wifi/`, que son de todo el centro. Hasta 2026-10-06 la
+    única barrera para entrar era tener correo del centro, así que cualquier
+    profesor que iniciara sesión para poner una incidencia acababa en su perfil
+    o en el índice musical. Lo vio Jesús en `/analytics/`: cinco profesores de
+    otros departamentos con visitas a la app.
+
+    Cuatro caminos:
+
+    - Ser profesor (`es_profesor`), que ya incluye `is_staff`.
+    - Estar matriculado en algún grupo (`Enrollment` activo).
+    - Tener ficha de `Student`, la vía heredada, que sigue poblada.
+    - `acceso_con_contrasena`: las cuentas de fuera del centro que el
+      administrador da de alta a mano. Esa casilla ES la invitación a la app.
+    """
+    if not getattr(user, "is_authenticated", False):
+        return False
+    if es_profesor(user):
+        return True
+    if getattr(user, "acceso_con_contrasena", False):
+        return True
+    from clases.models import Enrollment, Student
+
+    if Enrollment.objects.filter(user=user, is_active=True).exists():
+        return True
+    return Student.objects.filter(user=user).exists()

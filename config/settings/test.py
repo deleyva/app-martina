@@ -43,3 +43,8 @@ MEDIA_URL = "http://media.testserver"
 # Your stuff...
 # ------------------------------------------------------------------------------
 
+
+#: Apagado en la suite: cientos de tests crean un usuario suelto y lo pasean
+#: por la biblioteca sin matricularlo, y eso no es lo que prueban. El candado
+#: se enciende en sus propios tests (`users/tests/test_candado_apps.py`).
+APPS_CANDADO = False
