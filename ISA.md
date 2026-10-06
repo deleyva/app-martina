@@ -4783,7 +4783,7 @@ Citar usuarios en comentarios (segunda petición de la 219, pendiente de Jesús)
 
 - Lo pidió Jesús («Despliega»). Copia previa `production_backup_2026_10_06T07_37_27.sql.gz`. Push `790243e..4aedcf0` (cuatro commits) y `just deploy-production`. Migraciones aplicadas, las dos aditivas: `incidencias.0008_servicio_modo` e `incidencias.0009_seed_oficios`.
 - Producción: la API `/servicios` devuelve `modo` (9 `correo` y 2 `visita`: electricista y carpinteria-y-ventanas). En Chrome con la sesión de Jesús: `/panel/servicios/` tiene «➕ Nuevo servicio» y los dos oficios con 📞 visita; en la `/incidencias/219/`, el desplegable de derivar ofrece «📞 Electricista» y «📞 Carpintería y ventanas», con el botón «Derivar», y la ayuda de menciones se ve bajo el comentario (captura vista).
-- Tutorial de menciones: BookStack página 37, «Citar a alguien con @ en los comentarios de una incidencia», con una captura (imagen 94). Comprobado por la API: publicada, 1 imagen, 3 apartados, la cita del correo y el enlace a la página 36. **[DEFERRED-VERIFY]**: la sesión de BookStack en Chrome había caducado y no se entró en nombre de Jesús. Falta que él la abra.
+- Tutorial de menciones: BookStack página 37, «Citar a alguien con @ en los comentarios de una incidencia», con una captura (imagen 94). Comprobado por la API: publicada, 1 imagen, 3 apartados, la cita del correo y el enlace a la página 36. La sesión de BookStack en Chrome había caducado y no se entró en nombre de Jesús. **Cerrado el 2026-10-06:** Jesús la abrió y dice que está bien. Los teléfonos de los dos oficios los pondrá el secretario.
 
 ## Fase 67 — Los enlaces de los comentarios se pueden pulsar (2026-10-06)
 
