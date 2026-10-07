@@ -4814,7 +4814,7 @@ Lo pidió Jesús («haz que los enlaces se puedan pulsar y despliega»). El fall
 
 **Desplegada y verificada en producción (2026-10-06).** Lo pidió Jesús («despliega»). Copia previa `production_backup_2026_10_06T09_23_08.sql.gz`; push `f2c0c35..874217d` y `just deploy-production`; migración aplicada: `clases.0024_tratado_en_clase` (columna nueva vacía). En Chrome con la sesión de Jesús: la sesión 153 enseña «tratado» y «saltado» en sus 15 elementos, junto a «✓ visto» intacto (captura vista); en el visor, «›» abre «¿Lo habéis trabajado en clase?» (captura vista) y Esc la cierra sin avanzar ni marcar (15/15 siguen sin marcar). Contadores en «Preparar»: 0, como corresponde a que aún no se ha marcado nada.
 
-## Fase 69 — Candado de la app de música: el profesorado de otros departamentos va a incidencias, blogs o wifi (2026-10-06) · VERIFICADA EN LOCAL, SIN DESPLEGAR (`3af25fe`)
+## Fase 69 — Candado de la app de música: el profesorado de otros departamentos va a incidencias, blogs o wifi (2026-10-06) · DESPLEGADA Y VERIFICADA EN PRODUCCIÓN (`057bc6e`)
 
 **Goal (literal de Jesús, 2026-10-06):** «veo en https://apps.iesmartinabescos.es/analytics/ Que hay usuarios cuyo correo no empieza por números, sino que empieza por letra. Es decir, eso quiere decir que son profesores que están accediendo a APPS. Esta es la aplicación de música exclusivamente. Solo tres profesores, aparte de mí, Sheila, Iciah y Laura, deberían poder entrar a Apps. Los alumnos de esos grupos también deberían poder entrar. Sin embargo el resto de usuarios no sé por qué accede a apps no sé qué flujo está fallando. A lo mejor es la aplicación de incidencias que tiene como raíz apps, pero si no deberían ir a incidencias o a blogs o a Wi-Fi.»
 
@@ -4842,3 +4842,5 @@ Lo pidió Jesús («haz que los enlaces se puedan pulsar y despliega»). El fall
 - Usuario de prueba local (id 344) y su sesión, borrados.
 - Al desplegar: Sheila, Iciah y Laura verán la página de rechazo hasta que Jesús decida darlas de alta.
 - Ni push ni despliegue sin «despliega».
+
+**Desplegada y verificada en producción (2026-10-07).** Lo pidió Jesús («despliega»). Copia previa `production_backup_2026_10_07T06_20_32.sql.gz`; push `0e7e63d..057bc6e` y `just deploy-production`; sin migraciones. El servidor está en `057bc6e`. El middleware, evaluado en producción sobre cuentas reales sin crear sesiones: cierra `/my-library/` a las cuentas 118 y 112 (profesores de otros departamentos) y no les cierra `/incidencias/` ni nada de `blogs.`; a las cuentas 1 y 84 (Jesús) no les cierra nada. En Chrome con la sesión de Jesús, `/my-library/` abre «Empezar a estudiar» con sus libros.
