@@ -4813,3 +4813,32 @@ Lo pidió Jesús («haz que los enlaces se puedan pulsar y despliega»). El fall
 - Ni push ni despliegue sin «despliega».
 
 **Desplegada y verificada en producción (2026-10-06).** Lo pidió Jesús («despliega»). Copia previa `production_backup_2026_10_06T09_23_08.sql.gz`; push `f2c0c35..874217d` y `just deploy-production`; migración aplicada: `clases.0024_tratado_en_clase` (columna nueva vacía). En Chrome con la sesión de Jesús: la sesión 153 enseña «tratado» y «saltado» en sus 15 elementos, junto a «✓ visto» intacto (captura vista); en el visor, «›» abre «¿Lo habéis trabajado en clase?» (captura vista) y Esc la cierra sin avanzar ni marcar (15/15 siguen sin marcar). Contadores en «Preparar»: 0, como corresponde a que aún no se ha marcado nada.
+
+## Fase 69 — Candado de la app de música: el profesorado de otros departamentos va a incidencias, blogs o wifi (2026-10-06) · VERIFICADA EN LOCAL, SIN DESPLEGAR (`3af25fe`)
+
+**Goal (literal de Jesús, 2026-10-06):** «veo en https://apps.iesmartinabescos.es/analytics/ Que hay usuarios cuyo correo no empieza por números, sino que empieza por letra. Es decir, eso quiere decir que son profesores que están accediendo a APPS. Esta es la aplicación de música exclusivamente. Solo tres profesores, aparte de mí, Sheila, Iciah y Laura, deberían poder entrar a Apps. Los alumnos de esos grupos también deberían poder entrar. Sin embargo el resto de usuarios no sé por qué accede a apps no sé qué flujo está fallando. A lo mejor es la aplicación de incidencias que tiene como raíz apps, pero si no deberían ir a incidencias o a blogs o a Wi-Fi.»
+
+**Diagnóstico.** No era una fuga entre dominios (no hay `SESSION_COOKIE_DOMAIN`): nunca hubo regla. La única barrera era el correo del centro, y el login sin `next` dejaba en `/users/<pk>/` pintado con `base.html`, la única plantilla que carga `analytics.js`. Consulta de producción (30 días): 9 cuentas de letra; una es Jesús, las otras 8 suman 22 visitas, todas `/accounts/`, `/users/`, `/` o `/my-library/` — rebotes del login, ninguna a `/clases/` ni `/calificaciones/`. El grupo «Profesorado» tenía 0 miembros.
+
+**Datos tocados en producción a petición de Jesús (2026-10-06):** `jferrer@` (id 112) pierde `is_staff`; `cristinacuencacasqueiro@gmail.com` (id 107) pierde `is_superuser` e `is_staff` (sigue en «Editors» y «Moderators» de Wagtail). Staff y superusuarios quedan en las dos cuentas de Jesús (1 y 84). Sheila, Iciah y Laura **no** se dan de alta todavía: decisión de Jesús.
+
+### Claims
+
+- [x] **C416** — `puede_usar_apps(user)` en `users/permisos.py`: `es_profesor`, alta externa (`acceso_con_contrasena`), matrícula activa o ficha de `Student`. *Cerrada: tests `test_profesor_de_musica_entra`, `test_alumno_matriculado_entra`, `test_matricula_inactiva_no_basta`, `test_alta_externa_del_administrador_entra`, `test_staff_entra`.*
+- [x] **C417** — `AppsAccessMiddleware`: en el sitio de la app, con sesión y sin `puede_usar_apps`, devuelve 403 con `pages/solo_musica.html` (Incidencias / Blogs / Wi-Fi), que no extiende `base.html` ni carga la analítica. *Cerrada: `test_profesor_de_otro_departamento_no_entra_en_la_app`, `test_la_raiz_de_apps_tambien_esta_cerrada`; en Chrome (worktree en `[::1]:8001`, profesor de prueba local) `/my-library/` dio la página de rechazo (captura vista) y su botón abrió Incidencias.*
+- [x] **C418** — Siguen abiertos a cualquier cuenta `/accounts/`, `/users/`, `/incidencias/`, `/wifi/`, `/clases/groups/join/` (las invitaciones son la llave), `/api/`, `/admin/`, `/cms/`, `/documents/`, `/images/`, `/analytics/` y estáticos. *Cerrada: `test_lo_que_es_de_todo_el_centro_sigue_abierto` (parametrizado).*
+- [x] **C419** — Apps y blogs se distinguen por el sitio de **Wagtail** (blogs = raíz `BlogIndexPage`), no por el `Site` de Django: en local `SITE_ID=2` apunta a blogs. *Cerrada: `test_en_blogs_el_candado_no_actua` con un sitio de blogs real en el fixture.*
+- [x] **C420** — Tras el login sin `next`, quien no `puede_usar_apps` va a `/incidencias/` (o `/wifi/` si venía de ahí). *Cerrada: `test_tras_el_login_el_profesorado_general_va_a_incidencias`.*
+- [x] **C421** — Anónimos sin cambios: lo público de la app sigue público. *Cerrada: `test_anonimo_no_ve_el_candado`.*
+- [x] **C422** — La suite no empeora. *Cerrada: 1605 passed, 4 failed — los mismos 4 que fallan sin el cambio (`cms/test_frontend_integration` ×2, `incidencias/test_views` ×2).*
+
+### Anti-claims
+- El candado no puede cerrar la puerta de entrada: canjear una invitación (`/clases/groups/join/`) queda fuera de él. *C418.*
+- No puede dejar fuera a nadie de música que hoy la use. *Comprobado contra producción (solo lectura): de 112 dueños de biblioteca, quedarían fuera 2 (id 114 y 117), correo de letra, 1–2 elementos, último login agosto–septiembre: profesores que la probaron.*
+
+### Log
+- `APPS_CANDADO` (encendido en `base.py`, apagado en `test.py`): con el candado activo en `testserver` caían 92 tests que pasean un usuario suelto por la biblioteca. Se apaga en la suite y se enciende en sus propios tests, en vez de tocar 92 tests de otras áreas.
+- Hecho en worktree aparte (`candado-apps`) porque Jesús trabajaba en otra sesión; rebase sobre `0e7e63d` y fast-forward.
+- Usuario de prueba local (id 344) y su sesión, borrados.
+- Al desplegar: Sheila, Iciah y Laura verán la página de rechazo hasta que Jesús decida darlas de alta.
+- Ni push ni despliegue sin «despliega».
