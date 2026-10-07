@@ -141,6 +141,10 @@ def evaluar_azar(request, pk):
     item, group = _elemento(request, pk)
     instrumento = _instrumento_de(item, group)
     excluir = [x for x in request.GET.get("excluir", "").split(",") if x.strip().isdigit()]
+    # Quien tiene falta en la lista de hoy no está para salir (fase 70).
+    from clases.plano import faltan_en
+
+    excluir += [str(pk) for pk in faltan_en(item.session)]
     alumno = evaluar.al_azar(group, instrumento, excluir=excluir)
     quedan = len([a for a in evaluar.sin_nota(group, instrumento) if str(a.pk) not in excluir])
     if alumno is None:

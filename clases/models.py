@@ -2254,3 +2254,129 @@ class SessionNote(models.Model):
         if nombre:
             almacen = audio.storage
             transaction.on_commit(lambda: almacen.delete(nombre))
+
+
+# =============================================================================
+# Plano de clase y pasar lista (fase 70)
+# =============================================================================
+
+AULAS = [
+    ("referencia", "Su aula"),
+    ("musica", "Aula de música"),
+]
+
+
+class PlanoDeClase(models.Model):
+    """Dónde se sienta cada alumno de un grupo, en una de sus dos aulas.
+
+    Dos planos por grupo y no uno: el mismo grupo se sienta distinto en su aula
+    de referencia que cuando baja a la de música, y las mesas tampoco son las
+    mismas. La disposición es un JSON (mesas, plazas, ocupantes y el punto de
+    referencia) porque se lee y se escribe siempre entera: el editor la arrastra
+    de una vez y la API la reescribe de una vez. La forma y sus reglas viven en
+    `clases/plano.py`, que es lo único que debe escribirla.
+    """
+
+    group = models.ForeignKey(
+        Group, on_delete=models.CASCADE, related_name="planos", verbose_name="Grupo"
+    )
+    aula = models.CharField(max_length=12, choices=AULAS, verbose_name="Aula")
+    disposicion = models.JSONField(default=dict, blank=True, verbose_name="Disposición")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ["group", "aula"]
+        verbose_name = "Plano de clase"
+        verbose_name_plural = "Planos de clase"
+
+    def __str__(self):
+        return f"{self.group.name} · {self.get_aula_display()}"
+
+
+class PlanoVersion(models.Model):
+    """Cada guardado de un plano, con quién, desde dónde y por qué.
+
+    Existe para que una recolocación hecha por la API nunca pase a ciegas: el
+    profesor ve el motivo y la deshace restaurando la anterior, que es a su vez
+    otra versión.
+    """
+
+    PANTALLA = "pantalla"
+    API = "api"
+    RESTAURAR = "restaurar"
+    ORIGENES = [(PANTALLA, "Pantalla"), (API, "API"), (RESTAURAR, "Restaurada")]
+
+    plano = models.ForeignKey(
+        PlanoDeClase, on_delete=models.CASCADE, related_name="versiones"
+    )
+    disposicion = models.JSONField(default=dict)
+    autor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True
+    )
+    origen = models.CharField(max_length=12, choices=ORIGENES, default=PANTALLA)
+    motivo = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+        verbose_name = "Versión de plano"
+        verbose_name_plural = "Versiones de plano"
+
+
+class PaseDeLista(models.Model):
+    """Si en esta sesión ya se pasó lista, y en qué aula.
+
+    La sesión no lleva estos campos porque su tabla es heredada
+    (`evaluations_classsession`) y porque «en qué aula estamos hoy» solo
+    significa algo para quien pasa lista.
+    """
+
+    session = models.OneToOneField(
+        ClassSession, on_delete=models.CASCADE, related_name="pase_de_lista"
+    )
+    aula = models.CharField(max_length=12, choices=AULAS, default="referencia")
+    pasada_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Pase de lista"
+        verbose_name_plural = "Pases de lista"
+
+
+MATERIALES = [
+    ("ukelele", "Ukelele"),
+    ("libreta", "Libreta"),
+]
+
+
+class Asistencia(models.Model):
+    """Lo que el profesor ha marcado de un alumno en una sesión.
+
+    Sin fila, el alumno estuvo y lo trajo todo: la lista se pasa marcando las
+    excepciones, que es como se pasa en clase.
+    """
+
+    PRESENTE = "presente"
+    FALTA = "falta"
+    RETRASO = "retraso"
+    ESTADOS = [(PRESENTE, "Presente"), (FALTA, "Falta"), (RETRASO, "Retraso")]
+
+    session = models.ForeignKey(
+        ClassSession, on_delete=models.CASCADE, related_name="asistencias"
+    )
+    alumno = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="asistencias"
+    )
+    estado = models.CharField(max_length=10, choices=ESTADOS, default=PRESENTE)
+    hora_llegada = models.TimeField(null=True, blank=True)
+    sin_material = models.JSONField(default=list, blank=True)
+    nota = models.TextField(blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ["session", "alumno"]
+        verbose_name = "Asistencia"
+        verbose_name_plural = "Asistencias"
+
+    @property
+    def vacia(self):
+        return self.estado == self.PRESENTE and not self.sin_material and not self.nota.strip()

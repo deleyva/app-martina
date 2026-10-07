@@ -791,8 +791,16 @@ def class_session_present(request, pk):
             "is_teacher": is_teacher and session.teacher == user,
             "tiene_gp": tiene_gp,
             "tiene_chordpro": tiene_chordpro,
+            # Fase 70: si aún no se ha pasado lista, el plano sale lo primero.
+            "lista_pasada": _lista_pasada(session) if is_teacher and session.teacher == user else True,
         },
     )
+
+
+def _lista_pasada(session):
+    from clases.models import PaseDeLista
+
+    return PaseDeLista.objects.filter(session=session, pasada_at__isnull=False).exists()
 
 
 @login_required

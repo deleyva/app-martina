@@ -14,6 +14,7 @@
     </div>
     <div class="flex gap-2">
       {% if not group.es_plantilla %}
+        <a href="{% url 'clases:plano_editor' group.pk 'referencia' %}" class="btn btn-outline btn-sm">🪑 Plano de clase</a>
         <a href="{% url 'clases:group_invitations' group.pk %}" class="btn btn-outline btn-sm">✉️ Invitar alumnado</a>
       {% else %}
         <a href="{% url 'clases:niveles' %}" class="btn btn-ghost btn-sm">🧩 Plantillas</a>

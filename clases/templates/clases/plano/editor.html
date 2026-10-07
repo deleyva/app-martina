@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Plano de {{ group.name }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'clases/plano.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6 max-w-6xl">
+
+  <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-3">
+    <div>
+      <h1 class="text-2xl sm:text-3xl font-bold">🪑 Plano de {{ group.name }}</h1>
+      <p class="text-sm text-base-content/70 mt-1">
+        Arrastra las mesas (encajan en la rejilla: pegadas quedan juntas) y al alumnado entre plazas. Toca una mesa para girarla, cambiar sus plazas o quitarla.
+      </p>
+    </div>
+    <div class="flex gap-2">
+      <a href="{% url 'clases:group_books_index' group.pk %}" class="btn btn-ghost btn-sm">📚 Libros</a>
+      <a href="{% url 'clases:class_session_list' %}" class="btn btn-ghost btn-sm">Sesiones</a>
+    </div>
+  </div>
+
+  <div role="tablist" class="tabs tabs-boxed mb-4 w-fit">
+    {% for clave, nombre in aulas %}
+      <a role="tab" href="{% url 'clases:plano_editor' group.pk clave %}"
+         class="tab {% if clave == aula %}tab-active{% endif %}" data-aula="{{ clave }}">{{ nombre }}</a>
+    {% endfor %}
+  </div>
+
+  <div class="flex flex-wrap items-center gap-2 mb-3">
+    <span class="text-sm font-semibold mr-1">Añadir mesa:</span>
+    <button type="button" class="btn btn-sm btn-outline" onclick="plano.anadirMesa(1)">individual</button>
+    <button type="button" class="btn btn-sm btn-outline" onclick="plano.anadirMesa(2)">de 2</button>
+    <button type="button" class="btn btn-sm btn-outline" onclick="plano.anadirMesa(4)">de 4</button>
+    <button type="button" class="btn btn-sm btn-ghost" id="copiar-otra" onclick="copiarDeLaOtra()">Copiar del otro aula</button>
+    <span class="flex-1"></span>
+    <input id="motivo" type="text" class="input input-bordered input-sm w-56" placeholder="Por qué (opcional)">
+    <button type="button" class="btn btn-sm btn-primary" id="guardar" onclick="guardar()" disabled>Guardar</button>
+    <span id="estado" class="text-sm text-base-content/60">Guardado</span>
+  </div>
+
+  <div id="errores" class="alert alert-error mb-3 hidden"></div>
+
+  <div id="plano"></div>
+
+  <details class="mt-6" id="historial">
+    <summary class="cursor-pointer font-semibold">Historial de este plano</summary>
+    <ul id="versiones" class="mt-2 space-y-1 text-sm"></ul>
+  </details>
+</div>
+
+{{ datos|json_script:"plano-datos" }}
+{{ rejilla|json_script:"plano-rejilla" }}
+<script src="{% static 'clases/plano.js' %}"></script>
+<script>
+  var CSRF = '{{ csrf_token }}';
+  var URL_GUARDAR = '{% url "clases:plano_guardar" group.pk aula %}';
+  var URL_RESTAURAR = '{% url "clases:plano_restaurar" group.pk aula 0 %}';
+  var OTRA = '{% if aula == "referencia" %}musica{% else %}referencia{% endif %}';
+  var URL_OTRA = '{% url "clases:plano_datos" group.pk "AULA" %}'.replace('AULA', OTRA);
+  var ORIGENES = { pantalla: 'en pantalla', api: 'por API', restaurar: 'restaurada' };
+
+  var sucio = false;
+  var datos = JSON.parse(document.getElementById('plano-datos').textContent);
+  var plano = new Plano(document.getElementById('plano'), {
+    modo: 'editar',
+    rejilla: JSON.parse(document.getElementById('plano-rejilla').textContent),
+    datos: datos,
+    onCambio: function () { marcarSucio(true); },
+  });
+
+  function marcarSucio(valor) {
+    sucio = valor;
+    document.getElementById('guardar').disabled = !valor;
+    document.getElementById('estado').textContent = valor ? 'Cambios sin guardar' : 'Guardado';
+  }
+
+  function errores(lista) {
+    var caja = document.getElementById('errores');
+    caja.classList.toggle('hidden', !lista);
+    caja.textContent = lista ? lista.join(' · ') : '';
+  }
+
+  function pintarVersiones(versiones) {
+    var ul = document.getElementById('versiones');
+    ul.innerHTML = '';
+    if (!versiones.length) { ul.innerHTML = '<li class="text-base-content/60">Aún no se ha guardado nunca.</li>'; return; }
+    versiones.forEach(function (v, i) {
+      var li = document.createElement('li');
+      li.className = 'flex items-center gap-2';
+      var fecha = new Date(v.fecha).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' });
+      var texto = document.createElement('span');
+      texto.textContent = fecha + ' · ' + (v.autor || '¿?') + ' ' + (ORIGENES[v.origen] || v.origen) + (v.motivo ? ' — ' + v.motivo : '');
+      li.appendChild(texto);
+      if (i === 0) {
+        var actual = document.createElement('span');
+        actual.className = 'badge badge-sm';
+        actual.textContent = 'actual';
+        li.appendChild(actual);
+      } else {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'btn btn-xs';
+        b.textContent = 'Volver a esta';
+        b.onclick = function () { restaurar(v.id); };
+        li.appendChild(b);
+      }
+      ul.appendChild(li);
+    });
+  }
+
+  // Un 403 por sesión caducada o un 500 llegan en HTML: también se dicen.
+  function recibir(r) {
+    return r.json().catch(function () { return {}; }).then(function (cuerpo) {
+      if (!r.ok) {
+        errores(cuerpo.errores || ['No se ha podido guardar (' + r.status + '). Si llevas rato con la página abierta, recárgala.']);
+        throw new Error('rechazado');
+      }
+      return cuerpo;
+    });
+  }
+
+  function sinConexion(e) {
+    if (e && e.message !== 'rechazado') errores(['Sin conexión con el servidor: no se ha guardado.']);
+  }
+
+  function aplicar(cuerpo) {
+    errores(null);
+    plano.cargar(cuerpo);
+    pintarVersiones(cuerpo.versiones);
+    marcarSucio(false);
+  }
+
+  function guardar() {
+    fetch(URL_GUARDAR, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+      body: JSON.stringify({ disposicion: plano.disposicion, motivo: document.getElementById('motivo').value }),
+    }).then(recibir).then(function (cuerpo) {
+      document.getElementById('motivo').value = '';
+      aplicar(cuerpo);
+    }).catch(sinConexion);
+  }
+
+  function restaurar(id) {
+    if (sucio && !window.confirm('Tienes cambios sin guardar y se perderán. ¿Sigo?')) return;
+    fetch(URL_RESTAURAR.replace(/0\/$/, id + '/'), {
+      method: 'POST', credentials: 'same-origin', headers: { 'X-CSRFToken': CSRF },
+    }).then(recibir).then(aplicar).catch(sinConexion);
+  }
+
+  // Trae las mesas del otro aula y deja los sitios como están allí. No guarda:
+  // queda como cambio pendiente para retocarlo antes.
+  function copiarDeLaOtra() {
+    fetch(URL_OTRA, { credentials: 'same-origin' }).then(recibir).then(function (otra) {
+      if (!otra.disposicion.mesas || !otra.disposicion.mesas.length) {
+        errores(['El otro aula aún no tiene mesas']);
+        return;
+      }
+      plano.cargar({ disposicion: otra.disposicion, alumnado: datos.alumnado });
+      marcarSucio(true);
+    }).catch(sinConexion);
+  }
+
+  window.addEventListener('beforeunload', function (e) {
+    if (sucio) { e.preventDefault(); e.returnValue = ''; }
+  });
+
+  pintarVersiones(datos.versiones);
+</script>
+{% endblock %}

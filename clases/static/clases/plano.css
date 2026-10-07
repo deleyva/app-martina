@@ -1,0 +1,164 @@
+/* Plano de clase (fase 70). Claro en el editor; `.plano-oscuro` en la clase. */
+.plano {
+  --plano-suelo: #f4f4f5;
+  --plano-borde: #d4d4d8;
+  --plano-mesa: #e7d7bd;
+  --plano-mesa-borde: #b08d57;
+  --plano-plaza: rgba(255, 255, 255, 0.55);
+  --plano-chip: #ffffff;
+  --plano-chip-texto: #18181b;
+  --plano-ref: #1e3a8a;
+  --plano-texto-suave: #71717a;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.plano.plano-oscuro {
+  --plano-suelo: #1b1b1f;
+  --plano-borde: #3f3f46;
+  --plano-mesa: #5b4a32;
+  --plano-mesa-borde: #8a6d43;
+  --plano-plaza: rgba(0, 0, 0, 0.2);
+  --plano-chip: #f4f4f5;
+  --plano-chip-texto: #18181b;
+  --plano-ref: #2563eb;
+  --plano-texto-suave: #a1a1aa;
+}
+
+.plano-aula {
+  position: relative;
+  width: 100%;
+  background-color: var(--plano-suelo);
+  background-image:
+    linear-gradient(to right, rgba(127, 127, 127, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(127, 127, 127, 0.08) 1px, transparent 1px);
+  background-size: 2% 2.857%;
+  border: 2px solid var(--plano-borde);
+  border-radius: 10px;
+  container-type: inline-size;
+  touch-action: none;
+  /* Que quepa entera con la bandeja debajo: arrastrar a alguien desde «sin
+     sitio» no puede exigir hacer scroll a mitad del gesto. */
+  max-width: calc((100vh - var(--plano-hueco, 260px)) * 1000 / 700);
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+.plano-lista .plano-aula { touch-action: auto; }
+
+.plano-ref {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--plano-ref);
+  color: #fff;
+  border-radius: 6px;
+  font-size: 1.1cqw;
+  font-weight: 600;
+  text-align: center;
+  cursor: grab;
+}
+.plano-lista .plano-ref { cursor: default; }
+
+.plano-mesa {
+  position: absolute;
+  display: grid;
+  gap: 0.3cqw;
+  padding: 0.3cqw;
+  box-sizing: border-box;
+  background: var(--plano-mesa);
+  border: 2px solid var(--plano-mesa-borde);
+  border-radius: 6px;
+  cursor: grab;
+}
+.plano-lista .plano-mesa { cursor: default; }
+.plano-mesa.seleccionada { outline: 3px solid #2563eb; outline-offset: 2px; z-index: 2; }
+
+.plano-plaza {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  background: var(--plano-plaza);
+  border-radius: 4px;
+  min-width: 0;
+}
+
+.plano-alumno {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1cqw;
+  min-width: 0;
+  padding: 0.2cqw;
+  background: var(--plano-chip);
+  color: var(--plano-chip-texto);
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  font-size: 1.15cqw;
+  line-height: 1.1;
+  text-align: center;
+  cursor: grab;
+  touch-action: none;
+  position: relative;
+}
+.plano-lista .plano-alumno { cursor: pointer; touch-action: manipulation; }
+/* Partir con guion antes que cortar: «Damas…» no se distingue de nadie. */
+.plano-nombre { max-width: 100%; font-weight: 600; overflow-wrap: anywhere; hyphens: auto; -webkit-hyphens: auto; }
+.plano-hora, .plano-material { font-size: 0.85cqw; font-weight: 600; }
+
+.plano-alumno.falta { background: #dc2626; color: #fff; }
+.plano-alumno.falta .plano-nombre { text-decoration: line-through; }
+.plano-alumno.retraso { background: #f59e0b; color: #1c1917; }
+.plano-material { color: #b91c1c; }
+.plano-alumno.falta .plano-material { color: #fee2e2; }
+.plano-alumno.con-nota::after {
+  content: "✎";
+  position: absolute;
+  top: 0.1cqw;
+  right: 0.3cqw;
+  font-size: 0.9cqw;
+}
+
+.plano-origen { opacity: 0.35; }
+.plano-fantasma {
+  position: fixed;
+  z-index: 30000;
+  pointer-events: none;
+  transform: translate(-50%, -50%) rotate(-3deg);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+  font-size: 14px;
+  padding: 8px 10px;
+  min-height: 36px;
+}
+
+.plano-barra {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  display: flex;
+  gap: 4px;
+  z-index: 3;
+}
+.plano-barra button {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid #d4d4d8;
+  background: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.plano-bandeja {
+  margin-top: 12px;
+  padding: 10px;
+  border: 2px dashed var(--plano-borde);
+  border-radius: 10px;
+  min-height: 56px;
+}
+.plano-bandeja-titulo { font-size: 13px; color: var(--plano-texto-suave); margin-bottom: 6px; }
+.plano-bandeja-fila { display: flex; flex-wrap: wrap; gap: 6px; }
+.plano-bandeja .plano-alumno { flex: 0 0 auto; font-size: 13px; padding: 6px 10px; min-height: 34px; }

@@ -4,7 +4,7 @@ phase: complete
 progress: true
 iteration: 60
 principal_stated_goal: "Yo solo quiero añadir evidencias tal cual están diseñadas en la aplicación de Notas. Por favor, copiala. Usa en vez de HTMLX, usa, en fin, haz lo que sea, pero que sea igual visualmente. Me gusta mucho esa forma de calificar, esa aplicación que hicimos."
-updated: 2026-10-04
+updated: 2026-10-07
 ---
 
 # ISA — app-martina · Sistema de estudio de la biblioteca
@@ -4844,3 +4844,53 @@ Lo pidió Jesús («haz que los enlaces se puedan pulsar y despliega»). El fall
 - Ni push ni despliegue sin «despliega».
 
 **Desplegada y verificada en producción (2026-10-07).** Lo pidió Jesús («despliega»). Copia previa `production_backup_2026_10_07T06_20_32.sql.gz`; push `0e7e63d..057bc6e` y `just deploy-production`; sin migraciones. El servidor está en `057bc6e`. El middleware, evaluado en producción sobre cuentas reales sin crear sesiones: cierra `/my-library/` a las cuentas 118 y 112 (profesores de otros departamentos) y no les cierra `/incidencias/` ni nada de `blogs.`; a las cuentas 1 y 84 (Jesús) no les cierra nada. En Chrome con la sesión de Jesús, `/my-library/` abre «Empezar a estudiar» con sus libros.
+
+## Fase 70 — Plano de clase y pasar lista (2026-10-07) · CONSTRUIDA Y VERIFICADA EN LOCAL
+
+**Goal (literal de Jesús, 2026-10-07):** «durante la clase, encima de los botones de la izquierda, abajo, pongas otro más que sea como un plano de clase. […] querría organizar, haciendo drag and drop en alguna otra plantilla de grupo, no aquí, claro, la ubicación del alumnado de cada grupo en el aula. Quiero poder arrastrar tanto las mesas, es decir, que estén separadas, como juntas, como quien hay en cada mesa. Quiero que, además, vía API, puedas tú modificar los sitios, diciéndote yo las características del alumnado. Quiero que esas notas del alumnado que te voy a ir diciendo las guardes en local, no en producción […] en un proyecto que se llame "conociendo a mi alumnado". […] una plantilla en la que yo pueda arrastrar mesas y quién va en cada mesa, con un punto de referencia que sea la mesa del profesor o pantalla. Que me sirva también para pasar lista, es decir, que yo abra e inicie la clase, que sea por defecto lo primero que se muestra y que luego pueda mostrarlo durante la clase, dando al botón que te he dicho. […] para marcar quién ha llegado tarde, sí que me interesaría poder volver a sacar la plantilla durante la clase para marcarla.»
+
+**Respuestas a las tres preguntas (2026-10-07):** cada grupo tiene su plano, **en dos versiones: su aula de referencia y el aula de música**. Al pasar lista: falta, retraso, **falta de material (ukelele o libreta)**, **nota escrita** y **resumen para SIGAD**. Las marcas se ven en el proyector.
+
+**Vision.** Abres la clase y lo primero es el aula vista desde arriba con la pantalla delante: tocas a quien falta, cierras y empiezas. Si alguien entra a los diez minutos, botón (o tecla L), toque, retraso con la hora. Al acabar tienes el texto para SIGAD. Y entre semana yo leo tus notas locales y las reflexiones de clase y te recoloco a la gente por API, con versión y motivo, y tú lo deshaces de un toque si no te convence.
+
+### Claims
+
+- [x] **C423** — `PlanoDeClase` por (grupo, aula ∈ {referencia, musica}), único. Guarda la disposición (mesas con posición, tamaño en plazas y quién ocupa cada plaza, más el punto de referencia pantalla/mesa del profesor) en coordenadas de una rejilla fija, no en píxeles. *Falsador: test de modelo + unicidad.* *Cerrada: `test_dos_planos_por_grupo_y_no_mas`, `test_aula_desconocida_se_rechaza`.*
+- [x] **C424** — La disposición se valida al guardar: solo alumnado con matrícula activa en ese grupo, nadie dos veces, mesas de 1 a 6 plazas, coordenadas dentro del aula. Lo inválido se rechaza entero, no a medias. *Falsador: tests de validación (duplicado, ajeno al grupo, matrícula de baja, fuera de rango).* *Cerrada: `test_disposicion_invalida_se_rechaza` (duplicado, ajeno, de baja, fuera, plazas, sobran) y `test_lo_invalido_no_toca_el_plano`.*
+- [x] **C425** — Cada guardado deja una versión (`PlanoVersion`) con autor, origen (pantalla/API) y motivo; restaurar una versión es otro guardado, así que deshacer también se puede deshacer. *Falsador: test de restaurar.* *Cerrada: `test_restaurar_es_otro_guardado`, `test_restaurar_no_sienta_a_quien_se_dio_de_baja`; en Chrome, «Volver a esta» deshizo un cambio hecho por API y dejó tres versiones.*
+- [x] **C426** — Editor en `/clases/groups/<id>/plano/<aula>/`: arrastrar mesas (encajan en rejilla, así se juntan o se separan), añadir y quitar mesas de 1, 2 o 4 plazas, arrastrar alumnado entre plazas y desde la bandeja «sin sitio», mover la referencia, copiar el plano del otro aula, historial con restaurar. Solo profesorado del grupo. *Falsador: tests de vista + Chrome con la sesión de Jesús (captura vista).* *Cerrada: tests de vista (abre, 404 a otro profesor, guarda con versión, 422 inválido); en Chrome con la sesión de Jesús (grupo local 14): mesas añadidas con clic, alumna arrastrada de la bandeja a una plaza con el ratón real, mesa arrastrada hasta encajar pegada a otra (x 200→180), guardado con motivo en el historial. Capturas vistas.*
+- [x] **C427** — En la clase (`present`), el profesor ve al abrir el plano en modo «pasar lista» si la sesión aún no tiene lista pasada; elige aula (por defecto la última que usó ese grupo). El alumnado de la sesión no lo ve nunca. *Falsador: test de contexto + Chrome.* *Cerrada: `test_la_clase_sin_lista_pasada_lo_dice`, `test_el_alumnado_no_ve_el_plano`, `test_el_aula_por_defecto_es_la_ultima_usada`; en Chrome la sesión 120 abrió en el plano, y tras «Empezar la clase» al recargar ya no.*
+- [x] **C428** — Botón nuevo en el carril izquierdo, encima de los existentes, y tecla L: vuelve a abrir el plano en mitad de la clase. *Falsador: Chrome (captura vista).* *Cerrada: en Chrome, botón azul arriba del carril izquierdo; la tecla L lo reabrió con las marcas y «Volver a la clase».*
+- [x] **C429** — Tocar a un alumno abre sus marcas: falta, retraso (guarda la hora), sin ukelele, sin libreta, nota escrita. Se guarda al momento en `Asistencia` (una fila por sesión y alumno). Presente es la ausencia de marcas. *Falsador: tests de la vista de marcar.* *Cerrada: `test_marcar_falta_retraso_material_y_nota`, `test_volver_a_presente_sin_nada_borra_la_fila`, `test_falta_borra_la_hora_del_retraso`; en Chrome, falta (rojo, tachado) y retraso 08:42 + sin ukelele (ámbar) marcados con clics reales.*
+- [x] **C430** — Resumen para SIGAD de la sesión: grupo, fecha, faltas y retrasos (con hora) en texto plano, con botón copiar; en el plano y al cerrar la clase. *Falsador: test del texto.* *Cerrada: `test_resumen_sigad`, `test_resumen_sin_incidencias`; en Chrome el texto sale en el plano y desde «🪑 Faltas para SIGAD» en el panel de cierre.*
+- [x] **C431** — Quien tiene falta en la sesión no sale en «al azar» de Evaluar. *Falsador: test de `evaluar_azar`.* *Cerrada: `test_al_azar_no_elige_a_quien_falta`.*
+- [x] **C432** — API con clave (`X-API-Key`), solo grupos donde la clave es profesor: listar mis grupos, leer un plano con su alumnado, escribir un plano con motivo (crea versión, misma validación que C424), listar versiones, leer asistencia y reflexiones/notas transcritas de un grupo entre fechas. *Falsador: tests de API (403 ajeno, 422 inválido, versión creada).* *Cerrada: 7 tests de API (mis grupos, escribe con motivo y versión, sin motivo 422, inválido 422, ajeno 404, sin clave 401, asistencia y sesiones con fechas); contra local con `plano.ts` y una clave de prueba, ya borrada.*
+- [x] **C433** — `~/Projects/conociendo-a-mi-alumnado`: carpeta local con git sin remoto, una nota por grupo, y una herramienta `bun` que lee y escribe planos por la API (`IES_API_KEY`, `IES_API_URL`). Ningún fichero de esa carpeta entra en el repo de la app. *Falsador: `git remote -v` vacío; `rg` en el repo de la app sin rastro de las notas.* *Cerrada: `~/Projects/conociendo-a-mi-alumnado`, commit `7977ca9`, `git remote -v` vacío; ningún fichero de esa carpeta en el repo de la app.*
+- [x] **C434** — La suite no empeora (referencia fase 69: 1605 passed, 4 failed conocidos). *Cerrada: 1656 passed, 4 failed — los mismos 4 conocidos (`cms/test_frontend_integration` ×2, `incidencias/test_views` ×2).*
+
+### Anti-claims
+
+- Las notas sobre el alumnado no van al servidor: ni modelo, ni campo, ni endpoint para ellas. El servidor solo sabe dónde se sienta cada uno y la asistencia. *C433.*
+- Guardar un plano nunca borra matrículas ni toca `Enrollment`: el alumnado que no está en el plano sale en la bandeja «sin sitio».
+- Una reubicación por API no puede pasar sin dejar versión y motivo.
+
+### Out of Scope
+
+- Enviar las faltas a SIGAD automáticamente (solo el texto para copiar).
+- Que el alumnado vea el plano.
+
+### Log
+
+- Al verificar en Chrome salieron dos cosas y se arreglaron: el aula no cabía en la ventana y la bandeja «sin sitio» quedaba debajo (ahora el aula se limita al alto de la ventana), y en clase los apellidos largos salían cortados con puntos suspensivos («Damas…»); ahora se parten con guion y la letra es mayor.
+- Los ids de mesa añadidas en el mismo milisegundo chocaban (el servidor los desambiguaba con `-n`); ahora llevan sufijo aleatorio.
+- Verificación del navegador: el primer clic tras cargar una pestaña lo absorbe el foco de la ventana, y la captura va con retraso. Las comprobaciones se hicieron leyendo el estado de la página, no solo la captura.
+- Migración `0025_plano_de_clase`: solo crea cuatro tablas, no toca datos.
+- Ni push ni despliegue sin «despliega».
+- **Revisión independiente (agente revisor, contexto limpio), 6 hallazgos, los 6 adoptados**, cada uno con su test:
+  1. Una baja dejaba un ocupante invisible y el siguiente guardado se rechazaba entero → `sin_bajas` al servir el plano (`test_una_baja_no_bloquea_el_siguiente_guardado`).
+  2. Un cotitular podía pasar lista en la sesión de otro, y la API enseñaba reflexiones de otros profesores; con clave de staff, `/grupos` listaba todos los grupos → la lista y `sesiones`/`asistencia` son solo de quien da la sesión; `/grupos`, solo los míos (3 tests).
+  3. Formas malas daban 500 en vez de 422 → comprobación de tipos (9 casos parametrizados).
+  4. `marcar` podía perder un toque si llegaban dos a la vez, y un 422 dejaba fila → valida antes de escribir, atómico con `select_for_update`.
+  5. Una respuesta tardía reabría el menú de marcas ya cerrado → solo reabre si sigue abierto el mismo alumno.
+  6. Los fallos no se veían → aviso rojo en el pase de lista y mensaje en el editor; comprobado en Chrome con un material desconocido.
+

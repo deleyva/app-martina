@@ -25,6 +25,10 @@
     {% if is_teacher %}
     <link rel="stylesheet" href="{% static 'clases/notas_de_voz.css' %}">
     <script src="{% static 'clases/notas_de_voz.js' %}"></script>
+    {% if is_teacher %}
+    <link rel="stylesheet" href="{% static 'clases/plano.css' %}">
+    <script src="{% static 'clases/plano.js' %}"></script>
+    {% endif %}
     {% endif %}
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -73,6 +77,43 @@
         #fab-evaluar { bottom: 204px; background: rgba(217, 70, 239, 0.85); }
         #fab-evaluar:hover { background: rgba(217, 70, 239, 1); }
         #fab-evaluar[hidden] { display: none; }
+        #fab-lista { bottom: 264px; background: rgba(37, 99, 235, 0.85); }
+        #fab-lista:hover { background: rgba(37, 99, 235, 1); }
+
+        /* ── Plano de clase: pasar lista (fase 70) ── */
+        #panel-lista { position: fixed; inset: 0; z-index: 20002; background: #111; display: none; flex-direction: column; }
+        #panel-lista.abierto { display: flex; }
+        #lista-barra { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 16px; background: #1b1b1f; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        #lista-barra .titulo { font-size: 15px; font-weight: 700; margin-right: 8px; }
+        #lista-barra .hueco { flex: 1; }
+        #lista-barra button { border: none; border-radius: 8px; padding: 8px 12px; font-size: 14px; cursor: pointer; background: rgba(255,255,255,0.1); color: #fff; }
+        #lista-barra button:hover { background: rgba(255,255,255,0.2); }
+        #lista-barra button.activa { background: #2563eb; }
+        #lista-barra #lista-empezar { background: #16a34a; font-weight: 700; }
+        #lista-cuerpo { flex: 1; overflow: auto; padding: 16px; }
+        /* En clase, el plano manda: casi toda la altura, y letra que se lea desde el fondo. */
+        #plano-lista { max-width: 1500px; margin: 0 auto; --plano-hueco: 100px; }
+        #plano-lista .plano-alumno { font-size: 1.5cqw; }
+        #plano-lista .plano-hora, #plano-lista .plano-material { font-size: 1.1cqw; }
+        #lista-aviso { max-width: 1500px; margin: 0 auto 10px; color: #a1a1aa; font-size: 14px; }
+        #lista-aviso a { color: #93c5fd; }
+        #lista-sigad { max-width: 1500px; margin: 0 auto 12px; background: #fff; color: #18181b; border-radius: 10px; padding: 12px 14px; display: none; }
+        #lista-sigad.visible { display: block; }
+        #lista-sigad pre { white-space: pre-wrap; font: 14px/1.5 ui-monospace, monospace; margin: 0 0 8px; user-select: text; -webkit-user-select: text; }
+        #lista-sigad button { border: none; border-radius: 6px; padding: 6px 12px; background: #2563eb; color: #fff; cursor: pointer; }
+        #marcas-alumno { position: fixed; z-index: 20003; width: 300px; background: #fff; color: #18181b; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); padding: 12px; display: none; }
+        #marcas-alumno.abierto { display: block; }
+        #marcas-alumno .nombre { font-weight: 700; margin-bottom: 8px; }
+        #marcas-alumno .fila { display: flex; gap: 6px; margin-bottom: 8px; }
+        #marcas-alumno .fila button { flex: 1; border: 2px solid #e4e4e7; background: #fafafa; border-radius: 8px; padding: 10px 4px; font-size: 14px; font-weight: 600; cursor: pointer; color: #18181b; }
+        #marcas-alumno .fila button.activa[data-estado="presente"] { border-color: #16a34a; background: #dcfce7; }
+        #marcas-alumno .fila button.activa[data-estado="falta"] { border-color: #dc2626; background: #dc2626; color: #fff; }
+        #marcas-alumno .fila button.activa[data-estado="retraso"] { border-color: #f59e0b; background: #fde68a; }
+        #marcas-alumno .fila button.activa[data-material] { border-color: #b91c1c; background: #fee2e2; }
+        #marcas-alumno textarea { width: 100%; box-sizing: border-box; border: 1px solid #d4d4d8; border-radius: 8px; padding: 6px 8px; font-size: 14px; min-height: 54px; resize: vertical; user-select: text; -webkit-user-select: text; }
+        #marcas-alumno .pie { display: flex; justify-content: space-between; margin-top: 6px; }
+        #marcas-alumno .pie button { border: none; border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+        #marcas-alumno .pie .guardar { background: #2563eb; color: #fff; }
 
         /* ── Grabando una nota de voz ──
            Rojo y latiendo: tiene que verse de reojo, con la clase delante, que
@@ -624,6 +665,36 @@
     <div id="pista-lados"><span class="izq">‹</span><span class="der">›</span></div>
 
     {% if is_teacher %}
+    {% comment %}
+      Plano de clase y pasar lista (fase 70). Sale solo al abrir la clase si
+      aún no se ha pasado lista; el botón (y la L) lo trae de vuelta para
+      apuntar al que llega tarde.
+    {% endcomment %}
+    <button id="fab-lista" class="fab-izq" type="button" onclick="abrirLista()" aria-label="Plano y lista"
+            data-ayuda="Plano y lista (L). Toca a un alumno para marcar falta, retraso, material o una nota.">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+            <rect x="3" y="3" width="18" height="4" rx="1"/><rect x="4" y="11" width="6" height="4" rx="1"/><rect x="14" y="11" width="6" height="4" rx="1"/><rect x="4" y="18" width="6" height="3" rx="1"/><rect x="14" y="18" width="6" height="3" rx="1"/>
+        </svg>
+    </button>
+    <div id="panel-lista" role="dialog" aria-label="Plano y lista">
+        <div id="lista-barra">
+            <span class="titulo">🪑 {{ session.group.name }}</span>
+            <span id="lista-aulas"></span>
+            <span class="hueco"></span>
+            <button type="button" id="lista-ver-sigad" onclick="alternarSigad()">Resumen para SIGAD</button>
+            <button type="button" id="lista-empezar" onclick="empezarClase()">Empezar la clase</button>
+            <button type="button" onclick="cerrarLista()" aria-label="Cerrar">✕</button>
+        </div>
+        <div id="lista-cuerpo">
+            <div id="lista-sigad"><pre id="lista-sigad-texto"></pre><button type="button" onclick="copiarSigad(this)">Copiar</button></div>
+            <div id="lista-error" hidden style="max-width:1500px;margin:0 auto 10px;background:#7f1d1d;color:#fff;border-radius:8px;padding:8px 12px;font-size:14px;"></div>
+            <div id="lista-aviso"></div>
+            <div id="plano-lista" class="plano-oscuro"></div>
+        </div>
+    </div>
+    <div id="marcas-alumno" role="dialog"></div>
+    {% endif %}
+    {% if is_teacher %}
     <button id="fab-notas" class="fab-izq" type="button" onclick="alternarNotaDeVoz()" aria-pressed="false"
             data-ayuda="Nota de voz (N). Un toque graba, otro para y la guarda. Al final de la clase revisas lo que ha entendido y lo pasas a la reflexión.">
         <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
@@ -734,6 +805,13 @@
                     <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14a3 3 0 003-3V5a3 3 0 10-6 0v6a3 3 0 003 3zm5-3a5 5 0 01-10 0H5a7 7 0 006 6.92V21h2v-3.08A7 7 0 0019 11h-2z"/></svg>
                     <span id="record-label">Grabar nota de voz</span>
                 </button>
+                {# Fase 70: las faltas y retrasos del día, para pasarlos a SIGAD al acabar. #}
+                {% if is_teacher %}
+                <button type="button" id="cierre-sigad" onclick="abrirLista(); document.getElementById('lista-sigad').classList.add('visible');"
+                    style="display:flex;align-items:center;gap:8px;padding:10px 16px;border-radius:12px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.08);color:#fff;font-size:13px;cursor:pointer;">
+                    🪑 Faltas para SIGAD
+                </button>
+                {% endif %}
             </div>
             <div style="display:flex;gap:10px;justify-content:center;">
                 <button type="button" id="close-session-btn" onclick="submitReflection()"
@@ -1542,13 +1620,218 @@
     // justo lo que no puede pasar dando clase.
     var ANCHO_ZONA = 0.15; // 15% de la pantalla a cada lado
 
+    // ── Plano y lista (fase 70) ──────────────────────────────────────────
+    function listaAbierta() {
+        var p = document.getElementById('panel-lista');
+        return !!(p && p.classList.contains('abierto'));
+    }
+    {% if is_teacher %}
+    var LISTA_URL = '{% url "clases:lista_datos" session.pk %}';
+    var LISTA_MARCAR = '{% url "clases:lista_marcar" session.pk %}';
+    var LISTA_PASADA = '{% url "clases:lista_pasada" session.pk %}';
+    var EDITOR_URL = '{% url "clases:plano_editor" session.group_id "AULA" %}';
+    var LISTA_CSRF = '{{ csrf_token }}';
+    var listaPasada = {{ lista_pasada|yesno:"true,false" }};
+    var planoLista = null, datosLista = null, alumnoAbierto = null;
+
+    function abrirLista(aula) {
+        document.getElementById('panel-lista').classList.add('abierto');
+        document.getElementById('lista-empezar').textContent = listaPasada ? 'Volver a la clase' : 'Empezar la clase';
+        var url = LISTA_URL + (aula ? '?aula=' + encodeURIComponent(aula) : '');
+        fetch(url, { credentials: 'same-origin' }).then(function(r) { return r.json(); }).then(pintarLista)
+            .catch(function() { document.getElementById('lista-aviso').textContent = 'No he podido traer el plano.'; });
+    }
+
+    function pintarLista(datos) {
+        datosLista = datos;
+        var aulas = document.getElementById('lista-aulas');
+        aulas.innerHTML = '';
+        datos.aulas.forEach(function(a) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.textContent = a.nombre;
+            b.className = a.clave === datos.aula ? 'activa' : '';
+            b.onclick = function() { if (a.clave !== datosLista.aula) abrirLista(a.clave); };
+            aulas.appendChild(b);
+        });
+        var vacio = !datos.disposicion.mesas || !datos.disposicion.mesas.length;
+        var aviso = document.getElementById('lista-aviso');
+        aviso.innerHTML = '';
+        if (vacio) {
+            aviso.appendChild(document.createTextNode('Este aula aún no tiene mesas: pasa lista abajo y '));
+            var a = document.createElement('a');
+            a.href = EDITOR_URL.replace('AULA', datos.aula);
+            a.textContent = 'monta el plano';
+            a.target = '_blank';
+            aviso.appendChild(a);
+            aviso.appendChild(document.createTextNode(' cuando puedas.'));
+        }
+        document.getElementById('lista-sigad-texto').textContent = datos.resumen;
+        var opciones = {
+            modo: 'lista',
+            rejilla: datos.rejilla,
+            datos: datos,
+            onTocar: abrirMarcas,
+        };
+        planoLista = new Plano(document.getElementById('plano-lista'), opciones);
+    }
+
+    function cerrarLista() {
+        cerrarMarcas();
+        document.getElementById('panel-lista').classList.remove('abierto');
+    }
+
+    function empezarClase() {
+        if (listaPasada) { cerrarLista(); return; }
+        fetch(LISTA_PASADA, { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRFToken': LISTA_CSRF } })
+            .then(function(r) { if (r.ok) listaPasada = true; cerrarLista(); })
+            .catch(cerrarLista);
+    }
+
+    function alternarSigad() {
+        document.getElementById('lista-sigad').classList.toggle('visible');
+    }
+
+    function copiarSigad(boton) {
+        var texto = document.getElementById('lista-sigad-texto').textContent;
+        var hecho = function() { boton.textContent = 'Copiado'; setTimeout(function() { boton.textContent = 'Copiar'; }, 1500); };
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(texto).then(hecho);
+        } else {
+            var rango = document.createRange();
+            rango.selectNodeContents(document.getElementById('lista-sigad-texto'));
+            var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(rango);
+            document.execCommand('copy'); hecho();
+        }
+    }
+
+    function abrirMarcas(id, chip) {
+        alumnoAbierto = id;
+        var caja = document.getElementById('marcas-alumno');
+        var alumno = datosLista.alumnado.find(function(a) { return a.id === id; });
+        var marca = datosLista.asistencia[id] || { estado: 'presente', sin_material: [], nota: '' };
+        caja.innerHTML = '';
+        var nombre = document.createElement('div');
+        nombre.className = 'nombre';
+        nombre.textContent = alumno ? alumno.nombre : '';
+        caja.appendChild(nombre);
+
+        var estados = document.createElement('div');
+        estados.className = 'fila';
+        [['presente', 'Está'], ['falta', 'Falta'], ['retraso', 'Retraso']].forEach(function(e) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.dataset.estado = e[0];
+            b.textContent = e[1] + (e[0] === 'retraso' && marca.hora ? ' ' + marca.hora : '');
+            if (marca.estado === e[0]) b.classList.add('activa');
+            b.onclick = function() { enviarMarca({ estado: e[0] }, true); };
+            estados.appendChild(b);
+        });
+        caja.appendChild(estados);
+
+        var materiales = document.createElement('div');
+        materiales.className = 'fila';
+        datosLista.materiales.forEach(function(m) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.dataset.material = m.clave;
+            b.textContent = 'Sin ' + m.nombre.toLowerCase();
+            var tiene = marca.sin_material.indexOf(m.clave) !== -1;
+            if (tiene) b.classList.add('activa');
+            b.onclick = function() {
+                var lista = marca.sin_material.filter(function(c) { return c !== m.clave; });
+                if (!tiene) lista.push(m.clave);
+                enviarMarca({ sin_material: lista }, false);
+            };
+            materiales.appendChild(b);
+        });
+        caja.appendChild(materiales);
+
+        var nota = document.createElement('textarea');
+        nota.placeholder = 'Nota (opcional)';
+        nota.value = marca.nota || '';
+        caja.appendChild(nota);
+        var pie = document.createElement('div');
+        pie.className = 'pie';
+        var cerrar = document.createElement('button');
+        cerrar.type = 'button';
+        cerrar.textContent = 'Cerrar';
+        cerrar.onclick = cerrarMarcas;
+        var guardar = document.createElement('button');
+        guardar.type = 'button';
+        guardar.className = 'guardar';
+        guardar.textContent = 'Guardar nota';
+        guardar.onclick = function() { enviarMarca({ nota: nota.value }, true); };
+        pie.appendChild(cerrar);
+        pie.appendChild(guardar);
+        caja.appendChild(pie);
+
+        // Junto al alumno, sin salirse de la pantalla.
+        caja.classList.add('abierto');
+        var r = chip.getBoundingClientRect();
+        var x = Math.min(window.innerWidth - caja.offsetWidth - 8, Math.max(8, r.left + r.width / 2 - caja.offsetWidth / 2));
+        var y = r.bottom + 8;
+        if (y + caja.offsetHeight > window.innerHeight - 8) y = Math.max(8, r.top - caja.offsetHeight - 8);
+        caja.style.left = x + 'px';
+        caja.style.top = y + 'px';
+    }
+
+    function cerrarMarcas() {
+        alumnoAbierto = null;
+        var caja = document.getElementById('marcas-alumno');
+        if (caja) caja.classList.remove('abierto');
+    }
+
+    // Tocar fuera de un alumno, dentro del plano, cierra sus marcas.
+    document.getElementById('lista-cuerpo').addEventListener('click', function(e) {
+        if (!e.target.closest('.plano-alumno')) cerrarMarcas();
+    });
+
+    function marcasAbiertas() {
+        var caja = document.getElementById('marcas-alumno');
+        return !!(caja && caja.classList.contains('abierto'));
+    }
+
+    function enviarMarca(cambio, cerrarAlAcabar) {
+        var id = alumnoAbierto;
+        cambio.alumno = id;
+        fetch(LISTA_MARCAR, {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': LISTA_CSRF },
+            body: JSON.stringify(cambio),
+        }).then(function(r) {
+            return r.json().catch(function() { return { errores: ['El servidor no ha respondido bien (' + r.status + ')'] }; });
+        }).then(function(cuerpo) {
+            if (cuerpo.errores) { avisoLista('No se ha guardado: ' + cuerpo.errores.join(' · ')); return; }
+            avisoLista('');
+            if (cuerpo.asistencia) datosLista.asistencia[id] = cuerpo.asistencia; else delete datosLista.asistencia[id];
+            document.getElementById('lista-sigad-texto').textContent = cuerpo.resumen;
+            planoLista.marcar(id, cuerpo.asistencia);
+            if (cerrarAlAcabar) { cerrarMarcas(); return; }
+            // Solo si sigue abierto el de este alumno: una respuesta tardía no
+            // puede reabrir un menú que el profesor ya cerró.
+            if (alumnoAbierto !== id || !listaAbierta()) return;
+            var chip = document.querySelector('#plano-lista [data-alumno="' + id + '"]');
+            if (chip) abrirMarcas(id, chip);
+        }).catch(function() { avisoLista('No se ha guardado: sin conexión con el servidor.'); });
+    }
+
+    // Los fallos al marcar se dicen arriba del plano, en rojo: un toque que no
+    // hace nada parecería guardado.
+    function avisoLista(texto) {
+        var aviso = document.getElementById('lista-error');
+        aviso.textContent = texto;
+        aviso.hidden = !texto;
+    }
+    {% endif %}
+
     function esControl(el) {
         return !!(el && el.closest &&
-            el.closest('button, a, input, select, textarea, label, [role="button"], #study-flyout, #lienzo, #panel-evaluar, #pregunta-tratado'));
+            el.closest('button, a, input, select, textarea, label, [role="button"], #study-flyout, #lienzo, #panel-evaluar, #pregunta-tratado, #panel-lista, #marcas-alumno'));
     }
 
     document.addEventListener('click', function(e) {
-        if (lienzoAbierto() || flyoutOpen || preguntaTratadoAbierta()) return;
+        if (lienzoAbierto() || listaAbierta() || flyoutOpen || preguntaTratadoAbierta()) return;
         if (esControl(e.target)) return;
         var margen = window.innerWidth * ANCHO_ZONA;
         if (e.clientX <= margen) {
@@ -1579,7 +1862,11 @@
         }
         if (e.key === 'Escape') {
             // De dentro afuera: primero lo que esté tapando la clase.
-            if (window.evaluarAbierto && evaluarAbierto()) {
+            if (window.marcasAbiertas && marcasAbiertas()) {
+                cerrarMarcas();
+            } else if (listaAbierta()) {
+                cerrarLista();
+            } else if (window.evaluarAbierto && evaluarAbierto()) {
                 cerrarEvaluar();
             } else if (lienzoAbierto()) {
                 cerrarLienzo();
@@ -1592,6 +1879,7 @@
         }
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
         if (lienzoAbierto()) return;
+        if (listaAbierta()) return;
         if (window.evaluarAbierto && evaluarAbierto()) return;
 
         // Con un visor con páginas delante, las flechas son del visor: pasa
@@ -1610,12 +1898,17 @@
         if (e.key === 't' || e.key === 'T') { marcarTratado(true); return; }
         if (e.key === 's' || e.key === 'S') { marcarTratado(false); return; }
         if (e.key === 'n' || e.key === 'N') { e.preventDefault(); alternarNotaDeVoz(); return; }
+        if (e.key === 'l' || e.key === 'L') { abrirLista(); return; }
         if (e.key === 'e' || e.key === 'E') { if (playlist[currentIndex] && playlist[currentIndex].instrumento) abrirEvaluar(); return; }
         {% endif %}
     }, true);
 
     // Start
     buildSyllabus();
+    {% if is_teacher %}
+    // Lo primero de la clase es pasar lista, mientras no se haya pasado.
+    if (!listaPasada) abrirLista();
+    {% endif %}
     if (playlist.length > 0) {
         loadItem(0);
     } else {

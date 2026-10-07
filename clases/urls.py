@@ -4,6 +4,7 @@ from . import views
 from . import views_libros
 from . import views_study_cards
 from . import views_evaluar
+from . import views_plano
 
 app_name = "clases"
 
@@ -471,4 +472,18 @@ urlpatterns = [
         views_study_cards.ocr_confirm,
         name="study_cards_ocr_confirm",
     ),
+    # =============================================================================
+    # PLANO DE CLASE Y PASAR LISTA (fase 70)
+    # =============================================================================
+    path("groups/<int:group_id>/plano/<str:aula>/", views_plano.plano_editor, name="plano_editor"),
+    path("groups/<int:group_id>/plano/<str:aula>/datos/", views_plano.plano_datos, name="plano_datos"),
+    path("groups/<int:group_id>/plano/<str:aula>/guardar/", views_plano.plano_guardar, name="plano_guardar"),
+    path(
+        "groups/<int:group_id>/plano/<str:aula>/restaurar/<int:version_id>/",
+        views_plano.plano_restaurar,
+        name="plano_restaurar",
+    ),
+    path("sessions/<int:pk>/lista/", views_plano.lista_datos, name="lista_datos"),
+    path("sessions/<int:pk>/lista/marcar/", views_plano.lista_marcar, name="lista_marcar"),
+    path("sessions/<int:pk>/lista/pasada/", views_plano.lista_pasada, name="lista_pasada"),
 ]
