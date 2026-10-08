@@ -48,6 +48,21 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
     .cpd figcaption { margin-bottom: 2px; }
     .cpd-dedo { fill: #fff; }
     .cpd-sin span { display: block; font-weight: 400; font-size: 11px; opacity: .6; padding-top: 1.5em; }
+    /* Carril de acordes (2026-10-08): los diagramas de arriba, en pequeño y
+       fijos a la derecha mientras se canta. Sale cuando la tira se va de la
+       pantalla. La letra le deja el hueco siempre que hay diagramas, para no
+       saltar al aparecer. Arriba y abajo deja libres la barra y los botones
+       flotantes de la derecha (avanzar, visto…, desde ~200 px del borde). */
+    .cpv.cpv-con-carril { padding-right: calc(3vw + 250px); }
+    .cpv-carril { position: fixed; right: 12px; top: 56px; max-height: calc(100vh - 56px - 210px); z-index: 9998; width: 240px; box-sizing: border-box;
+                  overflow-y: auto; background: rgba(255,255,255,.94); color: #111; border: 1px solid #e5e7eb;
+                  border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.12); padding: 8px 6px;
+                  display: none; grid-template-columns: repeat(2, 1fr); gap: 6px 4px; align-content: start;
+                  justify-items: center; --cpd-acento: #2563eb; opacity: 0; transition: opacity .2s; }
+    .cpv-carril.cpv-carril-visible { display: grid; opacity: 1; }
+    .cpv-carril .cpd { zoom: 1.15; }
+    @media (max-width: 760px) { .cpv-carril { display: none !important; } .cpv.cpv-con-carril { padding-right: 3vw; } }
+    @media print { .cpv-carril { display: none !important; } .cpv.cpv-con-carril { padding-right: 0 !important; } }
     /* Tocar un acorde de la canción abre su diagrama (2026-10-04). */
     .cpv-salida .chord:not(:empty) { cursor: pointer; }
     .cpv-pop { position: fixed; z-index: 100001; background: #fff; color: #111; border-radius: 10px;
@@ -99,6 +114,7 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
              data-db-guitarra="{% static 'vendor/chords-db/guitar.json' %}"
              data-db-ukelele="{% static 'vendor/chords-db/ukulele.json' %}"></div>
         <div class="cpv-salida" style="font-size: 24px;"></div>
+        <div class="cpv-carril" data-carril aria-label="Acordes de la canción"></div>
         <p class="cpv-aviso" data-error hidden></p>
     {% else %}
         <p class="cpv-aviso">Esta canción ya no tiene letra con acordes.</p>
@@ -179,6 +195,27 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
 
     var refrescarDiagramas = null;
     var tira = visor.querySelector('[data-diagramas]');
+    var carril = visor.querySelector('[data-carril]');
+
+    // El carril copia la tira cada vez que cambia (instrumento, tono, editar):
+    // así no hay una segunda forma de pintar diagramas que desincronizar.
+    var tiraVisible = true;
+    function pintarCarril() {
+        var hay = !tira.hidden && !!tira.querySelector('.cpd');
+        carril.innerHTML = hay ? tira.innerHTML : '';
+        visor.classList.toggle('cpv-con-carril', hay);
+        carril.classList.toggle('cpv-carril-visible', hay && !tiraVisible);
+    }
+    if (carril) {
+        new MutationObserver(pintarCarril).observe(tira, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden'] });
+        // Sin raíz: cuenta el recorte del visor cuando es él quien hace scroll.
+        if ('IntersectionObserver' in window) {
+            new IntersectionObserver(function (entradas) {
+                tiraVisible = entradas[entradas.length - 1].isIntersecting;
+                pintarCarril();
+            }).observe(tira);
+        }
+    }
 
     function pintar() {
         salida.innerHTML = ChordPro.aHtml(cancion, semitonos);

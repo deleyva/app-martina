@@ -121,6 +121,8 @@ class LetraConAcordesTest(TestCase):
         self.assertIn("Letra corregida", html)
         self.assertIn("data-diagramas", html)
         self.assertIn("data-instrumento", html)
+        # Carril de acordes a la derecha mientras se canta (2026-10-08).
+        self.assertIn("data-carril", html)
         self.assertNotIn("I found a", html)
 
     def test_si_se_vacia_el_chordpro_el_visor_lo_dice(self):

@@ -4934,3 +4934,25 @@ Lo pidió Jesús («haz que los enlaces se puedan pulsar y despliega»). El fall
 - Cerrar el panel siempre lo deja en «Pasar lista»: la siguiente vez que se abre (L o el botón) es para marcar.
 - Segunda mirada independiente: no se ha hecho. Es trabajo de interfaz sin permisos nuevos (las vistas y su control de acceso son las de la fase 70, ya revisadas).
 - **Desplegada y verificada en producción (2026-10-08).** Lo pidió Jesús («despliega»). Push `aff797b..2a4d652` (incluye `3678a1d`, Whisper con `av==18.0.0`) y `just deploy-production`; sin migraciones. Whisper en producción: `av 18.0.0` y una nota de prueba sintética devolvió 200 con el texto bien transcrito. En Chrome con la sesión de Jesús, en la sesión 159 (3-C-BIL, 24 mesas, aula de música): conmutador y «Vista desde la pizarra» presentes; girado + «Cambiar sitios» con clics reales, historial cargado, sin guardar nada; se dejó en lista y sin girar.
+
+## Fase 72 — Carril de acordes a la derecha en el visor ChordPro (2026-10-08) · VERIFICADA EN LOCAL, SIN DESPLEGAR
+
+**Goal (literal de Jesús, 2026-10-08):** «Por favor, ¿podrías hacer que los acordes que se ven en los archivos Chord Pro por arriba salgan, mientras estamos cantando las canciones, resumidos a la derecha de la pantalla?» · «Es decir, modifica el viewer de los archivos chordpro.»
+
+### Claims
+
+- [x] **C443** — Cuando la tira de diagramas de arriba sale de la pantalla, aparece un carril fijo a la derecha con esos mismos diagramas en pequeño; al volver arriba se va. *Falsador: Chrome — bajar y subir.* *Cerrada: en Chrome (clase, sesión 120, «Perfect»): arriba `visible=false`; tras bajar, carril con los 6 acordes (G, Em, C, D, G/B, Dsus4) sin tapar letra, barra ni botones flotantes; al volver arriba, `visible=false`.*
+- [x] **C444** — El carril es copia de la tira: sigue el transporte, el instrumento y las {define} sin lógica propia, y desaparece con «Acordes: no». *Falsador: Chrome.* *Cerrada: con +1 el carril pasó a Ab, Fm, Db, Eb, Ab/C, Ebsus4; con «Acordes: no» ni carril ni hueco reservado, y con Ukelele vuelve.*
+- [x] **C445** — La letra le deja el hueco siempre que hay diagramas (no salta al aparecer); en pantallas estrechas (<760 px) y al imprimir no hay carril ni hueco. *Falsador: lectura del CSS + Chrome.* *Cerrada: `.cpv-con-carril` reserva 250 px; reglas `@media (max-width: 760px)` y `@media print` lo anulan.*
+- [x] **C446** — Vale en los tres sitios del visor (clase, pantalla completa de la biblioteca, sesión de estudio): es la misma plantilla. *Cerrada: en Chrome también en `/my-library/view/271/` (scroll de página, no del visor): aparece al bajar. Test: `data-carril` en el visor de la sesión de estudio.*
+- [x] **C447** — La suite del visor no empeora. *Cerrada: `musica/test_letra_con_acordes.py`, `my_library`, `clases/test_tono_de_grupo.py`: 291 passed.*
+
+### Anti-claims
+
+- El carril no tapa la letra ni los botones flotantes de la derecha (queda entre `top: 56px` y 210 px del fondo).
+- No hay una segunda forma de pintar diagramas: el carril copia la tira con un `MutationObserver`.
+
+### Log
+
+- Sin cambios en el bundle `chordpro.js`: todo en `chordpro_viewer.html`.
+- Visto de paso, sin tocar: al transportar, dos acordes muy juntos pueden pegarse en la letra («AbEb» donde el original dice «G D»). Es anterior a esta fase.
