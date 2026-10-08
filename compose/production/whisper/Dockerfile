@@ -7,9 +7,15 @@
 #
 # `requests` no es opcional: sin él, faster-whisper no puede descargar el
 # modelo (medido el 2026-09-24).
+#
+# `av` fijado a mano: faster-whisper no le pone techo. El 2026-10-06 una
+# reconstrucción trajo av 19, que quitó el argumento `metadata_errors` de
+# `av.open()`; faster-whisper (1.1.1 y también 1.2.1) lo pasa siempre, así que
+# TODAS las notas daban 422 sin que nada avisara. Probado bien con 15.1, 16.1 y
+# 18.0. Antes de subir `av` o `faster-whisper`, transcribir una nota de prueba.
 FROM python:3.12-slim
 
-RUN pip install --no-cache-dir faster-whisper==1.1.1 requests
+RUN pip install --no-cache-dir faster-whisper==1.1.1 av==18.0.0 requests
 
 COPY servidor.py /servidor.py
 
