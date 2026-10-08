@@ -4896,3 +4896,41 @@ Lo pidió Jesús («haz que los enlaces se puedan pulsar y despliega»). El fall
 
 **Desplegada y verificada en producción (2026-10-07).** Lo pidió Jesús («despliega»). Copia previa `production_backup_2026_10_07T06_56_16.sql.gz`; push `3e5ebcb..5652464` y `just deploy-production`; aplicada `clases.0025_plano_de_clase` (crea `PlanoDeClase`, `PlanoVersion`, `PaseDeLista` y `Asistencia`; no toca datos). El servidor está en `5652464`. `/api/clases/grupos` sin clave da 401; con la `IES_API_KEY` de Jesús, `plano.ts grupos` lista sus 7 grupos (3-EG-BIL 21, 4-AC-BIL 5, 3-C-BIL 23 alumnos). En Chrome con su sesión, el editor de 3-EG-BIL abre con los 21 en la bandeja «sin sitio». Abrir el editor creó la fila vacía del plano de 3-EG-BIL (su aula), sin mesas ni versión; no se ha marcado asistencia en producción.
 
+
+## Fase 71 — Cambiar sitios sin salir de la clase (2026-10-08) · VERIFICADA EN LOCAL, SIN DESPLEGAR
+
+**Goal (literal de Jesús, 2026-10-08):** «Cuando empiezo cada clase en apps.iesmartinabescos.es, Lo primero que me sale es el plano de la clase para poder pasar lista. Muy bien. Ahora me gustaría poder hacer rearranglos tal y como se hace desde los libros asociados a cada grupo, poder hacer esos apuntes y tener ese editor ahí. En clases, si cambia alguien de sitio, pueda registrarlo sin tener que salir de la sesión de clase. es decir, quiero la misma funcionalidad que se ve en https://apps.iesmartinabescos.es/clases/groups/15/plano/referencia/ pero me gusta la visualización a pantalla completa del inicio de la sesión en https://apps.iesmartinabescos.es/clases/sessions/159/present/ al inicio o clicando en el botón que pusimos para ello»
+
+**Lectura.** «Apuntes» = dejar registrado el cambio de sitio (versión con motivo), como en el editor. Ambigüedad marcada a Jesús.
+
+**Vision.** En el plano a pantalla completa de la clase hay un botón «Cambiar sitios». Al pulsarlo, el mismo plano se vuelve editable sin salir: arrastras a quien se ha cambiado, guardas con un motivo, y con «Pasar lista» vuelves a tocar alumnos. Las marcas de asistencia siguen a la vista mientras editas.
+
+### Claims
+
+- [x] **C435** — El panel de plano de `present` tiene un conmutador «Pasar lista / Cambiar sitios», solo del profesor. *Falsador: test de la plantilla (profesor sí, alumnado no) + Chrome.* *Cerrada: `test_en_clase_se_pueden_cambiar_sitios`, `test_el_alumnado_no_ve_cambiar_sitios`; en Chrome la sesión local 120 abre en «Pasar lista» con el conmutador al lado de las aulas.*
+- [x] **C436** — En «Cambiar sitios» funciona lo mismo que en el editor del grupo: arrastrar alumnado entre plazas y desde/hacia «sin sitio», arrastrar mesas con encaje, añadir mesas de 1/2/4, girar/plazas/quitar, mover la referencia, copiar del otro aula, guardar con motivo (crea `PlanoVersion` de origen pantalla) e historial con «Volver a esta». *Falsador: Chrome con la sesión de Jesús en local: arrastre real y versión nueva en el historial.* *Cerrada: en Chrome (sesión 120, grupo 14), Carla arrastrada con el ratón real al sitio de Simón (se intercambian), «de 2» añade mesa, guardado con motivo → versión «en pantalla» arriba del historial. El resto de piezas (girar, plazas, quitar, referencia) es el mismo `plano.js` en modo editar, ya verificado en la fase 70.*
+- [x] **C437** — Es una sola implementación: la lógica de guardar/restaurar/copiar/historial vive en un fichero compartido que usan el editor del grupo y la clase; el editor del grupo sigue funcionando igual. *Falsador: `rg` (sin duplicado en las plantillas) + Chrome en el editor del grupo guardando.* *Cerrada: `clases/static/clases/plano_edicion.js` lo usan `plano/editor.html` y `present.html`; las funciones de guardar/restaurar/copiar ya no están en ninguna plantilla. En Chrome, en el editor del grupo 14: «Volver a esta» creó la versión «restaurada» y «Copiar del otro aula» dijo «El otro aula aún no tiene mesas».*
+- [x] **C438** — Volver a «Pasar lista» enseña el plano recién guardado con las marcas de asistencia intactas, y tocar a un alumno vuelve a abrir sus marcas. *Falsador: Chrome.* *Cerrada: en Chrome, con Carla en falta antes de editar, siguió en rojo al editar, al guardar y al volver; al volver, 5 mesas (la añadida sin guardar se descartó) y tocarla abrió sus marcas con «Falta» activa.*
+- [x] **C439** — No se pierden cambios sin querer: con cambios sin guardar, cerrar el panel, Escape, cambiar de aula o volver a «Pasar lista» pregunta antes. *Falsador: Chrome.* *Cerrada: en Chrome con `confirm` sustituido (un diálogo real bloquea el navegador): «Pasar lista», Escape, «Aula de música» y ✕ → 4 preguntas, y al decir que no siguió editando con la mesa sin guardar; al decir que sí, volvió a lista.*
+- [x] **C440** — Teclear el motivo no dispara los atajos de la clase (L, D, T, S, N…). *Falsador: Chrome tecleando una frase con esas letras.* *Cerrada: tecleado «Carla y Simon se cambian; Lista de tarde, Nada mas» en el motivo con el teclado real: el panel siguió abierto en modo editar, sin menú ni grabación, y el texto llegó entero.*
+- [x] **C441** — La suite no empeora (referencia fase 70: 1656 passed, 4 failed conocidos). *Cerrada: 1658 passed, 4 failed — los mismos 4 conocidos.*
+- [x] **C442** — (Jesús, 2026-10-08: «añadas un botón ahí para poder verlo de manera invertida, es decir, activando tanto la inversión vertical como la horizontal […] Hay veces que paso lista mirándolos de frente y no me aclaro») Botón «⇅ Vista desde la pizarra» en el panel del plano: invierte los dos ejes (180°) con los nombres derechos, también el orden de las plazas dentro de cada mesa. Es solo vista: lo guardado no cambia, y tocar y arrastrar en vista girada actúan sobre el alumno y el sitio que se ven. Se recuerda por navegador (`localStorage`). *Falsador: Chrome — tocar y arrastrar girado y leer la disposición.* *Cerrada: en Chrome, girado la pantalla sale abajo y Carla (arriba a la izquierda) abajo a la derecha; la mesa de 4 invierte su orden; tocar abajo a la derecha abrió «Carla Moreno Semis»; arrastrarla sobre Wijdan las intercambió en la disposición; subir una mesa en pantalla la llevó de y=100 a y=380 (más lejos de la pantalla); tras recargar sigue girado y el plano guardado no cambió. 52 tests del plano en verde.*
+
+### Anti-claims
+
+- Pasar lista no cambia: abrir la clase sigue mostrando el plano en modo lista y los toques marcan asistencia como antes.
+- El alumnado de la sesión no ve ni el plano ni el conmutador.
+- Ningún cambio de sitio se guarda sin versión.
+
+### Out of Scope
+
+- Cambios en el modelo o en la API del plano (todo lo necesario ya existe en la fase 70).
+
+### Log
+
+- `plano.js` gana `ponerModo()`; la lógica de guardar/restaurar/copiar/historial que vivía dentro de `plano/editor.html` pasa a `plano_edicion.js` (`PlanoEdicion`) y la usan las dos pantallas. Sin cambios de modelo, URL ni migraciones: la clase llama a las mismas vistas `plano_datos/guardar/restaurar` del grupo.
+- Al recargar el plano tras guardar, `PlanoEdicion.aplicar` conserva las marcas de asistencia que ya tenía el plano: el servidor no las manda al guardar y en clase no pueden desaparecer.
+- El aviso de aula sin mesas ya no manda al editor en otra pestaña: dice que se monte con «Cambiar sitios».
+- Cerrar el panel siempre lo deja en «Pasar lista»: la siguiente vez que se abre (L o el botón) es para marcar.
+- Segunda mirada independiente: no se ha hecho. Es trabajo de interfaz sin permisos nuevos (las vistas y su control de acceso son las de la fase 70, ya revisadas).
+- Pendiente de Jesús: commit, push y despliegue (junto con el arreglo de Whisper, `av==18.0.0`).

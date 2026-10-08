@@ -8,6 +8,10 @@
  * `rejilla.alto`) y se pinta en porcentajes, así que el mismo plano encaja en
  * el portátil y en la pizarra. Eventos de puntero, que valen igual para ratón
  * y para dedo.
+ *
+ * `girado` (fase 71) es solo vista: el aula vista desde la pizarra, con los dos
+ * ejes invertidos (180°). Lo guardado no cambia; las posiciones se reflejan al
+ * pintar y al leer el puntero, y los nombres siguen derechos.
  */
 (function () {
   'use strict';
@@ -53,6 +57,7 @@
     this.o = opciones;
     this.r = opciones.rejilla;
     this.modo = opciones.modo || 'editar';
+    this.girado = !!opciones.girado;
     this.seleccion = null;
     this.cargar(opciones.datos);
   }
@@ -90,6 +95,7 @@
     this.c.classList.add('plano');
     this.c.lang = 'es';  // para que `hyphens: auto` sepa partir en castellano
     this.c.classList.toggle('plano-lista', this.modo === 'lista');
+    this.c.classList.toggle('plano-girado', this.girado);
 
     var aula = el('div', 'plano-aula');
     aula.style.aspectRatio = r.ancho + ' / ' + r.alto;
@@ -118,6 +124,7 @@
   };
 
   Plano.prototype.colocar = function (nodo, x, y, ancho, alto) {
+    if (this.girado) { x = this.r.ancho - x - ancho; y = this.r.alto - y - alto; }
     nodo.style.left = this.pct(x, this.r.ancho);
     nodo.style.top = this.pct(y, this.r.alto);
     nodo.style.width = this.pct(ancho, this.r.ancho);
@@ -136,7 +143,9 @@
     this.colocar(nodo, mesa.x, mesa.y, m.ancho, m.alto);
     nodo.style.gridTemplateColumns = 'repeat(' + m.columnas + ', 1fr)';
     nodo.style.gridTemplateRows = 'repeat(' + m.filas + ', 1fr)';
-    for (var p = 0; p < mesa.plazas; p++) {
+    for (var k = 0; k < mesa.plazas; k++) {
+      // Girado, el orden de las plazas al revés es la mesa vista desde enfrente.
+      var p = this.girado ? mesa.plazas - 1 - k : k;
       var plaza = el('div', 'plano-plaza');
       plaza.dataset.mesa = i;
       plaza.dataset.plaza = p;
@@ -211,10 +220,9 @@
 
   Plano.prototype.aUnidades = function (clientX, clientY) {
     var rect = this.aula.getBoundingClientRect();
-    return {
-      x: (clientX - rect.left) / rect.width * this.r.ancho,
-      y: (clientY - rect.top) / rect.height * this.r.alto,
-    };
+    var x = (clientX - rect.left) / rect.width * this.r.ancho;
+    var y = (clientY - rect.top) / rect.height * this.r.alto;
+    return this.girado ? { x: this.r.ancho - x, y: this.r.alto - y } : { x: x, y: y };
   };
 
   Plano.prototype.arrastrable = function (nodo, tipo, dato) {
@@ -250,8 +258,7 @@
         var alto = tipo === 'ref' ? REF_ALTO : self.medidas(base).alto;
         base.x = Math.max(0, Math.min(self.r.ancho - ancho, baseXY.x + ahora.x - origen.x));
         base.y = Math.max(0, Math.min(self.r.alto - alto, baseXY.y + ahora.y - origen.y));
-        nodo.style.left = self.pct(base.x, self.r.ancho);
-        nodo.style.top = self.pct(base.y, self.r.alto);
+        self.colocar(nodo, base.x, base.y, ancho, alto);
       }
 
       function soltar(ev) {
@@ -328,6 +335,18 @@
     this.disposicion.mesas.push(nueva);
     this.seleccion = this.disposicion.mesas.length - 1;
     this.cambio();
+  };
+
+  // En clase se pasa de pasar lista a cambiar sitios sin rehacer el plano.
+  Plano.prototype.ponerModo = function (modo) {
+    this.modo = modo;
+    this.seleccion = null;
+    this.pintar();
+  };
+
+  Plano.prototype.ponerGirado = function (girado) {
+    this.girado = !!girado;
+    this.pintar();
   };
 
   Plano.prototype.marcar = function (id, asistencia) {

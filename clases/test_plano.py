@@ -216,6 +216,26 @@ def test_el_alumnado_no_ve_el_plano(client, sesion, alumnos):
     assert b'id="fab-lista"' not in r.content
 
 
+def test_en_clase_se_pueden_cambiar_sitios(client, profesor, sesion):
+    """Fase 71: el editor del plano dentro de la clase, con las URL del grupo."""
+    client.force_login(profesor)
+    r = client.get(reverse("clases:class_session_present", args=[sesion.pk]))
+    html = r.content.decode()
+    assert 'data-modo="editar"' in html
+    assert 'id="lista-edicion"' in html
+    assert "clases/plano_edicion.js" in html
+    grupo = sesion.group_id
+    assert reverse("clases:plano_guardar", args=[grupo, "AULA"]) in html
+    assert reverse("clases:plano_restaurar", args=[grupo, "AULA", 0]) in html
+
+
+def test_el_alumnado_no_ve_cambiar_sitios(client, sesion, alumnos):
+    client.force_login(alumnos[0])
+    html = client.get(reverse("clases:class_session_present", args=[sesion.pk])).content.decode()
+    assert 'data-modo="editar"' not in html
+    assert 'id="lista-edicion"' not in html
+
+
 def test_el_alumnado_no_puede_leer_la_lista(client, sesion, alumnos):
     client.force_login(alumnos[0])
     assert client.get(reverse("clases:lista_datos", args=[sesion.pk])).status_code in (302, 403, 404)

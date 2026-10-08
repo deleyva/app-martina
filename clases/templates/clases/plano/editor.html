@@ -55,121 +55,40 @@
 {{ datos|json_script:"plano-datos" }}
 {{ rejilla|json_script:"plano-rejilla" }}
 <script src="{% static 'clases/plano.js' %}"></script>
+<script src="{% static 'clases/plano_edicion.js' %}"></script>
 <script>
-  var CSRF = '{{ csrf_token }}';
   var URL_GUARDAR = '{% url "clases:plano_guardar" group.pk aula %}';
   var URL_RESTAURAR = '{% url "clases:plano_restaurar" group.pk aula 0 %}';
   var OTRA = '{% if aula == "referencia" %}musica{% else %}referencia{% endif %}';
   var URL_OTRA = '{% url "clases:plano_datos" group.pk "AULA" %}'.replace('AULA', OTRA);
-  var ORIGENES = { pantalla: 'en pantalla', api: 'por API', restaurar: 'restaurada' };
 
-  var sucio = false;
   var datos = JSON.parse(document.getElementById('plano-datos').textContent);
   var plano = new Plano(document.getElementById('plano'), {
     modo: 'editar',
     rejilla: JSON.parse(document.getElementById('plano-rejilla').textContent),
     datos: datos,
-    onCambio: function () { marcarSucio(true); },
   });
-
-  function marcarSucio(valor) {
-    sucio = valor;
-    document.getElementById('guardar').disabled = !valor;
-    document.getElementById('estado').textContent = valor ? 'Cambios sin guardar' : 'Guardado';
-  }
-
-  function errores(lista) {
-    var caja = document.getElementById('errores');
-    caja.classList.toggle('hidden', !lista);
-    caja.textContent = lista ? lista.join(' · ') : '';
-  }
-
-  function pintarVersiones(versiones) {
-    var ul = document.getElementById('versiones');
-    ul.innerHTML = '';
-    if (!versiones.length) { ul.innerHTML = '<li class="text-base-content/60">Aún no se ha guardado nunca.</li>'; return; }
-    versiones.forEach(function (v, i) {
-      var li = document.createElement('li');
-      li.className = 'flex items-center gap-2';
-      var fecha = new Date(v.fecha).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' });
-      var texto = document.createElement('span');
-      texto.textContent = fecha + ' · ' + (v.autor || '¿?') + ' ' + (ORIGENES[v.origen] || v.origen) + (v.motivo ? ' — ' + v.motivo : '');
-      li.appendChild(texto);
-      if (i === 0) {
-        var actual = document.createElement('span');
-        actual.className = 'badge badge-sm';
-        actual.textContent = 'actual';
-        li.appendChild(actual);
-      } else {
-        var b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'btn btn-xs';
-        b.textContent = 'Volver a esta';
-        b.onclick = function () { restaurar(v.id); };
-        li.appendChild(b);
-      }
-      ul.appendChild(li);
-    });
-  }
-
-  // Un 403 por sesión caducada o un 500 llegan en HTML: también se dicen.
-  function recibir(r) {
-    return r.json().catch(function () { return {}; }).then(function (cuerpo) {
-      if (!r.ok) {
-        errores(cuerpo.errores || ['No se ha podido guardar (' + r.status + '). Si llevas rato con la página abierta, recárgala.']);
-        throw new Error('rechazado');
-      }
-      return cuerpo;
-    });
-  }
-
-  function sinConexion(e) {
-    if (e && e.message !== 'rechazado') errores(['Sin conexión con el servidor: no se ha guardado.']);
-  }
-
-  function aplicar(cuerpo) {
-    errores(null);
-    plano.cargar(cuerpo);
-    pintarVersiones(cuerpo.versiones);
-    marcarSucio(false);
-  }
-
-  function guardar() {
-    fetch(URL_GUARDAR, {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
-      body: JSON.stringify({ disposicion: plano.disposicion, motivo: document.getElementById('motivo').value }),
-    }).then(recibir).then(function (cuerpo) {
-      document.getElementById('motivo').value = '';
-      aplicar(cuerpo);
-    }).catch(sinConexion);
-  }
-
-  function restaurar(id) {
-    if (sucio && !window.confirm('Tienes cambios sin guardar y se perderán. ¿Sigo?')) return;
-    fetch(URL_RESTAURAR.replace(/0\/$/, id + '/'), {
-      method: 'POST', credentials: 'same-origin', headers: { 'X-CSRFToken': CSRF },
-    }).then(recibir).then(aplicar).catch(sinConexion);
-  }
-
-  // Trae las mesas del otro aula y deja los sitios como están allí. No guarda:
-  // queda como cambio pendiente para retocarlo antes.
-  function copiarDeLaOtra() {
-    fetch(URL_OTRA, { credentials: 'same-origin' }).then(recibir).then(function (otra) {
-      if (!otra.disposicion.mesas || !otra.disposicion.mesas.length) {
-        errores(['El otro aula aún no tiene mesas']);
-        return;
-      }
-      plano.cargar({ disposicion: otra.disposicion, alumnado: datos.alumnado });
-      marcarSucio(true);
-    }).catch(sinConexion);
-  }
+  var edicion = new PlanoEdicion(plano, {
+    csrf: '{{ csrf_token }}',
+    alumnado: datos.alumnado,
+    urlGuardar: function () { return URL_GUARDAR; },
+    urlRestaurar: function (id) { return URL_RESTAURAR.replace(/0\/$/, id + '/'); },
+    urlOtra: function () { return URL_OTRA; },
+    el: {
+      guardar: document.getElementById('guardar'),
+      estado: document.getElementById('estado'),
+      motivo: document.getElementById('motivo'),
+      errores: document.getElementById('errores'),
+      versiones: document.getElementById('versiones'),
+    },
+  });
+  function guardar() { edicion.guardar(); }
+  function copiarDeLaOtra() { edicion.copiarDeLaOtra(); }
 
   window.addEventListener('beforeunload', function (e) {
-    if (sucio) { e.preventDefault(); e.returnValue = ''; }
+    if (edicion.sucio) { e.preventDefault(); e.returnValue = ''; }
   });
 
-  pintarVersiones(datos.versiones);
+  edicion.pintarVersiones(datos.versiones);
 </script>
 {% endblock %}

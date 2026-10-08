@@ -162,3 +162,4 @@
 .plano-bandeja-titulo { font-size: 13px; color: var(--plano-texto-suave); margin-bottom: 6px; }
 .plano-bandeja-fila { display: flex; flex-wrap: wrap; gap: 6px; }
 .plano-bandeja .plano-alumno { flex: 0 0 auto; font-size: 13px; padding: 6px 10px; min-height: 34px; }
+.plano-sin-versiones { opacity: 0.6; }

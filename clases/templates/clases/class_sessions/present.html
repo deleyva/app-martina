@@ -28,6 +28,7 @@
     {% if is_teacher %}
     <link rel="stylesheet" href="{% static 'clases/plano.css' %}">
     <script src="{% static 'clases/plano.js' %}"></script>
+    <script src="{% static 'clases/plano_edicion.js' %}"></script>
     {% endif %}
     {% endif %}
     <style>
@@ -90,6 +91,28 @@
         #lista-barra button:hover { background: rgba(255,255,255,0.2); }
         #lista-barra button.activa { background: #2563eb; }
         #lista-barra #lista-empezar { background: #16a34a; font-weight: 700; }
+        #lista-modos { display: inline-flex; background: rgba(255,255,255,0.06); border-radius: 10px; padding: 3px; gap: 3px; margin-left: 8px; }
+        #lista-modos button { padding: 6px 12px; }
+        /* Cambiar sitios (fase 71): barra de mesas debajo y aula algo más baja
+           para que la bandeja «sin sitio» quepa sin hacer scroll al arrastrar. */
+        #lista-edicion { display: none; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 16px; background: #18181b; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 14px; color: #d4d4d8; }
+        #panel-lista.editando #lista-edicion { display: flex; }
+        #lista-edicion .hueco { flex: 1; }
+        #lista-edicion button { border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; padding: 6px 10px; font-size: 14px; cursor: pointer; background: transparent; color: #fff; }
+        #lista-edicion button:hover { background: rgba(255,255,255,0.1); }
+        #lista-edicion button.guardar { background: #2563eb; border-color: #2563eb; font-weight: 700; }
+        #lista-edicion button.guardar:disabled { opacity: 0.4; cursor: default; }
+        #lista-edicion input { width: 220px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: #27272a; color: #fff; padding: 6px 10px; font-size: 14px; }
+        #edicion-estado { color: #a1a1aa; min-width: 9em; }
+        #panel-lista.editando #plano-lista { --plano-hueco: 250px; }
+        #panel-lista.editando #plano-lista .plano-bandeja .plano-alumno { font-size: 15px; }
+        #edicion-historial { display: none; max-width: 1500px; margin: 14px auto 0; color: #d4d4d8; font-size: 14px; }
+        #panel-lista.editando #edicion-historial { display: block; }
+        #edicion-historial summary { cursor: pointer; font-weight: 600; }
+        #edicion-historial ul { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 4px; }
+        #edicion-historial li { display: flex; align-items: center; gap: 8px; }
+        #edicion-historial button { border: none; border-radius: 6px; padding: 3px 8px; background: rgba(255,255,255,0.12); color: #fff; cursor: pointer; font-size: 13px; }
+        #edicion-historial .badge { font-size: 12px; background: rgba(255,255,255,0.12); border-radius: 6px; padding: 1px 6px; }
         #lista-cuerpo { flex: 1; overflow: auto; padding: 16px; }
         /* En clase, el plano manda: casi toda la altura, y letra que se lea desde el fondo. */
         #plano-lista { max-width: 1500px; margin: 0 auto; --plano-hueco: 100px; }
@@ -680,16 +703,38 @@
         <div id="lista-barra">
             <span class="titulo">🪑 {{ session.group.name }}</span>
             <span id="lista-aulas"></span>
+            <span id="lista-modos">
+                <button type="button" data-modo="lista" class="activa" onclick="ponerModoPlano('lista')">Pasar lista</button>
+                <button type="button" data-modo="editar" onclick="ponerModoPlano('editar')">Cambiar sitios</button>
+            </span>
             <span class="hueco"></span>
+            <button type="button" id="lista-girar" onclick="alternarGiro()" aria-pressed="false"
+                    title="Ver el aula desde la pizarra: los dos ejes invertidos. Solo cambia la vista.">⇅ Vista desde la pizarra</button>
             <button type="button" id="lista-ver-sigad" onclick="alternarSigad()">Resumen para SIGAD</button>
             <button type="button" id="lista-empezar" onclick="empezarClase()">Empezar la clase</button>
             <button type="button" onclick="cerrarLista()" aria-label="Cerrar">✕</button>
+        </div>
+        {# Fase 71: lo mismo que el editor del grupo, sin salir de la clase. #}
+        <div id="lista-edicion">
+            <span>Añadir mesa:</span>
+            <button type="button" onclick="planoLista.anadirMesa(1)">individual</button>
+            <button type="button" onclick="planoLista.anadirMesa(2)">de 2</button>
+            <button type="button" onclick="planoLista.anadirMesa(4)">de 4</button>
+            <button type="button" onclick="edicionLista.copiarDeLaOtra()">Copiar del otro aula</button>
+            <span class="hueco"></span>
+            <input id="edicion-motivo" type="text" placeholder="Por qué (opcional)">
+            <button type="button" id="edicion-guardar" class="guardar" onclick="edicionLista.guardar()" disabled>Guardar</button>
+            <span id="edicion-estado">Guardado</span>
         </div>
         <div id="lista-cuerpo">
             <div id="lista-sigad"><pre id="lista-sigad-texto"></pre><button type="button" onclick="copiarSigad(this)">Copiar</button></div>
             <div id="lista-error" hidden style="max-width:1500px;margin:0 auto 10px;background:#7f1d1d;color:#fff;border-radius:8px;padding:8px 12px;font-size:14px;"></div>
             <div id="lista-aviso"></div>
             <div id="plano-lista" class="plano-oscuro"></div>
+            <details id="edicion-historial">
+                <summary>Historial de este plano</summary>
+                <ul id="edicion-versiones"></ul>
+            </details>
         </div>
     </div>
     <div id="marcas-alumno" role="dialog"></div>
@@ -1629,10 +1674,99 @@
     var LISTA_URL = '{% url "clases:lista_datos" session.pk %}';
     var LISTA_MARCAR = '{% url "clases:lista_marcar" session.pk %}';
     var LISTA_PASADA = '{% url "clases:lista_pasada" session.pk %}';
-    var EDITOR_URL = '{% url "clases:plano_editor" session.group_id "AULA" %}';
+    var PLANO_DATOS = '{% url "clases:plano_datos" session.group_id "AULA" %}';
+    var PLANO_GUARDAR = '{% url "clases:plano_guardar" session.group_id "AULA" %}';
+    var PLANO_RESTAURAR = '{% url "clases:plano_restaurar" session.group_id "AULA" 0 %}';
     var LISTA_CSRF = '{{ csrf_token }}';
     var listaPasada = {{ lista_pasada|yesno:"true,false" }};
     var planoLista = null, datosLista = null, alumnoAbierto = null;
+    // Fase 71: 'lista' (tocar marca asistencia) o 'editar' (cambiar sitios).
+    var modoPlano = 'lista', edicionLista = null;
+
+    // Vista desde la pizarra: preferencia de este navegador, no del plano.
+    var vistaGirada = false;
+    try { vistaGirada = localStorage.getItem('plano-girado') === '1'; } catch (e) {}
+
+    function pintarGiro() {
+        var b = document.getElementById('lista-girar');
+        b.classList.toggle('activa', vistaGirada);
+        b.setAttribute('aria-pressed', vistaGirada ? 'true' : 'false');
+    }
+
+    function alternarGiro() {
+        vistaGirada = !vistaGirada;
+        try { localStorage.setItem('plano-girado', vistaGirada ? '1' : '0'); } catch (e) {}
+        pintarGiro();
+        cerrarMarcas();
+        if (planoLista) planoLista.ponerGirado(vistaGirada);
+    }
+
+    function urlDelAula(plantilla, aula) { return plantilla.replace('AULA', aula); }
+    function otraAula() { return datosLista.aula === 'referencia' ? 'musica' : 'referencia'; }
+
+    // Con cambios de sitio sin guardar, nada los tira sin preguntar.
+    function puedoDejarLaEdicion() {
+        return modoPlano !== 'editar' || !edicionLista || edicionLista.puedoDescartar();
+    }
+
+    function ponerModoPlano(modo) {
+        if (modo === modoPlano || !datosLista) return;
+        if (modo === 'lista') {
+            if (!puedoDejarLaEdicion()) return;
+            modoPlano = 'lista';
+            edicionLista = null;
+            abrirLista(datosLista.aula);  // vuelve con lo guardado y las marcas al día
+            return;
+        }
+        modoPlano = 'editar';
+        entrarEnEdicion();
+    }
+
+    function entrarEnEdicion() {
+        cerrarMarcas();
+        pintarModo();
+        planoLista.ponerModo('editar');
+        var aula = datosLista.aula;
+        edicionLista = new PlanoEdicion(planoLista, {
+            csrf: LISTA_CSRF,
+            alumnado: datosLista.alumnado,
+            urlGuardar: function() { return urlDelAula(PLANO_GUARDAR, aula); },
+            urlRestaurar: function(id) { return urlDelAula(PLANO_RESTAURAR, aula).replace(/0\/$/, id + '/'); },
+            urlOtra: function() { return urlDelAula(PLANO_DATOS, otraAula()); },
+            el: {
+                guardar: document.getElementById('edicion-guardar'),
+                estado: document.getElementById('edicion-estado'),
+                motivo: document.getElementById('edicion-motivo'),
+                errores: document.getElementById('lista-error'),
+                versiones: document.getElementById('edicion-versiones'),
+            },
+            onAplicado: function(cuerpo) {
+                datosLista.disposicion = cuerpo.disposicion;
+                datosLista.sin_sitio = cuerpo.sin_sitio;
+                pintarAvisoVacio();
+            },
+        });
+        // El historial solo lo trae el editor; de paso, el plano más reciente.
+        fetch(urlDelAula(PLANO_DATOS, aula), { credentials: 'same-origin' })
+            .then(function(r) { return edicionLista.recibir(r); })
+            .then(function(cuerpo) { if (edicionLista && datosLista.aula === aula) edicionLista.aplicar(cuerpo); })
+            .catch(function(e) { if (edicionLista) edicionLista.sinConexion(e); });
+    }
+
+    function pintarModo() {
+        document.getElementById('panel-lista').classList.toggle('editando', modoPlano === 'editar');
+        document.querySelectorAll('#lista-modos button').forEach(function(b) {
+            b.classList.toggle('activa', b.dataset.modo === modoPlano);
+        });
+    }
+
+    function pintarAvisoVacio() {
+        var vacio = !datosLista.disposicion.mesas || !datosLista.disposicion.mesas.length;
+        var aviso = document.getElementById('lista-aviso');
+        aviso.textContent = !vacio ? '' : modoPlano === 'editar'
+            ? 'Este aula aún no tiene mesas: añádelas arriba y arrastra al alumnado desde «sin sitio».'
+            : 'Este aula aún no tiene mesas: pasa lista abajo y móntalo con «Cambiar sitios» cuando puedas.';
+    }
 
     function abrirLista(aula) {
         document.getElementById('panel-lista').classList.add('abierto');
@@ -1651,32 +1785,33 @@
             b.type = 'button';
             b.textContent = a.nombre;
             b.className = a.clave === datos.aula ? 'activa' : '';
-            b.onclick = function() { if (a.clave !== datosLista.aula) abrirLista(a.clave); };
+            b.onclick = function() {
+                if (a.clave === datosLista.aula || !puedoDejarLaEdicion()) return;
+                abrirLista(a.clave);
+            };
             aulas.appendChild(b);
         });
-        var vacio = !datos.disposicion.mesas || !datos.disposicion.mesas.length;
-        var aviso = document.getElementById('lista-aviso');
-        aviso.innerHTML = '';
-        if (vacio) {
-            aviso.appendChild(document.createTextNode('Este aula aún no tiene mesas: pasa lista abajo y '));
-            var a = document.createElement('a');
-            a.href = EDITOR_URL.replace('AULA', datos.aula);
-            a.textContent = 'monta el plano';
-            a.target = '_blank';
-            aviso.appendChild(a);
-            aviso.appendChild(document.createTextNode(' cuando puedas.'));
-        }
+        pintarAvisoVacio();
         document.getElementById('lista-sigad-texto').textContent = datos.resumen;
         var opciones = {
             modo: 'lista',
+            girado: vistaGirada,
             rejilla: datos.rejilla,
             datos: datos,
             onTocar: abrirMarcas,
         };
         planoLista = new Plano(document.getElementById('plano-lista'), opciones);
+        pintarGiro();
+        // Cambiando de aula a mitad de una edición, se sigue editando.
+        if (modoPlano === 'editar') entrarEnEdicion(); else pintarModo();
     }
 
+    // Cerrar siempre vuelve a «pasar lista»: la próxima vez se abre para eso.
     function cerrarLista() {
+        if (!puedoDejarLaEdicion()) return;
+        modoPlano = 'lista';
+        edicionLista = null;
+        pintarModo();
         cerrarMarcas();
         document.getElementById('panel-lista').classList.remove('abierto');
     }
