@@ -4935,7 +4935,7 @@ Lo pidió Jesús («haz que los enlaces se puedan pulsar y despliega»). El fall
 - Segunda mirada independiente: no se ha hecho. Es trabajo de interfaz sin permisos nuevos (las vistas y su control de acceso son las de la fase 70, ya revisadas).
 - **Desplegada y verificada en producción (2026-10-08).** Lo pidió Jesús («despliega»). Push `aff797b..2a4d652` (incluye `3678a1d`, Whisper con `av==18.0.0`) y `just deploy-production`; sin migraciones. Whisper en producción: `av 18.0.0` y una nota de prueba sintética devolvió 200 con el texto bien transcrito. En Chrome con la sesión de Jesús, en la sesión 159 (3-C-BIL, 24 mesas, aula de música): conmutador y «Vista desde la pizarra» presentes; girado + «Cambiar sitios» con clics reales, historial cargado, sin guardar nada; se dejó en lista y sin girar.
 
-## Fase 72 — Carril de acordes a la derecha en el visor ChordPro (2026-10-08) · VERIFICADA EN LOCAL, SIN DESPLEGAR
+## Fase 72 — Carril de acordes a la derecha en el visor ChordPro (2026-10-08) · DESPLEGADA Y VERIFICADA EN PRODUCCIÓN (`7db0213`)
 
 **Goal (literal de Jesús, 2026-10-08):** «Por favor, ¿podrías hacer que los acordes que se ven en los archivos Chord Pro por arriba salgan, mientras estamos cantando las canciones, resumidos a la derecha de la pantalla?» · «Es decir, modifica el viewer de los archivos chordpro.»
 
@@ -4956,3 +4956,4 @@ Lo pidió Jesús («haz que los enlaces se puedan pulsar y despliega»). El fall
 
 - Sin cambios en el bundle `chordpro.js`: todo en `chordpro_viewer.html`.
 - Visto de paso, sin tocar: al transportar, dos acordes muy juntos pueden pegarse en la letra («AbEb» donde el original dice «G D»). Es anterior a esta fase.
+- **Desplegada y verificada en producción (2026-10-08).** Lo pidió Jesús («despliega»). Push `2a4d652..7db0213` y `just deploy-production`; sin migraciones. En Chrome con su sesión, sesión 159 (3-C-BIL), «Al cantar» (Platero): arriba sin carril; al bajar, carril con C, G, Am y F a la derecha sin tapar letra ni botones.
