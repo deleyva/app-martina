@@ -4897,7 +4897,7 @@ Lo pidió Jesús («haz que los enlaces se puedan pulsar y despliega»). El fall
 **Desplegada y verificada en producción (2026-10-07).** Lo pidió Jesús («despliega»). Copia previa `production_backup_2026_10_07T06_56_16.sql.gz`; push `3e5ebcb..5652464` y `just deploy-production`; aplicada `clases.0025_plano_de_clase` (crea `PlanoDeClase`, `PlanoVersion`, `PaseDeLista` y `Asistencia`; no toca datos). El servidor está en `5652464`. `/api/clases/grupos` sin clave da 401; con la `IES_API_KEY` de Jesús, `plano.ts grupos` lista sus 7 grupos (3-EG-BIL 21, 4-AC-BIL 5, 3-C-BIL 23 alumnos). En Chrome con su sesión, el editor de 3-EG-BIL abre con los 21 en la bandeja «sin sitio». Abrir el editor creó la fila vacía del plano de 3-EG-BIL (su aula), sin mesas ni versión; no se ha marcado asistencia en producción.
 
 
-## Fase 71 — Cambiar sitios sin salir de la clase (2026-10-08) · VERIFICADA EN LOCAL, SIN DESPLEGAR
+## Fase 71 — Cambiar sitios sin salir de la clase (2026-10-08) · DESPLEGADA Y VERIFICADA EN PRODUCCIÓN (`2a4d652`)
 
 **Goal (literal de Jesús, 2026-10-08):** «Cuando empiezo cada clase en apps.iesmartinabescos.es, Lo primero que me sale es el plano de la clase para poder pasar lista. Muy bien. Ahora me gustaría poder hacer rearranglos tal y como se hace desde los libros asociados a cada grupo, poder hacer esos apuntes y tener ese editor ahí. En clases, si cambia alguien de sitio, pueda registrarlo sin tener que salir de la sesión de clase. es decir, quiero la misma funcionalidad que se ve en https://apps.iesmartinabescos.es/clases/groups/15/plano/referencia/ pero me gusta la visualización a pantalla completa del inicio de la sesión en https://apps.iesmartinabescos.es/clases/sessions/159/present/ al inicio o clicando en el botón que pusimos para ello»
 
@@ -4933,4 +4933,4 @@ Lo pidió Jesús («haz que los enlaces se puedan pulsar y despliega»). El fall
 - El aviso de aula sin mesas ya no manda al editor en otra pestaña: dice que se monte con «Cambiar sitios».
 - Cerrar el panel siempre lo deja en «Pasar lista»: la siguiente vez que se abre (L o el botón) es para marcar.
 - Segunda mirada independiente: no se ha hecho. Es trabajo de interfaz sin permisos nuevos (las vistas y su control de acceso son las de la fase 70, ya revisadas).
-- Pendiente de Jesús: commit, push y despliegue (junto con el arreglo de Whisper, `av==18.0.0`).
+- **Desplegada y verificada en producción (2026-10-08).** Lo pidió Jesús («despliega»). Push `aff797b..2a4d652` (incluye `3678a1d`, Whisper con `av==18.0.0`) y `just deploy-production`; sin migraciones. Whisper en producción: `av 18.0.0` y una nota de prueba sintética devolvió 200 con el texto bien transcrito. En Chrome con la sesión de Jesús, en la sesión 159 (3-C-BIL, 24 mesas, aula de música): conmutador y «Vista desde la pizarra» presentes; girado + «Cambiar sitios» con clics reales, historial cargado, sin guardar nada; se dejó en lista y sin girar.
