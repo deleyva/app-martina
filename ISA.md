@@ -5026,7 +5026,7 @@ Lo pidió Jesús («haz que los enlaces se puedan pulsar y despliega»). El fall
 - Recordatorio semanal de la pasada: evento recurrente en Google Calendar, los viernes de 8:00 a 8:15 desde el 16/10, con aviso emergente. **No en `DASchedule`**: esa cola no la lee ningún proceso (la tarea del 25/09 sigue `active` con 0 disparos).
 - **Desplegada (2026-10-09)** dentro del despliegue de la fase 73 que hizo Jesús desde la otra sesión: el commit `b0a3a60` incluye estos ficheros; servidor en `134ada4`. En Chrome con su sesión, sesión 159, «Rise»: `ChordPro.marcarCortes` presente, 37 acordes, 0 pegados.
 
-## Fase 75 — Patrones de batería con iconos en las canciones (2026-10-09) · VERIFICADA EN LOCAL, SIN DESPLEGAR
+## Fase 75 — Patrones de batería con iconos en las canciones (2026-10-09) · DESPLEGADA Y VERIFICADA EN PRODUCCIÓN (`3782048`)
 
 **Goal (literal de Jesús, 2026-10-09):** «se podría, en la skill de publicar canciones en la aplicación, introducir alguna manera de generar patrones para la banda, tal y como los hace MusicWill? Es decir, ellos publican PDFs, pero esos PDFs no los puedo editar. De momento, lo que más me interesa serían los patrones de batería sencillos con iconos como ellos los hacen, y una correspondencia de iconos con partes del cuerpo, con SH para el Charles (hihat)» · «sí! planifica! Podemos dejarlo hecho hoy!»
 
@@ -5081,3 +5081,4 @@ BO: x . . . x x . .
 - Primer test de JS del repo: `bun test martina_bescos_app/static/js/src/ritmos.test.js`.
 - La canción local «Perfect — prueba ChordPro» (página 858) quedó con dos bloques de ritmo guardados para las pruebas. Solo local.
 - En la verificación, la ventana cambió de alto entre capturas y dos clics cayeron fuera; se comprobó el estado leyendo la página antes de seguir.
+- **Desplegada y verificada en producción (2026-10-09).** Lo pidió Jesús («Despliega»). Push `134ada4..3782048` (incluye `44573aa`, ISA de la fase 73 de la otra sesión) y `just deploy-production`; sin migraciones. En Chrome con su sesión, sesión 159, «Al cantar»: en la vista previa del editor un bloque de rock 4/4 se dibuja (1 rejilla, 0 errores, cuenta «1 y 2 y 3 y 4 y»); se canceló devolviendo el texto original, así que la canción de producción no tiene ritmos todavía. El sonido real queda para que Jesús lo escuche en clase.
