@@ -5,6 +5,7 @@ from datetime import timedelta
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Case
+from django.db.models import Count
 from django.db.models import IntegerField
 from django.db.models import Prefetch
 from django.db.models import Q
@@ -18,6 +19,7 @@ from django.shortcuts import render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.text import slugify
 from django.views import View
 from django.views.generic import CreateView
 from django.views.generic import DetailView
@@ -183,6 +185,7 @@ class CrearIncidenciaView(CreateView):
 
     def form_valid(self, form):
         incidencia = form.save()
+        acciones.registrar_referencias(incidencia, incidencia.descripcion)
 
         # Handle file attachments
         files = self.request.FILES.getlist("archivos")
@@ -230,6 +233,8 @@ class DetalleIncidenciaView(DetailView):
         context["adjuntos"] = self.object.adjuntos.all()
         context["comentario_form"] = ComentarioForm()
         context["historial_asignaciones"] = self.object.historial_asignaciones.all()
+        context["relacionadas"] = self.object.relacionadas()
+        context["unida_a"] = self.object.unida_a
         # Technician context for action buttons
         is_tecnico = _is_tecnico(self.request.user)
         context["is_tecnico"] = is_tecnico
@@ -272,6 +277,26 @@ class AgregarComentarioView(View):
         return redirect("incidencias:detalle", pk=pk)
 
 
+class UnirIncidenciaView(TecnicoRequiredMixin, View):
+    """Cerrar una incidencia dentro de otra que sigue abierta (POST, técnico)."""
+
+    def post(self, request, pk):
+        origen = get_object_or_404(Incidencia, pk=pk)
+        destino_txt = request.POST.get("destino", "").strip().lstrip("#")
+        destino = Incidencia.objects.filter(pk=int(destino_txt)).first() if destino_txt.isdigit() else None
+        if destino is None:
+            messages.error(request, f"No hay ninguna incidencia #{destino_txt or '?'}")
+            return redirect("incidencias:detalle", pk=pk)
+        autor = (request.user.email or "").split("@")[0] or str(request.user)
+        try:
+            acciones.unir(origen, destino, autor, request.POST.get("nota", ""))
+        except acciones.UnionInvalida as e:
+            messages.error(request, str(e))
+            return redirect("incidencias:detalle", pk=pk)
+        messages.success(request, f"#{origen.pk} unida a #{destino.pk}")
+        return redirect("incidencias:detalle", pk=destino.pk)
+
+
 # =============================================================================
 # API autocompletado (JSON)
 # =============================================================================
@@ -301,22 +326,26 @@ class ApiUbicacionesView(View):
 
 
 class ApiEtiquetasView(View):
-    """JSON endpoint para autocompletado de etiquetas."""
+    """JSON para el selector de etiquetas: las más usadas primero, con su color.
+
+    Sin `q` devuelve todas (son pocas) y el selector filtra en el navegador sin
+    tildes ni mayúsculas. Con `q` filtra aquí, también por slug, que no lleva tildes.
+    """
 
     def get(self, request):
         q = request.GET.get("q", "").strip()
-        qs = Etiqueta.objects.all()
+        qs = Etiqueta.objects.annotate(usos=Count("incidencias")).order_by("-usos", "nombre")
         if q:
-            qs = qs.filter(
-                Q(nombre__icontains=q) | Q(slug__icontains=q),
-            )
+            qs = qs.filter(Q(nombre__icontains=q) | Q(slug__icontains=slugify(q)))
         data = [
             {
                 "id": e.id,
                 "text": e.nombre,
                 "slug": e.slug,
+                "tono": e.tono,
+                "usos": e.usos,
             }
-            for e in qs[:20]
+            for e in qs[:200]
         ]
         return JsonResponse(data, safe=False)
 
@@ -422,7 +451,7 @@ class EditarIncidenciaView(TecnicoRequiredMixin, UpdateView):
         etiquetas = incidencia.etiquetas.all()
         if etiquetas.exists():
             context["etiquetas_actuales_json"] = json.dumps([
-                {"id": e.id, "text": e.nombre, "slug": e.slug}
+                {"id": e.id, "text": e.nombre, "slug": e.slug, "tono": e.tono}
                 for e in etiquetas
             ])
 

@@ -180,10 +180,9 @@ def _process_single_email(message, parser: EmailIncidenciaParser):
 
     # Handle new etiquetas
     for etiqueta_nombre in parsed.get("etiquetas_nuevas", []):
-        etiqueta, _ = Etiqueta.objects.get_or_create(
-            nombre=etiqueta_nombre,
-        )
-        incidencia.etiquetas.add(etiqueta)
+        etiqueta = Etiqueta.obtener_o_crear(etiqueta_nombre, por="correo")
+        if etiqueta:
+            incidencia.etiquetas.add(etiqueta)
 
     # Process attachments
     if hasattr(message, "attachments") and message.attachments:

@@ -11,6 +11,7 @@ urlpatterns = [
     path("crear/", views.CrearIncidenciaView.as_view(), name="crear"),
     path("<int:pk>/", views.DetalleIncidenciaView.as_view(), name="detalle"),
     path("<int:pk>/comentar/", views.AgregarComentarioView.as_view(), name="comentar"),
+    path("<int:pk>/unir/", views.UnirIncidenciaView.as_view(), name="unir"),
     path("ayuda/", views.AyudaView.as_view(), name="ayuda"),
     path("servicio/<str:token>/", views.PaginaServicioView.as_view(), name="servicio_publico"),
     # --- Derivaciones (técnicos) ---

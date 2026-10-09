@@ -39,7 +39,7 @@
         <span class="badge badge-info badge-outline badge-xs" title="{{ d.estado_texto }}">📤 {{ d.servicio.nombre|truncatechars:22 }}</span>
       {% endfor %}
       {% for et in incidencia.etiquetas.all %}
-        <span class="badge badge-ghost badge-xs">{{ et.nombre }}</span>
+        <span class="etq etq-sm" style="--h: {{ et.tono }}">{{ et.nombre }}</span>
       {% endfor %}
     </div>
 

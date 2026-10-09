@@ -90,46 +90,8 @@
           </div>
         </div>
 
-        <!-- Etiquetas (autocomplete multi) -->
-        <div class="form-control mb-4" x-data="etiquetaAutocomplete({{ etiquetas_actuales_json|default:'[]' }})">
-          <label class="label">
-            <span class="label-text font-semibold">🏷️ Etiquetas</span>
-          </label>
-          <div class="relative">
-            <input type="text"
-                   x-model="query"
-                   @input="search()"
-                   @focus="showDropdown = true"
-                   @click.outside="showDropdown = false"
-                   placeholder="Buscar etiquetas (ej: internet, proyectar...)"
-                   class="input input-bordered w-full"
-                   autocomplete="off">
-            <input type="hidden" name="etiquetas_ids" x-model="selectedIdsStr">
-
-            <!-- Dropdown -->
-            <div x-show="showDropdown && results.length > 0"
-                 x-transition
-                 class="autocomplete-dropdown bg-base-100 border border-base-300 rounded-lg mt-1 shadow-lg">
-              <template x-for="item in results" :key="item.id">
-                <div @click="toggle(item)"
-                     class="autocomplete-item px-4 py-2 cursor-pointer flex justify-between items-center"
-                     :class="{'bg-primary/10': isSelected(item.id)}">
-                  <span x-text="item.text"></span>
-                  <span x-show="isSelected(item.id)" class="text-success">✓</span>
-                </div>
-              </template>
-            </div>
-          </div>
-          <!-- Selected tags -->
-          <div class="flex flex-wrap gap-2 mt-2">
-            <template x-for="tag in selectedTags" :key="tag.id">
-              <span class="tag-chip">
-                🏷️ <span x-text="tag.text"></span>
-                <span class="remove-tag" @click="removeTag(tag.id)">✕</span>
-              </span>
-            </template>
-          </div>
-        </div>
+        <!-- Etiquetas -->
+        {% include "incidencias/partials/etiquetas_input.html" with iniciales=etiquetas_actuales_json %}
 
         <!-- Urgencia -->
         <div class="form-control mb-4">
@@ -202,47 +164,6 @@
       clear() {
         this.selectedId = '';
         this.selectedText = '';
-      }
-    };
-  }
-
-  function etiquetaAutocomplete(initialData) {
-    return {
-      query: '',
-      results: [],
-      showDropdown: false,
-      selectedTags: initialData || [],
-      get selectedIdsStr() {
-        return this.selectedTags.map(t => t.id).join(',');
-      },
-      async search() {
-        if (this.query.length < 1) {
-          // Show all tags when focused
-          try {
-            const resp = await fetch(`{% url 'incidencias:api_etiquetas' %}`);
-            this.results = await resp.json();
-            this.showDropdown = true;
-          } catch(e) { console.error(e); }
-          return;
-        }
-        try {
-          const resp = await fetch(`{% url 'incidencias:api_etiquetas' %}?q=${encodeURIComponent(this.query)}`);
-          this.results = await resp.json();
-          this.showDropdown = true;
-        } catch(e) { console.error(e); }
-      },
-      isSelected(id) {
-        return this.selectedTags.some(t => t.id === id);
-      },
-      toggle(item) {
-        if (this.isSelected(item.id)) {
-          this.removeTag(item.id);
-        } else {
-          this.selectedTags.push(item);
-        }
-      },
-      removeTag(id) {
-        this.selectedTags = this.selectedTags.filter(t => t.id !== id);
       }
     };
   }

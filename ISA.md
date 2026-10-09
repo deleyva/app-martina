@@ -1,10 +1,10 @@
 ---
 slug: app-martina
-phase: complete
+phase: build
 progress: true
-iteration: 60
+iteration: 61
 principal_stated_goal: "Yo solo quiero añadir evidencias tal cual están diseñadas en la aplicación de Notas. Por favor, copiala. Usa en vez de HTMLX, usa, en fin, haz lo que sea, pero que sea igual visualmente. Me gusta mucho esa forma de calificar, esa aplicación que hicimos."
-updated: 2026-10-07
+updated: 2026-10-09
 ---
 
 # ISA — app-martina · Sistema de estudio de la biblioteca
@@ -4957,3 +4957,65 @@ Lo pidió Jesús («haz que los enlaces se puedan pulsar y despliega»). El fall
 - Sin cambios en el bundle `chordpro.js`: todo en `chordpro_viewer.html`.
 - Visto de paso, sin tocar: al transportar, dos acordes muy juntos pueden pegarse en la letra («AbEb» donde el original dice «G D»). Es anterior a esta fase.
 - **Desplegada y verificada en producción (2026-10-08).** Lo pidió Jesús («despliega»). Push `2a4d652..7db0213` y `just deploy-production`; sin migraciones. En Chrome con su sesión, sesión 159 (3-C-BIL), «Al cantar» (Platero): arriba sin carril; al bajar, carril con C, G, Am y F a la derecha sin tapar letra ni botones.
+
+## Fase 73 — Etiquetas vivas y referencias entre incidencias (2026-10-09) · HECHA EN LOCAL, SIN DESPLEGAR
+
+**Goal (literal de Jesús, 2026-10-09):** «En la aplicación de incidencias, querría poner etiquetas más dinámicas, es decir, que pudieran añadirse etiquetas con chips escribiéndolas, que te sugirieran las que ya existen y que quedaran marcadas con coloritos así bonitos. Un usuario pudiera escribir etiquetas nuevas y, una vez a la semana, tú y yo las unifiquemos. También me gustaría desarrollar la feature por la que, desde una incidencia, se puede referenciar a otra. Así puedo ir aglutinando incidencias o cerrando unas, pero dejando una referencia a la otra que ha abierto con el comentario de la primera.»
+
+**Lectura.** Dos piezas. (1) Etiquetas: escribir y pulsar Intro crea un chip; mientras se escribe salen las que ya existen; cada etiqueta tiene su color, el mismo en todas las pantallas; cualquiera puede inventar una nueva, que queda «sin revisar» hasta la pasada semanal, donde se fusionan o se renombran por API desde la skill. (2) Referencias: escribir `#123` en un comentario enlaza la incidencia 123 y deja la vuelta en ella; y un técnico puede **unir** una incidencia a otra: la primera se cierra y la que sigue abierta recibe un comentario con lo que decía la primera. *Ambigüedad marcada a Jesús: «unir» cierra como Resuelta con un aviso «Unida a #N», no con un estado nuevo, para no tocar el kanban.*
+
+### Claims
+
+- [x] **C448** — Escribir un nombre y pulsar Intro (o coma) en el campo de etiquetas lo convierte en chip; Retroceso con el campo vacío quita el último; ↑/↓ e Intro eligen sugerencia. *Falsador: Chrome en crear y en editar.* *Cerrada: en Chrome (crear, local): «proyeccion»+Intro → chip «nueva»; «proy»+Intro eligió la sugerencia marcada (Proyectar); «INTERNET,» reutilizó Internet; «wifi lenta,» creó chip; Retroceso con el campo vacío lo quitó. Hidden: ids `4,5`, nuevas `["proyeccion"]`.*
+- [x] **C449** — Mientras se escribe se sugieren las existentes, ignorando mayúsculas y tildes («proyeccion» encuentra «Proyección»), ordenadas por uso; si no hay coincidencia exacta, la última opción es «Crear «x»». *Falsador: Chrome + test de la API de autocompletado.* *Cerrada: en Chrome «proy» sugiere Proyectar (5 incidencias) y Falta Proyector/Pantalla (4) y al final «➕ Crear proy». Test `test_autocompletado_ordena_por_uso_y_trae_tono` (orden por uso, `raton` encuentra «Ratón»).*
+- [x] **C450** — Una etiqueta nueva escrita por un usuario se guarda con la incidencia y queda `revisada=False` con su autor; si su forma normalizada ya existe («PROYECTOR», «proyéctor») se reutiliza la existente y no se crea otra. *Falsador: tests del formulario.* *Cerrada: `test_misma_etiqueta_sin_tildes_ni_mayusculas`, `test_crear_con_etiqueta_nueva_y_existente` (nueva con `revisada=False`, `creada_por=eromero`; «proyéctor» reutiliza).*
+- [x] **C451** — Cada etiqueta tiene color estable (derivado de su slug si nadie lo fija) y se ve con ese color en crear, editar, detalle, lista pública y tarjeta del panel, en tema claro y oscuro. *Falsador: rg de los sitios que pintan etiquetas + Chrome con capturas en los dos temas.* *Cerrada: `.etq` con `--h` en crear/editar (partial compartido), detalle, `lista_incidencias`, `panel_card`; capturas vistas en Chrome en claro (detalle, lista pública, editar) y oscuro (detalle, panel).*
+- [x] **C452** — Todo sitio que crea etiquetas pasa por una sola función (`Etiqueta.obtener_o_crear`), incluido el correo (`tasks.py`, que hoy crea con slug vacío y reventaría a la segunda). *Falsador: rg de `Etiqueta.objects.create|get_or_create` fuera de tests = 0.* *Cerrada: `rg "Etiqueta\.objects\.(create|get_or_create)|Etiqueta\("` fuera de tests y migraciones → solo la definición de la clase. 🧹 CLASS-SWEEP: creación de etiquetas — 2 sitios (formulario, correo `tasks.py`); 2 pasados a `obtener_o_crear`.*
+- [x] **C453** — La pasada semanal se puede hacer entera por API: listar etiquetas con uso, color, revisada y autor; renombrar/recolorear/marcar revisada; fusionar una en otra (sus incidencias pasan a la de destino y la origen desaparece). *Falsador: tests de la API.* *Cerrada: `GET /api/incidencias/etiquetas?revisada=false`, `PATCH /etiquetas/{slug}`, `POST /etiquetas/{slug}/fusionar`; tests `test_api_lista_las_pendientes_de_revisar`, `test_api_renombra_recolorea_y_revisa`, `test_api_fusiona`.*
+- [x] **C454** — `#123` en un comentario (o en la descripción al crear) se pinta como enlace a la incidencia 123 si existe; dentro de una URL no; de una incidencia privada no se enseña el título. *Falsador: tests del filtro.* *Cerrada: `test_numeros_citados` (URL, `/#`, `&#`, `##` no cuentan), `test_enlace_no_desvela_privada`; en Chrome la descripción enlaza #138 (⚡) y #137 (🔒).*
+- [x] **C455** — Una referencia deja rastro en las dos: la incidencia citada lista «Mencionada en #A» y la que cita lista «Menciona #B», con estado. *Falsador: test + Chrome.* *Cerrada: `test_comentario_con_hash_deja_rastro_en_las_dos`; en Chrome #140 lista «Menciona a #137/#138» y #138 «Mencionada en #140».*
+- [x] **C456** — Un técnico puede unir A a B (detalle y API): A pasa a Resuelta con aviso «Unida a #B», A recibe un comentario que lo dice (le llega al que la abrió) y B recibe un comentario con la descripción de A y quién la abrió. No se puede unir a sí misma ni a una que ya está unida a ella. *Falsador: tests de acciones y API + Chrome.* *Cerrada: en Chrome, #140 unida a #138 con el diálogo: mensaje «#140 unida a #138», #140 Resuelta con aviso azul «se unió a #138», #138 sigue En progreso con comentario «Se le une #140 … abierta por jlopez» + descripción + nota. Tests de acciones (círculos, a sí misma), vista (solo técnico) y API (`/unir`, 422 al repetir).*
+- [x] **C457** — La suite de incidencias no empeora (línea base 2026-10-09: 226 passed, 2 failed conocidos `test_filter_by_planta`, `test_panel_has_custom_title`). *Cerrada: 250 passed, 2 failed — los mismos 2 de la línea base.*
+
+### Anti-claims
+
+- Ninguna incidencia pierde etiquetas al migrar ni al fusionar.
+- Un anónimo no puede crear etiquetas sin límite: como mucho 8 nuevas por envío y 40 caracteres cada una.
+- No se filtra el título de una incidencia privada a través de una referencia.
+- Las etiquetas existentes no quedan como «sin revisar»: la migración las marca revisadas.
+
+### Out of Scope
+
+- Un estado nuevo «Unida» en el kanban. Filtrar el panel por chips (el filtro de texto actual sigue).
+- Interfaz de fusión de etiquetas en el panel: la pasada es por API desde la skill.
+
+### Log
+
+
+## Fase 74 — Acordes que no se pegan y palabras partidas con guion (2026-10-09) · VERIFICADA EN LOCAL, SIN DESPLEGAR
+
+**Goal (literal de Jesús, 2026-10-09):** «Sí, por favor, arregla el espaciado entre acordes. Antes te he dicho que no, pero ya veo por qué me decías que molestaba.» (Captura: la línea de interludio `[G] [D/F#] [Em] [D] | [C] [D]` se veía «GD/F#EmD| CD».)
+
+### Claims
+
+- [x] **C458** — Dos acordes seguidos nunca se tocan, tengan o no letra debajo: interludios de solo acordes y dos acordes sobre una palabra corta. *Falsador: medir en Chrome la distancia entre el final del texto de cada acorde y el inicio del siguiente en la misma fila; la medición tiene que detectar los pegados con el arreglo desactivado.* *Cerrada: en la clase («Perfect», +1), sin el arreglo 3 pares pegados (Ab|Eb ×2, Eb|Ab) y con él 0; en la vista previa del editor, la línea de interludio sale «G D/F# Em D | C D» con 0 pegados; en la página de la canción, 90 acordes y 0 pegados.*
+- [x] **C459** — Si el hueco cae a mitad de una palabra, se marca el corte con un guion («ti-me»), medido en pantalla (vale para letra de ancho fijo y para la página de la canción, que no lo es). Sin hueco no hay guion. *Falsador: Chrome.* *Cerrada: «Perfect» en tono original: 0 guiones; a +1: «ti-me» ×2 y «to-night», en la clase y en la página de la canción (capturas vistas).*
+- [x] **C460** — Un solo arreglo para los tres sitios que pintan ChordPro (visor, página de la canción, vista previa del editor): `ChordPro.marcarCortes()` en `chordpro.js` y la misma regla CSS en las dos hojas. *Cerrada: llamadas en `chordpro_viewer.html`, `recurso.html` y `abrirEditor`; bundle reconstruido con `bunx esbuild` (mismos argumentos que `build-js`; `pdf_recortador.js` sale idéntico).*
+- [x] **C461** — Tests de `musica`, `my_library` y tono de grupo en verde.
+
+### Anti-claims
+
+- El texto de los acordes no cambia (el espacio y el guion son `::after`): tocar un acorde sigue abriendo su diagrama y el transporte reescribe igual.
+- No se guarda nada en la canción: es solo cómo se pinta.
+
+### Log
+
+- En la verificación, la primera carga de la clase trajo la plantilla anterior (el servidor de desarrollo aún no la servía); con una recarga, ya la nueva. No es un fallo del cambio.
+- El editor se abrió y se cerró en la prueba devolviendo antes su texto original: no se guardó nada.
+- Ya había chips: el selector viejo dejaba elegir de la lista pero no escribir nuevas ni tenía color. Se sustituye por un parcial único (`partials/etiquetas_input.html`) en crear y editar; el código duplicado de las dos plantillas desaparece.
+- Color por tono HSL (`--h`) y no por clases de Tailwind: así no depende del escaneo de Tailwind y el tema oscuro es una sola regla. La cuenta del color (suma de códigos del slug, módulo 12) está en Python y en JS, para que una nueva salga ya con su color definitivo.
+- Encontrado de paso: `tasks.py` creaba las etiquetas del correo con `get_or_create(nombre=…)` y slug vacío; la segunda etiqueta nueva por correo habría roto la restricción `unique`. Ahora pasa por `obtener_o_crear`.
+- «Unir» cierra como Resuelta con aviso, no con estado nuevo (ambigüedad marcada). Los comentarios de la unión no generan además una mención, y si dos incidencias se mencionaban y luego se unen, solo se enseña la unión.
+- Migración `0010_etiquetas_vivas_referencias`: añade tres campos a `Etiqueta` (vacíos/por defecto) y la tabla `Referencia`; el paso de datos marca revisadas las existentes y les pone color. No borra ni reescribe nada.
+- Fuera de esta fase y sin tocar: el menú de usuario de la cabecera desborda 30 px a la derecha (scroll horizontal en detalle); los 2 tests que ya fallaban.
+- Segunda mirada independiente: no se ha hecho. Superficie pública nueva (crear etiquetas sin login) acotada por los límites del anti-claim; las escrituras nuevas (unir, API) exigen técnico y tienen test.

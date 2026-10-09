@@ -12,6 +12,14 @@
     </ul>
   </div>
 
+  {% if unida_a %}
+    <div role="alert" class="alert alert-info mb-4">
+      <span>🔗 Esta incidencia se cerró y se unió a
+        <a href="{% url 'incidencias:detalle' unida_a.pk %}" class="link font-semibold">#{{ unida_a.pk }} {% if not unida_a.es_privada or is_tecnico %}{{ unida_a.titulo }}{% endif %}</a>.
+        Se sigue allí.</span>
+    </div>
+  {% endif %}
+
   <!-- Incident Card -->
   <div class="card bg-base-100 shadow-xl urgencia-{{ incidencia.urgencia }} mb-6">
     <div class="card-body">
@@ -42,7 +50,7 @@
       {% if incidencia.descripcion %}
         <div class="divider"></div>
         <div class="prose max-w-none">
-          <p>{{ incidencia.descripcion|linebreaksbr }}</p>
+          <p>{{ incidencia.descripcion|con_referencias }}</p>
         </div>
       {% endif %}
 
@@ -52,7 +60,7 @@
           <span class="badge badge-outline gap-1">📍 {{ incidencia.ubicacion }}</span>
         {% endif %}
         {% for etiqueta in incidencia.etiquetas.all %}
-          <span class="badge badge-ghost gap-1">🏷️ {{ etiqueta.nombre }}</span>
+          <span class="etq" style="--h: {{ etiqueta.tono }}">{{ etiqueta.nombre }}</span>
         {% endfor %}
         {% if incidencia.es_privada %}
           <span class="badge badge-error badge-outline gap-1">🔒 Privada</span>
@@ -82,6 +90,13 @@
       </svg>
       Asignar
     </button>
+
+    <!-- Unir a otra -->
+    {% if not unida_a %}
+    <button class="btn btn-sm btn-outline gap-1" onclick="document.getElementById('modal_unir').showModal()">
+      🔗 Unir a otra…
+    </button>
+    {% endif %}
 
     <!-- Derivar -->
     <button class="btn btn-sm btn-outline btn-info gap-1" onclick="document.getElementById('modal_derivar').showModal()">
@@ -218,6 +233,33 @@
   </dialog>
   {% endif %}
 
+  <!-- Incidencias relacionadas (#123 en un texto, o unidas) -->
+  {% if relacionadas %}
+  <div class="card bg-base-100 shadow-lg mb-6" id="relacionadas">
+    <div class="card-body py-4">
+      <h3 class="card-title text-lg">🔗 Relacionadas <span class="badge badge-ghost">{{ relacionadas|length }}</span></h3>
+      <ul class="divide-y divide-base-200">
+        {% for r in relacionadas %}
+          <li class="py-2 flex items-center gap-3">
+            <span class="text-xs opacity-60 w-24 shrink-0">{{ r.relaciones|join:" · " }}</span>
+            {% if r.incidencia.estado == "pendiente" %}
+              <span class="badge badge-warning badge-sm shrink-0 whitespace-nowrap">⏳ Pendiente</span>
+            {% elif r.incidencia.estado == "en_progreso" %}
+              <span class="badge badge-info badge-sm shrink-0 whitespace-nowrap">⚡ En progreso</span>
+            {% else %}
+              <span class="badge badge-success badge-sm shrink-0 whitespace-nowrap">✅ Resuelta</span>
+            {% endif %}
+            <a href="{% url 'incidencias:detalle' r.incidencia.pk %}" class="link link-hover font-medium min-w-0 flex-1">
+              #{{ r.incidencia.pk }}
+              {% if not r.incidencia.es_privada or is_tecnico %}{{ r.incidencia.titulo }}{% else %}<span class="opacity-60">🔒 privada</span>{% endif %}
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  {% endif %}
+
   <!-- Attachments -->
   <!-- Derivaciones a servicios externos -->
   {% if derivaciones %}
@@ -246,6 +288,29 @@
         </div>
       </form>
       <p class="text-xs opacity-60 mt-3"><a class="link" href="{% url 'incidencias:ayuda' %}" target="_blank">¿A quién va cada cosa?</a></p>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  </dialog>
+
+  <dialog id="modal_unir" class="modal">
+    <div class="modal-box p-6">
+      <h3 class="font-bold text-lg mb-2">🔗 Unir a otra incidencia</h3>
+      <p class="text-sm opacity-70 mb-4">Esta (#{{ incidencia.pk }}) se cierra y se sigue en la otra. La otra recibe un comentario con lo que contaba esta y quién la abrió; a quien abrió esta le llega aviso de a dónde ha ido.</p>
+      <form method="post" action="{% url 'incidencias:unir' incidencia.pk %}">
+        {% csrf_token %}
+        <label class="form-control mb-3">
+          <span class="label-text mb-1">Número de la incidencia que sigue abierta</span>
+          <input type="text" name="destino" inputmode="numeric" required placeholder="#123" class="input input-bordered w-full" autocomplete="off">
+        </label>
+        <label class="form-control">
+          <span class="label-text mb-1">Nota (opcional)</span>
+          <textarea name="nota" rows="2" class="textarea textarea-bordered w-full" placeholder="Es el mismo proyector del aula 12…"></textarea>
+        </label>
+        <div class="modal-action">
+          <button type="button" class="btn btn-sm" onclick="document.getElementById('modal_unir').close()">Cancelar</button>
+          <button type="submit" class="btn btn-sm btn-primary">Unir y cerrar esta</button>
+        </div>
+      </form>
     </div>
     <form method="dialog" class="modal-backdrop"><button>close</button></form>
   </dialog>
@@ -368,7 +433,7 @@
         </div>
         <div class="form-control mb-3">
           {{ comentario_form.texto }}
-          <label class="label pb-0"><span class="label-text-alt opacity-60">Para avisar a alguien, escribe <strong>@</strong> y su usuario del IES (por ejemplo <strong>@jlopez</strong>): le llega este comentario por correo.</span></label>
+          <label class="label pb-0"><span class="label-text-alt opacity-60 whitespace-normal">Para avisar a alguien, escribe <strong>@</strong> y su usuario del IES (por ejemplo <strong>@jlopez</strong>): le llega este comentario por correo. Para citar otra incidencia, escribe <strong>#</strong> y su número (por ejemplo <strong>#45</strong>).</span></label>
         </div>
         <div class="flex justify-end">
           <button type="submit" class="btn btn-primary btn-sm gap-1">

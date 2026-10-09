@@ -1,3 +1,5 @@
+import json
+
 from django import forms
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
@@ -20,6 +22,12 @@ class IncidenciaForm(forms.ModelForm):
         widget=forms.HiddenInput(),
         help_text=_("IDs de etiquetas separados por coma"),
     )
+    etiquetas_nuevas = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(),
+        help_text=_("Nombres de etiquetas que aún no existen, como lista JSON"),
+    )
+    MAX_NUEVAS = 8
 
     class Meta:
         model = Incidencia
@@ -63,6 +71,8 @@ class IncidenciaForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Al crear, la etiqueta nueva se apunta a quien reporta; al editar, la escribe un técnico.
+        self.instance_existia = bool(self.instance and self.instance.pk)
         self.fields["ubicacion"].queryset = Ubicacion.objects.all()
         self.fields["ubicacion"].empty_label = "Selecciona ubicación..."
         self.fields["reportero_nombre"].label = "¿Quién eres?"
@@ -77,21 +87,35 @@ class IncidenciaForm(forms.ModelForm):
             if etiquetas:
                 self.fields["etiquetas_ids"].initial = ",".join(str(e.id) for e in etiquetas)
 
+    def clean_etiquetas_nuevas(self) -> list[str]:
+        crudo = self.cleaned_data.get("etiquetas_nuevas") or ""
+        if not crudo.strip():
+            return []
+        try:
+            nombres = json.loads(crudo)
+        except ValueError:
+            nombres = crudo.split(",")
+        if not isinstance(nombres, list):
+            return []
+        nombres = [" ".join(str(n).split()) for n in nombres if str(n).strip()]
+        if len(nombres) > self.MAX_NUEVAS:
+            msg = _("Como mucho %(n)s etiquetas nuevas de una vez.") % {"n": self.MAX_NUEVAS}
+            raise ValidationError(msg)
+        return [n[: Etiqueta.NOMBRE_MAX] for n in nombres]
+
     def save(self, commit=True):
         instance = super().save(commit=commit)
         if commit:
-            # Handle etiquetas from hidden field
+            # Las elegidas de la lista llegan por id; las escritas a mano, por nombre.
             etiquetas_ids = self.cleaned_data.get("etiquetas_ids", "")
-            if etiquetas_ids:
-                ids = [
-                    int(x.strip())
-                    for x in etiquetas_ids.split(",")
-                    if x.strip().isdigit()
-                ]
-                etiquetas = Etiqueta.objects.filter(id__in=ids)
-                instance.etiquetas.set(etiquetas)
-            else:
-                instance.etiquetas.clear()
+            ids = [int(x.strip()) for x in etiquetas_ids.split(",") if x.strip().isdigit()]
+            etiquetas = list(Etiqueta.objects.filter(id__in=ids))
+            autor = instance.reportero_nombre if not self.instance_existia else ""
+            for nombre in self.cleaned_data.get("etiquetas_nuevas", []):
+                etiqueta = Etiqueta.obtener_o_crear(nombre, por=autor)
+                if etiqueta and etiqueta not in etiquetas:
+                    etiquetas.append(etiqueta)
+            instance.etiquetas.set(etiquetas)
         return instance
 
 

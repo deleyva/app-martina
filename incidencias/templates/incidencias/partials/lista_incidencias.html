@@ -31,7 +31,7 @@
                   <span class="badge badge-outline badge-sm">📍 {{ inc.ubicacion }}</span>
                 {% endif %}
                 {% for etiqueta in inc.etiquetas.all %}
-                  <span class="badge badge-ghost badge-sm">{{ etiqueta.nombre }}</span>
+                  <span class="etq etq-sm" style="--h: {{ etiqueta.tono }}">{{ etiqueta.nombre }}</span>
                 {% endfor %}
               </div>
             </div>

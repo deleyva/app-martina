@@ -1,0 +1,143 @@
+{% comment %}
+Selector de etiquetas con chips. Escribir y pulsar Intro elige la sugerencia
+marcada (o crea la etiqueta si no hay ninguna); la coma crea lo escrito tal cual,
+reutilizando la existente si es la misma sin tildes ni mayúsculas. El formulario
+recibe `etiquetas_ids` (existentes) y `etiquetas_nuevas` (JSON de nombres).
+Uso: {% include "incidencias/partials/etiquetas_input.html" with iniciales=etiquetas_actuales_json %}
+{% endcomment %}
+<div class="form-control mb-4"
+     x-data="etiquetasChips({{ iniciales|default:'[]' }}, '{% url 'incidencias:api_etiquetas' %}')"
+     @click.outside="abierto = false">
+  <label class="label">
+    <span class="label-text font-semibold">🏷️ Etiquetas</span>
+    <span class="label-text-alt opacity-60">Escribe y pulsa Intro</span>
+  </label>
+  <div class="relative">
+    <div class="etq-campo input input-bordered w-full h-auto min-h-12 flex flex-wrap items-center gap-1.5 py-1.5 cursor-text"
+         @click="$refs.entrada.focus()">
+      <template x-for="(t, i) in elegidas" :key="t.clave">
+        <span class="etq" :style="`--h: ${t.tono}`">
+          <span x-text="t.text"></span>
+          <span x-show="t.nueva" class="etq-nueva">nueva</span>
+          <button type="button" class="etq-quitar" @click.stop="quitar(i)" :aria-label="`Quitar ${t.text}`">✕</button>
+        </span>
+      </template>
+      <input x-ref="entrada" type="text" x-model="texto"
+             @input="abierto = true; activa = 0"
+             @focus="abierto = true"
+             @keydown="tecla($event)"
+             maxlength="40" autocomplete="off"
+             class="flex-1 min-w-[10rem] bg-transparent border-0 outline-none p-0 text-base"
+             :placeholder="elegidas.length ? 'Otra etiqueta…' : 'Escribe una etiqueta: internet, proyector…'">
+    </div>
+    <ul x-show="abierto && opciones.length" x-cloak role="listbox"
+        class="autocomplete-dropdown bg-base-100 border border-base-300 rounded-lg mt-1 shadow-lg py-1">
+      <template x-for="(o, i) in opciones" :key="o.clave">
+        <li role="option" :aria-selected="i === activa"
+            @mousedown.prevent="elegir(o)" @mouseenter="activa = i"
+            class="autocomplete-item px-3 py-2 cursor-pointer flex items-center justify-between gap-3"
+            :class="i === activa && 'bg-base-200'">
+          <span class="flex items-center gap-2 min-w-0">
+            <span x-show="o.crear" class="text-sm opacity-70">➕ Crear</span>
+            <span class="etq" :style="`--h: ${o.tono}`" x-text="o.text"></span>
+          </span>
+          <span x-show="!o.crear" class="text-xs opacity-50 whitespace-nowrap"
+                x-text="o.usos === 1 ? '1 incidencia' : `${o.usos} incidencias`"></span>
+        </li>
+      </template>
+    </ul>
+  </div>
+  <input type="hidden" name="etiquetas_ids" :value="ids">
+  <input type="hidden" name="etiquetas_nuevas" :value="nuevas">
+</div>
+<script>
+  window.etiquetasChips = window.etiquetasChips || function (iniciales, url) {
+    // Misma paleta y misma cuenta que Etiqueta.color_para: el color de una nueva ya es el definitivo.
+    const PALETA = [0, 25, 42, 85, 140, 170, 190, 215, 240, 270, 300, 330];
+    const norm = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+    const slug = (s) => norm(s).replace(/[^\x00-\x7f]/g, '').replace(/[^\w\s-]/g, '')
+      .replace(/[-\s]+/g, '-').replace(/^[-_]+|[-_]+$/g, '');
+    const tonoDe = (sl) => PALETA[[...sl].reduce((a, c) => a + c.charCodeAt(0), 0) % PALETA.length];
+    const limpio = (s) => s.trim().replace(/\s+/g, ' ').slice(0, 40);
+
+    return {
+      todas: [],
+      texto: '',
+      abierto: false,
+      activa: 0,
+      elegidas: (iniciales || []).map((t) => ({ ...t, clave: `id${t.id}`, nueva: false })),
+
+      async init() {
+        try {
+          this.todas = await (await fetch(url)).json();
+        } catch (e) { console.error(e); }
+      },
+      get ids() {
+        return this.elegidas.filter((t) => !t.nueva).map((t) => t.id).join(',');
+      },
+      get nuevas() {
+        return JSON.stringify(this.elegidas.filter((t) => t.nueva).map((t) => t.text));
+      },
+      get opciones() {
+        const q = norm(this.texto);
+        const s = slug(this.texto);
+        const usadas = new Set(this.elegidas.map((t) => t.slug));
+        let lista = this.todas
+          .filter((t) => !usadas.has(t.slug) && (!q || norm(t.text).includes(q) || (s && t.slug.includes(s))))
+          .map((t) => ({ ...t, clave: `id${t.id}` }));
+        // Las que empiezan por lo escrito, delante; dentro de cada grupo sigue el orden por uso.
+        if (q) lista.sort((a, b) => norm(b.text).startsWith(q) - norm(a.text).startsWith(q));
+        lista = lista.slice(0, 8);
+        if (s && !usadas.has(s) && !this.todas.some((t) => t.slug === s)) {
+          lista.push(this.nueva(this.texto));
+        }
+        return lista;
+      },
+      nueva(texto) {
+        const sl = slug(texto);
+        return { crear: true, id: null, text: limpio(texto), slug: sl, tono: tonoDe(sl), clave: `n-${sl}` };
+      },
+      elegir(o) {
+        if (!o || this.elegidas.some((t) => t.slug === o.slug)) {
+          this.texto = '';
+          return;
+        }
+        this.elegidas.push({ ...o, nueva: !!o.crear, clave: o.crear ? `n-${o.slug}` : `id${o.id}` });
+        this.texto = '';
+        this.activa = 0;
+        this.$refs.entrada.focus();
+      },
+      // Lo escrito tal cual: la existente si es la misma sin tildes ni mayúsculas, si no una nueva.
+      elegirEscrito() {
+        const s = slug(this.texto);
+        if (!s) return;
+        this.elegir(this.todas.find((t) => t.slug === s) || this.nueva(this.texto));
+      },
+      quitar(i) {
+        this.elegidas.splice(i, 1);
+      },
+      tecla(e) {
+        const ops = this.opciones;
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          this.abierto = true;
+          this.activa = Math.min(this.activa + 1, ops.length - 1);
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          this.activa = Math.max(this.activa - 1, 0);
+        } else if (e.key === 'Enter') {
+          // Intro aquí nunca envía el formulario.
+          e.preventDefault();
+          if (this.texto.trim()) this.elegir(ops[this.activa] || this.nueva(this.texto));
+        } else if (e.key === ',') {
+          e.preventDefault();
+          this.elegirEscrito();
+        } else if (e.key === 'Backspace' && !this.texto && this.elegidas.length) {
+          this.elegidas.pop();
+        } else if (e.key === 'Escape') {
+          this.abierto = false;
+        }
+      },
+    };
+  };
+</script>

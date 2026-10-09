@@ -38,10 +38,28 @@ class Ubicacion(models.Model):
 
 
 class Etiqueta(models.Model):
-    """Etiqueta para clasificar incidencias (ej: internet, proyectar, ratón)."""
+    """Etiqueta para clasificar incidencias (ej: internet, proyectar, ratón).
+
+    Cualquiera puede inventar una al reportar: entra `revisada=False` y en la
+    pasada semanal se fusiona con otra o se da por buena. El slug es la
+    identidad: «Proyector», «PROYECTOR» y «proyéctor» son la misma etiqueta.
+    """
+
+    # Tono HSL de cada color; la plantilla pinta fondo, borde y texto a partir de él.
+    COLORES = {
+        "rojo": 0, "naranja": 25, "ambar": 42, "lima": 85, "verde": 140, "turquesa": 170,
+        "cian": 190, "azul": 215, "indigo": 240, "violeta": 270, "fucsia": 300, "rosa": 330,
+    }
+    NOMBRE_MAX = 40
 
     nombre = models.CharField(_("Nombre"), max_length=100)
     slug = models.SlugField(_("Slug"), max_length=100, unique=True)
+    color = models.CharField(_("Color"), max_length=12, blank=True, default="")
+    revisada = models.BooleanField(
+        _("Revisada"), default=False,
+        help_text=_("Las que escribe la gente entran sin revisar hasta la pasada semanal"),
+    )
+    creada_por = models.CharField(_("Creada por"), max_length=150, blank=True, default="")
 
     class Meta:
         verbose_name = _("Etiqueta")
@@ -50,6 +68,49 @@ class Etiqueta(models.Model):
 
     def __str__(self):
         return self.nombre
+
+    @classmethod
+    def color_para(cls, slug: str) -> str:
+        """El mismo slug da siempre el mismo color. El JS del selector repite esta cuenta."""
+        claves = list(cls.COLORES)
+        return claves[sum(ord(c) for c in slug) % len(claves)]
+
+    @property
+    def tono(self) -> int:
+        return self.COLORES.get(self.color, self.COLORES[self.color_para(self.slug)])
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.nombre)[:100]
+        if self.color not in self.COLORES:
+            self.color = self.color_para(self.slug)
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def obtener_o_crear(cls, nombre: str, *, por: str = "", revisada: bool = False) -> "Etiqueta | None":
+        """La etiqueta con ese nombre normalizado, o una nueva. None si el nombre no deja slug.
+
+        Único sitio que crea etiquetas: formulario, correo y API pasan por aquí.
+        """
+        nombre = " ".join(nombre.split())[: cls.NOMBRE_MAX]
+        slug = slugify(nombre)[:100]
+        if not slug:
+            return None
+        etiqueta, _creada = cls.objects.get_or_create(
+            slug=slug, defaults={"nombre": nombre, "creada_por": por[:150], "revisada": revisada},
+        )
+        return etiqueta
+
+    def fusionar_en(self, destino: "Etiqueta") -> int:
+        """Pasa sus incidencias a `destino` y desaparece. Devuelve cuántas incidencias movió."""
+        if destino.pk == self.pk:
+            msg = "No se puede fusionar una etiqueta consigo misma"
+            raise ValueError(msg)
+        incidencias = list(self.incidencias.all())
+        for incidencia in incidencias:
+            incidencia.etiquetas.add(destino)
+        self.delete()
+        return len(incidencias)
 
 
 class Incidencia(models.Model):
@@ -136,6 +197,71 @@ class Incidencia(models.Model):
     @property
     def aula_o_sin_aula(self) -> str:
         return self.ubicacion.nombre if self.ubicacion else "Sin aula"
+
+    @property
+    def unida_a(self) -> "Incidencia | None":
+        """La incidencia en la que se cerró esta, si se unió a otra."""
+        ref = self.referencias_salientes.filter(tipo=Referencia.Tipo.UNIDA).select_related("destino").first()
+        return ref.destino if ref else None
+
+    def relacionadas(self) -> list[dict]:
+        """Las incidencias con las que se cruza, en los dos sentidos, sin repetir.
+
+        Cada una lleva qué relación tiene con esta: la menciona, la mencionan,
+        se unió a ella o se le unió.
+        """
+        vistas: dict[int, dict] = {}
+        for ref in self.referencias_salientes.select_related("destino"):
+            texto = "Unida a" if ref.tipo == Referencia.Tipo.UNIDA else "Menciona a"
+            vistas.setdefault(ref.destino_id, {"incidencia": ref.destino, "relaciones": []})["relaciones"].append(texto)
+        for ref in self.referencias_entrantes.select_related("origen"):
+            texto = "Se le unió" if ref.tipo == Referencia.Tipo.UNIDA else "Mencionada en"
+            vistas.setdefault(ref.origen_id, {"incidencia": ref.origen, "relaciones": []})["relaciones"].append(texto)
+        # Si se unieron, la mención que hubiera antes ya no dice nada nuevo.
+        for v in vistas.values():
+            if {"Unida a", "Se le unió"} & set(v["relaciones"]):
+                v["relaciones"] = [r for r in v["relaciones"] if r not in ("Menciona a", "Mencionada en")]
+        return sorted(vistas.values(), key=lambda v: v["incidencia"].pk)
+
+
+class Referencia(models.Model):
+    """Una incidencia que apunta a otra: con `#123` en un texto, o al unirla a ella."""
+
+    class Tipo(models.TextChoices):
+        MENCIONA = "menciona", _("Menciona")
+        UNIDA = "unida", _("Unida a")
+
+    # `#123` sí; `pagina#123`, `/#123` o `&#123;` no: el # tiene que abrir palabra.
+    PATRON = re.compile(r"(?<![\w&/#])#(\d{1,7})\b")
+
+    origen = models.ForeignKey(
+        Incidencia, verbose_name=_("Desde"), on_delete=models.CASCADE, related_name="referencias_salientes",
+    )
+    destino = models.ForeignKey(
+        Incidencia, verbose_name=_("Hacia"), on_delete=models.CASCADE, related_name="referencias_entrantes",
+    )
+    tipo = models.CharField(_("Tipo"), max_length=10, choices=Tipo.choices, default=Tipo.MENCIONA)
+    comentario = models.ForeignKey(
+        "Comentario", verbose_name=_("Comentario"), on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="referencias",
+    )
+    created_at = models.DateTimeField(_("Fecha"), auto_now_add=True)
+
+    class Meta:
+        verbose_name = _("Referencia")
+        verbose_name_plural = _("Referencias")
+        ordering = ["created_at"]
+        constraints = [
+            models.UniqueConstraint(fields=["origen", "destino", "tipo"], name="referencia_unica"),
+        ]
+
+    def __str__(self):
+        return f"#{self.origen_id} {self.get_tipo_display().lower()} #{self.destino_id}"
+
+    @classmethod
+    def numeros_citados(cls, texto: str) -> list[int]:
+        """Los `#n` del texto, sin repetir y en orden, existan o no."""
+        return list(dict.fromkeys(int(n) for n in cls.PATRON.findall(texto or "")))
 
 
 

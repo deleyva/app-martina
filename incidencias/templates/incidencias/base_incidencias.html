@@ -66,6 +66,42 @@
         opacity: 1;
       }
 
+      /* Etiquetas: cada una con su tono (--h), el mismo en todas las pantallas. */
+      .etq {
+        --h: 215;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        padding: 0.15rem 0.6rem;
+        border-radius: 9999px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        line-height: 1.4;
+        white-space: nowrap;
+        background: hsl(var(--h) 90% 94%);
+        color: hsl(var(--h) 65% 28%);
+        border: 1px solid hsl(var(--h) 70% 82%);
+      }
+      .etq::before {
+        content: "";
+        width: 0.45rem;
+        height: 0.45rem;
+        border-radius: 9999px;
+        background: hsl(var(--h) 75% 50%);
+        flex: none;
+      }
+      [data-theme="dark"] .etq {
+        background: hsl(var(--h) 45% 20%);
+        color: hsl(var(--h) 85% 82%);
+        border-color: hsl(var(--h) 45% 34%);
+      }
+      .etq-sm { font-size: 0.7rem; padding: 0.05rem 0.45rem; }
+      .etq-quitar { opacity: 0.55; font-weight: 700; line-height: 1; padding: 0 0.1rem; }
+      .etq-quitar:hover { opacity: 1; }
+      .etq-nueva { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.7; }
+      [x-cloak] { display: none !important; }
+      .etq-campo:focus-within { outline: 2px solid oklch(var(--bc) / 0.2); outline-offset: 2px; }
+
       .fade-in {
         animation: fadeIn 0.3s ease-in;
       }

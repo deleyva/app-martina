@@ -85,6 +85,20 @@ class EtiquetaOut(Schema):
     slug: str
 
 
+class EtiquetaDetalleOut(EtiquetaOut):
+    color: str
+    revisada: bool
+    creada_por: str
+    usos: int
+
+
+class ReferenciaOut(Schema):
+    id: int  # de la otra incidencia
+    titulo: str
+    estado: str
+    relaciones: list[str]
+
+
 class TecnicoOut(Schema):
     id: int
     nombre: str
@@ -157,6 +171,8 @@ class IncidenciaDetalleOut(IncidenciaResumenOut):
     adjuntos: list[AdjuntoOut]
     historial_asignaciones: list[AsignacionOut]
     emails_origen: list[EmailOrigenOut]
+    unida_a: int | None
+    relacionadas: list[ReferenciaOut]
 
 
 class ServicioOut(Schema):
@@ -213,6 +229,21 @@ class ComentarIn(Schema):
 
 class EstadoIn(Schema):
     estado: str
+
+
+class UnirIn(Schema):
+    destino: int
+    nota: str = ""
+
+
+class EtiquetaPatchIn(Schema):
+    nombre: str | None = None
+    color: str | None = None
+    revisada: bool | None = None
+
+
+class FusionarIn(Schema):
+    destino: str  # slug de la que se queda
 
 
 class IncidenciaPatchIn(Schema):
@@ -395,6 +426,17 @@ def _detalle(request, i: Incidencia) -> dict:
             "processed_at": e.processed_at,
         }
         for e in i.emails_origen.all()
+    ]
+    unida = i.unida_a
+    datos["unida_a"] = unida.pk if unida else None
+    datos["relacionadas"] = [
+        {
+            "id": r["incidencia"].pk,
+            "titulo": r["incidencia"].titulo,
+            "estado": r["incidencia"].estado,
+            "relaciones": r["relaciones"],
+        }
+        for r in i.relacionadas()
     ]
     return datos
 
@@ -637,10 +679,64 @@ def listar_tecnicos(request, activos: bool | None = None):
     return [_tecnico(t, t.abiertas) for t in qs.order_by("-activo", "id")]
 
 
-@router.get("/etiquetas", response=list[EtiquetaOut], url_name="incidencias_etiquetas")
-def listar_etiquetas(request):
+def _etiqueta(e: Etiqueta, usos: int | None = None) -> dict:
+    return {
+        "id": e.id,
+        "nombre": e.nombre,
+        "slug": e.slug,
+        "color": e.color,
+        "revisada": e.revisada,
+        "creada_por": e.creada_por,
+        "usos": e.usos if usos is None else usos,
+    }
+
+
+def _cargar_etiqueta(slug: str) -> Etiqueta:
+    return get_object_or_404(Etiqueta.objects.annotate(usos=Count("incidencias")), slug=slug)
+
+
+@router.get("/etiquetas", response=list[EtiquetaDetalleOut], url_name="incidencias_etiquetas")
+def listar_etiquetas(request, revisada: bool | None = None):
+    """Todas, con cuántas incidencias tiene cada una. `revisada=false`: las pendientes de la pasada semanal."""
     _exigir_tecnico(request)
-    return list(Etiqueta.objects.values("id", "nombre", "slug"))
+    qs = Etiqueta.objects.annotate(usos=Count("incidencias")).order_by("-usos", "nombre")
+    if revisada is not None:
+        qs = qs.filter(revisada=revisada)
+    return [_etiqueta(e) for e in qs]
+
+
+@router.patch("/etiquetas/{slug}", response=EtiquetaDetalleOut, url_name="incidencias_etiqueta_editar")
+def editar_etiqueta(request, slug: str, payload: EtiquetaPatchIn):
+    """Renombrar (el slug no cambia), cambiar el color o darla por revisada."""
+    _exigir_tecnico(request)
+    e = _cargar_etiqueta(slug)
+    datos = payload.dict(exclude_unset=True)
+    if "nombre" in datos:
+        nombre = " ".join((datos["nombre"] or "").split())
+        if not nombre:
+            raise HttpError(422, "El nombre no puede estar vacío")
+        e.nombre = nombre[: Etiqueta.NOMBRE_MAX]
+    if "color" in datos:
+        if datos["color"] not in Etiqueta.COLORES:
+            raise HttpError(422, f"color debe ser uno de {list(Etiqueta.COLORES)}")
+        e.color = datos["color"]
+    if "revisada" in datos:
+        e.revisada = bool(datos["revisada"])
+    e.save()
+    return _etiqueta(e)
+
+
+@router.post("/etiquetas/{slug}/fusionar", response=EtiquetaDetalleOut, url_name="incidencias_etiqueta_fusionar")
+def fusionar_etiqueta(request, slug: str, payload: FusionarIn):
+    """Pasa las incidencias de `slug` a `destino` y borra `slug`. Devuelve la que se queda."""
+    _exigir_tecnico(request)
+    origen = _cargar_etiqueta(slug)
+    destino = get_object_or_404(Etiqueta, slug=payload.destino)
+    if destino.pk == origen.pk:
+        raise HttpError(422, "No se puede fusionar una etiqueta consigo misma")
+    with transaction.atomic():
+        origen.fusionar_en(destino)
+    return _etiqueta(_cargar_etiqueta(destino.slug))
 
 
 @router.get(
@@ -781,6 +877,19 @@ def cambiar_estado_incidencia(request, incidencia_id: int, payload: EstadoIn):
     i = get_object_or_404(Incidencia, pk=incidencia_id)
     acciones.cambiar_estado(i, payload.estado)
     return _detalle(request, get_object_or_404(_base_queryset(), pk=incidencia_id))
+
+
+@router.post("/{int:incidencia_id}/unir", response=IncidenciaDetalleOut, url_name="incidencias_unir")
+def unir_incidencia(request, incidencia_id: int, payload: UnirIn):
+    """Cierra esta dentro de `destino`, que sigue abierta. Devuelve la de destino."""
+    _exigir_tecnico(request)
+    origen = get_object_or_404(Incidencia, pk=incidencia_id)
+    destino = get_object_or_404(Incidencia, pk=payload.destino)
+    try:
+        acciones.unir(origen, destino, _usuario(request.user), payload.nota)
+    except acciones.UnionInvalida as e:
+        raise HttpError(422, str(e)) from e
+    return _detalle(request, get_object_or_404(_base_queryset(), pk=destino.pk))
 
 
 @router.patch("/{int:incidencia_id}", response=IncidenciaDetalleOut, url_name="incidencias_editar")
