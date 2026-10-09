@@ -39,6 +39,15 @@
         white-space: pre;
     }
 
+    /* Mismo arreglo que el visor: dos acordes sin letra debajo no se pegan. */
+    .chordpro-sheet .chord:not(:empty)::after {
+        content: "\00a0";
+    }
+
+    .chordpro-sheet .lyrics.cp-corte::after {
+        content: "-";
+    }
+
     /* El formatter emite su propio h1/h2 con titulo y subtitulo; la pagina ya
        los tiene arriba, asi que sobran. */
     .chordpro-sheet .title,
@@ -1257,6 +1266,7 @@
         };
         function render() {
             outputEl.innerHTML = ChordPro.aHtml(cancion, steps);
+            ChordPro.marcarCortes(outputEl);
             stepsEl.textContent = ChordPro.etiquetaTono(steps);
             if (refrescarDiagramas) refrescarDiagramas();
         }

@@ -36,6 +36,12 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
     .cpv-salida .paragraph { margin-bottom: 1.4em; }
     .cpv-salida .row { display: flex; flex-wrap: wrap; align-items: flex-end; }
     .cpv-salida .chord { font-weight: 700; color: #1d4ed8; min-height: 1.3em; white-space: pre; }
+    /* Un espacio detrás de cada acorde: sin letra debajo (interludios, «[G] [D]»
+       o dos acordes sobre la misma sílaba) la columna mide solo el acorde, y
+       salía «GD/F#EmD» pegado (Jesús, 2026-10-09). Con letra más larga debajo
+       no cambia nada: manda el ancho de la letra. */
+    .cpv-salida .chord:not(:empty)::after { content: "\00a0"; }
+    .cpv-salida .lyrics.cp-corte::after { content: "-"; }
     .cpv-salida .lyrics { white-space: pre; }
     .cpv-salida .title, .cpv-salida .subtitle { display: none; }
     .cpv-salida .comment { font-style: italic; opacity: .7; margin: .5em 0; }
@@ -219,6 +225,7 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
 
     function pintar() {
         salida.innerHTML = ChordPro.aHtml(cancion, semitonos);
+        ChordPro.marcarCortes(salida);
         tonoEl.textContent = ChordPro.etiquetaTono(semitonos);
         pintarGuardarTono();
         if (refrescarDiagramas) refrescarDiagramas();

@@ -108,6 +108,32 @@ function aHtml(cancion, semitonos) {
   return html.replace(/(class="chord">)([^<]+)(<)/g, (_, a, nombre, c) => a + reescribir(nombre, alteracion) + c);
 }
 
+// Palabras partidas por dos acordes (2026-10-09). Cada acorde lleva un
+// espacio detrás (CSS) para no pegarse al siguiente; si cae a mitad de una
+// palabra corta («ti[Ab]me[Eb]»), la palabra se abre: «ti   me». Como en un
+// cancionero, se marca el corte con un guion. Se mide en pantalla y no por
+// letras, porque la página de la canción no usa letra de ancho fijo. Hay que
+// llamarla después de meter el HTML en la página.
+const LETRA = /[\p{L}\p{N}'’]/u;
+function marcarCortes(contenedor) {
+  for (const fila of contenedor.querySelectorAll(".row")) {
+    const columnas = [...fila.querySelectorAll(":scope > .column")];
+    columnas.forEach((col, i) => {
+      const letra = col.querySelector(".lyrics");
+      const siguiente = columnas[i + 1] && columnas[i + 1].querySelector(".lyrics");
+      if (!letra) return;
+      letra.classList.remove("cp-corte");
+      const texto = letra.textContent;
+      if (!siguiente || !col.querySelector(".chord")?.textContent.trim()) return;
+      if (!LETRA.test(texto.slice(-1)) || !LETRA.test(siguiente.textContent.charAt(0))) return;
+      const rango = document.createRange();
+      rango.selectNodeContents(letra);
+      const hueco = col.getBoundingClientRect().width - rango.getBoundingClientRect().width;
+      if (hueco > 2) letra.classList.add("cp-corte");
+    });
+  }
+}
+
 function etiquetaTono(semitonos) {
   if (!semitonos) return "Tono original";
   const signo = semitonos > 0 ? "+" : "";
@@ -244,6 +270,7 @@ function abrirEditor({ texto, url, csrf, alGuardar }) {
   function refrescar() {
     try {
       previa.innerHTML = aHtml(parsear(area.value), 0);
+      marcarCortes(previa);
       error.style.display = "none";
       valido = true;
     } catch (e) {
@@ -299,4 +326,5 @@ function abrirEditor({ texto, url, csrf, alGuardar }) {
 window.ChordPro = {
   LIMITE, acotar, parsear, aHtml, etiquetaTono,
   acordes, leerDefiniciones, cargarBase, diagramasHtml, montarDiagramas, abrirEditor, diagramaDe,
+  marcarCortes,
 };

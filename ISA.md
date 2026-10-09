@@ -1,6 +1,6 @@
 ---
 slug: app-martina
-phase: build
+phase: complete
 progress: true
 iteration: 61
 principal_stated_goal: "Yo solo quiero añadir evidencias tal cual están diseñadas en la aplicación de Notas. Por favor, copiala. Usa en vez de HTMLX, usa, en fin, haz lo que sea, pero que sea igual visualmente. Me gusta mucho esa forma de calificar, esa aplicación que hicimos."
@@ -5019,3 +5019,5 @@ Lo pidió Jesús («haz que los enlaces se puedan pulsar y despliega»). El fall
 - Migración `0010_etiquetas_vivas_referencias`: añade tres campos a `Etiqueta` (vacíos/por defecto) y la tabla `Referencia`; el paso de datos marca revisadas las existentes y les pone color. No borra ni reescribe nada.
 - Fuera de esta fase y sin tocar: el menú de usuario de la cabecera desborda 30 px a la derecha (scroll horizontal en detalle); los 2 tests que ya fallaban.
 - Segunda mirada independiente: no se ha hecho. Superficie pública nueva (crear etiquetas sin login) acotada por los límites del anti-claim; las escrituras nuevas (unir, API) exigen técnico y tienen test.
+- La pasada semanal vive en la skill `_INCIDENCIAS_IES`, workflow `UnificarEtiquetas` (comandos `etiquetas`, `etiqueta`, `fusionar`, `unir` en `Incidencias.ts`), probada contra el servidor local con una clave temporal ya borrada (commit `188a77a` en `~/.claude`).
+- **Para desplegar:** push de `b0a3a60` + `just deploy-production`; aplica `0010_etiquetas_vivas_referencias` (solo añade, no reescribe).
