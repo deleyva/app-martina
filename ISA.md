@@ -4992,7 +4992,7 @@ Lo pidió Jesús («haz que los enlaces se puedan pulsar y despliega»). El fall
 ### Log
 
 
-## Fase 74 — Acordes que no se pegan y palabras partidas con guion (2026-10-09) · VERIFICADA EN LOCAL, SIN DESPLEGAR
+## Fase 74 — Acordes que no se pegan y palabras partidas con guion (2026-10-09) · DESPLEGADA Y VERIFICADA EN PRODUCCIÓN (`b0a3a60`)
 
 **Goal (literal de Jesús, 2026-10-09):** «Sí, por favor, arregla el espaciado entre acordes. Antes te he dicho que no, pero ya veo por qué me decías que molestaba.» (Captura: la línea de interludio `[G] [D/F#] [Em] [D] | [C] [D]` se veía «GD/F#EmD| CD».)
 
@@ -5024,3 +5024,60 @@ Lo pidió Jesús («haz que los enlaces se puedan pulsar y despliega»). El fall
 - **Desplegada y verificada en producción (2026-10-09).** Lo pidió Jesús («despliega»). Push `7db0213..134ada4` y `just deploy-production`; aplicada `incidencias.0010_etiquetas_vivas_referencias` (añade `color`, `revisada`, `creada_por` a `Etiqueta` y la tabla `Referencia`; no borra nada). En Chrome con su sesión: el selector de crear sugiere con «proy» Proyectar (11) y Falta Proyector/Pantalla (3) más «Crear proy», sin enviar nada; el panel pinta 9 chips de color. Por API (skill): 13 etiquetas, todas revisadas, 0 pendientes.
 - **Encontrado en producción:** la etiqueta id 13 «Cerradura» tiene slug vacío: es el fallo del correo de `tasks.py`, que ya había ocurrido una vez. No se puede fusionar ni renombrar por slug, y si alguien escribe «cerradura» se crearía otra igual. Pendiente de que Jesús autorice ponerle `slug=cerradura`.
 - Recordatorio semanal de la pasada: evento recurrente en Google Calendar, los viernes de 8:00 a 8:15 desde el 16/10, con aviso emergente. **No en `DASchedule`**: esa cola no la lee ningún proceso (la tarea del 25/09 sigue `active` con 0 disparos).
+- **Desplegada (2026-10-09)** dentro del despliegue de la fase 73 que hizo Jesús desde la otra sesión: el commit `b0a3a60` incluye estos ficheros; servidor en `134ada4`. En Chrome con su sesión, sesión 159, «Rise»: `ChordPro.marcarCortes` presente, 37 acordes, 0 pegados.
+
+## Fase 75 — Patrones de batería con iconos en las canciones (2026-10-09) · VERIFICADA EN LOCAL, SIN DESPLEGAR
+
+**Goal (literal de Jesús, 2026-10-09):** «se podría, en la skill de publicar canciones en la aplicación, introducir alguna manera de generar patrones para la banda, tal y como los hace MusicWill? Es decir, ellos publican PDFs, pero esos PDFs no los puedo editar. De momento, lo que más me interesa serían los patrones de batería sencillos con iconos como ellos los hacen, y una correspondencia de iconos con partes del cuerpo, con SH para el Charles (hihat)» · «sí! planifica! Podemos dejarlo hecho hoy!»
+
+**Vision.** El patrón es texto dentro del ChordPro de la canción. El visor lo dibuja como una rejilla de iconos que se lee desde el fondo de la clase, con la cuenta encima, y un botón cambia los iconos de batería por los del cuerpo. Se edita en el mismo editor, con vista previa, y la skill escribe el primer borrador a partir de una descripción.
+
+**Formato (propuesta):**
+
+```
+{start_of_ritmo: Rock básico · estrofa}
+compás: 4/4
+SH: x x x x x x x x
+CA: . . x . . . x .
+BO: x . . . x x . .
+{end_of_ritmo}
+```
+
+`x` golpe, `X` acento, `.` silencio (los espacios no cuentan). Subdivisión = golpes por línea ÷ pulsos del compás (8 en 4/4 → corcheas; 16 → semicorcheas; 12 en 12/8 → corcheas ternarias). Voces de salida: SH (charles), CA (caja), BO (bombo).
+
+### Claims
+
+- [x] **C462** — Un bloque `{start_of_ritmo}` dentro del ChordPro se dibuja como rejilla SVG: una fila por voz con su icono, una columna por subdivisión, pulsos marcados y la cuenta encima; acento más grande. *Falsador: Chrome, captura vista, en el visor de clase.* *Cerrada: en Chrome (clase, sesión 120, «Perfect» con dos bloques guardados en local): rejillas de 4/4 («1 y 2 y 3 y 4 y») y 12/8 («1 y a 2 y a…»), acentos con «>» y icono mayor, pulsos sombreados; capturas vistas. La rejilla mide en em y crece con A+/A− (en la primera prueba salía pequeña para proyector; corregido).*
+- [x] **C463** — Botón «Batería / Cuerpo» en la barra del visor: cambia los iconos y la leyenda (SH → ?, CA → ?, BO → ?, a confirmar por Jesús); se recuerda por navegador. La equivalencia vive en un solo sitio. *Falsador: Chrome + `rg` (una sola tabla).* *Cerrada: «🥁 Batería / 👏 Cuerpo» en cada bloque cambia todos los bloques de la página y se recuerda (`ritmo-modo`); leyenda «Palmada en el muslo / Palmada / Pisotón» (decidida por Jesús). Tabla única `VOCES` en `ritmos.js`.*
+- [x] **C464** — Iconos propios (SVG dibujado aquí), no copiados de MusicWill; se ven bien en claro, en el proyector y al imprimir. *Falsador: capturas vistas de pantalla y de la vista de impresión.* *Cerrada en pantalla, abierta en papel: iconos dibujados aquí, vistos de cerca (charles, caja, bombo; mano en el muslo, dos palmas, zapato). La palmada se redibujó dos veces porque a 30 px se leía como una mancha. Impresión: solo leída la regla CSS (`@media print` oculta botones), sin vista de impresión vista. [DEFERRED-VERIFY: imprimir una canción con ritmo].*
+- [x] **C465** — Lo inválido no rompe la canción: compás desconocido, voces de distinta longitud o símbolos raros → aviso dentro del bloque y el resto de la canción se pinta. *Falsador: test con chordsheetjs + Chrome con un bloque roto en la vista previa.* *Cerrada: 8 casos inválidos en `ritmos.test.js`; en la vista previa del editor, un bloque con compás 5/4, voz TOM y longitudes distintas sale en rojo con los tres motivos y el resto de la canción (2 ritmos, 90 acordes) se pinta.*
+- [x] **C466** — Mismo dibujo en los tres sitios del visor ChordPro (visor de clase/biblioteca/estudio, página de la canción, vista previa del editor): una función en `chordpro.js`. Transportar no toca los ritmos. *Falsador: Chrome en los tres + transportar.* *Cerrada: `ChordPro.pintarRitmos()` en el visor, en `recurso.html` y en la vista previa del editor; visto en los tres. En la página de la canción, al subir un semitono los acordes pasan a Ab y los dos SVG quedan idénticos; test de chordsheetjs: el bloque sobrevive a `transpose(3)`.*
+- [x] **C467** — Skill PublishIES: el flujo PublishSong sabe escribir bloques de ritmo a partir de una descripción («rock en corcheas, bombo en 1 y 3») y valida el bloque antes de publicar. Cambio de skill vía CreateSkill. *Falsador: ejecutar la herramienta de validación con un bloque bueno y uno malo.* *Cerrada: vía CreateSkill/UpdateSkill. `PublishSong.md` § Patrones de batería; `Tools/ValidarRitmo.ts` importa `parsearRitmo` del repo (`IES_APP_DIR`): con un .cho bueno sale 0 y resume compás, tempo y cuenta; con uno roto sale 1 («no miden lo mismo», «falta {end_of_ritmo}»). Descripción con los nuevos disparadores (540 caracteres). Commit `a758dbf` en ~/.claude.*
+- [x] **C468** — (Opcional hoy) ▶ reproduce el patrón en bucle con sonidos sintetizados (Web Audio) al tempo elegido. *Falsador: Chrome — el botón arranca y para; sin ficheros de audio.* *Cerrada: ▶ con clic real: el cursor avanzó 2→3→…→7→0 a ~3 pasos/s (90 ppm en corcheas) y se crearon 11 sonidos sintetizados en 2 s; al parar, 0 nuevos y cursor oculto. El cursor iba con requestAnimationFrame y se quedó quieto con el audio sonando; ahora va con el mismo reloj que el sonido. No se puede oír desde aquí: el sonido real lo confirma Jesús.*
+- [x] **C469** — La suite de `musica`/`my_library` no empeora. *Cerrada: `ritmos.test.js` 15 pass; `musica`, `my_library`, tono de grupo: 359 passed.*
+
+### Anti-claims
+
+- Ningún PDF ni imagen generada: todo sale del texto y se puede editar.
+- Ni iconos ni patrones copiados de MusicWill.
+- Una canción sin bloques de ritmo se ve exactamente igual que hoy.
+
+### Out of Scope (hoy)
+
+- Notación musical del mismo patrón (alphaTab) — más adelante.
+- Más voces que SH/CA/BO (toms, platos, charles abierto/pedal).
+- Patrones para bajo, guitarra o teclado.
+
+### Decisiones pendientes de Jesús
+
+1. Equivalencia con el cuerpo. Propuesta: SH = palmada en el muslo, CA = palmada, BO = pisotón.
+2. Cuenta en voz alta. Propuesta: 4/4 corcheas «1 y 2 y 3 y 4 y»; semicorcheas «1 e y a»; 12/8 «1 y a 2 y a 3 y a 4 y a».
+3. ¿Entra hoy el ▶ con sonido (C468)?
+
+### Log
+
+- Decisiones de Jesús (2026-10-09): cuerpo = palmada en el muslo / palmada / pisotón; cuenta «1 y», «1 e y a», «1 y a»; con sonido.
+- `ritmos.js` (módulo nuevo, en el bundle de `chordpro.js`): parser puro (`parsearRitmo`, lo usa también la skill), SVG, iconos propios y Web Audio. Estilos inyectados una vez desde JS para no copiar CSS en tres plantillas.
+- Primer test de JS del repo: `bun test martina_bescos_app/static/js/src/ritmos.test.js`.
+- La canción local «Perfect — prueba ChordPro» (página 858) quedó con dos bloques de ritmo guardados para las pruebas. Solo local.
+- En la verificación, la ventana cambió de alto entre capturas y dos clics cayeron fuera; se comprobó el estado leyendo la página antes de seguir.

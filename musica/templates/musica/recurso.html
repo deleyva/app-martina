@@ -1266,6 +1266,7 @@
         };
         function render() {
             outputEl.innerHTML = ChordPro.aHtml(cancion, steps);
+            ChordPro.pintarRitmos(outputEl);  // patrones de batería (fase 75)
             ChordPro.marcarCortes(outputEl);
             stepsEl.textContent = ChordPro.etiquetaTono(steps);
             if (refrescarDiagramas) refrescarDiagramas();

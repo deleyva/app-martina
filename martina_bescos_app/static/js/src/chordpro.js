@@ -10,6 +10,7 @@
 
 import { ChordProParser, HtmlDivFormatter } from "chordsheetjs";
 import { leerDefiniciones, cargarBase, diagrama } from "./diagramas_acordes.js";
+import { pintarRitmos, parsearRitmo } from "./ritmos.js";
 
 // Más de una octava arriba o abajo vuelve al mismo sitio: no aporta nada.
 const LIMITE = 11;
@@ -270,6 +271,7 @@ function abrirEditor({ texto, url, csrf, alGuardar }) {
   function refrescar() {
     try {
       previa.innerHTML = aHtml(parsear(area.value), 0);
+      pintarRitmos(previa);
       marcarCortes(previa);
       error.style.display = "none";
       valido = true;
@@ -326,5 +328,5 @@ function abrirEditor({ texto, url, csrf, alGuardar }) {
 window.ChordPro = {
   LIMITE, acotar, parsear, aHtml, etiquetaTono,
   acordes, leerDefiniciones, cargarBase, diagramasHtml, montarDiagramas, abrirEditor, diagramaDe,
-  marcarCortes,
+  marcarCortes, pintarRitmos, parsearRitmo,
 };

@@ -225,6 +225,7 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
 
     function pintar() {
         salida.innerHTML = ChordPro.aHtml(cancion, semitonos);
+        ChordPro.pintarRitmos(salida);  // patrones de batería (fase 75)
         ChordPro.marcarCortes(salida);
         tonoEl.textContent = ChordPro.etiquetaTono(semitonos);
         pintarGuardarTono();
