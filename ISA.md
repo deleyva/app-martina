@@ -1,10 +1,10 @@
 ---
 slug: app-martina
-phase: complete
+phase: plan
 progress: true
 iteration: 61
 principal_stated_goal: "Yo solo quiero añadir evidencias tal cual están diseñadas en la aplicación de Notas. Por favor, copiala. Usa en vez de HTMLX, usa, en fin, haz lo que sea, pero que sea igual visualmente. Me gusta mucho esa forma de calificar, esa aplicación que hicimos."
-updated: 2026-10-09
+updated: 2026-10-15
 ---
 
 # ISA — app-martina · Sistema de estudio de la biblioteca
@@ -95,6 +95,10 @@ que se recoloque solo cuando un libro cambia (30·2).
    solo cubre unos pocos. Debería curarse solo ahora que CAGED recibe turno y
    entra material de capítulos nuevos; conviene volver a medirlo con
    `estado_estudio` después de una semana de uso.
+
+4. **Fase 76: preguntas de teoría con tarjetas (Plickers propio).** Planificada el
+   2026-10-15, sin código. Empieza por el prototipo de escaneo (76·0) y no sigue
+   hasta que Jesús lea tarjetas en su aula.
 
 ### ⚠️ Antes de generar una migración en este repo
 
@@ -5083,3 +5087,92 @@ BO: x . . . x x . .
 - En la verificación, la ventana cambió de alto entre capturas y dos clics cayeron fuera; se comprobó el estado leyendo la página antes de seguir.
 - **Desplegada y verificada en producción (2026-10-09).** Lo pidió Jesús («Despliega»). Push `134ada4..3782048` (incluye `44573aa`, ISA de la fase 73 de la otra sesión) y `just deploy-production`; sin migraciones. En Chrome con su sesión, sesión 159, «Al cantar»: en la vista previa del editor un bloque de rock 4/4 se dibuja (1 rejilla, 0 errores, cuenta «1 y 2 y 3 y 4 y»); se canceló devolviendo el texto original, así que la canción de producción no tiene ritmos todavía. El sonido real queda para que Jesús lo escuche en clase.
 - **Ritmos en los libros de canciones (2026-10-09).** Lo pidió Jesús («Añade ritmo a las canciones que están en los libros de canciones de 1º, 3º y 4º»). 21 canciones con ChordPro (libros 940, 915 y 879; Rise está en 1º y 3º). «Saturn» y «Smells Like Teen Spirit» no tienen ChordPro y quedan sin ritmo. Dificultad por curso: 1º negras, 3º corcheas, 4º el patrón del estilo (funk y dembow en semicorcheas, disco con bombo a negras). Guardado desde el navegador de Jesús con `POST /musica/letras/<id>/chordpro/` (revisión publicada, sin borradores pendientes en ninguna); la letra no salió del navegador. Comprobado en las 21: un bloque, colocado tras la cabecera, una rejilla, cero errores; vistas «Al cantar» y «Uptown Funk». Los 20 borradores locales `.cho` llevan el mismo bloque (Eleanor Rigby no tiene `.cho`: se editó en la web), validados con `ValidarRitmo.ts`. El de «Perfect» ya difería de la versión web antes de este cambio.
+
+## Fase 76 — Preguntas de teoría en clase con tarjetas, estilo Plickers (2026-10-15) · PLANIFICADA, SIN CÓDIGO
+
+**Goal (literal de Jesús, 2026-10-15):** «Quería añadir la funcionalidad de preguntar teoría con preguntas tipo test y escaneo de códigos tipo qr (no son qr) al estilo plickers. Quería poder añadir a las sesiones un inicio de vez en cuando, cuando quisiera, con preguntas tipo test hechas sobre los contenidos vistos. Me gustaría poder hacer esto por lo menos dos veces por semana. Y que todas esas notas se fueran guardando, sumándose para hacer la media, y que diera sobresaliente, notable o bien en la caja de teoría acumulada en esa casilla. Pero que se pudiera ver cuántas veces se han registrado esas respuestas, dónde falló, todas estas cosas.» · «¿en qué sitio se incluyen las preguntas para no tener que estar generándolas todo el rato? ¿Cómo lo añado a las sesiones?» · «arma el ISA con esas fases».
+
+**Investigación previa (Readeck, «Alternativas a Plickers: tarjetas, software libre y Django»):** no existe clon libre de Plickers; Plickers gratuito limita a 5 preguntas por set. La vía es marcadores ArUco (`cv2.aruco`): cada tarjeta un id, cada rotación (0°/90°/180°/270°) una respuesta A/B/C/D; `detectMarkers()` lee todos los marcadores de un fotograma a la vez. A 3–5 m hacen falta tarjetas de 8×8 cm, mejor 10×10; 640×480 basta; 10–50 ms por fotograma. Estimación del artículo: 8–14 días de MVP.
+
+**Lo que ya existe y se reutiliza:** `TestPage`/`QuestionBlock` en `musica/models.py` (4 opciones, una correcta, imagen, explicación; cero páginas creadas; la plantilla no registra nada). `POST /api/cms/tests` con API key. `ClassSessionItem` con `GenericForeignKey`, sección `teoria` y el botón «evaluable» con instrumento (fase 62). `present.html` ya pide cámara (grabaciones, 62) y ya mantiene la pantalla encendida (62·3). `Asistencia` por sesión. `calculo.cualitativa()` da SB/NT/BI/SU/IN. `Nota.poner` deja historial. ReportLab en requisitos (study cards).
+
+**Vision.** Las preguntas viven en un banco propio, etiquetadas con el vocabulario facetado por concepto, y se revisan una vez; la app compone el «inicio» a partir de lo que ese grupo ha visto en sus últimas sesiones, priorizando lo más fallado. El pase es un elemento más de la sesión, en la sección Teoría, evaluable hacia un instrumento. En clase: se proyecta la pregunta, el iPad mira la clase, cada tarjeta levantada se lee en el servidor y la pantalla marca quién ha respondido; se revela y se pasa a la siguiente. Al cerrar, cada respuesta queda guardada y la casilla de Teoría del registro pasa a ser la media de todos los pases, con el detalle de pases y fallos al pulsarla.
+
+**Decidido por mí (2026-10-15), a revisar por Jesús:**
+
+- **Detección en el servidor, no en el navegador.** OpenCV en Django; el navegador solo manda un JPEG cada 200 ms. Es lo que baja el riesgo que yo veía alto.
+- **Sin Django Channels.** El artículo lo proponía; la app no lo tiene y no compensa meter infraestructura para esto. La pantalla proyectada se refresca con `fetch` cada segundo mientras el pase está abierto, como el resto de la presentación.
+- **Preguntas sueltas, no tests cerrados.** Un modelo `Pregunta` plano (consultable por SQL: cuántas veces, cuántos fallos) en lugar de páginas Wagtail. `TestPage` queda como está; no se borra en esta fase.
+- **Una sola columna.** Respeta la decisión de la fase 62 (una columna por instrumento, nunca una por ejercicio: en la media «hueco = cero», `calculo.rellenar`). La verdad son las respuestas; la casilla es una media recalculada.
+- **Ausentes fuera de la media** del pase que se perdieron (`Asistencia`), no un cero.
+- **Orden con puerta:** el tramo 76·0 (prototipo de escaneo) va primero y los demás no empiezan hasta que Jesús lea tarjetas en su aula.
+
+### Tramo 76·0 — Prototipo de escaneo (una tarde, sin tocar la base de datos)
+
+- [x] **C470** — Un endpoint recibe un JPEG de 640×480 y devuelve los marcadores ArUco detectados con su id y su rotación convertida a A/B/C/D. *Falsador: test con una imagen sintética de 6 marcadores generados con `cv2.aruco.generateImageMarker`, cada uno girado distinto; los 6 detectados con la letra correcta. Una imagen sin marcadores devuelve lista vacía, no error.* *Cerrada 2026-10-15: `POST /preguntas/prototipo/detectar/` (`preguntas/views.py`, `preguntas/aruco.py`). Tests: 6 tarjetas con su id y letra, imagen vacía → `[]`, basura → 400, giro de la imagen entera avanza todas las letras (universal, 3 giros), inclinación hasta 25° no cambia la letra, 45° → `letra: null` (no se cuenta), PNG transparente y JPEG en color. En Chrome con la sesión de Jesús, por el propio manejador de la página: dos marcadores id 1 (uno derecho, otro girado 90°) → «#1 A» y «#1 B» pintados.*
+- [~] **C471** — Un PDF de 10 tarjetas de 10×10 cm (ReportLab), impreso, se lee desde el iPad a 3 y a 5 metros con la luz normal del aula: al menos 9 de 10 en un mismo fotograma. *Falsador: lo prueba Jesús en su aula; el recuento se anota en el Log. Si no llega a 9/10, la fase se para aquí y se decide: tarjetas más grandes, otra familia de marcadores, o el plan B (respuesta desde dispositivos).* *Parte mía cerrada 2026-10-15: `GET /preguntas/prototipo/tarjetas.pdf`, 5 páginas (test con pypdf; Chrome muestra «1 / 5»). Página 1 rasterizada y VISTA: marcador, A arriba, B/C/D giradas para leerse derechas cuando su lado queda arriba, número y nombre. Ida y vuelta: la página rasterizada vuelve como ids 1 y 2 con «A», y girada 90/180/270° da B/C/D. [DEFERRED-VERIFY] la lectura en el aula desde el iPad: imprimir el PDF y leer a 3 y 5 m — tarea de Jesús.*
+- [~] **C472** — La página del prototipo abre la cámara trasera desde Safari en el iPad y manda un fotograma cada 200 ms; el servidor responde en menos de 100 ms por fotograma. *Falsador: tiempos medidos en el endpoint, 50 fotogramas seguidos.* *Servidor cerrado 2026-10-15: test de 50 fotogramas de 640×480 con 6 tarjetas, mediana 1,7 ms, p95 2,0 ms (detección pura); desde Chrome contra el servidor de desarrollo, 10 fotogramas JPEG reales: 15–72 ms de servidor y 170–317 ms de ida y vuelta (runserver, sin gunicorn). Con 200 ms de intervalo y ese viaje, el cliente salta fotogramas mientras hay uno en vuelo (unos 4 por segundo), que basta. [DEFERRED-VERIFY] abrir la cámara: el permiso del navegador no lo concedo yo; `facingMode: environment` pedido en el código. Pendiente de Jesús en el iPad, como la grabación de la fase 62.*
+
+### Tramo 76·1 — Banco de preguntas
+
+- [ ] **C473** — Existe `Pregunta`: enunciado, imagen opcional, exactamente 4 opciones con exactamente una correcta, explicación, etiquetas facetadas (`concepto:…`, `curso:…`), autor, estado («sin revisar», «activa», «archivada»). *Falsador: tests de validación (0 o 2 correctas se rechazan; 3 o 5 opciones se rechazan).*
+- [ ] **C474** — `POST /api/cms/preguntas` crea preguntas por lote con la API key existente, siempre «sin revisar». Una pregunta sin revisar no entra jamás en un pase. *Falsador: test de la API + test de composición con una pregunta sin revisar sembrada.*
+- [ ] **C475** — Pantalla de revisión para el profesorado: lista por concepto, filtro «sin revisar», editar, activar, archivar; junto a cada pregunta, veces preguntada y porcentaje de acierto. *Falsador: Chrome, local, con el grupo inventado.*
+- [ ] **C476** — Composición automática: dado un grupo y una fecha, propone K preguntas de los conceptos de los elementos de las últimas N sesiones del grupo (etiquetas facetadas del `content_object` de cada `ClassSessionItem`), priorizando los conceptos más fallados por ese grupo y las preguntas menos usadas con él; no repite una pregunta al mismo grupo en menos de 3 semanas. Jesús puede quitar, añadir o sustituir antes de guardar. *Falsador: test con sesiones y respuestas sembradas (concepto fallado sube; pregunta de hace 1 semana no sale; sin conceptos recientes devuelve lista vacía y lo dice).*
+- [ ] **C477** — Skill PublishIES (vía CreateSkill): un flujo genera N preguntas de un concepto del libro del grupo, con ilustración de pentagrama cuando el concepto lo pide, y las sube «sin revisar». *Falsador: ejecutar el flujo contra local; las preguntas aparecen en la pantalla de revisión.*
+
+### Tramo 76·2 — Tarjetas y pase en vivo
+
+- [ ] **C478** — Cada matrícula activa tiene un número de tarjeta único en su grupo (`Enrollment.tarjeta`, nulo hasta imprimir). El PDF del grupo lleva, por tarjeta: marcador ArUco de 10×10 cm, número grande, nombre pequeño y las letras A/B/C/D en los cuatro lados. Dos tarjetas por A4. *Falsador: test de unicidad por grupo + PDF generado y visto.*
+- [ ] **C479** — «Pase de preguntas» (`PaseDePreguntas`: sesión, preguntas ordenadas, estado) es un ítem de sesión por `GenericForeignKey`, en la sección Teoría, marcable «evaluable» hacia un instrumento con el popup de la fase 62. Se crea desde la sesión con «Añadir pase», que ofrece la composición de C476. *Falsador: test + Chrome (el ítem sale en la sesión con «✓ evaluable · Teoría»).*
+- [ ] **C480** — En la presentación, botón «Preguntar» solo en los pases. Proyecta la pregunta en grande con su imagen; «Cámara» abre la captura; mientras está abierta, cada fotograma registra respuestas (id → alumno por tarjeta, rotación → opción); la pantalla muestra quién ha respondido, sin su respuesta, y el recuento; «Revelar» enseña la correcta, la explicación y el reparto A/B/C/D; «Siguiente». *Falsador: Chrome, local, enviando fotogramas sintéticos al endpoint; la vista proyectada se actualiza en menos de 2 s.*
+- [ ] **C481** — La respuesta que vale es la última leída antes de revelar. Una tarjeta de otro grupo, un id sin matrícula o una lectura tras revelar se ignoran y se cuentan como «desconocidas» en el log del pase. *Falsador: test con lecturas en orden A, C, revelar, B → vale C.*
+- [ ] **C482** — Al cerrar el pase se guarda una `Respuesta` por alumno presente y pregunta (opción o «sin lectura», acierto, sesión, fecha). Los ausentes según `Asistencia` no tienen fila. La nota del pase para un alumno = aciertos / preguntas del pase × 10. *Falsador: test con 2 presentes, 1 ausente, 4 preguntas.*
+- [ ] **C483** — Las imágenes de la cámara no se guardan: el fotograma se procesa en memoria y se descarta; ni en disco, ni en `Evidencia`, ni en logs. *Falsador: test que cuenta ficheros en `MEDIA_ROOT` antes y después de 20 fotogramas; `rg` de que el endpoint no escribe el cuerpo.*
+
+### Tramo 76·3 — La casilla de Teoría acumulada
+
+- [ ] **C484** — Al cerrar un pase, para cada alumno con respuestas, la nota del instrumento del pase pasa a ser la media de todos sus pases en ese plan, escrita con `Nota.poner` (queda `CambioNota`). Una sola `Prueba` «Teoría (pases)» por instrumento y plan, creada la primera vez. *Falsador: test con pases de 10, 5 y 7,5 → 7,5 → NT; contar `Prueba` antes y después del segundo pase: igual.*
+- [ ] **C485** — En el registro, la celda muestra la letra (`cualitativa`) y, al pulsarla, el detalle: número de pases, fecha y nota de cada uno, preguntas falladas con su concepto y tasa de acierto por concepto. *Falsador: Chrome, local.*
+- [ ] **C486** — Vista por grupo: conceptos más fallados y preguntas con peor acierto, con enlace a la pregunta para revisarla. *Falsador: Chrome, local.*
+- [ ] **C487** — Permisos: solo el profesorado del grupo crea pases, escanea y ve el detalle de todos; cada alumno ve solo su propio detalle. Grupo ajeno → 404. *Falsador: tests 403/404 como en la fase 62.*
+- [ ] **C488** — La suite no empeora; migraciones aditivas y generadas con wagtail 7.3.1; `opencv-python-headless` fijado en `requirements/base.txt` y la imagen de producción (`python:3.12-slim`) la construye y la importa. *Falsador: `just test`; `docker compose -f docker-compose.production.yml build` + `python -c "import cv2"` dentro.*
+
+### Anti-claims
+
+- **Anti-A** — Ningún nombre ni nota de alumnado real en el transcript ni en capturas: todo con el grupo inventado local (pk 20). En producción solo se abren pantallas.
+- **Anti-B** — Ningún pase crea columnas en el registro ni toca la nota de nadie que no haya respondido. *Falsador: contar `Prueba` y `Nota` antes y después.*
+- **Anti-C** — Ninguna imagen de la cámara persiste (es C483 vista como prohibición: son menores).
+- **Anti-D** — Sin Channels, WebSockets, Redis nuevo ni servicio nuevo en el compose.
+- **Anti-E** — Una sesión sin pase, y el registro de un grupo sin pases, se ven exactamente igual que hoy.
+- **Anti-F** — Ni push ni despliegue sin «despliega». Ninguna migración fuera de un despliegue sin preguntar.
+
+### Out of Scope
+
+- Respuesta desde dispositivos del alumnado (plan B; solo si C471 falla).
+- Preguntas abiertas, de ordenar o de dictado; solo opción múltiple.
+- Importar sets de Plickers.
+- Retirar `TestPage` o `POST /api/cms/tests`.
+
+### Decisiones pendientes de Jesús
+
+1. **Dónde viven las tarjetas.** Propuesta: un juego por grupo, numerado, que se reparte y recoge (el número es la tarjeta de la matrícula). Alternativa: pegadas en el cuaderno de cada alumno.
+2. **Presente sin lectura.** Propuesta: cuenta como fallo (está en clase y no levantó tarjeta), con marca «sin lectura» para distinguirlo de un error al revisar. Alternativa: fuera de la media, como un ausente.
+3. **El alumnado ve su detalle de teoría** en su panel. Propuesta: sí.
+
+### Test Strategy
+
+`pytest calificaciones clases` para modelos, composición, cierre de pase y permisos; fotogramas sintéticos generados con `cv2.aruco` para la detección; Chrome en local con el grupo inventado (pk 20) para presentación, revisión y registro; el iPad de Jesús en su aula para C471 (es la única claim que no puedo cerrar yo). Cada tramo cierra con `just test` en verde y con sus capturas vistas.
+
+### Log
+
+- **2026-10-15 — ISA escrito a petición de Jesús, sin código.** Antes había dicho que no lo habíamos tratado; él señaló el artículo de Readeck «Alternativas a Plickers» y tenía razón: la investigación existía. De ella salen la detección en servidor y las medidas de tarjeta; de aquí, descartar Channels y la columna única.
+- Repo al día con `origin/main` (`9fdea51`) al escribir esto.
+- Riesgo que ordena los tramos: la lectura real de tarjetas en el aula (C471). Todo lo demás es trabajo normal de la app sobre piezas que ya existen.
+- **2026-10-15 — Tramo 76·0 construido** («sigue con 76»). App nueva `preguntas` (sin modelos ni migraciones): `aruco.py` (detección y letra), `tarjetas.py` (PDF, dos por A4, marcador de 1200 px para que imprima nítido), tres vistas solo para profesorado, plantilla del prototipo con cámara y «probar con una imagen». `opencv-python-headless==4.11.0.86` en `requirements/base.txt`; importa en la imagen local, que comparte base con la de producción (`python:3.12.8-slim-bookworm`), sin librerías de sistema nuevas.
+- **Cómo se lee la letra.** `detectMarkers` devuelve las esquinas empezando por la «arriba-izquierda» canónica; la letra sale de a qué cuadrante ha ido esa esquina. La tarjeta lleva A arriba, B derecha, C abajo, D izquierda, y las letras impresas giradas (B a −90°, C a 180°, D a +90°) para leerse derechas cuando su lado queda arriba. A menos de 15° de una diagonal la letra es `null`: mejor no contar que contar mal.
+- **Gotcha 1 (multipart):** con `multipart/form-data`, tocar `request.FILES` consume el flujo y `request.body` lanza `RawPostDataException`. Lo cazó `test_sin_imagen_da_400` (daba 500). Ahora se decide por el tipo de contenido y no se mezclan.
+- **Gotcha 2 (alfa):** la página del PDF rasterizada con `sips` lleva canal alfa; `IMREAD_GRAYSCALE` tira el alfa y lo transparente queda NEGRO, así que la página era un rectángulo negro con cuadrados blancos y no se leía nada, mientras la rejilla 6×6 comparada a mano coincidía. Media hora de sospechar del umbral adaptativo (barrido de `adaptiveThreshWinSizeMax` 23→203: nada). Ahora `a_gris()` compone el alfa sobre blanco; test con un PNG transparente.
+- Tests: `pytest preguntas` 39 passed; regresión `preguntas calificaciones clases my_library/tests.py musica libreta` 834 passed. Corridos con `docker compose exec` en el contenedor vivo (que tenía cv2 instalado a mano) mientras se reconstruía la imagen; `just test` usa `run --rm` y necesita la imagen nueva.
+- Chrome, local, sesión de Jesús: `/preguntas/prototipo/` carga (captura vista); el PDF abre en el visor de Chrome con «1 / 5» (el visor no se captura en la imagen; la apariencia se verificó sobre la página rasterizada). La cámara no se abrió: permiso.
+- Alcance no tocado: sin modelos, sin migraciones, `TestPage` intacta. Ni push ni despliegue.

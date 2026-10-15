@@ -22,6 +22,9 @@ pypdf==5.1.0
 # Recomprimir las imágenes de un PDF escaneado al subirlo (MPL-2.0).
 # Medido sobre un método de 56 páginas: 13,7 MB -> 7,0 MB sin pérdida visible.
 pikepdf==9.4.2
+# Leer tarjetas de respuesta (marcadores ArUco) en el servidor, fase 76. Headless:
+# sin GUI ni libGL, que es lo que cabe en la imagen slim.
+opencv-python-headless==4.11.0.86
 
 # MFA Support
 cryptography==41.0.2

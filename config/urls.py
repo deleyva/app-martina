@@ -102,6 +102,7 @@ urlpatterns = [
     # Calificaciones: criterios de evaluación × instrumentos, cuadro y modo clase
     path("calificaciones/", include("calificaciones.urls", namespace="calificaciones")),
     path("libreta/", include("libreta.urls", namespace="libreta")),
+    path("preguntas/", include("preguntas.urls", namespace="preguntas")),
     # CMS custom views (filtros de partituras)
     path("", include("cms.urls")),
     # music-pills integrado en Wagtail CMS - accesible via /cms/ y páginas públicas
