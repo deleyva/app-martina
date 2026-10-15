@@ -15,6 +15,7 @@ urlpatterns = [
     path("grupo/<int:group_id>/nota-manual/", views.nota_manual_guardar, name="nota_manual_guardar"),
     path("grupo/<int:group_id>/evidencia/", views.evidencia_subir, name="evidencia_subir"),
     path("grupo/<int:group_id>/exportar/", views.exportar, name="exportar"),
+    path("grupo/<int:group_id>/foto/<int:alumno_id>/", views.foto_alumno, name="foto_alumno"),
     # El plan: instrumentos, reparto y pruebas
     path("plan/<int:plan_id>/", views.plan, name="plan"),
     path("plan/<int:plan_id>/reparto/", views.reparto_guardar, name="reparto_guardar"),

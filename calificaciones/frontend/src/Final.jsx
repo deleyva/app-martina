@@ -6,6 +6,7 @@
 // calculado en pantalla, y se avisa: no se guarda en ningún sitio.
 
 import { Fragment, useMemo, useState } from 'react';
+import Foto from './Foto.jsx';
 import { Award } from 'lucide-react';
 import {
   Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -152,8 +153,13 @@ export default function Final({ datos, modo, trimestre, onManual }) {
                   <tr key={s.id} className="hover:bg-indigo-50/10 transition-colors">
                     <td className="px-4 py-2.5 text-slate-300 font-bold">{i + 1}</td>
                     <td className="px-4 py-2.5">
-                      <span className="font-bold text-slate-700">{s.nombre}</span>
-                      <div className="text-[9px] text-slate-400 font-bold uppercase">{datos.grupo.nombre}</div>
+                      <div className="flex items-center gap-2.5">
+                        <Foto alumno={s} />
+                        <div>
+                          <span className="font-bold text-slate-700">{s.nombre}</span>
+                          <div className="text-[9px] text-slate-400 font-bold uppercase">{datos.grupo.nombre}</div>
+                        </div>
+                      </div>
                     </td>
                     {TERMS.map((term) => {
                       const suyo = s.trimestres[term];

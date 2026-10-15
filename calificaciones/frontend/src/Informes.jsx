@@ -1,6 +1,7 @@
 // El informe de un alumno, para leer o imprimir. Es el de `notas`.
 
 import { BookOpen, Printer } from 'lucide-react';
+import Foto from './Foto.jsx';
 import {
   PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart, ResponsiveContainer, Tooltip,
 } from 'recharts';
@@ -46,9 +47,13 @@ export default function Informes({ datos, alumno, trimestre, modo, onElegir }) {
         <div className="lg:col-span-4 space-y-4 print:mb-8">
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm print:shadow-none">
             <div className="flex flex-col items-center text-center">
-              <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center text-white text-2xl font-black mb-3 shadow-lg shadow-indigo-100">
-                {alumno.nombre.charAt(0)}
-              </div>
+              {alumno.foto ? (
+                <Foto alumno={alumno} className="w-24 h-28 rounded-2xl mb-3 shadow-lg shadow-indigo-100" />
+              ) : (
+                <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center text-white text-2xl font-black mb-3 shadow-lg shadow-indigo-100">
+                  {alumno.nombre.charAt(0)}
+                </div>
+              )}
               <h2 className="text-xl font-black text-slate-800 mb-0.5">{alumno.nombre}</h2>
               <p className="text-slate-400 text-[9px] font-black uppercase tracking-widest mb-4">
                 {datos.grupo.nombre} / {TERM_LARGOS[trimestre]} / {datos.grupo.materia}

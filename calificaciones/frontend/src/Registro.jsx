@@ -1,6 +1,7 @@
 // El Registro: la rejilla de `notas`. Una columna por prueba activa.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import Foto from './Foto.jsx';
 import { createPortal } from 'react-dom';
 import { ArrowLeft, ArrowRight, ChevronDown, ChevronRight, EyeOff, Info, Plus, TrendingUp } from 'lucide-react';
 import { api } from './api.js';
@@ -99,8 +100,13 @@ export default function Registro({
                 return (
                   <tr key={alumno.id} className="hover:bg-indigo-50/10 transition-colors">
                     <td className="px-4 py-3 sticky left-0 bg-white z-10">
-                      <div className="font-bold text-slate-700 text-[11px]">{alumno.nombre}</div>
-                      <div className="text-[9px] text-slate-400 font-bold uppercase">{datos.grupo.nombre}</div>
+                      <div className="flex items-center gap-2.5">
+                        <Foto alumno={alumno} />
+                        <div>
+                          <div className="font-bold text-slate-700 text-[11px]">{alumno.nombre}</div>
+                          <div className="text-[9px] text-slate-400 font-bold uppercase">{datos.grupo.nombre}</div>
+                        </div>
+                      </div>
                     </td>
                     {bloque.columnas.map((columna, col) => (
                       <td key={columna.prueba} className="px-1 py-3 text-center">

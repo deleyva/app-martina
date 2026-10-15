@@ -4,6 +4,7 @@ from .models import (
     CambioNota,
     Criterio,
     Evidencia,
+    FotoAlumno,
     Instrumento,
     MarcoEvaluacion,
     Nota,
@@ -84,3 +85,10 @@ class NotaManualAdmin(admin.ModelAdmin):
 class CambioNotaAdmin(admin.ModelAdmin):
     list_display = ["nota", "antes", "despues", "user", "ts"]
     raw_id_fields = ["nota", "revertido_de"]
+
+
+@admin.register(FotoAlumno)
+class FotoAlumnoAdmin(admin.ModelAdmin):
+    list_display = ["alumno", "origen", "updated_at"]
+    search_fields = ["alumno__name", "alumno__email"]
+    raw_id_fields = ["alumno"]

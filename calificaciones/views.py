@@ -31,6 +31,7 @@ from . import calculo, estado, ficheros, plantillas
 from .models import (
     CambioNota,
     Evidencia,
+    FotoAlumno,
     Instrumento,
     Nota,
     NotaManual,
@@ -555,6 +556,21 @@ def evidencia_ver(request, pk):
     if not fichero:
         raise Http404("Esta evidencia no tiene fichero.")
     return ficheros.servir(request, fichero, evidencia.tipo, evidencia.nombre_original)
+
+
+@login_required
+@user_passes_test(es_profesor)
+def foto_alumno(request, group_id, alumno_id):
+    """La foto de carné, solo para quien da clase al grupo y si el alumno está en él."""
+    group = grupo_del_profesor(request.user, group_id)
+    alumno = _alumno_del_grupo(group, alumno_id)
+    foto = FotoAlumno.objects.filter(alumno=alumno).first()
+    if foto is None or not foto.imagen:
+        raise Http404("Este alumno no tiene foto.")
+    respuesta = ficheros.servir(request, foto.imagen, Evidencia.FOTO)
+    # La URL lleva la versión (`?v=`): se puede guardar, pero solo en este navegador.
+    respuesta["Cache-Control"] = "private, max-age=604800"
+    return respuesta
 
 
 @login_required

@@ -17,6 +17,7 @@
   distinto de cero.
 - `Evidencia` es lo que se recoge en clase: foto, audio, vídeo, texto o
   enlace, atado a un alumno y una prueba.
+- `FotoAlumno` es la foto de carné que acompaña al nombre en el cuadro.
 
 **El alumno es `User` vía `Enrollment`**, nunca el `Student` heredado de
 `clases`: es el modelo actual y el que rellenan las invitaciones.
@@ -725,3 +726,42 @@ class CambioNota(models.Model):
             user=user,
             revertido_de=self,
         )
+
+
+def ruta_foto(instance, filename):
+    """`calificaciones/fotos/<uuid>.jpg`: bajo `/media/calificaciones/`, que nginx tiene cerrado."""
+    extension = Path(filename).suffix.lower()[:8] or ".jpg"
+    return f"calificaciones/fotos/{uuid.uuid4().hex}{extension}"
+
+
+class FotoAlumno(models.Model):
+    """La foto de carné de un alumno, la que sale junto a su nombre en el cuadro.
+
+    Viene de los listados con foto de secretaría (`importar_fotos_alumnado`).
+    Es de un menor: se sirve solo por `calificaciones:foto_alumno`, al
+    profesorado de un grupo donde esté matriculado.
+    """
+
+    alumno = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="foto_calificaciones"
+    )
+    imagen = models.FileField(upload_to=ruta_foto, max_length=255)
+    # De dónde salió («LISTADO_ALUMNADO_FOTO_1ºESO.pdf, p. 3»), para saber qué repasar.
+    origen = models.CharField(max_length=255, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Foto de alumno"
+        verbose_name_plural = "Fotos del alumnado"
+
+    def __str__(self):
+        return f"Foto · {self.alumno}"
+
+    def url(self, group_id: int) -> str:
+        # La versión en la URL deja cachear la foto sin miedo a enseñar la vieja.
+        return f"/calificaciones/grupo/{group_id}/foto/{self.alumno_id}/?v={int(self.updated_at.timestamp())}"
+
+    def delete(self, *args, **kwargs):
+        if self.imagen:
+            self.imagen.delete(save=False)
+        return super().delete(*args, **kwargs)

@@ -20,7 +20,7 @@ from decimal import Decimal
 from clases.models import Group
 
 from . import calculo, plantillas
-from .models import CambioNota, Evidencia, Nota, NotaManual, Plan, alumnos_del_grupo
+from .models import CambioNota, Evidencia, FotoAlumno, Nota, NotaManual, Plan, alumnos_del_grupo
 
 TRIMESTRES = (1, 2, 3)
 
@@ -176,6 +176,7 @@ def _bloques(group, alumnos, planes: dict[int, Plan]) -> dict[int, dict]:
     manuales: dict[tuple[int, str], NotaManual] = {
         (m.alumno_id, m.ambito): m for m in NotaManual.objects.filter(group=group, alumno_id__in=ids)
     }
+    fotos = {f.alumno_id: f.url(group.pk) for f in FotoAlumno.objects.filter(alumno_id__in=ids)}
     por_trimestre = {}
     pesos_trimestre = None
     for trimestre, plan in planes.items():
@@ -245,6 +246,7 @@ def _bloques(group, alumnos, planes: dict[int, Plan]) -> dict[int, dict]:
         salida[alumno.pk] = {
             "id": alumno.pk,
             "nombre": alumno.name or alumno.email,
+            "foto": fotos.get(alumno.pk, ""),
             "trimestres": trimestres,
             "curso": {
                 "nota": calculo.a_un_decimal(curso),
