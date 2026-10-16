@@ -147,6 +147,20 @@ production-manage +args:
     @ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-production && \
     docker compose -f docker-compose.production.yml run --rm django python ./manage.py {{args}}"
 
+# exportar-indice: Vuelca el índice de recursos musicales a exports/ (copia local)
+exportar-indice *args:
+    @mkdir -p exports
+    @docker compose run --rm -T django python ./manage.py exportar_indice_markdown {{args}} --salida /app/exports/indice-recursos-musicales.md
+    @echo "→ exports/indice-recursos-musicales.md"
+
+# exportar-indice-produccion: Lo mismo contra producción; el fichero se queda aquí, en exports/
+exportar-indice-produccion *args:
+    @mkdir -p exports
+    @ssh $SSH_MARTINA_USER_AND_IP "cd app-martina-production && \
+    docker compose -f docker-compose.production.yml run --rm -T django python ./manage.py exportar_indice_markdown {{args}} --salida /backups/indice-recursos-musicales.md 1>&2 && \
+    cat backups/indice-recursos-musicales.md && rm backups/indice-recursos-musicales.md" > exports/indice-recursos-musicales.md
+    @echo "→ exports/indice-recursos-musicales.md"
+
 # production-create-superuser: Creates a superuser in production environment.
 production-create-superuser:
     @echo "INFO: Intentando crear superusuario en producción ($SSH_MARTINA_USER_AND_IP)..."

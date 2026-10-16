@@ -4,7 +4,7 @@ phase: plan
 progress: true
 iteration: 61
 principal_stated_goal: "Yo solo quiero añadir evidencias tal cual están diseñadas en la aplicación de Notas. Por favor, copiala. Usa en vez de HTMLX, usa, en fin, haz lo que sea, pero que sea igual visualmente. Me gusta mucho esa forma de calificar, esa aplicación que hicimos."
-updated: 2026-10-15
+updated: 2026-10-16
 ---
 
 # ISA — app-martina · Sistema de estudio de la biblioteca
@@ -62,6 +62,7 @@ updated: 2026-10-15
 | — | El stack de producción vuelve solo tras un reinicio | `d6aa740` |
 | — | La migración 0014 vuelve a caber en el Wagtail de producción | `644bf9d` |
 | 33 | **Cada canción en dos lenguas, una sola página** (C184-C194) | `eb2c3be`, `e79e3d0`, `62527fa`, `6343a65` |
+| 77 | **El índice entero en un Markdown para un GPT** (C489-C494) — comando `exportar_indice_markdown` + `just exportar-indice` | ver abajo |
 
 ### Dónde estamos (2026-09-10)
 
@@ -5176,3 +5177,57 @@ BO: x . . . x x . .
 - Tests: `pytest preguntas` 39 passed; regresión `preguntas calificaciones clases my_library/tests.py musica libreta` 834 passed. Corridos con `docker compose exec` en el contenedor vivo (que tenía cv2 instalado a mano) mientras se reconstruía la imagen; `just test` usa `run --rm` y necesita la imagen nueva.
 - Chrome, local, sesión de Jesús: `/preguntas/prototipo/` carga (captura vista); el PDF abre en el visor de Chrome con «1 / 5» (el visor no se captura en la imagen; la apariencia se verificó sobre la página rasterizada). La cámara no se abrió: permiso.
 - Alcance no tocado: sin modelos, sin migraciones, `TestPage` intacta. Ni push ni despliegue.
+
+## Fase 77 — El índice de recursos musicales, en un solo Markdown para un GPT
+
+**Petición literal (2026-10-16):** *«Prepara el exportador del índice a markdown»*,
+tras preguntar si un GPT de ChatGPT podía leer en vivo
+`apps.iesmartinabescos.es/indice-de-recursos-musicales/` y contestar por voz
+sobre cualquier canción. No puede: un GPT no vuelve a leer URLs en cada
+conversación y sus Actions no corren en modo voz. Lo que sí lee de forma fiable
+es un archivo de Knowledge. Esta fase produce ese archivo.
+
+### Qué es
+
+Un comando de solo lectura, `exportar_indice_markdown`, que recorre el índice en
+orden de árbol y escribe UN fichero Markdown con una ficha por página: título,
+tipo, URL, artista, tonalidad, compás, tempo, duración, referencia, Songsterr,
+etiquetas, categorías, la prosa en cada lengua escrita (sin HTML), la letra con
+acordes tal cual (ChordPro), los adjuntos y los enlaces externos. Encabezado
+con fecha y recuentos, y una tabla-índice (título · tipo · artista · URL) antes
+de las fichas, para que la búsqueda semántica del GPT aterrice.
+
+### Claims
+
+- [x] **C489** — El comando emite una sección por cada página publicada bajo el índice (recursos, partituras, libros, libros de estudio, listas, dictados, tests), en orden de árbol, cada una con su URL canónica; las páginas en borrador y las privadas (y lo que cuelga de un libro privado) quedan fuera salvo `--incluir-privadas`. *Falsador: test con un árbol sembrado — una privada, una en borrador, un libro privado con capítulo — contando secciones y URLs.* *Cerrada 2026-10-16: `musica/exportacion.py::paginas_del_indice`; test con canción, recurso suelto, privada, borrador, libro abierto con capítulo y libro privado con capítulo: 4 URLs en orden de árbol, «Secreto», «Borrador» y «Capítulo oculto» ausentes; con `--incluir-privadas` entran las dos privadas y el borrador sigue fuera. Contra la copia local: 264 páginas de 310 descendientes publicados (fuera: 2 libros privados y lo que cuelga de ellos).*
+- [x] **C490** — La ficha de una canción lleva artista, tonalidad legible, compás, tempo, duración m:ss, referencia, Songsterr, etiquetas facetadas, categorías, entradilla y cuerpo en CADA lengua escrita (con la URL `?lang=`), el ChordPro íntegro, y la lista de adjuntos (PDF/Guitar Pro, audio, vídeo, imagen, enlace, recorte) y de enlaces externos. *Falsador: test que siembra una canción completa y busca cada dato en la salida.* *Cerrada 2026-10-16: test que siembra Perfect (Fa mayor, 6/8, 95 BPM, 4:23, Songsterr, dos etiquetas, traducción al inglés, ChordPro) y encuentra los 17 datos en su ficha, sin `<p>`; la ficha real de «Perfect — prueba ChordPro» en la copia local lleva artista, texto y el ChordPro íntegro (vista).*
+- [x] **C491** — `texto_plano` deja la prosa sin etiquetas, con las entidades decodificadas y los párrafos separados por línea en blanco. *Falsador: test puro sin base de datos.* *Cerrada 2026-10-16: 8 casos parametrizados (párrafos, `<br>`, entidades, listas, `<embed>` de Wagtail, espacios, vacío, None).*
+- [x] **C492** — Opciones: `--salida` (fichero; si no, stdout), `--indice` (pk o slug; por defecto el único índice si hay uno solo, y si hay varios lo dice), `--incluir-privadas`, `--solo-canciones` (solo recursos con ficha musical o letra). *Falsador: tests de cada opción.* *Cerrada 2026-10-16: tests de `--salida` (fichero + resumen «4 páginas … KB →» por stderr), stdout, `--indice` por slug y por pk, dos índices sin `--indice` → `CommandError` que los lista, slug inexistente → `CommandError`, `--solo-canciones` → 1 de 4, `--incluir-privadas`.*
+- [~] **C493** — `just exportar-indice` (local) y `just exportar-indice-produccion` dejan el fichero en `exports/`, ignorado por git. *Falsador: correr la local; existe el fichero; `git status` no lo lista.* *Local cerrada 2026-10-16: `just exportar-indice` deja `exports/indice-recursos-musicales.md` (1,3 MB, 21.229 líneas) y `git status` no lo lista. Las dos recetas escriben con `--salida` en un volumen montado (`/app/exports` en local, `/backups` en producción) porque el entrypoint del contenedor imprime «PostgreSQL is available» y el collectstatic por stdout y ensuciaba la captura; en producción el `run` va a stderr y el fichero se trae con `cat` y se borra. [DEFERRED-VERIFY] `just exportar-indice-produccion`: el comando no existe en producción hasta hacer push y «despliega».*
+- [x] **C494** — Corrido contra la copia local, el resumen (en stderr) dice cuántas páginas de cada tipo entraron y el tamaño; el fichero se lee con `head` y una ficha real tiene lo que promete C490. *Falsador: salida vista.* *Cerrada 2026-10-16: resumen «264 páginas (1 Dictado, 1 Libro de estudio, 14 Libro de la biblioteca, 44 Partitura, 204 Recurso musical), 1316 KB»; cabecera, tabla-índice (264 filas), 98 secciones `##` y 168 `###` (los capítulos de «Modern Jazz Guitar Concepts» anidan bajo su libro), ficha de Perfect vista.*
+
+### Anti-claims
+
+- **Anti-A** — El comando no escribe en la base de datos ni crea filas (ni `LetraConAcordes`: lee `page.chordpro` directamente).
+- **Anti-B** — Nada privado por defecto; nada de alumnado; ninguna credencial ni nombre de host interno en el fichero: solo URLs públicas del sitio.
+- **Anti-C** — Sin modelos nuevos, sin migraciones, sin tocar plantillas.
+- **Anti-D** — Ni push ni despliegue sin «despliega». La exportación de producción corre el comando allí por `just production-manage`, no copia la base.
+
+### Out of Scope
+
+- La Action de ChatGPT contra la app (no funciona en voz hoy; se decide cuando OpenAI lo soporte).
+- Subir el fichero al GPT: lo hace Jesús a mano en el editor del GPT.
+- Exportar los blogs de departamento.
+
+### Test Strategy
+
+`pytest musica/test_exportacion.py` (puro + DB con árbol sembrado); `just exportar-indice` contra la copia local y lectura de la salida.
+
+### Log
+
+- **2026-10-16 — ISA escrito antes del código.** Repo 1 commit por delante de `origin/main`, no por detrás. Copia local de la base: agosto de 2026 (248 recursos, 44 partituras, 16 libros bajo el índice pk 4; solo 1 con ficha musical, porque las canciones con ficha son posteriores a la copia). La prueba de verdad es contra producción.
+- **2026-10-16 — Construida y verificada en local.** `musica/exportacion.py` (puro: qué entra y qué lleva cada ficha), comando `exportar_indice_markdown` (solo lectura, resumen por stderr), 18 tests en `musica/test_exportacion.py`, `pytest musica` 97 en verde, dos recetas de `just`, `exports/` en `.gitignore`.
+- **Gotcha: capturar stdout de `docker compose run` no vale.** El entrypoint escribe «PostgreSQL is available» y la salida de `collectstatic` por stdout, y el primer volcado empezaba con eso. Por eso las recetas escriben a fichero con `--salida` dentro de un volumen montado y no redirigen stdout.
+- **Primer defecto del test, no del código:** `"## Libro"` casa también con `"### Libro"`; las claims de nivel se comprueban con el salto de línea delante. Al corregirlo salió que el hijo directo iba a `###`: hoy es `##`.
+- **Siguiente paso de Jesús:** `git push` + «despliega», `just exportar-indice-produccion`, y subir `exports/indice-recursos-musicales.md` al GPT como Knowledge. Cada vez que cambie el índice, repetir los dos últimos.
+- Ni push ni despliegue.

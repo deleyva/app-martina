@@ -300,3 +300,6 @@ site/
 # Copias de seguridad de datos de producción (no van al repo público)
 backups/
 musica/data/articulos/
+
+# Volcados para subir a un GPT (fase 77); se regeneran con `just exportar-indice`
+exports/
