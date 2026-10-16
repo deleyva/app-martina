@@ -97,9 +97,13 @@ que se recoloque solo cuando un libro cambia (30·2).
    entra material de capítulos nuevos; conviene volver a medirlo con
    `estado_estudio` después de una semana de uso.
 
-4. **Fase 76: preguntas de teoría con tarjetas (Plickers propio).** Planificada el
-   2026-10-15, sin código. Empieza por el prototipo de escaneo (76·0) y no sigue
-   hasta que Jesús lea tarjetas en su aula.
+4. **Fase 76: preguntas de teoría con tarjetas (Plickers propio).** El tramo 76·0
+   (prototipo de escaneo) está en producción desde el 2026-10-16; los tramos
+   76·1–76·3 no siguen hasta que Jesús lea tarjetas en su aula (C471).
+
+5. **Fase 78: el dado del cuaderno al pasar lista.** Planificada el 2026-10-16,
+   sin código. Dos alumnos por sesión, los menos revisados; nota de cuaderno
+   acumulada en su casilla. Espera el «sigue con 78».
 
 ### ⚠️ Antes de generar una migración en este repo
 
@@ -5232,3 +5236,60 @@ de las fichas, para que la búsqueda semántica del GPT aterrice.
 - **Primer defecto del test, no del código:** `"## Libro"` casa también con `"### Libro"`; las claims de nivel se comprueban con el salto de línea delante. Al corregirlo salió que el hijo directo iba a `###`: hoy es `##`.
 - **Siguiente paso de Jesús:** `git push` + «despliega», `just exportar-indice-produccion`, y subir `exports/indice-recursos-musicales.md` al GPT como Knowledge. Cada vez que cambie el índice, repetir los dos últimos.
 - **2026-10-16 — Desplegado por Jesús en otra sesión** (`7adb112` = `origin/main`); exportación de producción corrida y vista. Fase cerrada.
+
+
+## Fase 78 — El dado del cuaderno: dos libretas por sesión, al pasar lista (2026-10-16) · PLANIFICADA, SIN CÓDIGO
+
+**Goal (literal de Jesús, 2026-10-16):** «cuando paso lista ¿puedes poner un dado para que mire el cuaderno de dos alumnos cada día. Mientras pase lista quiero darle a ese dado y mirar las libretas de esos alumnos, ponerle nota y apuntarlo, parecido a como lo hacemos con los elementos evaluables cuando lo marco en una lectura melódica, rítmica, etc, pero dentro del tablero de lista de grupo y sólo para cuaderno».
+
+**Lo que hay y se reutiliza.** El plano de pasar lista (fase 70: `#panel-lista`, `clases/plano.py`, `views_plano.py`, marcas en `Asistencia` con «sin libreta» como material) y el panel de evaluar (fase 62: `calificaciones/evaluar.py` con `instrumentos_del_grupo`, `al_azar`, `evaluar`, `Nota.poner` con `CambioNota`; franja baja y discreta de la 62·1). El instrumento «Cuaderno» existe en las tres plantillas (10 %, escala SB·NT·BI·SU·IN). `calculo.cualitativa()` convierte una media 0-10 en letra.
+
+**Vision.** Abres la clase, está el plano. Tocas 🎲 y dos chips se iluminan con un cuadernillo: hoy les toca a ellos. Pasas lista como siempre. Cuando tengas un hueco (al momento o a mitad de clase con la tecla L), tocas uno de los dos, ves su libreta, pulsas una letra y un comentario corto, y listo: su casilla de Cuaderno ya es la media de todas las veces que le has mirado la libreta este trimestre, y al pulsarla en el registro ves cuántas veces, cuándo, qué letra y qué dijiste. Si no ha venido o no la ha traído, «otro» y el dado tira otra vez. Nadie se queda sin revisar: el dado elige siempre entre los que menos veces han salido.
+
+### Decisiones de diseño (mías; Jesús no las ha revisado)
+
+- **El dado no es puro azar: elige entre los presentes con MENOS revisiones en el instrumento (empates al azar).** Con 23 alumnos, 2 por sesión y unas 24 sesiones por trimestre (48 tiradas), un dado puro deja sin revisar a ~13 % del grupo (e⁻²) y mira cuatro veces a otros. Con «los menos revisados», todo el mundo tiene una antes de que nadie tenga dos.
+- **Quedan fuera del sorteo:** quien tiene falta en la sesión (`faltan_en`), quien ya ha salido hoy, y quien tiene marcado «sin libreta» en la sesión (esa decisión está abajo, pendiente).
+- **Una revisión es una fila propia (`RevisionCuaderno`: sesión, alumno, instrumento, letra, valor, comentario, autor, fecha).** No una `Prueba` por día: con «celda vacía = 0», una columna por día daría 0 a los 21 que no salieron (la misma razón de la fase 62). El sorteo crea la fila con letra vacía (= pendiente) y calificar la rellena; «otro» borra la pendiente y tira de nuevo. Solo las filas con letra cuentan como revisión.
+- **La casilla de Cuaderno = media de las revisiones con letra del alumno en ese instrumento, pasada a letra con `cualitativa` y escrita con `Nota.poner`** en la columna activa del instrumento (`prueba_para_evaluar()`, como evaluar). La media exacta y la lista de revisiones van en `Nota.rubrica["acumulado"]` para el detalle. Queda `CambioNota`. Es el mismo patrón que el tramo 76·3 (casilla de Teoría = media de pases): **el detalle «al pulsar la casilla» se construye una vez y lo usan las dos fases.**
+- **Qué instrumento.** El que se llame «Cuaderno» (sin mirar mayúsculas ni acentos) en el plan del trimestre de la fecha de la sesión. Si el grupo no tiene plan, o el plan no tiene «Cuaderno», el dado lo dice y deja elegir instrumento con la misma lista de `instrumentos_del_grupo`; la elección se guarda en el pase de lista de la sesión.
+- **Discreción en el proyector.** El plano se ve en el monitor del aula: en los chips sale solo el cuadernillo (pendiente) o un ✓ (revisado), nunca la letra. La calificación se hace en la franja baja de la 62·1 (letra de 12-13 px, translúcida).
+- **El sorteo persiste en la sesión:** cerrar el plano y volver con L enseña los mismos dos, con lo pendiente marcado. El panel de cierre de la clase avisa de revisiones pendientes (no bloquea).
+
+### Claims
+
+- [ ] **C495** — `RevisionCuaderno` (sesión, alumno, instrumento, letra ∈ SB·NT·BI·SU·IN o vacía, valor, comentario, autor, fecha), única por (sesión, alumno). Migración aditiva. *Falsador: test de unicidad + `makemigrations --check`.*
+- [ ] **C496** — `sortear(session, instrumento, n=2, excluir=())` devuelve n alumnos presentes sin revisión hoy, los de menos revisiones con letra en ese instrumento, empates al azar; nunca a quien tiene falta, «sin libreta» marcado o ya salió hoy; si no queda nadie, lo dice. *Falsador: test con contadores desiguales (siempre salen los de menos) y test de 400 tiradas que nunca devuelve a un excluido.*
+- [ ] **C497** — Botón 🎲 en la barra del plano de lista (modo «lista», solo profesorado): tira, marca los chips con el cuadernillo y abre la franja baja con los sorteados; «+ otro» añade uno; «otro» en un alumno lo salta (borra su pendiente) y tira otra vez. *Falsador: Chrome, local, grupo inventado pk 20 (captura vista).*
+- [ ] **C498** — Calificar en la franja (letra obligatoria, comentario opcional) escribe la revisión y deja la casilla de Cuaderno del alumno como la letra de la media de todas sus revisiones con letra en ese instrumento, vía `Nota.poner` (queda `CambioNota`), con `rubrica["acumulado"]` = {n, media, revisiones}. *Falsador: test con revisiones SB, IN, NT (9,5 · 4 · 8 → 7,17 → NT) y recuento de `Prueba` y `Nota` antes y después (ni una columna nueva, ni la nota de nadie más).*
+- [ ] **C499** — El sorteo y lo pendiente persisten: recargar la clase o volver con L enseña los mismos sorteados con su estado; el panel de cierre dice cuántas revisiones quedan pendientes y no bloquea. *Falsador: test de `datos_de_lista` + Chrome.*
+- [ ] **C500** — Sin «Cuaderno» en el plan del trimestre (o sin plan), el dado lo dice y deja elegir instrumento entre los del grupo; la elección queda en el pase de lista de la sesión. *Falsador: test con un plan sin «Cuaderno» y otro sin plan.*
+- [ ] **C501** — En el registro, la casilla de un instrumento con acumulado muestra la letra y, al pulsarla, el detalle: número de revisiones, fecha, letra y comentario de cada una. El mismo detalle sirve para los pases de la fase 76·3. *Falsador: Chrome, local.*
+- [ ] **C502** — Permisos como en las fases 62 y 70: solo quien da la sesión tira y califica; alumno ajeno al grupo, instrumento de un plan ajeno y sesión de otro profesor se rechazan (400/404); el alumnado no ve el dado ni la franja. *Falsador: tests 400/404 + `test_el_alumnado_no_ve_el_plano` ampliado.*
+- [ ] **C503** — La suite no empeora (referencia: fase 70, 1656 passed, 4 failed conocidos); migraciones aditivas generadas con wagtail 7.3.1. *Falsador: `just test`.*
+
+### Anti-claims
+
+- **Anti-A** — El dado no crea columnas ni toca la nota de nadie que no haya sido calificado hoy. *Falsador: recuento de `Prueba` y `Nota` en C498.*
+- **Anti-B** — Ninguna letra en el plano que ve el proyector: solo cuadernillo o ✓. *Falsador: grep del DOM de los chips en Chrome.*
+- **Anti-C** — Ni nombres ni notas reales en transcript ni capturas (grupo inventado pk 20). En producción solo se abren pantallas.
+- **Anti-D** — Ni push ni despliegue sin «despliega»; ninguna migración fuera de un despliegue sin preguntar.
+
+### Decisiones pendientes de Jesús (con propuesta)
+
+1. **«Sin libreta» marcado en la lista.** Propuesta: queda fuera del sorteo de hoy y NO le pone nota; la libreta que no viene se castiga por la marca de material, no por el cuaderno. Alternativa: cuenta como IN con un toque.
+2. **Cuántos por sesión.** Propuesta: 2 fijos y «+ otro» para añadir uno a mano.
+3. **El alumnado ve su propio detalle de cuaderno** (cuántas veces, qué letra, comentario). Propuesta: sí, como en la fase 76.
+
+### Out of Scope
+
+- Foto de la libreta como evidencia (se puede añadir después con `Evidencia`, como la grabación de la 62).
+- Revisar cuadernos fuera del pase de lista (desde el registro ya se puede teclear una nota a mano).
+
+### Test Strategy
+
+`pytest calificaciones clases` para el modelo, el sorteo (contadores y exclusiones), la media y los permisos; Chrome en local con el grupo inventado (pk 20) para el dado, la franja y el detalle en el registro; sin dato real en ninguna captura.
+
+### Log
+
+- **2026-10-16 — ISA escrito a petición de Jesús, sin código.** Repo con dos commits de ISA por delante de `origin/main`, no por detrás. Lo que decide el diseño: que una revisión sea una fila propia y no una columna, y que el dado prefiera a los menos revisados.
