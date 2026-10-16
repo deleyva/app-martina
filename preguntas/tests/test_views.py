@@ -97,3 +97,21 @@ class TestDetectar:
         p95 = tiempos[int(len(tiempos) * 0.95) - 1]
         print(f"\nC472 detección: mediana {statistics.median(tiempos):.1f} ms · p95 {p95:.1f} ms · máx {tiempos[-1]:.1f} ms")
         assert p95 < 100
+
+    def test_un_fotograma_1080p_con_diez_tarjetas_pequenas(self, client, profesor, caplog):
+        """Tramo 76·1: la cámara pide 1920×1080. Diez tarjetas de 24 px de lado (≈10 cm a
+        3–4 m con ese sensor) se leen todas, el servidor sigue por debajo de 100 ms y el
+        registro dice QUÉ ids ha leído, no solo cuántos."""
+        import logging
+
+        client.force_login(profesor)
+        diez = [(n, n % 4) for n in range(1, 11)]
+        with caplog.at_level(logging.INFO, logger="preguntas.views"):
+            r = _post_frame(client, jpeg(lienzo(diez, ancho=1920, alto=1080, lado=24, margen=60)))
+        assert r.status_code == 200
+        datos = r.json()
+        assert [m["id"] for m in datos["marcadores"]] == list(range(1, 11))
+        assert datos["ms"] < 100
+        linea = next(m for m in caplog.messages if m.startswith("preguntas.detectar"))
+        assert "10 marcadores [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] en" in linea
+        assert "bytes)" in linea

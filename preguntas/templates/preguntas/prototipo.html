@@ -103,10 +103,13 @@
 
   btnEmpezar.addEventListener('click', function () {
     navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: 'environment' }, width: { ideal: 640 }, height: { ideal: 480 } }, audio: false
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false
     }).then(function (s) {
       stream = s; video.srcObject = s;
       estado.textContent = 'Cámara abierta; enviando un fotograma cada ' + INTERVALO_MS + ' ms.';
+      video.onloadedmetadata = function () {
+        estado.textContent = 'Cámara a ' + video.videoWidth + '×' + video.videoHeight + '; enviando un fotograma cada ' + INTERVALO_MS + ' ms.';
+      };
       btnEmpezar.disabled = true; btnParar.disabled = false;
       temporizador = setInterval(capturar, INTERVALO_MS);
     }).catch(function (e) { estado.textContent = 'No se pudo abrir la cámara: ' + e.message; });

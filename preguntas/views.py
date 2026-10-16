@@ -20,7 +20,7 @@ from . import tarjetas as tarjetas_pdf
 
 logger = logging.getLogger(__name__)
 
-TAMANO_MAXIMO = 2_000_000  # un JPEG de 640×480 pesa 30–80 KB; esto es holgura
+TAMANO_MAXIMO = 2_000_000  # un JPEG de 1920×1080 al 70 % pesa 150–500 KB; esto es holgura
 TARJETAS_DE_PRUEBA = 10
 
 
@@ -53,7 +53,13 @@ def detectar(request):
     except ValueError as error:
         return JsonResponse({"error": str(error)}, status=400)
     ms = (time.perf_counter() - empieza) * 1000
-    logger.info("preguntas.detectar: %d marcadores en %.1f ms", len(marcadores), ms)
+    logger.info(
+        "preguntas.detectar: %d marcadores %s en %.1f ms (%d bytes)",
+        len(marcadores),
+        [m["id"] for m in marcadores],
+        ms,
+        len(datos),
+    )
     return JsonResponse({"marcadores": marcadores, "ms": round(ms, 1)})
 
 
