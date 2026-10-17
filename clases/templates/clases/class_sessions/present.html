@@ -743,7 +743,7 @@
             </span>
             {# Fase 78: el dado del cuaderno. Dos libretas por sesión, los menos revisados. #}
             <button type="button" id="lista-dado" onclick="tirarDado()"
-                    title="Dado del cuaderno: saca a dos alumnos (los que menos veces han salido) para mirarles la libreta hoy.">🎲 Cuaderno</button>
+                    title="Dado del cuaderno: saca a dos alumnos (los que menos veces han salido) para mirarles la libreta hoy. Cerrar la franja con ✕ descarta a los que queden sin mirar; el siguiente toque reparte de nuevo. Como mucho, tres al día.">🎲 Cuaderno</button>
             <span class="hueco"></span>
             <button type="button" id="lista-girar" onclick="alternarGiro()" aria-pressed="false"
                     title="Ver el aula desde la pizarra: los dos ejes invertidos. Solo cambia la vista.">⇅ Vista desde la pizarra</button>
@@ -1826,6 +1826,7 @@
     var CUADERNO_URL = '{% url "clases:cuaderno_estado" session.pk %}';
     var CUADERNO_SORTEAR = '{% url "clases:cuaderno_sortear" session.pk %}';
     var CUADERNO_SALTAR = '{% url "clases:cuaderno_saltar" session.pk %}';
+    var CUADERNO_DESCARTAR = '{% url "clases:cuaderno_descartar" session.pk %}';
     var CUADERNO_CALIFICAR = '{% url "clases:cuaderno_calificar" session.pk %}';
     var cuaderno = null;        // lo último que dijo el servidor
     var cuSaltados = [];        // a quien se saltó hoy con «otro»: no vuelve a salir en esta pantalla
@@ -1842,7 +1843,15 @@
 
     function cuadernoAbierto() { return document.getElementById('panel-cuaderno').classList.contains('abierto'); }
     function abrirCuaderno() { document.getElementById('panel-cuaderno').classList.add('abierto'); ajustarHueco(); }
-    function cerrarCuaderno() { document.getElementById('panel-cuaderno').classList.remove('abierto'); ajustarHueco(); }
+    // Cerrar con la ✕ es «lo dejo» (Jesús, 2026-10-17): los pendientes de hoy
+    // se descartan y el siguiente dado reparte de nuevo. Lo calificado se queda.
+    function cerrarCuaderno() {
+        document.getElementById('panel-cuaderno').classList.remove('abierto');
+        ajustarHueco();
+        if (!cuaderno || !cuaderno.pendientes) return;
+        cuPedir(CUADERNO_DESCARTAR, {}).then(function(j) { pintarCuaderno(j); })
+            .catch(function(e) { avisar('No he podido descartar los pendientes: ' + e.message, 4000); });
+    }
 
     function cuPedir(url, cuerpo) {
         return fetch(url, {
@@ -1855,12 +1864,15 @@
         });
     }
 
-    function tirarDado() {
+    // El dado de la barra reparte (dos); «+ otro», dentro de la franja, añade
+    // uno hasta el tope. Con la franja ya abierta, el de la barra no añade a nadie.
+    function tirarDado(masUno) {
         if (cuEnviando || !datosLista) return;
+        if (!masUno && cuadernoAbierto() && cuaderno && cuaderno.sorteados.length) return;
         var cuerpo = { excluir: cuSaltados.slice() };
         var sel = document.getElementById('cu-instrumento');
         if (sel && sel.value) cuerpo.instrumento = Number(sel.value);
-        if (cuaderno && cuaderno.sorteados.length) cuerpo.n = 1;  // «+ otro»: uno más
+        if (masUno) cuerpo.n = 1;
         abrirCuaderno();
         if (cuaderno && !cuaderno.instrumento && !cuerpo.instrumento) { pintarCuaderno(cuaderno); return; }
         cuEnviando = true;
@@ -1868,7 +1880,7 @@
             cuEnviando = false;
             var antes = cuaderno ? cuaderno.sorteados.length : 0;
             pintarCuaderno(j);
-            if (j.sorteados.length === antes) avisar(j.candidatos ? 'No ha salido nadie' : 'No queda nadie que pueda salir hoy');
+            if (j.sorteados.length === antes) avisar(j.sorteados.length >= j.maximo ? 'Hoy ya han salido ' + j.maximo : (j.candidatos ? 'No ha salido nadie' : 'No queda nadie que pueda salir hoy'));
         }).catch(function(e) { cuEnviando = false; pintarCuaderno(cuaderno, e.message); });
     }
 
@@ -1928,11 +1940,12 @@
             return;
         }
         document.getElementById('cu-titulo').textContent = '📓 ' + estado.instrumento.nombre + ' · ' + estado.instrumento.trimestre + 'ª ev.';
+        var lleno = estado.sorteados.length >= estado.maximo;
         h += '<div class="cu-linea"><span class="cu-nota">' +
-             (estado.sorteados.length ? estado.pendientes + ' por mirar · ' + (estado.sorteados.length - estado.pendientes) + ' con nota' : 'Nadie todavía') +
-             '</span><button type="button" class="cu-btn cu-primario" onclick="tirarDado()" ' + (estado.candidatos ? '' : 'disabled') + '>🎲 ' +
+             (estado.sorteados.length ? estado.pendientes + ' por mirar · ' + (estado.sorteados.length - estado.pendientes) + ' con nota · hoy ' + estado.sorteados.length + ' de ' + estado.maximo : 'Nadie todavía') +
+             '</span><button type="button" class="cu-btn cu-primario" onclick="tirarDado(' + (estado.sorteados.length ? 'true' : 'false') + ')" ' + (estado.candidatos && !lleno ? '' : 'disabled') + '>🎲 ' +
              (estado.sorteados.length ? '+ otro' : 'Tirar') + '</button>' +
-             '<span class="cu-nota">' + estado.candidatos + ' podrían salir</span></div>';
+             '<span class="cu-nota">' + (lleno ? 'tope de hoy' : estado.candidatos + ' podrían salir') + '</span></div>';
         estado.sorteados.forEach(function(s) {
             if (s.letra) {
                 h += '<div class="cu-fila cu-hecha"><span class="cu-nombre">✓ ' + escHtml(s.nombre) + '</span><span>' + escHtml(s.letra) + '</span>' +

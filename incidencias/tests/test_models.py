@@ -9,6 +9,7 @@ from ..models import Incidencia
 from ..models import Tecnico
 from ..models import Ubicacion
 from ..models import adjunto_upload_path
+from ..models import usuario_normalizado
 from .factories import AdjuntoFactory
 from .factories import ComentarioFactory
 from .factories import EtiquetaFactory
@@ -276,3 +277,49 @@ class TestHistorialAsignacion:
         hist = HistorialAsignacionFactory(asignado_por=None)
         assert hist.asignado_por is None
         assert "Sistema" in str(hist)
+
+
+class TestUsuarioNormalizado:
+    """El @ es para mencionar, no para firmar: el campo «¿Quién eres?» guarda el usuario canónico."""
+
+    @pytest.mark.parametrize(
+        ("escrito", "guardado"),
+        [
+            ("@secretaría", "secretaria"),
+            ("@conserjería", "conserjeria"),
+            ("  @@Secretaria  ", "secretaria"),
+            ("jlopeZ", "jlopez"),
+            ("sgonzalez@iesmartinabescos.es", "sgonzalez"),
+            ("SGonzalez@IESMartinaBescos.es", "sgonzalez"),
+            ("no-reply@accounts.google.com", "no-reply@accounts.google.com"),
+            ("mrodriguez@iesmartinabescos", "mrodriguez@iesmartinabescos"),
+            ("4ºb", "4ºb"),
+            ("Prof. Test", "Prof. Test"),
+            ("@Dorotea Pérez", "Dorotea Pérez"),
+            ("", ""),
+            (None, ""),
+        ],
+    )
+    def test_formas(self, escrito, guardado):
+        assert usuario_normalizado(escrito) == guardado
+
+    @pytest.mark.django_db
+    def test_comentario_guarda_el_usuario_sin_arroba(self):
+        c = ComentarioFactory(autor_nombre="@secretaría")
+        c.refresh_from_db()
+        assert c.autor_nombre == "secretaria"
+
+    @pytest.mark.django_db
+    def test_incidencia_guarda_el_reportero_sin_arroba(self):
+        inc = IncidenciaFactory(reportero_nombre="@Aginer")
+        inc.refresh_from_db()
+        assert inc.reportero_nombre == "aginer"
+
+    @pytest.mark.django_db
+    def test_la_mencion_al_autor_firmado_con_arroba_no_le_avisa(self, settings):
+        """Antes, con el autor «@secretaría», el aviso por correo del propio comentario podía ir al autor."""
+        settings.DEFAULT_USER_EMAIL_DOMAIN = "iesmartinabescos.es"
+        c = ComentarioFactory(autor_nombre="@secretaria", texto="Visto, @secretaria lo mira")
+        from incidencias.services.notification_service import _username_to_email
+
+        assert _username_to_email(c.autor_nombre) == "secretaria@iesmartinabescos.es"

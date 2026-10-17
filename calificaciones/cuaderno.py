@@ -41,6 +41,8 @@ from .evaluar import instrumento_del_grupo, instrumentos_del_grupo, valor_de_let
 from .models import LETRAS, Instrumento, Nota, RevisionCuaderno, alumnos_del_grupo
 
 POR_SESION = 2
+# «Dos al día o, mucho, tres» (Jesús, 2026-10-17): con «+ otro» se llega a tres y ahí se para.
+MAXIMO_POR_SESION = 3
 CENTESIMA = Decimal("0.01")
 
 
@@ -118,10 +120,15 @@ def sortear(session, instrumento: Instrumento, n: int = POR_SESION, excluir=(), 
     """Saca hasta `n` alumnos y les crea la fila pendiente. Los que menos veces han salido.
 
     Devuelve las filas creadas (puede ser menos de `n`, o ninguna, si no queda
-    nadie que pueda salir). `azar` se inyecta para los tests.
+    nadie que pueda salir o si hoy ya han salido `MAXIMO_POR_SESION`: los que
+    ya tienen fila en la sesión, con letra o sin ella, cuentan para el tope).
+    `azar` se inyecta para los tests.
     """
     if not 1 <= int(n) <= 10:
         raise ValueError("Se sortean de 1 a 10 alumnos cada vez")
+    n = min(int(n), MAXIMO_POR_SESION - session.revisiones_cuaderno.count())
+    if n <= 0:
+        return []
     if instrumento_del_grupo(session.group, instrumento.pk) is None:
         raise ValueError("Ese instrumento no es de un plan de este grupo")
     if instrumento.prueba_para_evaluar() is None:
@@ -139,6 +146,17 @@ def sortear(session, instrumento: Instrumento, n: int = POR_SESION, excluir=(), 
         RevisionCuaderno.objects.create(session=session, alumno=a, instrumento=instrumento, autor=autor)
         for a in bolsa[: int(n)]
     ]
+
+
+@transaction.atomic
+def descartar(session) -> int:
+    """Quita TODOS los pendientes de la sesión: cerrar la franja es «lo dejo».
+
+    Las revisiones con letra se quedan. Devuelve cuántas filas se han quitado.
+    El siguiente toque al dado reparte de nuevo, sin los ya calificados hoy.
+    """
+    borradas, _ = RevisionCuaderno.objects.filter(session=session, letra="").delete()
+    return borradas
 
 
 @transaction.atomic
@@ -268,6 +286,7 @@ def estado_de_lista(session) -> dict:
         "opciones": [] if instrumento else [_instrumento_json(i) for i in opciones_de(session)],
         "letras": LETRAS,
         "por_sesion": POR_SESION,
+        "maximo": MAXIMO_POR_SESION,
         "sorteados": sorteados,
         "pendientes": sum(1 for f in filas if f.pendiente),
         "candidatos": len(candidatos(session)),

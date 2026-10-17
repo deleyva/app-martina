@@ -1,6 +1,7 @@
 # ruff: noqa: ERA001, E501
 import re
 import secrets
+import unicodedata
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -9,6 +10,25 @@ from django.db import models
 from django.utils import timezone
 from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
+
+
+def usuario_normalizado(valor: str) -> str:
+    """El usuario del IES tal como lo escribe la gente, llevado a su forma canónica.
+
+    `@secretaría`, `Secretaria` y `secretaria@iesmartinabescos.es` son la misma cuenta y se
+    guardan como `secretaria`: el @ delante sirve para mencionar a alguien, no para firmar, y
+    los usuarios de Google Workspace no llevan mayúsculas ni acentos. Un nombre con espacios
+    («Prof. Test») o un correo de otro dominio se deja como está, solo sin el @ inicial.
+    """
+    valor = (valor or "").strip().lstrip("@").strip()
+    if not valor or any(ch.isspace() for ch in valor):
+        return valor
+    valor = unicodedata.normalize("NFD", valor.lower())
+    valor = "".join(ch for ch in valor if unicodedata.category(ch) != "Mn")
+    dominio = getattr(settings, "DEFAULT_USER_EMAIL_DOMAIN", "iesmartinabescos.es")
+    if valor.endswith(f"@{dominio}"):
+        valor = valor[: -len(dominio) - 1]
+    return valor
 
 
 class Ubicacion(models.Model):
@@ -194,6 +214,10 @@ class Incidencia(models.Model):
     def __str__(self):
         return f"[{self.get_urgencia_display()}] {self.titulo}"
 
+    def save(self, *args, **kwargs):
+        self.reportero_nombre = usuario_normalizado(self.reportero_nombre)
+        super().save(*args, **kwargs)
+
     @property
     def aula_o_sin_aula(self) -> str:
         return self.ubicacion.nombre if self.ubicacion else "Sin aula"
@@ -289,6 +313,10 @@ class Comentario(models.Model):
 
     def __str__(self):
         return f"{self.autor_nombre}: {self.texto[:50]}"
+
+    def save(self, *args, **kwargs):
+        self.autor_nombre = usuario_normalizado(self.autor_nombre)
+        super().save(*args, **kwargs)
 
     # «@jlopez» sí; «jlopez@iesmartinabescos.es» no (la @ va pegada a una letra);
     # un punto final de frase no forma parte del usuario.

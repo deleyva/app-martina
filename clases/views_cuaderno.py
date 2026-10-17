@@ -81,6 +81,16 @@ def cuaderno_sortear(request, pk):
 @login_required
 @user_passes_test(es_profesor)
 @require_POST
+def cuaderno_descartar(request, pk):
+    """Cerrar la franja: fuera los pendientes de hoy; lo calificado se queda."""
+    session = _sesion_del_profesor(request, pk)
+    cuaderno.descartar(session)
+    return JsonResponse(cuaderno.estado_de_lista(session))
+
+
+@login_required
+@user_passes_test(es_profesor)
+@require_POST
 def cuaderno_saltar(request, pk):
     """Cuerpo JSON: {alumno}. Le quita la pendiente y tira otra vez por uno, sin repetirle."""
     session = _sesion_del_profesor(request, pk)

@@ -137,6 +137,53 @@ def test_un_instrumento_de_otro_plan_se_rechaza(sesion, alumnos, otro_group, mar
 
 
 # =============================================================================
+# C504 · tope de tres al día; cerrar la franja descarta los pendientes
+# =============================================================================
+
+
+def test_hoy_salen_como_mucho_tres(group, profesor, cuad, sesion):
+    for n in range(6):
+        Enrollment.objects.create(user=UserFactory(name=f"Alumno {n}"), group=group)
+    assert len(cuaderno.sortear(sesion, cuad, n=2)) == 2
+    assert len(cuaderno.sortear(sesion, cuad, n=1)) == 1
+    assert cuaderno.sortear(sesion, cuad, n=1) == []
+    assert cuaderno.sortear(sesion, cuad, n=2) == []
+    assert sesion.revisiones_cuaderno.count() == 3
+    assert cuaderno.estado_de_lista(sesion)["maximo"] == 3
+
+
+def test_los_calificados_cuentan_para_el_tope(group, profesor, cuad, sesion):
+    for n in range(6):
+        Enrollment.objects.create(user=UserFactory(name=f"Alumno {n}"), group=group)
+    primera, segunda = cuaderno.sortear(sesion, cuad, n=2)
+    cuaderno.calificar(sesion, primera.alumno, "BI", profesor)
+    cuaderno.calificar(sesion, segunda.alumno, "NT", profesor)
+    # Cerrar y volver a tirar: solo cabe uno más, y nunca uno de los dos ya mirados.
+    assert cuaderno.descartar(sesion) == 0
+    (tercero,) = cuaderno.sortear(sesion, cuad, n=2)
+    assert tercero.alumno_id not in {primera.alumno_id, segunda.alumno_id}
+    assert cuaderno.sortear(sesion, cuad, n=2) == []
+
+
+def test_cerrar_descarta_los_pendientes_y_no_los_calificados(client, profesor, group, cuad, sesion):
+    for n in range(6):
+        Enrollment.objects.create(user=UserFactory(name=f"Alumno {n}"), group=group)
+    a, b = cuaderno.sortear(sesion, cuad, n=2)
+    cuaderno.calificar(sesion, a.alumno, "SB", profesor)
+    client.force_login(profesor)
+    r = _post(client, "cuaderno_descartar", sesion, {})
+    assert r.status_code == 200
+    assert [s["alumno"] for s in r.json()["sorteados"]] == [a.alumno_id]
+    assert r.json()["pendientes"] == 0
+    assert not RevisionCuaderno.objects.filter(pk=b.pk).exists()
+    # El siguiente dado reparte de nuevo, con sitio para dos (uno mirado + dos = tres).
+    r = _post(client, "cuaderno_sortear", sesion, {})
+    nuevos = {s["alumno"] for s in r.json()["sorteados"]}
+    assert len(nuevos) == 3 and a.alumno_id in nuevos
+    assert Nota.objects.filter(alumno=a.alumno).exists()
+
+
+# =============================================================================
 # C498 · la casilla es la letra de la media; nada más se toca
 # =============================================================================
 
@@ -301,6 +348,7 @@ def test_solo_quien_da_la_sesion_tira_y_califica(client, otro_profesor, sesion, 
     assert client.get(reverse("clases:cuaderno_estado", args=[sesion.pk])).status_code == 404
     assert _post(client, "cuaderno_sortear", sesion, {}).status_code == 404
     assert _post(client, "cuaderno_calificar", sesion, {"alumno": alumnos[0].pk, "letra": "SB"}).status_code == 404
+    assert _post(client, "cuaderno_descartar", sesion, {}).status_code == 404
     assert RevisionCuaderno.objects.count() == 0
 
 

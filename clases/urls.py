@@ -491,5 +491,6 @@ urlpatterns = [
     path("sessions/<int:pk>/lista/cuaderno/", views_cuaderno.cuaderno_estado, name="cuaderno_estado"),
     path("sessions/<int:pk>/lista/cuaderno/sortear/", views_cuaderno.cuaderno_sortear, name="cuaderno_sortear"),
     path("sessions/<int:pk>/lista/cuaderno/saltar/", views_cuaderno.cuaderno_saltar, name="cuaderno_saltar"),
+    path("sessions/<int:pk>/lista/cuaderno/descartar/", views_cuaderno.cuaderno_descartar, name="cuaderno_descartar"),
     path("sessions/<int:pk>/lista/cuaderno/calificar/", views_cuaderno.cuaderno_calificar, name="cuaderno_calificar"),
 ]
