@@ -107,7 +107,7 @@ que se recoloque solo cuando un libro cambia (30·2).
    lista, la franja para calificar, la casilla de Cuaderno como letra de la
    media y el detalle «×n» en el registro. De paso arregla la bandeja «sin
    sitio» escondida bajo la rejilla (lo que Jesús veía como «no aparece nadie»
-   en 4-AC-BIL). Espera el «despliega».
+   en 4-AC-BIL). **En producción desde el 2026-10-17.**
 
 ### ⚠️ Antes de generar una migración en este repo
 
@@ -5302,3 +5302,4 @@ de las fichas, para que la búsqueda semántica del GPT aterrice.
 - **El bug de 4-AC-BIL, de paso.** Lo que Jesús veía como «no aparece nadie en la plantilla de grupo» era la bandeja «sin sitio» debajo de la rejilla: con un aula sin mesas, el aula se dibuja a (100vh − 100px) y los seis chips quedaban a 802 px en una pantalla de 757 (medido en producción con su sesión, sesión 163). Ahora `ajustarHueco()` cede al aula lo que miden la bandeja y la franja abierta, y lo que sobresalga del cuerpo; en modo «Cambiar sitios» se quita el inline y manda el CSS de la fase 71 (250 px). Verificado en local con el grupo 20 (también sin mesas): los 8 chips a la vista sin bajar, con y sin franja.
 - **Gotchas.** (1) El `runserver` local no recogió `clases/urls.py` hasta reiniciar el contenedor: la página daba `NoReverseMatch` mientras los tests pasaban; (2) el cargador de plantillas cacheó `present.html`, y una edición posterior solo se vio tras otro reinicio; (3) reiniciar `django` mata un `pytest` lanzado con `docker compose exec` en ese contenedor: la regresión se relanzó con `run --rm`, que es lo que hace `just test`.
 - Alcance no tocado: `PaseDeLista` sin campos nuevos; ninguna pantalla nueva para el alumnado; ni push ni despliegue.
+- **2026-10-17 — Desplegada y verificada en producción** («despliega»). Copia previa `production_backup_2026_10_17T06_59_58.sql.gz` (6,3 MB); push `4c19745..df7950d`; `just deploy-production`; aplicada `calificaciones.0007_revision_cuaderno` (crea la tabla, no toca datos). El servidor está en `df7950d`, los seis contenedores en marcha. En Chrome con la sesión de Jesús: el pase de lista de la sesión 163 de 4-AC-BIL enseña los seis chips (Jorge incluido) sin bajar, con «🎲 Cuaderno» en la barra y `--plano-hueco: 210px` sin nada que sobresalga del cuerpo; `GET /clases/sessions/163/lista/cuaderno/` → 200 con el instrumento «Cuaderno» de la 1ª ev. (id 45), 0 sorteados, 6 candidatos; el registro `/calificaciones/grupo/13/?t=1` carga con sus 6 filas y 54 celdas, sin errores de consola, y el bundle servido lleva el detalle («Ver el detalle»). Sin tirar el dado en producción (Anti-C): la primera tirada real es de Jesús en clase.
