@@ -350,7 +350,15 @@ def datos_de_lista(session, aula=None):
         "materiales": [{"clave": c, "nombre": n} for c, n in MATERIALES],
         "resumen": resumen_sigad(session),
         "rejilla": rejilla(),
+        "cuaderno": estado_cuaderno(session),
     }
+
+
+def estado_cuaderno(session):
+    """El dado del cuaderno (fase 78), que vive en calificaciones. Importado aquí para no cruzar módulos al cargar."""
+    from calificaciones.cuaderno import estado_de_lista
+
+    return estado_de_lista(session)
 
 
 def rejilla():
@@ -368,4 +376,11 @@ def dar_por_pasada(session):
 def faltan_en(session):
     """Ids con falta en la sesión: Evaluar al azar no debe elegirlos."""
     return set(session.asistencias.filter(estado=Asistencia.FALTA).values_list("alumno_id", flat=True))
+
+
+def sin_material_en(session, clave):
+    """Ids con esa marca de material en la sesión («libreta»: el dado del cuaderno no los saca)."""
+    if clave not in CLAVES_MATERIAL:
+        raise ValidationError(f"Material desconocido: {clave}")
+    return {f.alumno_id for f in session.asistencias.all() if clave in (f.sin_material or [])}
 

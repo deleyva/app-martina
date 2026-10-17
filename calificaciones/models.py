@@ -34,11 +34,15 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models, transaction
 from django.utils import timezone
 
-from clases.models import Enrollment, Group, Subject
+from clases.models import ClassSession, Enrollment, Group, Subject
 
 from . import calculo
 
 TRIMESTRES = [(1, "1ª evaluación"), (2, "2ª evaluación"), (3, "3ª evaluación")]
+
+# Las calificaciones cualitativas, de mejor a peor. Las usan evaluar en clase
+# (fase 62) y el dado del cuaderno (fase 78).
+LETRAS = ["SB", "NT", "BI", "SU", "IN"]
 
 
 def alumnos_del_grupo(group):
@@ -765,3 +769,55 @@ class FotoAlumno(models.Model):
         if self.imagen:
             self.imagen.delete(save=False)
         return super().delete(*args, **kwargs)
+
+
+class RevisionCuaderno(models.Model):
+    """Una mirada a la libreta de un alumno en una sesión (fase 78).
+
+    El dado del pase de lista crea la fila con la letra vacía (= sorteado,
+    pendiente de mirar) y calificar la rellena. **Solo las filas con letra son
+    revisiones**: «otro» borra la pendiente y tira de nuevo.
+
+    Es una fila propia y no una `Prueba` por día a propósito: con «celda vacía
+    = 0» (fase 60), una columna por día daría un cero a los veinte que no
+    salieron, la misma razón por la que evaluar en clase (fase 62) escribe
+    en la columna del instrumento. La casilla de Cuaderno del registro es la
+    letra de la media de estas filas, y se recalcula en cada calificación.
+    """
+
+    session = models.ForeignKey(
+        ClassSession, on_delete=models.CASCADE, related_name="revisiones_cuaderno"
+    )
+    alumno = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="revisiones_cuaderno"
+    )
+    instrumento = models.ForeignKey(
+        Instrumento, on_delete=models.CASCADE, related_name="revisiones_cuaderno"
+    )
+    letra = models.CharField(
+        max_length=2, blank=True, choices=[(letra, letra) for letra in LETRAS],
+        help_text="Vacía = sorteado y pendiente de mirar",
+    )
+    valor = models.DecimalField(
+        max_digits=4, decimal_places=2, null=True, blank=True,
+        help_text="Lo que vale la letra en la escala del instrumento, al calificar",
+    )
+    comentario = models.TextField(blank=True)
+    autor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ["session", "alumno"]
+        ordering = ["session__date", "pk"]
+        verbose_name = "Revisión de cuaderno"
+        verbose_name_plural = "Revisiones de cuaderno"
+
+    def __str__(self):
+        return f"{self.alumno} · {self.session.date:%d/%m}: {self.letra or 'pendiente'}"
+
+    @property
+    def pendiente(self) -> bool:
+        return self.letra == ""

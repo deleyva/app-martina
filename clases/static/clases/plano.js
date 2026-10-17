@@ -70,6 +70,9 @@
     var self = this;
     (datos.alumnado || []).forEach(function (a) { self.alumnos[a.id] = a; });
     this.asistencia = datos.asistencia || {};
+    // El dado del cuaderno (fase 78): id → 'pendiente' | 'hecho'. En el chip
+    // solo sale el cuadernillo o el visto, nunca la letra: el plano se proyecta.
+    this.cuaderno = datos.cuaderno_marcas || {};
     this.pintar();
   };
 
@@ -121,6 +124,7 @@
       bandeja.appendChild(fila);
       this.c.appendChild(bandeja);
     }
+    if (this.o.onPintado) this.o.onPintado(this);
   };
 
   Plano.prototype.colocar = function (nodo, x, y, ancho, alto) {
@@ -177,6 +181,11 @@
         chip.appendChild(el('span', 'plano-material', 'sin ' + marca.sin_material.join(', ')));
       }
       if (marca.nota) chip.classList.add('con-nota');
+    }
+    var cu = this.cuaderno[id];
+    if (cu) {
+      chip.classList.add('cuaderno-' + cu);
+      chip.appendChild(el('span', 'plano-cuaderno', cu === 'hecho' ? '📓 ✓' : '📓'));
     }
     if (this.modo === 'editar') {
       this.arrastrable(chip, 'alumno', { id: id, mesa: mesa, plaza: plaza });
@@ -346,6 +355,11 @@
 
   Plano.prototype.ponerGirado = function (girado) {
     this.girado = !!girado;
+    this.pintar();
+  };
+
+  Plano.prototype.ponerCuaderno = function (marcas) {
+    this.cuaderno = marcas || {};
     this.pintar();
   };
 

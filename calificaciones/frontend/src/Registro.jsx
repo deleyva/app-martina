@@ -7,6 +7,7 @@ import { ArrowLeft, ArrowRight, ChevronDown, ChevronRight, EyeOff, Info, Plus, T
 import { api } from './api.js';
 import Celda from './Celda.jsx';
 import BotonEvidencia from './evidencias/BotonEvidencia.jsx';
+import Detalle from './Detalle.jsx';
 import {
   QUALITATIVE_OPTIONS, QUALITATIVE_STYLES, TERM_LARGOS, estiloCualitativa, notaDe, numero,
 } from './estilos.js';
@@ -120,6 +121,7 @@ export default function Registro({
                             onCambio={(valor, opciones) => onNota(alumno.id, columna.prueba, valor, opciones)}
                             onSalir={() => onSalirDeCelda(alumno.id)}
                           />
+                          <Detalle detalle={suyo.notas[columna.prueba]?.detalle} columna={columna} />
                           <BotonEvidencia
                             alumno={alumno.id}
                             prueba={columna.prueba}

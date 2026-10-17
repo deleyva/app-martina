@@ -18,10 +18,8 @@ from pathlib import Path
 
 from django.db import transaction
 
-from .models import Instrumento, Nota, Plan, alumnos_del_grupo
+from .models import LETRAS, Instrumento, Nota, Plan, alumnos_del_grupo
 from .plantillas import ESCALA
-
-LETRAS = ["SB", "NT", "BI", "SU", "IN"]
 
 # Los cortes de la media de la rúbrica (1 = no lo consigue, 2 = con errores,
 # 3 = lo consigue). Elegidos por Jesús el 2026-10-04 frente a uno más exigente y

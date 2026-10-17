@@ -183,7 +183,7 @@ def _bloques(group, alumnos, planes: dict[int, Plan]) -> dict[int, dict]:
         instrumentos = {i.pk: i for i in plan.instrumentos.all()}
         pruebas = plan.pruebas_activas()
         notas = {
-            (n.prueba_id, n.alumno_id): n.valor
+            (n.prueba_id, n.alumno_id): n
             for n in Nota.objects.filter(prueba__in=pruebas, alumno_id__in=ids)
         }
         por_trimestre[trimestre] = (plan.resultados(alumnos), pruebas, instrumentos, notas)
@@ -216,11 +216,17 @@ def _bloques(group, alumnos, planes: dict[int, Plan]) -> dict[int, dict]:
             r = resultados[alumno.pk]
             celdas = {}
             for prueba in pruebas:
-                valor = notas.get((prueba.pk, alumno.pk))
+                nota = notas.get((prueba.pk, alumno.pk))
+                valor = nota.valor if nota else None
                 celdas[str(prueba.pk)] = {
                     "valor": _num(valor),
                     "etiqueta": instrumentos[prueba.instrumento_id].etiqueta_de(valor),
                 }
+                # Una casilla que es la media de varias miradas (el dado del
+                # cuaderno, fase 78; los pases de teoría, 76·3) lleva su detalle.
+                acumulado = (nota.rubrica or {}).get("acumulado") if nota else None
+                if acumulado:
+                    celdas[str(prueba.pk)]["detalle"] = acumulado
             trimestres[str(trimestre)] = {
                 "notas": celdas,
                 "nota": calculo.a_un_decimal(r.trimestre),

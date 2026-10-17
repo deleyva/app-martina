@@ -4,6 +4,7 @@ from . import views
 from . import views_libros
 from . import views_study_cards
 from . import views_evaluar
+from . import views_cuaderno
 from . import views_plano
 
 app_name = "clases"
@@ -486,4 +487,9 @@ urlpatterns = [
     path("sessions/<int:pk>/lista/", views_plano.lista_datos, name="lista_datos"),
     path("sessions/<int:pk>/lista/marcar/", views_plano.lista_marcar, name="lista_marcar"),
     path("sessions/<int:pk>/lista/pasada/", views_plano.lista_pasada, name="lista_pasada"),
+    # El dado del cuaderno (fase 78), dentro del pase de lista.
+    path("sessions/<int:pk>/lista/cuaderno/", views_cuaderno.cuaderno_estado, name="cuaderno_estado"),
+    path("sessions/<int:pk>/lista/cuaderno/sortear/", views_cuaderno.cuaderno_sortear, name="cuaderno_sortear"),
+    path("sessions/<int:pk>/lista/cuaderno/saltar/", views_cuaderno.cuaderno_saltar, name="cuaderno_saltar"),
+    path("sessions/<int:pk>/lista/cuaderno/calificar/", views_cuaderno.cuaderno_calificar, name="cuaderno_calificar"),
 ]

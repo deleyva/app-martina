@@ -124,6 +124,40 @@
         #lista-sigad.visible { display: block; }
         #lista-sigad pre { white-space: pre-wrap; font: 14px/1.5 ui-monospace, monospace; margin: 0 0 8px; user-select: text; -webkit-user-select: text; }
         #lista-sigad button { border: none; border-radius: 6px; padding: 6px 12px; background: #2563eb; color: #fff; cursor: pointer; }
+        /* El dado del cuaderno (fase 78): botón en la barra, chips marcados en el plano y
+           una franja baja como la de evaluar (pequeña y translúcida: se proyecta). */
+        #lista-barra #lista-dado { background: rgba(162, 28, 175, 0.75); font-weight: 700; }
+        #lista-barra #lista-dado:hover { background: rgba(162, 28, 175, 1); }
+        #panel-lista.editando #lista-dado { display: none; }
+        #panel-cuaderno { position: fixed; left: 16px; right: 16px; bottom: 8px; z-index: 20004; display: none;
+            max-height: 42vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+            background: rgba(14, 14, 18, 0.9); backdrop-filter: blur(6px);
+            border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 12px;
+            color: #e4e4e7; font-size: 12px; line-height: 1.3; padding: 8px 10px; }
+        #panel-cuaderno.abierto { display: block; }
+        #panel-lista.editando #panel-cuaderno { display: none; }
+        #panel-cuaderno .cu-barra { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+        #panel-cuaderno .cu-titulo { flex: 1; min-width: 0; opacity: 0.75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        #panel-cuaderno .cu-cerrar { width: 26px; height: 26px; border-radius: 50%; border: none; background: rgba(255,255,255,0.08); color: #fff; font-size: 13px; cursor: pointer; flex-shrink: 0; }
+        #panel-cuaderno .cu-linea { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 4px 0; }
+        #panel-cuaderno .cu-fila { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 0; border-top: 1px solid rgba(255,255,255,0.08); }
+        #panel-cuaderno .cu-nombre { font-weight: 700; min-width: 120px; }
+        #panel-cuaderno button.cu-btn { border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); color: #fff; border-radius: 8px; padding: 5px 9px; font-size: 12px; font-weight: 600; cursor: pointer; }
+        #panel-cuaderno button.cu-btn:hover { background: rgba(255,255,255,0.14); }
+        #panel-cuaderno button.cu-btn:disabled { opacity: 0.35; cursor: default; }
+        #panel-cuaderno button.cu-primario { background: rgba(162, 28, 175, 0.85); border-color: rgba(217, 70, 239, 0.8); }
+        #panel-cuaderno .cu-letra { min-width: 28px; height: 24px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.18); background: transparent; color: #fff; font-size: 11px; font-weight: 900; cursor: pointer; padding: 0 4px; }
+        #panel-cuaderno .cu-letra.si[data-l="SB"] { background: #15803d; }
+        #panel-cuaderno .cu-letra.si[data-l="NT"] { background: #1d4ed8; }
+        #panel-cuaderno .cu-letra.si[data-l="BI"], #panel-cuaderno .cu-letra.si[data-l="SU"] { background: #a16207; }
+        #panel-cuaderno .cu-letra.si[data-l="IN"] { background: #b91c1c; }
+        #panel-cuaderno input.cu-comentario { flex: 1; min-width: 140px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.04); color: #fff; padding: 4px 6px; font-size: 12px; font-family: inherit; }
+        #panel-cuaderno select { border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); background: #27272a; color: #fff; padding: 4px 6px; font-size: 12px; }
+        #panel-cuaderno .cu-nota { opacity: 0.7; }
+        #panel-cuaderno .cu-hecha { opacity: 0.75; }
+        #panel-cuaderno .cu-error { color: #fca5a5; }
+        #cierre-cuaderno { display: none; margin: 0 0 12px; font-size: 13px; color: #f0abfc; }
+        #cierre-cuaderno.visible { display: block; }
         #marcas-alumno { position: fixed; z-index: 20003; width: 300px; background: #fff; color: #18181b; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); padding: 12px; display: none; }
         #marcas-alumno.abierto { display: block; }
         #marcas-alumno .nombre { font-weight: 700; margin-bottom: 8px; }
@@ -707,6 +741,9 @@
                 <button type="button" data-modo="lista" class="activa" onclick="ponerModoPlano('lista')">Pasar lista</button>
                 <button type="button" data-modo="editar" onclick="ponerModoPlano('editar')">Cambiar sitios</button>
             </span>
+            {# Fase 78: el dado del cuaderno. Dos libretas por sesión, los menos revisados. #}
+            <button type="button" id="lista-dado" onclick="tirarDado()"
+                    title="Dado del cuaderno: saca a dos alumnos (los que menos veces han salido) para mirarles la libreta hoy.">🎲 Cuaderno</button>
             <span class="hueco"></span>
             <button type="button" id="lista-girar" onclick="alternarGiro()" aria-pressed="false"
                     title="Ver el aula desde la pizarra: los dos ejes invertidos. Solo cambia la vista.">⇅ Vista desde la pizarra</button>
@@ -735,6 +772,13 @@
                 <summary>Historial de este plano</summary>
                 <ul id="edicion-versiones"></ul>
             </details>
+        </div>
+        <div id="panel-cuaderno" role="dialog" aria-label="Cuaderno">
+            <div class="cu-barra">
+                <div class="cu-titulo" id="cu-titulo">📓 Cuaderno</div>
+                <button type="button" class="cu-cerrar" onclick="cerrarCuaderno()" aria-label="Cerrar">✕</button>
+            </div>
+            <div id="cu-cuerpo"></div>
         </div>
     </div>
     <div id="marcas-alumno" role="dialog"></div>
@@ -844,6 +888,7 @@
             `notas_de_voz.js`, el mismo de la pantalla de la sesión.
             {% endcomment %}
             <div id="notas-de-voz" hidden style="margin-bottom:12px;"></div>
+            {% if is_teacher %}<div id="cierre-cuaderno" role="status"></div>{% endif %}
             <div style="display:flex;align-items:center;gap:10px;margin:8px 0 20px;justify-content:center;">
                 <button type="button" id="record-btn" onclick="alternarNotaDeVoz()"
                     style="display:flex;align-items:center;gap:8px;padding:10px 16px;border-radius:12px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.08);color:#fff;font-size:13px;cursor:pointer;">
@@ -1147,6 +1192,7 @@
         document.getElementById('session-complete').classList.add('active');
         document.getElementById('study-fab').style.display = 'none';
         {% if is_teacher %}
+        avisarCuadernoPendiente();
         // Si se estaba grabando, primero se para y se sube: la nota tiene que
         // estar en la lista que se pinta ahora.
         if (grabando()) { alParar = abrirRevision; grabadora.stop(); } else { abrirRevision(); }
@@ -1776,8 +1822,174 @@
             .catch(function() { document.getElementById('lista-aviso').textContent = 'No he podido traer el plano.'; });
     }
 
+    // ── El dado del cuaderno (fase 78) ──────────────────────────────────
+    var CUADERNO_URL = '{% url "clases:cuaderno_estado" session.pk %}';
+    var CUADERNO_SORTEAR = '{% url "clases:cuaderno_sortear" session.pk %}';
+    var CUADERNO_SALTAR = '{% url "clases:cuaderno_saltar" session.pk %}';
+    var CUADERNO_CALIFICAR = '{% url "clases:cuaderno_calificar" session.pk %}';
+    var cuaderno = null;        // lo último que dijo el servidor
+    var cuSaltados = [];        // a quien se saltó hoy con «otro»: no vuelve a salir en esta pantalla
+    var cuLetras = {};          // alumno → letra elegida y aún no guardada
+    var cuEnviando = false;
+
+    function escHtml(texto) { var d = document.createElement('div'); d.textContent = texto == null ? '' : String(texto); return d.innerHTML.replace(/"/g, '&quot;'); }
+
+    function marcasCuaderno(estado) {
+        var m = {};
+        ((estado && estado.sorteados) || []).forEach(function(s) { m[s.alumno] = s.letra ? 'hecho' : 'pendiente'; });
+        return m;
+    }
+
+    function cuadernoAbierto() { return document.getElementById('panel-cuaderno').classList.contains('abierto'); }
+    function abrirCuaderno() { document.getElementById('panel-cuaderno').classList.add('abierto'); ajustarHueco(); }
+    function cerrarCuaderno() { document.getElementById('panel-cuaderno').classList.remove('abierto'); ajustarHueco(); }
+
+    function cuPedir(url, cuerpo) {
+        return fetch(url, {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': LISTA_CSRF },
+            body: JSON.stringify(cuerpo || {}),
+        }).then(function(r) {
+            return r.json().catch(function() { return { error: 'El servidor no ha respondido bien (' + r.status + ')' }; })
+                .then(function(j) { if (!r.ok || j.error) throw new Error(j.error || ('Error ' + r.status)); return j; });
+        });
+    }
+
+    function tirarDado() {
+        if (cuEnviando || !datosLista) return;
+        var cuerpo = { excluir: cuSaltados.slice() };
+        var sel = document.getElementById('cu-instrumento');
+        if (sel && sel.value) cuerpo.instrumento = Number(sel.value);
+        if (cuaderno && cuaderno.sorteados.length) cuerpo.n = 1;  // «+ otro»: uno más
+        abrirCuaderno();
+        if (cuaderno && !cuaderno.instrumento && !cuerpo.instrumento) { pintarCuaderno(cuaderno); return; }
+        cuEnviando = true;
+        cuPedir(CUADERNO_SORTEAR, cuerpo).then(function(j) {
+            cuEnviando = false;
+            var antes = cuaderno ? cuaderno.sorteados.length : 0;
+            pintarCuaderno(j);
+            if (j.sorteados.length === antes) avisar(j.candidatos ? 'No ha salido nadie' : 'No queda nadie que pueda salir hoy');
+        }).catch(function(e) { cuEnviando = false; pintarCuaderno(cuaderno, e.message); });
+    }
+
+    function cuSaltar(id) {
+        if (cuEnviando) return;
+        if (cuSaltados.indexOf(id) < 0) cuSaltados.push(id);
+        delete cuLetras[id];
+        cuEnviando = true;
+        cuPedir(CUADERNO_SALTAR, { alumno: id, excluir: cuSaltados.slice() })
+            .then(function(j) { cuEnviando = false; pintarCuaderno(j); })
+            .catch(function(e) { cuEnviando = false; pintarCuaderno(cuaderno, e.message); });
+    }
+
+    function cuElegir(id, letra) {
+        cuLetras[id] = cuLetras[id] === letra ? null : letra;
+        pintarCuaderno(cuaderno);
+    }
+
+    function cuGuardar(id) {
+        if (cuEnviando || !cuLetras[id]) return;
+        var input = document.querySelector('#panel-cuaderno input.cu-comentario[data-alumno="' + id + '"]');
+        cuEnviando = true;
+        cuPedir(CUADERNO_CALIFICAR, { alumno: id, letra: cuLetras[id], comentario: input ? input.value : '' })
+            .then(function(j) {
+                cuEnviando = false;
+                delete cuLetras[id];
+                pintarCuaderno(j);
+                if (j.guardado) avisar('Guardado: ' + j.guardado.letra + ' · casilla de cuaderno ' + j.guardado.casilla);
+            })
+            .catch(function(e) { cuEnviando = false; pintarCuaderno(cuaderno, e.message); });
+    }
+
+    function recogerComentariosCuaderno() {
+        var guardados = {};
+        document.querySelectorAll('#panel-cuaderno input.cu-comentario').forEach(function(i) { guardados[i.getAttribute('data-alumno')] = i.value; });
+        return guardados;
+    }
+
+    function pintarCuaderno(estado, error) {
+        var comentarios = recogerComentariosCuaderno();
+        cuaderno = estado;
+        if (datosLista) datosLista.cuaderno = estado;
+        if (planoLista) planoLista.ponerCuaderno(marcasCuaderno(estado));
+        var h = '';
+        if (error) h += '<div class="cu-linea cu-error">' + escHtml(error) + '</div>';
+        if (!estado) { document.getElementById('cu-cuerpo').innerHTML = h; return; }
+        if (!estado.instrumento) {
+            h += '<div class="cu-linea"><span class="cu-nota">Este trimestre no tiene «Cuaderno» en su plan' +
+                 (estado.opciones.length ? ': elige con qué instrumento revisar.' : ', y el grupo no tiene plan: el dado no puede tirar.') + '</span>';
+            if (estado.opciones.length) {
+                h += '<select id="cu-instrumento">' + estado.opciones.map(function(o) {
+                    return '<option value="' + o.id + '">' + escHtml(o.nombre) + ' · ' + o.trimestre + 'ª ev.</option>';
+                }).join('') + '</select><button type="button" class="cu-btn cu-primario" onclick="tirarDado()">🎲 Tirar</button>';
+            }
+            h += '</div>';
+            document.getElementById('cu-cuerpo').innerHTML = h;
+            return;
+        }
+        document.getElementById('cu-titulo').textContent = '📓 ' + estado.instrumento.nombre + ' · ' + estado.instrumento.trimestre + 'ª ev.';
+        h += '<div class="cu-linea"><span class="cu-nota">' +
+             (estado.sorteados.length ? estado.pendientes + ' por mirar · ' + (estado.sorteados.length - estado.pendientes) + ' con nota' : 'Nadie todavía') +
+             '</span><button type="button" class="cu-btn cu-primario" onclick="tirarDado()" ' + (estado.candidatos ? '' : 'disabled') + '>🎲 ' +
+             (estado.sorteados.length ? '+ otro' : 'Tirar') + '</button>' +
+             '<span class="cu-nota">' + estado.candidatos + ' podrían salir</span></div>';
+        estado.sorteados.forEach(function(s) {
+            if (s.letra) {
+                h += '<div class="cu-fila cu-hecha"><span class="cu-nombre">✓ ' + escHtml(s.nombre) + '</span><span>' + escHtml(s.letra) + '</span>' +
+                     (s.casilla ? '<span class="cu-nota">casilla ' + escHtml(s.casilla.letra) + ' · ' + s.casilla.n + ' revisión' + (s.casilla.n === 1 ? '' : 'es') + ' · media ' + escHtml(s.casilla.media) + '</span>' : '') +
+                     (s.comentario ? '<span class="cu-nota">' + escHtml(s.comentario) + '</span>' : '') + '</div>';
+                return;
+            }
+            var elegida = cuLetras[s.alumno] || null;
+            h += '<div class="cu-fila"><span class="cu-nombre">📓 ' + escHtml(s.nombre) + '</span>';
+            estado.letras.forEach(function(l) {
+                h += '<button type="button" class="cu-letra' + (elegida === l ? ' si' : '') + '" data-l="' + l + '" onclick="cuElegir(' + s.alumno + ',\'' + l + '\')">' + l + '</button>';
+            });
+            h += '<input class="cu-comentario" data-alumno="' + s.alumno + '" placeholder="Comentario" value="' + escHtml(comentarios[String(s.alumno)] || s.comentario || '') + '">';
+            h += '<button type="button" class="cu-btn cu-primario" onclick="cuGuardar(' + s.alumno + ')" ' + (elegida ? '' : 'disabled') + '>Guardar' + (elegida ? ' ' + elegida : '') + '</button>';
+            h += '<button type="button" class="cu-btn" onclick="cuSaltar(' + s.alumno + ')" title="No está o no la trae: se le quita y sale otro">Otro</button>';
+            h += '</div>';
+        });
+        document.getElementById('cu-cuerpo').innerHTML = h;
+        ajustarHueco();
+    }
+
+    // Al cerrar la clase: lo que quedó sin mirar, dicho pero sin bloquear.
+    function avisarCuadernoPendiente() {
+        var aviso = document.getElementById('cierre-cuaderno');
+        if (!aviso) return;
+        function pintar(estado) {
+            var n = estado ? estado.pendientes : 0;
+            aviso.textContent = n ? '📓 ' + (n === 1 ? 'Queda una revisión de cuaderno sin nota.' : 'Quedan ' + n + ' revisiones de cuaderno sin nota.') + ' Puedes ponerla desde la lista (L) o dejarla.' : '';
+            aviso.classList.toggle('visible', n > 0);
+        }
+        if (cuaderno) { pintar(cuaderno); return; }
+        fetch(CUADERNO_URL, { credentials: 'same-origin' }).then(function(r) { return r.json(); }).then(pintar).catch(function() {});
+    }
+
+    // La bandeja «sin sitio» tiene que verse sin hacer scroll: el aula cede lo que
+    // mide la bandeja (y lo que sobresalga: aviso, resumen). Antes, con un aula
+    // sin mesas, la rejilla vacía ocupaba toda la pantalla y el grupo entero
+    // quedaba debajo del pliegue (4-AC-BIL, 2026-10-17).
+    function ajustarHueco() {
+        var cont = document.getElementById('plano-lista');
+        if (!cont) return;
+        if (modoPlano === 'editar') { cont.style.removeProperty('--plano-hueco'); return; }
+        var bandeja = cont.querySelector('.plano-bandeja');
+        var hueco = 100 + (bandeja ? bandeja.offsetHeight + 12 : 0);
+        // La franja del cuaderno flota encima: el aula le cede su altura también.
+        var franja = document.getElementById('panel-cuaderno');
+        if (franja && franja.classList.contains('abierto')) hueco += franja.offsetHeight + 16;
+        cont.style.setProperty('--plano-hueco', hueco + 'px');
+        var cuerpo = document.getElementById('lista-cuerpo');
+        var sobra = cuerpo.scrollHeight - cuerpo.clientHeight;
+        if (sobra > 0) cont.style.setProperty('--plano-hueco', (hueco + sobra) + 'px');
+    }
+    window.addEventListener('resize', function() { if (listaAbierta()) ajustarHueco(); });
+
     function pintarLista(datos) {
         datosLista = datos;
+        datos.cuaderno_marcas = marcasCuaderno(datos.cuaderno);
         var aulas = document.getElementById('lista-aulas');
         aulas.innerHTML = '';
         datos.aulas.forEach(function(a) {
@@ -1799,9 +2011,14 @@
             rejilla: datos.rejilla,
             datos: datos,
             onTocar: abrirMarcas,
+            onPintado: ajustarHueco,
         };
         planoLista = new Plano(document.getElementById('plano-lista'), opciones);
         pintarGiro();
+        // El sorteo persiste con la sesión: si hay algo pendiente, la franja vuelve sola.
+        cuaderno = datos.cuaderno || null;
+        if (cuaderno && cuaderno.sorteados && cuaderno.sorteados.length) { pintarCuaderno(cuaderno); if (cuaderno.pendientes) abrirCuaderno(); }
+        else pintarCuaderno(cuaderno);
         // Cambiando de aula a mitad de una edición, se sigue editando.
         if (modoPlano === 'editar') entrarEnEdicion(); else pintarModo();
     }

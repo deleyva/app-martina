@@ -107,6 +107,12 @@
 /* Partir con guion antes que cortar: «Damas…» no se distingue de nadie. */
 .plano-nombre { max-width: 100%; font-weight: 600; overflow-wrap: anywhere; hyphens: auto; -webkit-hyphens: auto; }
 .plano-hora, .plano-material { font-size: 0.85cqw; font-weight: 600; }
+/* El dado del cuaderno (fase 78): solo el cuadernillo o el visto, nunca la letra. */
+.plano-cuaderno { font-size: 0.9cqw; font-weight: 700; }
+.plano-alumno.cuaderno-pendiente { outline: 3px solid #a21caf; outline-offset: 1px; }
+.plano-alumno.cuaderno-hecho { outline: 3px dashed #86198f; outline-offset: 1px; }
+.plano-alumno.cuaderno-hecho .plano-cuaderno { opacity: 0.75; }
+.plano-bandeja .plano-cuaderno { font-size: 12px; }
 
 .plano-alumno.falta { background: #dc2626; color: #fff; }
 .plano-alumno.falta .plano-nombre { text-decoration: line-through; }
