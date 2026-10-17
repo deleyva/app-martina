@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 # Escrita a mano el 2026-10-17.
 #
 # La gente firmaba el campo «¿Quién eres?» con el @ de las menciones («@secretaría»), con
