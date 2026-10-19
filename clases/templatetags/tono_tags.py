@@ -24,10 +24,15 @@ def tono_de_clase(context, letra):
         and user.is_authenticated
         and (user.is_staff or grupo.teachers.filter(pk=user.pk).exists())
     )
+    from martina_bescos_app.users.permisos import es_profesor
+
     return {
         "grupo": grupo,
         "semitonos": TonoDeGrupo.de(grupo, letra),
         "puede_guardar": puede,
+        # El tamaño de letra es de la canción, no del grupo (fase 79): lo
+        # guarda cualquier profesor.
+        "puede_guardar_tamano": bool(user is not None and user.is_authenticated and es_profesor(user)),
         # Los diagramas por defecto según el curso: ukelele en 1º-3º, piano en 4º.
         "instrumento": grupo.instrumento_de_acordes if grupo is not None else "",
     }

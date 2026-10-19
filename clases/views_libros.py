@@ -1209,3 +1209,20 @@ def tono_de_grupo_guardar(request, group_id, letra_id):
     except (TypeError, ValueError) as error:
         return JsonResponse({"error": str(error) or "El tono tiene que ser un número"}, status=400)
     return JsonResponse({"ok": True, "semitonos": semitonos})
+
+
+@login_required
+@user_passes_test(es_profesor)
+@require_http_methods(["POST"])
+def tamano_de_letra_guardar(request, letra_id):
+    """Guarda el tamaño de letra de una canción, igual para todos los grupos (fase 79)."""
+    from django.http import JsonResponse
+
+    from musica.models import LetraConAcordes
+
+    letra = get_object_or_404(LetraConAcordes, pk=letra_id)
+    try:
+        tamano = letra.guardar_tamano(request.POST.get("tamano", ""))
+    except ValueError as error:
+        return JsonResponse({"error": str(error)}, status=400)
+    return JsonResponse({"ok": True, "tamano": tamano})

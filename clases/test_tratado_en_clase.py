@@ -165,7 +165,8 @@ def test_otro_profesor_no_puede_marcar(client, montaje, profesor, django_user_mo
     assert item.tratado is None
 
 
-def test_el_visor_lleva_el_tratado_y_la_pregunta(client, montaje, profesor):
+def test_el_visor_lleva_el_tratado_y_los_botones(client, montaje, profesor):
+    """Fase 79: «Tratado» y «Saltar» a la vista junto a los tres puntos, sin pregunta."""
     client.force_login(profesor)
     sesion = _sesion_con(profesor, montaje["grupo"], montaje["gb"])
     _tratar(client, sesion.items.order_by("order").first(), "no")
@@ -173,4 +174,5 @@ def test_el_visor_lleva_el_tratado_y_la_pregunta(client, montaje, profesor):
     html = client.get(reverse("clases:class_session_present", args=[sesion.pk])).content.decode()
     playlist = json.loads(re.search(r"var playlist = (\[.*?\]);\n", html).group(1))
     assert [p["tratado"] for p in playlist] == [False, None, None]
-    assert 'id="pregunta-tratado"' in html
+    assert 'id="fab-tratado"' in html and 'id="fab-saltar"' in html
+    assert 'id="pregunta-tratado"' not in html

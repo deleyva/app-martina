@@ -113,6 +113,11 @@ urlpatterns = [
         name="tono_de_grupo_guardar",
     ),
     path(
+        "letras/<int:letra_id>/tamano/",
+        views_libros.tamano_de_letra_guardar,
+        name="tamano_de_letra_guardar",
+    ),
+    path(
         "lectura/",
         views_libros.lectura_profesor,
         name="lectura",

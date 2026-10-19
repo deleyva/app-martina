@@ -2337,6 +2337,15 @@ class LetraConAcordes(models.Model):
         related_name="letra_con_acordes",
         verbose_name="Canción",
     )
+    # Fase 79: el tamaño con el que se abre la letra, el mismo para todos los
+    # grupos (el tono sí va por grupo, en `TonoDeGrupo`). Vacío es el de siempre.
+    tamano = models.PositiveSmallIntegerField(
+        "Tamaño de letra (px)", null=True, blank=True,
+    )
+
+    TAMANO_DEFECTO = 24
+    TAMANO_MIN = 14
+    TAMANO_MAX = 64
 
     class Meta:
         verbose_name = "Letra con acordes"
@@ -2353,3 +2362,23 @@ class LetraConAcordes(models.Model):
     @property
     def chordpro(self):
         return self.page.chordpro
+
+    @property
+    def tamano_inicial(self):
+        return self.tamano or self.TAMANO_DEFECTO
+
+    def guardar_tamano(self, valor):
+        """Guarda el tamaño de letra. El de por defecto (o vacío) lo quita.
+
+        Lanza `ValueError` si no es un número entre el mínimo y el máximo.
+        """
+        texto = str(valor).strip()
+        try:
+            tamano = int(texto) if texto else self.TAMANO_DEFECTO
+        except ValueError:
+            raise ValueError("El tamaño tiene que ser un número") from None
+        if not self.TAMANO_MIN <= tamano <= self.TAMANO_MAX:
+            raise ValueError(f"El tamaño va de {self.TAMANO_MIN} a {self.TAMANO_MAX}")
+        self.tamano = None if tamano == self.TAMANO_DEFECTO else tamano
+        self.save(update_fields=["tamano"])
+        return self.tamano_inicial

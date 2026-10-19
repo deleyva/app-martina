@@ -204,3 +204,55 @@ def test_el_visor_trae_el_instrumento_del_curso(client, primero, cuarto, letra, 
         html = client.get(reverse("clases:class_session_item_content", args=[sesion.pk, item.pk])).content.decode()
         assert f'data-instrumento-defecto="{esperado}"' in html
         assert f'data-grupo-id="{grupo.pk}"' in html
+
+
+# =============================================================================
+# Fase 79 · el tamaño de letra es de la canción, igual en todos los grupos
+# =============================================================================
+
+
+def test_guardar_tamano(letra):
+    assert letra.tamano_inicial == 24
+    assert letra.guardar_tamano("40") == 40
+    letra.refresh_from_db()
+    assert letra.tamano == 40
+    assert letra.guardar_tamano("24") == 24
+    letra.refresh_from_db()
+    assert letra.tamano is None, "el de por defecto no se guarda"
+    for malo in ("x", "8", "90"):
+        with pytest.raises(ValueError):
+            letra.guardar_tamano(malo)
+
+
+def test_guardar_tamano_por_la_vista(client, primero, letra, profesor):
+    url = reverse("clases:tamano_de_letra_guardar", args=[letra.pk])
+    client.force_login(profesor)
+    r = client.post(url, {"tamano": "36"})
+    assert r.status_code == 200 and r.json()["tamano"] == 36
+    assert client.post(url, {"tamano": "x"}).status_code == 400
+
+    alumna = UserFactory()
+    Enrollment.objects.create(user=alumna, group=primero)
+    client.force_login(alumna)
+    assert client.post(url, {"tamano": "50"}).status_code == 302
+    letra.refresh_from_db()
+    assert letra.tamano == 36
+
+
+def test_el_tamano_es_el_mismo_en_todos_los_grupos(client, primero, cuarto, letra, profesor):
+    letra.guardar_tamano(44)
+    tipo = ContentType.objects.get_for_model(letra)
+    client.force_login(profesor)
+    for grupo in (primero, cuarto):
+        sesion = ClassSession.objects.create(teacher=profesor, group=grupo, date=timezone.localdate(), title="Clase")
+        item = ClassSessionItem.objects.create(session=sesion, content_type=tipo, object_id=letra.pk, order=0)
+        html = client.get(reverse("clases:class_session_item_content", args=[sesion.pk, item.pk])).content.decode()
+        assert 'data-tamano="44"' in html and "font-size: 44px" in html, grupo.name
+        assert reverse("clases:tamano_de_letra_guardar", args=[letra.pk]) in html
+
+    alumna = UserFactory()
+    Enrollment.objects.create(user=alumna, group=primero)
+    client.force_login(alumna)
+    html = client.get(reverse("my_library:view_content_object", args=[tipo.pk, letra.pk])).content.decode()
+    assert 'data-tamano="44"' in html
+    assert "Guardar tamaño</button>" not in html, "el alumnado no guarda tamaños"
