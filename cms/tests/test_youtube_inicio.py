@@ -53,3 +53,11 @@ def test_el_iframe_arranca_en_el_segundo_pedido():
     with mock.patch("wagtail.embeds.finders.oembed.OEmbedFinder.find_embed", return_value=oembed):
         datos = finder.find_embed("https://www.youtube.com/watch?v=abc&t=1m35s")
     assert 'src="https://www.youtube.com/embed/abc?feature=oembed&start=95"' in datos["html"]
+
+
+def test_no_repite_el_inicio_si_youtube_ya_lo_trae():
+    finder = YouTubeInicioEmbedFinder()
+    oembed = {"html": '<iframe src="https://www.youtube.com/embed/abc?start=95&feature=oembed"></iframe>'}
+    with mock.patch("wagtail.embeds.finders.oembed.OEmbedFinder.find_embed", return_value=oembed):
+        datos = finder.find_embed("https://www.youtube.com/watch?v=abc&t=95")
+    assert datos["html"].count("start=") == 1

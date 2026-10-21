@@ -59,6 +59,9 @@ class YouTubeInicioEmbedFinder(OEmbedFinder):
     def find_embed(self, url, max_width=None, max_height=None):
         datos = super().find_embed(url, max_width=max_width, max_height=max_height)
         inicio = segundos_de_inicio(url)
+        # A veces YouTube ya devuelve el `start` en el iframe; entonces no se repite.
+        if re.search(r'src="[^"]*[?&]start=', datos["html"]):
+            return datos
         datos["html"] = re.sub(
             r'src="([^"]+)"',
             lambda m: f'src="{m.group(1)}{"&" if "?" in m.group(1) else "?"}start={inicio}"',
