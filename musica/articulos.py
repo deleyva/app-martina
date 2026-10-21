@@ -129,7 +129,13 @@ def _bloque_escucha(lineas):
 # Un enlace de YouTube en un recurso no se queda en enlace: se convierte en el
 # reproductor. Es lo que pide la plantilla —videoclip primero, después un
 # tutorial por instrumento— y lo que hacían los artículos buenos que ya había.
-YOUTUBE = re.compile(r"https?://(?:www\.)?(?:youtube\.com/watch\?[^\s`)\]]*v=[\w-]+|youtu\.be/[\w-]+)")
+# El parámetro de inicio (`&t=95`, `?t=1m35s`, `&start=95`) viaja con la URL
+# hasta el finder de embeds, que lo convierte en `start=` del iframe. Sin él,
+# un vídeo largo citado en un segundo concreto arrancaba en 0:00 (2026-10-21).
+YOUTUBE = re.compile(
+    r"https?://(?:www\.)?(?:youtube\.com/watch\?[^\s`)\]]*v=[\w-]+|youtu\.be/[\w-]+)"
+    r"(?:[?&](?:t|start)=[\dhms]+)?"
+)
 # ![alt](url "Fuente: quién y con qué licencia")
 IMAGEN_MD = re.compile(r'!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)')
 

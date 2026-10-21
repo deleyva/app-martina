@@ -548,6 +548,9 @@ WAGTAILEMBEDS_FINDERS = [
         'class': 'cms.embed_finders.HooktheoryEmbedFinder',
     },
     {
+        'class': 'cms.embed_finders.YouTubeInicioEmbedFinder',
+    },
+    {
         'class': 'wagtail.embeds.finders.oembed',
     }
 ]
