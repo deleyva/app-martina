@@ -11,6 +11,10 @@
 //   {end_of_ritmo}
 //
 // `x` golpe, `X` acento, `.` o `-` silencio; los espacios y `|` no cuentan.
+// Desde la fase 80 (2026-10-22) el mismo bloque lleva el acompañamiento,
+// alineado con la batería: `GU` guitarra o ukelele (`v` abajo, `V` abajo con
+// acento, `^` arriba, `x` rasgueo apagado), `BA` bajo, `MD` y `MI` las dos
+// manos del piano (con `x`, `X` y `.` como la batería).
 // La subdivisión sale de cuántos golpes caben en el compás. ChordSheetJS deja
 // el bloque como `.paragraph.ritmo` con una fila de texto por línea; aquí se
 // lee ese texto y se cambia por una rejilla SVG con iconos propios (no los de
@@ -25,8 +29,15 @@ export const VOCES = {
   SH: { bateria: "Charles", cuerpo: "Palmada en el muslo", color: "#0891b2" },
   CA: { bateria: "Caja", cuerpo: "Palmada", color: "#c2410c" },
   BO: { bateria: "Bombo", cuerpo: "Pisotón", color: "#4338ca" },
+  // Acompañamiento (fase 80): no tiene equivalente en el cuerpo, así que el
+  // texto es el mismo en los dos modos. Solo GU admite flechas de rasgueo.
+  GU: { bateria: "Guitarra / ukelele", cuerpo: "Guitarra / ukelele", color: "#b45309", rasgueo: true },
+  BA: { bateria: "Bajo", cuerpo: "Bajo", color: "#15803d" },
+  MD: { bateria: "Piano mano derecha", cuerpo: "Piano mano derecha", color: "#7c3aed" },
+  MI: { bateria: "Piano mano izquierda", cuerpo: "Piano mano izquierda", color: "#be185d" },
 };
-const ORDEN = ["SH", "CA", "BO"];
+const ORDEN = ["SH", "CA", "BO", "GU", "BA", "MD", "MI"];
+const BATERIA = new Set(["SH", "CA", "BO"]);
 
 // Compases admitidos: cuántos pulsos y en cuántas partes se puede dividir
 // cada pulso, con la cuenta en voz alta (decidida por Jesús el 2026-10-09).
@@ -39,7 +50,12 @@ const COMPASES = {
 };
 const SILABAS = { 1: [""], 2: ["", "y"], 3: ["", "y", "a"], 4: ["", "e", "y", "a"] };
 
-const GOLPE = { x: 1, X: 2, ".": 0, "-": 0 };
+// Códigos de golpe: 0 silencio, 1 golpe, 2 acento; y solo en GU, 3 rasgueo
+// hacia abajo, 4 abajo con acento, 5 hacia arriba. Los bloques de batería de
+// antes de la fase 80 siguen siendo 0/1/2 exactamente igual.
+const GOLPE = { x: 1, X: 2, ".": 0, "-": 0, v: 3, V: 4, "^": 5 };
+const ACENTO = new Set([2, 4]);
+const RASGUEO = new Set([3, 4, 5]);
 
 // Texto del bloque (sin las directivas start/end) → patrón o errores.
 // Nunca lanza: lo inválido vuelve como `errores` para enseñarlo en el bloque.
@@ -71,13 +87,21 @@ export function parsearRitmo(texto) {
     if (!VOCES[voz]) { errores.push(`Voz «${clave}» desconocida (vale ${ORDEN.join(", ")})`); continue; }
     if (voces.some((v) => v.voz === voz)) { errores.push(`La voz ${voz} está dos veces`); continue; }
     const golpes = [];
+    const rasgueo = !!VOCES[voz].rasgueo;
     for (const c of valor.replace(/[\s|]/g, "")) {
-      if (c in GOLPE) golpes.push(GOLPE[c]);
-      else { errores.push(`Símbolo «${c}» en ${voz}: usa x, X o .`); break; }
+      if (!(c in GOLPE)) {
+        errores.push(`Símbolo «${c}» en ${voz}: usa ${rasgueo ? "v, V, ^, x o ." : "x, X o ."}`);
+        break;
+      }
+      if (RASGUEO.has(GOLPE[c]) && !rasgueo) {
+        errores.push(`Las flechas v, V y ^ solo valen en GU (están en ${voz})`);
+        break;
+      }
+      golpes.push(GOLPE[c]);
     }
     voces.push({ voz, golpes });
   }
-  if (!voces.length) errores.push("El ritmo no tiene ninguna voz (SH, CA o BO)");
+  if (!voces.length) errores.push(`El ritmo no tiene ninguna voz (${ORDEN.join(", ")})`);
   const pasos = voces.length ? voces[0].golpes.length : 0;
   if (voces.some((v) => v.golpes.length !== pasos)) {
     errores.push(`Las voces no miden lo mismo: ${voces.map((v) => `${v.voz} ${v.golpes.length}`).join(", ")}`);
@@ -124,8 +148,43 @@ const ICONOS = {
   },
 };
 
-function icono(voz, modo, tam, x, y, extra = "") {
-  return `<g transform="translate(${x} ${y}) scale(${tam / 40})" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"${extra}>${ICONOS[modo][voz]}</g>`;
+// Acompañamiento (fase 80): el mismo icono en los dos modos.
+// Mano con cuatro dedos y pulgar, sobre un teclado; la izquierda es la misma
+// mano reflejada.
+const MANO = '<path d="M13 24 V11 a2 2 0 0 1 4 0 V19 V7 a2 2 0 0 1 4 0 V19 V8 a2 2 0 0 1 4 0 V20 V12 a2 2 0 0 1 4 0 V23 Q29 27 23 27 H18 Q13 27 13 24 Z" fill="currentColor" stroke="none"/><path d="M13 18 Q6 17 7 23 L12 26" stroke-width="3"/>';
+const TECLADO = '<path d="M3 31 H37 M3 39 H37 M3 31 V39 M11.5 31 V39 M20 31 V39 M28.5 31 V39 M37 31 V39" stroke-width="1.8"/>';
+const ACOMPANAMIENTO = {
+  // Guitarra: caja en ocho, boca, mástil y clavijero.
+  GU: '<path d="M12.5 18 a7.5 7.5 0 1 1 15 0 a9 9 0 1 1 -15 0 Z" fill="none" stroke-width="2.5"/><path d="M20 10.5 V2" stroke-width="3"/><path d="M16.5 4 H23.5" stroke-width="2.5"/><circle cx="20" cy="22" r="3.2" fill="currentColor" stroke="none"/>',
+  // Bajo: mástil largo y cuerpo pequeño.
+  BA: '<ellipse cx="16" cy="30" rx="10" ry="8" fill="none" stroke-width="2.5"/><path d="M26 2 V27" stroke-width="3"/><path d="M22 4.5 H30 M22 9.5 H30" stroke-width="2"/><circle cx="16" cy="30" r="2.5" fill="currentColor" stroke="none"/>',
+  MD: MANO + TECLADO,
+  MI: `<g transform="translate(40 0) scale(-1 1)">${MANO}</g>` + TECLADO,
+};
+ICONOS.bateria = { ...ICONOS.bateria, ...ACOMPANAMIENTO };
+ICONOS.cuerpo = { ...ICONOS.cuerpo, ...ACOMPANAMIENTO };
+
+// Lo que va en cada paso de GU: flecha abajo, flecha arriba o rasgueo apagado.
+const PASO = {
+  abajo: '<path d="M20 4 V34" stroke-width="4.5"/><path d="M9 24 L20 35 L31 24" stroke-width="4.5"/>',
+  arriba: '<path d="M20 36 V6" stroke-width="4.5"/><path d="M9 16 L20 5 L31 16" stroke-width="4.5"/>',
+  apagado: '<path d="M11 11 L29 29 M29 11 L11 29" stroke-width="4.5"/>',
+  // Bajo: una negra.
+  nota: '<ellipse cx="16" cy="29" rx="8" ry="5.5" transform="rotate(-20 16 29)" fill="currentColor" stroke="none"/><path d="M23.3 26.5 V5" stroke-width="3"/>',
+};
+
+// El trazo de un golpe concreto: para la batería, el icono de la voz (según
+// el modo); para GU, la flecha; para BA, la nota; para el piano, la mano.
+function trazoDe(voz, g, modo) {
+  if (g === 3 || g === 4) return PASO.abajo;
+  if (g === 5) return PASO.arriba;
+  if (voz === "GU") return PASO.apagado;
+  if (voz === "BA") return PASO.nota;
+  return ICONOS[modo][voz];
+}
+
+function icono(trazo, tam, x, y, extra = "") {
+  return `<g transform="translate(${x} ${y}) scale(${tam / 40})" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"${extra}>${trazo}</g>`;
 }
 
 // --- Dibujo ------------------------------------------------------------------
@@ -154,7 +213,7 @@ export function svgRitmo(patron, modo = "bateria") {
     const y = CABECERA + f * FILA;
     const def = VOCES[v.voz];
     partes.push(`<line x1="0" y1="${y}" x2="${ancho}" y2="${y}" stroke="currentColor" opacity=".15"/>`);
-    partes.push(`<g style="color:${def.color}">${icono(v.voz, modo, 34, 4, y + 8)}</g>`);
+    partes.push(`<g style="color:${def.color}">${icono(ICONOS[modo][v.voz], 34, 4, y + 8)}</g>`);
     partes.push(`<text x="46" y="${y + 23}" font-size="15" font-weight="700" fill="currentColor">${v.voz}</text>`);
     partes.push(`<text x="46" y="${y + 40}" font-size="12" fill="currentColor" opacity=".7">${modo === "cuerpo" ? def.cuerpo : def.bateria}</text>`);
     v.golpes.forEach((g, i) => {
@@ -164,10 +223,11 @@ export function svgRitmo(patron, modo = "bateria") {
         return;
       }
       // El acento, más grande y con un «>» encima.
-      const tam = g === 2 ? 42 : 32;
+      const acento = ACENTO.has(g);
+      const tam = acento ? 42 : 32;
       const off = (CELDA - tam) / 2;
-      partes.push(`<g style="color:${def.color}">${icono(v.voz, modo, tam, cx + off, y + (FILA - tam) / 2)}</g>`);
-      if (g === 2) partes.push(`<path d="M${cx + 6} ${y + 3} L${cx + 13} ${y + 6.5} L${cx + 6} ${y + 10}" stroke="currentColor" stroke-width="2" fill="none"/>`);
+      partes.push(`<g style="color:${def.color}">${icono(trazoDe(v.voz, g, modo), tam, cx + off, y + (FILA - tam) / 2)}</g>`);
+      if (acento) partes.push(`<path d="M${cx + 6} ${y + 3} L${cx + 13} ${y + 6.5} L${cx + 6} ${y + 10}" stroke="currentColor" stroke-width="2" fill="none"/>`);
     });
   });
   // Rayas de pulso por encima de todo.
@@ -177,7 +237,7 @@ export function svgRitmo(patron, modo = "bateria") {
   }
   partes.push(`<rect class="rt-cursor" x="${ETIQUETA}" y="${CABECERA - 2}" width="${CELDA}" height="${alto - CABECERA + 2}" fill="#facc15" opacity="0" rx="4"/>`);
   // En em: crece con la letra de la canción (A+/A− del visor) hasta el ancho disponible.
-  return `<svg class="rt-svg" viewBox="0 0 ${ancho} ${alto}" style="width:${(ancho / 16).toFixed(2)}em" role="img" aria-label="Patrón de batería en ${patron.compas}" font-family="system-ui, sans-serif">${partes.join("")}</svg>`;
+  return `<svg class="rt-svg" viewBox="0 0 ${ancho} ${alto}" style="width:${(ancho / 16).toFixed(2)}em" role="img" aria-label="Patrón rítmico en ${patron.compas}" font-family="system-ui, sans-serif">${partes.join("")}</svg>`;
 }
 
 // --- Sonido (Web Audio, sin ficheros) ----------------------------------------
@@ -241,7 +301,48 @@ const SONIDOS = {
     o.start(t);
     o.stop(t + 0.32);
   },
+  // Acompañamiento (fase 80). Todo en Mi, que es el acorde abierto de la
+  // guitarra: el patrón no sabe qué acorde lleva la letra, solo cuándo suena.
+  GU(ctx, t, v, g) {
+    if (!RASGUEO.has(g)) {
+      // Rasgueo apagado: un chasquido sin altura.
+      const s = ruido(ctx);
+      const f = ctx.createBiquadFilter();
+      f.type = "bandpass";
+      f.frequency.value = 1500;
+      s.connect(f).connect(envolvente(ctx, t, 0.5 * v, 0.06));
+      s.start(t);
+      s.stop(t + 0.08);
+      return;
+    }
+    // Hacia abajo, las seis cuerdas de grave a aguda; hacia arriba, las cuatro
+    // agudas de aguda a grave, más corto y más flojo.
+    const cuerdas = g === 5 ? CUERDAS.slice(2).reverse() : CUERDAS;
+    cuerdas.forEach((f, i) => nota(ctx, t + i * 0.012, f, (g === 5 ? 0.16 : 0.22) * v, g === 5 ? 0.3 : 0.45, "triangle"));
+  },
+  BA(ctx, t, v) {
+    nota(ctx, t, CUERDAS[0], 0.9 * v, 0.35, "sine");
+    nota(ctx, t, CUERDAS[0], 0.25 * v, 0.2, "triangle");
+  },
+  MD(ctx, t, v) {
+    [329.63, 415.3, 493.88].forEach((f) => nota(ctx, t, f, 0.28 * v, 0.5, "sine"));
+  },
+  MI(ctx, t, v) {
+    [82.41, 164.81].forEach((f) => nota(ctx, t, f, 0.5 * v, 0.5, "sine"));
+  },
 };
+
+// Mi mayor abierto en la guitarra, de la sexta a la primera cuerda.
+const CUERDAS = [82.41, 123.47, 164.81, 207.65, 246.94, 329.63];
+
+function nota(ctx, t, frecuencia, volumen, dur, tipo) {
+  const o = ctx.createOscillator();
+  o.type = tipo;
+  o.frequency.setValueAtTime(frecuencia, t);
+  o.connect(envolvente(ctx, t, volumen, dur));
+  o.start(t);
+  o.stop(t + dur + 0.02);
+}
 
 // Un solo patrón sonando a la vez en toda la página.
 let sonando = null;
@@ -272,7 +373,7 @@ function tocar(bloque, patron, boton) {
     while (estado.siguiente < ctx.currentTime + 0.12) {
       for (const v of patron.voces) {
         const g = v.golpes[estado.paso];
-        if (g) SONIDOS[v.voz](ctx, estado.siguiente, g === 2 ? 1 : 0.6);
+        if (g) SONIDOS[v.voz](ctx, estado.siguiente, ACENTO.has(g) ? 1 : 0.6, g);
       }
       estado.cola.push({ paso: estado.paso, t: estado.siguiente });
       estado.paso = (estado.paso + 1) % patron.pasos;
@@ -339,8 +440,10 @@ function montarBloque(parrafo) {
   const patron = parsearRitmo(textoDelBloque(parrafo));
   const bloque = document.createElement("div");
   bloque.className = "rt-bloque";
+  // Solo batería: 🥁. Con acompañamiento: 🎸.
+  const emoji = patron.voces.some((v) => !BATERIA.has(v.voz)) ? "🎸" : "🥁";
   if (patron.errores.length) {
-    bloque.innerHTML = `<div class="rt-cabecera"><span class="rt-titulo">🥁 ${escapar(titulo)}</span></div>` +
+    bloque.innerHTML = `<div class="rt-cabecera"><span class="rt-titulo">${emoji} ${escapar(titulo)}</span></div>` +
       `<div class="rt-error">Este ritmo no se puede dibujar:\n${patron.errores.map(escapar).join("\n")}</div>`;
     parrafo.replaceWith(bloque);
     return;
@@ -348,7 +451,7 @@ function montarBloque(parrafo) {
   let modo = leerModo();
   bloque.innerHTML = `
     <div class="rt-cabecera">
-      <span class="rt-titulo">🥁 ${escapar(titulo)}</span>
+      <span class="rt-titulo">${emoji} ${escapar(titulo)}</span>
       <button type="button" class="rt-tocar" aria-pressed="false" title="Escuchar el patrón">▶</button>
       <input type="number" class="rt-tempo" min="30" max="240" value="${patron.tempo}" title="Tempo (pulsos por minuto)" aria-label="Tempo">
       <span class="rt-dato">ppm · ${patron.compas}</span>

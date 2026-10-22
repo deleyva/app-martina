@@ -64,3 +64,39 @@ test("ChordSheetJS deja el bloque intacto como paragraph ritmo, también al tran
     expect(html).toContain("CA: . . x . . . x .");
   }
 });
+
+// --- Acompañamiento (fase 80) -------------------------------------------------
+
+const BANDA = ROCK + "\nGU: v . v ^ . ^ v ^\nBA: x . . . x . . .\nMD: x . . . x . x .\nMI: x . . . x . . .";
+
+test("siete voces en orden fijo, con flechas en GU", () => {
+  const p = parsearRitmo("MI: x . . . x . . .\nGU: v . V ^ . ^ v ^\n" + ROCK);
+  expect(p.errores).toEqual([]);
+  expect(p.voces.map((v) => v.voz)).toEqual(["SH", "CA", "BO", "GU", "MI"]);
+  expect(p.voces[3].golpes).toEqual([3, 0, 4, 5, 0, 5, 3, 5]);
+});
+
+test.each([
+  ["flecha en la caja", "CA: v . v .", /solo valen en GU/],
+  ["símbolo raro en GU", "GU: v ^ o v", /usa v, V, \^, x o \./],
+  ["símbolo raro en el bajo", "BA: x ^ x x", /solo valen en GU/],
+  ["GU de distinta longitud", "SH: x x x x\nGU: v ^ v ^ v ^ v ^", /no miden lo mismo/],
+])("inválido en acompañamiento: %s", (_, texto, error) => {
+  expect(parsearRitmo(texto).errores.join(" ")).toMatch(error);
+});
+
+test("el SVG de la banda lleva flechas, notas y manos; el de solo batería no cambia", () => {
+  const svg = svgRitmo(parsearRitmo(BANDA));
+  // 16 (rock) + 4 iconos de leyenda + 6 rasgueos + 2 bajo + 3 MD + 2 MI = 33,
+  // más 3 del grupo espejo que lleva dentro cada mano izquierda (leyenda + 2).
+  expect((svg.match(/<g transform=/g) || []).length).toBe(36);
+  expect(svg).toContain("Guitarra / ukelele");
+  expect(svg).toContain("Piano mano izquierda");
+  expect(svgRitmo(parsearRitmo(ROCK))).not.toContain("Guitarra");
+});
+
+test("el rasgueo apagado en GU es una x y no una flecha", () => {
+  const p = parsearRitmo("GU: x . x . x . x .");
+  expect(p.errores).toEqual([]);
+  expect(p.voces[0].golpes).toEqual([1, 0, 1, 0, 1, 0, 1, 0]);
+});

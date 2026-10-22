@@ -5305,3 +5305,93 @@ de las fichas, para que la búsqueda semántica del GPT aterrice.
 - Alcance no tocado: `PaseDeLista` sin campos nuevos; ninguna pantalla nueva para el alumnado; ni push ni despliegue.
 - **2026-10-17 — Corrección tras el primer uso** («Hay solo un error»: cerrar la franja y volver a tocar «Cuaderno» añadía un tercero en vez de repartir de nuevo). Decidido por Jesús: cerrar = lo dejo (pendientes fuera), tope de tres, el dado de la barra reparte y «+ otro» añade. Nuevo endpoint `lista/cuaderno/descartar/`; `sortear` recorta `n` al tope; 31 tests. **Desplegada el 2026-10-18** («ok, despliega»): copia `backup_2026_10_18T08_33_13.sql.gz`, push `df7950d..8e78937`, `just deploy-production`. En el push iba también `8e78937` (Incidencias: «¿Quién eres?» sin @, acentos ni mayúsculas), que no es de esta fase y trae la migración de datos `incidencias.0011_usuarios_sin_arroba` (normaliza `autor_nombre` y `reportero_nombre`); se aplicó en este despliegue. Verificado con la sesión de Jesús: el pase de lista de la sesión 163 carga la plantilla nueva (`CUADERNO_DESCARTAR`, `tirarDado(masUno)`), el estado del dado devuelve `maximo: 3`, la ruta de descartar existe (405 a GET), seis chips, consola sin errores. Sin tirar el dado en producción.
 - **2026-10-17 — Desplegada y verificada en producción** («despliega»). Copia previa `production_backup_2026_10_17T06_59_58.sql.gz` (6,3 MB); push `4c19745..df7950d`; `just deploy-production`; aplicada `calificaciones.0007_revision_cuaderno` (crea la tabla, no toca datos). El servidor está en `df7950d`, los seis contenedores en marcha. En Chrome con la sesión de Jesús: el pase de lista de la sesión 163 de 4-AC-BIL enseña los seis chips (Jorge incluido) sin bajar, con «🎲 Cuaderno» en la barra y `--plano-hueco: 210px` sin nada que sobresalga del cuerpo; `GET /clases/sessions/163/lista/cuaderno/` → 200 con el instrumento «Cuaderno» de la 1ª ev. (id 45), 0 sorteados, 6 candidatos; el registro `/calificaciones/grupo/13/?t=1` carga con sus 6 filas y 54 celdas, sin errores de consola, y el bundle servido lleva el detalle («Ver el detalle»). Sin tirar el dado en producción (Anti-C): la primera tirada real es de Jesús en clase.
+
+## Fase 80 — Patrones de acompañamiento (guitarra, bajo, piano) en la misma rejilla que la batería, y la escalera de grooves de los libros (2026-10-22) · CONSTRUIDA Y VERIFICADA EN LOCAL, SIN DESPLEGAR
+
+**Goal (literal de Jesús, 2026-10-22):** «me gustaría que los patrones rítmicos fueran de más fáciles a más difíciles, pero que pudiéramos hacer un groove desde el principio. Me gustarían entonces canciones con pocos acordes para que eso pudiera ocurrir y que ese groove propuesto fuera el típico de esa canción o alguno que le pudiera pegar. Me gustan mucho los patrones de batería que me pones en los archivos Chord Pro. ¿Existe algo parecido que podamos poner para patrones de acompañamiento, tanto de guitarra como de piano?» · «ok, vamos a ello» (a la propuesta de voces de acompañamiento en el visor + lista de candidatas por peldaño).
+
+**Vision.** El bloque `{start_of_ritmo}` deja de ser solo de batería: debajo de SH/CA/BO van la guitarra (o ukelele) con flechas de rasgueo, el bajo y las dos manos del piano, todas en la misma rejilla y con la misma cuenta. El alumno ve que el rasgueo hacia abajo cae donde el bombo. ▶ lo toca todo junto. El formato de los 22 bloques que ya existen no cambia ni un carácter. Aparte, la escalera de grooves (6 peldaños por criterio rítmico) con 2-3 canciones de pocos acordes por peldaño queda escrita aquí para que Jesús la revise antes de tocar ningún libro.
+
+**Formato (ampliación, compatible):**
+
+```
+{start_of_ritmo: Pop básico · estrofa (1º)}
+compás: 4/4
+tempo: 90
+SH: x x x x x x x x
+CA: . . X . . . X .
+BO: x . . . x x . .
+GU: v . v ^ . ^ v ^
+BA: x . . . x . . .
+MD: x . . . x . x .
+MI: x . . . x . . .
+{end_of_ritmo}
+```
+
+Voces nuevas: `GU` guitarra/ukelele (`v` abajo, `V` abajo con acento, `^` arriba, `x` rasgueo apagado), `BA` bajo (toca la fundamental del acorde que haya en la letra), `MD` piano mano derecha (acorde), `MI` piano mano izquierda (bajo). En BA/MD/MI valen `x`, `X`, `.` como en la batería. Las flechas solo valen en GU.
+
+### Claims
+
+- [x] **C505** — `parsearRitmo` admite GU, BA, MD y MI; `v`/`V`/`^` solo en GU (en otra voz, error que lo dice); orden fijo SH, CA, BO, GU, BA, MD, MI. *Falsador: `bun test ritmos.test.js` con casos nuevos; los 15 tests anteriores pasan sin tocarlos.* *Cerrada 2026-10-22: `ritmos.js` — `VOCES` con GU/BA/MD/MI, `GOLPE` con v/V/^ (códigos 3/4/5), `RASGUEO` solo en GU; 7 tests nuevos (orden fijo con siete voces, flecha en CA, símbolo raro en GU y en BA, longitudes, x apagado en GU); `bun test ritmos.test.js` → 22 pass, 0 fail; los 15 anteriores sin tocar.*
+- [x] **C506** — La rejilla dibuja las voces nuevas con iconos propios (guitarra, bajo, mano derecha, mano izquierda) y, en GU, flechas abajo/arriba por paso, acento más grande con «>». *Falsador: Chrome en local, captura vista (vista previa del editor y visor de clase).* *Cerrada 2026-10-22 en Chrome, local, vista previa del editor de «Perfect — prueba ChordPro» (página 858): rejilla de siete filas (viewBox 553×380 = 30 + 7×50), flechas ↓/↑ en GU con «>» sobre la V, negras en BA, mano con pulgar sobre teclado en MD y la misma mano reflejada en MI, título «🎸 Pop básico · estrofa (1º)»; un bloque con `CA: v . v .` sale en rojo con «Las flechas v, V y ^ solo valen en GU (están en CA)» y el resto de la canción se pinta. Captura y zoom vistos.*
+- [x] **C507** — ▶ toca las voces nuevas con sonidos sintetizados distintos (rasgueo, bajo, acorde, octava grave), al mismo reloj que la batería. *Falsador: Chrome — nodos de audio creados al pulsar ▶ con un bloque de siete voces; el sonido real lo confirma Jesús.* *Cerrada 2026-10-22: con `createOscillator` contado, ▶ en el bloque de siete voces creó 11 osciladores en 0,6 s (solo batería crea ≤2 por paso), botón ⏸ y cursor visible; al parar, 0 nuevos y cursor oculto. El sonido real (rasgueo en Mi abierto, bajo, tríada, octava) lo confirma Jesús.*
+- [x] **C508** — Una canción con solo SH/CA/BO se ve y suena exactamente igual que antes. *Falsador: tests antiguos intactos + SVG de `ROCK` idéntico en número de grupos (16).* *Cerrada 2026-10-22: `svgRitmo(ROCK)` sigue en 16 grupos (test intacto); en la página local, los dos bloques de batería existentes se pintan con 🥁 y sin cambios; `ValidarRitmo.ts` sobre los 35 `.cho` → 24 bloques ✓, 0 ✗, salida 0.*
+- [x] **C509** — `ValidarRitmo.ts` acepta y resume las voces nuevas; `PublishSong.md` documenta el formato ampliado; cambio de skill vía CreateSkill. *Falsador: ejecutar con un `.cho` de siete voces (sale 0) y con `v` en CA (sale 1 y lo dice).* *Cerrada 2026-10-22 vía CreateSkill/UpdateSkill: `PublishSong.md` § Patrones de batería y de acompañamiento (voces, flechas, ejemplo), cabecera de `ValidarRitmo.ts`, descripción de `SKILL.md` con «patrón de acompañamiento, rasgueo de guitarra o ukelele, patrón de piano o bajo» (790 caracteres). `banda.cho` de siete voces → salida 0 y resumen «SH+CA+BO+GU+BA+MD+MI»; `mal.cho` con `v` en CA → salida 1 y lo dice.*
+- [x] **C510** — Escalera de grooves escrita en este ISA: 6 peldaños por criterio rítmico, 2-3 candidatas por peldaño de los 35 `.cho`, con el número de acordes contado del propio `.cho` y la tonalidad/tempo del encabezado; dudas contrastadas con Hooktheory. Entregada a Jesús para revisión, sin tocar ningún libro. *Falsador: tabla con fuente por fila; `rg` de los `.cho` citados.* *Cerrada 2026-10-22: escalera en el Log de esta fase, 6 peldaños, 20 candidatas con acordes contados del `.cho` (script `inventario.ts` sobre los 35). Hooktheory no corroboró: `search.hooktheory.com` no responde desde esta máquina hoy (ni fuera del sandbox) aunque `www.hooktheory.com` da 200; queda como [DEFERRED-VERIFY: contrastar acordes en Hooktheory cuando vuelva el índice]. Ningún libro tocado.*
+- [x] **C511** — Los tres consumidores de `pintarRitmos` (visor, `recurso.html`, vista previa del editor) no cambian; bundle `static/js/chordpro.js` reconstruido con esbuild. *Falsador: `rg pintarRitmos` + `rg "GU"` en el bundle + Chrome.* *Cerrada 2026-10-22: `rg pintarRitmos` → los mismos tres consumidores (`chordpro_viewer.html:237`, `recurso.html:1269`, `chordpro.js:274`), ninguno editado; bundle `static/js/chordpro.js` reconstruido con `bunx esbuild` (303 kB) y servido en local con «Piano mano izquierda» dentro; vista previa del editor vista en Chrome. El visor de clase y la página usan la misma función (fase 75, C466); no se reabrieron.*
+
+### Anti-claims
+
+- **Anti-A** — Ningún bloque de los 22 `.cho` con ritmo cambia; `ValidarRitmo.ts` sobre los 35 sigue dando 0. *Falsador: `git diff --stat` en `articulos-ies/chordpro` vacío + validador.*
+- **Anti-B** — Ni iconos ni patrones copiados de MusicWill (los charts de JamZone en `~/Documents/charts-jamzone/` no se abren para esto).
+- **Anti-C** — Ni push ni despliegue sin «despliega»; ninguna canción publicada se toca; ningún libro se reordena hasta que Jesús revise la escalera.
+
+### Out of Scope
+
+- Ukelele como voz distinta de la guitarra (misma voz GU; el rasgueo es el mismo).
+- Acordes concretos dentro del patrón: el acorde lo da la letra que sigue al bloque.
+- Notación musical (alphaTab) y voces de batería nuevas (toms, platos).
+- Reordenar los libros 940, 915 y 879 en la web (viene después de la revisión).
+
+### Decisiones de diseño (mías; Jesús no las ha revisado)
+
+- **Voces dentro del mismo bloque, no un bloque nuevo.** Lo que enseña es la alineación vertical con el bombo; un `{start_of_acompanamiento}` aparte la perdería.
+- **Flechas `v`/`^` y no `D`/`U`:** es la notación de Ultimate Guitar y de los tutoriales que el alumnado ya mira, en ASCII, y `v` se parece a la flecha.
+- **Códigos numéricos de golpe ampliados (3 abajo, 4 abajo acento, 5 arriba)** para que los 15 tests y el formato interno de los bloques viejos sigan intactos.
+- **El modo «Cuerpo» no toca las voces de instrumento:** muestran lo mismo en los dos modos.
+
+### Test Strategy
+
+`bun test ritmos.test.js` (parser, orden, errores, SVG); `ValidarRitmo.ts` sobre los 35 `.cho` y sobre uno de prueba con siete voces; Chrome en local (`localhost:8000`) en la vista previa del editor y en el visor con un bloque de siete voces; captura vista; sin dato real.
+
+### Log
+
+- **2026-10-22 — ISA escrito; empieza la construcción.** Repo al día con `origin/main` (`git fetch`). Inventario de los 35 `.cho`: 22 con ritmo, títulos ya graduados «(1º)», «(3º)», «(4º)»; acordes por canción contados con un script sobre el propio `.cho`.
+- **2026-10-22 — Construida y verificada en local.** `ritmos.js` (voces, iconos, flechas, sonidos), `ritmos.test.js` (22), bundle; skill PublishIES por CreateSkill (commit en ~/.claude). Anti-A: ningún `.cho` tocado, validador 24 ✓ / 0 ✗. Anti-C: sin push, sin despliegue, sin tocar libros. Gotchas: (1) `sed -i` de BSD mete una «n» literal donde pones `\n` y `perl -0pi` sobre el fichero de tests le pegó el reemplazo al principio: para tocar tests, Edit o un script; (2) el clic por coordenadas en el ▶ de la vista previa cayó fuera (la previa había hecho scroll), el `click()` por DOM fue el que arrancó el sonido; (3) cancelar el editor con cambios lanza `window.confirm`, que bloquea el navegador automatizado: devolver el texto original antes de cancelar.
+- **Escalera de grooves (C510), para que la revise Jesús.** Criterio: el peldaño lo decide el patrón rítmico, no el género; la canción es el vehículo; «n» = acordes distintos en el `.cho` (sus4/sus2 y séptimas contadas aparte); «ritmo base» = el bloque que ya lleva el `.cho`, o «—» si no tiene.
+
+| Peldaño | Criterio rítmico | Canción | n | Tempo | Curso hoy | Ritmo base hoy |
+|---|---|---|---|---|---|---|
+| 1 | Todo a negras, sobre el pulso | Levitating — Dua Lipa | 3 (Am Em Dm) | 103 | 4º | disco, bombo a negras |
+| 1 | | Memories — Maroon 5 | 5 | 91 | 1º | pop suave |
+| 1 | | Blinding Lights — The Weeknd | 4 (Am C G Dm) | 171 (a la blanca) | 4º | synth-pop, bombo a negras |
+| 2 | Corcheas uniformes, acento en 2 y 4 | Stand by Me — Ben E. King | 4 (G Em C D) | 120 | 3º | — |
+| 2 | | Al cantar — Platero y Tú | 4 (C G Am F) | 103 | 3º | rock |
+| 2 | | With or Without You — U2 | 4 (D A Bm G) | 110 | 4º | rock de pulso continuo |
+| 2 | | Marta, Sebas, Guille y los demás — Amaral | 5 | 103 | 1º y 3º | pop-rock (estrofa y estribillo) |
+| 3 | Ternario (12/8 y 3/4) | Perfect — Ed Sheeran | 4 (G Em C D) | 12/8 | 1º | balada en 12/8 |
+| 3 | | Rise — Eddie Vedder | 3 (G C D) | 173 en 3/4 | 3º | en tres |
+| 4 | Primera síncopa: saltar el 3 (el «D DU UDU») | Send My Love — Adele | 2 (D Bm) | 82 | 3º | pop sincopado |
+| 4 | | Chan Chan — Compay Segundo | 4 (Dm F G A7) | 174 (a la blanca) | 3º | son, pulso a la blanca |
+| 4 | | Hit the Road Jack — Ray Charles | 4 (Am G F E7) | 171 (a la blanca) | 3º | — |
+| 4 | | La Flaca — Jarabe de Palo | 6 | 103 | 3º | rumba pop |
+| 5 | Acento desplazado: contratiempo, dembow, afrobeats | La Gozadera — Gente de Zona | 5 | 95 | 4º | dembow |
+| 5 | | Calm Down — Rema | 3 (D A E, más Dsus2) | 107 | 4º | afrobeats |
+| 5 | | Matador — Los Fabulosos Cadillacs | 3 (Am Dm E) | 192 (ska, arriba en las «y») | 3º | — |
+| 5 | | Feel It Still — Portugal. The Man | 4 | 160 (a la blanca) | 4º | groove, pulso a la blanca |
+| 6 | Semicorcheas y notas fantasma | Uptown Funk — Mark Ronson | 2 (Dm7 G7) | 115 | 4º | funk en semicorcheas |
+| 6 | | Chain of Fools — Aretha Franklin | 1 (Cm) | 117 | 4º | soul |
+| 6 | | I Got You (I Feel Good) — James Brown | 4 (D7 G7 A7 D9) | 142 | 3º | — |
+| 6 | | Hollywood Swinging — Kool & the Gang | 5 | 112 | 3º | — |
+
+  Lo que la tabla enseña: (a) los peldaños 1-3 ya están cubiertos por 1º y 3º con lo que hay; (b) en 3º hay 13 canciones sin ritmo todavía (Stand by Me, Hit the Road Jack, Matador, I Got You, Hollywood Swinging, Fast Car, Fotos y recuerdos, La negra Tomasa, Come and Get Your Love, My Girl, Hound Dog, Mannish Boy, La vida es un carnaval): escribirles el bloque es el siguiente trabajo barato; (c) las de 1 y 2 acordes (Chain of Fools, Uptown Funk, Send My Love) caen en los peldaños 4 y 6, no en el 1: la hipótesis «pocos acordes = fácil» no se cumple en este catálogo, como se advirtió. Siguiente paso, cuando Jesús diga: añadir GU/BA/MD/MI a los 22 bloques existentes empezando por el peldaño 1, y bloques nuevos a las 13 sin ritmo.
