@@ -43,6 +43,12 @@ def remove_content_from_index(sender, instance, **kwargs):
 
 @receiver(m2m_changed, sender=ContentItem.tags.through)
 def reindex_on_tags_change(sender, instance, action, **kwargs):
+    # `ContentItem.tags.through` es el `TaggedItem` genérico de taggit, que
+    # comparten TODOS los modelos con `TaggableManager` (p. ej. `Pregunta`, fase
+    # 76). Sin esta guarda, etiquetar cualquiera de ellos intentaba indexarlo
+    # aquí y fallaba con «no attribute 'title'» (detectado 2026-10-26).
+    if not isinstance(instance, ContentItem):
+        return
     """Reindex ContentItem when tags are added or removed"""
     if action in ("post_add", "post_remove", "post_clear"):
         try:

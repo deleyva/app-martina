@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% load preguntas_extras wagtailimages_tags %}
+
+{% block title %}Banco de preguntas{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-5xl">
+
+  <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+    <div>
+      <h1 class="text-2xl sm:text-3xl font-bold">❓ Banco de preguntas</h1>
+      <p class="text-sm text-base-content/70 mt-1">
+        Preguntas de teoría para los pases con tarjetas. Una pregunta sin revisar nunca entra en un pase.
+      </p>
+    </div>
+    <div class="flex gap-2">
+      <a href="{% url 'preguntas:nueva' %}" class="btn btn-primary btn-sm">+ Nueva pregunta</a>
+      <a href="{% url 'clases:class_session_list' %}" class="btn btn-ghost btn-sm">Sesiones</a>
+    </div>
+  </div>
+
+  <form method="get" class="flex flex-wrap items-center gap-2 mb-6" id="filtros">
+    <div class="join">
+      <a href="{% url 'preguntas:banco' %}{% if q %}?q={{ q|urlencode }}{% endif %}" class="btn btn-sm join-item {% if not estado %}btn-active{% endif %}">Todas</a>
+      {% for clave, nombre in estados %}
+      <a href="?estado={{ clave }}{% if q %}&q={{ q|urlencode }}{% endif %}" class="btn btn-sm join-item {% if estado == clave %}btn-active{% endif %}">
+        {{ nombre }} <span class="badge badge-sm ml-1">{{ totales|get_item:clave }}</span>
+      </a>
+      {% endfor %}
+    </div>
+    {% if estado %}<input type="hidden" name="estado" value="{{ estado }}">{% endif %}
+    <input type="search" name="q" value="{{ q }}" placeholder="Buscar en enunciado o etiqueta" class="input input-bordered input-sm w-64">
+    <button class="btn btn-sm">Buscar</button>
+  </form>
+
+  {% if not grupos %}
+    <div class="text-base-content/60 py-10 text-center">No hay preguntas con ese filtro.</div>
+  {% endif %}
+
+  {% for concepto, preguntas in grupos %}
+  <section class="mb-6">
+    <h2 class="text-xs uppercase tracking-wide opacity-60 mb-2">concepto: {{ concepto }} <span class="opacity-60">· {{ preguntas|length }}</span></h2>
+    <div class="flex flex-col gap-2">
+      {% for p in preguntas %}
+      <div class="card bg-base-100 border border-base-300" data-pregunta="{{ p.pk }}">
+        <div class="card-body p-3 gap-2">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <div class="font-medium">{{ p.enunciado }}</div>
+              {% if p.imagen %}<div class="mt-2 bg-white rounded p-1 inline-block">{% image p.imagen width-480 class="max-h-28 w-auto" %}</div>{% endif %}
+              <ol class="text-sm mt-1 grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+                {% for opcion in p.opciones %}
+                <li class="{% if forloop.counter0 == p.correcta %}font-semibold text-success{% else %}text-base-content/70{% endif %}">
+                  {{ forloop.counter0|letra }}. {{ opcion }}
+                </li>
+                {% endfor %}
+              </ol>
+              <div class="text-xs text-base-content/60 mt-1">
+                {% for e in p.etiquetas.all %}<span class="badge badge-ghost badge-xs mr-1">{{ e.name }}</span>{% endfor %}
+              </div>
+            </div>
+            <div class="text-right shrink-0 text-xs text-base-content/70">
+              <div><span class="badge badge-sm {% if p.estado == 'activa' %}badge-success{% elif p.estado == 'archivada' %}badge-neutral{% else %}badge-warning{% endif %}">{{ p.get_estado_display }}</span></div>
+              <div class="mt-1">Preguntada <b>{{ p.veces }}</b> {{ p.veces|pluralize:"vez,veces" }}</div>
+              <div>Acierto: <b>{% if p.acierto is None %}—{% else %}{{ p.acierto }} %{% endif %}</b></div>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-1 justify-end">
+            <a href="{% url 'preguntas:editar' p.pk %}" class="btn btn-ghost btn-xs">Editar</a>
+            {% if p.estado != 'activa' %}
+            <form method="post" action="{% url 'preguntas:estado' p.pk %}">{% csrf_token %}
+              <input type="hidden" name="estado" value="activa"><input type="hidden" name="volver" value="{{ request.get_full_path }}">
+              <button class="btn btn-success btn-xs">Activar</button>
+            </form>
+            {% endif %}
+            {% if p.estado != 'archivada' %}
+            <form method="post" action="{% url 'preguntas:estado' p.pk %}">{% csrf_token %}
+              <input type="hidden" name="estado" value="archivada"><input type="hidden" name="volver" value="{{ request.get_full_path }}">
+              <button class="btn btn-ghost btn-xs">Archivar</button>
+            </form>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+</div>
+{% endblock %}

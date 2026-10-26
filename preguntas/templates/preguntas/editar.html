@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% load preguntas_extras wagtailimages_tags %}
+
+{% block title %}{% if pregunta.pk %}Editar pregunta{% else %}Nueva pregunta{% endif %}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-2xl">
+  <div class="flex items-center justify-between mb-4">
+    <h1 class="text-2xl font-bold">{% if pregunta.pk %}✏️ Editar pregunta{% else %}➕ Nueva pregunta{% endif %}</h1>
+    <a href="{% url 'preguntas:banco' %}" class="btn btn-ghost btn-sm">← Banco</a>
+  </div>
+
+  <form method="post" class="flex flex-col gap-4">
+    {% csrf_token %}
+
+    <label class="form-control">
+      <span class="label-text font-medium">Enunciado</span>
+      <textarea name="enunciado" rows="3" class="textarea textarea-bordered w-full" required>{% if valores %}{{ valores.enunciado }}{% else %}{{ pregunta.enunciado }}{% endif %}</textarea>
+      {% if errores.enunciado %}<span class="text-error text-sm">{{ errores.enunciado }}</span>{% endif %}
+    </label>
+
+    {% if pregunta.imagen %}
+    <div class="text-sm"><span class="label-text font-medium">Imagen</span>
+      <div class="mt-1 bg-white rounded p-1 inline-block">{% image pregunta.imagen width-480 class="max-h-28 w-auto" %}</div>
+      <div class="opacity-60 text-xs">La imagen se cambia desde el lote que la subió; aquí solo se ve.</div>
+    </div>
+    {% endif %}
+
+    <fieldset class="flex flex-col gap-2">
+      <legend class="label-text font-medium mb-1">Opciones (marca la correcta)</legend>
+      {% for i, texto in opciones %}
+      <label class="flex items-center gap-2">
+        <input type="radio" name="correcta" value="{{ i }}" class="radio radio-success"
+          {% if valores %}{% if valores.correcta == i|stringformat:"s" %}checked{% endif %}{% elif pregunta.correcta == i %}checked{% endif %}>
+        <span class="w-5 font-mono">{{ i|letra }}</span>
+        <input type="text" name="opcion_{{ i }}" value="{{ texto }}" class="input input-bordered input-sm flex-1" required>
+      </label>
+      {% endfor %}
+      {% if errores.opciones %}<span class="text-error text-sm">{{ errores.opciones }}</span>{% endif %}
+      {% if errores.correcta %}<span class="text-error text-sm">{{ errores.correcta }}</span>{% endif %}
+    </fieldset>
+
+    <label class="form-control">
+      <span class="label-text font-medium">Explicación (se muestra al revelar)</span>
+      <textarea name="explicacion" rows="2" class="textarea textarea-bordered w-full">{% if valores %}{{ valores.explicacion }}{% else %}{{ pregunta.explicacion }}{% endif %}</textarea>
+    </label>
+
+    <label class="form-control">
+      <span class="label-text font-medium">Etiquetas <span class="font-normal opacity-60">(faceta:valor, separadas por comas; al menos un concepto:…)</span></span>
+      <input type="text" name="etiquetas" value="{% if valores %}{{ valores.etiquetas }}{% else %}{{ etiquetas }}{% endif %}" class="input input-bordered w-full" placeholder="concepto:figuras, curso:1eso">
+      {% if errores.etiquetas %}<span class="text-error text-sm">{{ errores.etiquetas }}</span>{% endif %}
+    </label>
+
+    <div class="flex justify-end gap-2">
+      <a href="{% url 'preguntas:banco' %}" class="btn btn-ghost">Cancelar</a>
+      <button type="submit" class="btn btn-primary">Guardar</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

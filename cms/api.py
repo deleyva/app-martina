@@ -36,6 +36,11 @@ from .services import AIMetadataExtractor, ContentPublisher
 
 router = Router(tags=["CMS Tests"], auth=[DatabaseApiKey(), django_auth])
 
+# Banco de preguntas de teoría (fase 76): `/api/cms/preguntas/`, misma clave.
+from preguntas.api import router as preguntas_router  # noqa: E402
+
+router.add_router("/preguntas", preguntas_router)
+
 
 def _validar_etiquetas(payload):
     """`tag_ids` se retiró con `MusicTag` (C37b).
