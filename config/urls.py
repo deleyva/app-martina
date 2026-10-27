@@ -24,6 +24,7 @@ from content_hub.api import router as content_hub_router
 from musica.api import router as recortes_router
 from incidencias.api import router as incidencias_router
 from clases.api import router as clases_router
+from calificaciones.api import router as calificaciones_router
 
 # Registrar los routers en la API principal
 api.add_router("/evaluations/", evaluations_router)
@@ -33,6 +34,7 @@ api.add_router("/content/", content_hub_router)
 api.add_router("/recortes/", recortes_router)
 api.add_router("/incidencias/", incidencias_router)
 api.add_router("/clases/", clases_router)
+api.add_router("/calificaciones/", calificaciones_router)
 
 
 @api.get("/add")
