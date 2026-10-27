@@ -1,0 +1,225 @@
+{% comment %}
+  El pase de preguntas dentro de la presentación (tramo 76·2). Lo mete
+  `render_item_content` en `#study-content` cuando el elemento es un `Pase`.
+
+  Todo lo que se ve sale de `pase_estado`, que se consulta cada segundo: así la
+  pantalla proyectada (el Mac del aula) y el iPad que mira la clase enseñan lo
+  mismo sin WebSockets. El profesor tiene abajo una barra pequeña: Empezar,
+  Cámara, Revelar, Siguiente y Cerrar. El alumnado ve la misma pantalla sin
+  barra.
+
+  Usa del script principal, si existe: `avisar`. Pone `window.visorConPaginas`
+  a true para quedarse con las flechas: → revela o pasa, ← no hace nada.
+{% endcomment %}
+<style>
+  #pase-vivo { position: absolute; inset: 0; display: flex; flex-direction: column; background: #0b0b10; color: #f4f4f5; font-family: inherit; overflow: hidden; }
+  #pase-vivo .pv-cabecera { display: flex; align-items: center; gap: 16px; padding: 12px 24px; font-size: 18px; opacity: 0.8; }
+  #pase-vivo .pv-cabecera .pv-contador { margin-left: auto; font-variant-numeric: tabular-nums; }
+  #pase-vivo .pv-cuerpo { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; padding: 8px 48px 24px; gap: 20px; }
+  #pase-vivo .pv-enunciado { font-size: clamp(26px, 4vw, 48px); font-weight: 700; line-height: 1.2; }
+  #pase-vivo .pv-imagen { max-height: 32vh; max-width: 100%; object-fit: contain; align-self: flex-start; background: #fff; border-radius: 8px; padding: 6px; }
+  #pase-vivo .pv-opciones { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; }
+  #pase-vivo .pv-opcion { display: flex; align-items: center; gap: 14px; font-size: clamp(20px, 2.6vw, 32px); padding: 10px 16px; border-radius: 12px; border: 2px solid rgba(255,255,255,0.12); }
+  #pase-vivo .pv-opcion .pv-letra { font-weight: 900; width: 1.4em; height: 1.4em; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.12); flex-shrink: 0; }
+  #pase-vivo .pv-opcion.correcta { border-color: #22c55e; background: rgba(34,197,94,0.18); }
+  #pase-vivo .pv-opcion.correcta .pv-letra { background: #22c55e; color: #052e16; }
+  #pase-vivo .pv-opcion .pv-reparto { margin-left: auto; font-variant-numeric: tabular-nums; opacity: 0.8; font-size: 0.8em; }
+  #pase-vivo .pv-explicacion { font-size: clamp(16px, 1.8vw, 24px); opacity: 0.85; border-left: 4px solid #22c55e; padding-left: 14px; }
+  #pase-vivo .pv-respondido { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  #pase-vivo .pv-respondido .pv-nombre { font-size: 14px; padding: 3px 10px; border-radius: 999px; background: rgba(59,130,246,0.35); }
+  #pase-vivo .pv-respondido .pv-n { font-size: 16px; opacity: 0.8; margin-right: 6px; font-variant-numeric: tabular-nums; }
+  #pase-vivo .pv-grande { font-size: clamp(24px, 3vw, 40px); text-align: center; opacity: 0.85; }
+  /* Deja libre la columna de botones redondos de la presentación (izquierda). */
+  #pase-vivo .pv-barra { display: flex; align-items: center; gap: 8px; padding: 8px 16px 8px 72px; background: rgba(14,14,18,0.9); border-top: 1px solid rgba(255,255,255,0.1); font-size: 13px; flex-wrap: wrap; }
+  #pase-vivo .pv-barra button { border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); color: #fff; border-radius: 8px; padding: 6px 12px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  #pase-vivo .pv-barra button:disabled { opacity: 0.35; cursor: default; }
+  #pase-vivo .pv-barra button.pv-primario { background: rgba(37,99,235,0.85); border-color: rgba(96,165,250,0.8); }
+  #pase-vivo .pv-barra button.pv-peligro { background: rgba(185,28,28,0.7); }
+  #pase-vivo .pv-barra .pv-estado { opacity: 0.7; margin-left: auto; font-variant-numeric: tabular-nums; }
+  #pase-vivo video.pv-video { width: 160px; border-radius: 6px; background: #000; }
+  #pase-vivo .pv-error { color: #fca5a5; }
+</style>
+
+<div id="pase-vivo" data-pase="{{ pase.pk }}">
+  <div class="pv-cabecera">
+    <span>❓ Pase de preguntas</span>
+    <span class="pv-contador" id="pv-contador"></span>
+  </div>
+  <div class="pv-cuerpo" id="pv-cuerpo"><div class="pv-grande">Cargando…</div></div>
+  {% if profesor %}
+  <div class="pv-barra" id="pv-barra">
+    <button type="button" id="pv-empezar" class="pv-primario" onclick="paseVivo.empezar()">Empezar el pase</button>
+    <button type="button" id="pv-camara" onclick="paseVivo.camara()" disabled>📷 Cámara</button>
+    <video id="pv-video" class="pv-video" playsinline muted autoplay hidden></video>
+    <canvas id="pv-lienzo" hidden></canvas>
+    <button type="button" id="pv-revelar" class="pv-primario" onclick="paseVivo.revelar()" disabled>Revelar (→)</button>
+    <button type="button" id="pv-siguiente" onclick="paseVivo.siguiente()" disabled>Siguiente (→)</button>
+    <button type="button" id="pv-cerrar" class="pv-peligro" onclick="paseVivo.cerrar()" disabled>Cerrar el pase</button>
+    <span class="pv-estado" id="pv-estado"></span>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+(function () {
+  var PK = {{ pase.pk }};
+  var PROFESOR = {{ profesor|yesno:"true,false" }};
+  var URL_ESTADO = '{% url "preguntas:pase_estado" pase.pk %}';
+  var URL_ABRIR = '{% url "preguntas:pase_abrir" pase.pk %}';
+  var URL_LEER = '{% url "preguntas:pase_leer" pase.pk %}';
+  var URL_REVELAR = '{% url "preguntas:pase_revelar" pase.pk %}';
+  var URL_SIGUIENTE = '{% url "preguntas:pase_siguiente" pase.pk %}';
+  var URL_CERRAR = '{% url "preguntas:pase_cerrar" pase.pk %}';
+  var CSRF = '{{ csrf_token }}';
+  var INTERVALO_SONDEO = 1000;
+  var INTERVALO_CAMARA = 200;
+  var LETRAS = 'ABCD';
+
+  var raiz = document.getElementById('pase-vivo');
+  var cuerpo = document.getElementById('pv-cuerpo');
+  var estado = null, sondeo = null, stream = null, temporizador = null, enVuelo = false, nFrames = 0;
+  // Mientras una orden (revelar, siguiente…) está en vuelo, las teclas esperan:
+  // dos → seguidas antes de volver la respuesta revelaban dos veces y no pasaban.
+  var ocupado = false;
+
+  // Las flechas son nuestras mientras este elemento esté en pantalla.
+  window.visorConPaginas = true;
+
+  function esc(t) { var d = document.createElement('div'); d.textContent = t == null ? '' : String(t); return d.innerHTML; }
+  function vivo() { return document.body.contains(raiz); }
+  function pedir(url, cuerpoForm) {
+    var opciones = { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRFToken': CSRF } };
+    if (cuerpoForm) opciones.body = cuerpoForm;
+    return fetch(url, opciones).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || r.status); return j; }); });
+  }
+  function ordenar(url) {
+    if (ocupado) return Promise.resolve(estado);
+    ocupado = true;
+    return pedir(url).then(pintar).catch(function (e) { avisarAqui(e.message); }).finally(function () { ocupado = false; });
+  }
+
+  function pintar(e) {
+    estado = e;
+    var contador = document.getElementById('pv-contador');
+    if (e.terminado) {
+      contador.textContent = e.estado === 'cerrado' ? 'Cerrado' : e.total + ' / ' + e.total;
+      cuerpo.innerHTML = '<div class="pv-grande">' + (e.estado === 'cerrado' ? '✅ Pase cerrado: respuestas guardadas.' : 'Fin del pase. Ciérralo para guardar las respuestas.') + '</div>';
+      pintarBarra();
+      return;
+    }
+    contador.textContent = 'Pregunta ' + (e.posicion + 1) + ' / ' + e.total;
+    var p = e.pregunta, h = '';
+    h += '<div class="pv-enunciado">' + esc(p.enunciado) + '</div>';
+    if (p.imagen) h += '<img class="pv-imagen" src="' + esc(p.imagen) + '" alt="">';
+    h += '<div class="pv-opciones">';
+    for (var i = 0; i < 4; i++) {
+      var correcta = e.revelada && p.correcta === i;
+      h += '<div class="pv-opcion' + (correcta ? ' correcta' : '') + '"><span class="pv-letra">' + LETRAS[i] + '</span><span>' + esc(p.opciones[i]) + '</span>';
+      if (e.revelada) h += '<span class="pv-reparto">' + e.reparto[i] + '</span>';
+      h += '</div>';
+    }
+    h += '</div>';
+    if (e.revelada && p.explicacion) h += '<div class="pv-explicacion">' + esc(p.explicacion) + '</div>';
+    if (e.estado === 'borrador') {
+      h += '<div class="pv-grande" style="font-size:18px">El pase no ha empezado.</div>';
+    } else {
+      h += '<div class="pv-respondido"><span class="pv-n">Han respondido ' + e.n_respondido + ' de ' + e.n_presentes + '</span>';
+      e.respondido.forEach(function (n) { h += '<span class="pv-nombre">' + esc(n) + '</span>'; });
+      h += '</div>';
+    }
+    cuerpo.innerHTML = h;
+    pintarBarra();
+  }
+
+  function pintarBarra() {
+    if (!PROFESOR) return;
+    var e = estado || {};
+    var abierto = e.estado === 'abierto', cerrado = e.estado === 'cerrado';
+    document.getElementById('pv-empezar').hidden = e.estado !== 'borrador';
+    document.getElementById('pv-camara').disabled = !abierto || e.terminado;
+    document.getElementById('pv-revelar').disabled = !abierto || e.terminado || e.revelada;
+    document.getElementById('pv-siguiente').disabled = !abierto || e.terminado;
+    document.getElementById('pv-cerrar').disabled = !abierto;
+    if (cerrado) pararCamara();
+  }
+
+  function sondear() {
+    if (!vivo()) { clearInterval(sondeo); pararCamara(); return; }
+    fetch(URL_ESTADO, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(pintar).catch(function () {});
+  }
+
+  function avisarAqui(texto) {
+    var el = document.getElementById('pv-estado');
+    if (el) el.textContent = texto;
+    else if (window.avisar) window.avisar(texto);
+  }
+
+  // ---------- cámara (solo el profesor) ----------
+  function capturar() {
+    var video = document.getElementById('pv-video'), lienzo = document.getElementById('pv-lienzo');
+    if (enVuelo || !video.videoWidth || !vivo()) return;
+    enVuelo = true;
+    lienzo.width = video.videoWidth; lienzo.height = video.videoHeight;
+    lienzo.getContext('2d').drawImage(video, 0, 0);
+    lienzo.toBlob(function (blob) {
+      var datos = new FormData();
+      datos.append('frame', blob, 'frame.jpg');
+      var t0 = performance.now();
+      pedir(URL_LEER, datos).then(function (e) {
+        nFrames += 1;
+        avisarAqui('Fotograma ' + nFrames + ': ' + e.leidas + ' tarjetas, ' + e.contadas + ' contadas · ' + e.ms + ' ms servidor, ' + Math.round(performance.now() - t0) + ' ms total');
+        pintar(e);
+      }).catch(function (err) { avisarAqui('Error al leer: ' + err.message); }).finally(function () { enVuelo = false; });
+    }, 'image/jpeg', 0.7);
+  }
+
+  function pararCamara() {
+    if (temporizador) { clearInterval(temporizador); temporizador = null; }
+    if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
+    var video = document.getElementById('pv-video');
+    if (video) { video.srcObject = null; video.hidden = true; }
+    var btn = document.getElementById('pv-camara');
+    if (btn) btn.textContent = '📷 Cámara';
+  }
+
+  window.paseVivo = {
+    empezar: function () { ordenar(URL_ABRIR); },
+    revelar: function () { if (!estado || estado.revelada || estado.terminado) return; ordenar(URL_REVELAR); },
+    siguiente: function () { if (!estado || estado.terminado) return; ordenar(URL_SIGUIENTE); },
+    cerrar: function () {
+      if (!estado || estado.estado !== 'abierto') return;
+      if (!estado.terminado && !window.confirm('Quedan preguntas por pasar. ¿Cerrar el pase y guardar lo que hay?')) return;
+      pedir(URL_CERRAR).then(function (e) { pintar(e); avisarAqui('Guardadas ' + e.respuestas + ' respuestas.'); }).catch(function (e) { avisarAqui(e.message); });
+    },
+    camara: function () {
+      if (stream) { pararCamara(); return; }
+      var video = document.getElementById('pv-video');
+      navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false
+      }).then(function (s) {
+        stream = s; video.srcObject = s; video.hidden = false;
+        document.getElementById('pv-camara').textContent = '⏹ Parar cámara';
+        video.onloadedmetadata = function () { avisarAqui('Cámara a ' + video.videoWidth + '×' + video.videoHeight); };
+        temporizador = setInterval(capturar, INTERVALO_CAMARA);
+      }).catch(function (e) { avisarAqui('No se pudo abrir la cámara: ' + e.message); });
+    },
+    // Para las pruebas: un fotograma ya hecho (Blob) por el mismo camino que la cámara.
+    leerBlob: function (blob) {
+      var datos = new FormData(); datos.append('frame', blob, 'frame.jpg');
+      return pedir(URL_LEER, datos).then(function (e) { pintar(e); return e; });
+    },
+    estado: function () { return estado; }
+  };
+
+  if (PROFESOR) {
+    document.addEventListener('keydown', function (e) {
+      if (!vivo() || !estado || estado.estado !== 'abierto') return;
+      if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+      if (e.key === 'ArrowRight') { e.preventDefault(); if (estado.terminado) return; if (estado.revelada) paseVivo.siguiente(); else paseVivo.revelar(); }
+    });
+  }
+
+  sondear();
+  sondeo = setInterval(sondear, INTERVALO_SONDEO);
+})();
+</script>

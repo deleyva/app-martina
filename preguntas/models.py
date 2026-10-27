@@ -94,7 +94,15 @@ class Pregunta(models.Model):
 
 
 class Pase(models.Model):
-    """Un pase de preguntas en una clase. 76·1 solo lo define; 76·2 lo usa."""
+    """Un pase de preguntas en una clase.
+
+    Es el contenido de un `ClassSessionItem` (sección Teoría) y por eso puede
+    marcarse «evaluable» con el popup de la fase 62 como cualquier otro
+    elemento. El estado en vivo (qué pregunta va, si está revelada, qué
+    tarjetas se han leído) vive aquí y en `PasePregunta`, y lo consultan por
+    `fetch` tanto la pantalla proyectada como el iPad que mira la clase: no hay
+    WebSockets, el servidor es la única verdad.
+    """
 
     BORRADOR = "borrador"
     ABIERTO = "abierto"
@@ -124,7 +132,10 @@ class Pase(models.Model):
         related_name="+",
     )
     creado = models.DateTimeField(auto_now_add=True)
+    abierto = models.DateTimeField(null=True, blank=True)
     cerrado = models.DateTimeField(null=True, blank=True)
+    # Índice de la pregunta que está en pantalla (76·2).
+    posicion = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
         ordering = ["-fecha", "-creado"]
@@ -132,11 +143,40 @@ class Pase(models.Model):
     def __str__(self):
         return f"Pase {self.group.name} · {self.fecha}"
 
+    @property
+    def title(self):
+        """Lo que enseña la fila de la sesión (`get_content_title` busca `title`)."""
+        return f"Pase de preguntas · {self.preguntas.count()} preguntas"
+
+    @property
+    def n_preguntas(self):
+        return self.orden.count()
+
+    def actual(self):
+        """La `PasePregunta` en pantalla, o None si el pase ha terminado."""
+        return self.orden.select_related("pregunta", "pregunta__imagen").filter(posicion=self.posicion).first()
+
+    def nota_de(self, alumno_id):
+        """Aciertos / preguntas del pase × 10 (C482). Sin respuestas → None."""
+        respuestas = [r for r in self.respuestas.all() if r.alumno_id == alumno_id]
+        if not respuestas:
+            return None
+        total = self.n_preguntas or len(respuestas)
+        return round(10 * sum(1 for r in respuestas if r.acierto) / total, 2)
+
 
 class PasePregunta(models.Model):
     pase = models.ForeignKey(Pase, on_delete=models.CASCADE, related_name="orden")
     pregunta = models.ForeignKey(Pregunta, on_delete=models.PROTECT)
     posicion = models.PositiveSmallIntegerField(default=0)
+    # Lo leído por la cámara mientras esta pregunta estuvo en pantalla (76·2):
+    # {"<alumno_id>": opcion}. La ÚLTIMA lectura de cada alumno antes de revelar
+    # es la que vale (C481); al cerrar el pase se vuelca a `Respuesta`.
+    lecturas = models.JSONField(default=dict, blank=True)
+    # Lecturas que no cuentan: ids sin matrícula en el grupo, o llegadas después
+    # de revelar. Se cuentan para saber que pasó, nunca se guardan.
+    desconocidas = models.PositiveIntegerField(default=0)
+    revelada = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["posicion"]

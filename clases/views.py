@@ -766,6 +766,9 @@ def class_session_present(request, pk):
                 "a_casa": item.pk in con_casita,
                 "page_url": pagina.get_url() if pagina else "",
                 "page_title": pagina.title if pagina else "",
+                # Pase de preguntas (fase 76): su pantalla se pinta sola, pero
+                # la presentación necesita saberlo para no tratarlo como medio.
+                "pase": item.object_id if item.content_type.model == "pase" else None,
                 # Evaluable (fase 62). Solo para el profesor: el alumnado ve la
                 # misma presentación y no tiene botón de evaluar.
                 "instrumento": (
@@ -838,6 +841,12 @@ def render_item_content(request, item):
     """
     content_type = item.content_type.model
     content = item.content_object
+
+    # El pase de preguntas (fase 76) no es un medio: tiene su propia pantalla.
+    if content_type == "pase":
+        from preguntas.views_pase import render_pase_en_clase
+
+        return render_pase_en_clase(request, item)
 
     # BlogPages/DictadoPages: show in iframe via a simple redirect partial
     if content_type in ("recursopage", "dictadopage", "scorepage"):

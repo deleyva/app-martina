@@ -321,6 +321,15 @@ class Enrollment(models.Model):
         help_text="Si está desactivado, el usuario no verá este grupo",
     )
 
+    # Número de la tarjeta de respuesta de este alumno en este grupo (fase 76).
+    # Es el id del marcador ArUco de la tarjeta impresa. Nulo hasta que se
+    # imprime el juego del grupo; único dentro del grupo, no entre grupos: cada
+    # grupo tiene su propio juego, que se entrega y se recoge en cada clase
+    # (decisión de Jesús, 2026-10-26).
+    tarjeta = models.PositiveSmallIntegerField(
+        null=True, blank=True, verbose_name="Tarjeta de respuesta"
+    )
+
     class Meta:
         ordering = ["-enrolled_at"]
         unique_together = ["user", "group"]
@@ -329,6 +338,13 @@ class Enrollment(models.Model):
         indexes = [
             models.Index(fields=["user", "is_active"]),
             models.Index(fields=["group", "is_active"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["group", "tarjeta"],
+                condition=models.Q(tarjeta__isnull=False),
+                name="tarjeta_unica_por_grupo",
+            )
         ]
 
     def __str__(self):
@@ -603,6 +619,7 @@ class GroupLibraryItem(models.Model):
             "enlaceexterno": "Enlace externo",
             "recorte": "Recorte de PDF",
             "letraconacordes": "Letra con acordes",
+            "pase": "Pase de preguntas",
         }
         return mapping.get(model_name, model_name.title())
 
@@ -631,6 +648,7 @@ class GroupLibraryItem(models.Model):
             "enlaceexterno": "🔗",
             "recorte": "✂️",
             "letraconacordes": "🎤",
+            "pase": "❓",
         }
         return icons.get(model_name, "📁")
 
@@ -1490,6 +1508,7 @@ class ClassSessionItem(models.Model):
             "enlaceexterno": "Enlace externo",
             "recorte": "Recorte de PDF",
             "letraconacordes": "Letra con acordes",
+            "pase": "Pase de preguntas",
         }
         return mapping.get(model_name, model_name.title())
 
@@ -1517,6 +1536,7 @@ class ClassSessionItem(models.Model):
             "enlaceexterno": "🔗",
             "recorte": "✂️",
             "letraconacordes": "🎤",
+            "pase": "❓",
         }
         return icons.get(model_name, "📁")
 

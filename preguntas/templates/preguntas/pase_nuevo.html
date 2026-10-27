@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% load preguntas_extras %}
+{% block title %}Pase de preguntas · {{ session.title }}{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto p-4 space-y-4">
+  <div class="flex flex-wrap items-baseline justify-between gap-2">
+    <div>
+      <h1 class="text-2xl font-bold">❓ Pase de preguntas</h1>
+      <p class="text-sm text-base-content/70">{{ session.group.name }} · {{ session.date|date:"d/m/Y" }} · {{ session.title }}</p>
+    </div>
+    <div class="flex gap-2">
+      <a class="btn btn-ghost btn-sm" href="{% url 'preguntas:tarjetas_grupo' session.group.pk %}" target="_blank" rel="noopener">🪪 Tarjetas del grupo (PDF)</a>
+      <a class="btn btn-ghost btn-sm" href="{% url 'clases:class_session_edit' session.pk %}">← Sesión</a>
+    </div>
+  </div>
+
+  {% if error %}<div class="alert alert-error text-sm">{{ error }}</div>{% endif %}
+
+  <form method="post" class="space-y-4">
+    {% csrf_token %}
+    <input type="hidden" name="session" value="{{ session.pk }}">
+
+    <section class="card bg-base-200">
+      <div class="card-body p-4 gap-2">
+        <h2 class="card-title text-base">Propuesta para hoy</h2>
+        {% if propuestas %}
+          <p class="text-sm text-base-content/70">
+            De lo visto en las últimas clases ({{ conceptos|join:", " }}), lo más fallado primero. Desmarca lo que no quieras.
+          </p>
+          {% for p in propuestas %}
+            <label class="flex items-start gap-3 p-2 rounded hover:bg-base-300/40 cursor-pointer" data-pregunta="{{ p.pk }}">
+              <input type="checkbox" name="preguntas" value="{{ p.pk }}" class="checkbox checkbox-sm checkbox-primary mt-1" checked>
+              <span class="min-w-0 flex-1">
+                <span class="block">{{ p.enunciado }}</span>
+                <span class="block text-xs text-base-content/60">{% for c in p.conceptos %}concepto:{{ c }}{% if not forloop.last %} · {% endif %}{% endfor %} · correcta {{ p.letra_correcta }}</span>
+              </span>
+            </label>
+          {% endfor %}
+        {% else %}
+          <p class="text-sm text-warning">{{ motivo|default:"No hay nada que proponer." }} Elige abajo a mano.</p>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="card bg-base-200">
+      <div class="card-body p-4 gap-2">
+        <div class="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 class="card-title text-base">Otras preguntas activas · {{ otras|length }}</h2>
+          <input id="filtro" type="search" placeholder="Filtrar por texto o concepto" class="input input-sm input-bordered w-64">
+        </div>
+        <div id="otras" class="space-y-1">
+          {% for p in otras %}
+            <label class="flex items-start gap-3 p-2 rounded hover:bg-base-300/40 cursor-pointer otra" data-pregunta="{{ p.pk }}"
+                   data-texto="{{ p.enunciado|lower }} {% for c in p.conceptos %}{{ c }} {% endfor %}">
+              <input type="checkbox" name="preguntas" value="{{ p.pk }}" class="checkbox checkbox-sm mt-1">
+              <span class="min-w-0 flex-1">
+                <span class="block">{{ p.enunciado }}</span>
+                <span class="block text-xs text-base-content/60">{% for c in p.conceptos %}concepto:{{ c }}{% if not forloop.last %} · {% endif %}{% endfor %}</span>
+              </span>
+            </label>
+          {% empty %}
+            <p class="text-sm text-base-content/60">No hay más preguntas activas.</p>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+
+    <div class="flex justify-end gap-2">
+      <a class="btn" href="{% url 'clases:class_session_edit' session.pk %}">Cancelar</a>
+      <button class="btn btn-primary" type="submit">Guardar el pase en la sesión</button>
+    </div>
+  </form>
+</div>
+<script>
+(function () {
+  var filtro = document.getElementById('filtro');
+  filtro.addEventListener('input', function () {
+    var q = filtro.value.trim().toLowerCase();
+    document.querySelectorAll('#otras .otra').forEach(function (fila) {
+      fila.hidden = q !== '' && fila.dataset.texto.indexOf(q) === -1;
+    });
+  });
+})();
+</script>
+{% endblock %}

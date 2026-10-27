@@ -86,6 +86,11 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
                     </svg>
                     Contenido de la Sesión
+                    <a href="{% url 'preguntas:pase_nuevo' %}?session={{ session.pk }}"
+                       class="btn btn-xs btn-outline ml-auto"
+                       title="Un pase de preguntas de teoría con tarjetas, compuesto de lo visto en las últimas clases">
+                        ❓ Añadir pase de preguntas
+                    </a>
                 </h2>
                 
                 <div id="session-items" class="space-y-2 mt-4">
