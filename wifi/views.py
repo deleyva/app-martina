@@ -202,7 +202,11 @@ class MarcarAnadidasView(GestorRequiredMixin, View):
             messages.info(request, "No había nada pendiente que marcar.")
             return redirect("wifi:gestion")
 
-        enviar_avisos_alta(marcados)
+        # Al terminar la transacción, no antes. Con ATOMIC_REQUESTS la petición
+        # entera es una transacción y el `atomic()` de arriba es solo un punto
+        # de guardado: si se encola aquí mismo, el consumidor de Huey lee los
+        # dispositivos todavía como pendientes y avisa «0 de N» (2026-10-27).
+        transaction.on_commit(lambda: enviar_avisos_alta(marcados))
 
         # El aviso solo se promete si de verdad puede salir. Decir «se ha
         # enviado» cuando falta la clave en el entorno es peor que no decir

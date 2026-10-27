@@ -113,12 +113,15 @@ class TestGestionAltas:
         assert "A4:83:E7:1C:90:2B" in contenido
         assert contenido.count("00:1B:44:11:3A:B7") == 1  # solo en la tabla de activos
 
-    def test_marcar_como_anadidas_sella_el_alta_y_manda_el_correo(self, client, settings):
+    def test_marcar_como_anadidas_sella_el_alta_y_manda_el_correo(
+        self, client, settings, django_capture_on_commit_callbacks,
+    ):
         settings.WIFI_PASSWORD = "clave-de-prueba"
         dispositivo = DispositivoWifiFactory()
         client.force_login(_gestor())
 
-        client.post("/wifi/gestion/anadidas/", {"ids": str(dispositivo.pk)})
+        with django_capture_on_commit_callbacks(execute=True):
+            client.post("/wifi/gestion/anadidas/", {"ids": str(dispositivo.pk)})
 
         dispositivo.refresh_from_db()
         assert dispositivo.estado == DispositivoWifi.Estado.ANADIDA
@@ -126,17 +129,48 @@ class TestGestionAltas:
         assert dispositivo.notificado_at is not None
         assert len(mail.outbox) == 1
 
-    def test_marcar_dos_veces_no_manda_dos_correos(self, client, settings):
+    def test_marcar_dos_veces_no_manda_dos_correos(
+        self, client, settings, django_capture_on_commit_callbacks,
+    ):
         settings.WIFI_PASSWORD = "clave-de-prueba"
         dispositivo = DispositivoWifiFactory()
         client.force_login(_gestor())
 
-        client.post("/wifi/gestion/anadidas/", {"ids": str(dispositivo.pk)})
-        client.post("/wifi/gestion/anadidas/", {"ids": str(dispositivo.pk)})
+        with django_capture_on_commit_callbacks(execute=True):
+            client.post("/wifi/gestion/anadidas/", {"ids": str(dispositivo.pk)})
+        with django_capture_on_commit_callbacks(execute=True):
+            client.post("/wifi/gestion/anadidas/", {"ids": str(dispositivo.pk)})
 
         assert len(mail.outbox) == 1
 
-    def test_solo_se_marca_lo_copiado_aunque_entre_algo_nuevo(self, client, settings):
+    def test_el_aviso_sale_al_confirmar_la_transaccion_no_antes(
+        self, client, settings, django_capture_on_commit_callbacks,
+    ):
+        """Lo que pasó el 2026-10-27: con ATOMIC_REQUESTS, la tarea encolada
+        dentro de la petición corría antes del commit, veía el dispositivo aún
+        pendiente y avisaba «0 de 1». El aviso tiene que esperar al commit.
+        """
+        settings.WIFI_PASSWORD = "clave-de-prueba"
+        dispositivo = DispositivoWifiFactory()
+        client.force_login(_gestor())
+
+        with django_capture_on_commit_callbacks(execute=False) as callbacks:
+            client.post("/wifi/gestion/anadidas/", {"ids": str(dispositivo.pk)})
+
+        # Dentro de la transacción no ha salido nada todavía.
+        assert len(callbacks) == 1
+        assert len(mail.outbox) == 0
+
+        # Al confirmar, el dispositivo ya es «añadida» y el correo sale.
+        for callback in callbacks:
+            callback()
+        dispositivo.refresh_from_db()
+        assert dispositivo.notificado_at is not None
+        assert len(mail.outbox) == 1
+
+    def test_solo_se_marca_lo_copiado_aunque_entre_algo_nuevo(
+        self, client, settings, django_capture_on_commit_callbacks,
+    ):
         """El caso que justifica todo el diseño de dos pasos.
 
         El administrativo copia dos MACs, se va al otro programa, y mientras
@@ -149,10 +183,11 @@ class TestGestionAltas:
 
         rezagada = DispositivoWifiFactory()  # entra entre el copiar y el marcar
 
-        client.post(
-            "/wifi/gestion/anadidas/",
-            {"ids": ",".join(str(d.pk) for d in copiadas)},
-        )
+        with django_capture_on_commit_callbacks(execute=True):
+            client.post(
+                "/wifi/gestion/anadidas/",
+                {"ids": ",".join(str(d.pk) for d in copiadas)},
+            )
 
         for d in copiadas:
             d.refresh_from_db()
@@ -285,7 +320,9 @@ class TestAltaEnNombreDeOtro:
         assert dispositivo.usuario == gestor
         assert dispositivo.solicitado_por is None
 
-    def test_con_el_correo_de_un_companero_queda_a_su_nombre_y_la_clave_va_a_el(self, client, settings):
+    def test_con_el_correo_de_un_companero_queda_a_su_nombre_y_la_clave_va_a_el(
+        self, client, settings, django_capture_on_commit_callbacks,
+    ):
         settings.WIFI_PASSWORD = "clave-de-prueba"
         companero = PersonalFactory()
         gestor = _gestor()
@@ -305,7 +342,8 @@ class TestAltaEnNombreDeOtro:
 
         # El flujo de gestión no cambia: se copia, se pega y se marca. Y el
         # correo con la clave le llega al compañero, no a quien lo tecleó.
-        client.post("/wifi/gestion/anadidas/", {"ids": str(dispositivo.pk)})
+        with django_capture_on_commit_callbacks(execute=True):
+            client.post("/wifi/gestion/anadidas/", {"ids": str(dispositivo.pk)})
         assert len(mail.outbox) == 1
         assert mail.outbox[0].to == [companero.email]
 
