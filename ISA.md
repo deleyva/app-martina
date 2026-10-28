@@ -5466,3 +5466,59 @@ Voces nuevas: `GU` guitarra/ukelele (`v` abajo, `V` abajo con acento, `^` arriba
 
 - **2026-10-27 — Desplegada («despliega»).** Push de `67c4c51` a `origin/main`; `just deploy-production`: servidor en `67c4c51`, seis contenedores arrancados, «No migrations to apply». Producción: `/api/calificaciones/grupos` sin clave → 401; las seis rutas en `/api/openapi.json`. C518 (con clave) queda para Jesús: `curl -H "X-API-Key: …" https://apps.iesmartinabescos.es/api/calificaciones/alumnos?q=Gual`.
 - **2026-10-27 — Construida.** `calificaciones/api.py` (router `Calificaciones`, `DatabaseApiKey`), registrado en `config/urls.py` bajo `/api/calificaciones/`; `calificaciones/tests/test_api.py`. Un falsador corregido durante la construcción: cada instrumento trae una `Prueba` de serie, así que `columnas` tiene cuatro entradas y no una; el test lo decía mal, no el código. Lint con `ruff format` + `--fix`; quedan 4 E501 en docstrings y 18 PLR2004 en los tests, al nivel de `clases/api.py` y `test_plano.py`.
+
+## Fase 82 — Reproductor de práctica junto al ChordPro: audio propio en el tono de la letra, más lento, en bucle y por secciones (2026-10-28) · CONSTRUIDA Y VERIFICADA EN LOCAL, SIN DESPLEGAR
+
+**Goal (literal de Jesús, 2026-10-28):** «vamos con la fase 2, prefiero bajar los audios, aunque sean de backing trakc o los originales y subirlos protegidos por contraseña. Quiero toda la funcionalidad». Contexto (2026-10-27): «mientras estamos viendo un archivo ChordPro, querría poder poner de fondo el audio de ese video […] en el tono en el que ya había transportado el ChordPro y poder también reproducirlo más lento», como los vídeos enlazados de Songsterr y lo que hace Transpose.
+
+**Vision.** En el visor ChordPro (My Library, sesión de estudio y proyector de clase, que son la misma plantilla) aparece «🎧 Práctica». El profesorado sube desde ahí la grabación (original o backing track). Al darle a ▶ suena en el tono que tiene la letra en pantalla —sube o baja con los mismos + y − de la letra—, a la velocidad elegida sin cambiar el tono, en bucle A-B o por secciones. Cada estrofa y estribillo tiene su segundo de inicio (marcado una vez por canción, pulsando una tecla mientras suena), así que tocar un párrafo salta ahí, el que suena se resalta y la letra lo sigue. Es el modelo de Songsterr (un segundo por compás, `points[]`) llevado a la unidad que tiene el ChordPro: el párrafo.
+
+**Medido antes de empezar (producción, 2026-10-28):** 442 recursos publicados; 37 con ChordPro, los 37 con vídeos de YouTube en el cuerpo (de 3 a 8), 0 con audio adjunto, 32 con Songsterr.
+
+### Claims
+
+- [x] **C519** — Existe `musica.PistaDePractica` (canción, nombre, fichero en `pistas_practica/`, desfase en semitonos, marcas, orden) con su migración generada con wagtail 7.3.1, y `makemigrations --check` queda limpio. *Falsador: `manage.py makemigrations --check --dry-run` en el contenedor.* **Evidencia:** `0012_pistas_de_practica.py` generada en el contenedor (wagtail 7.3.1, Django 5.0.11); `--check` → «No changes detected»; aplicada en local.
+- [x] **C520** — El audio solo lo oye quien ha iniciado sesión: anónimo no recibe el fichero, cualquier usuario con sesión sí, y nginx devuelve 404 a `/media/pistas_practica/`. *Falsador: `musica/test_pistas.py` + `rg pistas_practica compose/production/nginx/default.conf`.* **Evidencia:** `test_sin_sesion_no_hay_audio` (302 a login, sin bytes), `test_con_sesion_cualquiera_lo_oye_entero`, `test_nginx_cierra_la_carpeta`; regla en `default.conf:30`. La regla de nginx solo se verá en producción al desplegar.
+- [x] **C521** — Subir, cambiar y borrar pistas solo puede quien puede editar la canción en Wagtail (403 si no); la subida rechaza lo que no es audio y lo que pasa de 40 MB; borrar la pista borra el fichero. *Falsador: `musica/test_pistas.py`.* **Evidencia:** 5 tests en verde, incluido el borrado en cascada al borrar la canción.
+- [x] **C522** — Las marcas se validan en el modelo: párrafo entero ≥ 0, segundo entre 0 y 3600, como mucho 300, y se guardan ordenadas por tiempo; lo inválido da 400. *Falsador: `musica/test_pistas.py`.* **Evidencia:** `test_marcas_invalidas` (10 casos), `test_guardar_marcas_y_desfase`.
+- [x] **C523** — El visor pinta «🎧» y los datos de las pistas solo si la canción tiene pistas o quien mira puede subirlas; el alumno sin pistas no ve nada nuevo; ningún `{#` en el HTML. *Falsador: test de plantilla.* **Evidencia:** 3 tests de visor; el primer intento falló porque buscaba `data-accion="practica"`, que también sale en el JavaScript del visor: ahora busca el `<button`.
+- [x] **C524** — El tono sigue a la letra: con un tono de prueba de 440 Hz y desfase 0, la letra a +2 da un pico medido de ~494 Hz y a −3 de ~370 Hz (±3 %). *Falsador: FFT con `AnalyserNode` en Chrome real.* **Evidencia (Chrome, My Library):** original 440,4 Hz; +2 → 494,7 (esperado 493,9); −3 → 370,3 (esperado 370,0); «Tono de la grabación» con la letra a −3 → 440,4. En la biblioteca del grupo, +1 → 467 (esperado 466,2).
+- [x] **C525** — La velocidad cambia el tempo y no el tono: al 50 %, el audio avanza ~0,5 s por segundo y el pico sigue en 440 Hz con la letra en el tono original. *Falsador: `inputTime` + FFT en Chrome real.* **Evidencia:** 0,506 s por segundo y pico en 440,5 Hz.
+- [x] **C526** — El bucle A-B (y el de sección) mantiene la reproducción dentro de [A, B] pasado el final del tramo. *Falsador: muestreo de la posición en Chrome real.* **Evidencia:** bucle 2,22–4,22 s, 30 muestras en 6 s entre 2,44 y 4,26 con 2 vueltas; la lectura se pasa como mucho 0,04 s del final, que es un intervalo de refresco del motor. Bucle de párrafo con R: 4,96–30 s.
+- [x] **C527** — Las marcas se crean desde el visor (tecla X o tocar un párrafo en modo marcar), se guardan y sobreviven a recargar; tocar un párrafo marcado salta a su segundo y el párrafo que suena se resalta. *Falsador: Chrome real + recarga.* **Evidencia:** 3 marcas con X → «✓ Guardado»; tras recargar llegan del servidor (0,96 / 2,99 / 4,96) con sus etiquetas 0:00, 0:02, 0:04; tocar «Estrofa 1» → salta, suena y se resalta (captura vista). Tecla X y no M: M, P y L ya son atajos del modo clase.
+- [x] **C528** — Funciona en al menos dos de las tres entradas (My Library y sesión de clase/estudio). *Falsador: Chrome real en las dos URLs.* **Evidencia:** `/my-library/view/276/` y `/clases/groups/20/library/view/180/` (biblioteca del grupo), en local; consola sin errores.
+- [x] **C529** — La lógica pura (sección actual, siguiente párrafo por marcar, tramo de una sección, reanclaje de marcas cuando cambia la letra) tiene tests. *Falsador: `bun test …/practica.test.js`.* **Evidencia:** 12 tests, 1094 aserciones, 0 fallos.
+- [x] **C530** — Las suites vecinas siguen en verde (`musica`, `my_library`, `clases` de tono y letra). *Falsador: pytest.* **Evidencia:** `pytest musica my_library clases/test_tono_de_grupo.py` → 397 passed.
+- [x] **C531** — Las marcas sobreviven al transporte de la letra. *Falsador: Chrome real, 3 marcas, letra a +1 y a −2.* **Evidencia:** 3 y 3. Nació de un fallo cazado en la prueba: el ancla de «Intro [G]» llevaba el acorde y al subir medio tono (G → A♭) la marca se perdía. Ahora el ancla se calcula sin los acordes.
+- [ ] **C532** — En producción: la migración aplicada, `/media/pistas_practica/<fichero>` da 404 y una pista subida suena con sesión. *Falsador: probe en producción tras «despliega».*
+
+### Anti-claims
+
+- **Anti-A** — Ningún código descarga ni hace de proxy de YouTube: las políticas de YouTube lo prohíben (§III.I.7, §III.E.1). Los audios los sube Jesús. *Falsador: `rg -i "yt-dlp|youtube"` sobre `musica/pistas.py` y el reproductor.* **Resultado:** una sola línea, un comentario que explica por qué no se puede transportar YouTube.
+- **Anti-B** — Ninguna URL pública lleva al audio: ni `document.file.url`, ni `/media/` sin cerrar en nginx. **Resultado:** el JSON del visor solo lleva `musica:pista_audio`; `test_el_alumno_con_pistas_las_oye_pero_no_las_edita` comprueba que la ruta del fichero no sale en el HTML.
+- **Anti-C** — El transporte de la letra, el tamaño, los diagramas y el desplazamiento siguen igual (los tests existentes del visor pasan). **Resultado:** 397 passed; `chordpro.js` reconstruido sale idéntico al versionado.
+- **Anti-D** — Ni push ni despliegue sin «despliega».
+
+### Out of Scope
+
+- El reproductor de YouTube en pequeño (fase 1 de la propuesta del 27/10): Jesús eligió el audio propio.
+- Separar pistas (quitar la voz o la guitarra) dentro de la app.
+- Descargar los audios: los baja Jesús.
+
+### Decisiones
+
+- **Fichero propio y no documento de Wagtail.** Los documentos no restringidos redirigen a `/media/` (`musica.servido`), que nginx sirve a cualquiera. Las pistas siguen la forma de las notas de voz de clase: carpeta cerrada en nginx y vista que pregunta quién pide.
+- **«Protegido por contraseña» = con sesión iniciada.** Cualquier usuario con cuenta oye las pistas (el alumnado practica en casa); subir, cambiar y borrar es de quien puede editar la canción.
+- **Se descarga el audio entero y se decodifica en el navegador**, en vez de reproducirlo por rangos: Signalsmith Stretch solo cambia velocidad y hace bucles sobre un búfer cargado (en modo «entrada en vivo» ignora `rate` y `loopStart`). De paso, la vista protegida no necesita rangos. Coste: una canción de 4 min ocupa unos 90 MB de memoria decodificada en el navegador.
+- **Signalsmith Stretch 1.3.2 (MIT) en `static/vendor/signalsmith-stretch/`, como script aparte y sin esbuild.** La librería crea su AudioWorklet convirtiendo sus propias funciones en texto; minificarla renombraría variables que ese texto sigue nombrando. Integridad del tarball igual a la del registro de npm (sha512).
+- **Desfase guardado por pista** (`semitonos`): cuántos semitonos suena la grabación por encima del ChordPro tal como está escrito. Tono del audio = tono de la letra − desfase, llevado al intervalo más corto (−6…+5): una quinta arriba suena peor que una cuarta abajo.
+- **Marcas por párrafo con ancla de texto sin acordes**: índice de párrafo + las primeras palabras. Si alguien edita la letra y los índices se mueven, la marca se reengancha a su texto (en orden, para los estribillos repetidos) o se descarta, nunca se pega a otro párrafo.
+- **Teclas K, X, R, A, B, «,» y «.»**: las libres en las tres páginas que incluyen el visor.
+
+### Test Strategy
+
+`musica/test_pistas.py` (17 tests: modelo, vistas, plantilla); `martina_bescos_app/static/js/src/practica.test.js` con `bun test`; en Chrome real, con un tono de prueba de 440 Hz subido a la canción local, FFT de la salida para el tono, `inputTime` para velocidad y bucle, y recarga para las marcas.
+
+### Log
+
+- **2026-10-28 — Construida y verificada en local.** Tres defectos cazados en Chrome y no en los tests: la fila de marcar se veía siempre (`display:flex` pisaba `hidden`), el resaltado se perdía en pausa por posiciones atrasadas del motor tras un salto (ahora se ignoran 200 ms), y el ancla con acordes que rompía las marcas al transportar (C531). Datos de prueba solo en local: `profe.pruebas@example.com` añadido al grupo Editors, la canción 858 en la biblioteca del grupo 20 y una pista de 440 Hz. Sin push ni despliegue.

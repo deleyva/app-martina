@@ -23,7 +23,9 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import connection, models
+from django.db.models.signals import post_delete
 from django.db.utils import OperationalError, ProgrammingError
+from django.dispatch import receiver
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.functional import cached_property
@@ -2382,3 +2384,175 @@ class LetraConAcordes(models.Model):
         self.tamano = None if tamano == self.TAMANO_DEFECTO else tamano
         self.save(update_fields=["tamano"])
         return self.tamano_inicial
+
+
+def _ruta_de_pista(instancia, nombre_original):
+    """`pistas_practica/<uuid>.<ext>`: nginx cierra la carpeta entera (fase 82).
+
+    El nombre aleatorio es una segunda capa, no la protección: la protección es
+    que `/media/pistas_practica/` da 404 y el fichero solo sale por
+    `musica:pista_audio`, que pide sesión.
+    """
+    import uuid
+    from pathlib import Path
+
+    extension = Path(nombre_original).suffix.lower()
+    return f"pistas_practica/{uuid.uuid4().hex}{extension}"
+
+
+class PistaDePractica(models.Model):
+    """Una grabación para practicar una canción encima de su ChordPro (fase 82).
+
+    El original o un backing track que sube el profesorado desde el visor. Suena
+    en el tono que tiene la letra en pantalla, más lento si se quiere y en bucle,
+    y salta a cada estrofa o estribillo por sus marcas de tiempo.
+
+    **No es un documento de Wagtail a propósito.** Un documento sin restringir
+    redirige a `/media/` (`musica.servido`) y nginx lo entrega a cualquiera con
+    la URL. Estas grabaciones son material comercial: viven en una carpeta que
+    nginx cierra, como las notas de voz de clase, y salen por una vista que
+    pide sesión.
+    """
+
+    EXTENSIONES = {".mp3", ".m4a", ".aac", ".ogg", ".oga", ".opus", ".wav", ".flac", ".webm"}
+    TAMANO_MAXIMO = 40 * 1024 * 1024
+    MAX_MARCAS = 300
+    SEGUNDO_MAXIMO = 3600
+    LIMITE_SEMITONOS = 11
+
+    recurso = models.ForeignKey(
+        "musica.RecursoPage",
+        on_delete=models.CASCADE,
+        related_name="pistas_de_practica",
+        verbose_name="Canción",
+    )
+    nombre = models.CharField("Nombre", max_length=80, help_text="ej: Original, Backing track sin guitarra")
+    archivo = models.FileField("Audio", upload_to=_ruta_de_pista, max_length=255)
+    # Cuántos semitonos suena la grabación por ENCIMA del ChordPro tal como está
+    # escrito. Una letra escrita en Sol para tocar con cejilla 2 y un disco en
+    # La: +2. El reproductor transporta el audio `tono de la letra − semitonos`.
+    semitonos = models.SmallIntegerField(
+        "Desfase (semitonos)",
+        default=0,
+        validators=[MinValueValidator(-LIMITE_SEMITONOS), MaxValueValidator(LIMITE_SEMITONOS)],
+    )
+    # El segundo en que empieza cada párrafo de la letra, como `points[]` de
+    # Songsterr pero por párrafo y no por compás: [{"p": 0, "t": 12.4, "ancla":
+    # "I'm in love with"}, …]. El ancla deja reenganchar la marca si alguien
+    # edita la letra y los párrafos cambian de número.
+    marcas = models.JSONField("Marcas de sección", default=list, blank=True)
+    orden = models.PositiveSmallIntegerField(default=0)
+    subida_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+",
+    )
+    creada = models.DateTimeField(auto_now_add=True)
+    actualizada = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Pista de práctica"
+        verbose_name_plural = "Pistas de práctica"
+        ordering = ["orden", "pk"]
+
+    def __str__(self):
+        return f"{self.nombre} — {self.recurso.title}"
+
+    @classmethod
+    def validar_fichero(cls, fichero):
+        """Lanza `ValueError` si el fichero no es un audio admitido o es muy grande."""
+        from pathlib import Path
+
+        if fichero is None:
+            raise ValueError("Falta el fichero de audio")
+        if Path(fichero.name).suffix.lower() not in cls.EXTENSIONES:
+            raise ValueError("Solo audio: " + ", ".join(sorted(e[1:] for e in cls.EXTENSIONES)))
+        if fichero.size > cls.TAMANO_MAXIMO:
+            raise ValueError(f"El audio pasa de {cls.TAMANO_MAXIMO // (1024 * 1024)} MB")
+
+    @classmethod
+    def limpiar_semitonos(cls, valor):
+        try:
+            semitonos = int(str(valor).strip() or 0)
+        except ValueError:
+            raise ValueError("El desfase tiene que ser un número entero") from None
+        if not -cls.LIMITE_SEMITONOS <= semitonos <= cls.LIMITE_SEMITONOS:
+            raise ValueError(f"El desfase va de −{cls.LIMITE_SEMITONOS} a {cls.LIMITE_SEMITONOS}")
+        return semitonos
+
+    @classmethod
+    def limpiar_nombre(cls, valor):
+        nombre = (valor or "").strip()[:80]
+        if not nombre:
+            raise ValueError("Ponle un nombre a la pista")
+        return nombre
+
+    @classmethod
+    def limpiar_marcas(cls, valor):
+        """Las marcas validadas y ordenadas por tiempo. `ValueError` si algo no cuadra."""
+        if not isinstance(valor, list):
+            raise ValueError("Las marcas tienen que ser una lista")
+        if len(valor) > cls.MAX_MARCAS:
+            raise ValueError(f"Como mucho {cls.MAX_MARCAS} marcas")
+        limpias = {}
+        for marca in valor:
+            if not isinstance(marca, dict):
+                raise ValueError("Cada marca es un objeto {p, t}")
+            p, t = marca.get("p"), marca.get("t")
+            if isinstance(p, bool) or not isinstance(p, int) or p < 0:
+                raise ValueError("El párrafo de una marca es un entero desde 0")
+            if isinstance(t, bool) or not isinstance(t, (int, float)) or not 0 <= t <= cls.SEGUNDO_MAXIMO:
+                raise ValueError(f"El segundo de una marca va de 0 a {cls.SEGUNDO_MAXIMO}")
+            ancla = marca.get("ancla", "")
+            if not isinstance(ancla, str):
+                raise ValueError("El ancla de una marca es texto")
+            # Un párrafo, una marca: si llega dos veces, gana la última.
+            limpias[p] = {"p": p, "t": round(float(t), 2), "ancla": ancla[:60]}
+        return sorted(limpias.values(), key=lambda m: (m["t"], m["p"]))
+
+    @classmethod
+    def crear(cls, recurso, fichero, nombre, semitonos=0, usuario=None):
+        cls.validar_fichero(fichero)
+        pista = cls(
+            recurso=recurso,
+            nombre=cls.limpiar_nombre(nombre),
+            semitonos=cls.limpiar_semitonos(semitonos),
+            orden=recurso.pistas_de_practica.count(),
+            subida_por=usuario if getattr(usuario, "is_authenticated", False) else None,
+        )
+        pista.archivo.save(fichero.name, fichero, save=False)
+        pista.save()
+        return pista
+
+    def actualizar(self, datos):
+        """Cambia lo que venga en `datos` (nombre, semitonos, marcas). `ValueError` si no vale."""
+        campos = []
+        if "nombre" in datos:
+            self.nombre = self.limpiar_nombre(datos["nombre"])
+            campos.append("nombre")
+        if "semitonos" in datos:
+            self.semitonos = self.limpiar_semitonos(datos["semitonos"])
+            campos.append("semitonos")
+        if "marcas" in datos:
+            self.marcas = self.limpiar_marcas(datos["marcas"])
+            campos.append("marcas")
+        if campos:
+            self.save(update_fields=campos + ["actualizada"])
+        return self
+
+    def a_json(self):
+        """Lo que necesita el reproductor del visor."""
+        return {
+            "id": self.pk,
+            "nombre": self.nombre,
+            "semitonos": self.semitonos,
+            "marcas": self.marcas,
+            "audio": reverse("musica:pista_audio", args=[self.pk]),
+            "guardar": reverse("musica:pista_guardar", args=[self.pk]),
+            "borrar": reverse("musica:pista_borrar", args=[self.pk]),
+        }
+
+
+@receiver(post_delete, sender=PistaDePractica)
+def _borrar_fichero_de_pista(sender, instance, **kwargs):
+    """El fichero se va con la fila, también cuando se borra la canción entera."""
+    if instance.archivo:
+        instance.archivo.delete(save=False)

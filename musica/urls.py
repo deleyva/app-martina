@@ -7,11 +7,17 @@ herramientas de autoria, asi que necesitan ruta propia.
 
 from django.urls import path
 
-from musica import letras, recortador, servido
+from musica import letras, pistas, recortador, servido
 
 app_name = "musica"
 
 urlpatterns = [
+    # Pistas de práctica del visor ChordPro (fase 82). El audio solo sale por
+    # aquí: nginx cierra /media/pistas_practica/.
+    path("pistas/recurso/<int:page_id>/subir/", pistas.pista_subir, name="pista_subir"),
+    path("pistas/<int:pk>/audio/", pistas.pista_audio, name="pista_audio"),
+    path("pistas/<int:pk>/guardar/", pistas.pista_guardar, name="pista_guardar"),
+    path("pistas/<int:pk>/borrar/", pistas.pista_borrar, name="pista_borrar"),
     # Guardar la letra con acordes desde el botón ✎ (artículo y visores).
     path(
         "letras/<int:page_id>/chordpro/",

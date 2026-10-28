@@ -17,6 +17,10 @@ Teclas, solo mientras este visor está en pantalla y no se está escribiendo:
   < / >      letra más pequeña o más grande
   espacio    desplazamiento automático sí/no
 
+🎧 Práctica (fase 82): la grabación de la canción en el tono de la letra, más
+lenta, en bucle y por párrafos. Vive en `static/js/src/reproductor_practica.js`,
+se carga al primer toque y tiene sus propias teclas (K, X, R, A, B, «,» y «.»).
+
 Estilos en línea: ninguna de las tres páginas que lo incluyen carga Tailwind.
 Cada instancia guarda su estado en su propio closure, porque el modo proyector
 y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
@@ -164,6 +168,16 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
     <span class="cpv-sep"></span>
     <button type="button" data-accion="imprimir" title="Imprimir la letra en este tono y tamaño">🖨 Imprimir</button>
     <span class="cpv-sep"></span>
+    {% pistas_de_practica page request.user as practica %}
+    {% if practica.mostrar %}
+    <button type="button" data-accion="practica" aria-pressed="false"
+            data-reproductor="{% static 'js/reproductor_practica.js' %}"
+            data-motor="{% static 'vendor/signalsmith-stretch/SignalsmithStretch-1.3.2.js' %}"
+            data-csrf="{{ csrf_token }}"
+            title="Practicar con la grabación: en el tono de la letra, más lenta y en bucle">🎧 Práctica{% if practica.datos.pistas %} ({{ practica.datos.pistas|length }}){% endif %}</button>
+    {{ practica.datos|json_script:"cpv-pistas" }}
+    <span class="cpv-sep"></span>
+    {% endif %}
     <button type="button" data-accion="desplazar" aria-pressed="false" title="Desplazamiento automático (espacio)">▶ Desplazar</button>
     <select data-velocidad title="Velocidad del desplazamiento">
         <option value="15">Lento</option>
@@ -239,6 +253,41 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
         tonoEl.textContent = ChordPro.etiquetaTono(semitonos);
         pintarGuardarTono();
         if (refrescarDiagramas) refrescarDiagramas();
+        // El reproductor de práctica (fase 82) escucha: vuelve a colgar sus
+        // marcas de los párrafos nuevos y lleva el audio al tono de la letra.
+        visor.dispatchEvent(new CustomEvent('cpv:pintado', { detail: { semitonos: semitonos } }));
+    }
+
+    // ── 🎧 Práctica (fase 82): el reproductor se carga al primer toque ──
+    var botonPractica = barra.querySelector('[data-accion="practica"]');
+    var reproductor = null;
+    function alternarPractica() {
+        if (reproductor) {
+            botonPractica.setAttribute('aria-pressed', reproductor.alternar() ? 'true' : 'false');
+            return;
+        }
+        // El audio se crea aquí, dentro del toque: después de cargar el
+        // fichero ya no contaría como gesto del usuario y Safari lo dejaría mudo.
+        var Ctx = window.AudioContext || window.webkitAudioContext;
+        var contexto = Ctx ? new Ctx() : null;
+        function montar() {
+            if (!visor.isConnected) return;
+            reproductor = window.ReproductorPractica.montar({
+                visor: visor, salida: salida, barra: barra, contexto: contexto,
+                datos: JSON.parse(barra.querySelector('script[type="application/json"]').textContent),
+                csrf: botonPractica.getAttribute('data-csrf'),
+                motor: botonPractica.getAttribute('data-motor'),
+                semitonosLetra: function () { return semitonos; }
+            });
+            alternarPractica();
+        }
+        if (window.ReproductorPractica) { montar(); return; }
+        botonPractica.disabled = true;
+        var s = document.createElement('script');
+        s.src = botonPractica.getAttribute('data-reproductor');
+        s.onload = function () { botonPractica.disabled = false; montar(); };
+        s.onerror = function () { botonPractica.disabled = false; botonPractica.textContent = '🎧 No se pudo cargar'; };
+        document.head.appendChild(s);
     }
 
     // Dice si lo que se ve ya es el tono del grupo. Guardar «original» quita
@@ -462,6 +511,7 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
         else if (accion === 'imprimir') { pararDesplazamiento(); window.print(); }
         else if (accion === 'guardar-tono') guardarTono();
         else if (accion === 'guardar-tamano') guardarTamano();
+        else if (accion === 'practica') alternarPractica();
     });
 
     function arrancar() {
