@@ -38,6 +38,17 @@
   #pase-vivo .pv-barra .pv-estado { opacity: 0.7; margin-left: auto; font-variant-numeric: tabular-nums; }
   #pase-vivo video.pv-video { width: 160px; border-radius: 6px; background: #000; }
   #pase-vivo .pv-error { color: #fca5a5; }
+  #pase-vivo .pv-nombre.ok { background: rgba(34,197,94,0.4); }
+  #pase-vivo .pv-nombre.mal { background: rgba(239,68,68,0.4); }
+  #pase-vivo button.pv-nombre { border: 0; color: inherit; font: inherit; cursor: pointer; }
+  #pase-vivo button.pv-nombre.abierto { outline: 2px solid #fbbf24; }
+  #pase-vivo .pv-selector { display: inline-flex; gap: 4px; align-items: center; margin-left: 6px; }
+  #pase-vivo .pv-selector button { border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: #fff; border-radius: 6px; padding: 2px 8px; font-size: 13px; font-weight: 700; cursor: pointer; }
+  #pase-vivo .pv-clips { display: flex; gap: 10px; align-items: center; }
+  #pase-vivo .pv-clips video { max-height: 22vh; max-width: 40%; border-radius: 8px; background: #000; }
+  #pase-vivo .pv-clips .pv-nota { font-size: 13px; opacity: 0.6; }
+  #pase-vivo .pv-totales { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 4px 24px; font-size: 16px; max-width: 900px; margin: 0 auto; }
+  #pase-vivo .pv-totales span:last-child { float: right; font-variant-numeric: tabular-nums; opacity: 0.8; }
 </style>
 
 <div id="pase-vivo" data-pase="{{ pase.pk }}">
@@ -52,8 +63,11 @@
     <button type="button" id="pv-camara" onclick="paseVivo.camara()" disabled>📷 Cámara</button>
     <video id="pv-video" class="pv-video" playsinline muted autoplay hidden></video>
     <canvas id="pv-lienzo" hidden></canvas>
+    <button type="button" id="pv-letras" onclick="paseVivo.letras()" title="Ver la letra leída junto a cada nombre y, al final, la puntuación. Solo en esta pantalla; el proyector no.">👁 Letras</button>
     <button type="button" id="pv-revelar" class="pv-primario" onclick="paseVivo.revelar()" disabled>Revelar (→)</button>
+    <button type="button" id="pv-anterior" onclick="paseVivo.anterior()" hidden>← Anterior</button>
     <button type="button" id="pv-siguiente" onclick="paseVivo.siguiente()" disabled>Siguiente (→)</button>
+    <button type="button" id="pv-comprobar" class="pv-primario" onclick="paseVivo.comprobar()" hidden>Comprobar con la clase</button>
     <button type="button" id="pv-cerrar" class="pv-peligro" onclick="paseVivo.cerrar()" disabled>Cerrar el pase</button>
     <span class="pv-estado" id="pv-estado"></span>
   </div>
@@ -69,11 +83,16 @@
   var URL_LEER = '{% url "preguntas:pase_leer" pase.pk %}';
   var URL_REVELAR = '{% url "preguntas:pase_revelar" pase.pk %}';
   var URL_SIGUIENTE = '{% url "preguntas:pase_siguiente" pase.pk %}';
+  var URL_ANTERIOR = '{% url "preguntas:pase_anterior" pase.pk %}';
+  var URL_REVISAR = '{% url "preguntas:pase_revisar" pase.pk %}';
+  var URL_CORREGIR = '{% url "preguntas:pase_corregir" pase.pk %}';
   var URL_CERRAR = '{% url "preguntas:pase_cerrar" pase.pk %}';
   var URL_RESULTADOS = PROFESOR ? '{% url "preguntas:teoria_grupo" pase.group.pk %}' : '{% url "preguntas:teoria_alumno" pase.group.pk request.user.pk %}';
   var CSRF = '{{ csrf_token }}';
   var INTERVALO_SONDEO = 1000;
   var INTERVALO_CAMARA = 200;
+  var SEGUNDOS_CLIP = 5;          // cada trozo de vídeo (76·4)
+  var CLIPS_POR_PREGUNTA = 2;     // se conservan los dos últimos de cada pregunta
   var LETRAS = 'ABCD';
 
   var raiz = document.getElementById('pase-vivo');
@@ -83,33 +102,91 @@
   // dos → seguidas antes de volver la respuesta revelaban dos veces y no pasaban.
   var ocupado = false;
 
+  // 76·4. «Letras»: esta pantalla pide al servidor la letra leída de cada uno y,
+  // al final de la vuelta, la puntuación. Se enciende sola al abrir la cámara
+  // (el iPad) y se recuerda en este navegador; el proyector nunca la enciende.
+  var verLetras = PROFESOR && recordar('pase-letras') === '1';
+  // Los clips viven solo aquí, en memoria: {posicion: [Blob, Blob]}. Nada se
+  // envía ni se guarda (C483); se sueltan al cerrar el pase o al irse la página.
+  var clips = {}, urlsClips = [];
+  var grabador = null, reloj = null, grabandoDe = null;
+  var corrigiendo = null;  // alumno con el selector de letra abierto (vuelta)
+
+  function recordar(clave, valor) {
+    try { if (valor === undefined) return localStorage.getItem(clave); localStorage.setItem(clave, valor); } catch (e) { return null; }
+  }
   // Las flechas son nuestras mientras este elemento esté en pantalla.
   window.visorConPaginas = true;
 
   function esc(t) { var d = document.createElement('div'); d.textContent = t == null ? '' : String(t); return d.innerHTML; }
   function vivo() { return document.body.contains(raiz); }
+  function conLetras(url) { return verLetras ? url + (url.indexOf('?') >= 0 ? '&' : '?') + 'letras=1' : url; }
   function pedir(url, cuerpoForm) {
     var opciones = { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRFToken': CSRF } };
     if (cuerpoForm) opciones.body = cuerpoForm;
-    return fetch(url, opciones).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || r.status); return j; }); });
+    return fetch(conLetras(url), opciones).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || r.status); return j; }); });
   }
-  function ordenar(url) {
+  function ordenar(url, cuerpoForm) {
     if (ocupado) return Promise.resolve(estado);
     ocupado = true;
-    return pedir(url).then(pintar).catch(function (e) { avisarAqui(e.message); }).finally(function () { ocupado = false; });
+    return pedir(url, cuerpoForm).then(pintar).catch(function (e) { avisarAqui(e.message); }).finally(function () { ocupado = false; });
+  }
+
+  // ---------- pintar ----------
+  function chip(f) {
+    var clase = 'pv-nombre' + (f.acierto === true ? ' ok' : f.acierto === false ? ' mal' : '') + (corrigiendo === f.id ? ' abierto' : '');
+    var texto = esc(f.nombre) + (f.acierto === true ? ' ✓' : f.acierto === false ? ' ✗' : '');
+    if (verLetras && f.letra) texto += ' · ' + f.letra;
+    if (f.corregida) texto += ' ✎';
+    var puedeCorregir = PROFESOR && estado && (estado.revision || estado.revelada) && estado.estado === 'abierto';
+    var h = puedeCorregir
+      ? '<button type="button" class="' + clase + '" data-alumno="' + f.id + '" title="Corregir la lectura">' + texto + '</button>'
+      : '<span class="' + clase + '">' + texto + '</span>';
+    if (puedeCorregir && corrigiendo === f.id) {
+      h += '<span class="pv-selector">';
+      for (var i = 0; i < 4; i++) h += '<button type="button" data-letra="' + LETRAS[i] + '">' + LETRAS[i] + '</button>';
+      h += '<button type="button" data-letra="" title="Sin lectura">—</button><button type="button" data-cancelar="1">✕</button></span>';
+    }
+    return h;
+  }
+
+  function pintarClips(pos) {
+    var lista = clips[pos] || [];
+    if (!lista.length) return '';
+    urlsClips.forEach(function (u) { URL.revokeObjectURL(u); }); urlsClips = [];
+    var h = '<div class="pv-clips">';
+    lista.forEach(function (b) { var u = URL.createObjectURL(b); urlsClips.push(u); h += '<video controls playsinline muted preload="metadata" src="' + u + '"></video>'; });
+    h += '<span class="pv-nota">Los últimos ' + (lista.length * SEGUNDOS_CLIP) + ' s antes de revelar, solo en este aparato; se borran al cerrar.</span></div>';
+    return h;
   }
 
   function pintar(e) {
     estado = e;
     var contador = document.getElementById('pv-contador');
     if (e.terminado) {
-      contador.textContent = e.estado === 'cerrado' ? 'Cerrado' : e.total + ' / ' + e.total;
-      cuerpo.innerHTML = '<div class="pv-grande">' + (e.estado === 'cerrado' ? '✅ Pase cerrado: respuestas guardadas.' : 'Fin del pase. Ciérralo para guardar las respuestas.') + '</div>'
-        + (e.estado === 'cerrado' ? '<div style="text-align:center"><a href="' + URL_RESULTADOS + '" target="_blank" rel="noopener" style="color:#93c5fd;font-size:18px">' + (PROFESOR ? '📊 Resultados de teoría del grupo' : '📊 Mis resultados de teoría') + '</a></div>' : '');
+      if (e.estado === 'cerrado') {
+        contador.textContent = 'Cerrado';
+        cuerpo.innerHTML = '<div class="pv-grande">✅ Pase cerrado: respuestas guardadas.</div>'
+          + '<div style="text-align:center"><a href="' + URL_RESULTADOS + '" target="_blank" rel="noopener" style="color:#93c5fd;font-size:18px">' + (PROFESOR ? '📊 Resultados de teoría del grupo' : '📊 Mis resultados de teoría') + '</a></div>';
+        pararGrabacion(); soltarClips();
+      } else if (e.revision) {
+        contador.textContent = 'Comprobación terminada';
+        var h = '<div class="pv-grande">✅ Comprobación terminada.' + (PROFESOR ? ' «Aceptar y cerrar» guarda las respuestas.' : '') + '</div>';
+        if (e.totales) {
+          h += '<div class="pv-totales">';
+          e.totales.forEach(function (t) { h += '<div><span>' + esc(t.nombre) + '</span><span>' + t.aciertos + ' / ' + t.total + '</span></div>'; });
+          h += '</div>';
+        }
+        cuerpo.innerHTML = h;
+      } else {
+        contador.textContent = e.total + ' / ' + e.total;
+        cuerpo.innerHTML = '<div class="pv-grande">Fin del pase.' + (PROFESOR ? ' «Comprobar con la clase» repasa las preguntas con la correcta y ✓/✗; o ciérralo ya.' : '') + '</div>';
+      }
+      gestionarGrabacion(e);
       pintarBarra();
       return;
     }
-    contador.textContent = 'Pregunta ' + (e.posicion + 1) + ' / ' + e.total;
+    contador.textContent = (e.revision ? 'Comprobación ' : 'Pregunta ') + (e.posicion + 1) + ' / ' + e.total;
     var p = e.pregunta, h = '';
     h += '<div class="pv-enunciado">' + esc(p.enunciado) + '</div>';
     if (p.imagen) h += '<img class="pv-imagen" src="' + esc(p.imagen) + '" alt="">';
@@ -125,11 +202,13 @@
     if (e.estado === 'borrador') {
       h += '<div class="pv-grande" style="font-size:18px">El pase no ha empezado.</div>';
     } else {
-      h += '<div class="pv-respondido"><span class="pv-n">Han respondido ' + e.n_respondido + ' de ' + e.n_presentes + '</span>';
-      e.respondido.forEach(function (n) { h += '<span class="pv-nombre">' + esc(n) + '</span>'; });
+      h += '<div class="pv-respondido"><span class="pv-n">' + (e.revision ? 'Respondieron ' : 'Han respondido ') + e.n_respondido + ' de ' + e.n_presentes + '</span>';
+      e.respondido.forEach(function (f) { h += chip(f); });
       h += '</div>';
+      if (e.revision) h += pintarClips(e.posicion);
     }
     cuerpo.innerHTML = h;
+    gestionarGrabacion(e);
     pintarBarra();
   }
 
@@ -137,17 +216,25 @@
     if (!PROFESOR) return;
     var e = estado || {};
     var abierto = e.estado === 'abierto', cerrado = e.estado === 'cerrado';
+    var finDePreguntas = abierto && e.terminado && !e.revision;
     document.getElementById('pv-empezar').hidden = e.estado !== 'borrador';
-    document.getElementById('pv-camara').disabled = !abierto || e.terminado;
+    document.getElementById('pv-camara').disabled = !abierto || e.terminado || e.revision;
+    document.getElementById('pv-letras').textContent = verLetras ? '👁 Letras ✓' : '👁 Letras';
     document.getElementById('pv-revelar').disabled = !abierto || e.terminado || e.revelada;
+    document.getElementById('pv-revelar').hidden = !!e.revision;
+    document.getElementById('pv-anterior').hidden = !e.revision;
+    document.getElementById('pv-anterior').disabled = !abierto || !e.posicion;
     document.getElementById('pv-siguiente').disabled = !abierto || e.terminado;
-    document.getElementById('pv-cerrar').disabled = !abierto;
+    document.getElementById('pv-comprobar').hidden = !finDePreguntas;
+    var cerrar = document.getElementById('pv-cerrar');
+    cerrar.disabled = !abierto;
+    cerrar.textContent = e.revision && e.terminado ? 'Aceptar y cerrar' : 'Cerrar el pase';
     if (cerrado) pararCamara();
   }
 
   function sondear() {
-    if (!vivo()) { clearInterval(sondeo); pararCamara(); return; }
-    fetch(URL_ESTADO, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(pintar).catch(function () {});
+    if (!vivo()) { clearInterval(sondeo); pararCamara(); soltarClips(); return; }
+    fetch(conLetras(URL_ESTADO), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(pintar).catch(function () {});
   }
 
   function avisarAqui(texto) {
@@ -176,6 +263,7 @@
   }
 
   function pararCamara() {
+    pararGrabacion();
     if (temporizador) { clearInterval(temporizador); temporizador = null; }
     if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
     var video = document.getElementById('pv-video');
@@ -184,13 +272,67 @@
     if (btn) btn.textContent = '📷 Cámara';
   }
 
+  // ---------- clips en memoria (76·4, C559) ----------
+  // Trozos de SEGUNDOS_CLIP sobre la misma cámara, uno detrás de otro, mientras
+  // la pregunta de pantalla no esté revelada. Cada trozo es un vídeo entero
+  // (se para y se vuelve a arrancar el grabador), así se reproduce suelto.
+  function gestionarGrabacion(e) {
+    var toca = stream && e.estado === 'abierto' && !e.terminado && !e.revision && !e.revelada;
+    if (toca && grabandoDe !== e.posicion) empezarGrabacion(e.posicion);
+    if (!toca && grabandoDe !== null) pararGrabacion();
+  }
+  function empezarGrabacion(pos) {
+    pararGrabacion();
+    if (!window.MediaRecorder || !stream) return;
+    var tipos = ['video/mp4', 'video/webm;codecs=vp8', 'video/webm'];
+    var tipo = tipos.filter(function (t) { return MediaRecorder.isTypeSupported(t); })[0];
+    grabandoDe = pos;
+    (function segmento() {
+      if (!stream || grabandoDe !== pos) return;
+      var g;
+      try { g = new MediaRecorder(stream, tipo ? { mimeType: tipo, videoBitsPerSecond: 1500000 } : { videoBitsPerSecond: 1500000 }); }
+      catch (err) { grabandoDe = null; return; }
+      grabador = g;
+      g.ondataavailable = function (ev) { if (ev.data && ev.data.size) guardarClip(pos, ev.data); };
+      g.onstop = function () { if (grabador === g) { grabador = null; if (grabandoDe === pos) segmento(); } };
+      try { g.start(); } catch (err) { grabandoDe = null; return; }
+      reloj = setTimeout(function () { if (g.state !== 'inactive') g.stop(); }, SEGUNDOS_CLIP * 1000);
+    })();
+  }
+  function pararGrabacion() {
+    grabandoDe = null;
+    if (reloj) { clearTimeout(reloj); reloj = null; }
+    if (grabador && grabador.state !== 'inactive') { try { grabador.stop(); } catch (err) {} }
+    grabador = null;
+  }
+  function guardarClip(pos, blob) {
+    var lista = clips[pos] = clips[pos] || [];
+    lista.push(blob);
+    while (lista.length > CLIPS_POR_PREGUNTA) lista.shift();
+  }
+  function soltarClips() {
+    urlsClips.forEach(function (u) { URL.revokeObjectURL(u); }); urlsClips = [];
+    clips = {};
+  }
+
   window.paseVivo = {
     empezar: function () { ordenar(URL_ABRIR); },
     revelar: function () { if (!estado || estado.revelada || estado.terminado) return; ordenar(URL_REVELAR); },
-    siguiente: function () { if (!estado || estado.terminado) return; ordenar(URL_SIGUIENTE); },
+    siguiente: function () { if (!estado || estado.terminado) return; corrigiendo = null; ordenar(URL_SIGUIENTE); },
+    anterior: function () { if (!estado || !estado.revision || !estado.posicion) return; corrigiendo = null; ordenar(URL_ANTERIOR); },
+    comprobar: function () { if (!estado || !estado.terminado || estado.revision) return; ordenar(URL_REVISAR); },
+    corregir: function (alumno, letra) {
+      var datos = new FormData(); datos.append('alumno', alumno); datos.append('letra', letra);
+      corrigiendo = null;
+      return ordenar(URL_CORREGIR, datos);
+    },
+    letras: function () {
+      verLetras = !verLetras; recordar('pase-letras', verLetras ? '1' : '0');
+      pintarBarra(); sondear();
+    },
     cerrar: function () {
       if (!estado || estado.estado !== 'abierto') return;
-      if (!estado.terminado && !window.confirm('Quedan preguntas por pasar. ¿Cerrar el pase y guardar lo que hay?')) return;
+      if (!estado.terminado && !estado.revision && !window.confirm('Quedan preguntas por pasar. ¿Cerrar el pase y guardar lo que hay?')) return;
       pedir(URL_CERRAR).then(function (e) { pintar(e); avisarAqui('Guardadas ' + e.respuestas + ' respuestas.' + (e.notas ? ' Teoría: ' + e.notas + ' casillas actualizadas.' : '') + (e.aviso ? ' ' + e.aviso : '')); }).catch(function (e) { avisarAqui(e.message); });
     },
     camara: function () {
@@ -202,7 +344,11 @@
         stream = s; video.srcObject = s; video.hidden = false;
         document.getElementById('pv-camara').textContent = '⏹ Parar cámara';
         video.onloadedmetadata = function () { avisarAqui('Cámara a ' + video.videoWidth + '×' + video.videoHeight); };
+        // La pantalla con la cámara es la del profesor: ve las letras.
+        if (!verLetras) { verLetras = true; recordar('pase-letras', '1'); }
         temporizador = setInterval(capturar, INTERVALO_CAMARA);
+        if (estado) gestionarGrabacion(estado);
+        pintarBarra();
       }).catch(function (e) { avisarAqui('No se pudo abrir la cámara: ' + e.message); });
     },
     // Para las pruebas: un fotograma ya hecho (Blob) por el mismo camino que la cámara.
@@ -210,6 +356,9 @@
       var datos = new FormData(); datos.append('frame', blob, 'frame.jpg');
       return pedir(URL_LEER, datos).then(function (e) { pintar(e); return e; });
     },
+    // Para las pruebas: un clip ya hecho, como si lo hubiera grabado la cámara.
+    guardarClip: guardarClip,
+    clips: function () { return clips; },
     estado: function () { return estado; }
   };
 
@@ -217,10 +366,25 @@
     document.addEventListener('keydown', function (e) {
       if (!vivo() || !estado || estado.estado !== 'abierto') return;
       if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
-      if (e.key === 'ArrowRight') { e.preventDefault(); if (estado.terminado) return; if (estado.revelada) paseVivo.siguiente(); else paseVivo.revelar(); }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        if (estado.terminado) { if (!estado.revision) paseVivo.comprobar(); return; }
+        if (estado.revision || estado.revelada) paseVivo.siguiente(); else paseVivo.revelar();
+      }
+      if (e.key === 'ArrowLeft' && estado.revision) { e.preventDefault(); paseVivo.anterior(); }
+    });
+    cuerpo.addEventListener('click', function (e) {
+      var t = e.target.closest('[data-alumno],[data-letra],[data-cancelar]');
+      if (!t || !estado) return;
+      if (t.dataset.cancelar) { corrigiendo = null; pintar(estado); return; }
+      if (t.dataset.letra !== undefined) { if (corrigiendo !== null) paseVivo.corregir(corrigiendo, t.dataset.letra); return; }
+      var id = parseInt(t.dataset.alumno, 10);
+      corrigiendo = corrigiendo === id ? null : id;
+      pintar(estado);
     });
   }
 
+  window.addEventListener('pagehide', soltarClips);
   sondear();
   sondeo = setInterval(sondear, INTERVALO_SONDEO);
 })();

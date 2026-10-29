@@ -19,6 +19,9 @@ urlpatterns = [
     path("pase/<int:pk>/leer/", views_pase.pase_leer, name="pase_leer"),
     path("pase/<int:pk>/revelar/", views_pase.pase_revelar, name="pase_revelar"),
     path("pase/<int:pk>/siguiente/", views_pase.pase_siguiente, name="pase_siguiente"),
+    path("pase/<int:pk>/revisar/", views_pase.pase_revisar, name="pase_revisar"),
+    path("pase/<int:pk>/anterior/", views_pase.pase_anterior, name="pase_anterior"),
+    path("pase/<int:pk>/corregir/", views_pase.pase_corregir, name="pase_corregir"),
     path("pase/<int:pk>/cerrar/", views_pase.pase_cerrar, name="pase_cerrar"),
     # La teoría acumulada (tramo 76·3).
     path("grupo/<int:group_id>/teoria/", views_pase.teoria_grupo, name="teoria_grupo"),

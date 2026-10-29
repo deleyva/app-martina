@@ -250,7 +250,7 @@ class TestLecturas:
         assert _post(client, "pase_abrir", pase).json()["estado"] == "abierto"
 
         e = _frame(client, pase, [(1, A), (2, C)]).json()
-        assert e["contadas"] == 2 and e["respondido"] == ["Alumno Ana", "Alumno Bea"]
+        assert e["contadas"] == 2 and [f["nombre"] for f in e["respondido"]] == ["Alumno Ana", "Alumno Bea"]
         assert "correcta" not in e["pregunta"] and "reparto" not in e
         e = _frame(client, pase, [(1, C)]).json()  # Ana cambia de A a C
         assert pase.actual().lecturas == {str(montaje["alumnos"][0].pk): C, str(montaje["alumnos"][1].pk): C}
@@ -291,7 +291,7 @@ class TestLecturas:
         client.force_login(profesor)
         _post(client, "pase_abrir", pase)
         _frame(client, pase, [(3, D)])
-        assert _estado(client, pase)["respondido"] == ["Alumno Cai"]
+        assert [f["nombre"] for f in _estado(client, pase)["respondido"]] == ["Alumno Cai"]
 
     def test_quien_ve_que(self, client, montaje, profesor, django_user_model):
         pase = montaje["pase"]
@@ -301,7 +301,7 @@ class TestLecturas:
 
         client.force_login(montaje["alumnos"][1])
         e = _estado(client, pase)
-        assert e["respondido"] == ["Alumno Ana"] and "correcta" not in e["pregunta"]
+        assert [f["nombre"] for f in e["respondido"]] == ["Alumno Ana"] and "correcta" not in e["pregunta"]
         assert _frame(client, pase, [(2, B)]).status_code == 302  # el alumnado no lee tarjetas
         assert _post(client, "pase_revelar", pase).status_code == 302
 
@@ -385,3 +385,105 @@ def test_los_fotogramas_no_se_guardan(client, montaje, profesor, settings):
         codigo = (fuente / nombre).read_text()
         for prohibido in ("open(", "default_storage", "Evidencia(", "import Evidencia", "ContentFile", ".save(datos", "logger.info(datos"):
             assert prohibido not in codigo, f"{nombre} no debe escribir el fotograma: {prohibido}"
+
+
+# =============================================================================
+# 76·4 — Letras en vivo, vuelta de comprobación, corrección (C558, C560, C561, C562)
+# =============================================================================
+
+
+@pytest.mark.django_db
+class TestComprobacion:
+    def test_la_vuelta_de_comprobacion_de_punta_a_punta(self, client, montaje, profesor, alumnos):
+        pase, preguntas = montaje["pase"], montaje["preguntas"]
+        ana, bea, cai = alumnos
+        url_estado = reverse("preguntas:pase_estado", args=[pase.pk])
+        url_corregir = reverse("preguntas:pase_corregir", args=[pase.pk])
+        client.force_login(profesor)
+
+        assert _post(client, "pase_revisar", pase).status_code == 400  # sin empezar
+        _post(client, "pase_abrir", pase)
+        assert _post(client, "pase_revisar", pase).status_code == 400  # quedan preguntas
+
+        # Pregunta 0 (correcta A): Ana A, Bea C. Con `letras=1` el profesor ve la letra; sin él, no.
+        _frame(client, pase, [(1, A), (2, C)])
+        e = client.get(url_estado + "?letras=1").json()
+        assert [(f["nombre"], f["letra"], f["acierto"]) for f in e["respondido"]] == [("Alumno Ana", "A", None), ("Alumno Bea", "C", None)]
+        assert "letra" not in _estado(client, pase)["respondido"][0]
+        assert client.post(url_corregir, {"alumno": bea.pk, "letra": "A"}).status_code == 400  # antes de revelar, no
+
+        # El alumnado no obtiene letras aunque las pida.
+        client.force_login(cai)
+        assert "letra" not in client.get(url_estado + "?letras=1").json()["respondido"][0]
+        client.force_login(profesor)
+
+        # Al revelar, ✓/✗ junto a cada nombre, en todas las pantallas.
+        _post(client, "pase_revelar", pase)
+        e = _estado(client, pase)
+        assert [(f["nombre"], f["acierto"], f["sin_lectura"]) for f in e["respondido"]] == [("Alumno Ana", True, False), ("Alumno Bea", False, False)]
+        for _ in range(4):
+            _post(client, "pase_siguiente", pase)
+        e = _estado(client, pase)
+        assert e["terminado"] and not e["revision"]
+
+        # La vuelta: desde la primera, revelada, con todos los presentes.
+        e = _post(client, "pase_revisar", pase).json()
+        assert e["revision"] and e["posicion"] == 0 and e["revelada"] and e["pregunta"]["correcta"] == 0
+        filas = {f["nombre"]: f for f in e["respondido"]}
+        assert set(filas) == {"Alumno Ana", "Alumno Bea", "Alumno Cai"}
+        assert filas["Alumno Cai"]["sin_lectura"] and filas["Alumno Cai"]["acierto"] is False
+        assert e["n_respondido"] == 2 and e["n_presentes"] == 3
+        # Una tarjeta leída durante la vuelta no cuenta.
+        e = _frame(client, pase, [(3, A)]).json()
+        assert e["contadas"] == 0 and {f["nombre"]: f for f in e["respondido"]}["Alumno Cai"]["sin_lectura"]
+
+        # ← y →, sin salirse por abajo.
+        assert _post(client, "pase_anterior", pase).json()["posicion"] == 0
+        assert _post(client, "pase_siguiente", pase).json()["posicion"] == 1
+        assert _post(client, "pase_anterior", pase).json()["posicion"] == 0
+
+        # Corregir a Bea: C → A (en minúscula vale), queda marcada.
+        r = client.post(url_corregir + "?letras=1", {"alumno": bea.pk, "letra": "a"})
+        assert r.status_code == 200
+        f = {x["nombre"]: x for x in r.json()["respondido"]}["Alumno Bea"]
+        assert f["acierto"] and f["corregida"] and f["letra"] == "A"
+        assert client.post(url_corregir, {"alumno": bea.pk, "letra": "E"}).status_code == 400
+        assert client.post(url_corregir, {"alumno": 999999, "letra": "A"}).status_code == 400
+        assert client.post(url_corregir, {"letra": "A"}).status_code == 400
+        # Sin lectura a mano: Ana pasa a ✗.
+        f = {x["nombre"]: x for x in client.post(url_corregir, {"alumno": ana.pk, "letra": ""}).json()["respondido"]}["Alumno Ana"]
+        assert f["sin_lectura"] and f["corregida"] and f["acierto"] is False
+
+        # Al final de la vuelta, la puntuación solo con `letras=1` (el iPad).
+        for _ in range(4):
+            _post(client, "pase_siguiente", pase)
+        e = client.get(url_estado + "?letras=1").json()
+        assert e["terminado"] and e["revision"]
+        assert [(t["nombre"], t["aciertos"], t["total"]) for t in e["totales"]] == [("Alumno Ana", 0, 4), ("Alumno Bea", 1, 4), ("Alumno Cai", 0, 4)]
+        assert "totales" not in _estado(client, pase)
+        client.force_login(cai)
+        assert "totales" not in client.get(url_estado + "?letras=1").json()
+        assert client.post(url_corregir, {"alumno": bea.pk, "letra": "B"}).status_code == 302  # el alumnado no corrige
+        client.force_login(profesor)
+
+        # Aceptar y cerrar: la respuesta corregida lo dice.
+        assert _post(client, "pase_cerrar", pase).status_code == 200
+        de_bea = Respuesta.objects.get(pase=pase, alumno=bea, pregunta=preguntas[0])
+        assert (de_bea.opcion, de_bea.acierto, de_bea.corregida) == (0, True, True)
+        de_ana = Respuesta.objects.get(pase=pase, alumno=ana, pregunta=preguntas[0])
+        assert (de_ana.opcion, de_ana.acierto, de_ana.corregida) == (None, False, True)
+        assert not Respuesta.objects.get(pase=pase, alumno=cai, pregunta=preguntas[0]).corregida
+        assert Respuesta.objects.filter(pase=pase, corregida=True).count() == 2
+        assert _post(client, "pase_revisar", pase).status_code == 400  # cerrado
+
+    def test_otro_profesor_no_revisa_ni_corrige(self, client, montaje, django_user_model):
+        pase = montaje["pase"]
+        otro = django_user_model.objects.create_user(email="otro2@x.es", password="x")
+        from django.contrib.auth.models import Group as GrupoPermisos
+        from martina_bescos_app.users.permisos import GRUPO_PROFESORADO
+
+        otro.groups.add(GrupoPermisos.objects.get_or_create(name=GRUPO_PROFESORADO)[0])
+        client.force_login(otro)
+        assert _post(client, "pase_revisar", pase).status_code == 404
+        assert _post(client, "pase_anterior", pase).status_code == 404
+        assert client.post(reverse("preguntas:pase_corregir", args=[pase.pk]), {"alumno": 1, "letra": "A"}).status_code == 404

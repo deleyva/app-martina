@@ -136,6 +136,10 @@ class Pase(models.Model):
     cerrado = models.DateTimeField(null=True, blank=True)
     # Índice de la pregunta que está en pantalla (76·2).
     posicion = models.PositiveSmallIntegerField(default=0)
+    # La vuelta de comprobación (76·4): terminadas las preguntas, se vuelven a
+    # pasar con la correcta resaltada y ✓/✗ por nombre; `posicion` vuelve a
+    # recorrerlas. Vive en el servidor para que el proyector y el iPad vayan a la vez.
+    revision = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["-fecha", "-creado"]
@@ -177,6 +181,10 @@ class PasePregunta(models.Model):
     # de revelar. Se cuentan para saber que pasó, nunca se guardan.
     desconocidas = models.PositiveIntegerField(default=0)
     revelada = models.BooleanField(default=False)
+    # Lo que el profesor cambió a mano en la vuelta de comprobación (76·4):
+    # {"<alumno_id>": opcion}. También se escribe en `lecturas`; aquí queda
+    # constancia de que fue una corrección, para marcar la `Respuesta`.
+    correcciones = models.JSONField(default=dict, blank=True)
 
     class Meta:
         ordering = ["posicion"]
@@ -200,6 +208,8 @@ class Respuesta(models.Model):
     )
     opcion = models.PositiveSmallIntegerField(null=True, blank=True)
     acierto = models.BooleanField(default=False)
+    # El profesor cambió la lectura a mano en la vuelta de comprobación (76·4).
+    corregida = models.BooleanField(default=False)
     creada = models.DateTimeField(auto_now_add=True)
 
     class Meta:

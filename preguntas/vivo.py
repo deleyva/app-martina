@@ -167,7 +167,7 @@ def registrar(pase, marcadores):
         )
         if pase.estado != Pase.ABIERTO or actual is None:
             return 0, len(validos)
-        if actual.revelada:
+        if actual.revelada or pase.revision:
             actual.desconocidas += len(validos)
             actual.save(update_fields=["desconocidas"])
             return 0, len(validos)
@@ -211,6 +211,63 @@ def reparto(actual):
 
 
 # =============================================================================
+# LA VUELTA DE COMPROBACIÓN (76·4: C560, C561)
+# =============================================================================
+
+
+def empezar_revision(pase):
+    """Terminadas las preguntas, vuelve a la primera con `revision=True`.
+
+    Solo desde «terminado» (sin pregunta en pantalla): a mitad de pase no hay
+    nada que comprobar todavía. Idempotente si ya está en la vuelta.
+    """
+    if pase.estado != Pase.ABIERTO:
+        raise ValueError("El pase no está abierto.")
+    if pase.revision:
+        return pase
+    if pase.actual() is not None:
+        raise ValueError("Quedan preguntas por pasar.")
+    pase.revision = True
+    pase.posicion = 0
+    pase.save(update_fields=["revision", "posicion"])
+    return pase
+
+
+def anterior(pase):
+    if pase.posicion > 0:
+        pase.posicion -= 1
+        pase.save(update_fields=["posicion"])
+    return pase.actual()
+
+
+def corregir(pase, alumno_id, letra):
+    """El profesor cambia a mano la lectura de un presente en la pregunta en
+    pantalla (en la vuelta, o ya revelada). Queda en `correcciones` para que la
+    `Respuesta` salga marcada. `letra` vacía = sin lectura."""
+    if letra not in ("", *Pregunta.LETRAS):
+        raise ValueError(f"«{letra}» no es una opción.")
+    with transaction.atomic():
+        pase = Pase.objects.select_for_update().get(pk=pase.pk)
+        actual = PasePregunta.objects.select_for_update().filter(pase=pase, posicion=pase.posicion).first()
+        if pase.estado != Pase.ABIERTO or actual is None:
+            raise ValueError("No hay ninguna pregunta en pantalla.")
+        if not (pase.revision or actual.revelada):
+            raise ValueError("Solo se corrige con la pregunta revelada.")
+        if int(alumno_id) not in {a.pk for a in presentes(pase)}:
+            raise ValueError("Ese alumno no está en este pase.")
+        clave = str(int(alumno_id))
+        if letra == "":
+            actual.lecturas.pop(clave, None)
+        else:
+            actual.lecturas[clave] = Pregunta.LETRAS.index(letra)
+        correcciones = dict(actual.correcciones or {})
+        correcciones[clave] = actual.lecturas.get(clave)
+        actual.correcciones = correcciones
+        actual.save(update_fields=["lecturas", "correcciones"])
+    return actual
+
+
+# =============================================================================
 # CERRAR (C482)
 # =============================================================================
 
@@ -229,7 +286,10 @@ def cerrar(pase):
                     pase=pase,
                     pregunta=pp.pregunta,
                     alumno=alumno,
-                    defaults={"opcion": pp.lecturas.get(str(alumno.pk))},
+                    defaults={
+                        "opcion": pp.lecturas.get(str(alumno.pk)),
+                        "corregida": str(alumno.pk) in (pp.correcciones or {}),
+                    },
                 )
         pase.estado = Pase.CERRADO
         pase.cerrado = timezone.now()
@@ -251,32 +311,58 @@ def _imagen_url(pregunta):
         return None
 
 
-def estado_de(pase):
+def estado_de(pase, con_letras=False):
     """El JSON que pintan la pantalla proyectada y el iPad, cada segundo.
 
     Antes de revelar no sale ninguna respuesta: solo quién ha respondido. Al
-    revelar salen la correcta, la explicación y el reparto A/B/C/D, nunca qué
-    eligió cada uno (eso se ve al cerrar, en el registro).
+    revelar salen la correcta, la explicación, el reparto A/B/C/D y, junto a
+    cada nombre, ✓ o ✗. La letra que eligió cada uno solo va con `con_letras`,
+    que la vista concede al profesorado del grupo (la pantalla con la cámara,
+    76·4), nunca al alumnado ni al proyector.
+
+    En la vuelta de comprobación (`pase.revision`) cada pregunta sale revelada,
+    con todos los presentes y su ✓/✗ (sin lectura = ✗), y al final, solo con
+    `con_letras`, la puntuación de cada uno (`totales`).
     """
     actual = pase.actual()
-    nombres = {a.pk: (a.name or a.email) for a in presentes(pase)}
+    alumnos = {a.pk: (a.name or a.email) for a in presentes(pase)}
     datos = {
         "pk": pase.pk,
         "estado": pase.estado,
         "posicion": pase.posicion,
         "total": pase.n_preguntas,
+        "revision": pase.revision,
         "terminado": actual is None,
-        "n_presentes": len(nombres),
+        "n_presentes": len(alumnos),
         "desconocidas": sum(pp.desconocidas for pp in pase.orden.all()),
     }
     if actual is None:
+        if pase.revision and con_letras:
+            datos["totales"] = _totales(pase, alumnos)
         return datos
     pregunta = actual.pregunta
-    respondido = sorted(nombres[int(k)] for k in actual.lecturas if int(k) in nombres)
+    revelada = actual.revelada or pase.revision
+    correcciones = actual.correcciones or {}
+
+    def fila(alumno_id, nombre):
+        opcion = actual.lecturas.get(str(alumno_id))
+        fila = {"id": alumno_id, "nombre": nombre, "acierto": (opcion == pregunta.correcta) if revelada else None}
+        if revelada:
+            fila["sin_lectura"] = opcion is None
+            fila["corregida"] = str(alumno_id) in correcciones
+        if con_letras:
+            fila["letra"] = Pregunta.LETRAS[opcion] if isinstance(opcion, int) and 0 <= opcion < 4 else ""
+        return fila
+
+    if pase.revision:
+        filas = [fila(pk, nombre) for pk, nombre in alumnos.items()]
+    else:
+        filas = [fila(int(k), alumnos[int(k)]) for k in actual.lecturas if int(k) in alumnos]
+    filas.sort(key=lambda f: f["nombre"])
     datos.update(
-        revelada=actual.revelada,
-        respondido=respondido,
-        n_respondido=len(respondido),
+        revelada=revelada,
+        respondido=filas,
+        n_respondido=sum(1 for f in filas if not f.get("sin_lectura")) if pase.revision else len(filas),
         pregunta={
             "pk": pregunta.pk,
             "enunciado": pregunta.enunciado,
@@ -284,7 +370,7 @@ def estado_de(pase):
             "imagen": _imagen_url(pregunta),
         },
     )
-    if actual.revelada:
+    if revelada:
         datos["pregunta"].update(
             correcta=pregunta.correcta,
             letra=pregunta.letra_correcta,
@@ -292,3 +378,13 @@ def estado_de(pase):
         )
         datos["reparto"] = reparto(actual)
     return datos
+
+
+def _totales(pase, alumnos):
+    """Aciertos de cada presente en todo el pase, por nombre. Solo para el iPad."""
+    preguntas = list(pase.orden.select_related("pregunta"))
+    filas = []
+    for alumno_id, nombre in alumnos.items():
+        aciertos = sum(1 for pp in preguntas if pp.lecturas.get(str(alumno_id)) == pp.pregunta.correcta)
+        filas.append({"id": alumno_id, "nombre": nombre, "aciertos": aciertos, "total": len(preguntas)})
+    return sorted(filas, key=lambda f: f["nombre"])

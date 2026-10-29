@@ -165,10 +165,19 @@ def pegatinas(request):
 # =============================================================================
 
 
+def _del_profesorado(user, pase):
+    return user.is_staff or pase.group.teachers.filter(pk=user.pk).exists()
+
+
 @login_required
 @require_GET
 def pase_estado(request, pk):
-    return JsonResponse(vivo.estado_de(_pase_visible(request, pk)))
+    """`?letras=1`: la letra leída junto a cada nombre y, al final de la vuelta,
+    la puntuación. Solo la obtiene el profesorado del grupo (76·4): al alumnado
+    y al proyector se les ignora el parámetro."""
+    pase = _pase_visible(request, pk)
+    con_letras = request.GET.get("letras") == "1" and es_profesor(request.user) and _del_profesorado(request.user, pase)
+    return JsonResponse(vivo.estado_de(pase, con_letras=con_letras))
 
 
 @login_required
@@ -178,7 +187,7 @@ def pase_abrir(request, pk):
     pase = _pase_del_profesor(request, pk)
     if pase.estado == Pase.CERRADO:
         return _error("El pase ya está cerrado.")
-    return JsonResponse(vivo.estado_de(vivo.abrir(pase)))
+    return JsonResponse(vivo.estado_de(vivo.abrir(pase), con_letras=request.GET.get("letras") == "1"))
 
 
 @login_required
@@ -210,7 +219,7 @@ def pase_leer(request, pk):
         "preguntas.pase %d: %d marcadores %s, %d contadas, %d desconocidas, %.1f ms",
         pase.pk, len(marcadores), [m["id"] for m in marcadores], contadas, desconocidas, ms,
     )
-    estado = vivo.estado_de(pase)
+    estado = vivo.estado_de(pase, con_letras=request.GET.get("letras") == "1")
     estado.update(ms=round(ms, 1), leidas=len(marcadores), contadas=contadas)
     return JsonResponse(estado)
 
@@ -223,7 +232,7 @@ def pase_revelar(request, pk):
     if pase.estado != Pase.ABIERTO:
         return _error("El pase no está abierto.")
     vivo.revelar(pase)
-    return JsonResponse(vivo.estado_de(pase))
+    return JsonResponse(vivo.estado_de(pase, con_letras=request.GET.get("letras") == "1"))
 
 
 @login_required
@@ -234,7 +243,47 @@ def pase_siguiente(request, pk):
     if pase.estado != Pase.ABIERTO:
         return _error("El pase no está abierto.")
     vivo.siguiente(pase)
-    return JsonResponse(vivo.estado_de(pase))
+    return JsonResponse(vivo.estado_de(pase, con_letras=request.GET.get("letras") == "1"))
+
+
+@login_required
+@user_passes_test(es_profesor)
+@require_POST
+def pase_revisar(request, pk):
+    """Empieza la vuelta de comprobación (C560)."""
+    pase = _pase_del_profesor(request, pk)
+    try:
+        vivo.empezar_revision(pase)
+    except ValueError as e:
+        return _error(str(e))
+    return JsonResponse(vivo.estado_de(pase, con_letras=request.GET.get("letras") == "1"))
+
+
+@login_required
+@user_passes_test(es_profesor)
+@require_POST
+def pase_anterior(request, pk):
+    pase = _pase_del_profesor(request, pk)
+    if pase.estado != Pase.ABIERTO:
+        return _error("El pase no está abierto.")
+    vivo.anterior(pase)
+    return JsonResponse(vivo.estado_de(pase, con_letras=request.GET.get("letras") == "1"))
+
+
+@login_required
+@user_passes_test(es_profesor)
+@require_POST
+def pase_corregir(request, pk):
+    """`alumno` y `letra` (A–D, o vacía = sin lectura) sobre la pregunta en pantalla (C561)."""
+    pase = _pase_del_profesor(request, pk)
+    alumno = request.POST.get("alumno", "")
+    if not alumno.isdigit():
+        return _error("Falta el alumno.")
+    try:
+        vivo.corregir(pase, int(alumno), (request.POST.get("letra") or "").strip().upper())
+    except ValueError as e:
+        return _error(str(e))
+    return JsonResponse(vivo.estado_de(pase, con_letras=request.GET.get("letras") == "1"))
 
 
 @login_required
