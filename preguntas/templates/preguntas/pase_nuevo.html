@@ -11,6 +11,7 @@
     <div class="flex gap-2">
       <a class="btn btn-ghost btn-sm" href="{% url 'preguntas:tarjetas_genericas' %}" target="_blank" rel="noopener" title="Un solo juego, sin nombres, para todos los grupos">🪪 Juego de tarjetas (PDF)</a>
       <a class="btn btn-ghost btn-sm" href="{% url 'preguntas:pegatinas' %}" target="_blank" rel="noopener" title="Para el dorso: en cada número, quién lo tiene en cada grupo">🏷️ Pegatinas de mis grupos (PDF)</a>
+      <a class="btn btn-ghost btn-sm" href="{% url 'preguntas:teoria_grupo' session.group.pk %}" title="Pases cerrados, conceptos más fallados y preguntas con peor acierto">📊 Resultados de teoría</a>
       <a class="btn btn-ghost btn-sm" href="{% url 'clases:class_session_edit' session.pk %}">← Sesión</a>
     </div>
   </div>

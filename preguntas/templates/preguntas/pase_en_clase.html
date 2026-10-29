@@ -70,6 +70,7 @@
   var URL_REVELAR = '{% url "preguntas:pase_revelar" pase.pk %}';
   var URL_SIGUIENTE = '{% url "preguntas:pase_siguiente" pase.pk %}';
   var URL_CERRAR = '{% url "preguntas:pase_cerrar" pase.pk %}';
+  var URL_RESULTADOS = PROFESOR ? '{% url "preguntas:teoria_grupo" pase.group.pk %}' : '{% url "preguntas:teoria_alumno" pase.group.pk request.user.pk %}';
   var CSRF = '{{ csrf_token }}';
   var INTERVALO_SONDEO = 1000;
   var INTERVALO_CAMARA = 200;
@@ -103,7 +104,8 @@
     var contador = document.getElementById('pv-contador');
     if (e.terminado) {
       contador.textContent = e.estado === 'cerrado' ? 'Cerrado' : e.total + ' / ' + e.total;
-      cuerpo.innerHTML = '<div class="pv-grande">' + (e.estado === 'cerrado' ? '✅ Pase cerrado: respuestas guardadas.' : 'Fin del pase. Ciérralo para guardar las respuestas.') + '</div>';
+      cuerpo.innerHTML = '<div class="pv-grande">' + (e.estado === 'cerrado' ? '✅ Pase cerrado: respuestas guardadas.' : 'Fin del pase. Ciérralo para guardar las respuestas.') + '</div>'
+        + (e.estado === 'cerrado' ? '<div style="text-align:center"><a href="' + URL_RESULTADOS + '" target="_blank" rel="noopener" style="color:#93c5fd;font-size:18px">' + (PROFESOR ? '📊 Resultados de teoría del grupo' : '📊 Mis resultados de teoría') + '</a></div>' : '');
       pintarBarra();
       return;
     }
@@ -189,7 +191,7 @@
     cerrar: function () {
       if (!estado || estado.estado !== 'abierto') return;
       if (!estado.terminado && !window.confirm('Quedan preguntas por pasar. ¿Cerrar el pase y guardar lo que hay?')) return;
-      pedir(URL_CERRAR).then(function (e) { pintar(e); avisarAqui('Guardadas ' + e.respuestas + ' respuestas.'); }).catch(function (e) { avisarAqui(e.message); });
+      pedir(URL_CERRAR).then(function (e) { pintar(e); avisarAqui('Guardadas ' + e.respuestas + ' respuestas.' + (e.notas ? ' Teoría: ' + e.notas + ' casillas actualizadas.' : '') + (e.aviso ? ' ' + e.aviso : '')); }).catch(function (e) { avisarAqui(e.message); });
     },
     camara: function () {
       if (stream) { pararCamara(); return; }

@@ -20,6 +20,9 @@ urlpatterns = [
     path("pase/<int:pk>/revelar/", views_pase.pase_revelar, name="pase_revelar"),
     path("pase/<int:pk>/siguiente/", views_pase.pase_siguiente, name="pase_siguiente"),
     path("pase/<int:pk>/cerrar/", views_pase.pase_cerrar, name="pase_cerrar"),
+    # La teoría acumulada (tramo 76·3).
+    path("grupo/<int:group_id>/teoria/", views_pase.teoria_grupo, name="teoria_grupo"),
+    path("grupo/<int:group_id>/teoria/<int:alumno_id>/", views_pase.teoria_alumno, name="teoria_alumno"),
     # Prototipo de escaneo (76·0).
     path("prototipo/", views.prototipo, name="prototipo"),
     path("prototipo/detectar/", views.detectar, name="detectar"),

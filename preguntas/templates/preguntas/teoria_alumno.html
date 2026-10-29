@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Teoría · {{ alumno.name|default:alumno.email }}{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto p-4 space-y-4">
+  <div class="flex flex-wrap items-baseline justify-between gap-2">
+    <div>
+      <h1 class="text-2xl font-bold">📊 Teoría · {{ alumno.name|default:alumno.email }}</h1>
+      <p class="text-sm text-base-content/70">{{ grupo.name }} · {{ detalle.n }} pase{{ detalle.n|pluralize }}{% if detalle.media %} · media {{ detalle.media }} → <strong>{{ detalle.letra }}</strong>{% endif %}</p>
+    </div>
+    {% if profesor %}<a class="btn btn-ghost btn-sm" href="{% url 'preguntas:teoria_grupo' grupo.pk %}">← Grupo</a>{% endif %}
+  </div>
+
+  {% if not detalle.n %}
+    <div class="alert text-sm">Todavía no hay ningún pase con respuestas.</div>
+  {% else %}
+  <section class="card bg-base-200">
+    <div class="card-body p-4 gap-2">
+      <h2 class="card-title text-base">Pases</h2>
+      <ul class="divide-y divide-base-300">
+        {% for r in detalle.revisiones %}
+        <li class="py-2">
+          <div class="flex items-baseline gap-3">
+            <span class="font-mono text-sm text-base-content/60">{{ r.fecha }}</span>
+            <span class="font-bold w-8">{{ r.letra }}</span>
+            <span class="text-sm">{{ r.comentario }}</span>
+          </div>
+          {% if r.fallos %}
+          <ul class="mt-1 ml-6 text-sm space-y-0.5">
+            {% for f in r.fallos %}
+              <li>✗ {{ f.enunciado }} <span class="text-xs text-base-content/60">{% for c in f.conceptos %}concepto:{{ c }}{% if not forloop.last %} · {% endif %}{% endfor %}{% if f.sin_lectura %} · sin respuesta{% endif %}</span></li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </section>
+
+  <section class="card bg-base-200">
+    <div class="card-body p-4 gap-2">
+      <h2 class="card-title text-base">Por concepto</h2>
+      <table class="table table-sm">
+        <tbody>
+          {% for c in detalle.conceptos %}
+          <tr><td><code>concepto:{{ c.concepto }}</code></td><td class="text-right tabular-nums">{{ c.aciertos }} / {{ c.total }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

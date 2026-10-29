@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Teoría · {{ grupo.name }}{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto p-4 space-y-4">
+  <div class="flex flex-wrap items-baseline justify-between gap-2">
+    <div>
+      <h1 class="text-2xl font-bold">📊 Teoría · {{ grupo.name }}</h1>
+      <p class="text-sm text-base-content/70">{{ resumen.pases|length }} pase{{ resumen.pases|length|pluralize }} cerrado{{ resumen.pases|length|pluralize }} · {{ resumen.n_respuestas }} respuestas</p>
+    </div>
+    <div class="flex gap-2">
+      <a class="btn btn-ghost btn-sm" href="{% url 'calificaciones:registro' grupo.pk %}">Registro</a>
+      <a class="btn btn-ghost btn-sm" href="{% url 'preguntas:banco' %}">Banco de preguntas</a>
+    </div>
+  </div>
+
+  {% if not resumen.pases %}
+    <div class="alert text-sm">Todavía no hay ningún pase cerrado en este grupo.</div>
+  {% else %}
+  <section class="card bg-base-200">
+    <div class="card-body p-4 gap-2">
+      <h2 class="card-title text-base">Conceptos más fallados</h2>
+      <table class="table table-sm">
+        <thead><tr><th>Concepto</th><th class="text-right">Aciertos</th><th class="w-1/2">Acierto</th></tr></thead>
+        <tbody>
+          {% for c in resumen.conceptos %}
+          <tr>
+            <td><code>concepto:{{ c.concepto }}</code></td>
+            <td class="text-right tabular-nums">{{ c.aciertos }} / {{ c.total }}</td>
+            <td><progress class="progress {% if c.porcentaje < 50 %}progress-error{% elif c.porcentaje < 70 %}progress-warning{% else %}progress-success{% endif %} w-full" value="{{ c.porcentaje }}" max="100"></progress> <span class="text-xs tabular-nums">{{ c.porcentaje }} %</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card bg-base-200">
+    <div class="card-body p-4 gap-2">
+      <h2 class="card-title text-base">Preguntas con peor acierto</h2>
+      <p class="text-xs text-base-content/60">Si una pregunta la falla casi todo el mundo, puede que esté mal planteada: pulsa para revisarla.</p>
+      <ul class="divide-y divide-base-300">
+        {% for f in resumen.preguntas %}
+        <li class="py-2 flex items-start gap-3">
+          <span class="badge {% if f.porcentaje < 50 %}badge-error{% elif f.porcentaje < 70 %}badge-warning{% else %}badge-success{% endif %} tabular-nums shrink-0">{{ f.porcentaje }} %</span>
+          <span class="min-w-0 flex-1">
+            <a class="link link-hover" href="{% url 'preguntas:editar' f.pregunta.pk %}">{{ f.pregunta.enunciado }}</a>
+            <span class="block text-xs text-base-content/60">{% for c in f.pregunta.conceptos %}concepto:{{ c }}{% if not forloop.last %} · {% endif %}{% endfor %} · {{ f.aciertos }} de {{ f.total }} · correcta {{ f.pregunta.letra_correcta }}</span>
+          </span>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </section>
+
+  <section class="card bg-base-200">
+    <div class="card-body p-4 gap-2">
+      <h2 class="card-title text-base">Pases</h2>
+      <table class="table table-sm">
+        <thead><tr><th>Fecha</th><th>Preguntas</th><th>Alumnado</th><th>Media</th><th>Instrumento</th></tr></thead>
+        <tbody>
+          {% for p in resumen.pases %}
+          <tr>
+            <td>{{ p.pase.fecha|date:"d/m/Y" }}</td>
+            <td class="tabular-nums">{{ p.n_preguntas }}</td>
+            <td class="tabular-nums">{{ p.n_alumnos }}</td>
+            <td class="tabular-nums">{{ p.media|default:"—" }}</td>
+            <td>{% if p.instrumento %}{{ p.instrumento.nombre }}{% else %}<span class="text-base-content/50">sin evaluar</span>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card bg-base-200">
+    <div class="card-body p-4 gap-2">
+      <h2 class="card-title text-base">Por alumno</h2>
+      <div class="flex flex-wrap gap-2">
+        {% for a in alumnos %}
+          <a class="btn btn-xs btn-outline" href="{% url 'preguntas:teoria_alumno' grupo.pk a.pk %}">{{ a.name|default:a.email }}</a>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

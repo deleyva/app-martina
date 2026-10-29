@@ -17,10 +17,11 @@ from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 from reportlab.lib.units import mm
 
-from clases.models import ClassSession, Enrollment
+from calificaciones.models import alumnos_del_grupo
+from clases.models import ClassSession, Enrollment, Group
 from martina_bescos_app.users.permisos import es_profesor, grupo_del_profesor
 
-from . import aruco, vivo
+from . import aruco, teoria, vivo
 from . import tarjetas as tarjetas_pdf
 from .composicion import proponer
 from .models import Pase, Pregunta
@@ -243,10 +244,54 @@ def pase_cerrar(request, pk):
     pase = _pase_del_profesor(request, pk)
     if pase.estado == Pase.BORRADOR:
         return _error("El pase no se ha empezado.")
-    pase = vivo.cerrar(pase)
+    pase, notas, aviso = teoria.cerrar_y_calificar(pase, request.user)
     estado = vivo.estado_de(pase)
     estado["respuestas"] = pase.respuestas.count()
+    estado["notas"] = notas
+    estado["aviso"] = aviso
     return JsonResponse(estado)
+
+
+# =============================================================================
+# LA TEORÍA ACUMULADA: POR GRUPO Y POR ALUMNO (C485, C486, C487)
+# =============================================================================
+
+
+@login_required
+@user_passes_test(es_profesor)
+@require_GET
+def teoria_grupo(request, group_id):
+    """Pases cerrados del grupo, conceptos más fallados y preguntas con peor acierto."""
+    grupo = grupo_del_profesor(request.user, group_id)
+    alumnos = list(alumnos_del_grupo(grupo))
+    return render(
+        request,
+        "preguntas/teoria_grupo.html",
+        {"grupo": grupo, "resumen": teoria.resumen_del_grupo(grupo), "alumnos": alumnos},
+    )
+
+
+@login_required
+@require_GET
+def teoria_alumno(request, group_id, alumno_id):
+    """El detalle de un alumno: el profesorado del grupo ve a cualquiera; cada
+    alumno, solo el suyo (403 al resto, como `pase_estado`)."""
+    user = request.user
+    if es_profesor(user):
+        grupo = grupo_del_profesor(user, group_id)
+        alumno = get_object_or_404(alumnos_del_grupo(grupo), pk=alumno_id)
+    else:
+        if user.pk != alumno_id or not Enrollment.objects.filter(
+            user=user, group_id=group_id, is_active=True
+        ).exists():
+            raise PermissionDenied("Solo puedes ver tus propios resultados.")
+        grupo = get_object_or_404(Group, pk=group_id)
+        alumno = user
+    return render(
+        request,
+        "preguntas/teoria_alumno.html",
+        {"grupo": grupo, "alumno": alumno, "detalle": teoria.detalle_del_alumno(grupo, alumno), "profesor": es_profesor(user)},
+    )
 
 
 # =============================================================================

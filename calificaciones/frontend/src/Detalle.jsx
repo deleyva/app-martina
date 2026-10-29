@@ -1,5 +1,6 @@
 // El detalle de una casilla que es la media de varias miradas: el dado del
-// cuaderno (fase 78) y, cuando llegue, los pases de teoría (76·3).
+// cuaderno (fase 78) y los pases de teoría (76·3), que además traen las
+// preguntas falladas de cada pase y el acierto por concepto.
 //
 // Junto a la celda sale un botón pequeño con cuántas veces («×3»); al
 // pulsarlo, un desplegable con la media, la letra y cada revisión (fecha,
@@ -74,13 +75,36 @@ export default function Detalle({ detalle, columna }) {
           </div>
           <ul className="divide-y divide-slate-100">
             {detalle.revisiones.map((r, i) => (
-              <li key={`${r.sesion}-${i}`} className="py-1 flex gap-2 text-[10px]">
-                <span className="font-mono text-slate-400 w-10 shrink-0">{fecha(r.fecha)}</span>
-                <span className="font-bold w-6 shrink-0">{r.letra}</span>
-                <span className="text-slate-600 break-words">{r.comentario}</span>
+              <li key={`${r.sesion}-${i}`} className="py-1 text-[10px]">
+                <div className="flex gap-2">
+                  <span className="font-mono text-slate-400 w-10 shrink-0">{fecha(r.fecha)}</span>
+                  <span className="font-bold w-6 shrink-0">{r.letra}</span>
+                  <span className="text-slate-600 break-words">{r.comentario}</span>
+                </div>
+                {r.fallos?.length > 0 && (
+                  <ul className="ml-12 mt-0.5 text-slate-500">
+                    {r.fallos.map((f) => (
+                      <li key={f.pregunta} className="truncate" title={f.enunciado}>
+                        ✗ {f.enunciado}
+                        {f.conceptos?.length > 0 && <span className="text-slate-400"> · {f.conceptos.join(', ')}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </li>
             ))}
           </ul>
+          {detalle.conceptos?.length > 0 && (
+            <div className="mt-2 pt-2 border-t border-slate-100 text-[10px]">
+              <div className="font-bold text-slate-600 mb-0.5">Por concepto</div>
+              {detalle.conceptos.map((c) => (
+                <div key={c.concepto} className="flex justify-between gap-2">
+                  <span className="text-slate-600 truncate">{c.concepto}</span>
+                  <span className="font-mono text-slate-500 shrink-0">{c.aciertos}/{c.total}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </>
