@@ -5523,3 +5523,26 @@ Voces nuevas: `GU` guitarra/ukelele (`v` abajo, `V` abajo con acento, `^` arriba
 
 - **2026-10-28 — Construida y verificada en local.** Tres defectos cazados en Chrome y no en los tests: la fila de marcar se veía siempre (`display:flex` pisaba `hidden`), el resaltado se perdía en pausa por posiciones atrasadas del motor tras un salto (ahora se ignoran 200 ms), y el ancla con acordes que rompía las marcas al transportar (C531). Datos de prueba solo en local: `profe.pruebas@example.com` añadido al grupo Editors, la canción 858 en la biblioteca del grupo 20 y una pista de 440 Hz. Sin push ni despliegue.
 - **2026-10-28 — Desplegada («despliega»).** Push de `4b45e83` a `origin/main`; el primer `just deploy-production` murió en el primer `ssh` con «Connection reset by peer» sin tocar el servidor, y el segundo, un minuto después, fue limpio: servidor de `e2f33bf` a `4b45e83`, seis contenedores arriba, migración `0012_pistas_de_practica` aplicada (crea la tabla, no toca datos). Medido de paso: 129 elementos de sesión de clase apuntan a una letra con acordes; ninguno en bibliotecas de grupo ni personales.
+
+## Fase 83 — Bases de acompañamiento generadas desde la ficha (2026-10-29) · PRUEBA CON STAND BY ME EN PRODUCCIÓN
+
+**Goal (literal de Jesús, 2026-10-29):** «¿Podemos hacer la prueba con Stand by me?», sobre la propuesta de generar la base de cada canción con su propio ChordPro en vez de bajar el audio de YouTube.
+
+**Vision.** Una pista propia, sin derechos de terceros, en el tono escrito de la ficha y con sus marcas de sección ya puestas, porque al generarla se sabe en qué segundo empieza cada párrafo. Es el «synth audio» de Songsterr con la rejilla de ritmo de clase.
+
+### Claims
+
+- [x] **C533** — `scripts/bases/base_desde_chordpro.ts` lee la ficha (un acorde = un compás; rejilla con `parsearRitmo` de la app) y escribe MIDI, secciones y compases. *Evidencia:* Stand by Me → 120 ppm, 87 compases, 178 s; el disco dura 177 s según la ficha.
+- [x] **C534** — El audio suena a la ficha compás a compás. *Falsador:* `scripts/bases/comprobar_base.ts` (Goertzel entre Mi1 y Mi3). *Evidencia:* 87/87; con la ficha desplazada un compás, 43/87, así que la comprobación sí detecta el desfase.
+- [x] **C535** — En producción, la base sube por el 🎧, suena con sesión, sigue al tono de la letra y salta por sus marcas. *Evidencia (Chrome, sesión de Jesús, `/clases/sessions/195/items/2039/view/`):* pista 1 «Base generada (prueba)», 181 s, 7 marcas desde el servidor (0:02 … 2:26); el grave del compás 1 mide Sol con la letra en el original y La a +2; tocar «Estribillo 1» → 51,6 s tras 1,5 s, párrafo resaltado. Cierra también el pendiente de C532.
+- [ ] **C536** — Jesús la escucha y dice si vale para clase.
+
+### Decisiones
+
+- **fluidsynth + «MS Basic» de MuseScore 4 (MIT), ya instalados**, y no ACE Studio: la base pide batería, bajo y acordes deterministas; ACE Studio queda para voces o un timbre mejor si la prueba convence.
+- **Sin melodía ni riffs del disco**: el bajo toca la fundamental en los golpes de la rejilla.
+- **Compás de cuenta (cuatro baquetas) y final con platillo.**
+
+### Log
+
+- **2026-10-29 — Prueba hecha.** Generada en local, subida a producción por el visor y marcas guardadas con `pista_guardar`. Pendiente antes de pasarla a las 37: comprobar en las otras fichas la convención «un acorde = un compás» (Stand by Me cuadra con la duración del disco; una ficha con dos acordes en un compás saldría desplazada).
