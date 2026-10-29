@@ -15,6 +15,7 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
+from reportlab.lib.units import mm
 
 from clases.models import ClassSession, Enrollment
 from martina_bescos_app.users.permisos import es_profesor, grupo_del_profesor
@@ -108,6 +109,53 @@ def tarjetas_grupo(request, group_id):
         return HttpResponse(str(e), status=400)
     respuesta = HttpResponse(tarjetas_pdf.pdf_tarjetas(tarjetas), content_type="application/pdf")
     respuesta["Content-Disposition"] = f'inline; filename="tarjetas-{grupo.pk}.pdf"'
+    return respuesta
+
+
+# 23 en el grupo más grande (Jesús, 2026-10-29); 27 es una hoja de pegatinas (3×9).
+JUEGO_GENERICO = 27
+
+
+@login_required
+@user_passes_test(es_profesor)
+@require_GET
+def tarjetas_genericas(request):
+    """El juego genérico (C550): `?n=` tarjetas sin nombre, 27 si no se dice."""
+    try:
+        n = int(request.GET.get("n", JUEGO_GENERICO))
+    except ValueError:
+        return HttpResponse("n tiene que ser un número", status=400)
+    if not 1 <= n <= vivo.TARJETA_MAXIMA:
+        return HttpResponse(f"n tiene que estar entre 1 y {vivo.TARJETA_MAXIMA}", status=400)
+    respuesta = HttpResponse(tarjetas_pdf.pdf_tarjetas(vivo.juego_generico(n)), content_type="application/pdf")
+    respuesta["Content-Disposition"] = 'inline; filename="tarjetas.pdf"'
+    return respuesta
+
+
+@login_required
+@user_passes_test(es_profesor)
+@require_GET
+def pegatinas(request):
+    """Las pegatinas del dorso (C550) para los grupos del profesor.
+
+    `?ancho=70&alto=30`, en milímetros, por si el pliego no es el APLI de 3×9;
+    cuántas caben por hoja se deduce del A4.
+    """
+    try:
+        ancho = float(request.GET.get("ancho", tarjetas_pdf.PEGATINA_ANCHO / mm))
+        alto = float(request.GET.get("alto", tarjetas_pdf.PEGATINA_ALTO / mm))
+    except ValueError:
+        return HttpResponse("ancho y alto tienen que ser números (mm)", status=400)
+    columnas, filas = int(tarjetas_pdf.ANCHO // (ancho * mm)) if ancho > 0 else 0, int(tarjetas_pdf.ALTO // (alto * mm)) if alto > 0 else 0
+    if columnas < 1 or filas < 1:
+        return HttpResponse("Una etiqueta no cabe en un A4 con esas medidas", status=400)
+    try:
+        pegatinas = vivo.pegatinas_de(request.user)
+    except ValueError as e:
+        return HttpResponse(str(e), status=400)
+    pdf = tarjetas_pdf.pdf_pegatinas(pegatinas, ancho * mm, alto * mm, columnas, filas)
+    respuesta = HttpResponse(pdf, content_type="application/pdf")
+    respuesta["Content-Disposition"] = 'inline; filename="pegatinas.pdf"'
     return respuesta
 
 

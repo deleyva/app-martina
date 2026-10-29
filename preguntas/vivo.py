@@ -82,6 +82,33 @@ def alumno_por_tarjeta(group):
     }
 
 
+def juego_generico(n):
+    """N tarjetas sin nombre (C550). Un solo juego para todos los grupos: los
+    números 1–N se reutilizan entre grupos y el grupo lo da la sesión, así que
+    la tarjeta no necesita saber de quién es. El nombre va en una pegatina en el
+    dorso (decisión de Jesús, 2026-10-28)."""
+    n = max(1, min(int(n), TARJETA_MAXIMA))
+    return [{"id": i, "numero": i, "nombre": ""} for i in range(1, n + 1)]
+
+
+def pegatinas_de(user):
+    """Una pegatina por número con «grupo: nombre» de cada grupo del día a día
+    del profesor, en el orden de los números.
+
+    Reparte los números que falten en todos sus grupos. Es la app quien los
+    da, nunca la mano: la lectura busca «tarjeta 7 del grupo de la sesión» en
+    la base de datos, y una pegatina escrita a mano se la daría a otro. Los
+    grupos archivados y las plantillas quedan fuera (`Group.del_profesor`).
+    """
+    from clases.models import Group
+
+    por_numero = {}
+    for grupo in Group.del_profesor(user).order_by("name"):
+        for t in tarjetas_de(grupo):
+            por_numero.setdefault(t["numero"], []).append(f"{grupo.name}: {t['nombre']}")
+    return [{"numero": n, "lineas": por_numero[n]} for n in sorted(por_numero)]
+
+
 # =============================================================================
 # EL PASE COMO ELEMENTO DE LA SESIÓN (C479)
 # =============================================================================

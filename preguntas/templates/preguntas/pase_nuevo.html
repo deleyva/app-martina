@@ -9,7 +9,8 @@
       <p class="text-sm text-base-content/70">{{ session.group.name }} · {{ session.date|date:"d/m/Y" }} · {{ session.title }}</p>
     </div>
     <div class="flex gap-2">
-      <a class="btn btn-ghost btn-sm" href="{% url 'preguntas:tarjetas_grupo' session.group.pk %}" target="_blank" rel="noopener">🪪 Tarjetas del grupo (PDF)</a>
+      <a class="btn btn-ghost btn-sm" href="{% url 'preguntas:tarjetas_genericas' %}" target="_blank" rel="noopener" title="Un solo juego, sin nombres, para todos los grupos">🪪 Juego de tarjetas (PDF)</a>
+      <a class="btn btn-ghost btn-sm" href="{% url 'preguntas:pegatinas' %}" target="_blank" rel="noopener" title="Para el dorso: en cada número, quién lo tiene en cada grupo">🏷️ Pegatinas de mis grupos (PDF)</a>
       <a class="btn btn-ghost btn-sm" href="{% url 'clases:class_session_edit' session.pk %}">← Sesión</a>
     </div>
   </div>

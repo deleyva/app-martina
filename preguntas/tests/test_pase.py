@@ -116,6 +116,52 @@ class TestTarjetas:
         client.force_login(otro)
         assert client.get(reverse("preguntas:tarjetas_grupo", args=[grupo.pk])).status_code == 404
 
+    def test_pegatinas_cruzan_los_grupos_del_profesor_por_numero(self, grupo, alumnos, profesor):
+        """C550: la misma tarjeta 1 es Ana en un grupo y Dan en otro; el archivado no entra."""
+        otro = Group.objects.create(name="3º ESO Y", subject=grupo.subject, academic_year="2026-2027")
+        otro.teachers.add(profesor)
+        Enrollment.objects.create(user=UserFactory(name="Alumno Dan"), group=otro)
+        viejo = Group.objects.create(name="Viejo", subject=grupo.subject, academic_year="2025-2026", archivado=True)
+        viejo.teachers.add(profesor)
+        Enrollment.objects.create(user=UserFactory(name="Alumno Eva"), group=viejo)
+
+        pegatinas = vivo.pegatinas_de(profesor)
+        assert [p["numero"] for p in pegatinas] == [1, 2, 3]
+        assert pegatinas[0]["lineas"] == ["3º ESO Y: Alumno Dan", "3º ESO Z: Alumno Ana"]
+        assert pegatinas[2]["lineas"] == ["3º ESO Z: Alumno Cai"]
+        assert "Eva" not in json.dumps(pegatinas)
+        # Los números los ha repartido la app al generar las pegatinas.
+        assert Enrollment.objects.filter(group=otro, tarjeta=1).exists()
+        assert Enrollment.objects.filter(group=viejo, tarjeta__isnull=False).count() == 0
+
+        juego = vivo.juego_generico(27)
+        assert [t["numero"] for t in juego] == list(range(1, 28)) and all(t["nombre"] == "" for t in juego)
+        assert len(vivo.juego_generico(500)) == vivo.TARJETA_MAXIMA
+
+    def test_juego_generico_y_pegatinas_por_http(self, client, grupo, alumnos, profesor):
+        from io import BytesIO
+
+        from pypdf import PdfReader
+
+        client.force_login(profesor)
+        r = client.get(reverse("preguntas:tarjetas_genericas"))
+        assert r.status_code == 200 and r["Content-Type"] == "application/pdf"
+        assert len(PdfReader(BytesIO(r.content)).pages) == 14  # 27 tarjetas, dos por A4
+        assert len(PdfReader(BytesIO(client.get(reverse("preguntas:tarjetas_genericas"), {"n": "4"}).content)).pages) == 2
+        assert client.get(reverse("preguntas:tarjetas_genericas"), {"n": "0"}).status_code == 400
+        assert client.get(reverse("preguntas:tarjetas_genericas"), {"n": "x"}).status_code == 400
+
+        assert Enrollment.objects.filter(group=grupo, tarjeta__isnull=False).count() == 0
+        r = client.get(reverse("preguntas:pegatinas"))
+        assert r.status_code == 200 and r["Content-Type"] == "application/pdf"
+        assert "3º ESO Z: Alumno Bea" in PdfReader(BytesIO(r.content)).pages[0].extract_text()
+        assert Enrollment.objects.filter(group=grupo, tarjeta__isnull=False).count() == 3
+        assert client.get(reverse("preguntas:pegatinas"), {"alto": "300"}).status_code == 400
+        assert client.get(reverse("preguntas:pegatinas"), {"ancho": "abc"}).status_code == 400
+
+        client.force_login(alumnos[0])
+        assert client.get(reverse("preguntas:pegatinas")).status_code == 302  # el alumnado no imprime
+
 
 # =============================================================================
 # C479 — El pase como elemento de la sesión

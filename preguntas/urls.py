@@ -12,6 +12,8 @@ urlpatterns = [
     # El pase en clase (tramo 76·2).
     path("pase/nuevo/", views_pase.pase_nuevo, name="pase_nuevo"),
     path("grupo/<int:group_id>/tarjetas.pdf", views_pase.tarjetas_grupo, name="tarjetas_grupo"),
+    path("tarjetas.pdf", views_pase.tarjetas_genericas, name="tarjetas_genericas"),
+    path("pegatinas.pdf", views_pase.pegatinas, name="pegatinas"),
     path("pase/<int:pk>/estado/", views_pase.pase_estado, name="pase_estado"),
     path("pase/<int:pk>/abrir/", views_pase.pase_abrir, name="pase_abrir"),
     path("pase/<int:pk>/leer/", views_pase.pase_leer, name="pase_leer"),
