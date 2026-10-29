@@ -20,6 +20,10 @@ Teclas, solo mientras este visor está en pantalla y no se está escribiendo:
 🎧 Práctica (fase 82): la grabación de la canción en el tono de la letra, más
 lenta, en bucle y por párrafos. Vive en `static/js/src/reproductor_practica.js`,
 se carga al primer toque y tiene sus propias teclas (K, X, R, A, B, «,» y «.»).
+Una pista también puede ser MIDI, con mezclador por partes (fase 85).
+
+📺 Vídeo (fase 85): el videoclip de la canción (el primer YouTube del cuerpo)
+en un reproductor pequeño en la esquina, para ponerlo mientras se lee.
 
 Estilos en línea: ninguna de las tres páginas que lo incluyen carga Tailwind.
 Cada instancia guarda su estado en su propio closure, porque el modo proyector
@@ -113,6 +117,20 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
         [data-chordpro-barra] { display: none !important; }
     }
     .cpv-barra select { background: #333; color: #fff; border: 1px solid #555; border-radius: 6px; padding: 5px; font: inherit; }
+    /* 📺 Vídeo (fase 85). YouTube pide que su reproductor mida al menos
+       200 × 200 px y que no haya nada encima: la barra con ✕ va fuera, arriba. */
+    .cpv-video { position: fixed; right: 12px; z-index: 10000; background: #111; border-radius: 8px; overflow: hidden; box-shadow: 0 6px 24px rgba(0,0,0,.35); }
+    .cpv-video-barra { display: flex; gap: 8px; align-items: center; padding: 4px 6px 4px 10px; color: #fff; font: 13px system-ui, sans-serif; }
+    .cpv-video-barra span { flex: 1; }
+    .cpv-video-barra a { color: #93c5fd; }
+    .cpv-video-barra button { background: #333; color: #fff; border: 1px solid #555; border-radius: 6px; padding: 2px 8px; font: inherit; cursor: pointer; }
+    .cpv-video iframe { display: block; width: 356px; height: 200px; border: 0; }
+    .cpv-video.cpv-video-grande iframe { width: 534px; height: 300px; }
+    @media (max-width: 600px) {
+        .cpv-video { left: 8px; right: 8px; }
+        .cpv-video iframe, .cpv-video.cpv-video-grande iframe { width: 100%; height: 200px; }
+    }
+    @media print { .cpv-video { display: none !important; } }
 </style>
 
 {% with page=letra.page %}
@@ -173,9 +191,19 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
     <button type="button" data-accion="practica" aria-pressed="false"
             data-reproductor="{% static 'js/reproductor_practica.js' %}"
             data-motor="{% static 'vendor/signalsmith-stretch/SignalsmithStretch-1.3.2.js' %}"
+            data-motor-midi="{% static 'js/motor_midi.js' %}"
+            data-procesador-midi="{% static 'vendor/spessasynth/spessasynth_processor.min.js' %}"
+            data-banco-midi="{% static 'vendor/alphatab/soundfont/sonivox.sf2' %}"
             data-csrf="{{ csrf_token }}"
             title="Practicar con la grabación: en el tono de la letra, más lenta y en bucle">🎧 Práctica{% if practica.datos.pistas %} ({{ practica.datos.pistas|length }}){% endif %}</button>
     {{ practica.datos|json_script:"cpv-pistas" }}
+    <span class="cpv-sep"></span>
+    {% endif %}
+    {% videoclip page as video %}
+    {% if video %}
+    <button type="button" data-accion="video" aria-pressed="false"
+            data-video="{{ video.id }}" data-enlace="{{ video.url }}"
+            title="El videoclip de la canción en pequeño, para ponerlo mientras se lee la letra">📺 Vídeo</button>
     <span class="cpv-sep"></span>
     {% endif %}
     <button type="button" data-accion="desplazar" aria-pressed="false" title="Desplazamiento automático (espacio)">▶ Desplazar</button>
@@ -277,6 +305,9 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
                 datos: JSON.parse(barra.querySelector('script[type="application/json"]').textContent),
                 csrf: botonPractica.getAttribute('data-csrf'),
                 motor: botonPractica.getAttribute('data-motor'),
+                motorMidi: botonPractica.getAttribute('data-motor-midi'),
+                procesadorMidi: botonPractica.getAttribute('data-procesador-midi'),
+                bancoMidi: botonPractica.getAttribute('data-banco-midi'),
                 semitonosLetra: function () { return semitonos; }
             });
             alternarPractica();
@@ -288,6 +319,62 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
         s.onload = function () { botonPractica.disabled = false; montar(); };
         s.onerror = function () { botonPractica.disabled = false; botonPractica.textContent = '🎧 No se pudo cargar'; };
         document.head.appendChild(s);
+    }
+
+    // ── 📺 Vídeo (fase 85): el videoclip en pequeño, en una esquina ──
+    // Es el reproductor de YouTube tal cual, sin tocar su sonido. Se crea al
+    // tocar y se quita al cerrar: así no se carga YouTube a quien no lo pide y
+    // deja de sonar de verdad.
+    var botonVideo = barra.querySelector('[data-accion="video"]');
+    var cajaVideo = null;
+    var vigiaVideo = null;
+    var videoGrande = false;
+    function colocarVideo() {
+        if (!cajaVideo) return;
+        if (!visor.isConnected) { cerrarVideo(); return; }
+        // Encima de la barra y, si está abierto, del panel del 🎧.
+        var abajo = barra.offsetHeight;
+        var panel = barra.nextElementSibling;
+        if (panel && panel.classList.contains('cpr') && !panel.hidden) abajo += panel.offsetHeight;
+        cajaVideo.style.bottom = (abajo + 12) + 'px';
+    }
+    function cerrarVideo() {
+        if (cajaVideo) cajaVideo.remove();
+        cajaVideo = null;
+        clearInterval(vigiaVideo);
+        if (botonVideo) botonVideo.setAttribute('aria-pressed', 'false');
+    }
+    function alternarVideo() {
+        if (cajaVideo) { cerrarVideo(); return; }
+        cajaVideo = document.createElement('div');
+        cajaVideo.className = 'cpv-video' + (videoGrande ? ' cpv-video-grande' : '');
+        cajaVideo.innerHTML = '<div class="cpv-video-barra"><span>Videoclip</span>' +
+            '<a target="_blank" rel="noopener">YouTube ↗</a>' +
+            '<button type="button" data-v="tamano" title="Más grande o más pequeño">⤢</button>' +
+            '<button type="button" data-v="cerrar" title="Cerrar el vídeo">✕</button></div>';
+        cajaVideo.querySelector('a').href = botonVideo.getAttribute('data-enlace');
+        var marco = document.createElement('iframe');
+        marco.src = 'https://www.youtube-nocookie.com/embed/' +
+            encodeURIComponent(botonVideo.getAttribute('data-video')) + '?rel=0&playsinline=1&autoplay=1';
+        marco.title = 'Videoclip';
+        marco.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
+        marco.allowFullscreen = true;
+        // En producción la página va con `Referrer-Policy: same-origin`, y el
+        // reproductor de YouTube necesita saber desde qué web se incrusta.
+        marco.referrerPolicy = 'strict-origin-when-cross-origin';
+        cajaVideo.appendChild(marco);
+        cajaVideo.addEventListener('click', function (e) {
+            var b = e.target.closest('button[data-v]');
+            if (!b) return;
+            if (b.getAttribute('data-v') === 'cerrar') { cerrarVideo(); return; }
+            videoGrande = !videoGrande;
+            cajaVideo.classList.toggle('cpv-video-grande', videoGrande);
+        });
+        document.body.appendChild(cajaVideo);
+        botonVideo.setAttribute('aria-pressed', 'true');
+        colocarVideo();
+        // El panel del 🎧 se abre, crece y se cierra sin avisar: se recoloca solo.
+        vigiaVideo = setInterval(colocarVideo, 400);
     }
 
     // Dice si lo que se ve ya es el tono del grupo. Guardar «original» quita
@@ -512,6 +599,7 @@ y la sesión de estudio reemplazan el HTML en cada elemento sin avisar.
         else if (accion === 'guardar-tono') guardarTono();
         else if (accion === 'guardar-tamano') guardarTamano();
         else if (accion === 'practica') alternarPractica();
+        else if (accion === 'video') alternarVideo();
     });
 
     function arrancar() {

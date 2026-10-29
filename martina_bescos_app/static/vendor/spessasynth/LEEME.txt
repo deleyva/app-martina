@@ -1,0 +1,16 @@
+SpessaSynth — procesador de AudioWorklet (spessasynth_processor.min.js)
+Autor: spessasus y colaboradores. Licencia: Apache-2.0 (LICENSE, en esta carpeta).
+Origen: paquete npm `spessasynth_lib@4.3.14` (https://github.com/spessasus/spessasynth_lib),
+copiado tal cual de dist/ (integridad del tarball comprobada contra el registro el 2026-10-29).
+Lleva dentro spessasynth_core y el decodificador stb-vorbis (para los bancos SF3).
+
+Es el sintetizador de las pistas MIDI del reproductor de práctica (fase 85). La parte
+del hilo principal (Sequencer, WorkletSynthesizer) no está aquí: esbuild la mete en
+static/js/motor_midi.js desde node_modules, con las versiones fijadas en package.json
+(spessasynth_lib 4.3.14, y por `overrides` spessasynth_core 4.3.20 y stb-vorbis 0.0.6,
+que es la pareja con la que se publicó este procesador). Si se actualiza uno, se
+actualizan los dos a la vez: hablan entre sí por mensajes y el formato cambia entre
+versiones.
+
+El banco de sonidos por defecto es el sonivox.sf2 de alphaTab (Apache-2.0,
+static/vendor/alphatab/soundfont/). Un .rmi trae su propio banco dentro y manda.

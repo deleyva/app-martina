@@ -39,6 +39,16 @@ def mp3(nombre="cancion.mp3", contenido=AUDIO):
     return SimpleUploadedFile(nombre, contenido, content_type="audio/mpeg")
 
 
+# Fase 85: un MIDI mínimo (cabecera y una pista vacía) y el mismo dentro de un RMIDI.
+MIDI = b"MThd\x00\x00\x00\x06\x00\x00\x00\x01\x00\xc0" + b"MTrk\x00\x00\x00\x04\x00\xff\x2f\x00"
+RMIDI = b"RIFF" + (len(MIDI) + 12).to_bytes(4, "little") + b"RMIDdata" + len(MIDI).to_bytes(4, "little") + MIDI
+BOTON_VIDEO = '<button type="button" data-accion="video"'
+
+
+def midi(nombre="arreglo.mid", contenido=MIDI):
+    return SimpleUploadedFile(nombre, contenido, content_type="audio/midi")
+
+
 @override_settings(ALLOWED_HOSTS=["*"], MEDIA_ROOT=MEDIA)
 class PistasTest(TestCase):
     @classmethod
@@ -85,6 +95,23 @@ class PistasTest(TestCase):
             PistaDePractica.crear(self.cancion, None, "x")
         with self.assertRaises(ValueError):
             PistaDePractica.crear(self.cancion, mp3(), "   ")
+        self.assertFalse(PistaDePractica.objects.exists())
+
+    def test_un_midi_o_un_rmidi_es_una_pista_midi(self):
+        audio = self.pista()
+        de_midi = PistaDePractica.crear(self.cancion, midi(), "Karaoke")
+        con_banco = PistaDePractica.crear(self.cancion, midi("arreglo.rmi", RMIDI), "Karaoke con banco")
+        self.assertEqual(audio.a_json()["tipo"], "audio")
+        self.assertEqual(de_midi.a_json()["tipo"], "midi")
+        self.assertEqual(con_banco.a_json()["tipo"], "midi")
+        self.assertTrue(de_midi.archivo.name.endswith(".mid"))
+        with open(de_midi.archivo.path, "rb") as f:
+            self.assertEqual(f.read(), MIDI)
+
+    def test_un_mid_que_no_es_midi_no_entra(self):
+        for nombre, contenido in [("falso.mid", AUDIO), ("falso.rmi", b"RIFF\x00\x00\x00\x00WAVEfmt "), ("vacio.midi", b"")]:
+            with self.subTest(nombre=nombre), self.assertRaises(ValueError):
+                PistaDePractica.crear(self.cancion, midi(nombre, contenido), "x")
         self.assertFalse(PistaDePractica.objects.exists())
 
     def test_el_desfase_es_un_entero_dentro_de_una_octava(self):
@@ -250,3 +277,47 @@ class PistasTest(TestCase):
         self.assertIn(reverse("musica:pista_audio", args=[pista.pk]), html)
         self.assertIn('"puedeEditar": false', html)
         self.assertNotIn(pista.archivo.name, html)
+
+    def test_el_visor_sabe_donde_esta_el_motor_midi(self):
+        PistaDePractica.crear(self.cancion, midi(), "Karaoke")
+        html = self._visor(self.alumna)
+        self.assertIn('"tipo": "midi"', html)
+        self.assertIn("js/motor_midi.js", html)
+        self.assertIn("vendor/spessasynth/spessasynth_processor.min.js", html)
+        self.assertIn("soundfont/sonivox.sf2", html)
+
+    # --- 📺 Vídeo (fase 85) ---
+
+    def test_el_videoclip_es_el_primer_youtube_del_cuerpo(self):
+        self.cancion.body = (
+            '<p>Videoclip</p><embed embedtype="media" url="https://www.youtube.com/watch?v=hwZNL7QVJjE"/>'
+            '<p>Tutorial</p><embed embedtype="media" url="https://www.youtube.com/watch?v=AAAAAAAAAAA"/>'
+        )
+        self.cancion.save()
+        html = self._visor(self.alumna)
+        self.assertIn(BOTON_VIDEO, html)
+        self.assertIn('data-video="hwZNL7QVJjE"', html)
+        self.assertNotIn('data-video="AAAAAAAAAAA"', html)
+
+    def test_sin_youtube_no_hay_boton_de_video(self):
+        self.assertNotIn(BOTON_VIDEO, self._visor(self.alumna))
+
+    def test_el_identificador_sale_de_cualquier_forma_de_enlace(self):
+        from types import SimpleNamespace
+
+        from musica.templatetags.letras_tags import videoclip_de
+
+        casos = {
+            '<embed url="https://www.youtube.com/watch?v=hwZNL7QVJjE&amp;t=95"/>': "hwZNL7QVJjE",
+            '<a href="https://www.youtube.com/watch?feature=share&amp;v=abc-DEF_123">x</a>': "abc-DEF_123",
+            '<a href="https://youtu.be/hwZNL7QVJjE?t=3">x</a>': "hwZNL7QVJjE",
+            '<iframe src="https://www.youtube-nocookie.com/embed/hwZNL7QVJjE"></iframe>': "hwZNL7QVJjE",
+            '<a href="https://www.youtube.com/shorts/hwZNL7QVJjE">x</a>': "hwZNL7QVJjE",
+        }
+        for cuerpo, esperado in casos.items():
+            with self.subTest(cuerpo=cuerpo[:40]):
+                video = videoclip_de(SimpleNamespace(body=cuerpo))
+                self.assertEqual(video["id"], esperado)
+                self.assertEqual(video["url"], f"https://www.youtube.com/watch?v={esperado}")
+        self.assertIsNone(videoclip_de(SimpleNamespace(body="<p>Sin vídeo; vimeo.com/123</p>")))
+        self.assertIsNone(videoclip_de(None))

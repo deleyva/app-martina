@@ -2412,9 +2412,15 @@ class PistaDePractica(models.Model):
     la URL. Estas grabaciones son material comercial: viven en una carpeta que
     nginx cierra, como las notas de voz de clase, y salen por una vista que
     pide sesión.
+
+    También puede ser un MIDI (fase 85): entonces suena en el navegador con un
+    banco de sonidos, y cada parte del arreglo se apaga, se sube o se deja sola.
     """
 
-    EXTENSIONES = {".mp3", ".m4a", ".aac", ".ogg", ".oga", ".opus", ".wav", ".flac", ".webm"}
+    EXTENSIONES_AUDIO = {".mp3", ".m4a", ".aac", ".ogg", ".oga", ".opus", ".wav", ".flac", ".webm"}
+    # `.rmi` es un MIDI con su banco de sonidos dentro (RIFF «RMID»).
+    EXTENSIONES_MIDI = {".mid", ".midi", ".rmi"}
+    EXTENSIONES = EXTENSIONES_AUDIO | EXTENSIONES_MIDI
     TAMANO_MAXIMO = 40 * 1024 * 1024
     MAX_MARCAS = 300
     SEGUNDO_MAXIMO = 3600
@@ -2458,15 +2464,23 @@ class PistaDePractica(models.Model):
 
     @classmethod
     def validar_fichero(cls, fichero):
-        """Lanza `ValueError` si el fichero no es un audio admitido o es muy grande."""
+        """Lanza `ValueError` si el fichero no es un audio o un MIDI admitido, o es muy grande."""
         from pathlib import Path
 
         if fichero is None:
             raise ValueError("Falta el fichero de audio")
-        if Path(fichero.name).suffix.lower() not in cls.EXTENSIONES:
-            raise ValueError("Solo audio: " + ", ".join(sorted(e[1:] for e in cls.EXTENSIONES)))
+        extension = Path(fichero.name).suffix.lower()
+        if extension not in cls.EXTENSIONES:
+            raise ValueError("Solo audio o MIDI: " + ", ".join(sorted(e[1:] for e in cls.EXTENSIONES)))
         if fichero.size > cls.TAMANO_MAXIMO:
             raise ValueError(f"El audio pasa de {cls.TAMANO_MAXIMO // (1024 * 1024)} MB")
+        # Un MIDI se mira por dentro: el navegador lo va a leer byte a byte, y
+        # un audio renombrado a .mid acabaría en un error mudo al darle a ▶.
+        if extension in cls.EXTENSIONES_MIDI:
+            cabecera = fichero.read(12)
+            fichero.seek(0)
+            if not (cabecera[:4] == b"MThd" or (cabecera[:4] == b"RIFF" and cabecera[8:12] == b"RMID")):
+                raise ValueError("Ese fichero no es un MIDI")
 
     @classmethod
     def limpiar_semitonos(cls, valor):
@@ -2538,10 +2552,18 @@ class PistaDePractica(models.Model):
             self.save(update_fields=campos + ["actualizada"])
         return self
 
+    @property
+    def tipo(self):
+        """«midi» o «audio»: decide qué motor la toca en el visor."""
+        from pathlib import Path
+
+        return "midi" if Path(self.archivo.name).suffix.lower() in self.EXTENSIONES_MIDI else "audio"
+
     def a_json(self):
         """Lo que necesita el reproductor del visor."""
         return {
             "id": self.pk,
+            "tipo": self.tipo,
             "nombre": self.nombre,
             "semitonos": self.semitonos,
             "marcas": self.marcas,

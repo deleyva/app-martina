@@ -12,9 +12,15 @@
 // decodificado: en modo «entrada en vivo» no cambia la velocidad ni hace
 // bucles. Por eso se descarga la pista entera antes de sonar.
 //
+// Una pista también puede ser un MIDI (fase 85). Entonces suena con el motor
+// de motor_midi.js, que se carga solo en ese caso, y aparece el mezclador: una
+// fila por cada parte del arreglo para apagarla, subirla o bajarla y dejarla
+// sola. Lo demás (tono de la letra, velocidad, bucles, marcas) es igual.
+//
 // Lo carga el visor (`my_library/viewers/chordpro_viewer.html`) al pulsar 🎧,
 // y queda en `window.ReproductorPractica.montar(opciones)`.
 
+import * as M from "./mezcla.js";
 import * as P from "./practica.js";
 
 const VELOCIDAD_MIN = 0.25;
@@ -49,6 +55,15 @@ const ESTILOS = `
 .cpr .cpr-marcado { background: #3b2f0b; border-radius: 8px; padding: 6px; }
 .cpr .cpr-marca { background: #b45309; border-color: #b45309; font-weight: 700; }
 .cpr form { background: #1f2937; border-radius: 8px; padding: 8px; }
+.cpr .cpr-mezcla { gap: 6px; }
+.cpr .cpr-canal { display: inline-flex; gap: 4px; align-items: center; background: #1f2937; border-radius: 8px; padding: 3px 6px; }
+.cpr .cpr-canal button { padding: 3px 8px; min-width: 0; }
+.cpr .cpr-canal button[data-m="apagar"] { min-width: 7.5em; text-align: left; }
+.cpr .cpr-canal button[data-m="apagar"][aria-pressed="true"] { background: #333; border-color: #555; opacity: .5; text-decoration: line-through; }
+.cpr .cpr-canal button[data-m="solo"][aria-pressed="true"] { background: #ca8a04; border-color: #ca8a04; }
+.cpr .cpr-canal.cpr-callado { opacity: .55; }
+.cpr .cpr-canal input[type=range] { width: 76px; }
+.cpr .cpr-canal .cpr-vol { font-variant-numeric: tabular-nums; min-width: 3.2em; text-align: right; font-size: 12px; color: #cbd5e1; }
 .cpv-salida .paragraph.cpr-marcado { position: relative; }
 .cpv-salida .paragraph.cpr-marcado::before { content: attr(data-cpr-t); position: absolute; left: -64px; top: .1em;
        font: 600 12px system-ui, sans-serif; color: #b45309; background: #fef3c7; border-radius: 6px; padding: 1px 6px; cursor: pointer; }
@@ -71,9 +86,9 @@ function estilos() {
   document.head.appendChild(s);
 }
 
-function cargarScript(src) {
+function cargarScript(src, global) {
   return new Promise((ok, mal) => {
-    if (window.SignalsmithStretch) return ok();
+    if (window[global]) return ok();
     const s = document.createElement("script");
     s.src = src;
     s.onload = () => ok();
@@ -148,10 +163,11 @@ function plantilla(puedeEditar) {
       <span class="cpr-grupo" title="Cuántos semitonos suena la grabación por encima de la letra tal como está escrita">
         Grabación <button type="button" data-c="des-">−</button><span data-v="des">0</span><button type="button" data-c="des+">+</button>
       </span>
-      <button type="button" data-c="nueva" title="Subir otra grabación">＋ Audio</button>
+      <button type="button" data-c="nueva" title="Subir otra grabación o un MIDI">＋ Audio</button>
       <button type="button" data-c="borrar" title="Borrar esta grabación">🗑</button>
     </span>` : ""}
   </div>
+  <div class="cpr-fila cpr-mezcla" data-v="mezcla" hidden></div>
   <div class="cpr-fila cpr-aviso" data-v="estado" hidden></div>
   ${puedeEditar ? `
   <div class="cpr-fila cpr-ayuda" data-v="sin-marcas" hidden>
@@ -166,7 +182,7 @@ function plantilla(puedeEditar) {
     <span data-v="guardado"></span>
   </div>
   <form class="cpr-fila" data-v="form" hidden>
-    <input type="file" name="archivo" accept="audio/*,.mp3,.m4a,.ogg,.wav,.flac,.opus" required>
+    <input type="file" name="archivo" accept="audio/*,.mp3,.m4a,.ogg,.wav,.flac,.opus,.mid,.midi,.rmi" required>
     <input type="text" name="nombre" value="Original" maxlength="80" placeholder="Nombre" required style="width: 12em">
     <label>Suena <select name="semitonos">${opciones.join("")}</select> semitonos por encima de la letra escrita</label>
     <button type="submit">Subir</button>
@@ -193,7 +209,10 @@ function montar(op) {
   let actual = pistas[0] || null;
   // El visor lo crea dentro del toque en 🎧, antes de cargar este fichero.
   let ctx = op.contexto || null;
-  let nodo = null;
+  let nodo = null;            // el motor de la pista cargada: nodoAudio o nodoMidi
+  let nodoAudio = null;
+  let nodoMidi = null;
+  let mezcla = {};            // la de `actual` si es MIDI: canal → { apagado, solo, volumen }
   let cargada = null;
   let cargando = null;
   let duracion = 0;
@@ -367,15 +386,33 @@ function montar(op) {
     return ctx;
   }
 
-  async function motor() {
-    if (nodo) return nodo;
+  async function motorAudio() {
+    if (nodoAudio) return nodoAudio;
     const audio = contexto();
     if (!audio.audioWorklet) throw new Error("Este navegador no puede cambiar el tono ni la velocidad (le falta AudioWorklet).");
-    await cargarScript(op.motor);
-    nodo = await window.SignalsmithStretch(audio);
-    nodo.connect(audio.destination);
-    nodo.setUpdateInterval(0.05, alAvanzar);
-    return nodo;
+    await cargarScript(op.motor, "SignalsmithStretch");
+    nodoAudio = await window.SignalsmithStretch(audio);
+    nodoAudio.connect(audio.destination);
+    nodoAudio.setUpdateInterval(0.05, alAvanzar);
+    return nodoAudio;
+  }
+
+  // El de MIDI se crea una vez y se queda, con el banco de sonidos dentro.
+  let creandoMidi = null;
+  function motorMidi() {
+    if (!creandoMidi) {
+      creandoMidi = (async () => {
+        const audio = contexto();
+        if (!audio.audioWorklet) throw new Error("Este navegador no puede tocar MIDI (le falta AudioWorklet).");
+        await cargarScript(op.motorMidi, "MotorMidi");
+        avisar("Cargando los instrumentos…");
+        nodoMidi = await window.MotorMidi.crear(audio, { procesador: op.procesadorMidi, banco: op.bancoMidi });
+        nodoMidi.setUpdateInterval(0.05, alAvanzar);
+        return nodoMidi;
+      })();
+      creandoMidi.catch(() => { creandoMidi = null; });
+    }
+    return creandoMidi;
   }
 
   async function descargar(url) {
@@ -403,32 +440,89 @@ function montar(op) {
     if (cargada === pista.id) return Promise.resolve();
     if (cargando && cargando.id === pista.id) return cargando.promesa;
     const promesa = (async () => {
-      await motor();
+      const esMidi = pista.tipo === "midi";
+      const motorPista = esMidi ? await motorMidi() : await motorAudio();
       avisar("Descargando la grabación…");
       const bytes = await descargar(pista.audio);
-      avisar("Preparando la grabación…");
-      let buf;
-      try {
-        buf = await ctx.decodeAudioData(bytes);
-      } catch (e) {
-        throw new Error("Este navegador no sabe leer ese formato de audio. Prueba con MP3.");
-      }
       if (actual !== pista) return;   // se cambió de pista mientras bajaba
-      await nodo.dropBuffers();
-      // Copias propias de cada canal, que se TRANSFIEREN al worklet: el búfer
-      // decodificado se libera y no hay dos copias de la canción en memoria.
-      const canales = [];
-      for (let i = 0; i < Math.min(2, buf.numberOfChannels); i++) canales.push(new Float32Array(buf.getChannelData(i)));
-      if (canales.length === 1) canales.push(new Float32Array(canales[0]));
-      duracion = await nodo.addBuffers(canales, canales.map((a) => a.buffer));
+      if (nodo && nodo !== motorPista) nodo.schedule({ active: false });
+      if (esMidi) {
+        nodo = motorPista;
+        duracion = await nodo.cargar(bytes);
+        if (actual !== pista) return;
+        mezcla = leerMezcla(pista);
+        aplicarMezcla();
+      } else {
+        avisar("Preparando la grabación…");
+        let buf;
+        try {
+          buf = await ctx.decodeAudioData(bytes);
+        } catch (e) {
+          throw new Error("Este navegador no sabe leer ese formato de audio. Prueba con MP3.");
+        }
+        if (actual !== pista) return;
+        nodo = motorPista;
+        await nodo.dropBuffers();
+        // Copias propias de cada canal, que se TRANSFIEREN al worklet: el búfer
+        // decodificado se libera y no hay dos copias de la canción en memoria.
+        const canales = [];
+        for (let i = 0; i < Math.min(2, buf.numberOfChannels); i++) canales.push(new Float32Array(buf.getChannelData(i)));
+        if (canales.length === 1) canales.push(new Float32Array(canales[0]));
+        duracion = await nodo.addBuffers(canales, canales.map((a) => a.buffer));
+      }
       cargada = pista.id;
       posicion = 0;
       avisar("");
+      pintarMezcla();
       pintarControles();
     })();
     cargando = { id: pista.id, promesa };
     promesa.catch(() => {}).then(() => { if (cargando && cargando.promesa === promesa) cargando = null; });
     return promesa;
+  }
+
+  // ── Mezclador (solo pistas MIDI) ──
+  // La mezcla se recuerda en el navegador de cada uno, por pista: es cómo
+  // quiere practicar esa persona, no un dato de la canción.
+  function leerMezcla(pista) {
+    try { return JSON.parse(leerLocal("cpr-mezcla:" + pista.id)) || {}; } catch (e) { return {}; }
+  }
+
+  function aplicarMezcla() {
+    if (!nodoMidi || nodo !== nodoMidi) return;
+    nodoMidi.mezclar(M.sonido(nodoMidi.canales, mezcla));
+    if (actual) guardarLocal("cpr-mezcla:" + actual.id, JSON.stringify(mezcla));
+  }
+
+  function canalesMidi() {
+    return actual && actual.tipo === "midi" && cargada === actual.id && nodoMidi ? nodoMidi.canales : [];
+  }
+
+  function pintarMezcla() {
+    const fila = v("mezcla");
+    const canales = canalesMidi();
+    const antes = fila.hidden;
+    fila.hidden = !canales.length;
+    if (canales.length) {
+      const sonido = M.sonido(canales, mezcla);
+      // Los nombres salen de la tabla General MIDI de mezcla.js, no del fichero.
+      fila.innerHTML = canales.map((ch) => {
+        const f = mezcla[ch.canal] || {};
+        const vol = Math.round((typeof f.volumen === "number" ? f.volumen : 1) * 100);
+        return `<span class="cpr-canal${sonido.get(ch.canal).mudo ? " cpr-callado" : ""}" data-canal="${ch.canal}">
+          <button type="button" data-m="apagar" aria-pressed="${f.apagado ? "true" : "false"}" title="Apagar o encender: ${ch.nombre}">${f.apagado ? "🔇" : "🔊"} ${ch.nombre}</button>
+          <input type="range" data-m="volumen" min="0" max="${M.VOLUMEN_MAX * 100}" step="5" value="${vol}" aria-label="Volumen: ${ch.nombre}">
+          <span class="cpr-vol">${vol} %</span>
+          <button type="button" data-m="solo" aria-pressed="${f.solo ? "true" : "false"}" title="Oír solo esta parte (se pueden elegir varias)">Solo</button>
+        </span>`;
+      }).join("") + `<button type="button" data-m="todo" title="Todas las partes encendidas, al 100 % y sin solo">Restablecer</button>`;
+    }
+    if (antes !== fila.hidden) colocar();
+  }
+
+  function cambiarMezcla(canal, cambio) {
+    mezcla = Object.assign({}, mezcla, { [canal]: Object.assign({}, mezcla[canal], cambio) });
+    aplicarMezcla();
   }
 
   function aplicar(extra) {
@@ -525,8 +619,10 @@ function montar(op) {
     duracion = cargada === null ? 0 : duracion;
     posicion = 0;
     velocidad = Number(pista && leerLocal("cpr-vel:" + pista.id)) || 1;
+    mezcla = pista ? leerMezcla(pista) : {};
     pintarSelector();
     decorar();
+    pintarMezcla();
     pintarControles();
     if (pista && abierto) cargar(pista).catch((e) => avisar(e.message));
   }
@@ -697,7 +793,9 @@ function montar(op) {
     if (destruido) return;
     destruido = true;
     sonando = false;
-    try { if (nodo) { nodo.stop(); nodo.disconnect(); } } catch (e) { /* ya parado */ }
+    for (const n of [nodoAudio, nodoMidi]) {
+      try { if (n) { n.stop(); n.disconnect(); } } catch (e) { /* ya parado */ }
+    }
     try { if (ctx) ctx.close(); } catch (e) { /* ya cerrado */ }
     if (vigia) vigia.disconnect();
     window.removeEventListener("resize", colocar);
@@ -745,6 +843,27 @@ function montar(op) {
     else if (n === "nueva") mostrarFormulario(v("form").hidden);
     else if (n === "cancelar") mostrarFormulario(false);
     else if (n === "borrar") borrar();
+  });
+  v("mezcla").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-m]");
+    if (!b || b.tagName !== "BUTTON") return;
+    const m = b.getAttribute("data-m");
+    if (m === "todo") mezcla = {};
+    else {
+      const canal = Number(b.closest("[data-canal]").getAttribute("data-canal"));
+      const f = mezcla[canal] || {};
+      if (m === "apagar") cambiarMezcla(canal, { apagado: !f.apagado });
+      else if (m === "solo") cambiarMezcla(canal, { solo: !f.solo });
+    }
+    aplicarMezcla();
+    pintarMezcla();
+  });
+  // El volumen suena mientras se arrastra; repintar la fila aquí cortaría el gesto.
+  v("mezcla").addEventListener("input", (e) => {
+    if (e.target.getAttribute("data-m") !== "volumen") return;
+    const canal = Number(e.target.closest("[data-canal]").getAttribute("data-canal"));
+    cambiarMezcla(canal, { volumen: Number(e.target.value) / 100 });
+    e.target.nextElementSibling.textContent = e.target.value + " %";
   });
   c("pista").addEventListener("change", (e) => {
     const p = pistas.find((x) => String(x.id) === e.target.value);
@@ -811,9 +930,12 @@ function montar(op) {
     // el contexto y el nodo para medir la salida, y el estado.
     get contexto() { return ctx; },
     get nodo() { return nodo; },
+    // Fase 85: `motorMidi.salida` es el nodo donde se mide lo que suena.
+    get motorMidi() { return nodoMidi; },
     get estado() {
-      return { pista: actual && actual.id, cargada, duracion, posicion, sonando, velocidad,
-        semitonos: semitonosAudio(), bucle, marcas: marcas.slice(), seccion };
+      return { pista: actual && actual.id, tipo: actual && actual.tipo, cargada, duracion, posicion, sonando, velocidad,
+        semitonos: semitonosAudio(), bucle, marcas: marcas.slice(), seccion,
+        canales: canalesMidi().map((ch) => ({ canal: ch.canal, nombre: ch.nombre })), mezcla };
     },
   };
   visor.reproductorPractica = api;
