@@ -27,11 +27,22 @@ test("el tramo de una sección acaba donde empieza la siguiente, y la última al
 });
 
 test("marcar sigue la canción: el siguiente al último párrafo marcado antes de ahora", () => {
-  expect(siguientePorMarcar([], 5, 0)).toBe(0);
-  expect(siguientePorMarcar(MARCAS, 5, 41)).toBe(3);
+  const todos = [0, 1, 2, 3, 4];
+  expect(siguientePorMarcar([], todos, 0)).toBe(0);
+  expect(siguientePorMarcar(MARCAS, todos, 41)).toBe(3);
   // Volviendo atrás para rehacer: cuenta lo marcado ANTES del segundo actual.
-  expect(siguientePorMarcar(MARCAS, 5, 20)).toBe(2);
-  expect(siguientePorMarcar(MARCAS, 3, 41)).toBe(-1);
+  expect(siguientePorMarcar(MARCAS, todos, 20)).toBe(2);
+  expect(siguientePorMarcar(MARCAS, [0, 1, 2], 41)).toBe(-1);
+});
+
+test("marcar se salta los párrafos que no se tocan (comentarios, datos de la ficha)", () => {
+  // Stand by Me: 0 = comentario de la cejilla, 1 = datos; la intro es el 2.
+  const marcables = [2, 3, 4, 5, 6, 7, 8];
+  expect(siguientePorMarcar([], marcables, 0)).toBe(2);
+  expect(siguientePorMarcar([{ p: 2, t: 2 }], marcables, 5)).toBe(3);
+  // Un párrafo sin acordes marcado a mano (tocándolo) no rompe la cuenta.
+  expect(siguientePorMarcar([{ p: 1, t: 0.5 }], marcables, 1)).toBe(2);
+  expect(siguientePorMarcar([{ p: 8, t: 146 }], marcables, 150)).toBe(-1);
 });
 
 test("marcar un párrafo ya marcado lo mueve, no lo duplica", () => {

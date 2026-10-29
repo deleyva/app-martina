@@ -53,7 +53,9 @@ const ESTILOS = `
 .cpv-salida .paragraph.cpr-marcado::before { content: attr(data-cpr-t); position: absolute; left: -64px; top: .1em;
        font: 600 12px system-ui, sans-serif; color: #b45309; background: #fef3c7; border-radius: 6px; padding: 1px 6px; cursor: pointer; }
 .cpv-salida .paragraph.cpr-sonando { background: #fef9c3; box-shadow: 0 0 0 8px #fef9c3; border-radius: 4px; }
-.cpv-salida.cpr-modo-marcar .paragraph { cursor: crosshair; outline: 1px dashed #d1d5db; outline-offset: 4px; }
+.cpv-salida.cpr-modo-marcar .paragraph { cursor: crosshair; }
+.cpv-salida.cpr-modo-marcar .paragraph.cpr-marcable { outline: 1px dashed #d1d5db; outline-offset: 4px; }
+.cpr .cpr-ayuda { color: #cbd5e1; font-size: 13px; }
 .cpv-salida.cpr-modo-marcar .paragraph.cpr-siguiente { outline: 2px solid #b45309; }
 @media (max-width: 760px) { .cpv-salida .paragraph.cpr-marcado::before { position: static; display: inline-block; margin-bottom: 2px; } }
 @media print { .cpr { display: none !important; }
@@ -100,6 +102,15 @@ function textoDe(parrafo) {
   return copia.textContent;
 }
 
+// Cómo se nombra un párrafo en «Siguiente: …»: su etiqueta («Estrofa 1»,
+// «Estribillo») o su comentario («Intro»); si no tiene, sus primeras palabras.
+// Con el texto entero salía «Preestribillo'Cause we…», etiqueta y verso pegados.
+function nombreDe(parrafo) {
+  const rotulo = parrafo.querySelector(".label") || parrafo.querySelector(".comment");
+  const texto = rotulo && rotulo.textContent.trim();
+  return texto || textoDe(parrafo).replace(/\s+/g, " ").trim().slice(0, 40) + "…";
+}
+
 function plantilla(puedeEditar) {
   const opciones = [];
   for (let s = -11; s <= 11; s++) {
@@ -132,7 +143,8 @@ function plantilla(puedeEditar) {
     <button type="button" data-c="seguir" aria-pressed="true" title="La letra va al párrafo que suena">Seguir</button>
     ${puedeEditar ? `
     <span class="cpr-grupo">
-      <button type="button" data-c="marcar" aria-pressed="false" title="Marcar dónde empieza cada párrafo">✎ Marcar</button>
+      <button type="button" data-c="marcar" aria-pressed="false"
+              title="Decir en qué segundo de esta grabación empieza cada estrofa y estribillo, para poder saltar y repetir por partes">⏱ Marcar secciones</button>
       <span class="cpr-grupo" title="Cuántos semitonos suena la grabación por encima de la letra tal como está escrita">
         Grabación <button type="button" data-c="des-">−</button><span data-v="des">0</span><button type="button" data-c="des+">+</button>
       </span>
@@ -142,8 +154,12 @@ function plantilla(puedeEditar) {
   </div>
   <div class="cpr-fila cpr-aviso" data-v="estado" hidden></div>
   ${puedeEditar ? `
+  <div class="cpr-fila cpr-ayuda" data-v="sin-marcas" hidden>
+    Esta grabación aún no sabe dónde empieza cada parte. Pulsa <b>⏱ Marcar secciones</b> y márcalas una vez: luego se podrá saltar y repetir por partes.
+  </div>
   <div class="cpr-fila cpr-marcado" data-v="marcado" hidden>
-    <span>Pulsa <b>X</b> o ⏺ cuando empiece cada párrafo, o toca un párrafo para ponerle el segundo actual. Siguiente: <b data-v="siguiente">—</b></span>
+    <span>Dale a ▶ y pulsa <b>X</b> (o ⏺) justo cuando empiece el párrafo recuadrado: <b data-v="siguiente">—</b>.
+      ¿Te has pasado? ↶ quita la última, o para el audio en el sitio bueno y toca el párrafo. Se guarda solo.</span>
     <button type="button" class="cpr-marca" data-c="marca">⏺ Marca (X)</button>
     <button type="button" data-c="deshacer" title="Quitar la última marca">↶</button>
     <button type="button" data-c="limpiar">Borrar todas</button>
@@ -192,6 +208,7 @@ function montar(op) {
   let marcas = [];            // las de `actual`, reancladas a la letra de ahora
   let seccion = -1;
   let parrafos = [];
+  let marcables = [];         // índices de los párrafos que se tocan (con acordes)
   let abierto = false;
   let destruido = false;
   const paddingOriginal = visor.style.paddingBottom;
@@ -248,6 +265,16 @@ function montar(op) {
     pintarTicks();
   }
 
+  // La línea «aún no sabe dónde empieza cada parte»: solo para quien puede
+  // marcar, con una grabación sin marcas y fuera del modo marcar.
+  function pintarAyuda() {
+    const ayuda = v("sin-marcas");
+    if (!ayuda) return;
+    const antes = ayuda.hidden;
+    ayuda.hidden = !actual || marcando || marcas.length > 0;
+    if (antes !== ayuda.hidden) colocar();
+  }
+
   function pintarPosicion() {
     const pos = c("pos");
     pos.max = String(duracion || 0);
@@ -278,6 +305,12 @@ function montar(op) {
   // ── La letra: marcas, párrafo que suena, siguiente por marcar ──
   function decorar() {
     parrafos = Array.from(salida.querySelectorAll(".paragraph"));
+    // Por estos va la X al marcar: los comentarios y los datos de la ficha no
+    // se tocan, y antes la primera X caía en ellos y no en la intro.
+    const conAcordes = parrafos
+      .map((el, i) => (Array.from(el.querySelectorAll(".chord")).some((c) => c.textContent.trim()) ? i : -1))
+      .filter((i) => i >= 0);
+    marcables = conAcordes.length ? conAcordes : parrafos.map((_, i) => i);
     const anclas = parrafos.map((p) => P.ancla(textoDe(p)));
     const r = P.reanclar(actual ? actual.marcas || [] : [], anclas);
     marcas = r.marcas;
@@ -288,8 +321,10 @@ function montar(op) {
       if (m) el.setAttribute("data-cpr-t", P.formatoTiempo(m.t));
       else el.removeAttribute("data-cpr-t");
       el.classList.remove("cpr-sonando", "cpr-siguiente");
+      el.classList.toggle("cpr-marcable", abierto && marcando && marcables.includes(i));
     });
     salida.classList.toggle("cpr-modo-marcar", abierto && marcando);
+    pintarAyuda();
     seccion = -1;
     pintarSeccion();
     pintarTicks();
@@ -311,9 +346,9 @@ function montar(op) {
       }
     }
     if (marcando) {
-      const sig = P.siguientePorMarcar(marcas, parrafos.length, posicion);
+      const sig = P.siguientePorMarcar(marcas, marcables, posicion);
       parrafos.forEach((el, i) => el.classList.toggle("cpr-siguiente", i === sig));
-      v("siguiente").textContent = sig < 0 ? "ya no quedan párrafos" : "«" + textoDe(parrafos[sig]).trim().slice(0, 40) + "…»";
+      v("siguiente").textContent = sig < 0 ? "ya no quedan párrafos" : "«" + nombreDe(parrafos[sig]) + "»";
     }
   }
 
@@ -534,7 +569,7 @@ function montar(op) {
 
   function marcaAqui() {
     if (cargada === null) return;
-    const sig = P.siguientePorMarcar(marcas, parrafos.length, posicion);
+    const sig = P.siguientePorMarcar(marcas, marcables, posicion);
     if (sig < 0) return;
     marcarParrafo(sig, Math.max(0, posicion - (sonando ? REACCION * velocidad : 0)));
   }

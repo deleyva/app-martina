@@ -30,13 +30,16 @@ export function tramoDe(marcas, i, duracion) {
   return { inicio: marcas[i].t, fin: Math.max(fin, marcas[i].t) };
 }
 
-// El párrafo que toca marcar al pulsar M: el siguiente al último marcado antes
-// del segundo `t` (marcar es ir siguiendo la canción). -1 si ya no quedan.
-export function siguientePorMarcar(marcas, numParrafos, t) {
+// El párrafo que toca marcar al pulsar X: el siguiente párrafo MARCABLE después
+// del último marcado antes del segundo `t` (marcar es ir siguiendo la canción).
+// `marcables` son los índices, en orden, de los párrafos que se tocan (los que
+// tienen acordes): sin esto, la primera X caía en «Tonalidad de Sol…» y no en
+// la intro (Jesús, 2026-10-29: «No entiendo el botón Marcar»). -1 si no quedan.
+export function siguientePorMarcar(marcas, marcables, t) {
   let ultimo = -1;
   for (const m of marcas) if (m.t <= t + 1e-6 && m.p > ultimo) ultimo = m.p;
-  const siguiente = ultimo + 1;
-  return siguiente < numParrafos ? siguiente : -1;
+  const siguiente = marcables.find((p) => p > ultimo);
+  return siguiente === undefined ? -1 : siguiente;
 }
 
 // Pone (o mueve) la marca del párrafo `p` en el segundo `t`.

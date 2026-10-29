@@ -5522,6 +5522,9 @@ Voces nuevas: `GU` guitarra/ukelele (`v` abajo, `V` abajo con acento, `^` arriba
 ### Log
 
 - **2026-10-28 — Construida y verificada en local.** Tres defectos cazados en Chrome y no en los tests: la fila de marcar se veía siempre (`display:flex` pisaba `hidden`), el resaltado se perdía en pausa por posiciones atrasadas del motor tras un salto (ahora se ignoran 200 ms), y el ancla con acordes que rompía las marcas al transportar (C531). Datos de prueba solo en local: `profe.pruebas@example.com` añadido al grupo Editors, la canción 858 en la biblioteca del grupo 20 y una pista de 440 Hz. Sin push ni despliegue.
+- [x] **C537** — Marcar recorre solo los párrafos que se tocan (con acordes): la primera X cae en la intro, no en el comentario de la tonalidad. *Falsador: `practica.test.js` («marcar se salta los párrafos que no se tocan») + Chrome.* **Evidencia (Chrome, Perfect en local):** recuadrado el párrafo 1 (Intro), no el 0 (comentario); primera X → p1, segunda → p2; 9 marcables = 9 párrafos con acordes.
+- [x] **C538** — El botón se entiende solo: «⏱ Marcar secciones» con descripción, una línea de ayuda cuando la grabación no tiene marcas, pasos en la franja de marcar, y «Siguiente» con el nombre de la sección («Intro», «Estrofa 1»). *Evidencia:* ayuda visible sin marcas y oculta al marcar; «Siguiente: «Intro»» igual a su rótulo.
+
 - **2026-10-28 — Desplegada («despliega»).** Push de `4b45e83` a `origin/main`; el primer `just deploy-production` murió en el primer `ssh` con «Connection reset by peer» sin tocar el servidor, y el segundo, un minuto después, fue limpio: servidor de `e2f33bf` a `4b45e83`, seis contenedores arriba, migración `0012_pistas_de_practica` aplicada (crea la tabla, no toca datos). Medido de paso: 129 elementos de sesión de clase apuntan a una letra con acordes; ninguno en bibliotecas de grupo ni personales.
 
 ## Fase 83 — Bases de acompañamiento generadas desde la ficha (2026-10-29) · PRUEBA CON STAND BY ME EN PRODUCCIÓN
@@ -5546,3 +5549,4 @@ Voces nuevas: `GU` guitarra/ukelele (`v` abajo, `V` abajo con acento, `^` arriba
 ### Log
 
 - **2026-10-29 — Prueba hecha.** Generada en local, subida a producción por el visor y marcas guardadas con `pista_guardar`. Pendiente antes de pasarla a las 37: comprobar en las otras fichas la convención «un acorde = un compás» (Stand by Me cuadra con la duración del disco; una ficha con dos acordes en un compás saldría desplazada).
+- **2026-10-29 — 82·1, marcar se entiende** (Jesús: «No entiendo el botón Marcar»). La X se saltaba nada: recorría también comentarios y datos de la ficha, y la primera marca caía en «Tonalidad de Sol…». Ahora solo párrafos con acordes; botón renombrado y dos líneas de ayuda.
