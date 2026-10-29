@@ -582,6 +582,24 @@ function montar(op) {
     guardarPronto(() => ({ semitonos: actual.semitonos }));
   }
 
+  // «Borrar todas» en dos toques, como 🗑: con uno solo se perdieron las siete
+  // marcas de Stand by Me probando el botón (2026-10-29).
+  let confirmarLimpiar = null;
+  function limpiar() {
+    const b = c("limpiar");
+    if (!marcas.length) return;
+    if (!confirmarLimpiar) {
+      b.textContent = "¿Borrar las " + marcas.length + " marcas? Sí";
+      confirmarLimpiar = setTimeout(() => { confirmarLimpiar = null; b.textContent = "Borrar todas"; }, 4000);
+      return;
+    }
+    clearTimeout(confirmarLimpiar);
+    confirmarLimpiar = null;
+    b.textContent = "Borrar todas";
+    marcas = [];
+    guardarMarcas();
+  }
+
   let confirmarBorrado = null;
   function borrar() {
     const b = c("borrar");
@@ -721,7 +739,7 @@ function montar(op) {
       marcas = marcas.filter((m) => m !== ultima);
       guardarMarcas();
     }
-    else if (n === "limpiar") { marcas = []; guardarMarcas(); }
+    else if (n === "limpiar") limpiar();
     else if (n === "des-") cambiarDesfase(-1);
     else if (n === "des+") cambiarDesfase(1);
     else if (n === "nueva") mostrarFormulario(v("form").hidden);
