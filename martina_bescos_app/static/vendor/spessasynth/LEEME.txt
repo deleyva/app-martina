@@ -4,6 +4,11 @@ Origen: paquete npm `spessasynth_lib@4.3.14` (https://github.com/spessasus/spess
 copiado tal cual de dist/ (integridad del tarball comprobada contra el registro el 2026-10-29).
 Lleva dentro spessasynth_core y el decodificador stb-vorbis (para los bancos SF3).
 
+El .map va con él, también tal cual del paquete, y no sobra: el .js termina en
+`sourceMappingURL=spessasynth_processor.min.js.map` y el almacenamiento de producción
+(CompressedManifestStaticFilesStorage) aborta el collectstatic si no lo encuentra. Sin
+él, el despliegue del 2026-10-29 dejó django en bucle de reinicios y la web en 502.
+
 Es el sintetizador de las pistas MIDI del reproductor de práctica (fase 85). La parte
 del hilo principal (Sequencer, WorkletSynthesizer) no está aquí: esbuild la mete en
 static/js/motor_midi.js desde node_modules, con las versiones fijadas en package.json
