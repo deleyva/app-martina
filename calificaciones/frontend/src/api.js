@@ -70,6 +70,7 @@ export const api = {
       texto,
     }),
   borrarEvidencia: (id) => enviar(`/calificaciones/evidencia/${id}/borrar/`, {}),
+  evidencia: (id) => pedir(`/calificaciones/evidencia/${id}/estado/`),
   revertir: (id) => enviar(`/calificaciones/cambio/${id}/revertir/`, { grupo: config.grupo }),
   empezar: (trimestre, campos) => enviar(`${config.base}plan/adoptar/?t=${trimestre}`, campos),
   crearPrueba: (instrumento, nombre, fecha) =>

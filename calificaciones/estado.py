@@ -16,6 +16,7 @@ hay un camino corto que recalcule «solo lo que cambió».
 from __future__ import annotations
 
 from decimal import Decimal
+from pathlib import Path
 
 from clases.models import Group
 
@@ -285,7 +286,9 @@ def evidencia_json(evidencia: Evidencia) -> dict:
         "tamano": evidencia.tamano,
         "estado": evidencia.estado,
         "fecha": evidencia.created_at.isoformat(),
-        "url": f"/calificaciones/evidencia/{evidencia.pk}/" if fichero else "",
+        # `?v=` cambia con el fichero: cuando Huey sustituye la foto por su
+        # fotocopia, el navegador no enseña la que tenía en caché.
+        "url": f"/calificaciones/evidencia/{evidencia.pk}/?v={Path(fichero.name).stem[:8]}" if fichero else "",
     }
 
 

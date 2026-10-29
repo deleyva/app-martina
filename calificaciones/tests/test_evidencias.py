@@ -12,15 +12,17 @@ from calificaciones.models import Evidencia, Prueba
 
 
 @pytest.fixture
-def subir(client, profesor, group, alumnos, plan):
+def subir(client, profesor, group, alumnos, plan, django_capture_on_commit_callbacks):
+    """Sube como el clip. Las tareas se encolan al confirmar: aquí se ejecuta ese momento."""
     client.force_login(profesor)
     prueba = Prueba.objects.filter(instrumento__plan=plan).first()
 
-    def _subir(tipo, nombre, contenido=b"x" * 1000, declarado="application/octet-stream", **extra):
+    def _subir(tipo, nombre, contenido=b"x" * 1000, declarado="application/octet-stream", confirmar=True, **extra):
         datos = {"prueba": prueba.pk, "alumno": alumnos[0].pk, "tipo": tipo, **extra}
         if nombre:
             datos["archivo"] = SimpleUploadedFile(nombre, contenido, content_type=declarado)
-        return client.post(reverse("calificaciones:evidencia_subir", args=[group.pk]), datos)
+        with django_capture_on_commit_callbacks(execute=confirmar):
+            return client.post(reverse("calificaciones:evidencia_subir", args=[group.pk]), datos)
 
     return _subir
 
@@ -69,7 +71,7 @@ def test_lo_declarado_tiene_que_casar_con_el_fichero(subir):
 
 @pytest.mark.django_db
 def test_subir_archivo_reconoce_lo_que_es(subir):
-    with mock.patch("calificaciones.tasks.comprimir_video"):
+    with mock.patch("calificaciones.tasks.comprimir_video"), mock.patch("calificaciones.tasks.procesar_foto"):
         for nombre, tipo in [
             ("a.jpg", "foto"),
             ("a.PNG", "foto"),

@@ -132,13 +132,22 @@ export default function Galeria({ items, onClose, onDelete, onAdd }) {
 
                   {/* Image preview */}
                   {isImage(item) && (
-                    <a href={item.url} target="_blank" rel="noopener noreferrer">
-                      <img
-                        src={item.url}
-                        alt={item.nombre}
-                        className="w-full h-32 object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                      />
-                    </a>
+                    <>
+                      <a href={item.url} target="_blank" rel="noopener noreferrer">
+                        <img
+                          src={item.url}
+                          alt={item.nombre}
+                          className="w-full h-32 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                        />
+                      </a>
+                      {item.estado !== 'listo' && (
+                        <div className="px-3 pt-1 text-[9px] text-amber-600 font-bold">
+                          {item.estado === 'fallido'
+                            ? 'No se ha podido pasar a fotocopia: se ve la foto original'
+                            : 'Preparando la fotocopia…'}
+                        </div>
+                      )}
+                    </>
                   )}
 
                   {/* Video preview */}

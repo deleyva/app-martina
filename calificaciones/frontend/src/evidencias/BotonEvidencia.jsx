@@ -14,6 +14,11 @@ import Galeria from './Galeria.jsx';
 const BITS_DE_VIDEO = 2_500_000;
 const TOPE_DE_VIDEO = 45 * 1024 * 1024;
 
+// En el móvil y la tableta, la cámara del sistema: resolución completa, enfoque
+// y exposición del propio teléfono. Huey endereza y limpia la foto después
+// (fase 84). En el ordenador, la cámara del navegador con su editor.
+const esTactil = () => Boolean(window.matchMedia?.('(pointer: coarse)').matches);
+
 const elegirTipo = (candidatos) => candidatos.find((t) => window.MediaRecorder && MediaRecorder.isTypeSupported(t)) || '';
 const extensionDe = (tipo) => (tipo.includes('mp4') ? 'mp4' : tipo.includes('ogg') ? 'ogg' : 'webm');
 
@@ -32,6 +37,7 @@ export default function BotonEvidencia({ alumno, prueba, items, onUpload, onDele
   const popoverRef = useRef(null);
   const menuRef = useRef(null);
   const fileRef = useRef(null);
+  const camaraRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
   const pesoRef = useRef(0);
@@ -105,6 +111,14 @@ export default function BotonEvidencia({ alumno, prueba, items, onUpload, onDele
     if (!file) return;
     setMode('closed');
     await onUpload(alumno, prueba, file, 'archivo');
+    e.target.value = '';
+  };
+
+  const handleFoto = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setMode('closed');
+    await onUpload(alumno, prueba, file, 'foto');
     e.target.value = '';
   };
 
@@ -238,6 +252,14 @@ export default function BotonEvidencia({ alumno, prueba, items, onUpload, onDele
         </button>
 
         <input ref={fileRef} type="file" className="hidden" onChange={handleFileUpload} />
+        <input
+          ref={camaraRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={handleFoto}
+        />
       </div>
 
       {/* Popover menu — rendered as portal to avoid overflow clipping */}
@@ -251,7 +273,7 @@ export default function BotonEvidencia({ alumno, prueba, items, onUpload, onDele
             Subir archivo
           </button>
           <button
-            onClick={openCamera}
+            onClick={() => (esTactil() ? camaraRef.current?.click() : openCamera())}
             className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium text-slate-700 hover:bg-slate-50 transition-colors"
           >
             <Camera size={13} className="text-amber-500" />

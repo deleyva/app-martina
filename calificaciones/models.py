@@ -641,15 +641,25 @@ class Evidencia(models.Model):
         return Evidencia.objects.filter(grabacion=self.grabacion).exclude(pk=self.pk)
 
     def delete(self, *args, **kwargs):
-        # Un fichero compartido solo se borra con la ÚLTIMA evidencia que lo
-        # usa: borrar la de un alumno no puede dejar a los otros sin grabación.
-        en_uso = set()
-        for otra in self.hermanas():
-            en_uso.update(n for n in (otra.archivo.name, otra.archivo_comprimido.name) if n)
-        for campo in (self.archivo, self.archivo_comprimido):
-            if campo and campo.name not in en_uso:
-                campo.delete(save=False)
-        return super().delete(*args, **kwargs)
+        with transaction.atomic():
+            # Los nombres se releen con la fila bloqueada: Huey puede haber
+            # cambiado la foto por su WebP desde que se cargó esta instancia
+            # (fase 84), y con el bloqueo su UPDATE espera a que esto acabe.
+            actuales = (
+                Evidencia.objects.select_for_update()
+                .filter(pk=self.pk)
+                .values_list("archivo", "archivo_comprimido")
+                .first()
+            ) or ()
+            # Un fichero compartido solo se borra con la ÚLTIMA evidencia que lo
+            # usa: borrar la de un alumno no puede dejar a los otros sin grabación.
+            en_uso = set()
+            for otra in self.hermanas():
+                en_uso.update(n for n in (otra.archivo.name, otra.archivo_comprimido.name) if n)
+            nombres = {n for n in (self.archivo.name, self.archivo_comprimido.name, *actuales) if n}
+            for nombre in nombres - en_uso:
+                self.archivo.storage.delete(nombre)
+            return super().delete(*args, **kwargs)
 
 
 class NotaManual(models.Model):

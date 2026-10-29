@@ -157,6 +157,34 @@ export default function App() {
     [datos],
   );
 
+  // Lo que Huey aún procesa (la fotocopia de una foto, la compresión de un
+  // vídeo) se pregunta cada 3 s hasta que acaba, sin releer el grupo entero.
+  // Con tope de 3 minutos: una tarea perdida no deja la pantalla preguntando.
+  const pendientes = datos
+    ? datos.evidencias.filter((e) => e.estado === 'pendiente' || e.estado === 'procesando').map((e) => e.id).join(',')
+    : '';
+  useEffect(() => {
+    if (!pendientes) return undefined;
+    let vueltas = 0;
+    const reloj = setInterval(() => {
+      vueltas += 1;
+      if (vueltas > 60) { clearInterval(reloj); return; }
+      Promise.all(pendientes.split(',').map((id) => api.evidencia(id).catch(() => null))).then((frescas) => {
+        const porId = new Map(frescas.filter(Boolean).map((e) => [e.id, e]));
+        setDatos((previo) => {
+          // Sin cambios, el mismo objeto: no se repinta el registro entero cada 3 s.
+          const cambia = previo?.evidencias.some((e) => {
+            const fresca = porId.get(e.id);
+            return fresca && (fresca.estado !== e.estado || fresca.url !== e.url);
+          });
+          if (!cambia) return previo;
+          return { ...previo, evidencias: previo.evidencias.map((e) => porId.get(e.id) || e) };
+        });
+      });
+    }, 3000);
+    return () => clearInterval(reloj);
+  }, [pendientes]);
+
   // ── Historial ──
   const cargarHistorial = useCallback(
     () => api.historial().then((r) => setCambios(r.cambios)).catch(atender),

@@ -27,6 +27,7 @@ urlpatterns = [
     path("prueba/<int:pk>/", views.prueba_editar, name="prueba_editar"),
     # Evidencias e historial
     path("evidencia/<int:pk>/", views.evidencia_ver, name="evidencia_ver"),
+    path("evidencia/<int:pk>/estado/", views.evidencia_estado, name="evidencia_estado"),
     path("evidencia/<int:pk>/borrar/", views.evidencia_borrar, name="evidencia_borrar"),
     path("cambio/<int:pk>/revertir/", views.cambio_revertir, name="cambio_revertir"),
 ]

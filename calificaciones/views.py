@@ -513,13 +513,18 @@ def evidencia_subir(request, group_id):
         evidencia.tamano = fichero.size
         evidencia.tipo_mime = ficheros.tipo_de_contenido(evidencia.tipo, fichero.name) or ""
         evidencia.archivo = fichero
-        if evidencia.tipo == Evidencia.VIDEO:
+        if evidencia.tipo in (Evidencia.VIDEO, Evidencia.FOTO):
             evidencia.estado = Evidencia.PENDIENTE
     evidencia.save()
-    if evidencia.tipo == Evidencia.VIDEO:
-        from .tasks import comprimir_video
+    if evidencia.estado == Evidencia.PENDIENTE:
+        from .tasks import comprimir_video, procesar_foto
 
-        comprimir_video(evidencia.pk)
+        tarea = comprimir_video if evidencia.tipo == Evidencia.VIDEO else procesar_foto
+        # Al confirmar la transacción y no antes: con ATOMIC_REQUESTS el
+        # consumidor podría buscar la evidencia antes de que exista (e2f33bf).
+        # `robust`: si Redis no contesta, la foto ya está guardada y se sirve
+        # tal cual; `rescatar_fotos` la vuelve a encolar.
+        transaction.on_commit(lambda: tarea(evidencia.pk), robust=True)
     return JsonResponse(
         {
             "id": evidencia.pk,
@@ -556,6 +561,15 @@ def evidencia_ver(request, pk):
     if not fichero:
         raise Http404("Esta evidencia no tiene fichero.")
     return ficheros.servir(request, fichero, evidencia.tipo, evidencia.nombre_original)
+
+
+@login_required
+@user_passes_test(es_profesor)
+def evidencia_estado(request, pk):
+    """Cómo va una evidencia que Huey está procesando, para no releer el grupo entero."""
+    respuesta = JsonResponse(estado.evidencia_json(_evidencia_del_profesor(request.user, pk)))
+    respuesta["Cache-Control"] = "no-store"
+    return respuesta
 
 
 @login_required
