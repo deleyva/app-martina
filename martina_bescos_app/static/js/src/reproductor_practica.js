@@ -64,6 +64,31 @@ const ESTILOS = `
 .cpr .cpr-canal.cpr-callado { opacity: .55; }
 .cpr .cpr-canal input[type=range] { width: 76px; }
 .cpr .cpr-canal .cpr-vol { font-variant-numeric: tabular-nums; min-width: 3.2em; text-align: right; font-size: 12px; color: #cbd5e1; }
+.cpr .cpr-mezcla.cpr-plegada > :not(.cpr-mezcla-cabeza) { display: none; }
+/* Fase 86: en pantalla ancha el mezclador sale del panel y cuelga desde arriba
+   a la derecha, en el sitio y con el ancho del carril de acordes del visor.
+   O uno o el otro: desplegado, el carril se oculta; recogido, queda la pestaña
+   y el carril baja lo justo para no quedar debajo. El alto lo pone colocar(),
+   para no bajar hasta los botones flotantes de clase. */
+@media (min-width: 761px) {
+  .cpr .cpr-mezcla { position: fixed; top: 56px; right: 12px; width: 240px; box-sizing: border-box; margin: 0;
+         flex-direction: column; flex-wrap: nowrap; align-items: stretch; justify-content: flex-start; gap: 4px;
+         overflow-y: auto; background: rgba(20,20,24,.96); border: 1px solid #333; border-radius: 12px;
+         box-shadow: 0 4px 16px rgba(0,0,0,.25); padding: 6px; animation: cpr-cuelga .18s ease-out; }
+  .cpr .cpr-mezcla .cpr-mezcla-cabeza { text-align: left; font-weight: 600; }
+  .cpr .cpr-mezcla .cpr-canal { display: grid; grid-template-columns: 1fr auto; grid-template-areas: "nombre solo" "vol pct";
+         gap: 1px 4px; align-items: center; padding: 2px 6px; flex: none; }
+  .cpr .cpr-mezcla .cpr-canal button { padding: 2px 8px; }
+  .cpr .cpr-mezcla .cpr-canal button[data-m="apagar"] { grid-area: nombre; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cpr .cpr-mezcla .cpr-canal button[data-m="solo"] { grid-area: solo; }
+  .cpr .cpr-mezcla .cpr-canal input[type=range] { grid-area: vol; width: 100%; min-width: 0; margin: 0; }
+  .cpr .cpr-mezcla .cpr-canal .cpr-vol { grid-area: pct; }
+  .cpr .cpr-mezcla.cpr-plegada { width: auto; padding: 0; overflow: visible; background: none; border: 0; box-shadow: none; }
+  .cpv.cpr-con-mezclador { padding-right: calc(3vw + 250px); }
+  .cpv.cpr-con-mezclador .cpv-carril { display: none !important; }
+  .cpv.cpr-mezcla-plegada .cpv-carril { top: 98px; max-height: calc(100vh - 98px - 210px); }
+}
+@keyframes cpr-cuelga { from { transform: translateY(-10px); opacity: 0; } }
 .cpv-salida .paragraph.cpr-marcado { position: relative; }
 .cpv-salida .paragraph.cpr-marcado::before { content: attr(data-cpr-t); position: absolute; left: -64px; top: .1em;
        font: 600 12px system-ui, sans-serif; color: #b45309; background: #fef3c7; border-radius: 6px; padding: 1px 6px; cursor: pointer; }
@@ -213,6 +238,7 @@ function montar(op) {
   let nodoAudio = null;
   let nodoMidi = null;
   let mezcla = {};            // la de `actual` si es MIDI: canal → { apagado, solo, volumen }
+  let plegada = false;        // el mezclador recogido en su pestaña (fase 86)
   let cargada = null;
   let cargando = null;
   let duracion = 0;
@@ -501,12 +527,14 @@ function montar(op) {
   function pintarMezcla() {
     const fila = v("mezcla");
     const canales = canalesMidi();
-    const antes = fila.hidden;
     fila.hidden = !canales.length;
+    fila.classList.toggle("cpr-plegada", plegada);
     if (canales.length) {
       const sonido = M.sonido(canales, mezcla);
       // Los nombres salen de la tabla General MIDI de mezcla.js, no del fichero.
-      fila.innerHTML = canales.map((ch) => {
+      fila.innerHTML = `<button type="button" class="cpr-mezcla-cabeza" data-m="plegar" aria-expanded="${plegada ? "false" : "true"}"
+          title="${plegada ? "Desplegar la mezcla (se ocultan los acordes de la derecha)" : "Recoger la mezcla y volver a ver los acordes"}">🎚 Mezcla ${plegada ? "⌄" : "⌃"}</button>` +
+        canales.map((ch) => {
         const f = mezcla[ch.canal] || {};
         const vol = Math.round((typeof f.volumen === "number" ? f.volumen : 1) * 100);
         return `<span class="cpr-canal${sonido.get(ch.canal).mudo ? " cpr-callado" : ""}" data-canal="${ch.canal}">
@@ -517,7 +545,16 @@ function montar(op) {
         </span>`;
       }).join("") + `<button type="button" data-m="todo" title="Todas las partes encendidas, al 100 % y sin solo">Restablecer</button>`;
     }
-    if (antes !== fila.hidden) colocar();
+    marcarVisor();
+    colocar();
+  }
+
+  // El visor oculta su carril de acordes mientras el mezclador está desplegado,
+  // y lo baja un poco cuando solo queda la pestaña (estilos de arriba).
+  function marcarVisor() {
+    const hay = abierto && !destruido && canalesMidi().length > 0;
+    visor.classList.toggle("cpr-con-mezclador", hay && !plegada);
+    visor.classList.toggle("cpr-mezcla-plegada", hay && plegada);
   }
 
   function cambiarMezcla(canal, cambio) {
@@ -620,6 +657,7 @@ function montar(op) {
     posicion = 0;
     velocidad = Number(pista && leerLocal("cpr-vel:" + pista.id)) || 1;
     mezcla = pista ? leerMezcla(pista) : {};
+    plegada = false;
     pintarSelector();
     decorar();
     pintarMezcla();
@@ -758,6 +796,19 @@ function montar(op) {
     if (destruido) return;
     panel.style.bottom = barra.offsetHeight + "px";
     visor.style.paddingBottom = abierto ? barra.offsetHeight + panel.offsetHeight + 24 + "px" : paddingOriginal;
+    colocarMezcla();
+  }
+
+  // La columna del mezclador (pantalla ancha) acaba antes de la zona de abajo:
+  // 210 px como el carril de acordes, que es donde van los botones flotantes de
+  // clase, o más si la barra y el panel suben más; y por encima del 📺 si está.
+  function colocarMezcla() {
+    const fila = v("mezcla");
+    if (fila.hidden || getComputedStyle(fila).position !== "fixed") { fila.style.maxHeight = ""; return; }
+    let fondo = window.innerHeight - Math.max(210, barra.offsetHeight + panel.offsetHeight + 12);
+    const video = document.querySelector(".cpv-video");
+    if (video) fondo = Math.min(fondo, video.getBoundingClientRect().top - 12);
+    fila.style.maxHeight = Math.max(120, fondo - fila.getBoundingClientRect().top) + "px";
   }
   const vigia = "ResizeObserver" in window ? new ResizeObserver(colocar) : null;
   if (vigia) { vigia.observe(barra); vigia.observe(panel); }
@@ -770,7 +821,7 @@ function montar(op) {
     pintarSelector();
     decorar();
     pintarControles();
-    colocar();
+    pintarMezcla();
     if (actual) {
       // El 🎧 es un toque: aquí ya se puede crear el audio y adelantar la descarga.
       try { contexto(); } catch (e) { avisar(e.message); return; }
@@ -786,6 +837,7 @@ function montar(op) {
     marcando = false;
     panel.hidden = true;
     decorar();
+    marcarVisor();
     colocar();
   }
 
@@ -802,11 +854,16 @@ function montar(op) {
     document.removeEventListener("keydown", teclado);
     clearInterval(guardia);
     panel.remove();
+    visor.classList.remove("cpr-con-mezclador", "cpr-mezcla-plegada");
   }
 
   // El modo proyector cambia el elemento sin avisar a nadie: si el visor ya no
-  // está en la página, el audio se apaga solo.
-  const guardia = setInterval(() => { if (!visor.isConnected) destruir(); }, 1000);
+  // está en la página, el audio se apaga solo. De paso recoloca el mezclador,
+  // porque el 📺 se abre y se cierra sin avisar.
+  const guardia = setInterval(() => {
+    if (!visor.isConnected) destruir();
+    else if (abierto) colocarMezcla();
+  }, 1000);
 
   // ── Eventos ──
   panel.addEventListener("click", (e) => {
@@ -848,6 +905,14 @@ function montar(op) {
     const b = e.target.closest("[data-m]");
     if (!b || b.tagName !== "BUTTON") return;
     const m = b.getAttribute("data-m");
+    if (m === "plegar") {
+      plegada = !plegada;
+      pintarMezcla();
+      // Al desplegar, que vuelva a descolgarse: la animación solo corre sola
+      // cuando la fila pasa de oculta a visible.
+      if (!plegada) { const f = v("mezcla"); f.style.animation = "none"; void f.offsetWidth; f.style.animation = ""; }
+      return;
+    }
     if (m === "todo") mezcla = {};
     else {
       const canal = Number(b.closest("[data-canal]").getAttribute("data-canal"));
