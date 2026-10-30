@@ -5755,3 +5755,59 @@ Faders verticales uno al lado de otro · arrastrar la columna · recordar entre 
 
 - **2026-10-30 — Construido y verificado en local.** Reproducido antes en producción: con el `.rmi` subido por Jesús, el panel medía 185 px con el mezclador en dos filas. En la primera medida en local, a 759 px de alto, las 8 partes no cabían por 35 px y la columna hacía scroll; con 2 px menos de relleno por fila caben (470/470). El silencio al apagar todo no es inmediato (0,015 a 0,3 s): SpessaSynth deja terminar las notas, y a los 3 s es 0. Sin push ni despliegue.
 - **2026-10-30 — Desplegado** (`9e9ec46`, sin migraciones, contenedores arriba) y comprobado en producción (C584).
+
+## Fase 87 — Solo `.rmi` en el 🎧: el tono de la letra se pone solo, Stand by Me con sus marcas y un MIDI de bitmidi para cada canción que cuadre con su ficha (2026-10-30) · DATOS EN PRODUCCIÓN (9 `.rmi`); «AUTOMÁTICO» CONSTRUIDO, SIN DESPLEGAR
+
+**Goal (literal de Jesús, 2026-10-30):** «automático y marcas. Borra lo que no sea rmi y genera rmis descargando las canciones en midi de sitios como bitmidi.com»
+
+**Vision.** Una pista con desfase distinto de 0 se abre ya en «Tono de la letra»: nadie tiene que saber que hay dos controles. El `.rmi` de Stand by Me salta por secciones como lo hacía el MP3. En producción solo quedan pistas `.rmi`, y cada canción con ChordPro que tenga en bitmidi un MIDI que de verdad sea su arreglo lleva uno, con su banco MS Basic dentro, en fase con la ficha (desfase medido, no supuesto) y con sus marcas de sección. Mejor ninguna pista que una que no cuadra.
+
+**Medido antes de empezar (producción, 2026-10-30, solo lectura).** 3 pistas, las tres de Stand by Me (recurso 905): 1 «Base generada (prueba)» `.mp3` (desfase −2, 7 marcas), 2 «MIDI karaoke (prueba)» `.mp3` (+2, 7 marcas), 3 «stand-by-me-rmi-version» `.rmi` (+2 desde hoy, 0 marcas). 37 canciones con ChordPro, todas publicadas; solo la 905 tiene pistas. La API de bitmidi (`/api/midi/search?q=…`) devuelve JSON con `downloadUrl`.
+
+**Ambigüedad resuelta por defecto:** «las canciones» son las 37 con ChordPro en producción. «Sitios como bitmidi» es bitmidi primero; para las que falten, otro archivo de MIDI gratuito solo si se descarga sin cuenta ni CAPTCHA (fue midiworld). Las marcas de las pistas nuevas solo van donde algo independiente del alineamiento las confirma (ver C590): una marca mal puesta es peor que «⏱ Marcar secciones».
+
+### Claims
+
+- [x] **C585** — «Automático»: al cargar una pista con desfase distinto de 0, el reproductor arranca en «Tono de la letra»; con desfase 0 sigue como estaba. Al cambiar el desfase de 0 a otro valor con los botones, también se activa. *Falsador: Chrome en local con una pista +2 y otra 0.* **Evidencia (Chrome, local, ítem 277):** en la base (0) se pulsa «Tono de la grabación»; al pasar al MIDI (+2) el botón vuelve solo a «Tono de la letra (−2)». De nuevo en la base y en «grabación», un «+» en Grabación deja «+1 · Tono de la letra (−1)»; el «−» lo devuelve a 0 («✓ Guardado») y sigue en la letra. `bun test` 111 pass. **Falta desplegarlo.**
+- [x] **C586** — La pista 3 (`.rmi` de Stand by Me) tiene las 7 marcas de la pista 2, mismos `p` y `t`, antes de borrar la 2. *Falsador: SELECT en producción.* **Evidencia:** antes 0 marcas; después `[(2, 5.2), (3, 21.2), (4, 53.2), (5, 69.2), (6, 101.2), (7, 117.2), (8, 149.2)]`, iguales a las de la 2 (`True`), con sus 7 anclas.
+- [x] **C587** — En producción no queda ninguna pista que no sea `.rmi`, y los ficheros de las pistas borradas ya no están en disco. *Falsador: listado del ORM y `exists()` del almacenamiento.* **Evidencia:** borradas la 1 y la 2 (`mp3`), `exists` antes `[True, True]` y después `[False, False]`. Quedan 9 pistas, todas `rmi` (la 3 y las 4–11 de abajo).
+- [x] **C588** — `scripts/bases/midi_contra_ficha.ts` mide, por compás, si el bajo del MIDI es el del acorde de la ficha: elige el desfase y el alineamiento (intro, repeticiones) y da aciertos/compases. Con el MIDI karaoke de Stand by Me contra la ficha de producción da +2 y al menos 85/87; forzando otro desfase la cuenta se hunde. *Falsador: la salida del script.* **Evidencia:** bitmidi 17038 contra la ficha 905: «desfase +2 · 87/87 compases (100 %)»; el siguiente desfase, −3, da 29. Un MIDI de otra canción con título parecido llega como mucho al 78 % («All Rise» de Blue contra «Rise»), así que el umbral del 80 % separa.
+- [x] **C589** — Cada una de las otras 36 canciones acaba en uno de dos estados: (a) una pista `.rmi` «MIDI (bitmidi)» con el desfase que dio el script y aciertos ≥ 80 % de los compases de la ficha, o (b) en la tabla de abajo con el motivo (no hay MIDI, o ninguno cuadra). *Falsador: listado de pistas en producción contra el informe del script.* **Evidencia:** 8 en (a), creadas con `PistaDePractica.crear` (pistas 4–11, tamaño igual byte a byte que el local, `exists` True); 28 en (b), en la tabla. Cada `.rmi` se volvió a medir tras meterle el banco: mismo desfase, mismos aciertos y mismas marcas que su `.mid`.
+- [x] **C590** — Las marcas calculadas caen en su sitio: calibrado contra Stand by Me, las 7 calculadas coinciden con las de la pista 2 en `p`, `t` (±0,3 s) y ancla, 7/7 (antes de no contar el `.paragraph.ritmo`, que `pintarRitmos` sustituye, caían todas un párrafo después). **Reformulado al medir:** en las canciones de bucle (mismo bajo en cada vuelta) el alineamiento puede correrse vueltas enteras sin perder aciertos —en Chain of Fools las 9 marcas caían entre 37 y 80 s de 252—, así que una marca solo va si la confirma la letra cantada del propio MIDI karaoke. With or Without You: 11/11 confirmadas (control con la marca anterior: 1) → sus 13 marcas suben. Fast Car: 4/10 → sin marcas. Las otras 6 no traen letra → sin marcas.
+- [x] **C591** — En producción, en Chrome, dos canciones nuevas cargan su `.rmi`, el mezclador muestra sus partes y el desfase es el medido. *Falsador: Chrome con la sesión de Jesús.* **Evidencia (2026-10-30, `/my-library/view-content/223/…`):** With or Without You: «🎧 Práctica (1)», 10 partes, Grabación 0, 13 marcas en la barra, 4:43, y el reloj avanza al darle a ▶; captura vista (columna del mezclador a la derecha y marcas en la barra). Eleanor Rigby: Grabación −5, «Tono de la letra (+5)», 6 partes, 2:19, el reloj avanza.
+
+### Anti-claims
+
+- [x] **Anti-A** — Ni una línea de letra (de las fichas ni de los eventos de letra de los MIDI karaoke) entra en el transcript, en este ISA ni en un commit. Los scripts imprimen números. **Evidencia:** las fichas se guardaron en un fichero sin mostrarlas; las anclas y la letra cantada se compararon dentro de los scripts, que solo imprimieron igualdades y cuentas.
+- [x] **Anti-B** — Ninguna canción recibe un MIDI por debajo del umbral. Un arreglo que no cuadra con la ficha es peor que ninguno. **Evidencia:** las 8 subidas están entre 82 y 97 %; My Girl (71 %, el de los Temptations) y La flaca (57 %) se quedan fuera aunque son la canción buena.
+- [x] **Anti-C** — Las pistas 1 y 2 no se borran antes de que la 3 tenga sus marcas. **Evidencia:** el script de borrado empieza con `assert len(P.objects.get(pk=3).marcas) == 7`.
+
+### Canciones y su MIDI
+
+| Canción (recurso) | Resultado |
+|---|---|
+| With or Without You (861) | ✅ pista 4 · bitmidi «U2.With or without you K» · desfase 0 · 108/115 (94 %) · 13 marcas |
+| Sweet Home Alabama (868) | ✅ pista 5 · bitmidi «Sweet-Home-Alabama» · 0 · 114/118 (97 %) |
+| Chain of Fools (870) | ✅ pista 6 · bitmidi «FRANKLIN.Chain of fools» · −2 · 41/47 (87 %) |
+| Hit the Road Jack (912) | ✅ pista 7 · bitmidi «CHARLES.Hit the road Jack» · 0 · 155/168 (92 %) |
+| Come and Get Your Love (913) | ✅ pista 8 · bitmidi «Come-And-Get-Your-Love» · 0 · 163/174 (94 %) |
+| Fast Car (916) | ✅ pista 9 · bitmidi «CHAPMAN.Fast car K» · +3 · 188/202 (93 %) |
+| La Bamba (957) | ✅ pista 10 · bitmidi «BAMBA» · 0 · 115/118 (97 %) |
+| Eleanor Rigby (958) | ✅ pista 11 · bitmidi «Eleanor-Rigby-2» · −5 · 45/55 (82 %) |
+| My Girl (904) | ✗ midiworld «My Girl (The Temptations)» 71 % — es la canción, pero otro arreglo |
+| La flaca (859) | ✗ bitmidi «flaca» 57 % |
+| I Got You (I Feel Good) (907) | ✗ midiworld (James Brown) 55 % |
+| Hound Dog (909) | ✗ solo versiones de Elvis y Sha Na Na, ≤ 53 % |
+| We Will Rock You (869) | ✗ la versión de Five, 48 % |
+| Perfect (943), Chan Chan (908), Matador (918), Al cantar (920), Rise (860), Send My Love (941), Memories (942), Feel It Still (874) | ✗ solo canciones con título parecido (≤ 78 %) |
+| Megalovania (960) | ✗ la ficha no tiene acordes entre corchetes: no hay con qué medir |
+| Uptown Funk, Levitating, Million Dollar Baby, Blinding Lights, Birds of a Feather, La Gozadera, I Ain't Worried, Calm Down, Hollywood Swinging, Mannish Boy, La Negra Tomasa, La Vida Es Un Carnaval, Fotos y Recuerdos, Marta, Sebas, Guille y los demás | ✗ ni bitmidi ni midiworld lo tienen |
+
+### Out of Scope
+
+- Retocar fichas para que cuadren con un MIDI. Quitar los eventos de letra de los MIDI karaoke. Canciones sin ChordPro.
+- Audio de YouTube o de cualquier sitio de grabaciones: solo archivos MIDI.
+
+### Log
+
+- **2026-10-30 — Datos de producción.** Marcas de la 2 a la 3; borradas la 1 y la 2; lote de bitmidi y midiworld (36 canciones, 81 candidatos medidos); 8 `.rmi` subidos por SSH (`cat` al servidor, sin `scp`) y creados con `crear()` desde un contenedor con la carpeta montada en solo lectura; carpeta temporal del servidor borrada. Una sorpresa medida: en la primera calibración todas las marcas caían un párrafo después, porque `pintarRitmos` cambia el `.paragraph.ritmo` por su rejilla y el visor ya no lo cuenta. Otra: las marcas por alineamiento solo son de fiar si la canción no es un bucle, y la prueba que lo dice es la letra cantada del MIDI karaoke. «Automático» construido y probado en local; sin push ni despliegue.

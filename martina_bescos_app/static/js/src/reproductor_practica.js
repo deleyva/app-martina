@@ -658,6 +658,9 @@ function montar(op) {
     velocidad = Number(pista && leerLocal("cpr-vel:" + pista.id)) || 1;
     mezcla = pista ? leerMezcla(pista) : {};
     plegada = false;
+    // Una pista con desfase existe para sonar con la letra: si antes alguien
+    // pasó a «Tono de la grabación», esta vuelve a la letra (fase 87).
+    if (pista && pista.semitonos) tonoDeLetra = true;
     pintarSelector();
     decorar();
     pintarMezcla();
@@ -711,6 +714,9 @@ function montar(op) {
   function cambiarDesfase(delta) {
     if (!actual) return;
     actual.semitonos = Math.max(-11, Math.min(11, actual.semitonos + delta));
+    // Sin esto el desfase no se oye hasta pulsar «Tono de la letra», y son dos
+    // controles que no parecen tener que ver (Jesús, 2026-10-30).
+    if (actual.semitonos) tonoDeLetra = true;
     aplicar();
     pintarControles();
     guardarPronto(() => ({ semitonos: actual.semitonos }));
