@@ -5,7 +5,7 @@ Una **sesión de clase** (`/clases/sessions/`) es la "presentación" que prepara
 ## Crear y editar
 
 - **Crear**: elige grupo, fecha y título. Puedes duplicar una sesión existente para reutilizarla con otro grupo.
-- **Editar**: pantalla con drag & drop; a la izquierda la sesión, a la derecha la biblioteca del grupo con buscador. Cada elemento admite notas propias para esa sesión.
+- **Editar**: arriba, «Preparar desde los libros del grupo», que propone lo que toca de cada libro; debajo, la sesión, ordenable con drag & drop. Cada elemento admite notas propias para esa sesión.
 - **Crear desde el plan**: en las [programaciones](programaciones.md), el botón "Crear clase con esto" genera una sesión ya rellena con los elementos que el grupo aún no ha visto.
 
 ## Presentar en el aula

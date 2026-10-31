@@ -7,9 +7,9 @@ Plataforma open source para educación musical construida con **Django** y **Wag
 La aplicación cubre el ciclo completo de trabajo de un profesor de música:
 
 1. **Publicar contenido**: canciones con tutoriales en vídeo, PDFs, audios e imágenes como artículos de blog; partituras con metadatos; libros organizados en capítulos.
-2. **Organizar bibliotecas**: cada recurso (imagen, PDF, audio, embed o página completa) puede añadirse a la biblioteca personal o a las bibliotecas de grupo.
-3. **Preparar y dar clases**: las sesiones de clase se componen con elementos de esas bibliotecas y se presentan a pantalla completa en el aula.
-4. **Programar el trimestre**: los planes de programación permiten secuenciar artículos, libros y partituras, ver el progreso real de cada grupo y crear la siguiente clase con un clic.
+2. **Organizar el material**: cada recurso (imagen, PDF, audio, embed o página completa) puede añadirse a la biblioteca personal; lo que da un grupo va en sus libros.
+3. **Preparar y dar clases**: las sesiones de clase se componen con lo que toca de los libros del grupo y se presentan a pantalla completa en el aula.
+4. **Programar el trimestre**: los planes de programación permiten secuenciar libros, ver el progreso real de cada grupo y crear la siguiente clase con un clic.
 5. **Reflexionar y evaluar**: al finalizar cada clase se puede grabar una reflexión (texto o voz), y el módulo de evaluaciones gestiona rúbricas y entregas.
 
 ## Mapa rápido
@@ -28,7 +28,7 @@ La aplicación cubre el ciclo completo de trabajo de un profesor de música:
 
 ```mermaid
 flowchart LR
-    A[📝 Publicar artículo<br/>o libro en Wagtail] --> B[📚 Añadir a la<br/>biblioteca del grupo]
+    A[📝 Publicar artículo<br/>o libro en Wagtail] --> B[📚 Asignar el libro<br/>al grupo]
     B --> C[📅 Programarlo en el<br/>plan del trimestre]
     C --> D[➕ Crear clase con<br/>los elementos pendientes]
     D --> E[▶️ Presentar la clase<br/>en el aula]

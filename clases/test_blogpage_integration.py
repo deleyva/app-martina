@@ -6,7 +6,6 @@ from clases.models import (
     ClassSessionItem,
     Group,
     Subject,
-    GroupLibraryItem,
 )
 from django.contrib.auth import get_user_model
 
@@ -25,33 +24,6 @@ def test_blogpage_content_type_allowed():
 
     # Verificar que el modelo es blogpage
     assert blog_content_type.model == "recursopage"
-
-
-@pytest.mark.django_db
-def test_group_library_supports_blogpage():
-    """Test que verifica que GroupLibraryItem puede manejar BlogPages"""
-
-    # Crear datos de prueba
-    teacher = User.objects.create_user(
-        name="teacher", email="teacher@test.com", password="pass", is_staff=True
-    )
-    subject, _ = Subject.objects.get_or_create(name="Música", code="MUS")
-    group, _ = Group.objects.get_or_create(name="1A", subject=subject)
-    group.teachers.add(teacher)
-
-    # Verificar que el método get_icon funciona para BlogPages
-    blog_content_type = ContentType.objects.get_for_model(RecursoPage)
-
-    # Crear un GroupLibraryItem simulado para probar el icono
-    from clases.models import GroupLibraryItem
-
-    item = GroupLibraryItem(
-        group=group, content_type=blog_content_type, object_id=1  # ID simulado
-    )
-
-    # Verificar que el icono para RecursoPage es correcto
-    assert item.get_icon() == "📝"
-    assert item.get_content_type_name() == "Artículo de Blog"
 
 
 @pytest.mark.django_db

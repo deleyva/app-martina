@@ -34,39 +34,6 @@ urlpatterns = [
         name="group_join_by_invitation",
     ),
     # =============================================================================
-    # BIBLIOTECA DE GRUPO
-    # =============================================================================
-    path(
-        "groups/<int:group_id>/library/",
-        views.group_library_index,
-        name="group_library_index",
-    ),
-    path(
-        "groups/<int:group_id>/library/add/",
-        views.group_library_add,
-        name="group_library_add",
-    ),
-    path(
-        "groups/<int:group_id>/library/remove/<int:pk>/",
-        views.group_library_remove,
-        name="group_library_remove",
-    ),
-    path(
-        "groups/<int:group_id>/library/remove-by-content/",
-        views.group_library_remove_by_content,
-        name="group_library_remove_by_content",
-    ),
-    path(
-        "groups/<int:group_id>/library/view/<int:pk>/",
-        views.group_library_item_viewer,
-        name="group_library_item_viewer",
-    ),
-    path(
-        "groups/<int:group_id>/library/<int:pk>/proficiency/",
-        views.group_library_update_proficiency,
-        name="group_library_update_proficiency",
-    ),
-    # =============================================================================
     # LIBROS QUE DAN CLASE
     # =============================================================================
     path(
@@ -375,16 +342,6 @@ urlpatterns = [
         name="class_session_reorder_items",
     ),
     path(
-        "groups/<int:group_id>/item-session-count/",
-        views.get_item_session_count,
-        name="get_item_session_count",
-    ),
-    path(
-        "groups/<int:group_id>/scorepage-total-count/",
-        views.get_scorepage_total_count,
-        name="get_scorepage_total_count",
-    ),
-    path(
         "sessions/<int:session_id>/items/<int:item_id>/view/",
         views.class_session_item_viewer,
         name="class_session_item_viewer",
@@ -396,19 +353,6 @@ urlpatterns = [
         "libraries/add-multiple/",
         views.add_to_multiple_libraries,
         name="add_to_multiple_libraries",
-    ),
-    # =============================================================================
-    # ASIGNACIÓN A ESTUDIANTES
-    # =============================================================================
-    path(
-        "groups/<int:group_id>/assign-to-students/modal/",
-        views.show_assign_to_students_modal,
-        name="show_assign_to_students_modal",
-    ),
-    path(
-        "groups/<int:group_id>/assign-to-students/",
-        views.assign_to_students,
-        name="assign_to_students",
     ),
     # =============================================================================
     # TARJETAS DE ESTUDIO

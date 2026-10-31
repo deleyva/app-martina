@@ -1,5 +1,3 @@
-import json
-
 from django.db import models
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
@@ -10,219 +8,6 @@ from taggit.managers import TaggableManager
 from martina_bescos_app.users.models import User
 
 from my_library import medios
-
-
-class LibraryDeck(models.Model):
-    """
-    Mazo de práctica — filtro de tags guardado para estudio recurrente.
-    Almacena un nombre y una lista de tags como JSON. Los items que coincidan
-    con TODOS los tags (lógica AND) forman el contenido del mazo.
-    """
-
-    user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="library_decks"
-    )
-    name = models.CharField(max_length=100)
-    tags_json = models.TextField(
-        help_text="JSON array of tag names, e.g. [\"guitarra\", \"jazz\"]"
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["name"]
-        unique_together = ["user", "name"]
-        verbose_name = "Mazo de Biblioteca"
-        verbose_name_plural = "Mazos de Biblioteca"
-
-    def __str__(self):
-        # Este User no tiene `username` (USERNAME_FIELD = "email")
-        return f"{self.user.email} - {self.name}"
-
-    def get_tags(self):
-        """Return list of tag names."""
-        try:
-            return json.loads(self.tags_json)
-        except (json.JSONDecodeError, TypeError):
-            return []
-
-    def set_tags(self, tag_list):
-        """Set tags from a list of strings."""
-        self.tags_json = json.dumps(tag_list)
-
-    def get_matching_item_pks(self, tag_map):
-        """Return PKs of library items matching ALL deck tags.
-
-        Args:
-            tag_map: dict mapping item PK to set of lowercase tag strings,
-                     built once via LibraryDeck.build_tag_map() and shared across decks.
-        """
-        tags = [t.lower() for t in self.get_tags()]
-        if not tags:
-            return list(tag_map.keys())
-
-        return [pk for pk, item_tags in tag_map.items() if all(t in item_tags for t in tags)]
-
-    @staticmethod
-    def precargar_etiquetas(items):
-        """Todo lo que lee `get_content_tags`, en bloque y no elemento a elemento.
-
-        Tres cosas que antes costaban una consulta por elemento: el contenido
-        (la imagen, el documento, la página), las etiquetas de ese contenido y
-        las de las páginas de las que hereda. Con 56 elementos en local eran 140
-        consultas solo para pintar las facetas de «empezar» (2026-10-02). Ahora
-        son unas pocas por tipo de contenido, no por elemento.
-        """
-        from collections import defaultdict
-
-        from django.db.models import prefetch_related_objects
-
-        # Lo ya precargado no se repite: «empezar» pinta las facetas y luego
-        # filtra sobre los mismos objetos. Los elementos sin guardar (los que
-        # la vista previa promete crear) no están en la base: se quedan en el
-        # camino de uno en uno de `get_content_tags`.
-        items = [
-            i
-            for i in items
-            if not getattr(i, "_etiquetas_precargadas", False) and (i.pk or 0) > 0
-        ]
-        if not items:
-            return
-        prefetch_related_objects(items, "content_object")
-        por_clase = defaultdict(list)
-        for item in items:
-            obj = item.content_object
-            if obj is not None:
-                por_clase[type(obj)].append(obj)
-        for objetos in por_clase.values():
-            # El mismo orden que `get_content_tags`: una página etiqueta en
-            # `faceted_tags`; un documento o una imagen, en `tags`.
-            for campo in ("faceted_tags", "tags"):
-                if hasattr(objetos[0], campo):
-                    prefetch_related_objects(objetos, campo)
-                    break
-        LibraryDeck.precargar_etiquetas_de_pagina(items)
-        for item in items:
-            item._etiquetas_precargadas = True
-
-    @staticmethod
-    def precargar_etiquetas_de_pagina(items):
-        """Carga en bloque las etiquetas que un elemento hereda de su libro.
-
-        **Herencia hasta el libro** (petición del principal, 2026-10-01): un
-        elemento lleva las etiquetas de su página de origen y las de cada página
-        por encima de ella hasta el libro MÁS EXTERIOR — un `LibroPage` puede
-        colgar de otro, y etiquetar el libro grande tiene que llegar a todo lo
-        de dentro. Se para ahí: por encima del libro está el índice de la
-        biblioteca, y heredar de él sería etiquetar todo con todo. Un elemento
-        sin libro en su ascendencia hereda solo de su página, como antes.
-
-        Los libros por REFERENCIA no están en la ascendencia del capítulo —el
-        capítulo vive en otro sitio del árbol—, así que el libro se mira por
-        `item.libro`, que solo se guarda en esos.
-
-        Es lo que hace que `get_content_tags` no cueste una subida al árbol por
-        elemento: medido sobre la biblioteca real, 51 elementos pasaban de 74 a
-        222 ms sin precarga. Deja el resultado en `_etiquetas_de_pagina`, de la
-        más cercana a la más lejana.
-        """
-        from wagtail.models import Page
-
-        from musica.models import LibroPage
-
-        paso = Page.steplen
-        origenes = {
-            p.pk: p.path
-            for p in Page.objects.filter(
-                pk__in={i.source_page_id for i in items if i.source_page_id}
-            ).only("path")
-        }
-        de_referencia = {
-            i.libro_id for i in items if getattr(i, "libro_id", None)
-        }
-        caminos = {
-            path[:n] for path in origenes.values() for n in range(paso, len(path) + 1, paso)
-        }
-        paginas = list(
-            Page.objects.filter(
-                models.Q(path__in=caminos) | models.Q(pk__in=de_referencia)
-            ).specific()
-        )
-        por_path = {p.path: p for p in paginas}
-        # Una consulta por tipo de página, no por página.
-        por_tipo = {}
-        for p in paginas:
-            if hasattr(p, "faceted_tags"):
-                por_tipo.setdefault(type(p), []).append(p)
-        for grupo in por_tipo.values():
-            models.prefetch_related_objects(grupo, "faceted_tags")
-        etiquetas = {
-            p.pk: list(p.faceted_tags.all()) if hasattr(p, "faceted_tags") else []
-            for p in paginas
-        }
-
-        def cadena(path):
-            """Página de origen y, si cuelga de un libro, todo hasta el libro
-            más exterior. De la más cercana a la más lejana."""
-            subida = [
-                por_path[path[:n]]
-                for n in range(len(path), 0, -paso)
-                if path[:n] in por_path
-            ]
-            libros = [n for n, p in enumerate(subida) if isinstance(p, LibroPage)]
-            return subida[: libros[-1] + 1] if libros else subida[:1]
-
-        for item in items:
-            heredadas = []
-            path = origenes.get(item.source_page_id)
-            if path:
-                for pagina in cadena(path):
-                    heredadas += etiquetas[pagina.pk]
-            if getattr(item, "libro_id", None) in etiquetas:
-                heredadas += etiquetas[item.libro_id]
-            item._etiquetas_de_pagina = heredadas
-
-    @staticmethod
-    def build_tag_map(items_qs):
-        """Build a {pk: set(lowercase_tags)} dict for all items in queryset.
-
-        Call once, share across all decks to avoid per-deck N+1 queries.
-        """
-        items = list(items_qs)
-        LibraryDeck.precargar_etiquetas_de_pagina(items)
-
-        tag_map = {}
-        for item in items:
-            tags_set = set()
-            # Item's own tags (prefetched)
-            for tag in item.tags.all():
-                tags_set.add(tag.name.lower())
-            # Etiquetas del contenido referenciado (GenericFK, una consulta por
-            # elemento y no hay forma de evitarla).
-            #
-            # Ojo con el nombre del campo: un documento o una imagen de Wagtail
-            # etiquetan en `tags`, pero **un elemento puede apuntar directamente
-            # a una página**, y esas etiquetan en `faceted_tags`. Mirar solo
-            # `tags` dejó al elemento 69 sin su `concepto:canon` en cuanto se
-            # retiró `MusicTag`: son 2 elementos de 102, y por eso el barrido de
-            # C36 pasó por encima.
-            obj = item.content_object
-            for campo in ("faceted_tags", "tags"):
-                if obj is not None and hasattr(obj, campo):
-                    for tag in getattr(obj, campo).all():
-                        tags_set.add(tag.name.lower())
-                    break
-            # Etiquetas de la página de origen. Desde la fase 8 se leen de
-            # `faceted_tags` (taggit, vocabulario facetado) y NO de `tags`, que
-            # es el `MusicTag` plano. Mientras se leían las dos, una etiqueta de
-            # página no podía agrupar ni filtrar una sesión, porque `facets.parse`
-            # no reconoce un nombre sin faceta. Ese era el motivo de la fase.
-            #
-            # `tags` sigue existiendo y sigue alimentando el filtrado del sitio;
-            # lo que se decide en C37 es su destino, no el de esta lectura.
-            for tag in getattr(item, "_etiquetas_de_pagina", []):
-                tags_set.add(tag.name.lower())
-            tag_map[item.pk] = tags_set
-        return tag_map
 
 
 class LibraryGoal(models.Model):
@@ -534,6 +319,125 @@ class LibraryItem(models.Model):
             self.get_icon(),
         )
 
+    @staticmethod
+    def precargar_etiquetas(items):
+        """Todo lo que lee `get_content_tags`, en bloque y no elemento a elemento.
+
+        Tres cosas que antes costaban una consulta por elemento: el contenido
+        (la imagen, el documento, la página), las etiquetas de ese contenido y
+        las de las páginas de las que hereda. Con 56 elementos en local eran 140
+        consultas solo para pintar las facetas de «empezar» (2026-10-02). Ahora
+        son unas pocas por tipo de contenido, no por elemento.
+        """
+        from collections import defaultdict
+
+        from django.db.models import prefetch_related_objects
+
+        # Lo ya precargado no se repite: «empezar» pinta las facetas y luego
+        # filtra sobre los mismos objetos. Los elementos sin guardar (los que
+        # la vista previa promete crear) no están en la base: se quedan en el
+        # camino de uno en uno de `get_content_tags`.
+        items = [
+            i
+            for i in items
+            if not getattr(i, "_etiquetas_precargadas", False) and (i.pk or 0) > 0
+        ]
+        if not items:
+            return
+        prefetch_related_objects(items, "content_object")
+        por_clase = defaultdict(list)
+        for item in items:
+            obj = item.content_object
+            if obj is not None:
+                por_clase[type(obj)].append(obj)
+        for objetos in por_clase.values():
+            # El mismo orden que `get_content_tags`: una página etiqueta en
+            # `faceted_tags`; un documento o una imagen, en `tags`.
+            for campo in ("faceted_tags", "tags"):
+                if hasattr(objetos[0], campo):
+                    prefetch_related_objects(objetos, campo)
+                    break
+        LibraryItem.precargar_etiquetas_de_pagina(items)
+        for item in items:
+            item._etiquetas_precargadas = True
+
+    @staticmethod
+    def precargar_etiquetas_de_pagina(items):
+        """Carga en bloque las etiquetas que un elemento hereda de su libro.
+
+        **Herencia hasta el libro** (petición del principal, 2026-10-01): un
+        elemento lleva las etiquetas de su página de origen y las de cada página
+        por encima de ella hasta el libro MÁS EXTERIOR — un `LibroPage` puede
+        colgar de otro, y etiquetar el libro grande tiene que llegar a todo lo
+        de dentro. Se para ahí: por encima del libro está el índice de la
+        biblioteca, y heredar de él sería etiquetar todo con todo. Un elemento
+        sin libro en su ascendencia hereda solo de su página, como antes.
+
+        Los libros por REFERENCIA no están en la ascendencia del capítulo —el
+        capítulo vive en otro sitio del árbol—, así que el libro se mira por
+        `item.libro`, que solo se guarda en esos.
+
+        Es lo que hace que `get_content_tags` no cueste una subida al árbol por
+        elemento: medido sobre la biblioteca real, 51 elementos pasaban de 74 a
+        222 ms sin precarga. Deja el resultado en `_etiquetas_de_pagina`, de la
+        más cercana a la más lejana.
+        """
+        from wagtail.models import Page
+
+        from musica.models import LibroPage
+
+        paso = Page.steplen
+        origenes = {
+            p.pk: p.path
+            for p in Page.objects.filter(
+                pk__in={i.source_page_id for i in items if i.source_page_id}
+            ).only("path")
+        }
+        de_referencia = {
+            i.libro_id for i in items if getattr(i, "libro_id", None)
+        }
+        caminos = {
+            path[:n] for path in origenes.values() for n in range(paso, len(path) + 1, paso)
+        }
+        paginas = list(
+            Page.objects.filter(
+                models.Q(path__in=caminos) | models.Q(pk__in=de_referencia)
+            ).specific()
+        )
+        por_path = {p.path: p for p in paginas}
+        # Una consulta por tipo de página, no por página.
+        por_tipo = {}
+        for p in paginas:
+            if hasattr(p, "faceted_tags"):
+                por_tipo.setdefault(type(p), []).append(p)
+        for grupo in por_tipo.values():
+            models.prefetch_related_objects(grupo, "faceted_tags")
+        etiquetas = {
+            p.pk: list(p.faceted_tags.all()) if hasattr(p, "faceted_tags") else []
+            for p in paginas
+        }
+
+        def cadena(path):
+            """Página de origen y, si cuelga de un libro, todo hasta el libro
+            más exterior. De la más cercana a la más lejana."""
+            subida = [
+                por_path[path[:n]]
+                for n in range(len(path), 0, -paso)
+                if path[:n] in por_path
+            ]
+            libros = [n for n, p in enumerate(subida) if isinstance(p, LibroPage)]
+            return subida[: libros[-1] + 1] if libros else subida[:1]
+
+        for item in items:
+            heredadas = []
+            path = origenes.get(item.source_page_id)
+            if path:
+                for pagina in cadena(path):
+                    heredadas += etiquetas[pagina.pk]
+            if getattr(item, "libro_id", None) in etiquetas:
+                heredadas += etiquetas[item.libro_id]
+            item._etiquetas_de_pagina = heredadas
+
     def get_content_tags(self):
         """Las etiquetas de este elemento: las suyas MÁS las de su página.
 
@@ -543,7 +447,8 @@ class LibraryItem(models.Model):
         contenedor: los 23 capítulos del libro de Jens Larsen llevan
         `estilo:jazz-moderno` en la página del libro, no en cada PDF.
 
-        **Por qué se suma aquí y no solo en `build_tag_map`** (decisión del
+        **Por qué se suma aquí y no solo en `build_tag_map`** (el emparejado de
+        mazos, retirado con los mazos en la fase 89; decisión del
         principal, opción A, 2026-08-24): había dos definiciones de "las
         etiquetas de este elemento" conviviendo. `build_tag_map` miraba la
         página y esta no, así que la página contaba para emparejar un mazo y no
@@ -572,7 +477,7 @@ class LibraryItem(models.Model):
             # Sin precarga: la misma subida, para este elemento solo. Correcto
             # pero caro; cualquier bucle sobre elementos debería llamar antes a
             # `precargar_etiquetas_de_pagina`.
-            LibraryDeck.precargar_etiquetas_de_pagina([self])
+            LibraryItem.precargar_etiquetas_de_pagina([self])
         de_pagina = self._etiquetas_de_pagina
 
         # El capítulo y su libro pueden llevar la misma: sale una vez.
@@ -1053,12 +958,6 @@ class ReviewLog(models.Model):
         null=True, blank=True, help_text="Tiempo dedicado al item"
     )
 
-    # SET_NULL: borrar un mazo no debe borrar la historia de lo practicado con él.
-    deck = models.ForeignKey(
-        LibraryDeck, null=True, blank=True, on_delete=models.SET_NULL,
-        related_name="reviews", verbose_name="Mazo de origen",
-    )
-
     class Meta:
         ordering = ["-reviewed_at"]
         indexes = [
@@ -1090,7 +989,6 @@ class ReviewLog(models.Model):
         proficiency_after=None,
         duration_seconds=None,
         session_uuid=None,
-        deck=None,
     ):
         """Crea el registro. `user` se deriva del item, nunca se pasa a mano.
 
@@ -1109,5 +1007,4 @@ class ReviewLog(models.Model):
             proficiency_after=proficiency_after,
             duration_seconds=duration_seconds,
             session_uuid=session_uuid,
-            deck=deck,
         )

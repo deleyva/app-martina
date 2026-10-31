@@ -360,3 +360,22 @@ class TestLibrosProgramables:
         assert len(elementos) == 1
         assert elementos[0]["object_id"] == recorte.pk
         assert elementos[0]["title"] == "El ejercicio"
+
+
+# === Fase 89: el detalle del plan sin biblioteca de grupo ===
+
+
+def test_el_detalle_del_plan_abre_sin_biblioteca_de_grupo(client, teacher, group):
+    """La biblioteca de grupo era una de las dos fuentes para añadir al plan.
+    Con el modelo fuera, la página tiene que seguir abriendo con la otra."""
+    from django.urls import reverse
+
+    plan = CoursePlan.objects.create(teacher=teacher, group=group, name="1T")
+    client.force_login(teacher)
+
+    response = client.get(reverse("programacion:plan_detail", args=[plan.pk]))
+
+    assert response.status_code == 200
+    html = response.content.decode()
+    assert "Libros" in html
+    assert "Desde la biblioteca del grupo" not in html

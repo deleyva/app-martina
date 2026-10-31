@@ -36,12 +36,6 @@ urlpatterns = [
     # Vista del profesor para submissions
     path('submission/view/<int:status_id>/', teacher_view_submission, name='teacher_view_submission'),
     
-    # URLs para biblioteca de grupo
-    path('group-library/<int:group_id>/', views.group_library_index, name='group_library_index'),
-    path('group-library/<int:group_id>/add/', views.group_library_add, name='group_library_add'),
-    path('group-library/<int:group_id>/remove/<int:pk>/', views.group_library_remove, name='group_library_remove'),
-    path('group-library/<int:group_id>/remove-by-content/', views.group_library_remove_by_content, name='group_library_remove_by_content'),
-    
     # URLs para sesiones de clase
     path('class-sessions/', views.class_session_list, name='class_session_list'),
     path('class-sessions/create/', views.class_session_create, name='class_session_create'),

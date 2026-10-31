@@ -252,10 +252,10 @@ def facetas_disponibles(items):
     """
     # Sin esto son varias consultas por elemento: el contenido, sus etiquetas
     # y la subida a la página de origen. Crece en línea recta con la biblioteca.
-    from my_library.models import LibraryDeck
+    from my_library.models import LibraryItem
 
     items = list(items)
-    LibraryDeck.precargar_etiquetas(items)
+    LibraryItem.precargar_etiquetas(items)
 
     cuentas = {}
     for item in items:
@@ -287,10 +287,10 @@ def filtrar_por_facetas(items, seleccion):
     if not seleccion:
         return list(items)
 
-    from my_library.models import LibraryDeck
+    from my_library.models import LibraryItem
 
     items = list(items)
-    LibraryDeck.precargar_etiquetas(items)
+    LibraryItem.precargar_etiquetas(items)
     resultado = []
     for item in items:
         del_item = facets.por_faceta(_etiquetas(item))
@@ -569,8 +569,8 @@ def _variar_capitulos(conocidos, cuantos):
 def construir_sesion(items, tamano=TAMANO_SESION_POR_DEFECTO, incluir_nuevos=True):
     """Devuelve los elementos de una sesión, acotados y ordenados.
 
-    `items` es cualquier iterable de LibraryItem (el mazo, la biblioteca entera,
-    un filtro de etiquetas). El resultado nunca excede `tamano`.
+    `items` es cualquier iterable de LibraryItem (la biblioteca entera, un
+    filtro de etiquetas, un libro). El resultado nunca excede `tamano`.
 
     Con `incluir_nuevos=False` la sesión es SOLO repaso: nada que no se haya
     practicado nunca entra, ni por la cuota de novedad ni por el relleno del
@@ -582,10 +582,10 @@ def construir_sesion(items, tamano=TAMANO_SESION_POR_DEFECTO, incluir_nuevos=Tru
     """
     # Agrupar por temática lee las etiquetas de cada elemento: en bloque, o
     # es una consulta por elemento (2026-10-02). Lo ya precargado no se repite.
-    from my_library.models import LibraryDeck, LibraryItem
+    from my_library.models import LibraryItem
 
     items = list(items)
-    LibraryDeck.precargar_etiquetas([i for i in items if isinstance(i, LibraryItem)])
+    LibraryItem.precargar_etiquetas([i for i in items if isinstance(i, LibraryItem)])
     unidades = unidades_de_practica(items)
     if not unidades:
         return []

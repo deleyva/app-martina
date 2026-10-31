@@ -11,7 +11,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
-from clases.models import Group, GroupLibraryItem
+from clases.models import Group
 
 from .models import CoursePlan, PlanItem
 from .services import create_session_from_plan_item, recompute_coverage
@@ -71,30 +71,15 @@ def plan_create(request):
 def plan_detail(request, pk):
     """
     Vista principal: timeline del plan con progreso por item,
-    panel "siguiente paso" y añadir recursos desde la biblioteca del grupo.
+    panel "siguiente paso" y añadir libros. La biblioteca del grupo, que era la
+    otra fuente, se retiró en la fase 89.
     """
     plan = _get_plan(request, pk)
     items = list(plan.get_items_ordered())
 
-    # Contenido de la biblioteca del grupo que se puede programar.
-    # `recorte` entra aquí porque un trozo con nombre de un método ES una unidad
-    # programable: "esta semana, Sailing Boat" es exactamente lo que se planifica.
-    programmable = GroupLibraryItem.objects.filter(
-        group=plan.group,
-        content_type__model__in=[
-            "recursopage", "libropage", "librodeestudiopage", "scorepage", "recorte",
-        ],
-    ).select_related("content_type")
     # Excluir los ya programados
     existing = {(i.content_type_id, i.object_id) for i in plan.items.all()}
-    library_choices = [
-        gli
-        for gli in programmable
-        if (gli.content_type_id, gli.object_id) not in existing
-        and gli.content_object is not None
-    ]
-
-    # Libros disponibles aunque no estén en la biblioteca del grupo. Las dos
+    # Libros disponibles. Las dos
     # formas de libro: por árbol (`LibroPage`) y por referencia
     # (`LibroDeEstudioPage`, que es la que puede estar hecha de recortes).
     from musica.models import LibroDeEstudioPage, LibroPage
@@ -118,7 +103,6 @@ def plan_detail(request, pk):
             "plan": plan,
             "items": items,
             "progress": plan.get_progress(),
-            "library_choices": library_choices,
             "book_choices": book_choices,
             "next_step": next_step,
             "pending_elements": pending_elements,

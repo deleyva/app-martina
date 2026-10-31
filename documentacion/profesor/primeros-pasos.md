@@ -14,7 +14,7 @@ La aplicación usa **autenticación con Google** (django-allauth). Los profesore
 ## Flujo del profesor, resumido
 
 1. **Publica contenido** en el CMS (artículos con adjuntos, partituras, libros con capítulos). Ver [Contenidos](contenidos.md).
-2. **Añade el contenido a la biblioteca del grupo** desde el botón de librería que aparece en cada página o adjunto. Ver [Bibliotecas](bibliotecas.md).
+2. **Asigna los libros al grupo** desde la página de libros del grupo, en el orden de la clase. Ver [Bibliotecas](bibliotecas.md#los-libros-del-grupo).
 3. **Programa el trimestre** en `/programacion/`: crea un plan por grupo y añade los recursos en orden. Ver [Programaciones](programaciones.md).
 4. **Crea sesiones de clase** (a mano en `/clases/sessions/` o con un clic desde el plan) y preséntalas en el aula. Ver [Clases](clases.md).
 5. **Finaliza cada clase con una reflexión** de texto o voz: te servirá para retomar el hilo y ajustar el plan.

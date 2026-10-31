@@ -52,12 +52,11 @@ class ReviewLogAdmin(admin.ModelAdmin):
         "proficiency_before",
         "proficiency_after",
         "duration_seconds",
-        "deck",
     ]
-    list_filter = ["source", "reviewed_at", "user", "deck"]
+    list_filter = ["source", "reviewed_at", "user"]
     search_fields = ["user__email"]
     date_hierarchy = "reviewed_at"
-    list_select_related = ["user", "item", "deck"]
+    list_select_related = ["user", "item"]
 
     def has_add_permission(self, request):
         return False

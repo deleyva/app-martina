@@ -74,8 +74,6 @@ def library_button(context, content_object, source_page=None):
 
     source_page: Página de origen (ScorePage/RecursoPage) para registrar la asociación correcta.
     """
-    from clases.models import GroupLibraryItem
-
     if content_object is None:
         return {
             "content_object": None,
@@ -86,7 +84,6 @@ def library_button(context, content_object, source_page=None):
             "teaching_groups": [],
             "all_students": [],
             "is_scorepage": False,
-            "groups_with_content": set(),
             "source_page_id": None,
         }
 
@@ -95,7 +92,6 @@ def library_button(context, content_object, source_page=None):
     teaching_groups = []
     all_students = []
     is_teacher = False
-    groups_with_content = set()  # IDs de grupos que ya tienen este contenido
 
     content_type = ContentType.objects.get_for_model(content_object)
 
@@ -117,16 +113,9 @@ def library_button(context, content_object, source_page=None):
             # de un visitante, sin que nadie hubiera abierto el diálogo. Ahora
             # la sirve `my_library:students_picker` al abrirlo.
             #
-            # Los grupos SÍ siguen aquí: son nueve nombres, se pintan siempre
-            # en el diálogo y hacen falta para marcar cuáles ya tienen el
-            # contenido.
-            if is_teacher:
-                existing_items = GroupLibraryItem.objects.filter(
-                    group__in=teaching_groups,
-                    content_type=content_type,
-                    object_id=content_object.pk,
-                ).values_list("group_id", flat=True)
-                groups_with_content = set(existing_items)
+            # Los grupos SÍ siguen aquí: el diálogo enseña la sección del
+            # alumnado solo si los hay. La casilla de cada grupo se fue con la
+            # biblioteca de grupo en la fase 89.
 
     # Determinar source_page_id: usar parámetro explícito o inferir del contexto
     source_page_id = None
@@ -145,7 +134,6 @@ def library_button(context, content_object, source_page=None):
         "teaching_groups": teaching_groups,
         "all_students": all_students,
         "is_scorepage": is_scorepage,
-        "groups_with_content": groups_with_content,
         "source_page_id": source_page_id,
     }
 

@@ -581,9 +581,9 @@ class Recorte(models.Model):
     las renditions de Wagtail; el dato es el puntero.
 
     **Vive al nivel de un embed o una imagen, no al de una anotación.** Tiene pk
-    propia, así que entra tal cual en los cuatro sitios que guardan contenido por
-    `(ContentType, object_id)`: `LibraryItem`, `GroupLibraryItem`, `GroupBookItem` y
-    `PlanItem`. Eso es lo que lo separa de `ItemSection`, que es el recorte PRIVADO
+    propia, así que entra tal cual en los sitios que guardan contenido por
+    `(ContentType, object_id)`: `LibraryItem`, `GroupBookItem` y `PlanItem` (hasta
+    la fase 89, también la biblioteca de grupo). Eso es lo que lo separa de `ItemSection`, que es el recorte PRIVADO
     de un usuario sobre un elemento suyo y no se puede publicar ni asignar a un
     grupo. Los dos conviven y componen: un recorte publicado se puede trocear a su
     vez en secciones personales, y ninguno de los dos estorba al otro.

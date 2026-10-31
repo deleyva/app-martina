@@ -29,7 +29,7 @@ except ImportError:
     genai = None
     GEMINI_AVAILABLE = False
 
-from clases.models import Group, Student, GroupLibraryItem, ClassSession, ClassSessionItem
+from clases.models import Group, Student, ClassSession, ClassSessionItem
 from .models import (
     EvaluationItem,
     RubricCategory,
@@ -988,156 +988,6 @@ def process_feedback_with_ai(request):
 
 
 # =============================================================================
-# VISTAS DE BIBLIOTECA DE GRUPO
-# =============================================================================
-
-
-@login_required
-@user_passes_test(es_profesor)
-def group_library_index(request, group_id):
-    """
-    Vista principal de la biblioteca del grupo.
-    TINY VIEW: solo orquesta y renderiza.
-    Solo profesores del grupo pueden acceder.
-    """
-    group = get_object_or_404(Group, pk=group_id)
-    
-    # Verificar que el profesor pertenece a este grupo
-    if not group.teachers.filter(pk=request.user.pk).exists():
-        messages.error(request, "No tienes permiso para acceder a la biblioteca de este grupo.")
-        return redirect("evaluations:evaluation_item_list")
-    
-    items = GroupLibraryItem.objects.filter(group=group)
-    
-    return render(
-        request,
-        "clases/group_library/index.html",
-        {
-            "group": group,
-            "items": items,
-            "total_items": items.count(),
-        },
-    )
-
-
-@login_required
-@user_passes_test(es_profesor)
-def group_library_add(request, group_id):
-    """
-    Endpoint HTMX para añadir item a biblioteca de grupo.
-    TINY VIEW: lógica en el modelo (FAT MODEL).
-    """
-    if request.method == "POST":
-        group = get_object_or_404(Group, pk=group_id)
-        
-        # Verificar que el profesor pertenece a este grupo
-        if not group.teachers.filter(pk=request.user.pk).exists():
-            return HttpResponse("No autorizado", status=403)
-        
-        content_type_id = request.POST.get("content_type_id")
-        object_id = request.POST.get("object_id")
-        notes = request.POST.get("notes", "")
-
-        content_type = get_object_or_404(ContentType, id=content_type_id)
-        content_object = content_type.get_object_for_this_type(pk=object_id)
-
-        # Lógica en el modelo (FAT MODEL)
-        item, created = GroupLibraryItem.add_to_library(
-            group=group,
-            content_object=content_object,
-            added_by=request.user,
-            notes=notes
-        )
-
-        # Renderizar botón actualizado (HTMX swap)
-        return render(
-            request,
-            "clases/group_library/partials/add_button.html",
-            {
-                "group": group,
-                "content_object": content_object,
-                "content_type": content_type,
-                "in_library": True,
-            },
-        )
-
-    return HttpResponse(status=405)
-
-
-@login_required
-@user_passes_test(es_profesor)
-def group_library_remove(request, group_id, pk):
-    """
-    Endpoint HTMX para quitar item de biblioteca de grupo por ID.
-    TINY VIEW: solo elimina y renderiza.
-    """
-    group = get_object_or_404(Group, pk=group_id)
-    
-    # Verificar que el profesor pertenece a este grupo
-    if not group.teachers.filter(pk=request.user.pk).exists():
-        return HttpResponse("No autorizado", status=403)
-    
-    item = get_object_or_404(GroupLibraryItem, pk=pk, group=group)
-    content_object = item.content_object
-    content_type = item.content_type
-    item.delete()
-
-    # Renderizar botón actualizado (HTMX swap)
-    return render(
-        request,
-        "clases/group_library/partials/add_button.html",
-        {
-            "group": group,
-            "content_object": content_object,
-            "content_type": content_type,
-            "in_library": False,
-        },
-    )
-
-
-@login_required
-@user_passes_test(es_profesor)
-def group_library_remove_by_content(request, group_id):
-    """
-    Endpoint HTMX para quitar item de biblioteca de grupo por content_type y object_id.
-    TINY VIEW: solo elimina y renderiza.
-    """
-    if request.method in ["POST", "DELETE"]:
-        group = get_object_or_404(Group, pk=group_id)
-        
-        # Verificar que el profesor pertenece a este grupo
-        if not group.teachers.filter(pk=request.user.pk).exists():
-            return HttpResponse("No autorizado", status=403)
-        
-        content_type_id = request.POST.get("content_type_id")
-        object_id = request.POST.get("object_id")
-
-        content_type = get_object_or_404(ContentType, id=content_type_id)
-        content_object = content_type.get_object_for_this_type(pk=object_id)
-
-        # Eliminar si existe
-        GroupLibraryItem.objects.filter(
-            group=group,
-            content_type=content_type,
-            object_id=object_id,
-        ).delete()
-
-        # Renderizar botón actualizado (HTMX swap)
-        return render(
-            request,
-            "clases/group_library/partials/add_button.html",
-            {
-                "group": group,
-                "content_object": content_object,
-                "content_type": content_type,
-                "in_library": False,
-            },
-        )
-
-    return HttpResponse(status=405)
-
-
-# =============================================================================
 # VISTAS DE SESIONES DE CLASE
 # =============================================================================
 
@@ -1215,18 +1065,11 @@ def class_session_edit(request, pk):
     """
     session = get_object_or_404(ClassSession, pk=pk, teacher=request.user)
     items = session.get_items_ordered()
-    
-    # Obtener elementos de la biblioteca del grupo para añadir
-    library_items = GroupLibraryItem.objects.filter(group=session.group)
-    
+
     return render(
         request,
         "clases/class_sessions/edit.html",
-        {
-            "session": session,
-            "items": items,
-            "library_items": library_items,
-        },
+        {"session": session, "items": items},
     )
 
 
@@ -1327,7 +1170,7 @@ def class_session_delete(request, pk):
 @user_passes_test(es_profesor, login_url="/accounts/login/", redirect_field_name=None)
 def add_to_multiple_libraries(request):
     """
-    Añade un recurso a múltiples bibliotecas (personal y/o grupos).
+    Añade un recurso a la biblioteca personal.
     TINY VIEW: orquesta y delega al modelo.
     """
     from django.contrib.contenttypes.models import ContentType
@@ -1336,7 +1179,6 @@ def add_to_multiple_libraries(request):
     content_type_id = request.POST.get("content_type_id")
     object_id = request.POST.get("object_id")
     personal_library = request.POST.get("personal_library") == "true"
-    group_ids = request.POST.getlist("group_ids")
     
     # Validar parámetros
     if not content_type_id or not object_id:
@@ -1354,24 +1196,6 @@ def add_to_multiple_libraries(request):
             user=request.user,
             content_type=content_type,
             object_id=object_id,
-        )
-        if created:
-            added_count += 1
-    
-    # Añadir a bibliotecas de grupo
-    for group_id in group_ids:
-        group = get_object_or_404(Group, pk=group_id)
-        
-        # Verificar que el profesor pertenece al grupo
-        if not group.teachers.filter(pk=request.user.pk).exists():
-            continue
-        
-        # Usar el método del modelo para añadir
-        item, created = GroupLibraryItem.objects.get_or_create(
-            group=group,
-            content_type=content_type,
-            object_id=object_id,
-            defaults={"added_by": request.user}
         )
         if created:
             added_count += 1

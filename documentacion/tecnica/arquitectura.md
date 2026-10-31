@@ -43,7 +43,7 @@ graph TB
 erDiagram
     Subject ||--o{ Group : tiene
     Group ||--o{ Enrollment : matricula
-    Group ||--o{ GroupLibraryItem : "biblioteca de grupo"
+    Group ||--o{ GroupBook : "libros del grupo"
     Group ||--o{ ClassSession : "sesiones de clase"
     ClassSession ||--o{ ClassSessionItem : contiene
     Group ||--o{ CoursePlan : "programaciones"

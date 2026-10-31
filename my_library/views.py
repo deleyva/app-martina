@@ -6,14 +6,13 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
 from django.http import HttpResponse, JsonResponse, QueryDict
 from django.contrib.contenttypes.models import ContentType
-from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme, urlencode
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_protect
 from django.contrib import messages
 from django.db.models import Count
-from .models import ItemSection, LibraryDeck, LibraryItem, ReviewLog, SharedNote
+from .models import ItemSection, LibraryItem, ReviewLog, SharedNote
 from . import facets
 from .libros import previsualizar_relleno, rellenar_para_sesion
 from .session import (
@@ -61,12 +60,6 @@ def my_library_index(request):
     if not show_all and total_items > 6:
         items = all_items[:6]
         has_more = True
-
-    # `_build_decks_with_counts` NO se llama desde el 2026-08-25: con el panel
-    # fuera de la plantilla, calcularlo era pagar `build_tag_map` (unas dos
-    # consultas por elemento) para tirarlo. La funcion sigue ahi, y con ella
-    # `_render_deck_panel` y las rutas de mazos, porque esto es reversible a
-    # proposito mientras se decide si el modelo se va del todo.
 
     return render(
         request,
@@ -488,15 +481,11 @@ def study_session_view(request):
 
     secciones_pks = [int(t[1:]) for t in crudos if t.startswith("s") and t[1:].isdigit()]
     item_pks = [int(t) for t in crudos if t.isdigit()]
-    # Mazo de origen, si la sesión viene de uno. Se propaga a cada ReviewLog.
-    deck_pk_raw = request.GET.get("deck", "")
-    deck_pk = int(deck_pk_raw) if deck_pk_raw.isdigit() else ""
 
     if not crudos:
         return render(request, "my_library/study_viewer.html", {
             "playlist_json": "[]",
             "total_items": 0,
-            "deck_pk": deck_pk,
             "url_vuelta": url_vuelta,
         })
 
@@ -543,7 +532,6 @@ def study_session_view(request):
     return render(request, "my_library/study_viewer.html", {
         "playlist_json": json.dumps(playlist),
         "total_items": len(playlist),
-        "deck_pk": deck_pk,
         "url_vuelta": url_vuelta,
     })
 
@@ -661,11 +649,6 @@ def log_review(request, pk):
     duration_raw = request.POST.get("duration_seconds", "")
     duration_seconds = int(duration_raw) if str(duration_raw).isdigit() else None
 
-    deck = None
-    deck_pk = request.POST.get("deck", "")
-    if str(deck_pk).isdigit():
-        deck = LibraryDeck.objects.filter(pk=int(deck_pk), user=request.user).first()
-
     ReviewLog.log(
         item,
         section=seccion,
@@ -674,7 +657,6 @@ def log_review(request, pk):
         proficiency_after=after,
         duration_seconds=duration_seconds,
         session_uuid=_parse_uuid(request.POST.get("session_uuid")),
-        deck=deck,
     )
 
     return HttpResponse(status=204)
@@ -745,74 +727,6 @@ def merge_tags(request):
         messages.warning(request, "No se fusionó ningún tag.")
 
     return redirect("my_library:manage_tags")
-
-
-# === Deck CRUD ===
-
-
-@login_required
-@require_POST
-def create_deck(request):
-    """Create a new deck from active tag filters. HTMX endpoint."""
-    name = request.POST.get("name", "").strip()
-    tags_str = request.POST.get("tags", "").strip()
-
-    if not name or not tags_str:
-        return HttpResponse(
-            '<span class="text-error text-sm">Nombre y tags son obligatorios.</span>',
-            status=400,
-        )
-
-    tag_list = [t.strip() for t in tags_str.split(",") if t.strip()]
-    if not tag_list:
-        return HttpResponse(
-            '<span class="text-error text-sm">Selecciona al menos un tag.</span>',
-            status=400,
-        )
-
-    deck, created = LibraryDeck.objects.get_or_create(
-        user=request.user,
-        name=name,
-        defaults={"tags_json": json.dumps(tag_list)},
-    )
-    if not created:
-        return HttpResponse(
-            '<span class="text-error text-sm">Ya existe un mazo con ese nombre.</span>',
-            status=400,
-        )
-
-    # Return updated deck panel
-    return _render_deck_panel(request)
-
-
-@login_required
-@require_POST
-def delete_deck(request, pk):
-    """Delete a deck. HTMX endpoint."""
-    deck = get_object_or_404(LibraryDeck, pk=pk, user=request.user)
-    deck.delete()
-    return _render_deck_panel(request)
-
-
-@login_required
-@require_POST
-def rename_deck(request, pk):
-    """Rename a deck. HTMX endpoint."""
-    deck = get_object_or_404(LibraryDeck, pk=pk, user=request.user)
-    new_name = request.POST.get("name", "").strip()
-    if not new_name:
-        return HttpResponse(status=400)
-
-    # Check unique constraint
-    if LibraryDeck.objects.filter(user=request.user, name=new_name).exclude(pk=pk).exists():
-        return HttpResponse(
-            '<span class="text-error text-sm">Ya existe un mazo con ese nombre.</span>',
-            status=400,
-        )
-
-    deck.name = new_name
-    deck.save(update_fields=["name"])
-    return _render_deck_panel(request)
 
 
 def _seleccion_de(request):
@@ -1094,38 +1008,6 @@ def session_launch(request):
 
 
 @login_required
-def deck_study(request, pk):
-    """Arranca una sesión acotada con los elementos del mazo.
-
-    El mazo puede tener 200 elementos: la sesión sigue siendo del mismo tamaño.
-    Qué entra y en qué orden lo decide `construir_sesion`.
-    """
-    deck = get_object_or_404(LibraryDeck, pk=pk, user=request.user)
-    items_qs = LibraryItem.objects.filter(user=request.user).select_related(
-        "content_type", "source_page"
-    ).prefetch_related("tags")
-    tag_map = LibraryDeck.build_tag_map(items_qs)
-    pks = deck.get_matching_item_pks(tag_map)
-    if not pks:
-        messages.warning(request, f'El mazo "{deck.name}" no tiene elementos que coincidan.')
-        return redirect("my_library:index")
-
-    tamano_raw = request.GET.get("size", "")
-    tamano = (
-        int(tamano_raw) if tamano_raw.isdigit() else TAMANO_SESION_POR_DEFECTO
-    )
-
-    pks_del_mazo = set(pks)
-    candidatos = [item for item in items_qs if item.pk in pks_del_mazo]
-    sesion = construir_sesion(candidatos, tamano=tamano)
-
-    return redirect(
-        f"{reverse('my_library:study_session')}"
-        f"?items={_tokens_de_sesion(sesion)}&deck={deck.pk}"
-    )
-
-
-@login_required
 @require_POST
 def descartar_item(request, pk):
     """Saca un elemento de la lista de estudio para siempre.
@@ -1207,36 +1089,6 @@ def alternar_objetivo(request, page_id):
             "progreso_totales": totales,
         },
     )
-
-
-def _build_decks_with_counts(user, items_qs):
-    """Build deck list with matching item counts. Shared by index view and HTMX endpoints."""
-    decks = LibraryDeck.objects.filter(user=user)
-    if not decks.exists():
-        return []
-    tag_map = LibraryDeck.build_tag_map(items_qs)
-    return [
-        {
-            "deck": deck,
-            "tags": deck.get_tags(),
-            "count": len(deck.get_matching_item_pks(tag_map)),
-        }
-        for deck in decks
-    ]
-
-
-def _render_deck_panel(request):
-    """Helper: render the deck panel partial with fresh data."""
-    all_items_qs = LibraryItem.objects.filter(user=request.user).select_related(
-        "content_type", "source_page"
-    ).prefetch_related("tags")
-    decks_with_counts = _build_decks_with_counts(request.user, all_items_qs)
-    html = render_to_string(
-        "my_library/partials/deck_panel.html",
-        {"decks_with_counts": decks_with_counts},
-        request=request,
-    )
-    return HttpResponse(html)
 
 
 @login_required

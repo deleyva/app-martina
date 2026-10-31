@@ -796,7 +796,6 @@
     var selectedLevel = null;
     var csrfToken = '{{ csrf_token }}';
     var flyoutOpen = false;
-    var deckPk = '{{ deck_pk }}';
     var itemStartedAt = null;
 
     // Agrupa todos los repasos de esta tanda en el histórico (ReviewLog.session_uuid)
@@ -1315,7 +1314,6 @@
         if (playlist[currentIndex].section) {
             body.append('section', playlist[currentIndex].section);
         }
-        if (deckPk) body.append('deck', deckPk);
         if (itemStartedAt) {
             body.append('duration_seconds', Math.round((Date.now() - itemStartedAt) / 1000));
         }

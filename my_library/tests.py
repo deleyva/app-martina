@@ -13,7 +13,6 @@ from martina_bescos_app.users.tests.factories import UserFactory
 from my_library import facets
 from my_library.models import (
     ItemSection,
-    LibraryDeck,
     LibraryItem,
     ReviewLog,
     SharedNote,
@@ -80,26 +79,10 @@ def test_improved_compara_niveles(library_item):
     assert ReviewLog.log(library_item).improved is None
 
 
-def test_borrar_el_mazo_no_borra_la_historia(library_item, user):
-    deck = LibraryDeck.objects.create(
-        user=user, name="Pentatónicas", tags_json=json.dumps(["pentatonica"])
-    )
-    review = ReviewLog.log(library_item, deck=deck)
-
-    deck.delete()
-    review.refresh_from_db()
-
-    assert ReviewLog.objects.filter(pk=review.pk).exists()
-    assert review.deck is None
-
-
 # === C4: un repaso en el visor graba exactamente una fila ===
 
 
 def test_log_review_graba_una_fila_completa(client, library_item, user):
-    deck = LibraryDeck.objects.create(
-        user=user, name="Guitarra", tags_json=json.dumps(["guitarra"])
-    )
     session_uuid = uuid.uuid4()
     client.force_login(user)
 
@@ -109,7 +92,6 @@ def test_log_review_graba_una_fila_completa(client, library_item, user):
             "level": "4",
             "duration_seconds": "180",
             "session_uuid": str(session_uuid),
-            "deck": str(deck.pk),
         },
     )
 
@@ -122,7 +104,6 @@ def test_log_review_graba_una_fila_completa(client, library_item, user):
     assert review.proficiency_after == 4
     assert review.duration_seconds == 180
     assert review.session_uuid == session_uuid
-    assert review.deck == deck
 
 
 def test_log_review_actualiza_contadores_del_item(client, library_item, user):
@@ -148,7 +129,6 @@ def test_log_review_tolera_datos_basura_del_cliente(client, library_item, user):
             "level": "2",
             "session_uuid": "no-soy-un-uuid",
             "duration_seconds": "un-rato",
-            "deck": "99999",
         },
     )
 
@@ -156,7 +136,6 @@ def test_log_review_tolera_datos_basura_del_cliente(client, library_item, user):
     review = ReviewLog.objects.get()
     assert review.session_uuid is None
     assert review.duration_seconds is None
-    assert review.deck is None
 
 
 def test_log_review_no_deja_tocar_la_biblioteca_ajena(client, library_item, django_user_model):
@@ -248,35 +227,21 @@ def test_un_nivel_invalido_no_graba_nada(client, library_item, user):
     assert ReviewLog.objects.count() == 0
 
 
-def test_el_visor_recibe_el_mazo_y_apunta_a_log_review(client, library_item, user):
-    """El JS del visor depende de que la plantilla interpole el mazo."""
-    deck = LibraryDeck.objects.create(
-        user=user, name="Pentatónicas", tags_json=json.dumps(["pentatonica"])
-    )
-    client.force_login(user)
-
-    response = client.get(
-        reverse("my_library:study_session"),
-        {"items": str(library_item.pk), "deck": str(deck.pk)},
-    )
-    html = response.content.decode()
-
-    assert response.status_code == 200
-    assert f"var deckPk = '{deck.pk}';" in html
-    assert "log-review/" in html
-    assert "sessionUuid" in html
-    # El visor ya no debe hacer los dos POST antiguos por item
-    assert "mark-viewed/" not in html
-
-
-def test_el_visor_sin_mazo_no_manda_deck(client, library_item, user):
+def test_el_visor_apunta_a_log_review(client, library_item, user):
     client.force_login(user)
 
     response = client.get(
         reverse("my_library:study_session"), {"items": str(library_item.pk)}
     )
+    html = response.content.decode()
 
-    assert "var deckPk = '';" in response.content.decode()
+    assert response.status_code == 200
+    assert "log-review/" in html
+    assert "sessionUuid" in html
+    # El visor ya no debe hacer los dos POST antiguos por item
+    assert "mark-viewed/" not in html
+    # Fase 89: sin mazos, el visor no manda ninguno.
+    assert "deckPk" not in html
 
 
 # === Construcción de sesiones acotadas ===
@@ -469,7 +434,7 @@ def test_los_bloques_tematicos_son_cortos(db, user):
 # === Migración de etiquetas ===
 
 
-def _migrar(tmp_path, lineas, ejecutar=False, solo_mazos=False):
+def _migrar(tmp_path, lineas, ejecutar=False):
     from django.core.management import call_command
 
     mapa = tmp_path / "mapa.txt"
@@ -477,8 +442,6 @@ def _migrar(tmp_path, lineas, ejecutar=False, solo_mazos=False):
     args = ["migrar_etiquetas", "--mapa", str(mapa)]
     if ejecutar:
         args.append("--ejecutar")
-    if solo_mazos:
-        args.append("--solo-mazos")
     call_command(*args)
 
 
@@ -557,148 +520,6 @@ def test_la_migracion_es_idempotente(db, tmp_path, user):
 
     assert Tag.objects.filter(name="estilo:jazz").count() == 1
     assert {t.name for t in item.tags.all()} == {"estilo:jazz"}
-
-
-# === Migración de etiquetas: los mazos van detrás ===
-#
-# El defecto que nadie cubría. El 2026-08-12 la migración corrió en producción,
-# renombró las etiquetas y dejó los mazos apuntando a los nombres viejos. Los
-# tres mazos del principal pasaron a contar 0 sin decir nada.
-
-
-def _mazo(user, nombre, tags):
-    return LibraryDeck.objects.create(
-        user=user, name=nombre, tags_json=json.dumps(tags)
-    )
-
-
-def test_renombrar_una_etiqueta_arrastra_el_mazo(db, tmp_path, user):
-    """El defecto de producción, reproducido: sin esto el mazo cuenta 0."""
-    item = _item(user, "uno", tags=["instrument/guitar"])
-    mazo = _mazo(user, "guitarra", ["instrument/guitar"])
-
-    _migrar(tmp_path, ["instrument/guitar -> instrumento:guitarra"], ejecutar=True)
-
-    mazo.refresh_from_db()
-    assert mazo.get_tags() == ["instrumento:guitarra"]
-    tag_map = LibraryDeck.build_tag_map(LibraryItem.objects.filter(user=user))
-    assert mazo.get_matching_item_pks(tag_map) == [item.pk]
-
-
-def test_el_mazo_se_arrastra_aunque_la_etiqueta_ya_este_renombrada(db, tmp_path, user):
-    """La reparación de lo ya roto. Las etiquetas ya migraron; los mazos no.
-
-    Se aplica el MAPA, no el estado de `Tag`, así que el arrastre funciona
-    sobre mazos que se quedaron atrás en una ejecución anterior.
-    """
-    item = _item(user, "uno", tags=["instrumento:guitarra"])  # ya migrada
-    mazo = _mazo(user, "guitarra", ["instrument/guitar"])  # se quedó atrás
-
-    _migrar(tmp_path, ["instrument/guitar -> instrumento:guitarra"], ejecutar=True)
-
-    mazo.refresh_from_db()
-    assert mazo.get_tags() == ["instrumento:guitarra"]
-    tag_map = LibraryDeck.build_tag_map(LibraryItem.objects.filter(user=user))
-    assert mazo.get_matching_item_pks(tag_map) == [item.pk]
-
-
-def test_el_mazo_multietiqueta_se_arrastra_entero(db, tmp_path, user):
-    """El mazo 'guitarra jazz' real: dos etiquetas, las dos renombradas."""
-    mazo = _mazo(user, "guitarra jazz", ["instrument/guitar", "genre/jazz"])
-
-    _migrar(
-        tmp_path,
-        ["instrument/guitar -> instrumento:guitarra", "genre/jazz -> estilo:jazz"],
-        ejecutar=True,
-    )
-
-    mazo.refresh_from_db()
-    assert mazo.get_tags() == ["instrumento:guitarra", "estilo:jazz"]
-
-
-def test_dos_etiquetas_del_mazo_que_se_fusionan_no_quedan_duplicadas(db, tmp_path, user):
-    mazo = _mazo(user, "jazz", ["jazz", "genre/jazz"])
-
-    _migrar(tmp_path, ["jazz -> estilo:jazz", "genre/jazz -> estilo:jazz"], ejecutar=True)
-
-    mazo.refresh_from_db()
-    assert mazo.get_tags() == ["estilo:jazz"]
-
-
-def test_un_mazo_no_se_queda_vacio_al_borrar_su_unica_etiqueta(db, tmp_path, user):
-    """Un mazo sin etiquetas devuelve la biblioteca ENTERA. Peor que romperlo.
-
-    Se deja apuntando al nombre muerto: cuenta 0, que es visiblemente roto y
-    honesto, en vez de 51, que es silenciosamente falso.
-    """
-    _item(user, "uno", tags=["otra"])
-    mazo = _mazo(user, "muerto", ["borrame"])
-
-    _migrar(tmp_path, ["borrame -> __BORRAR__"], ejecutar=True)
-
-    mazo.refresh_from_db()
-    assert mazo.get_tags() == ["borrame"]
-    tag_map = LibraryDeck.build_tag_map(LibraryItem.objects.filter(user=user))
-    assert mazo.get_matching_item_pks(tag_map) == []
-
-
-def test_el_mazo_conserva_las_etiquetas_que_el_mapa_no_toca(db, tmp_path, user):
-    mazo = _mazo(user, "mixto", ["caged-system", "instrument/guitar"])
-
-    _migrar(tmp_path, ["instrument/guitar -> instrumento:guitarra"], ejecutar=True)
-
-    mazo.refresh_from_db()
-    assert mazo.get_tags() == ["caged-system", "instrumento:guitarra"]
-
-
-def test_arrastrar_mazos_es_idempotente(db, tmp_path, user):
-    mazo = _mazo(user, "guitarra", ["instrument/guitar"])
-    lineas = ["instrument/guitar -> instrumento:guitarra"]
-
-    _migrar(tmp_path, lineas, ejecutar=True)
-    _migrar(tmp_path, lineas, ejecutar=True)
-
-    mazo.refresh_from_db()
-    assert mazo.get_tags() == ["instrumento:guitarra"]
-
-
-def test_en_seco_no_toca_los_mazos(db, tmp_path, user):
-    mazo = _mazo(user, "guitarra", ["instrument/guitar"])
-
-    _migrar(tmp_path, ["instrument/guitar -> instrumento:guitarra"])  # sin --ejecutar
-
-    mazo.refresh_from_db()
-    assert mazo.get_tags() == ["instrument/guitar"]
-
-
-
-
-
-
-
-
-def test_solo_mazos_no_toca_ninguna_etiqueta(db, tmp_path, user):
-    """La bandera de reparación: arregla los mazos sin re-ejecutar el renombrado.
-
-    El estado real de producción: las etiquetas ya migraron el 12/08 y el mazo
-    se quedó apuntando al nombre viejo, que ya no existe.
-    """
-    from taggit.models import Tag
-
-    _item(user, "uno", tags=["instrumento:guitarra"])  # ya migrada
-    mazo = _mazo(user, "guitarra", ["instrument/guitar"])  # puntero muerto
-    etiquetas_antes = set(Tag.objects.values_list("name", flat=True))
-
-    _migrar(
-        tmp_path,
-        ["instrument/guitar -> instrumento:guitarra"],
-        ejecutar=True,
-        solo_mazos=True,
-    )
-
-    assert set(Tag.objects.values_list("name", flat=True)) == etiquetas_antes
-    mazo.refresh_from_db()
-    assert mazo.get_tags() == ["instrumento:guitarra"]
 
 
 # === Trocear material largo (secciones) ===
@@ -1184,21 +1005,6 @@ def test_el_tope_de_sesion_esta_acotado(db, user):
     assert len(construir_sesion(items, tamano=9999)) == 5
 
 
-def test_el_mazo_arranca_una_sesion_acotada(client, db, user):
-    for n in range(20):
-        _item(user, f"penta-{n}", tags=["pentatonica"])
-    deck = LibraryDeck.objects.create(
-        user=user, name="Pentatónicas", tags_json=json.dumps(["pentatonica"])
-    )
-    client.force_login(user)
-
-    response = client.get(reverse("my_library:deck_study", args=[deck.pk]))
-
-    assert response.status_code == 302
-    pks = response.url.split("items=")[1].split("&")[0].split(",")
-    assert len(pks) == TAMANO_SESION_POR_DEFECTO, f"el mazo mandó {len(pks)} elementos"
-
-
 # === Nota docente compartida ===
 
 
@@ -1462,6 +1268,17 @@ def _item_de_pagina(user, pagina, titulo="desde pagina"):
     )
 
 
+def _etiquetas_de(item):
+    """Las etiquetas de un elemento tal como las leen el selector y la sesión.
+
+    Hasta la fase 89 estos tests miraban `build_tag_map`, el emparejado de los
+    mazos. Se fue con ellos; la herencia que comprueban es
+    la misma, y ahora se mira donde se usa.
+    """
+    fresco = LibraryItem.objects.get(pk=item.pk)
+    return {t.name.lower() for t in fresco.get_content_tags()}
+
+
 def test_la_sesion_lee_las_etiquetas_facetadas_de_la_pagina(db, user):
     from taggit.models import Tag
 
@@ -1472,9 +1289,7 @@ def test_la_sesion_lee_las_etiquetas_facetadas_de_la_pagina(db, user):
     pagina.save()
     item = _item_de_pagina(user, pagina)
 
-    mapa = LibraryDeck.build_tag_map(LibraryItem.objects.filter(user=user))
-
-    assert "instrumento:guitarra" in mapa[item.pk]
+    assert "instrumento:guitarra" in _etiquetas_de(item)
 
 
 def test_la_sesion_ya_no_lee_el_vocabulario_plano_de_la_pagina(db, user):
@@ -1484,9 +1299,7 @@ def test_la_sesion_ya_no_lee_el_vocabulario_plano_de_la_pagina(db, user):
     pagina = _pagina("Blues", "c36-2")
     item = _item_de_pagina(user, pagina)
 
-    mapa = LibraryDeck.build_tag_map(LibraryItem.objects.filter(user=user))
-
-    assert "guitar" not in mapa[item.pk]
+    assert "guitar" not in _etiquetas_de(item)
 
 
 def test_la_etiqueta_de_pagina_ya_agrupa_una_sesion(db, user):
@@ -1501,8 +1314,7 @@ def test_la_etiqueta_de_pagina_ya_agrupa_una_sesion(db, user):
     pagina.save()
     item = _item_de_pagina(user, pagina)
 
-    mapa = LibraryDeck.build_tag_map(LibraryItem.objects.filter(user=user))
-    facetadas = [t for t in mapa[item.pk] if facets.tiene_faceta(t)]
+    facetadas = sorted(t for t in _etiquetas_de(item) if facets.tiene_faceta(t))
 
     assert facetadas == ["concepto:pentatonica"]
 
@@ -1607,7 +1419,7 @@ def test_precargar_da_lo_mismo_que_no_precargar(db, user):
     }
 
     items = list(LibraryItem.objects.filter(user=user))
-    LibraryDeck.precargar_etiquetas_de_pagina(items)
+    LibraryItem.precargar_etiquetas_de_pagina(items)
     con_precarga = {i.pk: sorted(t.name for t in i.get_content_tags()) for i in items}
 
     assert sin_precarga == con_precarga
@@ -1686,7 +1498,7 @@ def test_precargar_da_lo_mismo_que_no_precargar(db, user):
     }
 
     items = list(LibraryItem.objects.filter(user=user))
-    LibraryDeck.precargar_etiquetas_de_pagina(items)
+    LibraryItem.precargar_etiquetas_de_pagina(items)
     con_precarga = {i.pk: sorted(t.name for t in i.get_content_tags()) for i in items}
 
     assert sin_precarga == con_precarga
@@ -1715,8 +1527,6 @@ def test_un_elemento_que_apunta_a_una_pagina_recibe_sus_etiquetas(db, user):
         object_id=pagina.pk,
     )
 
-    mapa = LibraryDeck.build_tag_map(LibraryItem.objects.filter(user=user))
-    assert "concepto:canon" in mapa[item.pk]
     assert "concepto:canon" in {t.name for t in item.get_content_tags()}
 
 
@@ -4269,7 +4079,7 @@ def test_la_herencia_precargada_da_lo_mismo_que_sin_precargar(db, user):
 
     sin = {i.pk: sorted(_nombres(i)) for i in LibraryItem.objects.filter(user=user)}
     items = list(LibraryItem.objects.filter(user=user))
-    LibraryDeck.precargar_etiquetas_de_pagina(items)
+    LibraryItem.precargar_etiquetas_de_pagina(items)
     con = {i.pk: sorted(_nombres(i)) for i in items}
 
     assert sin == con

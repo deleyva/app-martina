@@ -50,42 +50,6 @@
                 </label>
             </div>
             
-            <div class="divider my-2">Bibliotecas de grupo</div>
-            
-            {# Checkboxes para cada grupo #}
-            {% if teaching_groups %}
-                <div class="space-y-2 max-h-48 overflow-y-auto">
-                    {% for group in teaching_groups %}
-                        <div class="form-control">
-                            <label class="label cursor-pointer justify-start gap-3 hover:bg-base-200 rounded-lg p-2 transition-colors">
-                                <input type="checkbox" 
-                                       name="group_ids" 
-                                       value="{{ group.id }}"
-                                       {% if group.id in groups_with_content %}checked disabled{% endif %}
-                                       class="checkbox checkbox-secondary">
-                                <span class="label-text flex items-center gap-2">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                                    </svg>
-                                    <span>{{ group.name }}</span>
-                                    <span class="text-xs text-base-content/60">({{ group.active_enrollment_count }} estudiantes)</span>
-                                    {% if group.id in groups_with_content %}
-                                        <span class="badge badge-success badge-sm">Ya añadido</span>
-                                    {% endif %}
-                                </span>
-                            </label>
-                        </div>
-                    {% endfor %}
-                </div>
-            {% else %}
-                <div class="alert alert-info">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                    <span>No tienes grupos asignados</span>
-                </div>
-            {% endif %}
-            
             {# Sección de estudiantes individuales con búsqueda #}
             {% comment %}Antes decía `{% if all_students %}`. Ahora el alumnado
             no llega con la página, así que esa condición escondía la sección

@@ -472,7 +472,7 @@ def facetas_del_libro(libro):
     Un capítulo no es siempre una página: desde los libros de recortes puede
     ser un `Recorte`, que etiqueta en `tags` como cualquier documento. Se mira
     el campo que tenga cada uno, con la misma regla que
-    `LibraryDeck.etiquetas_por_item`. Preguntar solo por `faceted_tags` tumbaba
+    `LibraryItem.get_content_tags`. Preguntar solo por `faceted_tags` tumbaba
     el recuento de la sesión en cuanto un objetivo era un libro de recortes.
     """
     etiquetas = set()

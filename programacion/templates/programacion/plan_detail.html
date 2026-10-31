@@ -162,34 +162,13 @@
                 {% endfor %}
             </ol>
             {% else %}
-            <p class="text-base-content/60 py-4">Aún no hay recursos en este plan. Añade abajo artículos, libros o partituras.</p>
+            <p class="text-base-content/60 py-4">Aún no hay recursos en este plan. Añade abajo un libro.</p>
             {% endif %}
         </div>
     </div>
 
     <!-- Añadir recursos -->
-    <div class="grid gap-4 sm:grid-cols-2">
-        <div class="card bg-base-100 shadow-md">
-            <div class="card-body">
-                <h2 class="card-title text-base">Desde la biblioteca del grupo</h2>
-                {% if library_choices %}
-                <div class="space-y-2 max-h-72 overflow-y-auto">
-                    {% for gli in library_choices %}
-                    <form method="post" action="{% url 'programacion:plan_item_add' plan.pk %}" class="flex items-center gap-2 p-2 bg-base-200 rounded-lg">
-                        {% csrf_token %}
-                        <input type="hidden" name="content_type_id" value="{{ gli.content_type_id }}">
-                        <input type="hidden" name="object_id" value="{{ gli.object_id }}">
-                        <span>{{ gli.get_icon }}</span>
-                        <span class="flex-1 truncate text-sm">{{ gli.get_content_title }}</span>
-                        <button type="submit" class="btn btn-primary btn-xs">Añadir</button>
-                    </form>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <p class="text-sm text-base-content/60">No hay contenido nuevo en la biblioteca del grupo.</p>
-                {% endif %}
-            </div>
-        </div>
+    <div class="grid gap-4">
         <div class="card bg-base-100 shadow-md">
             <div class="card-body">
                 <h2 class="card-title text-base">Libros</h2>

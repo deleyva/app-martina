@@ -4,7 +4,6 @@ from .models import (
     Subject,
     Group,
     Student,
-    GroupLibraryItem,
     ClassSession,
     ClassSessionItem,
     GroupInvitation,
@@ -99,31 +98,6 @@ class EnrollmentAdmin(admin.ModelAdmin):
         return obj.group.subject.name
 
     get_group_subject.short_description = "Asignatura"
-
-
-@admin.register(GroupLibraryItem)
-class GroupLibraryItemAdmin(admin.ModelAdmin):
-    list_display = (
-        "group",
-        "get_content_title",
-        "get_content_type",
-        "added_by",
-        "added_at",
-    )
-    list_filter = ("group", "content_type", "added_at")
-    search_fields = ("group__name", "notes")
-    raw_id_fields = ("added_by",)
-    readonly_fields = ("added_at", "get_content_title", "get_content_type")
-
-    def get_content_title(self, obj):
-        return obj.get_content_title()
-
-    get_content_title.short_description = "Contenido"
-
-    def get_content_type(self, obj):
-        return obj.get_content_type_name()
-
-    get_content_type.short_description = "Tipo"
 
 
 @admin.register(GroupInvitation)

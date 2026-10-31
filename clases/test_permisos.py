@@ -71,7 +71,6 @@ def test_un_usuario_cualquiera_no_es_profesor(db, django_user_model):
     "ruta",
     [
         "clases:group_books_index",
-        "clases:group_library_index",
         "clases:study_cards_group_tracking",
     ],
 )

@@ -78,9 +78,6 @@
             <button hx-delete="{% url 'clases:class_session_remove_item' session.pk item.pk %}"
                     hx-target="closest .session-item"
                     hx-swap="outerHTML"
-                    data-content-type-id="{{ item.content_type.id }}"
-                    data-object-id="{{ item.object_id }}"
-                    onclick="storeCounterData(this)"
                     class="btn btn-xs btn-ghost btn-square remove-item-btn"
                     title="Quitar">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -11,7 +11,7 @@ El corazón del contenido (Wagtail). Tipos de página: `HomePage`, `BlogIndexPag
 Gestión docente:
 
 - `Subject`, `Group`, `Enrollment` (multi-grupo), `Student` (deprecado), `GroupInvitation`.
-- `GroupLibraryItem`: biblioteca compartida del grupo (GenericFK a cualquier contenido, con notas y nivel de dominio 1-4).
+- `GroupBook` + `GroupBookItem`: los libros que da cada grupo, en el orden de la clase, y lo ya dado de cada uno. Sustituyen a la biblioteca de grupo (`GroupLibraryItem`), retirada en la fase 89.
 - `ClassSession` + `ClassSessionItem`: sesiones de clase presentables, con orden, notas por elemento, página de origen (`source_page`) y **cierre con reflexión** (`reflection`, `reflection_audio`, `closed_at`).
 - Study Cards: `StudyCardBatch`, `StudyCardItem`, `StudyCardPickup`, `StudyCardLabel`.
 
@@ -21,9 +21,9 @@ Planificación de trimestre y seguimiento. Ver [detalle](programacion.md). Model
 
 ## my_library
 
-Biblioteca personal: `LibraryDeck`, `LibraryItem` (GenericFK), `ReviewLog`. Visor forScore-like y modo estudio.
+Biblioteca personal: `LibraryItem` (GenericFK), `LibraryGoal`, `ReviewLog`. Visor forScore-like y modo estudio. Los mazos (`LibraryDeck`, filtros de etiquetas guardados) se retiraron en la fase 89: los sustituye el arranque por facetas.
 
-`ReviewLog` es el histórico de repasos: una fila por evento de práctica, con nivel antes/después, duración, mazo de origen y `session_uuid` que agrupa la tanda. Guarda hechos observados, no predicciones — no hay `next_review_date` ni `ease_factor`. Un futuro planificador se derivará de estas filas.
+`ReviewLog` es el histórico de repasos: una fila por evento de práctica, con nivel antes/después, duración y `session_uuid` que agrupa la tanda. Guarda hechos observados, no predicciones — no hay `next_review_date` ni `ease_factor`. Un futuro planificador se derivará de estas filas.
 
 > La app `study_sessions` (`StudyContext`, `UniversalStudyItem`, `StudySession`, `StudyProgress` y su SM-2) se eliminó en agosto de 2026: llevaba tiempo fuera de `INSTALLED_APPS` y sin un solo import externo. Sus tablas pueden seguir existiendo en la BD de producción, inertes.
 

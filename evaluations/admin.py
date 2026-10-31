@@ -238,4 +238,4 @@ class SubmissionImageAdmin(admin.ModelAdmin):
     search_fields = ("submission__pending_status__student__user__name", "original_filename")
 
 
-# GroupLibraryItem, ClassSession y ClassSessionItem ahora se administran en clases/admin.py
+# ClassSession y ClassSessionItem ahora se administran en clases/admin.py

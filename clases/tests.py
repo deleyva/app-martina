@@ -1,7 +1,7 @@
 from django.test import TestCase, Client
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
-from clases.models import ClassSessionItem, GroupLibraryItem, Group, Student, Enrollment
+from clases.models import ClassSessionItem, Group, Student, Enrollment
 from my_library.models import LibraryItem
 from wagtail.documents.models import Document
 
@@ -9,33 +9,6 @@ User = get_user_model()
 
 
 class MediaMethodsTest(TestCase):
-    def test_group_library_item_get_related_scorepage_media_no_score(self):
-        item = GroupLibraryItem()
-        item.get_related_scorepage = lambda: None
-
-        media = item.get_related_scorepage_media()
-        assert media == {
-            "score": None,
-            "audios": [],
-            "embeds": [],
-        }
-
-    def test_group_library_item_get_related_scorepage_media_with_score(self):
-        class DummyScore:
-            def get_audios(self):
-                return ["a1"]
-
-            def get_embeds(self):
-                return ["e1"]
-
-        item = GroupLibraryItem()
-        item.get_related_scorepage = lambda: DummyScore()
-
-        media = item.get_related_scorepage_media()
-        assert media["score"] is not None
-        assert media["audios"] == ["a1"]
-        assert media["embeds"] == ["e1"]
-
     def test_class_session_item_get_related_scorepage_media_no_score(self):
         item = ClassSessionItem()
         item.get_related_scorepage = lambda: None
@@ -122,29 +95,6 @@ class LibraryAdditionReproductionTest(TestCase):
         ).exists()
         
         self.assertTrue(is_in_library, "Item should be in student's library")
-
-    def test_add_to_multiple_libraries_group(self):
-        """
-        Test adding an item to a group library.
-        """
-        from clases.models import GroupLibraryItem
-        url = '/clases/libraries/add-multiple/'
-        
-        data = {
-            'content_type_id': self.content_type.id,
-            'object_id': self.document.id,
-            'group_ids': [self.group.id],
-        }
-
-        response = self.client.post(url, data)
-        self.assertEqual(response.status_code, 200)
-
-        is_in_group_library = GroupLibraryItem.objects.filter(
-            group=self.group,
-            content_type=self.content_type,
-            object_id=self.document.id
-        ).exists()
-        self.assertTrue(is_in_group_library, "Item should be in group library")
 
 
 class ClassSessionItemViewerPaginaTest(TestCase):

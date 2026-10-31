@@ -8,9 +8,8 @@ El módulo de programación (`/programacion/`) responde a tres preguntas:
 
 ## Crear un plan
 
-En `/programacion/` crea un plan por grupo y periodo (p. ej. "2º Trimestre 2025-26"), con fechas opcionales. Luego añade recursos en orden desde dos fuentes:
+En `/programacion/` crea un plan por grupo y periodo (p. ej. "2º Trimestre 2025-26"), con fechas opcionales. Luego añade libros en orden:
 
-- **La biblioteca del grupo**: artículos y partituras que ya añadiste.
 - **Libros**: cualquier libro publicado. Al añadirlo se generan automáticamente sus capítulos como sub-items, cada uno con progreso propio. Si publicas capítulos nuevos, usa "Sincronizar capítulos".
 
 ## Cómo se calcula el progreso
