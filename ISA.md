@@ -4,7 +4,7 @@ phase: build
 progress: true
 iteration: 63
 principal_stated_goal: "Yo solo quiero añadir evidencias tal cual están diseñadas en la aplicación de Notas. Por favor, copiala. Usa en vez de HTMLX, usa, en fin, haz lo que sea, pero que sea igual visualmente. Me gusta mucho esa forma de calificar, esa aplicación que hicimos."
-updated: 2026-10-17
+updated: 2026-10-31
 ---
 
 # ISA — app-martina · Sistema de estudio de la biblioteca
@@ -13,7 +13,7 @@ updated: 2026-10-17
 
 **Di: "lee el ISA de app-martina y sigue por donde íbamos".** Este fichero es el estado del sistema, vive en el repo y viaja con el código.
 
-### Qué hay hecho y desplegado
+### Qué hay hecho y desplegado (fases 1–33; de la 34 en adelante, en «Dónde estamos»)
 
 | Fase | Qué | Commit |
 |---|---|---|
@@ -26,7 +26,7 @@ updated: 2026-10-17
 | 5b | Cuota de novedad: lo nuevo no inunda la sesión | `b824d74` |
 | 6 | Trocear material largo en secciones (`ItemSection`) | `724ae7a` |
 | 7 | Los mazos sobreviven al renombrado + comentarios de plantilla que se veían | `18a2b0e`, `444af8e` |
-| 8 | **Un solo vocabulario de etiquetas** — mapa cerrado, código sin empezar | `b8572d1` (solo el mapa) |
+| 8 | **Un solo vocabulario de etiquetas** — el mapa; el código, en 8·1–8·6 | `b8572d1` (el mapa) |
 | 9 | La telemetría deja de pisar la sesión de OAuth — login con Google arreglado | `8c8605b` |
 | 10 | **La nota se guardaba en el item equivocado** — encontrado al verificar C12 en navegador | `7bec854` |
 | 8·1 | **Expandir: `faceted_tags` vacío en las cuatro páginas** (C33) | `547a547` |
@@ -64,56 +64,95 @@ updated: 2026-10-17
 | 33 | **Cada canción en dos lenguas, una sola página** (C184-C194) | `eb2c3be`, `e79e3d0`, `62527fa`, `6343a65` |
 | 77 | **El índice entero en un Markdown para un GPT** (C489-C494) — comando `exportar_indice_markdown` + `just exportar-indice` | ver abajo |
 
-### Dónde estamos (2026-09-10)
+### Dónde estamos (2026-10-31)
 
-Dos bloques, los dos desplegados en producción.
+**Todo hasta la fase 87 está en producción.** El último despliegue (2026-10-30)
+llevó `c696861`. Como `just deploy-production` hace `git reset --hard
+origin/main` y después `migrate`, con él salió todo commit anterior de `main`.
+Así se corrigieron el 2026-10-31 los títulos que decían «sin desplegar»: los
+que ahora dicen «EN PRODUCCIÓN» sin fecha propia tienen su commit en `main`
+antes de `c696861`.
 
-**«Libros que dan clase» (fases A, B, C) está en pie y el curso 2026-2027 montado.**
-El día a día de `jlopez` son seis grupos: `3-FH`, `3-EG-BIL`, `4-AC-BIL`,
-`3-C-BIL`, `1-G-BIL` y `familia-jesus`. Los nueve de cursos anteriores,
-archivados con sus 111 sesiones intactas.
+**La fase 88 (limpieza) está construida en local, sin push ni despliegue.**
 
-**La biblioteca personal, reparada** tras un defecto que el principal detectó
-usándola: con cuatro objetivos y tres huecos de novedad, CAGED no entraba en
-NINGUNA sesión. Arreglado el turno (fase 30), el orden pisado (30·1) y puesto
-que se recoloque solo cuando un libro cambia (30·2).
+La tabla de arriba llega a la fase 33 (y la 77). De la 34 en adelante, por áreas:
 
-#### Lo siguiente, por orden
+| Área | Fases |
+|---|---|
+| Biblioteca y sesión de estudio | 34, 50 |
+| Clases en el aula: libros que dan clase, visor, plano, lista de lectura | 28–30, 32, 37, 40, 40·1, 49, 58, 61, 68, 70, 71 |
+| Calificaciones: cuadro, `notas`, evaluar en clase, dado del cuaderno, fotos de folios, API | 39, 59, 60, 62, 78, 81, 84 |
+| Preguntas de teoría con tarjetas | 76 |
+| Canciones: ChordPro, diagramas, ritmos, tono por grupo y práctica con audio y MIDI | 46–48, 53, 55, 57, 63, 64, 72, 74, 75, 80, 82, 83, 85–87 |
+| Libreta y plantillas para imprimir | 41–45 |
+| Incidencias | 54, 56, 65–67, 73 |
+| Blogs y web del centro | 25, 27, 35, 36, 38, 51, 52, 52·1 |
+| Accesos: WiFi, rol de profesor, candado | 26, 26·1, 26·2, 31, 69 |
+| Índice en Markdown para un GPT | 77 |
+| Limpieza | 88 |
 
-1. **Probar las pantallas de clase en producción con la cuenta del principal.**
-   Es lo único de A, B y C que no ha visto nadie con datos reales: están
-   verificadas en local y responden en producción, pero recorrerlas está
-   pendiente. Camino: asignar libros a uno de los cinco grupos nuevos, montar
-   una sesión y darla desde el visor.
+No hay fase 79.
 
-2. **Fase D: retirar `GroupLibraryItem`.** Ya no hay nada del flujo nuevo que
-   dependa de ella y sus dos accesos están cerrados, pero **antes hay que contar
-   filas en producción**: `ClassSessionItem` la mapea como tipo de contenido y
-   puede haber sesiones antiguas apuntando ahí.
+#### Lo siguiente, por orden (2026-10-31)
 
-3. **Mirar si el tope por capítulo basta.** La sesión filtrada de CAGED pasó de 5
-   títulos distintos a 8, pero sigue repitiendo capítulo porque la biblioteca
-   solo cubre unos pocos. Debería curarse solo ahora que CAGED recibe turno y
-   entra material de capítulos nuevos; conviene volver a medirlo con
-   `estado_estudio` después de una semana de uso.
+1. **Sesión de estudio con presupuesto en MINUTOS en vez de elementos.** Sin
+   empezar: `my_library/session.py` sigue contando elementos. Los datos para
+   calibrarla están medidos (fase 16: mediana 49 s, mínimo 11 s, máximo 469 s,
+   un factor 42). Jesús, 26/08: *«en un futuro muy próximo querré hacer
+   presupuesto en minutos»*. Se mide con `just production-command
+   estado_estudio --email <correo>`.
 
-4. **Fase 76: preguntas de teoría con tarjetas (Plickers propio).** El tramo 76·0
-   (prototipo de escaneo) está en producción desde el 2026-10-16 y C471 cerró
-   el 2026-10-26 con la lectura real en el aula. El tramo 76·1 (banco de
-   preguntas, C473–C477) está **en producción desde el 2026-10-27** con el
-   primer lote (22 preguntas de 3º). El tramo 76·2 (tarjetas por matrícula, el
-   pase como elemento de la sesión, la pantalla en clase con cámara y el
-   cierre con respuestas; C478–C483) está **en producción desde el 2026-10-27**
-   (migraciones `clases/0026_tarjeta_de_respuesta` y `preguntas/0002_pase_en_vivo`
-   aplicadas). Queda 76·3 (la casilla de Teoría acumulada en el registro).
+2. **Pantalla de notas para el alumnado.** Aceptada en la fase 78 (decisión 3)
+   y sin construir: hoy no hay ninguna pantalla donde un alumno vea sus notas.
 
-5. **Fase 78: el dado del cuaderno al pasar lista.** Construida el 2026-10-17
-   («adelante»), sin desplegar: una migración aditiva
-   (`calificaciones.0007_revision_cuaderno`), el dado en la barra del pase de
-   lista, la franja para calificar, la casilla de Cuaderno como letra de la
-   media y el detalle «×n» en el registro. De paso arregla la bandeja «sin
-   sitio» escondida bajo la rejilla (lo que Jesús veía como «no aparece nadie»
-   en 4-AC-BIL). **En producción desde el 2026-10-17.**
+3. **MIDI para las 28 canciones con ChordPro que no tienen pista.** bitmidi y
+   midiworld no tienen un arreglo que cuadre (tabla de la fase 87). La vía es el
+   generador de la fase 83 (`scripts/bases/base_desde_chordpro.ts`), sacando
+   `.rmi`, porque en el 🎧 ya solo hay `.rmi`. Antes, comprobar en cada ficha
+   la regla «un acorde = un compás». Megalovania no entra: su ficha no tiene
+   acordes entre corchetes.
+
+4. **Filtrar por `autor` y `obra`.** Siguen fuera de `FACETAS_DE_FILTRO`, así
+   que un libro sin objetivo no se puede acotar de ninguna manera.
+
+5. **Dos decisiones de Jesús que frenan limpieza.** Quedaron fuera de la fase 88
+   porque borran datos:
+   - **`GroupLibraryItem` (la antigua «fase D»).** No está muerto: lo usan
+     vistas de `clases`, `evaluations` y `programacion`, dos templatetags, y
+     `ClassSessionItem` lo apunta como tipo de contenido. En producción tenía
+     168 filas (fase 25). Retirarlo es una refactorización con migración
+     destructiva; lo primero, contar filas en producción.
+   - **`LibraryDeck`.** El panel salió de la interfaz en la fase 15; el modelo,
+     sus rutas y `ReviewLog.deck` siguen. La decisión estaba prevista para el
+     25-sep y no consta en este ISA. Borrarlo quita la atribución de mazo a los repasos que la
+     tienen (50 de 75 en agosto). La alternativa apuntada entonces: guardar
+     combinaciones de facetas.
+
+6. **Menores, para un hueco:** un marco de calificación propio para 3º bilingüe
+   (hoy recibe la plantilla de 3º, fase 60) · las columnas Cuaderno, Nota y
+   Calif. no caben a 1456 px (fase 59) · notación de los ritmos con alphaTab
+   (fase 75) · añadir material suelto al índice sigue siendo de uno en uno ·
+   atajo de teclado para encajar la imagen, después de arreglar los `keydown`
+   (ver la deuda).
+
+7. **Mirar con datos de uso, no construir todavía:** si elegir un libro deja
+   vencer el repaso de los demás (fase 19) · si 21 días para «me lo sé muy
+   bien» es mucho para una destreza · si el tope por capítulo basta (CAGED,
+   fase 30·1).
+
+#### Criterios abiertos
+
+Lo que cierra una prueba real o la palabra de Jesús, no más código:
+
+- **Imprimir:** C352 (informes, fase 60), C265 (letra y tablatura, fase 46) y
+  C270 (diagramas sobre la letra, fase 47).
+- **Chromebook de clase:** C576 (el mezclador MIDI, fase 85).
+- **Cámara del iPad en Safari, con tiempos medidos:** C472 (fase 76). La pasada
+  real del 2026-10-23 (C471) apunta a que funciona.
+- **Sin verificar desde que se construyeron:** C181 y C182 (plantillas de
+  nivel, fase 32), C247 (grupo «Para imprimir (A4)», fase 42), C488 (suite y
+  dependencias de la fase 76) y C518 (API de calificaciones con la clave de
+  Jesús, fase 81).
 
 ### ⚠️ Antes de generar una migración en este repo
 
@@ -128,53 +167,39 @@ con el venv en 7.3.3 mientras el pin decía 7.3.1. El arreglo es alinear el venv
 
     uv pip install --python .venv-test/bin/python "wagtail==7.3.1"
 
-### Lo siguiente, por orden
-
-**Todo lo de las fases 1 a 20 está desplegado y verificado en producción** (`c28869d`, 2026-08-26). No queda nada a medias.
-
-1. **Presupuesto de sesión en MINUTOS en vez de en elementos.** La mejor idea pendiente, y **los datos para calibrarla ya están medidos** (fase 16): 23 elementos con duración, mediana 49 s, mínimo 11 s, máximo 469 s. Un factor 42 entre el más corto y el más largo, que es el argumento entero: dos sesiones de "15 elementos" pueden durar nueve minutos o casi dos horas. El principal lo confirmó el 26/08: *"en un futuro muy próximo querré hacer presupuesto en minutos"*. Se mide con `just production-command estado_estudio --email <correo>`.
-
-2. **`autor` y `obra` no se pueden filtrar.** Existen como facetas pero no están en `FACETAS_DE_FILTRO`, así que **un libro sin objetivo no se puede acotar de ninguna manera**. Los chips de la fase 19 resuelven los libros con objetivo y solo esos. Es un cambio de una línea más su interfaz; se descartó el 26/08 para no ampliar el alcance, no porque sea mala idea.
-
-3. ~~**Con cuatro objetivos, uno se quedará fuera de todas las sesiones.**~~
-   **PASÓ, y está arreglado (fase 30, 2026-09-09.)** La predicción se cumplió
-   entera: llegó el cuarto objetivo, le tocó siempre a CAGED, y el principal lo
-   notó como *"está rotando por las mismas"*. La solución no fue la que se
-   apuntaba aquí —un puntero rotatorio con estado global— sino ordenar los
-   objetivos por **cuándo aportaron novedad por última vez**, que hace lo mismo
-   sin estado compartido y se recoloca solo al añadir o quitar objetivos.
-
-4. **Elegir un libro apaga el repaso de los demás ese día.** Decisión consciente del principal (fase 19), no un defecto. Merece mirarse después de una semana de uso real: si se acumula vencido en los libros que no se eligen, la respuesta es probablemente reservar algún hueco de repaso fuera del filtro.
-
-5. **25 de septiembre: decidir si se borra `LibraryDeck`.** Recordatorio programado por Telegram (`DASchedule` id `1787668554241-ik4zhv`). Ver fase 15 para lo que se pierde y para la alternativa, que es guardar combinaciones de FACETAS y no resucitar mazos.
-
-6. **Revisar los plazos de caducidad con datos reales** (hoy 1/1/3/7/21 días por nivel). El de 21 días para "me lo sé muy bien" es el más dudoso: para un dato está bien, para tener una escala en las manos puede ser demasiado.
-
-7. **Meter un libro sigue costando lo suyo si no es por objetivo.** El botón de «estudiarme este libro» resolvió el caso bueno; añadir material suelto desde el índice sigue siendo de uno en uno.
-
-8. **El botón de encajar está solo en el menú**, o sea dos toques. Un atajo de teclado es una línea, pero toca el manejador de `keydown` que ya se acumula en cada carga; arreglar esa deuda primero.
-
-9. **Diagramas de acordes sobre la letra, como Ultimate Guitar** (fase 47, pendiente, pedido por Jesús el 26/09 para otro día). Ver la fase 47 abajo: qué se quiere, qué se sabe ya y qué hay que decidir antes de construir.
-
-### Deuda conocida, sin bloquear nada
+### Deuda conocida (contrastada con el código el 2026-10-31)
 
 - **`{# … #}` de Django es de UNA línea, y en este proyecto ya se ha pintado en pantalla TRES veces** (fase 7, fase 16 y otra vez el 26/08 escribiendo la fase 19). Las dos primeras llegaron a producción; la tercera la cazó `test_el_selector_no_escupe_el_comentario_de_la_plantilla`. **La lección no es "acuérdate": es que hay que dejarlo cazado.** Hoy hay un test por plantilla tocada (`index.html` y `session_start.html`); cualquier plantilla nueva con un comentario largo debería llevar el suyo, o mejor, usar `{% comment %}` siempre. Anotado también en `AGENTS.md`.
-- **Los grupos sin objetivo acumulan material sin tocar y ya nadie se lo lleva.** Medido el 26/08: «Índice de recursos musicales» tiene 12 elementos sin tocar y el grupo suelto 1, y desde la fase 16 ninguno de los dos entra en la cuota de novedad mientras haya tres objetivos. No es un defecto —los objetivos deben ganar— pero esos 13 elementos no volverán a salir como novedad nunca. Salen por caducidad solo si se practican una vez.
-- **El login por contraseña fuera de la lista devuelve 500, no un mensaje.** `AccountAdapter.pre_login` hace `raise ValidationError`, y allauth no la captura ahí. El texto («usa tu cuenta de Google») está escrito y no lo ve nadie. Un alumno que pruebe el formulario se come un error de servidor. Se arregla devolviendo una respuesta (`ImmediateHttpResponse`) en vez de lanzar. *(Medido el 2026-08-25 al intentar entrar.)*
-- **Los `keydown` de los visores se acumulan en cada carga de item.** `study_item_content` llega por `fetch` y sus `<script>` se re-ejecutan, así que `pdf_viewer` e `image_viewer` registran su manejador otra vez con cada elemento de la sesión, cada uno con el closure de su carga. La guarda de C52 tapa el síntoma; arreglarlo de verdad es nombrar las funciones y quitarlas al descargar el item.
+- **Los `keydown` de los visores se acumulan en cada carga de item.** Sigue
+  igual: `pdf_viewer.html`, `image_viewer.html` y `recorte_viewer.html`
+  registran un manejador anónimo con cada elemento de la sesión y no lo quitan
+  al descargarlo (`study_item_content` llega por `fetch` y re-ejecuta sus
+  `<script>`). La guarda de C52 tapa el síntoma; el arreglo es nombrar las
+  funciones y quitarlas al descargar. Solo el de ChordPro lo hace ya.
+- **Los grupos sin objetivo acumulan material sin tocar y ya nadie se lo lleva.** Medido el 26/08: «Índice de recursos musicales» tiene 12 elementos sin tocar y el grupo suelto 1, y desde la fase 16 ninguno de los dos entra en la cuota de novedad mientras haya tres objetivos. No es un defecto —los objetivos deben ganar— pero esos 13 elementos no volverán a salir como novedad nunca. Salen por caducidad solo si se practican una vez. *(Sin volver a medir desde entonces.)*
+- **`build_tag_map` hace ~2 consultas por elemento** y corre en cada carga del índice y en cada render del panel de mazos. A 500 elementos se notará. *(Sigue en el código; sin volver a medir.)*
+- **La etiqueta `borrar`** es la única de las 139 sin faceta: en la revisión del mapa se eliminó su línea, lo que significa "déjala como está". *(Sin volver a medir.)*
+- **Tablas huérfanas en producción:** las de `study_sessions` (fase 1) y, desde
+  la fase 88, las de `content_hub`. Inertes; borrarlas es decisión de Jesús.
+- **5 tests fallan, y ya fallaban** (línea base del 2026-10-31, antes de la fase
+  88): dos de `cms/tests/test_frontend_integration.py` y tres de `incidencias`
+  (`TestComentario::test_str`, `test_filter_by_planta`,
+  `test_panel_has_custom_title`). Aquí ponía 9.
+- **La etiqueta id 13 «Cerradura» tiene el slug vacío** (fase 73): no se puede
+  fusionar ni renombrar por slug. Sin volver a mirar.
+- **El identificador C242 está repetido:** fase 41 (un alumno compone y exporta
+  su libreta) y fase 40·1 (micrófono). No se renumera; se cita con su fase.
 
-- **C12, C28 y C30bis: pendientes de ver en navegador, ya SIN bloqueo.** El principal confirma el 2026-08-21 que **Interceptor funciona**. Quedan por ver el panel de notas, la nota docente, el selector de facetas, el troceo y el arreglo de los comentarios. Ya no es deuda bloqueada: es trabajo pendiente de hacer.
-- **6 sitios con `user.username`** en otras apps, que en este proyecto siempre vale `None`. Dos son crashes de búsqueda en el admin: `evaluations/admin.py:125` y `cms/models.py:1788`, `cms/wagtail_hooks.py:34`, `evaluations/admin.py:163`, y dos plantillas de `incidencias`.
-- **Cuatro scripts en la raíz rompen `pytest`**: `test_images.py`, `test_tags.py`, `test_tags2.py`, `test_viewer_html.py` llaman a `django.setup()` al importarse. Hay que excluirlos a mano para que la suite arranque; deberían renombrarse.
-- **9 tests preexistentes fallan** en analytics, cms e incidencias. Verificado con `git stash` que ya fallaban antes de todo esto.
-- **La etiqueta `borrar`** es la única de las 139 sin faceta: en la revisión del mapa se eliminó su línea, lo que significa "déjala como está".
-- **Tablas huérfanas de `study_sessions`** en la BD de producción. Inertes; borrarlas es decisión del principal.
-- **`build_tag_map` hace ~2 consultas por elemento** y corre en cada carga del índice y en cada render del panel de mazos. A 500 elementos se notará.
-- **El vocabulario de etiquetas está partido en dos y solo uno tiene facetas.** `taggit.Tag` (139, facetadas) y `cms.MusicTag` (80, planas: `guitar`, `guitarra`, `jazz`, `piano`…). Encontrado en la fase 7. La fragmentación que motivó las facetas sigue entera en `MusicTag`, y la sesión de estudio no puede agrupar ni filtrar por nada de lo que viva ahí.
-  - **La línea divisoria es limpia:** los ACTIVOS (imágenes y documentos de Wagtail, que son 95 de los 102 elementos de biblioteca) llevan taggit y ya están facetados. Los CONTENEDORES (las páginas) llevan `MusicTag` y están planos.
-  - **No es un renombrado como el de las 188, y esto marca el tamaño del trabajo.** En `cms`, taggit solo lo usa `TaggableEmbed`; los cuatro tipos de página con `MusicTag` (BlogPage 255, ScorePage 44, DictadoPage 1, TestPage 0) **no tienen manager de taggit**. Hace falta añadirlo (`ClusterTaggableManager` + through, por las revisiones de Wagtail) y luego una migración de datos que re-etiquete, no un `UPDATE` de nombres.
-  - **Mapa revisado y cerrado** (2026-08-17): `my_library/migracion/mapa_musictags.txt`. Ver fase 8.
-- **`content_hub` es una app muerta montada en producción.** Modelos, API, búsqueda, señales, urls y plantillas, en `INSTALLED_APPS` y en `config/urls.py`, con **0 filas** (`ContentItem` y `ContentLink` vacíos). Trae su propio `migrate_cms_to_content_hub`. Es un intento anterior de unificar el contenido, abandonado a medias. Sus señales siguen vivas: el `Failed to index ContentItem 3352: 'LibraryItem' object has no attribute 'title'` que sale en la suite viene de ahí. Decidir: enterrarla o resucitarla. Enterrarla sería la primera migración de este proyecto que se cierra del todo.
+**Estaba anotado como deuda y ya no lo es:**
+
+- El 500 del login por contraseña: arreglado en la fase 13; `pre_login` ya no
+  lanza `ValidationError`.
+- C12, C28 y C30bis: cerradas en navegador en agosto.
+- El vocabulario partido en dos: `MusicTag` se borró en la fase 8·6.
+- `content_hub`, los `user.username` y los scripts `test_*.py` de la raíz:
+  fase 88.
+- Los diagramas de acordes sobre la letra (fase 47) y el cuarto objetivo que se
+  quedaba fuera (fase 30): hechos.
 
 ### Datos útiles para retomar
 
@@ -248,7 +273,7 @@ Cuatro scripts sueltos en la raíz (`test_images.py`, `test_tags.py`, `test_tags
 - El entorno local nunca se había construido (no había imágenes docker del proyecto). El primer `just up` tardó lo suyo.
 
 
-## Fase 2 — Notas y etiquetas en el visor
+## Fase 2 — Notas y etiquetas en el visor · DESPLEGADA (`d13f488`)
 
 Cierra dos de las siete peticiones originales. Resultó ser más que "pintar un campo": `notes` existía en el modelo desde siempre y **no tenía ninguna UI** — ni escritura ni lectura, en ningún sitio. Sin camino de escritura, mostrarlo no sirve de nada.
 
@@ -265,7 +290,7 @@ Cierra dos de las siete peticiones originales. Resultó ser más que "pintar un 
 - **Dos caminos de pérdida de datos, tapados a propósito:** `flushNotes()` al principio de `loadItem` vuelca lo pendiente antes de cambiar de item, y `Escape` dentro del textarea sale del campo (guardando) en vez de abandonar la sesión.
 
 
-## Fase 4 — Facetas de etiquetas
+## Fase 4 — Facetas de etiquetas · DESPLEGADA (`3f0129f`, `87848c7`)
 
 El vocabulario era plano y se fragmentaba solo. En producción: 188 etiquetas, 130 sin faceta, `guitar` conviviendo con `instrument/guitar`, `ukelele` con `ukulele`, `aragón` con `aragon`, y `partitura` con `sheet-music`, `musicscore` y `score`.
 
@@ -294,7 +319,7 @@ Decisiones del principal: nombres de faceta en **español**, se facetan **tambi�
 - **taggit es global**: la misma etiqueta la usan biblioteca, blog y documentos. Por eso el comando no hace nada sin `--ejecutar` y todo va en una transacción.
 
 
-## Fase 5 — Cuota de novedad
+## Fase 5 — Cuota de novedad · DESPLEGADA (`604559a`, `b824d74`)
 
 Defecto encontrado al preguntar el principal "¿e irá metiendo elementos nuevos por orden?". Reproducido en simulación antes de tocar código: 3 elementos vencidos hace 60 días + 10 recién añadidos, sesión de 8 → **entraban 8 nuevos y 0 de repaso**.
 
@@ -309,7 +334,7 @@ Origen: en la fase 3 di a lo nunca practicado prioridad máxima (`float("inf")`)
 El principal preguntaba por el **orden del libro**, y hoy no existe: entre elementos nuevos el desempate es por clave primaria, o sea el orden en que se añadieron. Coincide con el libro solo si se añadieron en ese orden. Modelar libro → sección → ejercicio con un ordinal es la misma pieza que hace falta para trocear el material largo, así que van en una sola fase.
 
 
-## Fase 6 — Trocear el material largo
+## Fase 6 — Trocear el material largo · DESPLEGADA (`724ae7a`)
 
 Una partitura de veinte páginas no es una unidad de práctica: nadie practica "la sonata entera", practica los compases 30-60. Mientras el PDF fuera un solo elemento con una sola valoración, el sistema no podía saber que la primera parte sale y la tercera no.
 
@@ -338,7 +363,7 @@ Decisiones del principal: **nombre + localizador opcional**, las secciones **sus
 - **Sin HTMX en el panel**: el visor es una página suelta que no extiende `base.html` y no lo carga. Todo lo suyo va con `fetch`.
 
 
-## Fase 7 — Los mazos sobreviven al renombrado
+## Fase 7 — Los mazos sobreviven al renombrado · DESPLEGADA (`18a2b0e`, `444af8e`)
 
 Dos defectos que el principal vio en producción el 14/08, los dos regresiones de fases anteriores.
 
@@ -516,7 +541,7 @@ Datos que salieron de paso: los `bookmarks` de ScorePage **no se usan en ninguna
 
 Secuencia acordada: **A)** esta fase 8. **B)** congelar `ScorePage` y crear lo nuevo como BlogPage — cero riesgo, y el problema deja de crecer. **C)** enterrar o resucitar `content_hub`. **D)** las 44 ScorePages, solo si sigue doliendo, y con un plan explícito para las 98 `source_page`.
 
-## Fase 9 — La telemetría deja de escribir en la sesión de autenticación
+## Fase 9 — La telemetría deja de escribir en la sesión de autenticación · DESPLEGADA (`8c8605b`, 2026-08-20)
 
 > Run 9 · 2026-08-19 · Goal verbatim: *"ok, quiero que hagas lo más limpio y con visión de futuro"*
 > Disparador: el login con Google fallaba con `Codigo: unknown` y sin línea de `Excepcion`.
@@ -605,7 +630,7 @@ segundo**; `18:09:27` callback y otro `track/` en el mismo segundo.
 - `martina_bescos_app.users.tasks.clear_expired_sessions` registrada en el consumidor de huey; primer barrido a las 04:30. Hoy la tabla `django_session` tiene 107.016 filas y solo ~17.400 vivas; mañana debería bajar sola.
 - La fila de analítica que creó la prueba se borró después (2 objetos: la sesión y su visita en cascada). Vuelta a 338.
 
-## Fase 10 — La nota se guardaba en el item equivocado
+## Fase 10 — La nota se guardaba en el item equivocado · DESPLEGADA (`7bec854`)
 
 > Encontrado el 2026-08-21 al ir a cerrar C12, la claim que llevaba desde el 12/08 esperando un navegador. Es el argumento entero a favor de la verificación en navegador: **ningún test de la suite podía cazarlo**, porque el defecto vive en el orden del DOM, no en Python.
 
@@ -832,7 +857,7 @@ Medido en producción: **75 repasos, 50 con sello de mazo**. `ReviewLog.deck` es
 
 Recordatorio puesto para el **2026-09-25 a las 07:40 por Telegram** (`DASchedule` id `1787668554241-ik4zhv`): decidir si se va el modelo. Si para entonces no ha echado de menos guardar combinaciones, migración que se lleve modelo, rutas y campo. Si sí las ha echado de menos, la alternativa no es resucitar los mazos sino **guardar combinaciones de FACETAS**, que es el vocabulario que de verdad usa desde la fase 8.
 
-## Fase 16 — El libro recién empezado no asomaba, y el comentario se veía · SIN DESPLEGAR
+## Fase 16 — El libro recién empezado no asomaba, y el comentario se veía · DESPLEGADA (las fases 1 a 20, con `c28869d`, 2026-08-26)
 
 Conducido en navegador con la sesión del principal en producción, 2026-08-26. Era el punto 1 que la fase 14 dejó abierto: «comprobar con los datos del principal que CAGED empieza a aparecer».
 
@@ -929,7 +954,7 @@ Desplegado `5cdcb85` y lanzada una sesión: **CAGED seguía sin salir**. El arre
 
 **El rango es de 42×.** Once segundos el más corto, casi ocho minutos el más largo. Ahí está, medido, el argumento entero de por qué "15 elementos" no es una unidad: dos sesiones del mismo tamaño nominal pueden durar nueve minutos o casi dos horas. Estos 23 elementos con duración son la base para calibrar el presupuesto.
 
-## Fase 17 — Sesión de 15 con tres huecos de novedad, y qué pasa al filtrar por instrumento · SIN DESPLEGAR
+## Fase 17 — Sesión de 15 con tres huecos de novedad, y qué pasa al filtrar por instrumento · DESPLEGADA (con `c28869d`, 2026-08-26)
 
 **Petición del principal (2026-08-26):** *"prefiero meter tres huecos de estudio de material nuevo y sumar o ampliar a 15 los elementos de estudio"*.
 
@@ -962,7 +987,7 @@ Es la misma clase de defecto que la fase 12: material sin tocar que se acumula p
 
 - Nada. La pregunta abierta —si el filtro debe frenar también la creación— la contestó el principal el mismo día. Ver fase 18.
 
-## Fase 18 — El filtro frena también la creación · SIN DESPLEGAR
+## Fase 18 — El filtro frena también la creación · DESPLEGADA (con `c28869d`, 2026-08-26)
 
 **Decisión del principal (2026-08-26), respondiendo a lo que dejó abierto la fase 17:** *"Sí, el filtro debería frenar también la creación. No quiero material acumulado."*
 
@@ -989,7 +1014,7 @@ La regla de casado es la misma que la de `filtrar_por_facetas`, y eso es a prop�
 - **Desplegar.**
 - **Lo ya acumulado sigue ahí.** Merece una medida con `estado_estudio` antes de decidir si hay que hacer algo con ello.
 
-## Fase 19 — Seguir un libro desde la pantalla de empezar · SIN DESPLEGAR
+## Fase 19 — Seguir un libro desde la pantalla de empezar · DESPLEGADA (`c28869d`, 2026-08-26)
 
 **Petición del principal (2026-08-26):** *"algún botón en la pantalla de Empezar en la que pudiera seleccionar el objetivo de aprendizaje, el libro que he marcado, para seguir solo por ese libro"*.
 
@@ -1017,7 +1042,7 @@ El filtro se aplica por el `path` de treebeard, igual que `_libro_de`, así que 
 
 Escribiendo esta fase volví a poner un `{# … #}` a dos líneas, y volvió a pintarse. Lo cazó `test_el_selector_no_escupe_el_comentario_de_la_plantilla`, que existía desde la fase 7. **El test hizo exactamente su trabajo**, y por eso esta vez no llegó a producción. Es la mejor prueba de que la regla no se aprende: hay que dejarla cazada.
 
-## Fase 20 — Encajar la imagen en la pantalla · SIN DESPLEGAR
+## Fase 20 — Encajar la imagen en la pantalla · DESPLEGADA (`c28869d`, 2026-08-26)
 
 **Petición del principal (2026-08-26), con captura:** una partitura de acorde salía enorme y pedía scroll para ver una sola figura. *"Generalmente esa es la visión que quiero \[ancho completo\], pero de vez en cuando me gustaría tener la opción"*.
 
@@ -1043,7 +1068,7 @@ El ancho completo **sigue siendo el modo normal** y no se toca. Se añade un mod
 
 - **El botón solo está en el menú.** Dos toques. Si al usarlo de verdad estorba, un atajo de teclado es una línea, pero toca el manejador de `keydown` que ya se acumula en cada carga (deuda de la fase 13), así que conviene arreglar eso primero.
 
-## Fase 21 — Libros que agrupan páginas por referencia, y el orden del libro manda · SIN DESPLEGAR
+## Fase 21 — Libros que agrupan páginas por referencia, y el orden del libro manda · EN PRODUCCIÓN (`1cf505f`)
 
 **Petición del principal (2026-08-27):** juntar canciones que ya existen en libros temáticos («Música de los años 70»), ponerlos como objetivo, y que el material salga **en el orden que se ve en el libro** y, dentro de cada página, **por orden de aparición**.
 
@@ -1114,7 +1139,7 @@ De paso queda medido el tamaño real de los otros dos: 302 y 93 elementos practi
 - **Reordenar un libro no renumera lo ya creado.** Si llega a molestar, un comando que renumere es pequeño; hoy no hay evidencia de que haga falta.
 - **`DictadoPage` no aporta material**: no tiene ninguno de los accesores. Se puede referenciar, pero no dará elementos de estudio.
 
-## Fase 22 — La vista previa enseña la sesión que se va a servir · SIN DESPLEGAR
+## Fase 22 — La vista previa enseña la sesión que se va a servir · EN PRODUCCIÓN (`5be6f63`)
 
 **Reportado por el principal (2026-08-28):** *"¿por qué selecciono The CAGED System y solo me muestra 12 elementos y solo uno nuevo?"*
 
@@ -1907,7 +1932,7 @@ Informe para el centro publicado en BookStack:
 ven bien, pero si alguien abre en el editor un artículo con tablas —los criterios de
 Inglés son 33— y le da a guardar, Draftail las descarta en silencio.
 
-## Fase 28 — Libros que dan clase (fase A) · CONSTRUIDA Y VERIFICADA EN LOCAL
+## Fase 28 — Libros que dan clase (fase A) · EN PRODUCCIÓN (`c108dab`, `c41e40e`)
 
 El motor de estudio por libros que ya funciona en `my_library` (objetivos + creación
 perezosa), aplicado a los grupos. Sustituye el flujo actual de montar cada clase a mano
@@ -2092,7 +2117,7 @@ Segundo tropiezo de camino: `{% load static %}` puesto ANTES de
 `{% extends %}` da `TemplateSyntaxError` — `extends` tiene que ser la primera
 etiqueta de la plantilla.
 
-## Fase 28·2 — El visor de clase (fase B) · CONSTRUIDA Y VERIFICADA EN LOCAL
+## Fase 28·2 — El visor de clase (fase B) · EN PRODUCCIÓN (`bf05518`, `06eab54`)
 
 Lo pedido: *"El paso entre un ítem y otro quiero que sea como el paso de un ítem
 a otro que se ve en mi librería, pero sin la valoración (…). Todo esto debería
@@ -2202,7 +2227,7 @@ Dos cosas de camino:
   contenedor flex y parecía la barra de salida, que es justo el clic que no
   interesa provocar. La salida es la X.
 
-## Fase 28·3 — Que llegue a casa y se vea el avance (fase C) · CONSTRUIDA Y VERIFICADA EN LOCAL
+## Fase 28·3 — Que llegue a casa y se vea el avance (fase C) · EN PRODUCCIÓN (`a6fd287`, `d1e6b58`)
 
 Lo pedido: *"a todo el alumnado, con los libros que están estudiando, se les
 vayan añadiendo los elementos estudiados en su librería (…). Me gustaría poder
@@ -2298,7 +2323,7 @@ conocido, ya escrito en su docstring: si un alumno se había añadido ese mismo
 contenido por su cuenta y no lo ha abierto, la retirada se lo lleva. Distinguirlo
 exigiría guardar de dónde vino cada fila.
 
-## Fase 29 — Archivar clases sin borrarlas (2026-09-09)
+## Fase 29 — Archivar clases sin borrarlas (2026-09-09) · EN PRODUCCIÓN (`39c185b`)
 
 Al empezar 2026-2027, la lista diaria arrastraba diez grupos de cursos cerrados.
 
@@ -2384,7 +2409,7 @@ se resolvió solo. Si vuelve a salir un 502 con los contenedores arriba, mirar
 `production_backup_2026_09_09T09_18_26.sql.gz`, en `~/app-martina-production/backups/`.
 La receta es `just production-backup-db` y conserva las dos más recientes.
 
-## Fase 30 — El turno de novedad rota (2026-09-09)
+## Fase 30 — El turno de novedad rota (2026-09-09) · EN PRODUCCIÓN (`879f6cc`)
 
 **Reportado por el principal**: *"dice que mete cosas nuevas en mi sesión de
 estudio, pero yo creo que no, que está rotando por las mismas. Me pasa con el
@@ -2520,7 +2545,7 @@ habría sido un aserto verde sin nada detrás.
 Y de paso: en la primera versión de ese test quedó un `... or True` que lo hacía
 incapaz de fallar. Sustituido por una comparación contra `material_del_libro`.
 
-## Fase 31 — Un «profesor» que no sea llave del admin (2026-09-10)
+## Fase 31 — Un «profesor» que no sea llave del admin (2026-09-10) · EN PRODUCCIÓN (`a740f41`)
 
 **El bloqueo, dicho en una línea:** hasta hoy «ser profesor» era `is_staff`, y
 `is_staff` es exactamente lo que abre el admin de Django. No se podía dar acceso
@@ -2783,7 +2808,7 @@ Se fue también el ayudante `is_staff()` de `clases/views.py` y su import huérf
 en `views_study_cards.py`. Dejarlo puesto es dejar la trampa cargada para quien
 decore la próxima vista.
 
-## Fase 32 — Plantillas de nivel (2026-09-14)
+## Fase 32 — Plantillas de nivel (2026-09-14) · EN PRODUCCIÓN (`14002d3`); C181 y C182 sin verificar
 
 Montar «lo que se da en tercero» una vez y mandarlo a los grupos que elijas, en
 vez de repetir la misma faena en cada uno.
@@ -3228,7 +3253,7 @@ detectó por mirar el tamaño, no el número.
 El índice de recursos sigue enseñando la entradilla base; traducir la interfaz
 de la aplicación; SEO multilingüe.
 
-## Fase 34 — Solo repaso: la casilla de elementos nuevos (2026-09-15)
+## Fase 34 — Solo repaso: la casilla de elementos nuevos (2026-09-15) · DESPLEGADA (`8bd82c7`)
 
 Petición del principal, literal: «a veces incluye elementos nuevos y no me da
 tiempo a ir a ese ritmo de novedad. Repasar más veces sin elementos nuevos».
@@ -3330,7 +3355,7 @@ artefacto de la biblioteca de prueba; aqui hay repaso de sobra para llenar los
 quince huecos. Lo que se pierde apagandola es el avance del libro, no la
 longitud de la sesion.
 
-## Fase 35 — Los blogs, abiertos al claustro: jefe publica, profesor envía a revisión (2026-09-16)
+## Fase 35 — Los blogs, abiertos al claustro: jefe publica, profesor envía a revisión (2026-09-16) · DESPLEGADA (`5a0484c`)
 
 **Goal (literal de Jesús, 2026-09-16):** «Te voy a pasar tres listas y quiero que me montes ya el flujo de publicación para poder decirle a los profesores que pueden empezar a publicar, tal y como hemos hablado tantas veces en blogs.iesmartinabescos.es . Ya sabes que, reunido jefe de departamento, que sea el moderador, es decir, que sea el que puede publicar. Luego, los profesores de esos departamentos solo pueden escribir en su departamento y enviar a moderar, no publicar. Es decir, pueden escribir, editar, pero no publicar. ¿Queda claro?»
 
@@ -3433,7 +3458,7 @@ Listas: exportaciones phpMyAdmin de la aplicación de gestión del centro —
   así que sus grupos siguen vacíos. Si alguien escribe ahí, con los avisos a superusuarios
   apagados no se entera nadie.
 
-## Fase 36 — El aviso de moderación llegaba a ninguna parte, y en inglés (2026-09-18)
+## Fase 36 — El aviso de moderación llegaba a ninguna parte, y en inglés (2026-09-18) · DESPLEGADA (en `main` como `6fee830`: el `1adf68e` desplegado es la copia anterior a un rebase, mismo contenido)
 
 **Goal (literal de Jesús, 2026-09-18):** «en blogs.iesmartinabescos.es cuando entran en blogs.iesmartinabescos.es/cms van a una plantilla frontend no al cms de wagtail, y luego, cuando entro en el cms desde el pajarito de wagtail se me acumulan los avisos como los que ves en la imagen. / mi compañera ve el pajarito de wagtail en inglés. A la moderadora le llega el mail en inglés y los enlaces les envían a las plantillas de apps.iesmartinabescos.es en lugar de blogs»
 
@@ -3691,7 +3716,7 @@ fallan por enlace (`entity`) y dos por estilo (`inline style`): pks 615, 618,
 
 
 
-## Fase 39 — Calificaciones: criterios × instrumentos, cuadro y modo clase (2026-09-23) · DESPLEGADA EN PRODUCCIÓN (pendiente: audio/vídeo desde el móvil)
+## Fase 39 — Calificaciones: criterios × instrumentos, cuadro y modo clase (2026-09-23) · DESPLEGADA EN PRODUCCIÓN
 
 **Goal (literal de Jesús, 2026-09-23):** «Me gustaría añadir opciones de evaluación en la apps.iesmartinabescos.es, de manera que cada profesor pudiera evaluar a su grupo. […] Quiero que sea fluido y efectivo para mí. […] Me gustaría poder acceder a las calificaciones de manera aislada y también poder coger notas mientras doy la clase […] un botón de grabado de audio/vídeo para recoger el momento en vídeo o audio como evidencia, también notas de texto o fotos, tal y como está en /Users/deleyva/Documents/notas». Añadido después: «quiero que añadas otro instrumento de evaluación: la sensorialidad».
 
@@ -3727,7 +3752,7 @@ pasado · rúbricas por prueba · purga automática de evidencias.
 - [x] **C213** — La pantalla del plan enseña la rejilla criterio × instrumento con totales de fila y de columna; marcar criterios en un instrumento reparte su % a partes iguales, cada celda se edita y una fila que no coincide con el peso legal se ve en rojo. *Falsador: navegador real sobre el plan de 3º con el reparto de la tabla del plan: 100/100 y cada fila 10.*
 - [x] **C214** — `cargar_marcos_musica` siembra los criterios y pesos de 1º bilingüe, 3º y 4º bilingüe desde las programaciones 26-27, con los nueve instrumentos (incluida **sensorialidad**) como plan por defecto. *Falsador: tras el comando, `Criterio` suma 100 por marco; es idempotente (segunda ejecución no duplica).*
 - [x] **C215** — El cuadro: alumnos matriculados × instrumentos, celda editable inline con autoguardado, Enter baja por la columna, nota del trimestre y cualitativa en vivo. *Falsador: navegador real; una nota escrita sobrevive a recargar y aparece en `CambioNota`.*
-- [~] **C216** `[DEFERRED-VERIFY]` — Modo clase en móvil: elegida la prueba, cada alumno tiene nota rápida y botones de audio, vídeo, foto y texto; la evidencia sube en segundo plano y se reproduce después desde el cuadro. *Falsador: navegador real con micrófono y cámara; fila en `Evidencia` con fichero existente en disco.*
+- [x] **C216** *(cerrada el 2026-10-31 con la palabra de Jesús: «Ya funciona»)* — Modo clase en móvil: elegida la prueba, cada alumno tiene nota rápida y botones de audio, vídeo, foto y texto; la evidencia sube en segundo plano y se reproduce después desde el cuadro. *Falsador: navegador real con micrófono y cámara; fila en `Evidencia` con fichero existente en disco.*
 - [x] **C217** — Las evidencias no salen por `/media/`: nginx devuelve 404 en `/media/calificaciones/` y la vista que las sirve exige `grupo_del_profesor`. *Falsador: test de permisos (profesor B recibe 404 en la evidencia de un grupo de A) y lectura del `default.conf`.*
 - [x] **C218** — Un profesor no ve ni edita grupos ajenos, y un alumno no entra en `/calificaciones/`. *Falsador: test con dos profesores y un alumno, sobre cuadro, plan, guardar nota y subir evidencia.*
 - [x] **C219** — Historial con deshacer: cada cambio de nota queda con antes, después, quién y cuándo; deshacer escribe el valor anterior y registra otro cambio, nunca borra. *Falsador: test de ida y vuelta.*
@@ -4094,7 +4119,7 @@ Las plantillas del CMS son para proyectar: A5 con cabecera y número de página 
 
 ---
 
-## Fase 40·1 — Notas de voz en clase, transcritas con Whisper y revisadas al final (2026-09-25) · DESPLEGADA Y VERIFICADA EN PRODUCCIÓN (pendiente: micrófono real, C242)
+## Fase 40·1 — Notas de voz en clase, transcritas con Whisper y revisadas al final (2026-09-25) · DESPLEGADA Y VERIFICADA EN PRODUCCIÓN
 
 **Goal:** el rediseño literal de Jesús está citado en la fase 40 («Rediseño pedido por Jesús»). Plan aprobado: `~/.claude/plans/te-doy-permiso-dise-a-groovy-abelson.md`.
 
@@ -4112,7 +4137,7 @@ Las plantillas del CMS son para proyectar: A5 con cabecera y número de página 
 - [x] **C239** — Otro profesor recibe 404 en lista, audio, aceptar, descartar y grabar; el alumno no llega a nada.
 - [x] **C240** — En el visor no queda nada de la ventana ni del panel; N y el micrófono graban y paran sin cambiar de elemento.
 - [x] **C241** — `makemigrations --check` limpio; la suite sin fallos nuevos.
-- [ ] **C242** `[DEFERRED-VERIFY]` — Micrófono y reproducción de verdad, en el portátil y en la tablet de Jesús.
+- [x] **C242** *(cerrada el 2026-10-31 con la palabra de Jesús: «Ya funciona»)* — Micrófono y reproducción de verdad, en el portátil y en la tablet de Jesús.
 
 ### Verificación (2026-09-25, local, Chrome con la sesión de Jesús, sesión 112)
 
@@ -4344,7 +4369,7 @@ Gotcha de la sesión: `ruff format` con `force-single-line` reordena los imports
 
 **Anti-claims:** ningún correo sale de la app hacia un servicio externo; el parser de correo no cambia; una clave de API de un usuario sin perfil de técnico activo no crea, edita ni cierra nada; la página pública no enseña nombres de reporteros ni comentarios de incidencia bajo ningún token; la semilla no borra servicios editados a mano al revertir.
 
-## Fase 57 — «✎ Editar» en la barra de la letra con acordes (2026-09-28)
+## Fase 57 — «✎ Editar» en la barra de la letra con acordes (2026-09-28) · EN PRODUCCIÓN (el commit no lleva el número de fase; el botón está en `main`)
 
 Jesús: «quiero poder editar los chordpro desde la página de la canción también». Reproducido en su Chrome: el ✎ flotante existe (fijo a 24 px del borde izquierdo, 48 px, nada encima), pero es pequeño, sin contraste y lejos de la letra; lo que se busca es un botón en la barra de la tarjeta, junto a Tono, Reiniciar, A−/A+ y Pantalla completa.
 
@@ -4362,7 +4387,7 @@ Jesús: en la sesión de clase no se ve el botón de Songsterr sobre la tablatur
 
 **Sin decidir:** el duplicado tampoco copia `seccion` ni `group_book`. Copiar `group_book` haría que dar por visto algo en la copia mueva la progresión del libro; es decisión de Jesús, no un efecto colateral de este arreglo.
 
-## Fase 59 — Calificaciones: empezar a calificar con un clic, como en `notas` (2026-09-29) · VERIFICADA EN LOCAL, SIN CONFIRMAR NI DESPLEGAR
+## Fase 59 — Calificaciones: empezar a calificar con un clic, como en `notas` (2026-09-29) · EN PRODUCCIÓN (`12d2038`)
 
 **Goal (literal de Jesús, 2026-09-29):** «Quiero que me simplificar el proceso... Por favor, haz las plantillas necesarias. Estaba contento con lo que desarrollé en /Users/deleyva/Documents/notas». Lo dijo después de preguntar «¿Cómo establezco los items de evaluación/calificación? ¿Cómo funciona el flujo para evaluar?» y recibir una explicación de cinco pasos con una rejilla de 10 × 9.
 
@@ -4421,7 +4446,7 @@ Plantillas con instrumentos distintos por evaluación (los de la 3ª de 4º del 
 - Sin auditoría externa: superficie de profesor autenticado, sin migración, solo caminos nuevos para crear planes; 15 tests nuevos y navegador real. Elegido a conciencia.
 - Visto de paso y no tocado: en el cuadro, a 1456 px de ancho, las columnas Cuaderno, Nota y Calif. quedan fuera de la vista y hay que desplazar en horizontal. Es anterior a esta fase.
 
-## Fase 60 — `notas` dentro de la app: la misma pantalla, con los datos de Django (2026-09-29) · DESPLEGADA Y VERIFICADA EN PRODUCCIÓN (`421cf27`) · pendiente de Jesús: cámara, micrófono e impresión
+## Fase 60 — `notas` dentro de la app: la misma pantalla, con los datos de Django (2026-09-29) · DESPLEGADA Y VERIFICADA EN PRODUCCIÓN (`421cf27`) · pendiente de Jesús: imprimir (C352)
 
 **Goal (literal de Jesús, 2026-09-29):** «Puede quedar esa igual que la que tengo hecha en /Users/deleyva/Documents/notas ¿Que surge ahora en la aplicación de Django, es decir, me parece muy profuso. Yo solo quiero añadir evidencias tal cual están diseñadas en la aplicación de Notas. Por favor, copiala. Usa en vez de HTMLX, usa, en fin, haz lo que sea, pero que sea igual visualmente. Me gusta mucho esa forma de calificar, esa aplicación que hicimos.»
 
@@ -4463,7 +4488,7 @@ Notas de otras asignaturas (botón ℹ de Final y CSV de Info) · «TODOS» en e
 - [x] **C346** — **Registro**: la pantalla de un grupo es la de `notas`. *Evidencia: Chrome, sesión de Jesús, `localhost:8000/calificaciones/grupo/20/?t=1`, grupo de alumnos inventados. Captura vista y comparada con la captura de `notas` que mandó Jesús: barra con «Guardado» y las cinco pestañas, tarjetas de promedio, banda de ponderación, celdas de color, clip, nota y Obs. El marcado y las clases son los de `notas`, copiados. **No** se ha hecho la comparación con `notas` corriendo al lado.*
 - [x] **C347** — Calificar con letra. *Evidencia: Chrome: a, b, c, d con Enter dejan A verde, B azul, C amarillo, D rojo y bajan de fila; «x» y «z» ponen anillo rojo, no se guardan y Enter no baja; al salir la celda vuelve a vacía; tras recargar, las cuatro letras siguen. Desplegable: con «Siempre desplegable» la celda es un `<select>` con 0, A, B, C, D y guarda.*
 - [x] **C348** — El clip abre el menú de `notas` con cinco elementos, y subir archivo, comentario y galería funcionan. *Evidencia: Chrome: menú con Subir archivo, Hacer foto, Grabar audio, Grabar video y Comentario (captura vista); comentario guardado; PNG subido por el campo de fichero del clip; el clip marca 2; galería con la imagen y el comentario (captura vista). Borrar: `test_comentario_y_borrado`; en navegador no se ha pulsado.*
-- [~] **C349** `[DEFERRED-VERIFY]` — Foto con recorte, audio y vídeo se graban desde el navegador y se reproducen desde la galería. *El código es el de `notas` (editor de foto copiado sin tocar) más la grabación de vídeo. La automatización no puede contestar al permiso de cámara y micrófono. **Tarea para Jesús:** desde el móvil, en una celda, hacer una foto y recortarla, grabar un audio y grabar un vídeo; abrirlos desde la galería en el iPhone.*
+- [x] **C349** *(cerrada el 2026-10-31 con la palabra de Jesús: «Ya funciona»)* — Foto con recorte, audio y vídeo se graban desde el navegador y se reproducen desde la galería. *El código es el de `notas` (editor de foto copiado sin tocar) más la grabación de vídeo. La automatización no puede contestar al permiso de cámara y micrófono. **Tarea para Jesús:** desde el móvil, en una celda, hacer una foto y recortarla, grabar un audio y grabar un vídeo; abrirlos desde la galería en el iPhone.*
 - [x] **C350** — **Historial** lista los cambios y deshace uno. *Evidencia: Chrome: 22 cambios con antes y después en letras; deshacer «Composición: 0 → C» añade una entrada REVERTIDO y la nota de ese alumno pasa de 6,4 a 5,5. `test_historial_en_letras_y_deshacer_por_json`.*
 - [x] **C351** — **Info** explica la ponderación a partir del plan real. *Evidencia: Chrome: cuatro tarjetas CE.MU.1–4 con 30/20/30/20 % y sus instrumentos, los nueve pesos, la escala A·B·C·D → 10·8·6·4 y el conmutador de entrada (captura vista).*
 - [~] **C352** `[DEFERRED-VERIFY]` — **Informes** pinta la ficha de un alumno con el radar y se imprime. *Evidencia: Chrome: ficha, registro detallado en letras, radar dibujado y cuatro competencias (capturas vistas). **La impresión no se ha probado:** abrir el diálogo de imprimir bloquea la automatización. Tarea para Jesús: pulsar Imprimir en un informe.*
@@ -4576,7 +4601,7 @@ Lo que encontró el navegador: el botón «Ver otras plantillas» quedó dentro 
 - Visto de paso: hay artículos con el mismo título en libros distintos («1. Sound», «Índex» salen dos veces). Son páginas distintas; para distinguirlas habría que enseñar el libro de cada una.
 
 
-## Fase 62 — Evaluar en clase: elementos evaluables, rúbrica 1-3, alumno al azar, grabación; y reordenar instrumentos (2026-10-04)
+## Fase 62 — Evaluar en clase: elementos evaluables, rúbrica 1-3, alumno al azar, grabación; y reordenar instrumentos (2026-10-04) · DESPLEGADA (`05f7672`, con el push de la fase 64)
 
 **Jesús:** «Necesito ir calificando ya en clase. Quiero, cuando creo la sesión de clase, poder ir seleccionando con un botón (como los de visto, a casa...) con un botón de "evaluable" y que salga, con un popup pequeño seleccionando a qué instrumento de evaluación pertenece. Durante la sesión, querré darle al botón evaluar (por la izquierda) que sólo aparecerá en items evaluables, que me permita elegir un alumno del grupo o seleccionar uno al azar de entre los que aún no tienen nota en ese apartado de la evaluación. Me gustaría además poder introducir una rúbrica de 1 a 3 de varios valores para que calcule SB, NT, BI, SU o IN, y un comentario. También querría grabar en audio o vídeo esas intervenciones. Este botón lo usaré para pruebas representativas (instrumento, lecturas, melódicas y rítmicas). También quiero poder reordenar las filas en las que aparecen los instrumentos de evaluación en […]/calificaciones/grupo/13/?t=1#registro». Y: «Esta tarea considero que es difícil. Esfuérzate al máximo».
 
@@ -4597,7 +4622,7 @@ Lo que encontró el navegador: el botón «Ver otras plantillas» quedó dentro 
 - [x] **C372** — La rúbrica de 1 a 3 se convierte en letra con los cortes acordados, en aritmética exacta. *Falsador: test exhaustivo de todas las combinaciones de 1 a 5 apartados contra una referencia con `Fraction`.* *Evidencia: `test_la_rubrica_da_la_letra_en_todas_las_combinaciones` (363 casos contra `Fraction`), `test_la_tabla_acordada_con_tres_apartados`; la revisión independiente comprobó que `letraDe` en JS y `CORTES` coinciden.*
 - [x] **C373** — Guardar escribe la nota en la columna del instrumento, con el valor de la letra en su escala (SB 9,5…), el comentario y los puntos de la rúbrica; deja `CambioNota`. Evaluar otra vez sustituye. *Evidencia: `test_evaluar_escribe_en_la_columna_del_instrumento`, `test_evaluar_otra_vez_sustituye`, `test_con_varias_columnas_va_a_la_mas_reciente`; Chrome, local: Hugo NT (8) en la celda del registro.*
 - [x] **C374** — La letra se puede poner a mano: sin rúbrica, o cambiando la propuesta. *Evidencia: `test_la_letra_a_mano_manda`; Chrome, local: Carla con SU elegida a mano → SU (5,5) en el registro.*
-- [~] **C375** — Lo grabado en audio o vídeo en el panel se sube como `Evidencia` de ese alumno y esa columna, la misma que se ve en el registro. *Evidencia: `test_el_panel_evalua_de_punta_a_punta` (subida `.webm` como audio → `Evidencia`). [DEFERRED-VERIFY] grabar en el navegador: permiso de micrófono y cámara en «preguntar», pendiente de Jesús en el iPad.*
+- [x] **C375** *(cerrada el 2026-10-31 con la palabra de Jesús: «Ya funciona»)* — Lo grabado en audio o vídeo en el panel se sube como `Evidencia` de ese alumno y esa columna, la misma que se ve en el registro. *Evidencia: `test_el_panel_evalua_de_punta_a_punta` (subida `.webm` como audio → `Evidencia`). [DEFERRED-VERIFY] grabar en el navegador: permiso de micrófono y cámara en «preguntar», pendiente de Jesús en el iPad.*
 - [x] **C376** — En el registro, el menú de la cabecera de una columna mueve su instrumento antes o después. El orden queda guardado y se ve en el registro y en el plan. *Evidencia: `test_mover_un_instrumento` (con empates), `test_mover_por_la_vista_y_se_ve_en_el_registro`; Chrome, local: «Antes» en L. rít. y el orden sigue tras recargar.*
 - [x] **C377** — Permisos: solo el profesorado del grupo marca, evalúa y mueve. Un alumno de otro grupo y un instrumento de otro plan se rechazan. *Evidencia: `test_evaluable_solo_con_instrumentos_del_grupo`, `test_evaluar_rechaza_lo_ajeno`, `test_rubrica_incompleta_o_alumno_ajeno_se_rechazan`, `test_mover_por_la_vista…` (otro profesor → 404).*
 
@@ -4638,7 +4663,7 @@ Lo que encontró el navegador: el botón «Ver otras plantillas» quedó dentro 
 **Decidido por mí:** la grabación compartida se guarda como una evidencia POR alumno, cada una con su copia del fichero. `Evidencia.delete()` borra su fichero, y compartirlo dejaría a los otros sin grabación al borrar la de uno. Coste: hasta 3 × 45 MB y tres compresiones por vídeo. El panel deja de ocupar la pantalla entera: pasa a ser una franja baja, pequeña y translúcida.
 
 - [x] **C378** — Se juntan de 1 a 3 alumnos: «Al azar» añade uno sin nota que no esté ya en el grupo ni se haya saltado; también se pueden añadir de la lista y quitar con ×. Nunca más de 3. *Falsador: test del límite + Chrome.* *Evidencia: `test_la_grabacion_de_grupo_tiene_limites`; Chrome, local: «Al azar» → Darío, «+ otro al azar» → Elena, → Fabio; con 3/3 el botón se desactiva.*
-- [~] **C379** — Una sola grabación (audio o vídeo) del grupo; al parar se sube UNA vez y queda como `Evidencia` de cada alumno del grupo en la columna del instrumento, cada una con su propio fichero. Borrar la de uno no toca las otras. *Falsador: test.* *Evidencia: `test_una_grabacion_para_tres_deja_una_evidencia_independiente_por_alumno` (tres ficheros distintos con el mismo contenido; borrar uno no toca los otros), `test_la_grabacion_de_grupo_por_http`. [DEFERRED-VERIFY] grabar en el navegador: permiso de micrófono, pendiente de Jesús.*
+- [x] **C379** *(cerrada el 2026-10-31 con la palabra de Jesús: «Ya funciona»)* — Una sola grabación (audio o vídeo) del grupo; al parar se sube UNA vez y queda como `Evidencia` de cada alumno del grupo en la columna del instrumento, cada una con su propio fichero. Borrar la de uno no toca las otras. *Falsador: test.* *Evidencia: `test_una_grabacion_para_tres_deja_una_evidencia_independiente_por_alumno` (tres ficheros distintos con el mismo contenido; borrar uno no toca los otros), `test_la_grabacion_de_grupo_por_http`. [DEFERRED-VERIFY] grabar en el navegador: permiso de micrófono, pendiente de Jesús.*
 - [x] **C380** — Al parar (o con «Puntuar sin grabar») salen las rúbricas de los del grupo, una fila pequeña por alumno, en la franja de abajo. Cada fila se guarda por separado y su nota cae en la casilla de ese alumno. *Falsador: Chrome + test.* *Evidencia: Chrome, local, «Puntuar sin grabar»: tres filas; Darío 3·3·3 → «Guardar SB», Elena BI a mano; en el registro Darío SB, Elena BI y Fabio sin tocar. Cerrar y volver a abrir conserva las filas.*
 - [x] **C381** — La franja es discreta: letra de 12-13 px como máximo, translúcida, sin tapar más de ~45 % de la altura. *Falsador: estilos medidos en Chrome + captura.* *Evidencia: medido en Chrome: letra de 12 px, franja de 200 px de 760 (26 %), con el vídeo visible encima (captura ampliada vista); `test_la_franja_es_pequena`.*
 - [x] **C382** — La grabación compartida rechaza alumnos de otro grupo, más de 3 alumnos, y elementos no evaluables. *Falsador: test.* *Evidencia: `test_la_grabacion_de_grupo_tiene_limites`, `test_la_grabacion_de_grupo_por_http` (4 alumnos → 400; otro profesor → 404; no evaluable → 404).*
@@ -4690,7 +4715,7 @@ Lo que encontró el navegador: el botón «Ver otras plantillas» quedó dentro 
 - De paso: la página que controla el navegador automatizado estaba en `visibilityState: hidden`. Eso explica los clics que se perdían en las fases 62 y 62·1.
 
 
-## Fase 63 — Tono de clase de cada canción, por grupo (2026-10-04)
+## Fase 63 — Tono de clase de cada canción, por grupo (2026-10-04) · DESPLEGADA (`f1b0797`, con el push de la fase 64)
 
 **Jesús:** «los archivos Code Pro vienen con su tonalidad original. Eso me parece bien, pero en clase muchas veces tengo una tonalidad preferida para cantar con los niños que no es la original. Me gustaría poder guardarla como predeterminada. Así no tendría que estar transportándola en todas las sesiones.» Decidido con él, por pregunta directa: **por grupo** (frente a «para todos» y «solo para mí»).
 
@@ -4709,7 +4734,7 @@ Lo que encontró el navegador: el botón «Ver otras plantillas» quedó dentro 
 - La canción local se devolvió a su tono original al terminar.
 
 
-## Fase 64 — Diagramas de acordes por curso y diagrama al tocar un acorde (2026-10-04)
+## Fase 64 — Diagramas de acordes por curso y diagrama al tocar un acorde (2026-10-04) · DESPLEGADA (`f038f9b`)
 
 **Jesús:** «en el visor de archivos de Core Pro se podrían mostrar arriba los diagramas de los acordes con un desplegable para poder mostrarlos en ukelele, guitarra y piano? Estamos en clases de primero o tercero de la ESO. Me gustaría que, por defecto, se mostraran los diagramas de ukelele. Si no, en el cuarto, me gustaría que se mostraran los diagramas de piano. Además, me gustaría que, si pincho en un acorde en mitad de la canción, salga un pop-up con el diagrama del acorde.»
 
@@ -4734,7 +4759,7 @@ La tira de arriba con el desplegable ya existía. Hoy por defecto no mostraba na
 - **Queda pendiente de Jesús, en clase con el iPad:** grabar una vez con dos o tres alumnos (micrófono y cámara reales: C375/C379), comprobar que la pantalla no se apaga (C387), y escribir las rúbricas de los instrumentos que vaya a evaluar en la página del plan.
 
 
-## Fase 65 — Oficios en la lista: electricista, carpintería y los que hagan falta (2026-10-05) · VERIFICADA EN LOCAL, SIN DESPLEGAR
+## Fase 65 — Oficios en la lista: electricista, carpintería y los que hagan falta (2026-10-05) · EN PRODUCCIÓN (`f9d9929`)
 
 **Goal (literal de Jesús, 2026-10-05):** «¿Podemos implementar esta mejora? https://apps.iesmartinabescos.es/incidencias/219/ … yo creo que ya está casi hecha, porque sería ir cargando en una web accesible a cualquiera, para que el secretario o la persona que atienda al electricista o al de las ventanas que venga pueda enseñársela o imprimir las incidencias que no están hechas. Es decir, que se vaya marcando con etiqueta o dirigiendo a electricista, carpintería o los equipos que se creen necesarios para cuando haya suficientes, llamar a esa persona para que venga.»
 
@@ -4772,7 +4797,7 @@ Citar usuarios en comentarios (segunda petición de la 219, pendiente de Jesús)
 - Sin auditoría externa: cambio aditivo en superficie de técnicos, con la página pública cubierta por tests de no-fuga. Elegido a conciencia.
 - **Tutorial publicado (2026-10-05)**, a petición de Jesús: BookStack página 36, «Avisar a oficios (electricista, carpintería…) desde la app de incidencias», en Gestión Informática, con 7 capturas (imágenes 86–92) tomadas en local con incidencias de demostración (138 y 139, reportero «Conserjería») y los tokens de las páginas públicas tapados. Verificado en Chrome con sesión: 7 imágenes cargadas y 6 apartados. Sin sesión da 404, igual que todo el libro. Al hacer las capturas apareció «📤 enviado» en el histórico público de un oficio, y se corrigió a «📞 aviso» (`18a776f`).
 
-## Fase 66 — Citar con @usuario en un comentario avisa a esa persona (2026-10-05) · VERIFICADA EN LOCAL, SIN DESPLEGAR
+## Fase 66 — Citar con @usuario en un comentario avisa a esa persona (2026-10-05) · EN PRODUCCIÓN (`4aedcf0`)
 
 **Goal (literal de Jesús, 2026-10-05):** «hazla y que la persona mencionada reciba sólo el aviso si se nombra en el comentario». Es la segunda petición de la incidencia 219. Antes de la fase, reproducido en local: un comentario con `@pruebamencion` en la 138 solo avisó al reportero, porque el aviso va a una lista fija (reportero, asignado y comentaristas previos) y nadie mira el texto.
 
@@ -4804,7 +4829,7 @@ Citar usuarios en comentarios (segunda petición de la 219, pendiente de Jesús)
 - Producción: la API `/servicios` devuelve `modo` (9 `correo` y 2 `visita`: electricista y carpinteria-y-ventanas). En Chrome con la sesión de Jesús: `/panel/servicios/` tiene «➕ Nuevo servicio» y los dos oficios con 📞 visita; en la `/incidencias/219/`, el desplegable de derivar ofrece «📞 Electricista» y «📞 Carpintería y ventanas», con el botón «Derivar», y la ayuda de menciones se ve bajo el comentario (captura vista).
 - Tutorial de menciones: BookStack página 37, «Citar a alguien con @ en los comentarios de una incidencia», con una captura (imagen 94). Comprobado por la API: publicada, 1 imagen, 3 apartados, la cita del correo y el enlace a la página 36. La sesión de BookStack en Chrome había caducado y no se entró en nombre de Jesús. **Cerrado el 2026-10-06:** Jesús la abrió y dice que está bien. Los teléfonos de los dos oficios los pondrá el secretario.
 
-## Fase 67 — Los enlaces de los comentarios se pueden pulsar (2026-10-06)
+## Fase 67 — Los enlaces de los comentarios se pueden pulsar (2026-10-06) · DESPLEGADA Y VERIFICADA EN PRODUCCIÓN
 
 Lo pidió Jesús («haz que los enlaces se puedan pulsar y despliega»). El fallo salió al contestar la 219: los enlaces a docs quedaban como texto.
 
@@ -4812,7 +4837,7 @@ Lo pidió Jesús («haz que los enlaces se puedan pulsar y despliega»). El fall
 - [x] **C409** — La mención a uno mismo no se resalta, porque al autor no se le avisa. Lo delató la 219 en producción: el `@jlopez` de ejemplo de un comentario escrito por jlopez salía como «Le ha llegado este comentario por correo» sin haber salido ningún correo. *Evidencia: `test_la_mencion_a_uno_mismo_no_se_resalta`; `pytest incidencias` → 226 passed, 2 failed (los de siempre); Chrome en producción tras desplegar (abajo).*
 - **Desplegada y verificada en producción (2026-10-06).** Copia previa `production_backup_2026_10_06T07_46_44.sql.gz`; dos despliegues sin migraciones (el enlace, y luego la corrección de C409). En Chrome, la `/incidencias/219/`: los dos enlaces a docs se pueden pulsar (`target=_blank`, `elementFromPoint` en su centro devuelve el propio enlace) y el `@jlopez` de ejemplo ya no sale resaltado (0 menciones resaltadas; captura vista).
 
-## Fase 68 — Tratado o saltado en clase, aparte del visto, y recuento al preparar (2026-10-06) · VERIFICADA EN LOCAL, SIN DESPLEGAR
+## Fase 68 — Tratado o saltado en clase, aparte del visto, y recuento al preparar (2026-10-06) · EN PRODUCCIÓN (`874217d`)
 
 **Goal (literal de Jesús, 2026-10-06):** «cuando preparo la clase añado mucho material luego hay veces que en clase no me da tiempo y no lo veo pero queda añadido. Me gustaría poder marcar lo que sí que he trabajado de lo que me he saltado […] Querría que en la lista de elementos sugeridos para clase hubiera algún tipo de contador de las veces que […] lo he marcado como tratado en clase. Estos estados de "tratado en clase" y "no tratado en clase" no quiero que se mezclen con el estado de "visto". Ese estado de "visto" es para marcar que no quiero volver a ver ese material.»
 
@@ -5221,7 +5246,7 @@ BO: x . . . x x . .
 - **2026-10-29 — Tramo 76·4 construido («vale, lo dejamos como dices. Adelante con 76.4»), sin push ni despliegue.** Vino de su duda «si un alumno me dice "yo he contestado otra cosa", ¿cómo le rebato?». Mi crítica al vídeo en el servidor (menores, RGPD, no zanja la discusión) y su contrapropuesta (vídeo solo en la memoria del navegador, borrado al aceptar) convergieron en esto: letras en vivo en el iPad, clips de 5 s en memoria, vuelta de comprobación con ✓/✗ sin cifras, corrección por toque, totales solo en el iPad. Decisiones: «Revelar» sigue pregunta a pregunta (sin interruptor de «revelar al final», lo descartó); la pantalla del profesor se distingue por «Letras», que se enciende sola al abrir la cámara (no hay forma de saber qué sesión es el proyector: las dos son suyas). Gotcha visto en Chrome: dos → seguidas en la vuelta avanzan una sola (`ocupado`), como en 76·2; es a propósito. Pendiente en el iPad: que Safari grabe de verdad (C559). Pase 3 del grupo inventado, sesión 126.
 - **2026-10-29 — Tramos 76·3 y 76·4 desplegados («despliega»).** `git fetch` limpio, push de 8 commits (`9f44714`…`592c7be`: dos míos y seis de ISA de la fase 84 de la otra sesión), `just deploy-production` con salida 0: servidor en `592c7be`, seis contenedores arrancados, 266 estáticos y **`preguntas.0003_revision_y_correcciones… OK`** (tres columnas nuevas con valor por defecto: `pase.revision`, `pasepregunta.correcciones`, `respuesta.corregida`). Chrome con la sesión de Jesús: «📊 Resultados de teoría» junto a los dos PDF en «Añadir pase» de la sesión 190, y `/preguntas/grupo/<id>/teoria/` responde 200 con «0 pases cerrados · 0 respuestas» (no se abrió la página entera por Anti-A: lleva la lista del alumnado). Queda la prueba del iPad (C559).
 
-## Fase 77 — El índice de recursos musicales, en un solo Markdown para un GPT
+## Fase 77 — El índice de recursos musicales, en un solo Markdown para un GPT · DESPLEGADA (`7adb112`, 2026-10-16)
 
 **Petición literal (2026-10-16):** *«Prepara el exportador del índice a markdown»*,
 tras preguntar si un GPT de ChatGPT podía leer en vivo
@@ -5276,7 +5301,7 @@ de las fichas, para que la búsqueda semántica del GPT aterrice.
 - **2026-10-16 — Desplegado por Jesús en otra sesión** (`7adb112` = `origin/main`); exportación de producción corrida y vista. Fase cerrada.
 
 
-## Fase 78 — El dado del cuaderno: dos libretas por sesión, al pasar lista (2026-10-16) · CONSTRUIDA 2026-10-17, SIN DESPLEGAR
+## Fase 78 — El dado del cuaderno: dos libretas por sesión, al pasar lista (2026-10-16) · DESPLEGADA (2026-10-17)
 
 **Goal (literal de Jesús, 2026-10-16):** «cuando paso lista ¿puedes poner un dado para que mire el cuaderno de dos alumnos cada día. Mientras pase lista quiero darle a ese dado y mirar las libretas de esos alumnos, ponerle nota y apuntarlo, parecido a como lo hacemos con los elementos evaluables cuando lo marco en una lectura melódica, rítmica, etc, pero dentro del tablero de lista de grupo y sólo para cuaderno».
 
@@ -5546,7 +5571,7 @@ Voces nuevas: `GU` guitarra/ukelele (`v` abajo, `V` abajo con acento, `^` arriba
 
 - **2026-10-28 — Desplegada («despliega»).** Push de `4b45e83` a `origin/main`; el primer `just deploy-production` murió en el primer `ssh` con «Connection reset by peer» sin tocar el servidor, y el segundo, un minuto después, fue limpio: servidor de `e2f33bf` a `4b45e83`, seis contenedores arriba, migración `0012_pistas_de_practica` aplicada (crea la tabla, no toca datos). Medido de paso: 129 elementos de sesión de clase apuntan a una letra con acordes; ninguno en bibliotecas de grupo ni personales.
 
-## Fase 83 — Bases de acompañamiento generadas desde la ficha (2026-10-29) · PRUEBA CON STAND BY ME EN PRODUCCIÓN
+## Fase 83 — Bases de acompañamiento generadas desde la ficha (2026-10-29) · PRUEBA HECHA; SU PISTA SE BORRÓ EN LA FASE 87 (en el 🎧 solo queda `.rmi`)
 
 **Goal (literal de Jesús, 2026-10-29):** «¿Podemos hacer la prueba con Stand by me?», sobre la propuesta de generar la base de cada canción con su propio ChordPro en vez de bajar el audio de YouTube.
 
@@ -5557,7 +5582,7 @@ Voces nuevas: `GU` guitarra/ukelele (`v` abajo, `V` abajo con acento, `^` arriba
 - [x] **C533** — `scripts/bases/base_desde_chordpro.ts` lee la ficha (un acorde = un compás; rejilla con `parsearRitmo` de la app) y escribe MIDI, secciones y compases. *Evidencia:* Stand by Me → 120 ppm, 87 compases, 178 s; el disco dura 177 s según la ficha.
 - [x] **C534** — El audio suena a la ficha compás a compás. *Falsador:* `scripts/bases/comprobar_base.ts` (Goertzel entre Mi1 y Mi3). *Evidencia:* 87/87; con la ficha desplazada un compás, 43/87, así que la comprobación sí detecta el desfase.
 - [x] **C535** — En producción, la base sube por el 🎧, suena con sesión, sigue al tono de la letra y salta por sus marcas. *Evidencia (Chrome, sesión de Jesús, `/clases/sessions/195/items/2039/view/`):* pista 1 «Base generada (prueba)», 181 s, 7 marcas desde el servidor (0:02 … 2:26); el grave del compás 1 mide Sol con la letra en el original y La a +2; tocar «Estribillo 1» → 51,6 s tras 1,5 s, párrafo resaltado. Cierra también el pendiente de C532.
-- [ ] **C536** — Jesús la escucha y dice si vale para clase.
+- [ ] **C536** [DROPPED — ver Log de la fase 88] — Jesús la escucha y dice si vale para clase. *La pista 1 «Base generada (prueba)» se borró en la fase 87 (C587, «Borra lo que no sea rmi»). Si el generador se usa para las canciones sin MIDI, el criterio vuelve con la pista nueva.*
 
 ### Decisiones
 
@@ -5663,7 +5688,7 @@ Sin migraciones. Falta comprobar `import cv2` dentro del contenedor `huey_consum
 - **2026-10-29 — Recuento de producción** (Jesús, `manage.py shell` por `docker compose run`, solo agregados): de las fotos de hoy, 20 en `listo`, 0 en `fallido`, 0 en `pendiente`/`procesando`. 32 KB de media, 183 KB la mayor: por debajo de los 250 KB de C543. **Abierto:** la de 183 KB pesa seis veces la media, lo que apunta a una foto en la que no se encontró el folio y salió en color sin fotocopia. Se sabe por el log de `procesar_foto` (`folio`/`papel` de cada pk), sin mirar la foto.
 - **2026-10-29 — Log de `procesar_foto` en producción** (Jesús, `grep -o` de la línea «procesada»): 21 fotos procesadas (pk 73–93, una borrada después: la base tiene 20). **20 de 21 con folio encontrado**, todas en apaisado a 1600×1118–1134 (proporción de A4) y de 17 a 39 KB. **La 78 no:** `folio: False, papel: True`, 1600×1200 (el encuadre entero, 4:3), 187.630 bytes. Es la salida prevista cuando hay dudas (no recortar antes que cortar una esquina, Anti-B), pero el original ya se borró, así que no se puede reprocesar. Jesús la da por buena así (ver Decisiones): no se toca la detección.
 
-## Fase 85 — Mini-DAW MIDI en el 🎧 y el videoclip en pequeño junto a la letra (2026-10-29) · DESPLEGADO 2026-10-29; FALTA SUBIR EL .RMI DE STAND BY ME Y EL CHROMEBOOK
+## Fase 85 — Mini-DAW MIDI en el 🎧 y el videoclip en pequeño junto a la letra (2026-10-29) · DESPLEGADO 2026-10-29; FALTA EL CHROMEBOOK (C576)
 
 **Goal (literal de Jesús, 2026-10-29):** «Empieza con el prototipo de la fase 84. no quiero midi sin melodía, quiero poder apagar, subir o bajar, seleccionar pista de solo... También quiero enlace al vídeo original de la canción por si quisiera reproducirla a la vez que vemos la letra. (vídeo en pequeño)». La llamó 84 porque así la propuse; la 84 ya era la de las fotos de folios, así que es la 85.
 
@@ -5812,3 +5837,33 @@ Faders verticales uno al lado de otro · arrastrar la columna · recordar entre 
 
 - **2026-10-30 — Datos de producción.** Marcas de la 2 a la 3; borradas la 1 y la 2; lote de bitmidi y midiworld (36 canciones, 81 candidatos medidos); 8 `.rmi` subidos por SSH (`cat` al servidor, sin `scp`) y creados con `crear()` desde un contenedor con la carpeta montada en solo lectura; carpeta temporal del servidor borrada. Una sorpresa medida: en la primera calibración todas las marcas caían un párrafo después, porque `pintarRitmos` cambia el `.paragraph.ritmo` por su rejilla y el visor ya no lo cuenta. Otra: las marcas por alineamiento solo son de fiar si la canción no es un bucle, y la prueba que lo dice es la letra cantada del MIDI karaoke. «Automático» construido y probado en local; sin push ni despliegue.
 - **2026-10-30 — Desplegado** (`c696861`, collectstatic sin errores, sin migraciones, 6 contenedores arriba, `/` 302) y «automático» comprobado en producción (C585). Jesús: My Girl (71 %) no se sube por ahora.
+
+## Fase 88 — Limpieza: `content_hub` fuera, `user.username` barrido, scripts sueltos y un ISA que dice la verdad (2026-10-31) · CONSTRUIDA EN LOCAL, SIN PUSH NI DESPLIEGUE
+
+**Goal (literal de Jesús, 2026-10-31):** «cierra los de micrófono y cámara. Ya funciona. Limpia lo que resumías en el apartado "Limpieza". Luego querré que actualices el ISA para que sea coherente»
+
+**Qué entra y qué no.** El apartado «Limpieza» tenía cinco puntos. Tres son limpieza de verdad y entran. Dos no lo son y se quedan fuera hasta que Jesús decida, porque borran datos:
+
+- **`GroupLibraryItem` no está muerto.** Lo usan vistas vivas de `clases`, `evaluations` y `programacion` y dos templatetags, y en producción tenía 168 filas (fase 25). Retirarlo es una refactorización con migración destructiva, no una limpieza.
+- **Borrar `LibraryDeck` quita la atribución de mazo a los repasos** (`ReviewLog.deck` es `SET_NULL`; en agosto, 50 de 75). Es irreversible, y la decisión prevista para el 25-sep no consta en el ISA.
+
+### Claims
+
+- [x] **C592** — `content_hub` desaparece del código: sin directorio, fuera de `INSTALLED_APPS` y de `config/urls.py`, sin ajustes ni paquete de Meilisearch y sin el servicio `meilisearch` en el compose local. *Falsador: `rg -l content_hub` fuera del ISA da 0 y `manage.py check` sale 0.* **Evidencia:** 28 ficheros del directorio borrados (y la carpeta, que solo guardaba `__pycache__`); `rg -l -i 'content_hub|meilisearch'` fuera del ISA → 0 ficheros. Antes salían `config/settings/base.py`, `config/urls.py`, `docker-compose.local.yml`, `requirements/base.txt`, `musica/api.py`, dos de `documentacion/tecnica/` y `tailwind.config.js`, este último encontrado por el propio falsador después del primer barrido. `manage.py check` → «System check identified no issues». Producción nunca tuvo Meilisearch, así que esa búsqueda no funcionó allí nunca.
+- [x] **C593** — Ningún `user.username` vivo en código ni plantillas, y la búsqueda del admin deja de reventar con `FieldError`. *Falsador: `rg` de la familia da solo comentarios; test que busca en los admins.* **Evidencia:** el barrido amplio dio 12 sitios en 8 ficheros, no los 7 anotados: además de `evaluations`, `cms`, `blogs` y las dos plantillas de `incidencias`, `songs_ranking` (dos búsquedas del admin y dos `__str__`) e `import_book_chapter` (`User.objects.get(username=…)` reventaba con `--owner-username`; ahora busca por correo). Todos pasan a `email`. Al probarlo salió otro defecto en la misma caja de búsqueda: `search_fields` citaba `video_file` y el campo es `video`. `tests/test_sin_username.py` busca en los 43 admins con buscador (de 69 registrados): con el código de antes, 3 `FieldError` (`submissionvideo`, `songproposal`, `vote`); con el arreglo, 0. `_username_to_email` de `incidencias` es otra cosa (convierte nombres de texto) y no se toca.
+- [x] **C594** — Ningún `test_*.py` de la raíz llama a `django.setup()` al importarse. *Falsador: `ls test_*.py` en la raíz.* **Evidencia:** borrados `test_embed.py` (una sonda de embeds de marzo) y `test_soft_delete.py` (importaba `music_cards`, app que ya no existe); en la raíz no queda ningún `test_*.py`. `AGENTS.md` decía cuatro scripts que ya no estaban: reescrita la trampa.
+- [x] **C595** — La suite no empeora. *Falsador: `pytest` antes y después.* **Evidencia:** línea base de hoy, antes de tocar nada: 5 failed, 1958 passed, 6 skipped. Después: 5 failed (los mismos cinco), 1963 passed (+5, los tests nuevos), 5 skipped (−1, el script borrado). `makemigrations --check --dry-run` → «No changes detected».
+- [x] **C596** — El ISA es coherente. *Falsador: cada estado de título contrastado con `git log origin/main`; cada deuda, con un `rg` de hoy.* **Evidencia:** 40 títulos corregidos (33 + las fases 2 a 10); `rg '^## Fase.*(SIN DESPLEGAR|EN LOCAL|SIN CONFIRMAR)'` → solo esta fase, que es verdad. Commits comprobados con `git merge-base --is-ancestor` contra `origin/main`; las fases 62 y 63 salieron en el push `1c3e088..f038f9b` de la 64. La cabecera tenía dos listas de «lo siguiente» (09-10 y 08-26) con cosas ya hechas; ahora hay una, del 31-10, más «Criterios abiertos». En la deuda, cuatro líneas resueltas salen (login 500, C12/C28/C30bis, `MusicTag`, «9 tests») tras comprobarlas con `rg` y la suite; las que no he vuelto a medir lo dicen.
+
+### Anti-claims
+
+- **Anti-A** — Ningún `DROP TABLE` ni migración destructiva: las tablas de `content_hub` se quedan huérfanas en producción, como las de `study_sessions` (fase 1, A3). Borrarlas es decisión de Jesús.
+- **Anti-B** — Ni `GroupLibraryItem` ni `LibraryDeck` se tocan.
+- **Anti-C** — Ni push ni despliegue sin «despliega».
+
+### Log
+
+- **2026-10-31 — Micrófono y cámara cerrados con la palabra de Jesús** («cierra los de micrófono y cámara. Ya funciona»): C216, C242 (el de la fase 40·1), C349, C375 y C379.
+- **2026-10-31 — Fuera, a propósito:** `GroupLibraryItem` y `LibraryDeck` (cabecera, «Lo siguiente», punto 5). Los dos borran datos.
+- **2026-10-31 — C536 retirada:** pedía escuchar la pista 1 de Stand by Me, que se borró en la fase 87. El generador de `scripts/bases/` sigue siendo la vía para las 28 canciones sin MIDI.
+- **2026-10-31 — Construido y verificado en local; sin push ni despliegue.** Al desplegar: sin migraciones; la imagen de producción se reconstruye sin el paquete `meilisearch`. En el Mac sigue arrancado el contenedor `martina_bescos_app_local_meilisearch`, que ya no está en el compose: lo quita `docker compose -f docker-compose.local.yml up -d --remove-orphans`, y su volumen se borra a mano si se quiere.
