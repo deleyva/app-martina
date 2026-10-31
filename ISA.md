@@ -73,7 +73,7 @@ Así se corrigieron el 2026-10-31 los títulos que decían «sin desplegar»: lo
 que ahora dicen «EN PRODUCCIÓN» sin fecha propia tienen su commit en `main`
 antes de `c696861`.
 
-**La fase 88 (limpieza) está construida en local, sin push ni despliegue.**
+**Las fases 88 (limpieza) y 89 (fuera la biblioteca de grupo y los mazos) están construidas en local, sin push ni despliegue.** La 89 lleva dos migraciones que borran tablas: antes de desplegar, leer su Log.
 
 La tabla de arriba llega a la fase 33 (y la 77). De la 34 en adelante, por áreas:
 
@@ -89,7 +89,7 @@ La tabla de arriba llega a la fase 33 (y la 77). De la 34 en adelante, por área
 | Blogs y web del centro | 25, 27, 35, 36, 38, 51, 52, 52·1 |
 | Accesos: WiFi, rol de profesor, candado | 26, 26·1, 26·2, 31, 69 |
 | Índice en Markdown para un GPT | 77 |
-| Limpieza | 88 |
+| Limpieza: `content_hub`, biblioteca de grupo y mazos | 88, 89 |
 
 No hay fase 79.
 
@@ -115,18 +115,8 @@ No hay fase 79.
 4. **Filtrar por `autor` y `obra`.** Siguen fuera de `FACETAS_DE_FILTRO`, así
    que un libro sin objetivo no se puede acotar de ninguna manera.
 
-5. **Dos decisiones de Jesús que frenan limpieza.** Quedaron fuera de la fase 88
-   porque borran datos:
-   - **`GroupLibraryItem` (la antigua «fase D»).** No está muerto: lo usan
-     vistas de `clases`, `evaluations` y `programacion`, dos templatetags, y
-     `ClassSessionItem` lo apunta como tipo de contenido. En producción tenía
-     168 filas (fase 25). Retirarlo es una refactorización con migración
-     destructiva; lo primero, contar filas en producción.
-   - **`LibraryDeck`.** El panel salió de la interfaz en la fase 15; el modelo,
-     sus rutas y `ReviewLog.deck` siguen. La decisión estaba prevista para el
-     25-sep y no consta en este ISA. Borrarlo quita la atribución de mazo a los repasos que la
-     tienen (50 de 75 en agosto). La alternativa apuntada entonces: guardar
-     combinaciones de facetas.
+5. **Desplegar la fase 89** (biblioteca de grupo y mazos fuera; decidido por
+   Jesús el 2026-10-31). Borra tablas: copia de la base antes, ver su Log.
 
 6. **Menores, para un hueco:** un marco de calificación propio para 3º bilingüe
    (hoy recibe la plantilla de 3º, fase 60) · las columnas Cuaderno, Nota y
@@ -177,7 +167,6 @@ con el venv en 7.3.3 mientras el pin decía 7.3.1. El arreglo es alinear el venv
   `<script>`). La guarda de C52 tapa el síntoma; el arreglo es nombrar las
   funciones y quitarlas al descargar. Solo el de ChordPro lo hace ya.
 - **Los grupos sin objetivo acumulan material sin tocar y ya nadie se lo lleva.** Medido el 26/08: «Índice de recursos musicales» tiene 12 elementos sin tocar y el grupo suelto 1, y desde la fase 16 ninguno de los dos entra en la cuota de novedad mientras haya tres objetivos. No es un defecto —los objetivos deben ganar— pero esos 13 elementos no volverán a salir como novedad nunca. Salen por caducidad solo si se practican una vez. *(Sin volver a medir desde entonces.)*
-- **`build_tag_map` hace ~2 consultas por elemento** y corre en cada carga del índice y en cada render del panel de mazos. A 500 elementos se notará. *(Sigue en el código; sin volver a medir.)*
 - **La etiqueta `borrar`** es la única de las 139 sin faceta: en la revisión del mapa se eliminó su línea, lo que significa "déjala como está". *(Sin volver a medir.)*
 - **Tablas huérfanas en producción:** las de `study_sessions` (fase 1) y, desde
   la fase 88, las de `content_hub`. Inertes; borrarlas es decisión de Jesús.
@@ -187,6 +176,15 @@ con el venv en 7.3.3 mientras el pin decía 7.3.1. El arreglo es alinear el venv
   `test_panel_has_custom_title`). Aquí ponía 9.
 - **La etiqueta id 13 «Cerradura» tiene el slug vacío** (fase 73): no se puede
   fusionar ni renombrar por slug. Sin volver a mirar.
+- **El visor de PDF lanza una excepción en cada carga** (visto en la fase 89):
+  el script de `pdf_viewer.html` busca `#close-btn`, que la plantilla no pinta,
+  y revienta en `closeBtn.addEventListener`. Último cambio del fichero, 23-sep.
+  El PDF se ve; lo que viene detrás de esa línea en el script no corre.
+- **`analytics.js` lanza `target.className.replace is not a function`** al
+  pulsar un SVG (su `className` no es una cadena). Visto en la fase 89 al abrir
+  el diálogo de bibliotecas.
+- **`test_precargar_da_lo_mismo_que_no_precargar` está definido dos veces** en
+  `my_library/tests.py`, idéntico: pytest solo ejecuta el segundo.
 - **El identificador C242 está repetido:** fase 41 (un alumno compone y exporta
   su libreta) y fase 40·1 (micrófono). No se renumera; se cita con su fase.
 
@@ -198,6 +196,7 @@ con el venv en 7.3.3 mientras el pin decía 7.3.1. El arreglo es alinear el venv
 - El vocabulario partido en dos: `MusicTag` se borró en la fase 8·6.
 - `content_hub`, los `user.username` y los scripts `test_*.py` de la raíz:
   fase 88.
+- `build_tag_map` y sus ~2 consultas por elemento: se fue con los mazos, fase 89.
 - Los diagramas de acordes sobre la letra (fase 47) y el cuarto objetivo que se
   quedaba fuera (fase 30): hechos.
 
@@ -5867,3 +5866,34 @@ Faders verticales uno al lado de otro · arrastrar la columna · recordar entre 
 - **2026-10-31 — Fuera, a propósito:** `GroupLibraryItem` y `LibraryDeck` (cabecera, «Lo siguiente», punto 5). Los dos borran datos.
 - **2026-10-31 — C536 retirada:** pedía escuchar la pista 1 de Stand by Me, que se borró en la fase 87. El generador de `scripts/bases/` sigue siendo la vía para las 28 canciones sin MIDI.
 - **2026-10-31 — Construido y verificado en local; sin push ni despliegue.** Al desplegar: sin migraciones; la imagen de producción se reconstruye sin el paquete `meilisearch`. En el Mac sigue arrancado el contenedor `martina_bescos_app_local_meilisearch`, que ya no está en el compose: lo quita `docker compose -f docker-compose.local.yml up -d --remove-orphans`, y su volumen se borra a mano si se quiere.
+
+## Fase 89 — Fuera la biblioteca de grupo (`GroupLibraryItem`) y los mazos (`LibraryDeck`) (2026-10-31) · CONSTRUIDA EN LOCAL, SIN PUSH NI DESPLIEGUE
+
+**Goal (literal de Jesús, 2026-10-31):** «ok, Quita GroupLibraryItem y LibraryDeck, luego hablamos de Meilisearch»
+
+**Qué se sabía al decidir.** Se lo dije antes de que contestara: los dos borran datos. La biblioteca de grupo tenía 168 filas en producción (fase 25) y los mazos dejan sin sello a los repasos que lo llevan (50 de 75 en agosto). Su «Quita» es la decisión sobre esos datos.
+
+**Medido en la copia local antes de tocar nada** (copia de producción de finales de octubre más pruebas locales): 171 filas de `GroupLibraryItem`, casi todas de diciembre a abril; ninguna `ClassSessionItem`, `PlanItem` ni `LibraryItem` apunta a una de ellas como contenido; 3 mazos y 50 de 52 repasos con sello. La edición de sesión ya no pintaba la biblioteca (fase 28); programación sí la ofrecía como fuente, con 1 plan y 7 elementos, todos del 13-jul.
+
+### Claims
+
+- [x] **C597** — `GroupLibraryItem` desaparece del código: modelo, admin, vistas de `clases` y `evaluations`, rutas, templatetag, plantillas de `group_library/` y de la fila de biblioteca en la edición de sesión, la tarjeta de programación y la casilla de grupos del modal «añadir a bibliotecas». *Falsador: `rg 'GroupLibraryItem|group_library'` fuera de migraciones, ISA y documentos históricos da 0; `manage.py check` sale 0.* **Evidencia:** el `rg` ampliado (`GroupLibraryItem|group_library|grouplibraryitem|groups_with_content|library_choices|assign_to_students|storeCounterData|get_scorepage_total_count|get_item_session_count|group_ids`) solo da `CHANGELOG.md`, `ROADMAP.md` y `BLOGPAGE_INTEGRATION_SUMMARY.md`, que son historia y se dejan, más un `group_ids` de otra cosa en `users/context_processors.py` y la aserción negativa del test nuevo. Se van también lo que solo existía para la biblioteca: los contadores de sesiones (`get_item_session_count`, `get_scorepage_total_count` y su JavaScript en `edit.html`) y «asignar a estudiantes» (`show_assign_to_students_modal`, `assign_to_students`), que solo se abría desde el botón de la biblioteca de grupo. Siete plantillas y el templatetag borrados. La documentación técnica y la del profesorado cuentan ahora los libros del grupo. `manage.py check` → «no issues».
+- [x] **C598** — Borrar la tabla no deja contenido apuntando a ella. Una migración de datos, antes del `DeleteModel`, vuelve a apuntar al contenido real cualquier fila de los seis modelos con `GenericForeignKey` (`ClassSessionItem`, `GroupBookItem`, `LibraryItem`, `SharedNote`, `PlanItem`, `ContentCoverage`) que tenga como tipo `grouplibraryitem`. *Falsador: en la copia local se planta un elemento de sesión que apunta a una fila de la biblioteca, se migra y se comprueba que ahora apunta a lo que apuntaba esa fila y que la tabla ya no existe.* **Evidencia:** plantados dos elementos de sesión, uno a la fila 1 de la biblioteca (que apuntaba a `(184, 20)`) y otro a una fila inexistente. `migrate` imprime «clases.ClassSessionItem: 1 reapuntadas, 1 ya colgaban, 0 duplicadas»; el primero queda en `(184, 20)`, una `ScorePage`; el segundo, como estaba. `evaluations_grouplibraryitem` ya no está entre las tablas. Los dos plantados se borraron después.
+- [x] **C599** — `LibraryDeck` desaparece: modelo, `ReviewLog.deck`, rutas, vistas, el panel, el `deck` del visor de estudio y la parte de mazos de `migrar_etiquetas`. Las dos precargas de etiquetas pasan a `LibraryItem`. *Falsador: `rg 'LibraryDeck|deck'` en `my_library` fuera de migraciones da 0.* **Evidencia:** `rg -i 'librarydeck|deck_|deck\b|deckpk|create_deck|deckPanel'` fuera de migraciones, Markdown y tests → 0. **El falsador cazó lo que mi lista no tenía:** el botón «Guardar mazo» y su diálogo seguían vivos en `partials/library_filter_controls.html`; aparecían al filtrar por etiquetas y mandaban a `create_deck`. Con la ruta borrada, el índice habría dado 500. Fuera, con su interruptor en `library_filter_script.html`. `migrar_etiquetas` pierde `planificar_mazos`, `--solo-mazos`, `_aplicar_mazos`, `_resumen_mazos` y `nombres_de_etiqueta_vivos`.
+- [x] **C600** — La herencia de etiquetas no cambia. *Falsador: `pytest my_library`.* **Evidencia:** los cinco tests que miraban `build_tag_map` miran ahora `get_content_tags` (helper `_etiquetas_de`), y los tres de precarga llaman a `LibraryItem.precargar_etiquetas_de_pagina`. `my_library`: 255 passed.
+- [x] **C601** — Las páginas que pierden un panel siguen abriendo. *Falsador: tests de vista y, en local, navegador real.* **Evidencia:** `clases/test_session_edit.py` (era el buscador del panel; queda que la página abre sin él) y un test nuevo en `programacion/tests.py` que con el código de antes falla, porque la página decía «Desde la biblioteca del grupo». En Chrome contra local, con un profesor de prueba desechable (creado y borrado en la copia): la edición de sesión abre con «Añade contenido desde los libros del grupo ↑» y sin errores en consola; el detalle del plan solo ofrece «Libros», a todo el ancho; el índice de la biblioteca, filtrado por `voz:ssa`, sin `#saveDeckButton` ni diálogo de mazo y sin errores; el visor de estudio abre, y valorar graba una fila de `ReviewLog` (`study`, 1→2, con `session_uuid`); el diálogo «añadir a bibliotecas» de un artículo: 3 diálogos, 0 casillas de grupo, la sección del alumnado presente. Dos excepciones de consola que no son de esta fase (`pdf_viewer.html` y `analytics.js`) pasan a la deuda.
+- [x] **C602** — La suite no empeora y no quedan migraciones por hacer. *Falsador: `pytest` contra la línea base y `makemigrations --check`.* **Evidencia:** 5 failed, los mismos cinco de antes; 1937 passed. Son 26 menos que los 1963 de la fase 88 y están contados: 12 de mazos, 5 de la biblioteca en `clases` y 9 del buscador del panel. Después se añadió el de programación. `makemigrations --check` → «No changes detected».
+
+### Anti-claims
+
+- **Anti-A** — No se borra ni un repaso: `ReviewLog` cuenta lo mismo antes y después; solo pierde la columna del mazo. *Falsador: recuento en la copia local.* **Comprobado:** 52 antes y 52 después; `deck_id` ya no está en `my_library_reviewlog`.
+- **Anti-B** — No se borra contenido: páginas, documentos e imágenes cuentan lo mismo. Una fila de la biblioteca de grupo era un puntero, no el material. **Comprobado:** 614 páginas, 241 documentos, 2339 imágenes, 1 `GroupBookItem`, 7 `PlanItem` y 110 `LibraryItem`, antes y después.
+- **Anti-C** — Ni push ni despliegue sin «despliega». La migración borra tablas: al desplegar se dice cuáles.
+
+### Log
+
+- **2026-10-31 — Decidido por Jesús** («Quita GroupLibraryItem y LibraryDeck»), sabiendo que los dos borran datos: se lo había dicho en la respuesta anterior.
+- **2026-10-31 — Programación pierde una fuente.** Su tarjeta «Desde la biblioteca del grupo» se va; queda «Libros». Los siete elementos del único plan (13-jul) apuntan directamente al contenido y no se tocan.
+- **2026-10-31 — Lo que no estaba en la lista y salió buscando:** el botón «Guardar mazo» de los filtros (C599), los contadores de sesiones y «asignar a estudiantes» (C597), y la documentación del profesorado, que seguía explicando la biblioteca de grupo como el camino para preparar clases cuando eso ya era falso desde la fase 28.
+- **2026-10-31 — Gotcha local:** el servidor de desarrollo se quedó con el código viejo en memoria (seguramente porque la recarga se atascó con un `class` duplicado que dejé a mitad) y la primera carga en el navegador dio `ProgrammingError` sobre la tabla ya borrada. `docker compose restart django` lo arregló. En producción no pasa: el despliegue reconstruye la imagen.
+- **2026-10-31 — Construido y verificado en local; sin push ni despliegue.** Al desplegar se aplican dos migraciones que **borran datos**: `my_library.0014_fuera_los_mazos` (tabla `my_library_librarydeck` y columna `deck` de `my_library_reviewlog`) y `clases.0027_fuera_la_biblioteca_de_grupo` (vuelve a apuntar lo que haga falta e imprime cuántas; luego borra `evaluations_grouplibraryitem`). `deploy-production` **no hace copia**: lanzar `just production-backup-db` antes. Entre el `up -d` y el `migrate` el código nuevo corre contra el esquema viejo sin problema, porque ya no lee esas tablas. Los dos `ContentType` de `grouplibraryitem` (de `evaluations` y de `clases`) se quedan en la base: `remove_stale_contenttypes` los borraría en cascada con lo que cuelgue de ellos, y no hace falta.
