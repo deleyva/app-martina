@@ -5,7 +5,7 @@ trabaja delante. Pero cuando un libro tiene cuarenta ejercicios y ya se sabe en
 que paginas caen, dibujarlos uno a uno es trabajo mecanico. Con `lote` se monta
 el libro entero en una llamada.
 
-Mismo patron que `cms` y `content_hub`: router de Django Ninja con
+Mismo patron que `cms`: router de Django Ninja con
 `DatabaseApiKey` y `django_auth`, cabecera `X-API-Key`.
 
 **La validacion NO se repite aqui.** Todo pasa por `Recorte.full_clean()`, que

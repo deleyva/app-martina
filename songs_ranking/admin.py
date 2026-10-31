@@ -18,10 +18,10 @@ class SongAdmin(admin.ModelAdmin):
 class SongProposalAdmin(admin.ModelAdmin):
     list_display = ('survey', 'song', 'participant', 'created_at')
     list_filter = ('created_at',)
-    search_fields = ('survey__title', 'song__name', 'participant__username')
+    search_fields = ('survey__title', 'song__name', 'participant__email')
 
 @admin.register(Vote)
 class VoteAdmin(admin.ModelAdmin):
     list_display = ('survey', 'song', 'voter', 'created_at')
     list_filter = ('created_at',)
-    search_fields = ('survey__title', 'song__name', 'voter__username')
+    search_fields = ('survey__title', 'song__name', 'voter__email')

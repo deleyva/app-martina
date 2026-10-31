@@ -6,7 +6,6 @@ module.exports = {
       './clases/templates/**/*.html',
       './my_library/templates/**/*.html',
       './incidencias/templates/**/*.html',
-      './content_hub/templates/**/*.html',
       './martina_bescos_app/**/*.py',
       './martina_bescos_app/static/js/**/*.js',
     ],

@@ -20,7 +20,6 @@ api = NinjaAPI(title="Martina Bescós App API", version="1.0.0")
 from evaluations.api import router as evaluations_router
 from api_keys.api import router as api_keys_router
 from cms.api import router as cms_router
-from content_hub.api import router as content_hub_router
 from musica.api import router as recortes_router
 from incidencias.api import router as incidencias_router
 from clases.api import router as clases_router
@@ -30,7 +29,6 @@ from calificaciones.api import router as calificaciones_router
 api.add_router("/evaluations/", evaluations_router)
 api.add_router("/keys/", api_keys_router)
 api.add_router("/cms/", cms_router)
-api.add_router("/content/", content_hub_router)
 api.add_router("/recortes/", recortes_router)
 api.add_router("/incidencias/", incidencias_router)
 api.add_router("/clases/", clases_router)
@@ -94,8 +92,6 @@ urlpatterns = [
     path("incidencias/", include("incidencias.urls", namespace="incidencias")),
     # Altas de dispositivos en la WiFi del centro
     path("wifi/", include("wifi.urls", namespace="wifi")),
-    # Content Hub - Sistema de gestión de contenido musical con grafo de conocimiento
-    path("content/", include("content_hub.urls", namespace="content_hub")),
     # Programación didáctica - planes por trimestre, cobertura y recomendaciones
     path("programacion/", include("programacion.urls", namespace="programacion")),
     # Herramientas de autoría musical: la pantalla de recorte de PDF

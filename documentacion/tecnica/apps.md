@@ -31,10 +31,6 @@ Biblioteca personal: `LibraryDeck`, `LibraryItem` (GenericFK), `ReviewLog`. Viso
 
 `EvaluationItem` (con trimestre y prompt de IA), `Evaluation`, `RubricCategory`, `RubricScore`, `PendingEvaluationStatus`.
 
-## content_hub
-
-Grafo de conocimiento de contenido musical: `ContentItem`, `ContentLink`, `Category`, con búsqueda en Meilisearch.
-
 ## Otras
 
 - `songs_ranking`: ranking de canciones con integración Spotify.

@@ -6,7 +6,7 @@ Proyecto Django 5 basado en [cookiecutter-django](https://github.com/cookiecutte
 
 - **Backend**: Django 5, Wagtail, django-allauth (Google), django-ninja (API), Huey (tareas en background).
 - **Frontend**: templates Django + HTMX + Tailwind CSS (daisyUI). Sin SPA.
-- **Datos**: PostgreSQL, Redis (caché y cola de Huey), Meilisearch (búsqueda full-text de content_hub).
+- **Datos**: PostgreSQL y Redis (caché y cola de Huey).
 - **Servicios externos**: Google (auth), Spotify API (songs_ranking), Google Gemini (publicación asistida por IA y feedback de evaluaciones).
 - **Infra**: Docker Compose (local, stage y production), whitenoise para estáticos.
 
@@ -22,11 +22,9 @@ graph TB
     subgraph Datos
         PG[(🐘 PostgreSQL)]
         REDIS[(🔴 Redis)]
-        MEILI[(🔎 Meilisearch)]
     end
     UI --> DJANGO
     DJANGO --> PG
-    DJANGO --> MEILI
     HUEY --> REDIS
     DJANGO --> GEMINI[🤖 Gemini]
     DJANGO --> SPOTIFY[🎵 Spotify]

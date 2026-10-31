@@ -31,7 +31,7 @@ def notify_moderator_on_blog_submission(request, page):
             body=(
                 f"Se ha creado un nuevo artículo en el departamento «{parent.title}».\n\n"
                 f"Título: {page.title}\n"
-                f"Autor: {request.user.get_full_name() or request.user.username}\n\n"
+                f"Autor: {request.user.get_full_name() or request.user.email}\n\n"
                 f"Revísalo en el panel de administración de Wagtail."
             ),
             to=[moderator.email],

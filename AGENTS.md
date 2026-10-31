@@ -71,7 +71,7 @@ Las vistas deben ser extremadamente delgadas:
 
 -   **El login por email/contraseña está deshabilitado**, salvo tres exenciones que concede `users/adapters.py`: usuario `is_staff`, login social, o cuenta social vinculada. Para entrar en local sin Google, promociona el usuario a `is_staff`.
 
--   **`pytest` no arranca sin excluir cuatro scripts de la raíz.** `test_images.py`, `test_tags.py`, `test_tags2.py` y `test_viewer_html.py` son scripts de depuración que llaman a `django.setup()` y tocan la BD al importarse; pytest los recoge por el patrón `test_*.py` y falla la colección entera. Deberían renombrarse.
+-   **Nada de scripts sueltos `test_*.py` en la raíz.** pytest los recoge por el patrón `test_*.py`, y uno que llame a `django.setup()` o toque la BD al importarse rompe la colección entera. Pasó con seis scripts de depuración; los últimos dos (`test_embed.py`, `test_soft_delete.py`) se borraron el 2026-10-31 (fase 88). Un script de depuración va en `scripts/` y con otro nombre.
 
 -   **`conftest.py` solo cubre su propio subárbol.** La fixture `user` vive en `martina_bescos_app/conftest.py` y NO alcanza a apps hermanas como `my_library`. Define la fixture localmente con `UserFactory`.
 

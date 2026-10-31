@@ -122,12 +122,11 @@ class SubmissionVideoAdmin(admin.ModelAdmin):
         'submission__pending_status__evaluation_item',
     )
     search_fields = (
-        'submission__pending_status__student__user__username',
         'submission__pending_status__student__user__first_name',
         'submission__pending_status__student__user__last_name',
         'submission__pending_status__student__user__email',
         'original_filename',
-        'video_file',
+        'video',  # el campo es `video`; `video_file` no existe y la búsqueda reventaba
     )
     readonly_fields = (
         'id',
@@ -156,13 +155,14 @@ class SubmissionVideoAdmin(admin.ModelAdmin):
             
         student = pending_status.student
         if student.user:
-            # Try to get full name, then username
+            # Nombre completo y, si no hay, el correo: `username` no existe
+            # en este proyecto (USERNAME_FIELD = "email") y valía None.
             full_name = student.user.get_full_name()
             if full_name:
                 return full_name
-            if student.user.username:
-                return student.user.username
-            # Fallback if user exists but has no name/username
+            if student.user.email:
+                return student.user.email
+            # Fallback if user exists but has no name/email
             return f"User ID: {student.user.id}" 
         else:
             # Student exists but is not linked to a User account

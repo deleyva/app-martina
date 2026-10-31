@@ -130,7 +130,6 @@ LOCAL_APPS = [
     "incidencias",  # Sistema de incidencias informáticas
     "wifi",  # Altas de dispositivos en la WiFi del centro
     "analytics",
-    "content_hub",  # Sistema flexible de gestión de contenido musical (grafo de conocimiento)
     "programacion",  # Programación didáctica: planes por trimestre, cobertura y recomendaciones
     "repertorio",  # Catálogo de repertorio consultable (JamZone importado + propio)
     "calificaciones",  # Calificaciones: criterios × instrumentos, cuadro, modo clase y evidencias
@@ -156,11 +155,6 @@ SPOTIFY_CLIENT_ID = env("SPOTIFY_CLIENT_ID", default="your-spotify-client-id")
 SPOTIFY_CLIENT_SECRET = env(
     "SPOTIFY_CLIENT_SECRET", default="your-spotify-client-secret"
 )
-
-# Meilisearch Configuration (for content_hub full-text search)
-# ------------------------------------------------------------------------------
-MEILISEARCH_URL = env("MEILISEARCH_URL", default="http://localhost:7700")
-MEILISEARCH_API_KEY = env("MEILISEARCH_API_KEY", default="")
 
 # MIGRATIONS
 # ------------------------------------------------------------------------------

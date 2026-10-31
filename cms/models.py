@@ -346,4 +346,4 @@ class SavedResourceFilter(models.Model):
         verbose_name_plural = "Filtros de Recursos Guardados"
 
     def __str__(self):
-        return f"{self.user.username} - {self.name}"
+        return f"{self.user.email} - {self.name}"

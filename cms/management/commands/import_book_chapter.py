@@ -147,7 +147,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--owner-username",
             default=None,
-            help="Username to set as owner of created pages and images. Defaults to first superuser.",
+            help="Email of the user to set as owner of created pages and images (this project has no usernames). Defaults to first superuser.",
         )
         parser.add_argument(
             "--with-attachment-cards",
@@ -182,9 +182,9 @@ class Command(BaseCommand):
         User = get_user_model()
         if username:
             try:
-                return User.objects.get(username=username)
+                return User.objects.get(email=username)
             except User.DoesNotExist:
-                self._abort(f"No user with username {username!r}.")
+                self._abort(f"No user with email {username!r}.")
         superuser = User.objects.filter(is_superuser=True).order_by("pk").first()
         if not superuser:
             self._abort("No superuser found; pass --owner-username explicitly.")
@@ -596,7 +596,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING("DRY RUN MODE — no database changes"))
 
         owner = self._resolve_owner(owner_username)
-        self.stdout.write(f"Owner: {owner.username or owner.email} (pk={owner.pk})")
+        self.stdout.write(f"Owner: {owner.email} (pk={owner.pk})")
 
         publisher = ContentPublisher(user=owner)
 

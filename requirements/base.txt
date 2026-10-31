@@ -59,6 +59,3 @@ wagtail==7.3.1  # https://github.com/wagtail/wagtail
 
 # Email processing
 django-mailbox>=0.6.9  # https://github.com/coddingtonbear/django-mailbox
-
-# Search
-meilisearch==0.31.4  # https://github.com/meilisearch/meilisearch-python

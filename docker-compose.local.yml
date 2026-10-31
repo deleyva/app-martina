@@ -1,7 +1,6 @@
 volumes:
   martina_bescos_app_local_whisper_modelos: {}
   martina_bescos_app_local_postgres_data: {}
-  martina_bescos_app_local_meilisearch_data: {}
   
 
 services:
@@ -52,17 +51,6 @@ services:
     container_name: martina_bescos_app_local_redis
     ports:
       - "6379:6379"
-
-  meilisearch:
-    image: getmeili/meilisearch:v1.6
-    container_name: martina_bescos_app_local_meilisearch
-    ports:
-      - "7700:7700"
-    volumes:
-      - martina_bescos_app_local_meilisearch_data:/meili_data
-    environment:
-      - MEILI_ENV=development
-      - MEILI_NO_ANALYTICS=true
 
   # Transcribe las notas de voz de clase (fase 40·1). Aparte y con tope de
   # memoria: el servidor no tiene swap, y si Whisper se pasa tiene que morir

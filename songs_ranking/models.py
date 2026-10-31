@@ -88,7 +88,7 @@ class SongProposal(models.Model):
         unique_together = ('survey', 'song', 'participant')
         
     def __str__(self):
-        return f"{self.participant.username} proposed {self.song} for {self.survey}"
+        return f"{self.participant.email} proposed {self.song} for {self.survey}"
 
 class Vote(models.Model):
     """Model to represent a vote for a song"""
@@ -116,4 +116,4 @@ class Vote(models.Model):
         unique_together = ('survey', 'song', 'voter')
         
     def __str__(self):
-        return f"{self.voter.username} voted for {self.song} in {self.survey}"
+        return f"{self.voter.email} voted for {self.song} in {self.survey}"
