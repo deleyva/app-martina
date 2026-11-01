@@ -4438,3 +4438,121 @@ def test_la_vista_previa_marca_los_favoritos(client, db, user):
     ).content.decode()
 
     assert html.count('data-favorito="1"') == 1
+
+
+# === Fase 91: el plazo crece con los aciertos (FSRS sobre el historial) ===
+#
+# Jesús, 2026-11-01, a la propuesta de que el plazo creciera con los aciertos:
+# «ok! Calculemos».
+
+
+def _repasos_a_tiempo(notas, desde_dias=400):
+    """Repasos con estas notas, cada uno justo cuando vence el anterior."""
+    from my_library.plazos import plazo_en_dias
+
+    cuando = timezone.now() - timedelta(days=desde_dias)
+    repasos, plazos = [], []
+    for nota in notas:
+        repasos.append((cuando, nota))
+        plazo = plazo_en_dias(repasos)
+        plazos.append(plazo)
+        cuando = cuando + timedelta(days=plazo)
+    return repasos, plazos
+
+
+def test_el_plazo_crece_con_cada_acierto():
+    """C609. Cuatro «Lo conozco bien» seguidos, cada uno a su hora: cada plazo
+    más largo que el anterior, y el cuarto ya pasa de los 21 días que la tabla
+    daba como máximo."""
+    _, plazos = _repasos_a_tiempo([3, 3, 3, 3])
+
+    assert all(a < b for a, b in zip(plazos, plazos[1:])), plazos
+    assert plazos[-1] > 21, plazos
+
+
+def test_un_fallo_encoge_el_plazo():
+    """C609. Después de cinco «Me lo sé muy bien», un «No me sale» lo devuelve
+    a pocos días."""
+    from my_library.plazos import plazo_en_dias
+
+    repasos, plazos = _repasos_a_tiempo([4, 4, 4, 4, 4])
+    ultimo = repasos[-1][0] + timedelta(days=plazos[-1])
+
+    tras_el_fallo = plazo_en_dias(repasos + [(ultimo, 0)])
+
+    assert tras_el_fallo < plazos[-1], (plazos[-1], tras_el_fallo)
+    assert tras_el_fallo <= 21, "un fallo no puede dejarlo más lejos que la tabla"
+
+
+def test_el_plazo_tiene_techo():
+    """Decisión 5: con «Me lo sé muy bien» repetido FSRS se iba a años (631 días
+    en el historial real). El techo lo deja en un trimestre."""
+    from my_library.plazos import PLAZO_MAXIMO
+
+    _, plazos = _repasos_a_tiempo([4] * 6)
+
+    assert max(plazos) == PLAZO_MAXIMO, plazos
+
+
+def test_apenas_lo_conozco_cuenta_como_fallo():
+    """Decisión 2: «Apenas lo conozco» (1) es un fallo, igual que «No me sale»."""
+    from my_library.plazos import plazo_en_dias
+
+    repasos, plazos = _repasos_a_tiempo([3, 3, 3])
+    despues = repasos[-1][0] + timedelta(days=plazos[-1])
+
+    assert plazo_en_dias(repasos + [(despues, 1)]) == plazo_en_dias(
+        repasos + [(despues, 0)]
+    )
+
+
+def test_sin_nota_no_hay_plazo():
+    """C610. Sin ningún repaso con nota, la sesión cae a la tabla por nivel."""
+    from my_library.plazos import plazo_en_dias
+
+    assert plazo_en_dias([]) is None
+    assert plazo_en_dias([(timezone.now(), None)]) is None
+
+
+def test_la_sesion_ordena_por_el_plazo_del_historial(db, user):
+    """C611. Dos ejercicios en nivel 4 practicados hace 10 días. Con la tabla
+    empataban (10 de 21) y ganaba el de pk más bajo. Con el historial, el de
+    un solo repaso está más vencido que el que lleva diez aciertos."""
+    veterano = _item(user, "veterano", nivel=4)  # pk más bajo: ganaba el empate
+    novato = _item(user, "novato", nivel=4)
+    hace_diez = timezone.now() - timedelta(days=10)
+    for n in range(10):
+        ReviewLog.objects.create(
+            user=user, item=veterano, source=ReviewLog.SOURCE_STUDY,
+            reviewed_at=hace_diez - timedelta(days=30 * (9 - n)),
+            proficiency_before=4, proficiency_after=4,
+        )
+    ReviewLog.objects.create(
+        user=user, item=novato, source=ReviewLog.SOURCE_STUDY, reviewed_at=hace_diez,
+        proficiency_before=3, proficiency_after=4,
+    )
+
+    assert construir_sesion([veterano, novato], tamano=1) == [novato]
+
+
+def test_una_seccion_lleva_su_propio_plazo(db, user):
+    """El historial de una sección es el suyo: los aciertos de la pieza entera
+    no le alargan el plazo."""
+    from my_library.session import _historial, plazos_de
+
+    largo = _item(user, "sonata", nivel=4)
+    seccion = _seccion(largo, "compases 30-60")
+    base = timezone.now() - timedelta(days=200)
+    for n in range(6):
+        ReviewLog.objects.create(
+            user=user, item=largo, source=ReviewLog.SOURCE_STUDY,
+            reviewed_at=base + timedelta(days=30 * n), proficiency_after=4,
+        )
+    ReviewLog.objects.create(
+        user=user, item=largo, section=seccion, source=ReviewLog.SOURCE_STUDY,
+        reviewed_at=base, proficiency_after=2,
+    )
+
+    plazos = plazos_de(_historial([largo, seccion]))
+
+    assert plazos[("seccion", seccion.pk)] < plazos[("item", largo.pk)]

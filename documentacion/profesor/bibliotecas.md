@@ -4,7 +4,7 @@ Cada usuario tiene su biblioteca personal, que acepta cualquier tipo de contenid
 
 ## Mi Biblioteca (personal)
 
-Cada usuario tiene su biblioteca personal (`/my-library/`). Incluye un visor optimizado para práctica musical (inspirado en forScore) para PDFs, imágenes y audio, y un **modo estudio** que arma sesiones de tamaño fijo, filtrando por etiquetas cuando hace falta. En el visor, la estrella (o la tecla F) marca un ejercicio como **favorito**: entra en todas las sesiones, le toque o no, hasta que se quite.
+Cada usuario tiene su biblioteca personal (`/my-library/`). Incluye un visor optimizado para práctica musical (inspirado en forScore) para PDFs, imágenes y audio, y un **modo estudio** que arma sesiones de tamaño fijo, filtrando por etiquetas cuando hace falta. En el visor, la estrella (o la tecla F) marca un ejercicio como **favorito**: entra en todas las sesiones, le toque o no, hasta que se quite. Lo demás entra por lo vencido: cada ejercicio tiene un plazo que crece con cada vez que te sale (hasta 90 días) y se encoge cuando no.
 
 ## Los libros del grupo
 

@@ -25,6 +25,9 @@ pikepdf==9.4.2
 # Leer tarjetas de respuesta (marcadores ArUco) en el servidor, fase 76. Headless:
 # sin GUI ni libGL, que es lo que cabe en la imagen slim.
 opencv-python-headless==4.11.0.86
+# Plazo de repaso de cada ejercicio según su historial (FSRS, el algoritmo de Recall),
+# fase 91. MIT; en ejecución solo depende de typing-extensions (torch es del optimizador).
+fsrs==6.3.2
 
 # MFA Support
 cryptography==41.0.2

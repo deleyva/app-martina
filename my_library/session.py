@@ -9,9 +9,11 @@ todo lo que quiera: el tamaño de la sesión no depende de ella.
 
 Tres decisiones, en este orden:
 
-1. QUÉ ENTRA — por caducidad. Cada elemento tiene un intervalo objetivo según lo
-   bien que te lo sepas; si lleva más tiempo sin tocarse, está vencido. Se cogen
-   los más vencidos primero. Lo nunca practicado es prioridad máxima.
+1. QUÉ ENTRA — por caducidad. Cada elemento tiene un plazo; si lleva más tiempo
+   sin tocarse, está vencido. Se cogen los más vencidos primero. Desde la fase
+   91 el plazo sale de su historial con FSRS (`plazos.py`) y crece con cada
+   acierto; la tabla fija por nivel queda de reserva para lo que no tiene
+   ningún repaso con nota.
 
 2. CUÁNTOS — un tope. Si no hay bastantes vencidos, se rellena con lo menos
    reciente; nunca se pasa del tope.
@@ -36,9 +38,9 @@ from collections import Counter, defaultdict
 from . import facets
 
 # Cuántos días debería aguantar cada nivel antes de volver a tocarse.
-# No es un algoritmo de repetición espaciada: son plazos observables que se
-# ajustarán cuando ReviewLog tenga datos reales. Deliberadamente cortos —
-# la destreza motora decae más despacio que un dato, pero necesita más contacto.
+# No es un algoritmo de repetición espaciada: son plazos observables. Desde la
+# fase 91 solo se usan DE RESERVA, para una unidad sin ningún repaso con nota;
+# el plazo de verdad sale del historial (`plazos.plazo_en_dias`).
 INTERVALO_POR_NIVEL = {
     0: 1,   # sin valorar
     1: 1,   # apenas lo conozco
@@ -79,19 +81,24 @@ def es_favorito(unidad):
 
 
 def intervalo_objetivo(item):
-    """Días que este elemento debería aguantar sin practicarse."""
+    """Días que este elemento debería aguantar sin practicarse, por su nivel.
+
+    Es la reserva: el plazo de verdad sale del historial (fase 91).
+    """
     return INTERVALO_POR_NIVEL.get(item.proficiency_level, 1)
 
 
-def _ratio_vencimiento(item, dias_sin_practicar):
+def _ratio_vencimiento(item, dias_sin_practicar, plazo=None):
     """Cuánto ha rebasado su plazo. >= 1 significa vencido.
+
+    `plazo` es el que calcula FSRS con el historial; sin él, el de la tabla.
 
     None (nunca practicado) es prioridad máxima: es el material que aún no ha
     entrado en rotación, y dejarlo fuera lo dejaría fuera para siempre.
     """
     if dias_sin_practicar is None:
         return float("inf")
-    return dias_sin_practicar / intervalo_objetivo(item)
+    return dias_sin_practicar / (plazo or intervalo_objetivo(item))
 
 
 def unidades_de_practica(items):
@@ -149,47 +156,69 @@ def precargar_dias_desde_repaso(unidades):
         u._dias_desde_repaso = (ahora - ultimo).days if ultimo else None
 
 
-def _dias_sin_practicar(unidades):
-    """{clave: días} en dos consultas, en vez de una por unidad.
+def _historial(unidades):
+    """{clave: [(cuando, nivel_tras_el_repaso), ...]} en orden, en dos consultas.
 
     La clave lleva el tipo delante (`("item", 5)` / `("seccion", 5)`) porque
-    los pk de las dos tablas se pisan.
-    """
-    from django.db.models import Max
-    from django.utils import timezone
+    los pk de las dos tablas se pisan. Solo cuentan los repasos del modo
+    estudio, y para un elemento solo los del elemento entero: un repaso de una
+    sección no lo es del elemento, aunque lleve su `item_id`.
 
+    Las mismas dos consultas que antes hacían el `Max`, ahora trayendo las
+    filas: el plazo necesita el historial entero, no solo la última fecha.
+    """
     from .models import ItemSection, ReviewLog
 
     items = [u for u in unidades if not isinstance(u, ItemSection)]
     secciones = [u for u in unidades if isinstance(u, ItemSection)]
-    ahora = timezone.now()
-    dias = {}
+    historial = {_clave(u): [] for u in unidades}
 
     if items:
-        # section__isnull: un repaso de una sección no cuenta como repaso del
-        # elemento entero, aunque lleve su item_id.
-        ultimos = (
+        for item_id, cuando, nivel in (
             ReviewLog.objects.filter(
                 item__in=items, source=ReviewLog.SOURCE_STUDY, section__isnull=True
             )
-            .values("item")
-            .annotate(ultimo=Max("reviewed_at"))
-        )
-        por_pk = {f["item"]: (ahora - f["ultimo"]).days for f in ultimos}
-        dias.update({("item", i.pk): por_pk.get(i.pk) for i in items})
+            .order_by("reviewed_at", "pk")
+            .values_list("item_id", "reviewed_at", "proficiency_after")
+        ):
+            historial[("item", item_id)].append((cuando, nivel))
 
     if secciones:
-        ultimos = (
+        for seccion_id, cuando, nivel in (
             ReviewLog.objects.filter(
                 section__in=secciones, source=ReviewLog.SOURCE_STUDY
             )
-            .values("section")
-            .annotate(ultimo=Max("reviewed_at"))
-        )
-        por_pk = {f["section"]: (ahora - f["ultimo"]).days for f in ultimos}
-        dias.update({("seccion", s.pk): por_pk.get(s.pk) for s in secciones})
+            .order_by("reviewed_at", "pk")
+            .values_list("section_id", "reviewed_at", "proficiency_after")
+        ):
+            historial[("seccion", seccion_id)].append((cuando, nivel))
 
-    return dias
+    return historial
+
+
+def _dias_sin_practicar(unidades, historial=None):
+    """{clave: días desde el último repaso}, o None si nunca se practicó."""
+    from django.utils import timezone
+
+    if historial is None:
+        historial = _historial(unidades)
+    ahora = timezone.now()
+    return {
+        clave: (ahora - repasos[-1][0]).days if repasos else None
+        for clave, repasos in historial.items()
+    }
+
+
+def plazos_de(historial):
+    """{clave: días de plazo según FSRS}, solo para lo que tiene repasos con nota."""
+    from .plazos import plazo_en_dias
+
+    plazos = {}
+    for clave, repasos in historial.items():
+        plazo = plazo_en_dias(repasos) if repasos else None
+        if plazo is not None:
+            plazos[clave] = plazo
+    return plazos
 
 
 def _etiquetas(unidad):
@@ -616,7 +645,9 @@ def construir_sesion(items, tamano=TAMANO_SESION_POR_DEFECTO, incluir_nuevos=Tru
 
     favoritos = [u for u in unidades if es_favorito(u)]
     unidades = [u for u in unidades if not es_favorito(u)]
-    dias = _dias_sin_practicar(unidades)
+    historial = _historial(unidades)
+    dias = _dias_sin_practicar(unidades, historial)
+    plazos = plazos_de(historial)
 
     nuevos = [u for u in unidades if dias[_clave(u)] is None] if incluir_nuevos else []
     conocidos = [u for u in unidades if dias[_clave(u)] is not None]
@@ -634,7 +665,12 @@ def construir_sesion(items, tamano=TAMANO_SESION_POR_DEFECTO, incluir_nuevos=Tru
     # Lo conocido, más vencido primero. El desempate por clave mantiene el
     # orden estable entre llamadas: sin él, dos unidades igual de vencidas
     # bailarían en cada recarga.
-    conocidos.sort(key=lambda u: (-_ratio_vencimiento(u, dias[_clave(u)]), _clave(u)))
+    conocidos.sort(
+        key=lambda u: (
+            -_ratio_vencimiento(u, dias[_clave(u)], plazos.get(_clave(u))),
+            _clave(u),
+        )
+    )
 
     cuota = min(len(nuevos), max(1, round(tamano * PROPORCION_NOVEDAD))) if nuevos else 0
 

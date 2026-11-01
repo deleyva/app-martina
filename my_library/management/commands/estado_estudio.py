@@ -144,9 +144,12 @@ class Command(BaseCommand):
             PROPORCION_NOVEDAD,
             TAMANO_SESION_POR_DEFECTO,
             _dias_sin_practicar,
+            _historial,
             _libro_de,
             _repartir_por_libro,
             construir_sesion,
+            intervalo_objetivo,
+            plazos_de,
             unidades_de_practica,
         )
 
@@ -210,7 +213,9 @@ class Command(BaseCommand):
         # Los grupos que de verdad compiten por los huecos de novedad, en el
         # orden en que `_repartir_por_libro` los sirve.
         unidades = unidades_de_practica(items)
-        dias = _dias_sin_practicar(unidades)
+        historial = _historial(unidades)
+        dias = _dias_sin_practicar(unidades, historial)
+        plazos = plazos_de(historial)
         nuevos = [u for u in unidades if dias[u.clave_de_practica] is None]
         nuevos.sort(key=lambda u: (getattr(u, "orden", 0), u.pk))
 
@@ -242,6 +247,14 @@ class Command(BaseCommand):
         for n, u in enumerate(construir_sesion(items, tamano=tamano), 1):
             d = dias[u.clave_de_practica]
             cuando = "sin tocar" if d is None else f"hace {d} d"
+            # El plazo de FSRS (fase 91), o el de la tabla si no hay notas.
+            plazo = plazos.get(u.clave_de_practica)
+            if d is not None:
+                cuando += (
+                    f" · plazo {plazo:.0f} d"
+                    if plazo is not None
+                    else f" · plazo {intervalo_objetivo(u)} d (tabla)"
+                )
             self.stdout.write(f"  {n:>2}. {_titulo(u)[:56]:<56} {cuando}")
 
         # "¿Qué he practicado hoy?" es la pregunta que motivó `ReviewLog` en la
