@@ -73,7 +73,7 @@ Así se corrigieron el 2026-10-31 los títulos que decían «sin desplegar»: lo
 que ahora dicen «EN PRODUCCIÓN» sin fecha propia tienen su commit en `main`
 antes de `c696861`.
 
-**Las fases 88 (limpieza), 89 (fuera la biblioteca de grupo y los mazos), 90 (favoritos) y 91 (plazos con FSRS) están construidas en local, sin push ni despliegue.** La 89 lleva dos migraciones que borran tablas: antes de desplegar, leer su Log. La 90 solo añade una columna. La 91 añade la dependencia `fsrs`, sin migración.
+**Las fases 88 (limpieza), 89 (fuera la biblioteca de grupo y los mazos), 90 (favoritos) y 91 (plazos con FSRS) están desplegadas desde el 2026-11-01** (`a3ae442`), con copia de la base previa. Detalle en el Log de la 89 y de la 91.
 
 La tabla de arriba llega a la fase 33 (y la 77). De la 34 en adelante, por áreas:
 
@@ -115,21 +115,17 @@ No hay fase 79.
 4. **Filtrar por `autor` y `obra`.** Siguen fuera de `FACETAS_DE_FILTRO`, así
    que un libro sin objetivo no se puede acotar de ninguna manera.
 
-5. **Desplegar las fases 88 a 91** (la 89, biblioteca de grupo y mazos
-   fuera, decidido por Jesús el 2026-10-31; la 90, favoritos; la 91, plazos
-   con FSRS). La 89 borra tablas: copia de la base antes, ver su Log.
-
-6. **Menores, para un hueco:** un marco de calificación propio para 3º bilingüe
+5. **Menores, para un hueco:** un marco de calificación propio para 3º bilingüe
    (hoy recibe la plantilla de 3º, fase 60) · las columnas Cuaderno, Nota y
    Calif. no caben a 1456 px (fase 59) · notación de los ritmos con alphaTab
    (fase 75) · añadir material suelto al índice sigue siendo de uno en uno ·
    atajo de teclado para encajar la imagen, después de arreglar los `keydown`
    (ver la deuda).
 
-7. **Mirar con datos de uso, no construir todavía:** si elegir un libro deja
-   vencer el repaso de los demás (fase 19) · si 21 días para «me lo sé muy
-   bien» es mucho para una destreza · si el tope por capítulo basta (CAGED,
-   fase 30·1).
+6. **Mirar con datos de uso, no construir todavía:** si elegir un libro deja
+   vencer el repaso de los demás (fase 19) · si el techo de 90 días de FSRS
+   es mucho o poco para una destreza (fase 91) · si el tope por capítulo basta
+   (CAGED, fase 30·1).
 
 #### Criterios abiertos
 
@@ -5844,7 +5840,7 @@ Faders verticales uno al lado de otro · arrastrar la columna · recordar entre 
 - **2026-10-30 — Datos de producción.** Marcas de la 2 a la 3; borradas la 1 y la 2; lote de bitmidi y midiworld (36 canciones, 81 candidatos medidos); 8 `.rmi` subidos por SSH (`cat` al servidor, sin `scp`) y creados con `crear()` desde un contenedor con la carpeta montada en solo lectura; carpeta temporal del servidor borrada. Una sorpresa medida: en la primera calibración todas las marcas caían un párrafo después, porque `pintarRitmos` cambia el `.paragraph.ritmo` por su rejilla y el visor ya no lo cuenta. Otra: las marcas por alineamiento solo son de fiar si la canción no es un bucle, y la prueba que lo dice es la letra cantada del MIDI karaoke. «Automático» construido y probado en local; sin push ni despliegue.
 - **2026-10-30 — Desplegado** (`c696861`, collectstatic sin errores, sin migraciones, 6 contenedores arriba, `/` 302) y «automático» comprobado en producción (C585). Jesús: My Girl (71 %) no se sube por ahora.
 
-## Fase 88 — Limpieza: `content_hub` fuera, `user.username` barrido, scripts sueltos y un ISA que dice la verdad (2026-10-31) · CONSTRUIDA EN LOCAL, SIN PUSH NI DESPLIEGUE
+## Fase 88 — Limpieza: `content_hub` fuera, `user.username` barrido, scripts sueltos y un ISA que dice la verdad (2026-10-31) · DESPLEGADA EL 2026-11-01
 
 **Goal (literal de Jesús, 2026-10-31):** «cierra los de micrófono y cámara. Ya funciona. Limpia lo que resumías en el apartado "Limpieza". Luego querré que actualices el ISA para que sea coherente»
 
@@ -5874,7 +5870,7 @@ Faders verticales uno al lado de otro · arrastrar la columna · recordar entre 
 - **2026-10-31 — C536 retirada:** pedía escuchar la pista 1 de Stand by Me, que se borró en la fase 87. El generador de `scripts/bases/` sigue siendo la vía para las 28 canciones sin MIDI.
 - **2026-10-31 — Construido y verificado en local; sin push ni despliegue.** Al desplegar: sin migraciones; la imagen de producción se reconstruye sin el paquete `meilisearch`. En el Mac sigue arrancado el contenedor `martina_bescos_app_local_meilisearch`, que ya no está en el compose: lo quita `docker compose -f docker-compose.local.yml up -d --remove-orphans`, y su volumen se borra a mano si se quiere.
 
-## Fase 89 — Fuera la biblioteca de grupo (`GroupLibraryItem`) y los mazos (`LibraryDeck`) (2026-10-31) · CONSTRUIDA EN LOCAL, SIN PUSH NI DESPLIEGUE
+## Fase 89 — Fuera la biblioteca de grupo (`GroupLibraryItem`) y los mazos (`LibraryDeck`) (2026-10-31) · DESPLEGADA EL 2026-11-01
 
 **Goal (literal de Jesús, 2026-10-31):** «ok, Quita GroupLibraryItem y LibraryDeck, luego hablamos de Meilisearch»
 
@@ -5904,8 +5900,9 @@ Faders verticales uno al lado de otro · arrastrar la columna · recordar entre 
 - **2026-10-31 — Lo que no estaba en la lista y salió buscando:** el botón «Guardar mazo» de los filtros (C599), los contadores de sesiones y «asignar a estudiantes» (C597), y la documentación del profesorado, que seguía explicando la biblioteca de grupo como el camino para preparar clases cuando eso ya era falso desde la fase 28.
 - **2026-10-31 — Gotcha local:** el servidor de desarrollo se quedó con el código viejo en memoria (seguramente porque la recarga se atascó con un `class` duplicado que dejé a mitad) y la primera carga en el navegador dio `ProgrammingError` sobre la tabla ya borrada. `docker compose restart django` lo arregló. En producción no pasa: el despliegue reconstruye la imagen.
 - **2026-10-31 — Construido y verificado en local; sin push ni despliegue.** Al desplegar se aplican dos migraciones que **borran datos**: `my_library.0014_fuera_los_mazos` (tabla `my_library_librarydeck` y columna `deck` de `my_library_reviewlog`) y `clases.0027_fuera_la_biblioteca_de_grupo` (vuelve a apuntar lo que haga falta e imprime cuántas; luego borra `evaluations_grouplibraryitem`). `deploy-production` **no hace copia**: lanzar `just production-backup-db` antes. Entre el `up -d` y el `migrate` el código nuevo corre contra el esquema viejo sin problema, porque ya no lee esas tablas. Los dos `ContentType` de `grouplibraryitem` (de `evaluations` y de `clases`) se quedan en la base: `remove_stale_contenttypes` los borraría en cascada con lo que cuelgue de ellos, y no hace falta.
+- **2026-11-01 — Desplegada** («ok despliega», y luego «Sí, borra y despliega» a la pregunta sobre las dos migraciones). Contado en producción antes, solo leyendo: 3 mazos, todos de Jesús («guitarra jazz», «Piano», «caged-system», usados por última vez el 23 de agosto); 50 de 821 repasos con mazo, y los repasos se quedan, solo pierden la columna; 168 filas de biblioteca de grupo (grupos 1, 5 y 9, la última del 11 de junio), y **ninguna fila de los seis modelos con contenido genérico apuntaba a ellas**, así que el reapuntado no tuvo nada que mover. `Applying my_library.0014_fuera_los_mazos... OK` y `Applying clases.0027_fuera_la_biblioteca_de_grupo... OK`. Copia previa: `production_backup_2026_11_01T12_55_54.sql.gz` (7,75 MB) en `backups/` del servidor; la receta guarda las dos últimas, así que la siguiente copia no la borra pero la de después sí.
 
-## Fase 90 — Favoritos: los ejercicios que quiero en todas las sesiones (2026-11-01) · CONSTRUIDA EN LOCAL, SIN PUSH NI DESPLIEGUE
+## Fase 90 — Favoritos: los ejercicios que quiero en todas las sesiones (2026-11-01) · DESPLEGADA EL 2026-11-01
 
 **Goal (literal de Jesús, 2026-11-01):** «antes de copiar la base y desplegar. Hay ejercicios que, cuando los veo, me gustan mucho y quiero repetirlos todos los días hasta que me salgan muy bien. Me gustaría marcarlos como favoritos y que me salgan siempre en la sesión de estudio hasta que los quite de favoritos.» (Con una captura del visor de estudio: «4 de 15», un ejercicio de tríadas por posiciones.)
 
@@ -5941,7 +5938,7 @@ Faders verticales uno al lado de otro · arrastrar la columna · recordar entre 
 - **2026-11-01 — Gotcha de la prueba:** el usuario desechable chocó con el candado de la app de música (fase 69) hasta matricularlo en un grupo, y sin etiquetas con faceta «empezar» no enseña la vista previa. Se le dio un recurso externo con `instrumento:guitarra` (las imágenes leen las etiquetas de la imagen, compartida, y no quise tocarlas). Todo borrado al acabar: usuario, 21 elementos, recurso, matrícula y sesión.
 - **2026-11-01 — Construida y verificada en local; sin push ni despliegue.** Se despliega con la 88 y la 89. `my_library.0015_favoritos` solo añade una columna.
 
-## Fase 91 — El plazo de cada ejercicio crece con tus aciertos: FSRS sobre el historial (2026-11-01) · CONSTRUIDA EN LOCAL, SIN PUSH NI DESPLIEGUE
+## Fase 91 — El plazo de cada ejercicio crece con tus aciertos: FSRS sobre el historial (2026-11-01) · DESPLEGADA EL 2026-11-01
 
 **Goal (literal de Jesús, 2026-11-01):** «ok! Calculemos» — respuesta a mi propuesta: «Si quieres que el plazo crezca con tus aciertos, se puede calcular con el historial que ya está guardado.» Venía de explicarle cómo se calcula «vencido»: un plazo fijo por nivel (1, 1, 3, 7 y 21 días), que no depende de cuántas veces te ha salido.
 
@@ -5983,3 +5980,4 @@ Faders verticales uno al lado de otro · arrastrar la columna · recordar entre 
 - **2026-11-01 — Decidido por Jesús: la sesión se sigue llenando hasta 15** («de momento quiero que la sesión se llene»). Cuando hay poco vencido, el hueco lo ocupa lo que está más cerca de vencer y, si no basta, material nuevo. Pregunta cerrada por ahora; se reabre solo si él lo pide.
 - **2026-11-01 — `estado_estudio`, probado aparte.** Con la cuenta 84 de la copia se cae antes de llegar a la sesión, por un fallo que ya estaba (comprobado con `git stash`; anotado en la deuda). Con un usuario desechable sin objetivos enseña «hace 10 d · plazo 90 d» y «hace 40 d · plazo 7 d (tabla)»; usuario y recursos borrados.
 - **2026-11-01 — Construida y verificada en local; sin push ni despliegue.** Al desplegar, la imagen de producción instala `fsrs` al reconstruir. Sin migración.
+- **2026-11-01 — Desplegadas las fases 88 a 91** (push `735e41e..a3ae442`, `just deploy-production`, salida 0). Las tres migraciones, OK (`my_library.0014`, `clases.0027`, `my_library.0015`); la imagen instaló `fsrs-6.3.2`. Comprobado en producción: los seis servicios `running`; 0 migraciones pendientes; `fsrs` 6.3.2; `construir_sesion` para Jesús da 15, con 164 plazos de FSRS (mínimo 1, mediana 35, máximo 90 días). En Chrome, con la sesión de Jesús: «empezar» carga, 121 elementos coinciden y la vista previa lista 15; en consola solo el aviso de accesibilidad del userbar de Wagtail, que ya salía. **Sin comprobar en producción:** la estrella de favoritos del visor, porque abrir el visor es lanzar una sesión, y lanzarla añade material nuevo a la biblioteca de Jesús. Se verá en su próxima sesión; en local quedó verificada en la fase 90.
