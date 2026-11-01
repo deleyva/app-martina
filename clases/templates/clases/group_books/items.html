@@ -29,6 +29,12 @@
         <b>🏠</b> hace que baje a las bibliotecas del alumnado en cuanto esté en una clase ·
         <b>↑↓</b> cambian el orden · <b>⇤</b> empieza aquí, apagando todo lo anterior.
       </p>
+      {% if group_book.escalera %}
+      <p class="mt-1">
+        Escalera <b>{{ group_book.escalera.nombre }}</b>: los botones de cada elemento marcan los peldaños ya trabajados con {{ group.name }}.
+        Con todos marcados el elemento queda visto; quitar uno lo devuelve a la cola.
+      </p>
+      {% endif %}
     </div>
   </div>
 

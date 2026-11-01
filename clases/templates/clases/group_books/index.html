@@ -68,6 +68,16 @@
               {% endfor %}
             </select>
 
+            {# Fase 93: la escalera de peldaños del libro. Vacía = como antes. #}
+            <select name="escalera" class="select select-bordered select-xs"
+                    title="Escalera de peldaños" aria-label="Escalera de peldaños"
+                    onchange="this.form.submit()">
+              <option value="" {% if not fila.group_book.escalera_id %}selected{% endif %}>Sin escalera</option>
+              {% for escalera in escaleras %}
+                <option value="{{ escalera.pk }}" {% if escalera.pk == fila.group_book.escalera_id %}selected{% endif %}>{{ escalera.nombre }}</option>
+              {% endfor %}
+            </select>
+
             {# Sin JavaScript los selects no se envían solos. #}
             <noscript><button type="submit" class="btn btn-xs">Guardar</button></noscript>
           </form>

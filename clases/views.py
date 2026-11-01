@@ -478,6 +478,9 @@ def class_session_view(request, pk):
 
     items = session.get_items_ordered()
 
+    # Fase 93: el guión de la clase, solo para el profesor (el botón abre un modal).
+    from clases import escaleras
+
     return render(
         request,
         "clases/class_sessions/view.html",
@@ -485,6 +488,7 @@ def class_session_view(request, pk):
             "session": session,
             "items": items,
             "is_teacher": is_teacher,
+            "guion": escaleras.guion(session) if is_teacher else None,
         },
     )
 
@@ -538,6 +542,11 @@ def class_session_present(request, pk):
     # Lo mismo con la letra con acordes, por la misma razón, aunque pesa menos.
     tiene_chordpro = False
 
+    # Fase 93: por qué peldaño va el grupo con cada elemento, en una consulta.
+    from clases import escaleras
+
+    trabajados = escaleras.trabajados_de_la_sesion(items)
+
     playlist = []
     for item in items:
         if not item.content_object:
@@ -563,6 +572,12 @@ def class_session_present(request, pk):
                 "tratado": item.tratado,
                 "tiene_libro": item.group_book_id is not None,
                 "a_casa": item.pk in con_casita,
+                # Fase 93: la escalera del elemento (None si su libro no tiene).
+                "escalera": (
+                    escaleras.para_json(escaleras.estado_de(item, trabajados.get(item.pk)))
+                    if is_teacher
+                    else None
+                ),
                 "page_url": pagina.get_url() if pagina else "",
                 "page_title": pagina.title if pagina else "",
                 # Pase de preguntas (fase 76): su pantalla se pinta sola, pero

@@ -11,6 +11,9 @@ y los siguientes pendientes desplegados bajo cada propuesta. Necesita `fila`,
          class="checkbox checkbox-xs checkbox-primary">
   {% miniatura fila.objeto fila.tipo.model compacta=True %}
   <span class="min-w-0 flex-1 truncate text-xs">{{ fila.titulo }}</span>
+  {% if fila.peldano %}
+    <span class="text-xs text-primary shrink-0" title="{{ fila.peldano.nombre }}">paso {{ fila.peldano.n }}/{{ fila.peldano.total }}</span>
+  {% endif %}
 </label>
 
 {% if fila.item and fila.item.estado == "visto" %}

@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.contrib import admin
 from .models import (
+    Escalera,
     Subject,
     Group,
     Student,
@@ -12,6 +13,18 @@ from .models import (
     StudyCardItem,
     StudyCardPickup,
 )
+
+
+@admin.register(Escalera)
+class EscaleraAdmin(admin.ModelAdmin):
+    """Fase 93: los peldaños se retocan aquí, sin desplegar nada."""
+
+    list_display = ("nombre", "cuantos")
+    search_fields = ("nombre",)
+
+    @admin.display(description="Peldaños")
+    def cuantos(self, obj):
+        return " · ".join(p.get("nombre", "") for p in obj.peldanos)
 
 
 @admin.register(Subject)

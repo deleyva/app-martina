@@ -17,8 +17,15 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods
 from wagtail.models import Page
 
-from clases import libros_de_grupo
-from clases.models import ClassSession, ClassSessionItem, Group, GroupBook, GroupBookItem
+from clases import escaleras, libros_de_grupo
+from clases.models import (
+    ClassSession,
+    ClassSessionItem,
+    Escalera,
+    Group,
+    GroupBook,
+    GroupBookItem,
+)
 from martina_bescos_app.users.permisos import es_profesor, grupo_del_profesor
 
 
@@ -86,6 +93,8 @@ def group_books_index(request, group_id):
             "disponibles": disponibles,
             "secciones": GroupBook.SECCIONES,
             "modos": GroupBook.MODOS,
+            # Fase 93: la escalera de cada libro se elige aquí, donde se lee.
+            "escaleras": Escalera.objects.all(),
         },
     )
 
@@ -107,7 +116,13 @@ def group_book_add(request, group_id):
     group_book, creado = GroupBook.objects.get_or_create(
         group=grupo,
         libro=libro,
-        defaults={"seccion": seccion, "modo": modo, "added_by": request.user},
+        defaults={
+            "seccion": seccion,
+            "modo": modo,
+            "added_by": request.user,
+            # Fase 93: las canciones nacen con su escalera; el resto se elige a mano.
+            "escalera": escaleras.por_defecto(seccion),
+        },
     )
     if creado:
         messages.success(request, f"«{libro.title}» asignado a {grupo.name}.")
@@ -129,6 +144,10 @@ def group_book_update(request, pk):
     modo = request.POST.get("modo")
     if modo in dict(GroupBook.MODOS):
         group_book.modo = modo
+    if "escalera" in request.POST:
+        # Vacío = sin escalera: el libro vuelve a comportarse como antes.
+        valor = request.POST.get("escalera", "")
+        group_book.escalera = Escalera.objects.filter(pk=valor).first() if valor else None
     if "activo" in request.POST:
         group_book.activo = request.POST.get("activo") == "1"
     group_book.save()
@@ -203,7 +222,7 @@ def _fila_de(group_book, tipo_id, objeto_id):
     return None
 
 
-def _alternar_marca(group_book, tipo_id, objeto_id, campo):
+def _alternar_marca(group_book, tipo_id, objeto_id, campo, clave=None):
     """Le da la vuelta a `incluido`, `a_casa` o `visto`, y devuelve la fila nueva.
 
     Los tres son reversibles: se dan toques por error, y sin vuelta atrás se
@@ -226,6 +245,15 @@ def _alternar_marca(group_book, tipo_id, objeto_id, campo):
     elif campo == "visto":
         ya = item is not None and item.estado == GroupBookItem.VISTO
         cambios = {"estado": GroupBookItem.PENDIENTE if ya else GroupBookItem.VISTO}
+    elif campo == "peldano" and clave:
+        # Fase 93: una casilla de la escalera. Marcar o desmarcar ESE peldaño;
+        # el visto se deriva en `escaleras.fijar` (completa ⇒ visto).
+        trabajados = list(item.peldanos) if item else []
+        nuevos = (
+            [c for c in trabajados if c != clave] if clave in trabajados else trabajados + [clave]
+        )
+        escaleras.fijar(group_book, fila["objeto"], fila["capitulo"], nuevos)
+        cambios = {}
     else:
         cambios = {}
 
@@ -250,7 +278,9 @@ def group_book_item_toggle(request, pk):
     tipo_id = int(request.POST.get("content_type"))
     objeto_id = int(request.POST.get("object_id"))
 
-    fila = _alternar_marca(group_book, tipo_id, objeto_id, request.POST.get("campo"))
+    fila = _alternar_marca(
+        group_book, tipo_id, objeto_id, request.POST.get("campo"), request.POST.get("clave")
+    )
     if fila is None:
         return render(request, "clases/group_books/partials/fila.html", {})
     vistos, total = libros_de_grupo.progreso(group_book)
@@ -574,12 +604,44 @@ def class_session_item_tratado(request, pk):
         ClassSessionItem.objects.select_related("session"), pk=pk, session__teacher=request.user
     )
     valor = {"si": True, "no": False}.get(request.POST.get("valor", ""))
-    libros_de_grupo.marcar_tratado(item, valor)
+    # Fase 93: «+2» sube dos peldaños de golpe; por defecto, uno.
+    saltos = 2 if request.POST.get("saltos") == "2" else 1
+    libros_de_grupo.marcar_tratado(item, valor, saltos)
     return render(
         request,
         "clases/class_sessions/partials/tratado.html",
         {"item": item},
     )
+
+
+@login_required
+@user_passes_test(es_profesor)
+@require_http_methods(["POST"])
+def class_session_item_peldano(request, pk):
+    """«Hemos llegado hasta aquí»: fija los peldaños del grupo hasta `clave`
+    incluida (fase 93). Lo usa la escalera del visor. Devuelve el estado nuevo
+    en JSON; 404 si el elemento no viene de un libro con escalera."""
+    from django.http import JsonResponse
+
+    item = get_object_or_404(
+        ClassSessionItem.objects.select_related("session", "group_book__escalera"),
+        pk=pk,
+        session__teacher=request.user,
+    )
+    if item.group_book_id is None or item.group_book.escalera is None or item.content_object is None:
+        raise Http404("Este elemento no tiene escalera.")
+    escaleras.hasta(
+        item.group_book,
+        item.content_object,
+        item.source_page,
+        request.POST.get("clave", ""),
+        session=item.session,
+    )
+    # Lo fijado a mano manda sobre lo que el toque de tratado hubiera puesto.
+    if item.peldanos_anadidos:
+        item.peldanos_anadidos = []
+        item.save(update_fields=["peldanos_anadidos"])
+    return JsonResponse(escaleras.para_json(escaleras.estado_de(item)))
 
 
 @login_required

@@ -42,6 +42,10 @@
             </a>
             {% endif %}
             {% if is_teacher %}
+            <!-- Botón Guión (fase 93): el modal con la clase por secciones y los peldaños -->
+            <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('guion').showModal()">
+                📋 Guión
+            </button>
             <!-- Botón Editar -->
             <a href="{% url 'clases:class_session_edit' session.pk %}" class="btn btn-primary btn-sm">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -188,6 +192,7 @@
 {% block extra_js %}
 {{ block.super }}
 {% if is_teacher %}
+{% include "clases/class_sessions/partials/guion.html" %}
 <script src="{% static 'clases/notas_de_voz.js' %}"></script>
 <script>
   NotasDeVoz.montar({

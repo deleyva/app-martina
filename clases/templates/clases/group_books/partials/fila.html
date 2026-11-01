@@ -85,6 +85,30 @@ banda es para el medio.
     </div>
   </div>
 
+  {% if fila.escalera %}
+  {% comment %}
+  Fase 93: los peldaños de la escalera del libro, para ESTE grupo. Cada botón
+  marca o desmarca ese peldaño; al completarlos todos el elemento pasa a visto,
+  y quitar uno lo devuelve a la cola. Es donde se fija el punto de partida de
+  lo que ya estaba en curso cuando llegó la escalera.
+  {% endcomment %}
+  <div class="flex flex-wrap items-center gap-1 px-2 mb-1 peldanos">
+    <span class="text-xs text-base-content/50 mr-1">{{ fila.escalera.nombre }}:</span>
+    {% for p in fila.dibujo %}
+      <button type="button"
+              class="btn btn-xs {% if p.hecho %}btn-success{% else %}btn-ghost{% endif %}"
+              title="{{ p.n }}. {{ p.nombre }}{% if p.hecho %} · trabajado; tocar para quitarlo{% else %} · tocar para marcarlo trabajado{% endif %}"
+              aria-pressed="{% if p.hecho %}true{% else %}false{% endif %}"
+              hx-post="{% url 'clases:group_book_item_toggle' group_book.pk %}"
+              hx-vals='{"content_type": "{{ fila.tipo.pk }}", "object_id": "{{ fila.objeto.pk }}", "campo": "peldano", "clave": "{{ p.clave }}"}'
+              hx-target="#fila-{{ fila.tipo.pk }}-{{ fila.objeto.pk }}"
+              hx-swap="outerHTML">
+        {{ p.n }} {{ p.nombre }}
+      </button>
+    {% endfor %}
+  </div>
+  {% endif %}
+
   {# La banda del medio: a todo el ancho, que es para lo que se mira. #}
   {% if fila.tipo_legible == "Imagen" %}
   <button type="button"

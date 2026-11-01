@@ -131,7 +131,10 @@ def _enumerar_con(group_book, material):
             }
         )
     filas.sort(key=lambda f: (f["orden"], f["orden_libro"]))
-    return filas
+    # Fase 93: cada fila sabe por qué peldaño va este grupo (o None sin escalera).
+    from clases import escaleras
+
+    return escaleras.anotar_filas(group_book, filas)
 
 
 def siguientes(group_book, cuantos=1):
@@ -289,7 +292,7 @@ def libros_activos(group):
     —cancion, dictado, instrumento…— que no es el orden de ninguna clase.
     """
     claves = [clave for clave, _ in SECCIONES_CLASE]
-    activos = group.books.filter(activo=True).select_related("libro")
+    activos = group.books.filter(activo=True).select_related("libro", "escalera")
     return sorted(
         activos,
         key=lambda gb: (
@@ -344,6 +347,8 @@ def preparar_sesion(session, secciones=None, por_libro=1):
     Los extras que el profesor haya añadido a mano no se tocan: llevan
     `group_book = None` y conservan su orden.
     """
+    from my_library.libros import _es_recorte
+
     orden = session.get_next_order()
     creados = []
     # La vista previa ya descuenta lo que la sesión tiene; esto cubre el choque
@@ -356,20 +361,32 @@ def preparar_sesion(session, secciones=None, por_libro=1):
         if (tipo.pk, pk) in puestos:
             continue
         puestos.add((tipo.pk, pk))
+        # En un libro de recortes el capítulo ES el recorte y no es una página:
+        # igual que en `anadir_elementos`, va vacío. Sin esto, preparar desde un
+        # libro troceado fallaba (visto el 2026-11-01 al montar la fase 93).
+        capitulo = propuesta["capitulo"]
         creados.append(
             ClassSessionItem.objects.create(
                 session=session,
                 content_type=tipo,
                 object_id=pk,
-                source_page=propuesta["capitulo"],
+                source_page=None if capitulo is not None and _es_recorte(capitulo) else capitulo,
                 group_book=propuesta["group_book"],
                 seccion=propuesta["group_book"].seccion,
                 order=orden,
+                # Fase 93: el peldaño que se prevé trabajar hoy, copiado como la sección.
+                peldano=_clave_del_peldano(propuesta),
             )
         )
         bajar_si_va_a_casa(creados[-1])
         orden += 1
     return creados
+
+
+def _clave_del_peldano(fila):
+    """La clave del siguiente peldaño de la fila, o "" sin escalera."""
+    peldano = fila.get("peldano")
+    return peldano["clave"] if peldano else ""
 
 
 def por_capitulos(group_book):
@@ -459,6 +476,7 @@ def anadir_elementos(session, claves):
                 group_book=group_book,
                 seccion=group_book.seccion,
                 order=orden,
+                peldano=_clave_del_peldano(fila),
             )
         )
         bajar_si_va_a_casa(creados[-1])
@@ -670,16 +688,27 @@ def sincronizar_a_casa(group_book_item):
     return subir_de_las_bibliotecas(en_clase, group_book_item)
 
 
-def marcar_tratado(session_item, valor):
+def marcar_tratado(session_item, valor, saltos=1):
     """Apunta si este elemento se trabajó hoy en clase: True, False o None.
 
-    Solo escribe en la sesión. **No toca `visto` ni el libro**: que se trabaje
-    algo en clase no quiere decir que no haya que volver a proponerlo, y
-    saltárselo tampoco lo saca de la cola. Son preguntas distintas y Jesús pidió
-    que no se mezclaran (fase 68).
+    En un libro SIN escalera solo escribe en la sesión. **No toca `visto` ni
+    el libro**: que se trabaje algo en clase no quiere decir que no haya que
+    volver a proponerlo, y saltárselo tampoco lo saca de la cola. Son preguntas
+    distintas y Jesús pidió que no se mezclaran (fase 68).
+
+    En un libro CON escalera (fase 93), tratado sube `saltos` peldaños del
+    grupo —uno por defecto, dos con «+2»— y, si con eso se completa la
+    escalera, el elemento pasa a visto. Saltado no sube nada. Cualquier cambio
+    de marca retira antes lo que el toque anterior de ESTA clase había subido,
+    así que la marca y los peldaños que puso siempre cuentan lo mismo.
     """
+    from clases import escaleras
+
+    escaleras.retroceder(session_item)
     session_item.tratado = valor
     session_item.save(update_fields=["tratado"])
+    if valor is True:
+        escaleras.avanzar(session_item, saltos)
     return session_item
 
 

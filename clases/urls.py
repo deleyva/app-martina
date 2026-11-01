@@ -245,6 +245,11 @@ urlpatterns = [
         name="class_session_item_tratado",
     ),
     path(
+        "sessions/items/<int:pk>/peldano/",
+        views_libros.class_session_item_peldano,
+        name="class_session_item_peldano",
+    ),
+    path(
         "sessions/items/<int:pk>/a-casa/",
         views_libros.class_session_item_a_casa,
         name="class_session_item_a_casa",

@@ -751,6 +751,16 @@ class ClassSessionItem(models.Model):
     # elemento (fase 62). Nulo = no se evalúa. Va en el elemento de la SESIÓN y
     # no en el del libro porque el instrumento es de un plan, y el plan es de un
     # trimestre: el mismo ejercicio en otro trimestre se evalúa con otro.
+    # El peldaño que se PREVÉ trabajar hoy (fase 93): se copia al preparar,
+    # como `seccion`, y es lo que la propuesta anuncia como «paso 3 de 5».
+    # Vacío = el libro no tiene escalera o el elemento entró antes de tenerla.
+    peldano = models.CharField(max_length=40, blank=True, verbose_name="Peldaño previsto")
+
+    # Lo que el toque de «tratado» de ESTA clase añadió a los peldaños del
+    # grupo (uno, o dos con «+2»). Existe para poder deshacerlo: desmarcar
+    # tratado retira exactamente lo que ese toque puso y nada más.
+    peldanos_anadidos = models.JSONField(default=list, blank=True)
+
     instrumento = models.ForeignKey(
         "calificaciones.Instrumento",
         on_delete=models.SET_NULL,
@@ -773,6 +783,12 @@ class ClassSessionItem(models.Model):
         return f"{self.get_content_title()} (orden {self.order})"
 
     # === MÉTODOS FAT MODEL ===
+
+    def escalera_en_clase(self):
+        """Dónde va el grupo con este elemento, para las plantillas; None sin escalera."""
+        from clases import escaleras
+
+        return escaleras.estado_de(self)
 
     def get_content_title(self):
         """Obtener título del contenido referenciado"""
@@ -1157,6 +1173,96 @@ class StudyCardLabel(models.Model):
 # =============================================================================
 
 
+class Escalera(models.Model):
+    """Los pasos por los que un grupo trabaja un elemento (fase 93).
+
+    La app sabía QUÉ había visto cada grupo, pero no HASTA DÓNDE lo había
+    trabajado: una canción en un libro en curso era un único elemento con un
+    único «visto» durante las semanas que dura. La escalera es la dimensión que
+    faltaba: letra, patrón rítmico, progresión armónica… y, en una lectura
+    rítmica, con tempo, con compás, otros modos, polirritmia.
+
+    **Son datos, no código**, para que Jesús retoque un peldaño desde el admin
+    sin desplegar nada. Las cuatro de fábrica las carga la migración de datos
+    (`clases.escaleras.DE_FABRICA`).
+
+    **El estado del grupo es el CONJUNTO de peldaños trabajados, no un
+    número.** Objeción aceptada por Jesús: los modos rítmicos de Willems no se
+    abandonan —quien ya hace polirritmia sigue leyendo con tempo—, así que un
+    entero mentiría. El «siguiente» se deriva: el primero de la escalera que
+    falta. Vale igual para las canciones, que son acumulativas.
+    """
+
+    nombre = models.CharField(max_length=80, unique=True, verbose_name="Nombre")
+    # [{"clave": "tempo", "nombre": "Con tempo"}, …] en orden. La clave es
+    # estable y es lo que se guarda en los grupos; el nombre se puede retocar.
+    peldanos = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="Peldaños",
+        help_text='Lista ordenada de {"clave": "...", "nombre": "..."}',
+    )
+    creado = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["nombre"]
+        verbose_name = "Escalera de peldaños"
+        verbose_name_plural = "Escaleras de peldaños"
+
+    def __str__(self):
+        return self.nombre
+
+    @property
+    def claves(self):
+        return [p["clave"] for p in self.peldanos]
+
+    @property
+    def total(self):
+        return len(self.peldanos)
+
+    def nombre_de(self, clave):
+        for p in self.peldanos:
+            if p["clave"] == clave:
+                return p["nombre"]
+        return ""
+
+    def indice(self, clave):
+        """Posición 1-based del peldaño, o None si no es de esta escalera."""
+        claves = self.claves
+        return claves.index(clave) + 1 if clave in claves else None
+
+    def siguientes(self, trabajados, cuantos=1):
+        """Los primeros `cuantos` peldaños que faltan, en orden."""
+        hechos = set(trabajados or [])
+        return [c for c in self.claves if c not in hechos][:cuantos]
+
+    def siguiente(self, trabajados):
+        faltan = self.siguientes(trabajados, 1)
+        return faltan[0] if faltan else None
+
+    def hechos(self, trabajados):
+        """Cuántos peldaños DE ESTA escalera están trabajados."""
+        hechos = set(trabajados or [])
+        return sum(1 for c in self.claves if c in hechos)
+
+    def completa(self, trabajados):
+        return self.total > 0 and self.hechos(trabajados) == self.total
+
+    def dibujo(self, trabajados, previsto=None):
+        """[{n, clave, nombre, hecho, previsto}] para pintar ■■■□□."""
+        hechos = set(trabajados or [])
+        return [
+            {
+                "n": n,
+                "clave": p["clave"],
+                "nombre": p["nombre"],
+                "hecho": p["clave"] in hechos,
+                "previsto": p["clave"] == previsto,
+            }
+            for n, p in enumerate(self.peldanos, start=1)
+        ]
+
+
 class GroupBook(models.Model):
     """Un libro asignado a un grupo, con su sitio en el orden de la clase.
 
@@ -1225,6 +1331,19 @@ class GroupBook(models.Model):
         verbose_name="Activo",
         help_text="Un libro inactivo deja de proponer elementos, sin perder el avance",
     )
+    # Por LIBRO del grupo, no por elemento (fase 93): el libro de «Lecturas
+    # rítmicas» lleva la escalera rítmica y uno de canciones la de canción, sin
+    # que la app tenga que adivinar el tipo de cada medio. Vacía = el libro se
+    # comporta exactamente como antes.
+    escalera = models.ForeignKey(
+        "clases.Escalera",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="libros",
+        verbose_name="Escalera de peldaños",
+    )
+
     added_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -1429,6 +1548,16 @@ class GroupBookItem(models.Model):
         verbose_name="Baja a las bibliotecas del alumnado",
     )
 
+    # Hasta dónde ha llegado ESTE grupo con ESTE elemento (fase 93): las claves
+    # de la escalera del libro que ya se han trabajado. Vive aquí porque esta
+    # ya es la fila de «lo que el grupo ha hecho con un elemento». Cuando
+    # están todos, el elemento pasa a visto.
+    peldanos = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="Peldaños trabajados",
+    )
+
     estado = models.CharField(
         max_length=12,
         choices=ESTADOS,
@@ -1463,6 +1592,11 @@ class GroupBookItem(models.Model):
     def propuesto(self):
         """Si el motor debe volver a ofrecer este elemento."""
         return self.incluido and self.estado != self.VISTO
+
+    def siguiente_peldano(self):
+        """La clave del siguiente peldaño que falta, o None sin escalera o al completar."""
+        escalera = self.group_book.escalera
+        return escalera.siguiente(self.peldanos) if escalera else None
 
 
 class SessionNote(models.Model):

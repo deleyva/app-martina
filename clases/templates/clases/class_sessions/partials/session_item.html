@@ -25,6 +25,9 @@
                 {% if item.seccion %}
                     <span class="badge badge-outline badge-xs">{{ item.get_seccion_display }}</span>
                 {% endif %}
+                {% if item.peldano %}
+                    <span class="badge badge-primary badge-outline badge-xs" title="Peldaño previsto para esta clase">paso: {{ item.peldano }}</span>
+                {% endif %}
                 {% if not item.group_book_id %}
                     <span class="badge badge-ghost badge-xs" title="Añadido a mano: no mueve la progresión de ningún libro">extra</span>
                 {% endif %}

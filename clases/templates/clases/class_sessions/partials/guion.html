@@ -1,0 +1,85 @@
+{% comment %}
+El guión de la clase (fase 93): la clase de hoy por secciones, con el peldaño
+previsto de cada elemento y su escalera, y debajo dónde va el grupo con todo lo
+que tiene en curso. Sustituye a la hoja impresa que Jesús descartó.
+
+Un <dialog> nativo, como el vistazo de preparar: Escape y el fondo lo cierran
+sin JavaScript propio. Necesita `guion` (de `escaleras.guion`) y `session`.
+{% endcomment %}
+<dialog id="guion" class="modal">
+  <div class="modal-box max-w-3xl">
+    <div class="flex items-start justify-between gap-3">
+      <div>
+        <h3 class="font-bold text-lg">📋 Guión · {{ session.title }}</h3>
+        <p class="text-xs text-base-content/60">{{ session.group.name }} · {{ session.date|date:"d/m/Y" }}</p>
+      </div>
+      <form method="dialog">
+        <button class="btn btn-sm btn-circle btn-ghost" aria-label="Cerrar">✕</button>
+      </form>
+    </div>
+
+    {% for seccion in guion.secciones %}
+      <h4 class="mt-4 mb-1 text-xs font-semibold uppercase tracking-wide text-base-content/60">{{ seccion.nombre }}</h4>
+      <ul class="divide-y divide-base-200">
+        {% for e in seccion.items %}
+          <li class="flex gap-3 py-2">
+            <span class="shrink-0" aria-hidden="true">{{ e.icono }}</span>
+            <div class="min-w-0 flex-1">
+              <div class="font-medium truncate">{{ e.titulo }}</div>
+              {% if e.escalera %}
+                <div class="text-sm flex flex-wrap items-center gap-2">
+                  {% if e.escalera.previsto %}
+                    <span class="text-primary">paso {{ e.escalera.previsto_n }} de {{ e.escalera.total }}: {{ e.escalera.previsto_nombre }}</span>
+                  {% else %}
+                    <span class="text-success">escalera completa ({{ e.escalera.total }} de {{ e.escalera.total }})</span>
+                  {% endif %}
+                  {% include "clases/partials/escalera_dibujo.html" with dibujo=e.escalera.dibujo %}
+                  <span class="text-xs text-base-content/50">{{ e.escalera.escalera.nombre }}</span>
+                </div>
+              {% endif %}
+              {% if e.item.notes %}
+                <div class="text-sm text-base-content/70 mt-1">📝 {{ e.item.notes }}</div>
+              {% endif %}
+            </div>
+            <div class="shrink-0 text-xs text-base-content/60 text-right">
+              {% if e.item.tratado is True %}<span class="badge badge-info badge-sm">✓ tratado</span>
+              {% elif e.item.tratado is False %}<span class="badge badge-warning badge-sm">⤼ saltado</span>{% endif %}
+              {% with n=e.en_clase.tratado|default:0 s=e.en_clase.saltado|default:0 %}
+                {% if n or s %}
+                  <div class="mt-1" title="Veces trabajado y saltado con este grupo">
+                    {% if n %}✓{{ n }}{% endif %}{% if n and s %} · {% endif %}{% if s %}⤼{{ s }}{% endif %}
+                  </div>
+                {% endif %}
+              {% endwith %}
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% empty %}
+      <p class="mt-4 text-sm text-base-content/70">La clase no tiene elementos todavía.</p>
+    {% endfor %}
+
+    <h4 class="mt-6 mb-1 text-xs font-semibold uppercase tracking-wide text-base-content/60">Dónde va {{ session.group.name }}</h4>
+    {% if guion.en_curso %}
+      <p class="text-xs text-base-content/60 mb-1">Lo empezado y sin terminar que no entra en la clase de hoy.</p>
+      <ul class="divide-y divide-base-200">
+        {% for c in guion.en_curso %}
+          <li class="flex gap-3 py-2 items-center">
+            <span class="shrink-0" aria-hidden="true">{{ c.icono }}</span>
+            <div class="min-w-0 flex-1">
+              <div class="truncate">{{ c.titulo }} <span class="text-xs text-base-content/50">· {{ c.group_book.libro.title }}</span></div>
+              <div class="text-sm flex flex-wrap items-center gap-2">
+                <span>{{ c.hechos }} de {{ c.total }}</span>
+                {% include "clases/partials/escalera_dibujo.html" with dibujo=c.dibujo %}
+                <span class="text-base-content/60">siguiente: {{ c.siguiente_nombre }}</span>
+              </div>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="text-sm text-base-content/70">Nada empezado fuera de la clase de hoy.</p>
+    {% endif %}
+  </div>
+  <form method="dialog" class="modal-backdrop"><button aria-label="Cerrar">cerrar</button></form>
+</dialog>

@@ -1,0 +1,7 @@
+{% comment %}
+La escalera dibujada: ■ trabajado, □ pendiente, el previsto en color (fase 93).
+Necesita `dibujo` (de `Escalera.dibujo`). Solo lectura: aquí no se marca nada.
+{% endcomment %}
+<span class="inline-flex items-center gap-px font-mono text-xs leading-none" aria-label="Escalera de peldaños">
+  {% for p in dibujo %}<span class="{% if p.hecho %}text-success{% elif p.previsto %}text-primary{% else %}text-base-content/30{% endif %}" title="{{ p.n }}. {{ p.nombre }}{% if p.hecho %} · trabajado{% elif p.previsto %} · previsto hoy{% endif %}">{% if p.hecho %}■{% else %}□{% endif %}</span>{% endfor %}
+</span>

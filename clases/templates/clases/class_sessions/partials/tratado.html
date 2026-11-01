@@ -5,7 +5,8 @@ No es el visto. El visto dice «no me lo vuelvas a proponer»; esto dice qué pa
 hoy, y alimenta el recuento que se ve al preparar la siguiente clase. Cada botón
 se desmarca tocándolo otra vez, que deja el elemento sin marcar.
 {% endcomment %}
-<span id="tratado-{{ item.pk }}" class="join">
+{% with esc=item.escalera_en_clase %}
+<span id="tratado-{{ item.pk }}" class="join items-center">
   <button class="btn btn-xs join-item {% if item.tratado is True %}btn-info{% else %}btn-ghost{% endif %}"
           title="{% if item.tratado is True %}Tratado en clase. Tocar para dejarlo sin marcar.{% else %}Marcar que se trabajó en clase{% endif %}"
           hx-post="{% url 'clases:class_session_item_tratado' item.pk %}"
@@ -14,6 +15,17 @@ se desmarca tocándolo otra vez, que deja el elemento sin marcar.
           hx-swap="outerHTML">
     {% if item.tratado is True %}✓ {% endif %}tratado
   </button>
+  {% if esc and esc.puede_dos %}
+  {# Fase 93: tratado y dos peldaños de golpe. Opcional; el botón de al lado sube uno. #}
+  <button class="btn btn-xs join-item btn-ghost"
+          title="Tratado, subiendo dos peldaños: «{{ esc.previsto_nombre }}» y el siguiente"
+          hx-post="{% url 'clases:class_session_item_tratado' item.pk %}"
+          hx-vals='{"valor": "si", "saltos": "2"}'
+          hx-target="#tratado-{{ item.pk }}"
+          hx-swap="outerHTML">
+    +2
+  </button>
+  {% endif %}
   <button class="btn btn-xs join-item {% if item.tratado is False %}btn-warning{% else %}btn-ghost{% endif %}"
           title="{% if item.tratado is False %}Saltado: no dio tiempo. Tocar para dejarlo sin marcar.{% else %}Marcar que no dio tiempo a verlo{% endif %}"
           hx-post="{% url 'clases:class_session_item_tratado' item.pk %}"
@@ -22,4 +34,10 @@ se desmarca tocándolo otra vez, que deja el elemento sin marcar.
           hx-swap="outerHTML">
     {% if item.tratado is False %}⤼ {% endif %}saltado
   </button>
+  {% if esc %}
+    <span class="ml-1 inline-flex items-center gap-1" title="{{ esc.escalera.nombre }}: {{ esc.hechos }} de {{ esc.total }}{% if esc.previsto %} · previsto hoy: {{ esc.previsto_nombre }}{% endif %}">
+      {% include "clases/partials/escalera_dibujo.html" with dibujo=esc.dibujo %}
+    </span>
+  {% endif %}
 </span>
+{% endwith %}
