@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Banda de {{ group.name }} · hoja para la pared</title>
+{% comment %}
+  La hoja A4 apaisada para colgar en el aula de música (fase 92). Primero las
+  reglas, después la lista: es lo que hacen las ligas de béisbol infantil con
+  las familias. Sin fechas: la app no sabe qué días hay música, y una fecha
+  inventada es peor que ninguna. Turnos en filas para que quepan los dieciséis.
+{% endcomment %}
+<style>
+  @page { size: A4 landscape; margin: 10mm; }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #111; background: #fff; margin: 0; padding: 12px; font-size: 11px; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .reglas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 16px; margin: 6px 0 10px; padding: 8px 10px 8px 26px; border: 1.5px solid #111; border-radius: 6px; }
+  .reglas li { margin: 0; }
+  .reglas ol { margin: 0; padding-left: 16px; display: contents; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #999; padding: 2px 4px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  thead th { background: #eee; font-size: 10px; }
+  tbody th { background: #f6f6f6; width: 34px; }
+  .salto { break-before: page; page-break-before: always; }
+  .lista { columns: 3; column-gap: 18px; font-size: 11px; }
+  .lista div { break-inside: avoid; padding: 2px 0; border-bottom: 1px dotted #bbb; }
+  .lista b { display: inline-block; min-width: 9.5em; }
+  .pie { margin-top: 6px; font-size: 9px; color: #555; }
+  @media screen { body { max-width: 297mm; margin: 0 auto; } .imprimir { margin: 8px 0; } }
+  @media print { .imprimir { display: none; } }
+</style>
+</head>
+<body>
+  <button class="imprimir" type="button" onclick="window.print()">🖨️ Imprimir</button>
+  <h1>🎸 La banda de {{ group.name }}</h1>
+
+  <div class="reglas">
+    <ol>
+      {% if banda.modo == "rotacion" %}
+        <li>Un turno {% if banda.sesiones_por_turno == 1 %}es una sesión{% else %}son {{ banda.sesiones_por_turno }} sesiones{% endif %} en el aula de música. En cada turno, {{ banda.puestos|length }} tocan en la banda; los demás, ukelele, xilófono y voz.</li>
+        <li>Todos pasáis por la banda antes de que nadie repita.</li>
+        <li>Nadie toca el mismo instrumento dos turnos seguidos, y se busca que cada vez sea uno nuevo.</li>
+      {% else %}
+        <li>Un turno {% if banda.sesiones_por_turno == 1 %}es una sesión{% else %}son {{ banda.sesiones_por_turno }} sesiones{% endif %}. Todos tocáis siempre; en cada turno, dos os cambiáis el instrumento.</li>
+        <li>Se cambian los dos que más os acercan a haberlo tocado todo.</li>
+        <li>El cambio se hace en una canción que ya domináis.</li>
+      {% endif %}
+      <li>El último día del turno, el que sale enseña su parte al que entra.</li>
+      <li>Si alguien falta, toca quien tuvo ese instrumento el turno anterior.</li>
+      <li>Se puede pedir un intercambio: se habla conmigo y queda apuntado. El turno no es premio ni castigo.</li>
+    </ol>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Turno</th>
+        {% for f in datos.filas %}<th>{{ f.icono }} {{ f.etiqueta }}</th>{% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for col in datos.columnas %}
+        <tr>
+          <th>{{ col.turno }}</th>
+          {% for c in col.casillas %}
+            <td title="{{ c.etiqueta }}">{{ c.nombre|default:"—" }}</td>
+          {% endfor %}
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="pie">Un turno empieza cuando se cierran las sesiones del anterior: si un día no hay música, el turno espera.</p>
+
+  <div class="salto"></div>
+  <h1>Tus turnos</h1>
+  <div class="lista">
+    {% for a in datos.alumnos %}
+      <div><b>{{ a.nombre }}</b>{% for t, etiqueta in a.turnos %} T{{ t }} {{ etiqueta }}{% if not forloop.last %} ·{% endif %}{% empty %} —{% endfor %}</div>
+    {% endfor %}
+  </div>
+</body>
+</html>

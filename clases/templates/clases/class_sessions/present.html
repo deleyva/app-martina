@@ -80,6 +80,34 @@
         #fab-evaluar[hidden] { display: none; }
         #fab-lista { bottom: 264px; background: rgba(37, 99, 235, 0.85); }
         #fab-lista:hover { background: rgba(37, 99, 235, 1); }
+        #fab-banda { bottom: 324px; background: rgba(234, 88, 12, 0.85); font-size: 20px; }
+        #fab-banda:hover { background: rgba(234, 88, 12, 1); }
+
+        /* ── La banda de hoy (fase 92): letra grande, se lee desde el fondo ── */
+        #panel-banda { position: fixed; inset: 0; z-index: 20002; background: #111; color: #fff; display: none; flex-direction: column; overflow-y: auto; }
+        #panel-banda.abierto { display: flex; }
+        #banda-barra { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 16px; background: #1b1b1f; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        #banda-barra .titulo { font-size: 20px; font-weight: 700; }
+        #banda-barra #banda-turno { color: #d4d4d8; font-size: 15px; }
+        #banda-barra .hueco { flex: 1; }
+        #banda-barra a, #banda-barra button { border: none; border-radius: 8px; padding: 8px 12px; font-size: 14px; cursor: pointer; background: rgba(255,255,255,0.1); color: #fff; text-decoration: none; }
+        #banda-aviso { margin: 12px 16px 0; padding: 10px 14px; border-radius: 8px; background: rgba(234, 179, 8, 0.15); color: #fde68a; font-size: 16px; }
+        #banda-aviso a { color: #93c5fd; }
+        #banda-tabla { margin: 16px; border-collapse: collapse; font-size: clamp(18px, 2.4vw, 30px); }
+        #banda-tabla th { text-align: left; font-size: 0.6em; color: #a1a1aa; font-weight: 600; padding: 6px 18px; border-bottom: 1px solid rgba(255,255,255,0.15); }
+        #banda-tabla td { padding: 10px 18px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+        #banda-tabla td.puesto { white-space: nowrap; }
+        #banda-tabla td.ayuda { color: #d4d4d8; }
+        #banda-tabla tr.falta td.puesto { color: #fca5a5; }
+        #banda-tabla .ausente { color: #fca5a5; text-decoration: line-through; }
+        #banda-tabla button { font-size: 0.6em; border: none; border-radius: 8px; padding: 6px 12px; margin-left: 6px; cursor: pointer; background: rgba(255,255,255,0.12); color: #fff; vertical-align: middle; }
+        #banda-tabla button.aceptar { background: #16a34a; font-weight: 700; }
+        #banda-tabla button.discreto { background: transparent; color: #a1a1aa; }
+        #banda-elegir { margin: 0 16px 16px; padding: 12px; border-radius: 10px; background: #1b1b1f; }
+        #banda-elegir .pregunta { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+        #banda-elegir .opciones { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+        #banda-elegir button { border: none; border-radius: 8px; padding: 8px 12px; font-size: 16px; cursor: pointer; background: rgba(255,255,255,0.12); color: #fff; }
+        #banda-elegir button.opcion:hover { background: #2563eb; }
 
         /* ── Plano de clase: pasar lista (fase 70) ── */
         #panel-lista { position: fixed; inset: 0; z-index: 20002; background: #111; display: none; flex-direction: column; }
@@ -2167,11 +2195,12 @@
 
     function esControl(el) {
         return !!(el && el.closest &&
-            el.closest('button, a, input, select, textarea, label, [role="button"], #study-flyout, #lienzo, #panel-evaluar, #panel-lista, #marcas-alumno'));
+            el.closest('button, a, input, select, textarea, label, [role="button"], #study-flyout, #lienzo, #panel-evaluar, #panel-lista, #panel-banda, #marcas-alumno'));
     }
 
     document.addEventListener('click', function(e) {
         if (lienzoAbierto() || listaAbierta() || flyoutOpen) return;
+        if (window.bandaAbierta && bandaAbierta()) return;
         if (esControl(e.target)) return;
         var margen = window.innerWidth * ANCHO_ZONA;
         if (e.clientX <= margen) {
@@ -2197,6 +2226,8 @@
                 cerrarMarcas();
             } else if (listaAbierta()) {
                 cerrarLista();
+            } else if (window.bandaAbierta && bandaAbierta()) {
+                cerrarBanda();
             } else if (window.evaluarAbierto && evaluarAbierto()) {
                 cerrarEvaluar();
             } else if (lienzoAbierto()) {
@@ -2211,6 +2242,7 @@
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
         if (lienzoAbierto()) return;
         if (listaAbierta()) return;
+        if (window.bandaAbierta && bandaAbierta()) return;
         if (window.evaluarAbierto && evaluarAbierto()) return;
 
         // Con un visor con páginas delante, las flechas son del visor: pasa
@@ -2230,6 +2262,7 @@
         if (e.key === 's' || e.key === 'S') { marcarTratado(false); return; }
         if (e.key === 'n' || e.key === 'N') { e.preventDefault(); alternarNotaDeVoz(); return; }
         if (e.key === 'l' || e.key === 'L') { abrirLista(); return; }
+        if ((e.key === 'b' || e.key === 'B') && window.abrirBanda) { abrirBanda(); return; }
         if (e.key === 'e' || e.key === 'E') { if (playlist[currentIndex] && playlist[currentIndex].instrumento) abrirEvaluar(); return; }
         {% endif %}
     }, true);
@@ -2252,5 +2285,35 @@
     }
     </script>
     {% if is_teacher %}{% include "clases/class_sessions/partials/evaluar_panel.html" %}{% endif %}
+    {% if is_teacher %}
+    {% comment %}
+      La banda de hoy (fase 92). La B lo abre siempre (sin banda, lo dice y
+      enlaza a la rejilla); el botón solo sale si el grupo tiene banda. Las
+      reglas viven en clases/banda.py y el panel lo pinta banda_hoy.js.
+    {% endcomment %}
+    {% if tiene_banda %}
+    <button id="fab-banda" class="fab-izq" type="button" onclick="abrirBanda()" aria-label="La banda de hoy"
+            data-ayuda="La banda de hoy (B): quién toca cada puesto y, si falta alguien, a quién poner.">🎸</button>
+    {% endif %}
+    <div id="panel-banda" role="dialog" aria-label="La banda de hoy"
+         data-url="{% url 'clases:banda_hoy' session.pk %}"
+         data-cambio="{% url 'clases:banda_hoy_cambio' session.pk %}"
+         data-csrf="{{ csrf_token }}">
+        <div id="banda-barra">
+            <span class="titulo" id="banda-titulo">🎸 La banda de hoy</span>
+            <span id="banda-turno"></span>
+            <span class="hueco"></span>
+            <a id="banda-rejilla" href="{% url 'clases:banda_rejilla' session.group_id %}" target="_blank">Rejilla del curso</a>
+            <button type="button" onclick="cerrarBanda()" aria-label="Cerrar">✕</button>
+        </div>
+        <div id="banda-aviso" hidden></div>
+        <table id="banda-tabla" hidden>
+            <thead><tr><th>Puesto</th><th>Hoy toca</th><th id="banda-col3">Le ayuda si se atasca</th></tr></thead>
+            <tbody></tbody>
+        </table>
+        <div id="banda-elegir" hidden></div>
+    </div>
+    <script src="{% static 'clases/banda_hoy.js' %}"></script>
+    {% endif %}
 </body>
 </html>

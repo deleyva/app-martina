@@ -6,6 +6,7 @@ from . import views_study_cards
 from . import views_evaluar
 from . import views_cuaderno
 from . import views_plano
+from . import views_banda
 
 app_name = "clases"
 
@@ -442,4 +443,21 @@ urlpatterns = [
     path("sessions/<int:pk>/lista/cuaderno/saltar/", views_cuaderno.cuaderno_saltar, name="cuaderno_saltar"),
     path("sessions/<int:pk>/lista/cuaderno/descartar/", views_cuaderno.cuaderno_descartar, name="cuaderno_descartar"),
     path("sessions/<int:pk>/lista/cuaderno/calificar/", views_cuaderno.cuaderno_calificar, name="cuaderno_calificar"),
+    # =============================================================================
+    # LA BANDA DEL GRUPO (fase 92): la rejilla del curso y la banda de hoy
+    # =============================================================================
+    path("groups/<int:group_id>/banda/", views_banda.banda_rejilla, name="banda_rejilla"),
+    path("groups/<int:group_id>/banda/crear/", views_banda.banda_crear, name="banda_crear"),
+    path("groups/<int:group_id>/banda/configurar/", views_banda.banda_configurar, name="banda_configurar"),
+    path("groups/<int:group_id>/banda/generar/", views_banda.banda_generar, name="banda_generar"),
+    path("groups/<int:group_id>/banda/casilla/", views_banda.banda_casilla, name="banda_casilla"),
+    path("groups/<int:group_id>/banda/ajustar/", views_banda.banda_ajustar, name="banda_ajustar"),
+    path(
+        "groups/<int:group_id>/banda/restaurar/<int:version_id>/",
+        views_banda.banda_restaurar,
+        name="banda_restaurar",
+    ),
+    path("groups/<int:group_id>/banda/hoja/", views_banda.banda_hoja, name="banda_hoja"),
+    path("sessions/<int:pk>/banda/", views_banda.banda_hoy, name="banda_hoy"),
+    path("sessions/<int:pk>/banda/cambio/", views_banda.banda_hoy_cambio, name="banda_hoy_cambio"),
 ]

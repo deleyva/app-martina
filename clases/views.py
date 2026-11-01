@@ -595,6 +595,8 @@ def class_session_present(request, pk):
             "tiene_chordpro": tiene_chordpro,
             # Fase 70: si aún no se ha pasado lista, el plano sale lo primero.
             "lista_pasada": _lista_pasada(session) if is_teacher and session.teacher == user else True,
+            # Fase 92: el botón de la banda de hoy, solo si el grupo tiene banda.
+            "tiene_banda": is_teacher and session.teacher == user and _tiene_banda(session.group),
         },
     )
 
@@ -603,6 +605,12 @@ def _lista_pasada(session):
     from clases.models import PaseDeLista
 
     return PaseDeLista.objects.filter(session=session, pasada_at__isnull=False).exists()
+
+
+def _tiene_banda(group):
+    from clases.banda import tiene_banda
+
+    return tiene_banda(group)
 
 
 @login_required

@@ -87,6 +87,8 @@ Las vistas deben ser extremadamente delgadas:
 
 -   **En local, Django ejecuta las tareas de Huey en el acto** (`DJANGO_HUEY_IMMEDIATE=true` en `.envs/.local/.django`; solo el contenedor `huey_consumer` lo pone a `False`). Una subida desde el navegador local NO pasa por Redis ni por el consumidor: que funcione en local no prueba la cola. Para probarla, encola desde `docker compose -f docker-compose.local.yml run --rm -e DJANGO_HUEY_IMMEDIATE=False django python manage.py shell -c "…"` y mira el log de `huey_consumer`. Y el consumidor no recarga código ni se recrea solo: tras cambiar `tasks.py` o una dependencia, `up -d --force-recreate huey_consumer` (el 29/10/2026 seguía con una imagen sin OpenCV). (Fase 84.)
 
+-   **Sin Docker se puede probar una app, pero solo comparando.** Con `requirements/local.txt` instalado en `.venv-test`, `DATABASE_URL=sqlite:///… .venv-test/bin/python -m pytest <app> --nomigrations --create-db` corre. Pero en SQLite fallan unos 124 tests de `clases` y `calificaciones` que no tienen que ver con nada (Wagtail, `unaccent`), así que el resultado solo vale contra la misma orden en un `git worktree` con el código de antes, comparando las dos listas de fallos. La línea base de verdad sigue siendo Postgres. (2026-11-01, fase 92, con Docker Desktop caído.)
+
 -   **`just up` falla al final del primer build** con `image ... already exists`: `django` y `huey_consumer` exportan el mismo tag a la vez. La imagen queda bien construida; basta con repetir `docker compose up -d`.
 
 * * *

@@ -1696,3 +1696,121 @@ class Asistencia(models.Model):
     @property
     def vacia(self):
         return self.estado == self.PRESENTE and not self.sin_material and not self.nota.strip()
+
+
+# =============================================================================
+# La banda del grupo (fase 92)
+# =============================================================================
+
+
+class BandaDeGrupo(models.Model):
+    """Quién toca qué puesto de la banda en cada turno del curso, para un grupo.
+
+    El plan entero es un JSON, como el plano de clase: se lee y se escribe de
+    una vez y lo escribe solo `clases/banda.py`, que lo valida entero y deja
+    versión en cada guardado. Su forma::
+
+        {"turnos": [
+            {"plazas": ["bateria", "ukebajo", ...],    # claves de banda.PUESTOS
+             "alumnos": [12, null, ...],               # una casilla por plaza
+             "fijadas": [0]},                          # plazas puestas a mano
+        ]}
+
+    El turno vigente no se guarda: sale de contar las sesiones cerradas
+    (`banda.posicion`), más el `ajuste` que se haya hecho a mano.
+    """
+
+    ROTACION = "rotacion"
+    INTERCAMBIO = "intercambio"
+    MODOS = [
+        (ROTACION, "Rotación: entran y salen de la banda"),
+        (INTERCAMBIO, "Intercambio: nadie sale, se cambian el puesto de dos en dos"),
+    ]
+    CUENTA_MUSICA = "musica"
+    CUENTA_TODAS = "todas"
+    CUENTAS = [
+        (CUENTA_MUSICA, "Solo las sesiones en el aula de música"),
+        (CUENTA_TODAS, "Todas las sesiones cerradas"),
+    ]
+
+    group = models.OneToOneField(
+        Group, on_delete=models.CASCADE, related_name="banda", verbose_name="Grupo"
+    )
+    modo = models.CharField(max_length=12, choices=MODOS, default=ROTACION)
+    puestos = models.JSONField(default=list, blank=True, verbose_name="Plazas de los turnos que vienen")
+    sesiones_por_turno = models.PositiveSmallIntegerField(default=2)
+    turnos = models.PositiveSmallIntegerField(default=16, verbose_name="Turnos del curso")
+    empieza = models.DateField(verbose_name="Cuenta sesiones desde")
+    cuenta = models.CharField(max_length=8, choices=CUENTAS, default=CUENTA_MUSICA)
+    ajuste = models.SmallIntegerField(
+        default=0, help_text="Sesiones sumadas o restadas a mano al recuento"
+    )
+    plan = models.JSONField(default=dict, blank=True)
+    bloqueos = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Instrumentos que un alumno no puede tocar: {"<id del alumno>": ["bateria"]}',
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Banda de un grupo"
+        verbose_name_plural = "Bandas de grupo"
+
+    def __str__(self):
+        return f"Banda de {self.group.name}"
+
+
+class BandaVersion(models.Model):
+    """Cada guardado del plan de una banda, con quién, desde dónde y por qué.
+
+    Como `PlanoVersion`: generar el curso reescribe muchos turnos de golpe, y
+    esto es lo que lo deja deshacer.
+    """
+
+    GENERAR = "generar"
+    CASILLA = "casilla"
+    CONFIGURAR = "configurar"
+    RESTAURAR = "restaurar"
+    ORIGENES = [
+        (GENERAR, "Generada"),
+        (CASILLA, "Cambio a mano"),
+        (CONFIGURAR, "Configuración"),
+        (RESTAURAR, "Restaurada"),
+    ]
+
+    banda = models.ForeignKey(BandaDeGrupo, on_delete=models.CASCADE, related_name="versiones")
+    plan = models.JSONField(default=dict)
+    autor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True
+    )
+    origen = models.CharField(max_length=12, choices=ORIGENES, default=CASILLA)
+    motivo = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+        verbose_name = "Versión de banda"
+        verbose_name_plural = "Versiones de banda"
+
+
+class CambioDeHoy(models.Model):
+    """Quién toca hoy una plaza en lugar de su titular.
+
+    Sin fila, toca el titular: es el mismo idioma que `Asistencia`. No cuenta
+    para el reparto del curso; es una excepción del día.
+    """
+
+    session = models.ForeignKey(
+        ClassSession, on_delete=models.CASCADE, related_name="cambios_de_banda"
+    )
+    plaza = models.PositiveSmallIntegerField()
+    alumno = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ["session", "plaza"]
+        verbose_name = "Cambio de banda de un día"
+        verbose_name_plural = "Cambios de banda de un día"

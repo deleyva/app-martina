@@ -1,0 +1,283 @@
+{% extends "base.html" %}
+
+{% block title %}Banda de {{ group.name }}{% endblock %}
+
+{% block content %}
+{% comment %}
+  La rejilla del curso (fase 92). Turnos en columnas y plazas en filas, como la
+  matriz de Planning Center. Todo son formularios corrientes que vuelven aquí;
+  el poco JavaScript del final solo abre el diálogo de una casilla y resalta a
+  un alumno en toda la rejilla. Las reglas viven en clases/banda.py.
+{% endcomment %}
+<div class="container mx-auto px-4 py-6 max-w-7xl">
+
+  <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-3">
+    <div>
+      <h1 class="text-2xl sm:text-3xl font-bold">🎸 Banda de {{ group.name }}</h1>
+      <p class="text-sm text-base-content/70 mt-1">
+        Quién toca cada puesto en cada turno. Se genera con la regla justa y se corrige tocando una casilla.
+      </p>
+    </div>
+    <div class="flex gap-2 flex-wrap">
+      {% if banda %}
+        <a href="{% url 'clases:banda_hoja' group.pk %}" target="_blank" class="btn btn-outline btn-sm">🖨️ Hoja para la pared</a>
+      {% endif %}
+      <a href="{% url 'clases:plano_editor' group.pk 'musica' %}" class="btn btn-ghost btn-sm">🪑 Plano</a>
+      <a href="{% url 'clases:group_books_index' group.pk %}" class="btn btn-ghost btn-sm">📚 Libros</a>
+    </div>
+  </div>
+
+  {# Los avisos (generado, fallos) los pinta base.html, encima de todo. #}
+
+  {% if not banda %}
+    <div class="card bg-base-200 my-6">
+      <div class="card-body">
+        <h2 class="card-title">Este grupo aún no tiene banda</h2>
+        <p>
+          Al crearla nace con los valores de su curso: en 1º y 3º, seis puestos que rotan
+          (batería, ukebajo, teclado, guitarra eléctrica, guitalele y guitarra española);
+          en 4º, siete plazas en las que nadie sale y cada turno se cambian dos.
+          Todo se puede cambiar después.
+        </p>
+        <form method="post" action="{% url 'clases:banda_crear' group.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-primary" id="crear-banda">Crear la banda</button>
+        </form>
+      </div>
+    </div>
+  {% else %}
+
+    {# Dónde estamos y qué hará «Generar». #}
+    <div class="flex flex-wrap items-center gap-3 my-3 p-3 rounded-lg bg-base-200" id="estado-banda">
+      <div>
+        <span class="font-semibold">Turno {{ datos.posicion.turno }}</span>,
+        sesión {{ datos.posicion.sesion }} de {{ datos.posicion.sesiones_por_turno }}.
+        <span class="text-base-content/70">
+          {% if banda.cuenta == "musica" %}Cuentan las sesiones cerradas en el aula de música{% else %}Cuentan todas las sesiones cerradas{% endif %}
+          desde el {{ banda.empieza|date:"j/n/Y" }}.
+        </span>
+      </div>
+      <form method="post" action="{% url 'clases:banda_ajustar' group.pk %}" class="flex gap-1">
+        {% csrf_token %}
+        <button type="submit" name="hacia" value="atras" class="btn btn-xs btn-ghost"
+                title="Volver al principio de este turno, o al anterior">◀ Atrasar</button>
+        <button type="submit" name="hacia" value="adelante" class="btn btn-xs btn-ghost"
+                title="Pasar al turno siguiente: para el día que no se pasó lista">Adelantar ▶</button>
+      </form>
+      <span class="flex-1"></span>
+      <form method="post" action="{% url 'clases:banda_generar' group.pk %}" class="flex gap-2 items-center">
+        {% csrf_token %}
+        <input type="text" name="motivo" class="input input-bordered input-sm w-48" placeholder="Por qué (opcional)">
+        <button type="submit" class="btn btn-primary btn-sm" id="generar"
+                title="Rellena desde el turno {{ datos.libre }}. No mueve lo fijado (📌) ni lo ya jugado.">
+          Generar el curso desde el turno {{ datos.libre }}
+        </button>
+      </form>
+    </div>
+
+    {% if datos.sin_plaza_en_intercambio %}
+      <div class="alert alert-warning my-2 py-2">
+        En intercambio nadie sale, pero hay {{ datos.sin_plaza_en_intercambio|length }} sin plaza en el turno
+        {{ datos.posicion.turno }}: añade plazas o pasa la banda a rotación.
+      </div>
+    {% endif %}
+
+    <div class="flex flex-wrap items-center gap-2 my-2 text-sm">
+      <label for="resaltar" class="font-semibold">Resaltar a</label>
+      <select id="resaltar" class="select select-bordered select-sm">
+        <option value="">nadie</option>
+        {% for a in datos.alumnos %}
+          <option value="{{ a.id }}">{{ a.nombre }} ({{ a.turnos|length }})</option>
+        {% endfor %}
+      </select>
+      <span class="text-base-content/60">Entre paréntesis, sus turnos en la banda. 📌 = puesto a mano; generar no lo mueve.</span>
+    </div>
+
+    <div class="overflow-x-auto border border-base-300 rounded-lg">
+      <table class="table table-xs" id="rejilla-banda">
+        <thead>
+          <tr>
+            <th class="bg-base-200 sticky left-0 z-10">Puesto</th>
+            {% for col in datos.columnas %}
+              <th id="turno-{{ col.turno }}" class="text-center {% if col.vigente %}bg-primary text-primary-content{% elif col.jugado %}bg-base-200 text-base-content/50{% endif %}">
+                T{{ col.turno }}{% if col.vigente %} · ahora{% endif %}
+              </th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for fila in filas %}
+            <tr>
+              <th class="bg-base-200 whitespace-nowrap sticky left-0 z-10">
+                {% if fila.cabecera %}
+                  {{ fila.cabecera.icono }} {{ fila.cabecera.etiqueta }}
+                  {% if fila.cabecera.portatil %}<span class="badge badge-ghost badge-xs" title="Viaja con su titular a las otras aulas">portátil</span>{% endif %}
+                {% endif %}
+              </th>
+              {% for col, c in fila.casillas %}
+                <td class="p-0.5 text-center {% if col.vigente %}bg-primary/10{% endif %}">
+                  {% if c %}
+                    <button type="button"
+                            class="casilla btn btn-xs w-full justify-center font-normal whitespace-nowrap {% if col.jugado %}btn-disabled opacity-60{% elif c.alumno %}btn-ghost{% else %}btn-outline border-dashed{% endif %}"
+                            data-turno="{{ col.turno }}" data-plaza="{{ c.plaza }}" data-alumno="{{ c.alumno|default_if_none:'' }}"
+                            data-etiqueta="{{ c.icono }} {{ c.etiqueta }}" data-fijada="{{ c.fijada|yesno:'1,0' }}"
+                            {% if col.jugado %}disabled title="Turno ya jugado"{% else %}title="{{ c.etiqueta }}"{% endif %}>
+                      {% if c.fijada %}📌 {% endif %}{{ c.nombre|default:"—" }}
+                    </button>
+                  {% endif %}
+                </td>
+              {% endfor %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {# El diálogo de una casilla: elegir a otro, vaciarla o soltar el 📌. #}
+    <dialog id="dialogo-casilla" class="modal">
+      <div class="modal-box max-w-lg">
+        <h3 class="font-bold text-lg" id="dialogo-titulo"></h3>
+        <p class="text-sm text-base-content/70 mb-2">
+          Elige quién toca. Si ya estaba en otro puesto de este turno, se cambian. La casilla queda fijada.
+        </p>
+        <form method="post" action="{% url 'clases:banda_casilla' group.pk %}" id="form-casilla">
+          {% csrf_token %}
+          <input type="hidden" name="turno" id="casilla-turno">
+          <input type="hidden" name="plaza" id="casilla-plaza">
+          <div class="grid grid-cols-2 gap-1 max-h-80 overflow-y-auto" id="dialogo-alumnos"></div>
+          <div class="modal-action flex-wrap">
+            <button type="submit" name="accion" value="soltar" class="btn btn-sm btn-ghost" id="boton-soltar">Soltar 📌</button>
+            <button type="submit" name="alumno" value="" class="btn btn-sm btn-ghost">Vaciar la plaza</button>
+            <button type="button" class="btn btn-sm" onclick="document.getElementById('dialogo-casilla').close()">Cancelar</button>
+          </div>
+        </form>
+      </div>
+      <form method="dialog" class="modal-backdrop"><button>cerrar</button></form>
+    </dialog>
+
+    <details class="collapse collapse-arrow bg-base-200 mt-6" {% if not datos.columnas.0.casillas.0.alumno %}open{% endif %}>
+      <summary class="collapse-title font-semibold">⚙️ Configuración</summary>
+      <div class="collapse-content">
+        <form method="post" action="{% url 'clases:banda_configurar' group.pk %}" class="grid gap-4 md:grid-cols-2">
+          {% csrf_token %}
+          <label class="form-control">
+            <span class="label-text font-semibold">Modo</span>
+            <select name="modo" class="select select-bordered select-sm">
+              {% for clave, nombre in modos %}
+                <option value="{{ clave }}" {% if clave == banda.modo %}selected{% endif %}>{{ nombre }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="form-control">
+            <span class="label-text font-semibold">Qué sesiones hacen avanzar el turno</span>
+            <select name="cuenta" class="select select-bordered select-sm">
+              {% for clave, nombre in cuentas %}
+                <option value="{{ clave }}" {% if clave == banda.cuenta %}selected{% endif %}>{{ nombre }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="form-control">
+            <span class="label-text font-semibold">Sesiones por turno</span>
+            <input type="number" name="sesiones_por_turno" min="1" max="10" value="{{ banda.sesiones_por_turno }}" class="input input-bordered input-sm w-24">
+          </label>
+          <label class="form-control">
+            <span class="label-text font-semibold">Turnos del curso</span>
+            <input type="number" name="turnos" min="1" max="40" value="{{ banda.turnos }}" class="input input-bordered input-sm w-24">
+          </label>
+          <label class="form-control">
+            <span class="label-text font-semibold">Cuenta sesiones desde</span>
+            <input type="date" name="empieza" value="{{ banda.empieza|date:'Y-m-d' }}" class="input input-bordered input-sm w-44">
+          </label>
+          <div class="md:col-span-2">
+            <span class="label-text font-semibold">Plazas de cada puesto</span>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-1">
+              {% for p, n in puestos_config %}
+                <label class="flex items-center gap-2 text-sm">
+                  <input type="number" name="plazas_{{ p.clave }}" min="0" max="4" value="{{ n }}"
+                         class="input input-bordered input-xs w-14">
+                  {{ p.icono }} {{ p.nombre }}{% if p.portatil %} <span class="badge badge-ghost badge-xs">portátil</span>{% endif %}
+                </label>
+              {% endfor %}
+            </div>
+          </div>
+          <div class="md:col-span-2 text-sm text-base-content/70">
+            Cambiar el modo, las plazas o el número de turnos rehace los turnos que aún no han empezado
+            (lo fijado que siga cabiendo se conserva). Cambiar las sesiones por turno no mueve el turno de ahora.
+          </div>
+          <div class="md:col-span-2">
+            <button type="submit" class="btn btn-sm btn-primary" id="guardar-config">Guardar la configuración</button>
+          </div>
+        </form>
+      </div>
+    </details>
+
+    <details class="collapse collapse-arrow bg-base-200 mt-3">
+      <summary class="collapse-title font-semibold">🕘 Historial</summary>
+      <div class="collapse-content">
+        <ul class="text-sm divide-y divide-base-300">
+          {% for v in versiones %}
+            <li class="flex items-center gap-3 py-1">
+              <span class="w-28 text-base-content/60">{{ v.created_at|date:"j/n H:i" }}</span>
+              <span class="badge badge-ghost badge-sm">{{ v.get_origen_display }}</span>
+              <span class="flex-1">{{ v.motivo }}</span>
+              {% if not forloop.first %}
+                <form method="post" action="{% url 'clases:banda_restaurar' group.pk v.pk %}">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-xs btn-ghost">Volver a esta</button>
+                </form>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </details>
+
+    <style>#rejilla-banda .casilla.resaltada { background: #fde68a !important; color: #111 !important; font-weight: 700; }</style>
+    {{ alumnos_dialogo|json_script:"alumnos-banda" }}
+    <script>
+    (function() {
+      var alumnos = JSON.parse(document.getElementById('alumnos-banda').textContent);
+      var dialogo = document.getElementById('dialogo-casilla');
+      var lista = document.getElementById('dialogo-alumnos');
+
+      document.querySelectorAll('#rejilla-banda .casilla:not([disabled])').forEach(function(b) {
+        b.addEventListener('click', function() {
+          document.getElementById('dialogo-titulo').textContent = 'Turno ' + b.dataset.turno + ' · ' + b.dataset.etiqueta;
+          document.getElementById('casilla-turno').value = b.dataset.turno;
+          document.getElementById('casilla-plaza').value = b.dataset.plaza;
+          document.getElementById('boton-soltar').hidden = b.dataset.fijada !== '1';
+          // Quién está ya en este turno: elegirlo es cambiarlo de puesto.
+          var enTurno = {};
+          document.querySelectorAll('#rejilla-banda .casilla[data-turno="' + b.dataset.turno + '"]').forEach(function(c) {
+            if (c.dataset.alumno) enTurno[c.dataset.alumno] = c.dataset.etiqueta;
+          });
+          lista.innerHTML = '';
+          alumnos.forEach(function(a) {
+            var op = document.createElement('button');
+            op.type = 'submit';
+            op.name = 'alumno';
+            op.value = a.id;
+            var actual = String(a.id) === b.dataset.alumno;
+            op.className = 'btn btn-sm justify-start font-normal ' + (actual ? 'btn-primary' : 'btn-ghost');
+            var extra = enTurno[a.id] && !actual ? ' · ahora en ' + enTurno[a.id] : '';
+            op.textContent = a.nombre + ' (' + a.turnos + ')' + extra;
+            lista.appendChild(op);
+          });
+          dialogo.showModal();
+        });
+      });
+
+      var selector = document.getElementById('resaltar');
+      function resaltar() {
+        var id = selector.value;
+        document.querySelectorAll('#rejilla-banda .casilla').forEach(function(c) {
+          var si = id && c.dataset.alumno === id;
+          c.classList.toggle('resaltada', !!si);
+        });
+      }
+      selector.addEventListener('change', resaltar);
+    })();
+    </script>
+  {% endif %}
+</div>
+{% endblock %}
