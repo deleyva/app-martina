@@ -4,7 +4,7 @@ phase: build
 progress: true
 iteration: 63
 principal_stated_goal: "Yo solo quiero añadir evidencias tal cual están diseñadas en la aplicación de Notas. Por favor, copiala. Usa en vez de HTMLX, usa, en fin, haz lo que sea, pero que sea igual visualmente. Me gusta mucho esa forma de calificar, esa aplicación que hicimos."
-updated: 2026-10-31
+updated: 2026-11-01
 ---
 
 # ISA — app-martina · Sistema de estudio de la biblioteca
@@ -73,13 +73,13 @@ Así se corrigieron el 2026-10-31 los títulos que decían «sin desplegar»: lo
 que ahora dicen «EN PRODUCCIÓN» sin fecha propia tienen su commit en `main`
 antes de `c696861`.
 
-**Las fases 88 (limpieza) y 89 (fuera la biblioteca de grupo y los mazos) están construidas en local, sin push ni despliegue.** La 89 lleva dos migraciones que borran tablas: antes de desplegar, leer su Log.
+**Las fases 88 (limpieza), 89 (fuera la biblioteca de grupo y los mazos) y 90 (favoritos) están construidas en local, sin push ni despliegue.** La 89 lleva dos migraciones que borran tablas: antes de desplegar, leer su Log. La 90 solo añade una columna.
 
 La tabla de arriba llega a la fase 33 (y la 77). De la 34 en adelante, por áreas:
 
 | Área | Fases |
 |---|---|
-| Biblioteca y sesión de estudio | 34, 50 |
+| Biblioteca y sesión de estudio | 34, 50, 90 |
 | Clases en el aula: libros que dan clase, visor, plano, lista de lectura | 28–30, 32, 37, 40, 40·1, 49, 58, 61, 68, 70, 71 |
 | Calificaciones: cuadro, `notas`, evaluar en clase, dado del cuaderno, fotos de folios, API | 39, 59, 60, 62, 78, 81, 84 |
 | Preguntas de teoría con tarjetas | 76 |
@@ -115,8 +115,9 @@ No hay fase 79.
 4. **Filtrar por `autor` y `obra`.** Siguen fuera de `FACETAS_DE_FILTRO`, así
    que un libro sin objetivo no se puede acotar de ninguna manera.
 
-5. **Desplegar la fase 89** (biblioteca de grupo y mazos fuera; decidido por
-   Jesús el 2026-10-31). Borra tablas: copia de la base antes, ver su Log.
+5. **Desplegar las fases 88, 89 y 90** (la 89, biblioteca de grupo y mazos
+   fuera, decidido por Jesús el 2026-10-31; la 90, favoritos). La 89 borra
+   tablas: copia de la base antes, ver su Log.
 
 6. **Menores, para un hueco:** un marco de calificación propio para 3º bilingüe
    (hoy recibe la plantilla de 3º, fase 60) · las columnas Cuaderno, Nota y
@@ -5897,3 +5898,39 @@ Faders verticales uno al lado de otro · arrastrar la columna · recordar entre 
 - **2026-10-31 — Lo que no estaba en la lista y salió buscando:** el botón «Guardar mazo» de los filtros (C599), los contadores de sesiones y «asignar a estudiantes» (C597), y la documentación del profesorado, que seguía explicando la biblioteca de grupo como el camino para preparar clases cuando eso ya era falso desde la fase 28.
 - **2026-10-31 — Gotcha local:** el servidor de desarrollo se quedó con el código viejo en memoria (seguramente porque la recarga se atascó con un `class` duplicado que dejé a mitad) y la primera carga en el navegador dio `ProgrammingError` sobre la tabla ya borrada. `docker compose restart django` lo arregló. En producción no pasa: el despliegue reconstruye la imagen.
 - **2026-10-31 — Construido y verificado en local; sin push ni despliegue.** Al desplegar se aplican dos migraciones que **borran datos**: `my_library.0014_fuera_los_mazos` (tabla `my_library_librarydeck` y columna `deck` de `my_library_reviewlog`) y `clases.0027_fuera_la_biblioteca_de_grupo` (vuelve a apuntar lo que haga falta e imprime cuántas; luego borra `evaluations_grouplibraryitem`). `deploy-production` **no hace copia**: lanzar `just production-backup-db` antes. Entre el `up -d` y el `migrate` el código nuevo corre contra el esquema viejo sin problema, porque ya no lee esas tablas. Los dos `ContentType` de `grouplibraryitem` (de `evaluations` y de `clases`) se quedan en la base: `remove_stale_contenttypes` los borraría en cascada con lo que cuelgue de ellos, y no hace falta.
+
+## Fase 90 — Favoritos: los ejercicios que quiero en todas las sesiones (2026-11-01) · CONSTRUIDA EN LOCAL, SIN PUSH NI DESPLIEGUE
+
+**Goal (literal de Jesús, 2026-11-01):** «antes de copiar la base y desplegar. Hay ejercicios que, cuando los veo, me gustan mucho y quiero repetirlos todos los días hasta que me salgan muy bien. Me gustaría marcarlos como favoritos y que me salgan siempre en la sesión de estudio hasta que los quite de favoritos.» (Con una captura del visor de estudio: «4 de 15», un ejercicio de tríadas por posiciones.)
+
+**Lo que había.** `LibraryItem.favorite` existe desde la migración inicial y no lo lee nada: solo el admin. En la copia local, 0 de 110 elementos lo tienen puesto. Las secciones (`ItemSection`) no tienen nada parecido, y son unidad de práctica igual que un elemento.
+
+**Decisiones mías, a la vista en la respuesta:**
+
+1. **El favorito va en la unidad que se practica.** Si lo que sale en el visor es una sección, se marca la sección; si es un elemento, el elemento. Lo que dice la estrella es lo que entra.
+2. **Dentro de la sesión, no encima.** Un favorito ocupa un hueco de repaso. La cuota de novedad se respeta y el repaso llena lo que quede. Si algún día hay más favoritos que huecos, la sesión crece lo justo para que entren todos: «siempre» es la palabra de Jesús.
+3. **El filtro manda.** Con «piano» elegido, un favorito de guitarra no entra. Sin filtro, que es lo normal, entran todos.
+4. **Descartar manda sobre favorito.** Un elemento descartado no entra aunque tenga la estrella.
+
+### Claims
+
+- [x] **C603** — Desde el visor se marca y se desmarca: una estrella en el hueco libre junto al botón ⋮ y la tecla F. Marca la unidad actual y se guarda. *Falsador: test que alterna por POST un elemento y una sección y comprueba la base; lo ajeno da 404; en Chrome contra local, la estrella cambia al pulsarla y la base lo refleja.* **Evidencia:** `marcar_favorito` (POST, `favorito=0|1`, con `section` opcional) y la playlist lleva `favorito` por unidad. Tests: marcar, repetir el mismo estado sin invertirlo y quitar; una sección se marca sin tocar su elemento; lo ajeno da 404; GET da 405; el visor trae `#fab-favorito` y `[false, true]` en la playlist. En Chrome contra local, con un usuario desechable (20 imágenes; creado y borrado en la copia): la estrella sale en el hueco libre junto a ⋮; al pulsarla se pone amarilla y rellena (vista en captura) y la base pasa a `[279]`; F la quita (`aria-pressed=false`, base `[]`) y F la vuelve a poner; el ejercicio siguiente abre con la estrella apagada. La F no hace nada con el resumen final delante.
+- [x] **C604** — Un favorito entra en todas las sesiones aunque no le toque: practicado hoy, con nivel 4 y rodeado de vencidos. También con «solo repaso». *Falsador: test de `construir_sesion` con un favorito practicado hace 0 días, nivel 4, junto a 30 vencidos y tamaño 8.* **Evidencia:** `test_un_favorito_entra_aunque_no_le_toque` y `test_un_favorito_entra_tambien_en_solo_repaso`, los dos en rojo con el código de antes. En Chrome: el ejercicio practicado hoy con nivel 4 no salía en la vista previa (15 elementos, sin él); tras marcarlo sale el primero, y al pulsar «Empezar sesión» la playlist lo trae en la posición 0 con la estrella encendida.
+- [x] **C605** — Los favoritos ocupan huecos, no se suman, y no se comen la novedad. Con más favoritos que huecos, la sesión crece para que entren todos. *Falsador: tests con 2 favoritos, 20 vencidos y 20 nuevos en tamaño 15 (15, con 3 nuevos y los 2 favoritos), y con 14 favoritos (entran los 14 más la cuota).* **Evidencia:** `test_los_favoritos_ocupan_huecos_y_respetan_la_novedad` (15 = 2 favoritos + 3 nuevos + 10 vencidos) y `test_con_mas_favoritos_que_huecos_entran_todos` (17 = 14 + 3). En Chrome, con el favorito dentro, la sesión siguió siendo de 15.
+- [x] **C606** — El filtro manda sobre el favorito. *Falsador: test de lanzar con «piano» y un favorito de guitarra: no entra; sin filtro, sí.* **Evidencia:** `test_el_filtro_manda_sobre_el_favorito`. Pasa también con el código de antes, y es lo que se espera: el filtro corre antes de `construir_sesion`, así que este test protege la decisión 3 y no prueba código nuevo.
+- [x] **C607** — La vista previa de «empezar» marca los favoritos, para que se sepa por qué están. *Falsador: test sobre el HTML del recuento; en Chrome, la estrella en la lista.* **Evidencia:** `test_la_vista_previa_marca_los_favoritos` (un `data-favorito="1"` de dos elementos). En Chrome, captura vista: «1 · Pentagrama · ¿Qué figura es la primera del compás? ⭐», sin la etiqueta «hace N d» porque se practicó hoy.
+- [x] **C608** — La suite no empeora y la migración solo añade una columna. *Falsador: `pytest` contra la línea base (5 fallos conocidos), `makemigrations --check` y `sqlmigrate` sin `DROP`.* **Evidencia:** suite entera: 5 failed, los cinco de siempre (dos de `cms/test_frontend_integration`, tres de `incidencias`); 1951 passed, que son los 1938 de la fase 89 más los 13 nuevos. `makemigrations --check` → «No changes detected»; `check` → sin problemas. `sqlmigrate my_library 0015`: un `ADD COLUMN "favorite" boolean DEFAULT false NOT NULL` en `my_library_itemsection` y su `DROP DEFAULT` (quita el valor por defecto, no datos); en `libraryitem` es un no-op, solo cambia el nombre visible.
+
+### Anti-claims
+
+- **Anti-A** — Un favorito se sigue valorando como siempre: el repaso se graba en `ReviewLog` y su nivel se mueve. Ser favorito no toca el historial. **Comprobado en Chrome:** valorar el favorito con «Lo conozco bien» dejó 2 repasos (antes 1), el último `study` de 4 a 3, y la estrella puesta.
+- **Anti-B** — Sin favoritos, la sesión sale idéntica a la de antes. *Falsador: los tests de sesión que ya existían pasan sin tocarlos.* **Comprobado:** ninguno se tocó y pasan todos; además, `test_sin_favoritos_la_sesion_no_cambia`.
+- **Anti-C** — Ni push ni despliegue sin «despliega».
+
+### Log
+
+- **2026-11-01 — Pedido antes de copiar la base y desplegar**, así que se despliega junto con la 88 y la 89.
+- **2026-11-01 — Quién más llama a `construir_sesion`.** 🧹 CLASS-SWEEP: llamadas a `construir_sesion` — 3 vía `rg`: la vista previa, el lanzamiento y el comando `estado_estudio`. Las tres tienen que ver los favoritos, y los ven sin cambiar nada. Ninguna otra pantalla arma sesiones.
+- **2026-11-01 — Lo que no hice.** No hay lista de favoritos ni filtro «solo favoritos» en la biblioteca: no lo pidió, y como los favoritos salen en todas las sesiones, se quitan desde el visor. Si un elemento favorito se trocea después, su estrella deja de contar y mandan las de sus secciones; está escrito junto al campo.
+- **2026-11-01 — Gotcha de la prueba:** el usuario desechable chocó con el candado de la app de música (fase 69) hasta matricularlo en un grupo, y sin etiquetas con faceta «empezar» no enseña la vista previa. Se le dio un recurso externo con `instrumento:guitarra` (las imágenes leen las etiquetas de la imagen, compartida, y no quise tocarlas). Todo borrado al acabar: usuario, 21 elementos, recurso, matrícula y sesión.
+- **2026-11-01 — Construida y verificada en local; sin push ni despliegue.** Se despliega con la 88 y la 89. `my_library.0015_favoritos` solo añade una columna.
