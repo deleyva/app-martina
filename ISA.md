@@ -73,13 +73,13 @@ Así se corrigieron el 2026-10-31 los títulos que decían «sin desplegar»: lo
 que ahora dicen «EN PRODUCCIÓN» sin fecha propia tienen su commit en `main`
 antes de `c696861`.
 
-**Las fases 88 (limpieza), 89 (fuera la biblioteca de grupo y los mazos) y 90 (favoritos) están construidas en local, sin push ni despliegue.** La 89 lleva dos migraciones que borran tablas: antes de desplegar, leer su Log. La 90 solo añade una columna.
+**Las fases 88 (limpieza), 89 (fuera la biblioteca de grupo y los mazos), 90 (favoritos) y 91 (plazos con FSRS) están construidas en local, sin push ni despliegue.** La 89 lleva dos migraciones que borran tablas: antes de desplegar, leer su Log. La 90 solo añade una columna. La 91 añade la dependencia `fsrs`, sin migración.
 
 La tabla de arriba llega a la fase 33 (y la 77). De la 34 en adelante, por áreas:
 
 | Área | Fases |
 |---|---|
-| Biblioteca y sesión de estudio | 34, 50, 90 |
+| Biblioteca y sesión de estudio | 34, 50, 90, 91 |
 | Clases en el aula: libros que dan clase, visor, plano, lista de lectura | 28–30, 32, 37, 40, 40·1, 49, 58, 61, 68, 70, 71 |
 | Calificaciones: cuadro, `notas`, evaluar en clase, dado del cuaderno, fotos de folios, API | 39, 59, 60, 62, 78, 81, 84 |
 | Preguntas de teoría con tarjetas | 76 |
@@ -115,9 +115,9 @@ No hay fase 79.
 4. **Filtrar por `autor` y `obra`.** Siguen fuera de `FACETAS_DE_FILTRO`, así
    que un libro sin objetivo no se puede acotar de ninguna manera.
 
-5. **Desplegar las fases 88, 89 y 90** (la 89, biblioteca de grupo y mazos
-   fuera, decidido por Jesús el 2026-10-31; la 90, favoritos). La 89 borra
-   tablas: copia de la base antes, ver su Log.
+5. **Desplegar las fases 88 a 91** (la 89, biblioteca de grupo y mazos
+   fuera, decidido por Jesús el 2026-10-31; la 90, favoritos; la 91, plazos
+   con FSRS). La 89 borra tablas: copia de la base antes, ver su Log.
 
 6. **Menores, para un hueco:** un marco de calificación propio para 3º bilingüe
    (hoy recibe la plantilla de 3º, fase 60) · las columnas Cuaderno, Nota y
@@ -186,6 +186,12 @@ con el venv en 7.3.3 mientras el pin decía 7.3.1. El arreglo es alinear el venv
   el diálogo de bibliotecas.
 - **`test_precargar_da_lo_mismo_que_no_precargar` está definido dos veces** en
   `my_library/tests.py`, idéntico: pytest solo ejecuta el segundo.
+- **`estado_estudio` se cae con un objetivo sobre un libro por referencia**
+  (visto en la fase 91, ya fallaba antes): en la línea de `del_libro`,
+  `source_page__in=capitulos` recibe un recorte («Review Piece · Piano
+  Adventures Level 1») en vez de una página, y Django lanza `ValueError: Must
+  be "Page" instance`. En la copia local le pasa a la cuenta 84; en producción
+  le pasará a cualquiera que tenga activo un objetivo así.
 - **El identificador C242 está repetido:** fase 41 (un alumno compone y exporta
   su libreta) y fase 40·1 (micrófono). No se renumera; se cita con su fase.
 
@@ -5934,3 +5940,45 @@ Faders verticales uno al lado de otro · arrastrar la columna · recordar entre 
 - **2026-11-01 — Lo que no hice.** No hay lista de favoritos ni filtro «solo favoritos» en la biblioteca: no lo pidió, y como los favoritos salen en todas las sesiones, se quitan desde el visor. Si un elemento favorito se trocea después, su estrella deja de contar y mandan las de sus secciones; está escrito junto al campo.
 - **2026-11-01 — Gotcha de la prueba:** el usuario desechable chocó con el candado de la app de música (fase 69) hasta matricularlo en un grupo, y sin etiquetas con faceta «empezar» no enseña la vista previa. Se le dio un recurso externo con `instrumento:guitarra` (las imágenes leen las etiquetas de la imagen, compartida, y no quise tocarlas). Todo borrado al acabar: usuario, 21 elementos, recurso, matrícula y sesión.
 - **2026-11-01 — Construida y verificada en local; sin push ni despliegue.** Se despliega con la 88 y la 89. `my_library.0015_favoritos` solo añade una columna.
+
+## Fase 91 — El plazo de cada ejercicio crece con tus aciertos: FSRS sobre el historial (2026-11-01) · CONSTRUIDA EN LOCAL, SIN PUSH NI DESPLIEGUE
+
+**Goal (literal de Jesús, 2026-11-01):** «ok! Calculemos» — respuesta a mi propuesta: «Si quieres que el plazo crezca con tus aciertos, se puede calcular con el historial que ya está guardado.» Venía de explicarle cómo se calcula «vencido»: un plazo fijo por nivel (1, 1, 3, 7 y 21 días), que no depende de cuántas veces te ha salido.
+
+**Por qué importa (medido el mismo día en producción).** Esta mañana entraron tres «Example 3.1c» y una «3.2a» de CAGED con 17 a 19 repasos cada una y nivel 4. Con el plazo fijo, 19 aciertos esperan lo mismo que uno. Es justo lo que el objetivo G9 llama «repetición espaciada real» y la sesión no hacía.
+
+**Historial disponible:** 776 repasos de estudio con nota, de 164 unidades, del 12-ago al 1-nov (cuenta 84, exportado en solo lectura).
+
+**Decisiones mías, a la vista en la respuesta:**
+
+1. **FSRS**, el algoritmo de Recall, con su librería de referencia (`fsrs` 6.3.2, MIT). Retención buscada 0,9: el plazo es el tiempo en que la probabilidad de que te salga baja al 90 %. Sin pasos de aprendizaje en minutos ni aleatoriedad.
+2. **Notas:** «No me sale» (0) y «Apenas lo conozco» (1) cuentan como fallo; «Lo estoy aprendiendo» (2), como acierto difícil; «Lo conozco bien» (3), como acierto; «Me lo sé muy bien» (4), como acierto fácil.
+3. **Se calcula al vuelo, reproduciendo el historial**, sin columnas nuevas ni migración: el historial manda y nunca se desincroniza. Una unidad sin ningún repaso con nota usa la tabla de antes.
+4. **Solo cambia el plazo.** La regla de llenar la sesión con lo menos vencido se queda como está: cambiar dos cosas a la vez no deja ver cuál hace qué.
+5. **Techo de 90 días** (`plazos.PLAZO_MAXIMO`), añadido a mitad de la fase. Con los parámetros por defecto, «Me lo sé muy bien» se dispara (8, 66, 397, 1875 días si se da a su hora), y sobre el historial real las tres «Example 3.1c» salían a 572-631 días. Un lick no aguanta año y medio sin tocarse como una palabra: con el techo, lo que dominas vuelve al menos cada trimestre. Es un número para ajustar con el uso.
+
+### Claims
+
+- [x] **C609** — El plazo sale del historial de cada unidad con FSRS: crece con aciertos seguidos y cae tras un fallo. *Falsador: test de `plazos.plazo_en_dias` con aciertos seguidos (plazos estrictamente crecientes, el cuarto por encima de los 21 días de antes) y con un fallo al final (plazo de pocos días).* **Evidencia:** `test_el_plazo_crece_con_cada_acierto`, `test_un_fallo_encoge_el_plazo`, `test_apenas_lo_conozco_cuenta_como_fallo` y `test_el_plazo_tiene_techo`. Números, con techo: cuatro «Lo conozco bien» a su hora → 2, 11, 46 y 90 días, y un «No me sale» después → 4; cinco «Me lo sé muy bien» → 8, 66, 90, 90 y 90, y tras el fallo → 8; cuatro «Lo estoy aprendiendo» → 1, 3, 7 y 12. `test_una_seccion_lleva_su_propio_plazo`: los aciertos del elemento entero no alargan el de su sección.
+- [x] **C610** — Sin repasos con nota, la tabla de antes. *Falsador: los tests de sesión que ya existían (sus repasos no llevan nota) pasan sin tocarlos.* **Evidencia:** ninguno se tocó y la suite pasa; `test_sin_nota_no_hay_plazo` prueba la caída a la tabla.
+- [x] **C611** — La sesión ordena por el plazo nuevo. *Falsador: test con dos unidades de nivel 4 practicadas hace 10 días, una con un repaso y otra con diez aciertos: con tamaño 1 entra la de un repaso; con el plazo fijo empataban.* **Evidencia:** `test_la_sesion_ordena_por_el_plazo_del_historial`, que con el `session.py` de antes (`git stash`) falla: sale el veterano. En Chrome contra local, con un usuario desechable y el mismo caso (creado y borrado en la copia): la vista previa de «empezar» lista «otro, de guitarra (hace 30 d)», «novato (un acierto)» y «veterano (diez aciertos)», en ese orden; con la tabla, el veterano iba antes por tener el pk más bajo. Sin errores en consola.
+- [x] **C612** — No añade consultas por elemento. *Falsador: el test de consultas constantes (4 elementos contra 12) sigue pasando.* **Evidencia:** pasa. `_historial` hace las mismas dos consultas que antes hacía el `Max`, trayendo las filas en vez de agregarlas; el cálculo de FSRS no consulta nada.
+- [x] **C613** — Calculado sobre tu historial real: tabla de antes y después de tus ejercicios, y cuántos estarían vencidos hoy con cada regla. *Falsador: la simulación importa `my_library.plazos`, el mismo código que la app, y se ejecuta en local sobre el historial exportado.* **Evidencia** (104 unidades vivas con historial, 557 repasos, a las 10:00 del 1-nov): **vencidos hoy, 53 con la tabla y 32 con FSRS**; dejan de estar vencidos 21 y no entra ninguno nuevo. Plazos con la tabla: mediana 21, máximo 21; con FSRS y techo: mínimo 1, primer cuartil 8, mediana 34,5, tercer cuartil y máximo 90. Por libro (unidades · vencidos tabla → FSRS · mediana del plazo): CAGED 51 · 11 → 7 · 42 d; Jens Larsen 34 · 23 → 6 · 76,5 d; Repertorio Luciérnaga 9 · 9 → 9 · 5 d. Las tres «Example 3.1c» y la «3.2a» de esta mañana (18-20 cuatros) pasan de 21 a 90 días; sin techo eran 572-631. «Harmonic minor on the V» y «Example 3a», que bajaron hoy a 0 y 1, quedan a 1 día.
+- [x] **C614** — La suite no empeora y la dependencia queda fijada. *Falsador: `pytest` contra la línea base (5 fallos conocidos), `check`, `makemigrations --check` y `pip show fsrs` en la imagen.* **Evidencia:** imagen local reconstruida; `pip show fsrs` en un contenedor nuevo → 6.3.2. Suite entera: 5 failed, los cinco de siempre; 1958 passed, que son los 1951 de la fase 90 más los 7 nuevos. `check` → sin problemas; `makemigrations --check` → «No changes detected».
+
+### Anti-claims
+
+- **Anti-A** — No toca datos: ni `ReviewLog`, ni niveles, ni migraciones. **Comprobado:** el diff no tiene migración ni escribe en ningún modelo; la exportación de producción solo leyó.
+- **Anti-B** — La vista previa y el lanzamiento siguen sirviendo la misma lista (C78). *Falsador: su test.* **Comprobado:** pasa. FSRS va sin aleatoriedad, así que dos llamadas dan lo mismo.
+- **Anti-C** — Ni push ni despliegue sin «despliega»; al desplegar, la imagen de producción tiene que instalar `fsrs` (el despliegue reconstruye, así que entra solo).
+
+### Log
+
+- **2026-11-01 — Lectura de producción con permiso de Jesús** («Te doy permiso para leer en producción», dado para el informe de sus sesiones): exportado su historial de estudio, sin escribir nada.
+- **2026-11-01 — La librería, comprobada antes de fiarse.** `fsrs` 6.3.2 (agosto de 2026, MIT; en ejecución solo pide `typing-extensions`). Dos trampas vistas en su código: `Card()` sin `card_id` lo genera con la hora y **duerme un milisegundo** para no repetirlo, por tarjeta; y `review_card` **exige la fecha en UTC**. `plazos.py` pasa `card_id=0` y convierte a UTC.
+- **2026-11-01 — Encontrado al calcular: FSRS se dispara con «Me lo sé muy bien».** Ver la decisión 5. Lo cazó la simulación sobre el historial real, no los tests: los tests decían «crece», y crecía.
+- **2026-11-01 — `estado_estudio` enseña el plazo** de cada elemento de la sesión («hace 3 d · plazo 41 d», o «(tabla)» si no hay notas), para poder medirlo en producción después de desplegar.
+- **2026-11-01 — Gotcha local, no de la fase:** lanzar la suite con `run --rm` mientras el servidor arranca tumba al servidor. El `run` borra el CSS fuente de Tailwind del directorio compartido justo cuando el servidor lo compila: «Specified input file ... index.css does not exist» y `Exited (1)`. Se arregla con `up -d django`. Además, `docker compose cp django:` puede copiar al contenedor de la suite en vez de al servidor; pasar los scripts por la entrada estándar de `exec -T` evita la duda.
+- **2026-11-01 — Lo siguiente, si se quiere.** Con FSRS hay menos cosas vencidas (32 en vez de 53), y la sesión se sigue llenando hasta 15 con lo que no vence. La pregunta natural es si, cuando no hay bastante vencido, la sesión debería ser más corta. No lo he tocado: es la decisión 4, y es de Jesús.
+- **2026-11-01 — `estado_estudio`, probado aparte.** Con la cuenta 84 de la copia se cae antes de llegar a la sesión, por un fallo que ya estaba (comprobado con `git stash`; anotado en la deuda). Con un usuario desechable sin objetivos enseña «hace 10 d · plazo 90 d» y «hace 40 d · plazo 7 d (tabla)»; usuario y recursos borrados.
+- **2026-11-01 — Construida y verificada en local; sin push ni despliegue.** Al desplegar, la imagen de producción instala `fsrs` al reconstruir. Sin migración.
