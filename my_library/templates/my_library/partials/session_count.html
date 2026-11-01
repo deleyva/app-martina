@@ -43,6 +43,10 @@ el lanzamiento servía otra cosa: se prometía "1 nuevo" y llegaban 3.
                 <span class="opacity-40 w-4 text-right">{{ forloop.counter }}</span>
                 <span>{{ item.get_icon }}</span>
                 <span class="truncate">{{ item.get_content_title }}</span>
+                {% if item.favorite %}
+                <span class="shrink-0" data-favorito="1"
+                      title="Favorito: entra en todas tus sesiones">⭐</span>
+                {% endif %}
                 {% if item.desambiguador %}
                 <span class="opacity-40 text-xs truncate shrink-0"
                       title="Otro elemento de la sesión se llama igual">

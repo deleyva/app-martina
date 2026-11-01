@@ -95,6 +95,10 @@
         #fab-siguiente { bottom: 84px; right: 24px; }
         #fab-anterior  { bottom: 84px; right: 84px; }
         #fab-descartar { bottom: 144px; right: 24px; }
+        #fab-favorito  { bottom: 24px; right: 84px; }
+        /* Estrella encendida: favorito, entra en todas las sesiones (fase 90). */
+        #fab-favorito.encendido { color: #facc15; border-color: rgba(250, 204, 21, 0.7); }
+        #fab-favorito.encendido svg { fill: currentColor; }
         #fab-valorar   { bottom: 144px; right: 84px; background: rgba(34, 197, 94, 0.35); border-color: rgba(34, 197, 94, 0.7); }
         #fab-valorar:hover { background: rgba(34, 197, 94, 0.55); }
         /* ✕ armada: el primer toque solo avisa; el segundo descarta. */
@@ -668,6 +672,17 @@
         </svg>
     </button>
     <div id="descartar-confirma" role="status">Toca ✕ otra vez para descartarlo de tus repasos</div>
+    {% comment %}
+    Fase 90. En el hueco libre junto al menú. Sin confirmación, al revés que
+    descartar: se deshace con el mismo toque y no saca nada de ningún sitio.
+    {% endcomment %}
+    <button id="fab-favorito" class="fab-der" type="button" onclick="marcarFavorito()"
+            aria-pressed="false"
+            title="Marcar como favorito: entrará en todas tus sesiones hasta que lo quites. Atajo: F">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"/>
+        </svg>
+    </button>
     <button id="fab-anterior" class="fab-der" type="button" onclick="navigateItem(-1)" title="Anterior">
         <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
@@ -830,7 +845,58 @@
             (currentIndex + 1) + ' de ' + playlist.length;
         document.getElementById('fab-anterior').disabled = currentIndex === 0;
         document.getElementById('fab-siguiente').disabled = currentIndex >= playlist.length - 1;
+        pintarFavorito();
         pintarLista();
+    }
+
+    // ── Favorito: la estrella (fase 90) ──
+    //
+    // Marca la unidad ACTUAL —la sección, si es una sección— y manda el estado
+    // que se quiere, no «dale la vuelta». La estrella cambia al momento; si el
+    // servidor no lo guarda, vuelve a decir la verdad. Solo cuenta la respuesta
+    // del último toque: con dos seguidos, la del primero llega tarde y no manda.
+    var favoritoTurno = 0;
+
+    function pintarFavorito() {
+        var actual = playlist[currentIndex];
+        var boton = document.getElementById('fab-favorito');
+        if (!actual || !boton) return;
+        boton.classList.toggle('encendido', !!actual.favorito);
+        boton.setAttribute('aria-pressed', actual.favorito ? 'true' : 'false');
+        boton.title = actual.favorito
+            ? 'Favorito: entra en todas tus sesiones. Tócalo para quitarlo. Atajo: F'
+            : 'Marcar como favorito: entrará en todas tus sesiones hasta que lo quites. Atajo: F';
+    }
+
+    function marcarFavorito() {
+        var actual = playlist[currentIndex];
+        if (!actual) return;
+        // Con el resumen final delante la estrella no se ve, pero la F sí
+        // llegaría aquí y marcaría el último elemento sin que nadie lo viera.
+        if (document.getElementById('session-complete').classList.contains('active')) return;
+        var quiero = !actual.favorito;
+        var turno = ++favoritoTurno;
+        actual.favorito = quiero;
+        pintarFavorito();
+
+        var cuerpo = new URLSearchParams();
+        cuerpo.append('favorito', quiero ? '1' : '0');
+        if (actual.section) cuerpo.append('section', actual.section);
+
+        function quedar(valor) {
+            if (turno !== favoritoTurno) return;
+            actual.favorito = valor;
+            if (playlist[currentIndex] === actual) pintarFavorito();
+        }
+        fetch('{% url "my_library:marcar_favorito" pk=99999 %}'.replace('99999', actual.pk), {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken },
+            credentials: 'same-origin',
+            body: cuerpo
+        })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) { quedar(d ? d.favorito : !quiero); })
+        .catch(function () { quedar(!quiero); });
     }
 
     function escaparTexto(t) {
@@ -1380,6 +1446,15 @@
             // Don't toggle if typing in an input
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
             toggleFlyout();
+        }
+        // F: favorito. Ningún visor la usa (imagen, PDF, recorte y ChordPro
+        // se quedan con flechas, espacio, + - < >). Con modificador no, para
+        // no robarle Ctrl/Cmd+F al navegador.
+        if ((e.key === 'f' || e.key === 'F') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            if (_escribiendo(e.target)) return;
+            if (!playlist.length || currentIndex >= playlist.length) return;
+            e.preventDefault();
+            marcarFavorito();
         }
     }, true);
 

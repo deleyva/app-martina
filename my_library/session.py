@@ -19,6 +19,9 @@ Tres decisiones, en este orden:
 3. EN QUÉ ORDEN — agrupado por temática. Los elementos que comparten etiqueta
    salen seguidos, en bloques cortos.
 
+Y una excepción a los dos primeros: los FAVORITOS entran siempre, les toque o
+no (fase 90, ver `construir_sesion`).
+
 Sobre el punto 3, que va contra el manual: la repetición espaciada clásica
 entrelaza, y entrelazar retiene mejor que agrupar (efecto de interferencia
 contextual). Se agrupa igual, y a conciencia — trabajar la posición 2 de las
@@ -64,6 +67,15 @@ MAX_BLOQUE = 4  # elementos seguidos de la misma temática
 # durante un mes. Con la cuota, ese mismo libro entra a dos por sesión y el
 # repaso sigue vivo.
 PROPORCION_NOVEDAD = 0.2
+
+
+def es_favorito(unidad):
+    """¿La marcó el usuario para que entre en todas las sesiones?
+
+    Elementos y secciones llevan el mismo campo, así que no hace falta saber
+    cuál es. Un candidato sin guardar de la creación perezosa nunca lo es.
+    """
+    return bool(getattr(unidad, "favorite", False))
 
 
 def intervalo_objetivo(item):
@@ -570,7 +582,17 @@ def construir_sesion(items, tamano=TAMANO_SESION_POR_DEFECTO, incluir_nuevos=Tru
     """Devuelve los elementos de una sesión, acotados y ordenados.
 
     `items` es cualquier iterable de LibraryItem (la biblioteca entera, un
-    filtro de etiquetas, un libro). El resultado nunca excede `tamano`.
+    filtro de etiquetas, un libro). El resultado nunca excede `tamano`, salvo
+    por los favoritos (abajo).
+
+    **Los favoritos entran siempre** (fase 90, petición de Jesús: «que me
+    salgan siempre en la sesión de estudio hasta que los quite de favoritos»).
+    No pasan por la caducidad: un ejercicio practicado hoy y con nivel 4 entra
+    igual, y también con `incluir_nuevos=False`, porque marcarlo es pedirlo.
+    Ocupan huecos DENTRO de la sesión y lo que ceden es repaso: la cuota de
+    novedad se respeta. Si hay más favoritos que huecos, la sesión crece lo
+    justo para que entren todos; recortarlos sería romper el «siempre».
+    El filtro sí manda sobre ellos, porque filtra `items` antes de llegar aquí.
 
     Con `incluir_nuevos=False` la sesión es SOLO repaso: nada que no se haya
     practicado nunca entra, ni por la cuota de novedad ni por el relleno del
@@ -591,6 +613,9 @@ def construir_sesion(items, tamano=TAMANO_SESION_POR_DEFECTO, incluir_nuevos=Tru
         return []
 
     tamano = max(1, min(int(tamano), TAMANO_SESION_MAXIMO))
+
+    favoritos = [u for u in unidades if es_favorito(u)]
+    unidades = [u for u in unidades if not es_favorito(u)]
     dias = _dias_sin_practicar(unidades)
 
     nuevos = [u for u in unidades if dias[_clave(u)] is None] if incluir_nuevos else []
@@ -613,7 +638,7 @@ def construir_sesion(items, tamano=TAMANO_SESION_POR_DEFECTO, incluir_nuevos=Tru
 
     cuota = min(len(nuevos), max(1, round(tamano * PROPORCION_NOVEDAD))) if nuevos else 0
 
-    elegidos = nuevos[:cuota]
+    elegidos = favoritos + nuevos[:cuota]
     elegidos += _variar_capitulos(conocidos, tamano - len(elegidos))
 
     # Si no hay bastante repaso para llenar la sesión, entra más material nuevo.

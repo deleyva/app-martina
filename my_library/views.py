@@ -516,6 +516,7 @@ def study_session_view(request):
                     "detalle": getattr(seccion, "desambiguador", ""),
                     "type": seccion.item.get_content_type_name(),
                     "icon": seccion.item.get_icon(),
+                    "favorito": seccion.favorite,
                 })
         elif token.isdigit():
             item = por_pk.get(int(token))
@@ -527,6 +528,7 @@ def study_session_view(request):
                     "detalle": getattr(item, "desambiguador", ""),
                     "type": item.get_content_type_name(),
                     "icon": item.get_icon(),
+                    "favorito": item.favorite,
                 })
 
     return render(request, "my_library/study_viewer.html", {
@@ -1036,6 +1038,34 @@ def recuperar_item(request, pk):
     item.descartado = False
     item.save(update_fields=["descartado"])
     return JsonResponse({"ok": True, "descartado": False})
+
+
+@login_required
+@require_POST
+def marcar_favorito(request, pk):
+    """Pone o quita la estrella de lo que se está practicando (fase 90).
+
+    Un favorito entra en todas las sesiones hasta que se quite (ver
+    `session.construir_sesion`). Con `section` se marca la sección y no el
+    elemento: el favorito va en la unidad que sale en la sesión.
+
+    El visor manda el estado que quiere (`favorito=1` o `0`), no «dale la
+    vuelta»: con dos toques rápidos y la primera respuesta aún en vuelo, un
+    alternar dejaría la base al revés de lo que enseña la estrella.
+    """
+    item = get_object_or_404(LibraryItem, pk=pk, user=request.user)
+    quiero = request.POST.get("favorito")
+    if quiero not in ("0", "1"):
+        return HttpResponse("favorito tiene que ser 0 o 1", status=400)
+
+    unidad = item
+    seccion_pk = request.POST.get("section", "")
+    if str(seccion_pk).isdigit():
+        unidad = get_object_or_404(ItemSection, pk=int(seccion_pk), item=item)
+
+    unidad.favorite = quiero == "1"
+    unidad.save(update_fields=["favorite"])
+    return JsonResponse({"ok": True, "favorito": unidad.favorite})
 
 
 @login_required

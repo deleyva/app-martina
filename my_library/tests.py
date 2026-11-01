@@ -4209,3 +4209,232 @@ def test_empezar_no_hace_una_consulta_por_elemento(client, db, user):
     )
 
     assert muchos == pocos, f"con 4 elementos {pocos}, con 12 {muchos}"
+
+
+# === Fase 90: favoritos, los ejercicios que entran en todas las sesiones ===
+#
+# Petición de Jesús (2026-11-01): «Hay ejercicios que, cuando los veo, me
+# gustan mucho y quiero repetirlos todos los días hasta que me salgan muy bien.
+# Me gustaría marcarlos como favoritos y que me salgan siempre en la sesión de
+# estudio hasta que los quite de favoritos.»
+
+
+def _favorito(unidad):
+    unidad.favorite = True
+    unidad.save(update_fields=["favorite"])
+    return unidad
+
+
+def test_un_favorito_entra_aunque_no_le_toque(db, user):
+    """C604. Practicado hoy y con nivel 4 no le tocaría en semanas, y hay
+    treinta vencidos esperando: entra igual."""
+    vencidos = [_item(user, f"vencido-{n:02d}") for n in range(30)]
+    for v in vencidos:
+        _practicado_hace(v, 60)
+    favorito = _favorito(_item(user, "triadas-por-posiciones", nivel=4))
+    _practicado_hace(favorito, 0)
+
+    sesion = construir_sesion(vencidos + [favorito], tamano=8)
+
+    assert favorito in sesion
+    assert len(sesion) == 8
+
+
+def test_un_favorito_entra_tambien_en_solo_repaso(db, user):
+    """C604. «Solo repaso» deja fuera lo nunca practicado, salvo que sea
+    favorito: marcarlo es pedirlo."""
+    repasados = [_item(user, f"viejo-{n}") for n in range(5)]
+    for r in repasados:
+        _practicado_hace(r, 30)
+    nuevo = _item(user, "nuevo-normal")
+    favorito = _favorito(_item(user, "nuevo-favorito"))
+
+    sesion = construir_sesion(
+        repasados + [nuevo, favorito], tamano=15, incluir_nuevos=False
+    )
+
+    assert favorito in sesion
+    assert nuevo not in sesion
+
+
+def test_los_favoritos_ocupan_huecos_y_respetan_la_novedad(db, user):
+    """C605. Dentro de la sesión, no encima: sigue siendo de 15, con sus tres
+    huecos de novedad. Lo que ceden los favoritos es repaso."""
+    favoritos = [_favorito(_item(user, f"fav-{n}")) for n in range(2)]
+    for f in favoritos:
+        _practicado_hace(f, 0)
+    vencidos = [_item(user, f"vencido-{n:02d}") for n in range(20)]
+    for v in vencidos:
+        _practicado_hace(v, 60)
+    nuevos = [_item(user, f"nuevo-{n:02d}") for n in range(20)]
+
+    sesion = construir_sesion(favoritos + vencidos + nuevos, tamano=15)
+    pks = {u.pk for u in sesion}
+
+    assert len(sesion) == 15
+    assert {f.pk for f in favoritos} <= pks
+    assert len(pks & {n.pk for n in nuevos}) == 3
+    assert len(pks & {v.pk for v in vencidos}) == 10
+
+
+def test_con_mas_favoritos_que_huecos_entran_todos(db, user):
+    """C605. «Siempre» es la palabra: si no caben, la sesión crece lo justo.
+    La novedad conserva su cuota; el repaso se queda fuera."""
+    favoritos = [_favorito(_item(user, f"fav-{n:02d}")) for n in range(14)]
+    for f in favoritos:
+        _practicado_hace(f, 0)
+    vencidos = [_item(user, f"vencido-{n}") for n in range(5)]
+    for v in vencidos:
+        _practicado_hace(v, 60)
+    nuevos = [_item(user, f"nuevo-{n}") for n in range(5)]
+
+    sesion = construir_sesion(favoritos + vencidos + nuevos, tamano=15)
+    pks = {u.pk for u in sesion}
+
+    assert {f.pk for f in favoritos} <= pks
+    assert len(pks & {n.pk for n in nuevos}) == 3
+    assert len(sesion) == 17
+
+
+def test_una_seccion_favorita_entra_y_su_hermana_no(db, user):
+    """C603/C604. El favorito va en la unidad que se practica: marcar la
+    sección difícil no arrastra al resto de la pieza."""
+    largo = _item(user, "sonata")
+    dificil = _favorito(_seccion(largo, "compases 30-60", 0))
+    facil = _seccion(largo, "exposicion", 1)
+    for s in (dificil, facil):
+        ReviewLog.objects.create(
+            user=user, item=largo, section=s, source=ReviewLog.SOURCE_STUDY,
+            reviewed_at=timezone.now(),
+        )
+    vencidos = [_item(user, f"vencido-{n:02d}") for n in range(10)]
+    for v in vencidos:
+        _practicado_hace(v, 60)
+
+    claves = {u.clave_de_practica for u in construir_sesion([largo] + vencidos, tamano=8)}
+
+    assert ("seccion", dificil.pk) in claves
+    assert ("seccion", facil.pk) not in claves
+
+
+def test_sin_favoritos_la_sesion_no_cambia(db, user):
+    """Anti-B. Un favorito desmarcado vuelve a competir como cualquiera."""
+    vencidos = [_item(user, f"vencido-{n:02d}") for n in range(10)]
+    for v in vencidos:
+        _practicado_hace(v, 60)
+    reciente = _item(user, "reciente", nivel=4)
+    _practicado_hace(reciente, 0)
+    reciente.favorite = False
+    reciente.save(update_fields=["favorite"])
+
+    assert reciente not in construir_sesion(vencidos + [reciente], tamano=8)
+
+
+def test_marcar_y_quitar_favorito_desde_el_visor(client, db, user):
+    """C603. El visor manda el estado que quiere, no «dale la vuelta»: dos
+    toques rápidos no pueden dejarlo al revés de lo que enseña la estrella."""
+    item = _item(user, "triadas")
+    client.force_login(user)
+    url = reverse("my_library:marcar_favorito", args=[item.pk])
+
+    r = client.post(url, {"favorito": "1"})
+    assert r.status_code == 200 and r.json()["favorito"] is True
+    item.refresh_from_db()
+    assert item.favorite
+
+    r = client.post(url, {"favorito": "1"})
+    item.refresh_from_db()
+    assert item.favorite, "repetir el mismo estado no lo invierte"
+
+    r = client.post(url, {"favorito": "0"})
+    assert r.json()["favorito"] is False
+    item.refresh_from_db()
+    assert not item.favorite
+
+
+def test_marcar_favorita_una_seccion_no_toca_el_elemento(client, db, user):
+    largo = _item(user, "sonata")
+    seccion = _seccion(largo, "compases 30-60")
+    client.force_login(user)
+
+    r = client.post(
+        reverse("my_library:marcar_favorito", args=[largo.pk]),
+        {"favorito": "1", "section": str(seccion.pk)},
+    )
+
+    assert r.status_code == 200
+    seccion.refresh_from_db()
+    largo.refresh_from_db()
+    assert seccion.favorite
+    assert not largo.favorite
+
+
+def test_no_se_marca_favorito_lo_ajeno(client, db, user):
+    item = _item(user, "triadas")
+    client.force_login(UserFactory())
+
+    r = client.post(
+        reverse("my_library:marcar_favorito", args=[item.pk]), {"favorito": "1"}
+    )
+
+    assert r.status_code == 404
+    item.refresh_from_db()
+    assert not item.favorite
+
+
+def test_marcar_favorito_solo_por_post(client, db, user):
+    item = _item(user, "triadas")
+    client.force_login(user)
+
+    r = client.get(reverse("my_library:marcar_favorito", args=[item.pk]))
+
+    assert r.status_code == 405
+
+
+def test_el_visor_sabe_que_es_favorito_y_tiene_la_estrella(client, db, user):
+    """C603. Si no está en la página, no existe: la estrella y su estado viajan
+    en la playlist, por unidad."""
+    normal = _item(user, "normal")
+    favorito = _favorito(_item(user, "favorito"))
+    client.force_login(user)
+
+    r = client.get(
+        reverse("my_library:study_session"), {"items": f"{normal.pk},{favorito.pk}"}
+    )
+    html = r.content.decode()
+    playlist = json.loads(r.context["playlist_json"])
+
+    assert [p["favorito"] for p in playlist] == [False, True]
+    assert 'id="fab-favorito"' in html
+    assert "marcarFavorito" in html
+
+
+def test_el_filtro_manda_sobre_el_favorito(client, db, user):
+    """C606. Con «piano» elegido, un favorito de guitarra no entra; sin
+    filtro, sí."""
+    pianos = [_item(user, f"p-{n}", tags=["instrumento:piano"]) for n in range(3)]
+    guitarra = _favorito(_item(user, "g-fav", tags=["instrumento:guitarra"]))
+    client.force_login(user)
+
+    def servidos(params):
+        r = client.get(reverse("my_library:session_launch"), params)
+        return {int(p) for p in r.url.split("items=")[1].split("&")[0].split(",")}
+
+    assert servidos({"instrumento": "piano"}) == {p.pk for p in pianos}
+    assert guitarra.pk in servidos({})
+
+
+def test_la_vista_previa_marca_los_favoritos(client, db, user):
+    """C607. Un favorito practicado hoy aparece en la lista de «hoy te
+    tocaría»: sin marca parecería un error."""
+    favorito = _favorito(_item(user, "triadas-favoritas", tags=["instrumento:guitarra"]))
+    _practicado_hace(favorito, 0)
+    otro = _item(user, "otro", tags=["instrumento:guitarra"])
+    _practicado_hace(otro, 0)
+    client.force_login(user)
+
+    html = client.get(
+        reverse("my_library:session_count"), {"instrumento": "guitarra"}
+    ).content.decode()
+
+    assert html.count('data-favorito="1"') == 1

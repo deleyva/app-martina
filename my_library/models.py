@@ -158,8 +158,12 @@ class LibraryItem(models.Model):
     # Tags para items sin tags propios (embeds)
     tags = TaggableManager(blank=True, help_text="Tags para items sin tags propios (embeds)")
 
-    # Organización (futuro)
-    favorite = models.BooleanField(default=False)
+    # Favorito: entra en TODAS las sesiones hasta que se quite (fase 90).
+    #
+    # El campo venía de la migración inicial sin que nada lo leyera. Lo usa
+    # `session.construir_sesion`, y solo cuando el elemento es la unidad que
+    # se practica: si está troceado, mandan las estrellas de sus secciones.
+    favorite = models.BooleanField(default=False, verbose_name="Favorito")
 
     class Meta:
         ordering = ["proficiency_level", "times_viewed", "-added_at"]
@@ -765,6 +769,10 @@ class ItemSection(models.Model):
         default=1, help_text="Nivel de dominio de ESTA sección"
     )
     notes = models.TextField(blank=True, help_text="Notas de esta sección")
+
+    # Mismo nombre que en `LibraryItem` a propósito: la sesión pregunta
+    # `unidad.favorite` sin saber si es un elemento o una sección (fase 90).
+    favorite = models.BooleanField(default=False, verbose_name="Favorito")
 
     created_at = models.DateTimeField(auto_now_add=True)
 
