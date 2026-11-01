@@ -115,14 +115,36 @@ No hay fase 79.
 4. **Filtrar por `autor` y `obra`.** Siguen fuera de `FACETAS_DE_FILTRO`, así
    que un libro sin objetivo no se puede acotar de ninguna manera.
 
-5. **Menores, para un hueco:** un marco de calificación propio para 3º bilingüe
+5. **Turnar al alumnado por los instrumentos de la banda** (añadida el
+   2026-11-01 a petición de Jesús). Diseño hecho, código sin empezar: está
+   en el artículo de Readeck del 29-oct sobre el reparto de instrumentos,
+   que salió de los tres de repertorio del 16 al 19-oct. Lo esencial:
+   - **1º y 3º:** seis puestos de banda que rotan por turnos; ukelele y
+     xilófono no rotan; el solista va fuera de la lista. Se asigna puesto ×
+     turno, no canción × alumno.
+   - **4º:** banda de cinco, rota uno cada vez.
+   - **El turno se cuenta en sesiones en el aula de música**
+     (`PaseDeLista.aula == "musica"`), no en semanas: con una hora semanal
+     allí, un festivo se comería medio turno.
+   - **Regla de justicia:** entra quien lleva más tiempo sin ese puesto,
+     con empates al azar. Nadie repite antes de que hayan pasado todos.
+   - **Reutiliza** `PlanoDeClase`, `PaseDeLista`/`Asistencia`, `faltan_en`
+     (`clases/plano.py`), `sortear` (`calificaciones/cuaderno.py`) y el
+     visor de clase (`present.html`, con la tecla B libre el 29-oct). Pide
+     tres pantallas (preparar, proyectar y la del alumno) y en clase nunca
+     más de un toque.
+   - **Por decidir antes de abrir la fase:** si se prueban antes dos turnos
+     en papel con un grupo de 1º o 3º. Los modelos y funciones citados
+     siguen existiendo (comprobado con `rg` el 1-nov).
+
+6. **Menores, para un hueco:** un marco de calificación propio para 3º bilingüe
    (hoy recibe la plantilla de 3º, fase 60) · las columnas Cuaderno, Nota y
    Calif. no caben a 1456 px (fase 59) · notación de los ritmos con alphaTab
    (fase 75) · añadir material suelto al índice sigue siendo de uno en uno ·
    atajo de teclado para encajar la imagen, después de arreglar los `keydown`
    (ver la deuda).
 
-6. **Mirar con datos de uso, no construir todavía:** si elegir un libro deja
+7. **Mirar con datos de uso, no construir todavía:** si elegir un libro deja
    vencer el repaso de los demás (fase 19) · si el techo de 90 días de FSRS
    es mucho o poco para una destreza (fase 91) · si el tope por capítulo basta
    (CAGED, fase 30·1).
