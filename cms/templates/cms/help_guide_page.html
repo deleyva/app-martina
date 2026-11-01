@@ -33,10 +33,10 @@ cuadrar y nadie lo revisa.
   {% endif %}
 
   <ol class="flex flex-col gap-10">
-    {% for bloque in page.pasos %}
+    {% for numero, bloque in page.bloques_numerados %}
       {% if bloque.block_type == "paso" %}
       <li class="flex gap-4">
-        <span class="badge badge-primary badge-lg shrink-0 mt-1">{{ forloop.counter }}</span>
+        <span class="badge badge-primary badge-lg shrink-0 mt-1">{{ numero }}</span>
         <div class="flex-1 min-w-0">
           <h2 class="text-xl font-semibold mb-2">{{ bloque.value.titulo }}</h2>
           <div class="prose max-w-none">{{ bloque.value.texto|richtext }}</div>

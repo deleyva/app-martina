@@ -332,6 +332,24 @@ class HelpGuidePage(Page):
     def numero_de_pasos(self):
         return sum(1 for bloque in self.pasos if bloque.block_type == "paso")
 
+    @property
+    def bloques_numerados(self):
+        """Cada bloque con su número de paso; los avisos van sin número.
+
+        La plantilla numeraba con `forloop.counter`, que cuenta también los
+        avisos: uno entre el paso 3 y el 4 hacía saltar del 3 al 5, con la
+        cabecera diciendo «8 pasos» (guía de la banda, 2026-11-01).
+        """
+        numero = 0
+        numerados = []
+        for bloque in self.pasos:
+            if bloque.block_type == "paso":
+                numero += 1
+                numerados.append((numero, bloque))
+            else:
+                numerados.append((None, bloque))
+        return numerados
+
 
 class SavedResourceFilter(models.Model):
     """Filtros guardados por el usuario para la biblioteca unificada"""
