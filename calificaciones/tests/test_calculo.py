@@ -79,6 +79,16 @@ def test_cualitativa(nota, esperado):
     assert calculo.cualitativa(nota) == esperado
 
 
+@pytest.mark.parametrize(
+    "nota, esperado",
+    [(D("8.49"), "NT"), (D("8.5"), "NT+"), (D("8.99"), "NT+"), (D(9), "SB"), (D(7), "NT"), (D("6.99"), "BI"), (None, "")],
+)
+def test_letra_de_media_tiene_nt_mas_y_el_boletin_no(nota, esperado):
+    """C647. Las casillas calculadas distinguen NT+ (8,5-8,9); el boletín sigue en NT."""
+    assert calculo.letra_de_media(nota) == esperado
+    assert calculo.cualitativa(nota) == ("NT" if esperado == "NT+" else esperado)
+
+
 def test_repartir_a_partes_iguales_suma_exacta():
     partes = calculo.repartir_a_partes_iguales(D(10), 3)
     assert sum(partes) == D(10)

@@ -28,6 +28,12 @@ export function resolverEntrada(texto, opciones) {
 
   const empiezan = opciones.filter((o) => normalizar(o.etiqueta).startsWith(clave));
   if (empiezan.length === 1) return { tipo: 'opcion', opcion: empiezan[0] };
+  // «N» con NT y NT+: si una de las que empiezan igual es el principio de todas
+  // las demás, es esa; la larga se pide tecleando lo que le sobra («NT+»).
+  const raiz = empiezan.find((o) =>
+    empiezan.every((otra) => normalizar(otra.etiqueta).startsWith(normalizar(o.etiqueta))),
+  );
+  if (raiz) return { tipo: 'opcion', opcion: raiz };
   return { tipo: 'invalido' };
 }
 

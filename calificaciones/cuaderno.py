@@ -195,7 +195,7 @@ def acumulado_de(filas) -> dict:
         "tipo": "cuaderno",
         "n": len(filas),
         "media": str(media) if media is not None else "",
-        "letra": calculo.cualitativa(media),
+        "letra": calculo.letra_de_media(media),
         "revisiones": [
             {
                 "sesion": f.session_id,

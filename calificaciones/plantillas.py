@@ -33,8 +33,16 @@ from .models import Instrumento, MarcoEvaluacion, Plan, Reparto
 # la misma letra recibe esa misma letra de media, y las mezclas caen en la de
 # arriba. El IN vale 4, no 2,5: un mal día no hunde el trimestre, y una celda
 # vacía ya cuenta 0. Antes (2026-09-29) fue A 10 · B 8 · C 6 · D 4.
+#
+# NT+ vale 8,5 (decisión de Jesús, 2026-11-02): el notable alto que no llega a
+# sobresaliente. Está dentro del tramo del NT (7-8,9), así que quien saca
+# siempre NT+ tiene de media un NT en el boletín, que es lo honesto; NT+ con SB
+# da 9 (SB) y NT con NT+ da 8,25 (NT). El NT se queda en 8 y no baja a 7,5:
+# las notas ya puestas tienen el 8 grabado y se leen por valor exacto. El
+# boletín (`calculo.cualitativa`, `NotaManual`) sigue con las cinco de siempre.
 ESCALA = [
     {"etiqueta": "SB", "valor": 9.5},
+    {"etiqueta": "NT+", "valor": 8.5},
     {"etiqueta": "NT", "valor": 8},
     {"etiqueta": "BI", "valor": 6.5},
     {"etiqueta": "SU", "valor": 5.5},

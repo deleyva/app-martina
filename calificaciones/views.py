@@ -329,7 +329,7 @@ def plan_ajustes(request, plan_id):
     plan = _plan_del_profesor(request.user, plan_id)
     if "a_letras" in request.POST:
         plan.pasar_a_letras(plantillas.ESCALA)
-        messages.success(request, "Todos los instrumentos se califican ahora con SB, NT, BI, SU e IN.")
+        messages.success(request, "Todos los instrumentos se califican ahora con SB, NT+, NT, BI, SU e IN.")
     else:
         plan.hueco_cuenta_cero = request.POST.get("hueco_cuenta_cero") == "on"
         plan.save(update_fields=["hueco_cuenta_cero"])

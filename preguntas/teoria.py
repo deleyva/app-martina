@@ -135,7 +135,7 @@ def acumulado_de(alumno, pases: list[Pase]) -> dict:
                 "sesion": pase.session_id,
                 "pase": pase.pk,
                 "fecha": pase.fecha.isoformat(),
-                "letra": calculo.cualitativa(nota),
+                "letra": calculo.letra_de_media(nota),
                 "nota": _texto(nota),
                 "comentario": f"{aciertos} de {len(respuestas)} · {_texto(nota)}",
                 "fallos": _fallos(respuestas),
@@ -146,7 +146,7 @@ def acumulado_de(alumno, pases: list[Pase]) -> dict:
         "tipo": "teoria",
         "n": len(revisiones),
         "media": str(media) if media is not None else "",
-        "letra": calculo.cualitativa(media),
+        "letra": calculo.letra_de_media(media),
         "revisiones": revisiones,
         "conceptos": _por_concepto(todas),
     }

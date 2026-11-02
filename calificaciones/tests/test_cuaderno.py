@@ -212,6 +212,26 @@ def test_la_casilla_es_la_letra_de_la_media_de_las_revisiones(group, profesor, a
     assert CambioNota.objects.filter(nota=nota).count() == 3  # 9,5 → 6,5 → 8
 
 
+def test_nt_mas_se_califica_y_la_casilla_lo_distingue(group, profesor, alumnos, cuad):
+    """C647. Dos NT+ en el cuaderno → media 8,5 → casilla NT+ (8,5), no NT (8).
+
+    Tres con un SB dan 8,83 y siguen en NT+; con otro SB la media es 9 y ya es SB.
+    """
+    alumno = alumnos[0]
+    casillas = []
+    for dia, letra in ((1, "NT+"), (2, "NT+"), (3, "SB"), (4, "SB")):
+        s = _sesion(group, profesor, dia)
+        cuaderno.sortear(s, cuad, n=1, azar=random.Random(1))
+        fila, nota = cuaderno.calificar(s, alumno, letra, profesor)
+        assert fila.letra == letra
+        casillas.append((nota.rubrica["acumulado"]["letra"], nota.valor))
+    assert casillas == [("NT+", Decimal("8.5")), ("NT+", Decimal("8.5")), ("NT+", Decimal("8.5")), ("SB", Decimal("9.5"))]
+    nota = Nota.objects.get(prueba=cuad.prueba_para_evaluar(), alumno=alumno)
+    assert nota.rubrica["acumulado"]["media"] == "9.00"
+    assert RevisionCuaderno.objects.filter(alumno=alumno, letra="NT+").count() == 2
+    assert RevisionCuaderno.objects.get(alumno=alumno, letra="NT+", session__date__day=1).valor == Decimal("8.5")
+
+
 def test_una_pendiente_no_es_nota(sesion, alumnos, cuad):
     cuaderno.sortear(sesion, cuad)
     assert Nota.objects.count() == 0

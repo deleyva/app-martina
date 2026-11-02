@@ -42,7 +42,7 @@ TRIMESTRES = [(1, "1ª evaluación"), (2, "2ª evaluación"), (3, "3ª evaluaci�
 
 # Las calificaciones cualitativas, de mejor a peor. Las usan evaluar en clase
 # (fase 62) y el dado del cuaderno (fase 78).
-LETRAS = ["SB", "NT", "BI", "SU", "IN"]
+LETRAS = ["SB", "NT+", "NT", "BI", "SU", "IN"]
 
 
 def alumnos_del_grupo(group):
@@ -805,7 +805,7 @@ class RevisionCuaderno(models.Model):
         Instrumento, on_delete=models.CASCADE, related_name="revisiones_cuaderno"
     )
     letra = models.CharField(
-        max_length=2, blank=True, choices=[(letra, letra) for letra in LETRAS],
+        max_length=3, blank=True, choices=[(letra, letra) for letra in LETRAS],
         help_text="Vacía = sorteado y pendiente de mirar",
     )
     valor = models.DecimalField(

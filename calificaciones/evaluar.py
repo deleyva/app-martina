@@ -26,8 +26,14 @@ from .plantillas import ESCALA
 # a uno lineal. Se escriben como fracciones (numerador, denominador) porque se
 # comparan sin dividir: `media >= 5/2` es `2 * suma >= 5 * n`, y así una media
 # de 2,4999… por redondeo no cae nunca en el tramo equivocado.
+#
+# NT+ (2026-11-02) corta en 2,75, a medio camino entre el NT y el SB, como los
+# demás cortes van de medio en medio. Con tres apartados no se alcanza (3·3·2 es
+# 2,67 y sigue siendo NT, la tabla que acordó Jesús); con cuatro, 3·3·3·2 lo da.
+# El profesor siempre puede pulsar NT+ por encima de la propuesta.
 CORTES = [
     ("SB", 3, 1),
+    ("NT+", 11, 4),
     ("NT", 5, 2),
     ("BI", 2, 1),
     ("SU", 3, 2),
@@ -35,7 +41,7 @@ CORTES = [
 
 
 def letra_de_rubrica(puntos) -> str:
-    """SB · NT · BI · SU · IN a partir de los puntos (cada uno 1, 2 o 3)."""
+    """SB · NT+ · NT · BI · SU · IN a partir de los puntos (cada uno 1, 2 o 3)."""
     puntos = list(puntos)
     if not puntos or any(p not in (1, 2, 3) for p in puntos):
         raise ValueError("Cada apartado se puntúa con 1, 2 o 3")
@@ -52,7 +58,7 @@ def valor_de_letra(instrumento: Instrumento, letra: str) -> Decimal:
     Si el instrumento califica con lista de opciones y tiene esa letra, manda su
     valor: así la nota se guarda exactamente igual que si se hubiera tecleado en
     el registro. Si no (escala numérica, u opciones de otra escala), el valor de
-    la escala del curso: SB 9,5 · NT 8 · BI 6,5 · SU 5,5 · IN 4.
+    la escala del curso: SB 9,5 · NT+ 8,5 · NT 8 · BI 6,5 · SU 5,5 · IN 4.
     """
     if letra not in LETRAS:
         raise ValueError(f"«{letra}» no es una calificación")

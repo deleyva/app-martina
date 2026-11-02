@@ -46,6 +46,7 @@ def test_las_plantillas_nacen_con_la_escala_cualitativa(marcos, group):
             assert instrumento.escala == Instrumento.ESCALA_OPCIONES, instrumento.nombre
             assert [(o["etiqueta"], o["valor"]) for o in instrumento.opciones_normalizadas()] == [
                 ("SB", D("9.5")),
+                ("NT+", D("8.5")),
                 ("NT", D(8)),
                 ("BI", D("6.5")),
                 ("SU", D("5.5")),
@@ -69,7 +70,7 @@ def test_letra_que_no_es_opcion_da_400(client, group, alumnos, plan_letras):
     teoria = Prueba.objects.get(instrumento__plan=plan_letras, instrumento__nombre="Teoría")
     r = _guardar(client, group, teoria, alumnos[0], "7")
     assert r.status_code == 400
-    assert "SB, NT, BI, SU, IN" in r.json()["error"]
+    assert "SB, NT+, NT, BI, SU, IN" in r.json()["error"]
     assert not Nota.objects.filter(valor__isnull=False).exists()
     assert not CambioNota.objects.exists()
 
@@ -357,5 +358,5 @@ def test_el_plan_deja_cambiar_la_regla_y_pasar_a_letras(client, profesor, group,
     assert "{#" not in html
     assert "Una celda vacía cuenta como 0" in html
     assert 'name="hueco_cuenta_cero" class="checkbox checkbox-sm" checked' in html
-    assert "Calificar todo con SB · NT · BI · SU · IN" in html
+    assert "Calificar todo con SB · NT+ · NT · BI · SU · IN" in html
     assert f"/calificaciones/grupo/{group.pk}/?t=1#info" in html

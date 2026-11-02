@@ -62,14 +62,20 @@ test('los acentos no cuentan', () => {
 
 const CUALITATIVA = [
   { etiqueta: 'SB', valor: '9.5' },
+  { etiqueta: 'NT+', valor: '8.5' },
   { etiqueta: 'NT', valor: '8' },
   { etiqueta: 'BI', valor: '6.5' },
   { etiqueta: 'SU', valor: '5.5' },
   { etiqueta: 'IN', valor: '4' },
 ];
 
-test('con SB·NT·BI·SU·IN, la primera letra basta salvo con la S', () => {
+test('con SB·NT+·NT·BI·SU·IN, la primera letra basta salvo con la S', () => {
   expect(resolverEntrada('n', CUALITATIVA).opcion.etiqueta).toBe('NT');
+  // C648. «N» y «NT» siguen siendo NT aunque NT+ empiece igual; NT+ se pide entero o por su valor.
+  expect(resolverEntrada('nt+', CUALITATIVA).opcion.etiqueta).toBe('NT+');
+  expect(resolverEntrada('NT+', CUALITATIVA).opcion.etiqueta).toBe('NT+');
+  expect(resolverEntrada('8.5', CUALITATIVA).opcion.etiqueta).toBe('NT+');
+  expect(resolverEntrada('8,5', CUALITATIVA).opcion.etiqueta).toBe('NT+');
   expect(resolverEntrada('b', CUALITATIVA).opcion.etiqueta).toBe('BI');
   expect(resolverEntrada('i', CUALITATIVA).opcion.etiqueta).toBe('IN');
   expect(resolverEntrada('s', CUALITATIVA)).toEqual({ tipo: 'invalido' }); // SB o SU

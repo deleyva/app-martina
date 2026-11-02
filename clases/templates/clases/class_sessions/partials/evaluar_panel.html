@@ -54,6 +54,7 @@
   #panel-evaluar .ev-punto.si[data-v="3"] { background: #15803d; }
   #panel-evaluar .ev-letra { min-width: 28px; height: 24px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.18); background: transparent; color: #fff; font-size: 11px; font-weight: 900; cursor: pointer; padding: 0 4px; }
   #panel-evaluar .ev-letra.si[data-l="SB"] { background: #15803d; }
+  #panel-evaluar .ev-letra.si[data-l="NT+"] { background: #0e7490; }
   #panel-evaluar .ev-letra.si[data-l="NT"] { background: #1d4ed8; }
   #panel-evaluar .ev-letra.si[data-l="BI"], #panel-evaluar .ev-letra.si[data-l="SU"] { background: #a16207; }
   #panel-evaluar .ev-letra.si[data-l="IN"] { background: #b91c1c; }
@@ -145,11 +146,12 @@
   };
 
   // ── La letra de la rúbrica: los MISMOS cortes que `calificaciones.evaluar` ──
-  // media 3 → SB · ≥2,5 → NT · ≥2 → BI · ≥1,5 → SU · menos → IN, sin dividir.
+  // media 3 → SB · ≥2,75 → NT+ · ≥2,5 → NT · ≥2 → BI · ≥1,5 → SU · menos → IN, sin dividir.
   function letraDe(puntos) {
     if (!puntos.length || puntos.some(function (p) { return !p; })) return null;
     var s = puntos.reduce(function (a, b) { return a + b; }, 0), n = puntos.length;
     if (s >= 3 * n) return 'SB';
+    if (4 * s >= 11 * n) return 'NT+';
     if (2 * s >= 5 * n) return 'NT';
     if (s >= 2 * n) return 'BI';
     if (2 * s >= 3 * n) return 'SU';

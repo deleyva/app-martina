@@ -287,6 +287,16 @@ def cualitativa(nota: Decimal | None) -> str:
     return "SB"
 
 
+def letra_de_media(nota: Decimal | None) -> str:
+    """La letra de una casilla que se calcula (cuaderno, teoría): como `cualitativa`,
+    pero con el NT+ del registro entre 8,5 y 8,9. El boletín no lo tiene; esta sí.
+    """
+    letra = cualitativa(nota)
+    if letra == "NT" and nota >= Decimal("8.5"):
+        return "NT+"
+    return letra
+
+
 CUALITATIVAS = {
     "IN": "Insuficiente",
     "SU": "Suficiente",

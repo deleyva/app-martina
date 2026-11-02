@@ -67,6 +67,8 @@ def _referencia(puntos):
     media = Fraction(sum(puntos), len(puntos))
     if media == 3:
         return "SB"
+    if media >= Fraction(11, 4):
+        return "NT+"
     if media >= Fraction(5, 2):
         return "NT"
     if media >= 2:
@@ -99,6 +101,14 @@ def test_la_tabla_acordada_con_tres_apartados():
     }
     for puntos, letra in tabla.items():
         assert evaluar.letra_de_rubrica(puntos) == letra
+
+
+def test_nt_mas_sale_con_cuatro_apartados_y_no_con_tres():
+    """C646. NT+ corta en 2,75: 3·3·3·2 lo da; 3·3·2 (2,67) sigue siendo el NT de la tabla."""
+    assert evaluar.letra_de_rubrica((3, 3, 3, 2)) == "NT+"
+    assert evaluar.letra_de_rubrica((3, 3, 2)) == "NT"
+    assert evaluar.letra_de_rubrica((3, 3, 3, 3, 2)) == "NT+"
+    assert evaluar.letra_de_rubrica((3, 3, 2, 2)) == "NT"
 
 
 @pytest.mark.parametrize("malos", [[], [0], [4], [1, 2, 5], ["3"]])
