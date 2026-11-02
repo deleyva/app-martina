@@ -6166,7 +6166,7 @@ Faders verticales uno al lado de otro · arrastrar la columna · recordar entre 
 - **2026-11-02 — Desplegada** («despliega»): push de `237de8f` y `just deploy-production`; el log dice `HEAD is now at 237de8f`, 275 estáticos copiados y «No migrations to apply». Verificación en producción en la misma hora: ver C635 y C636.
 - **2026-11-02 — Segunda mirada independiente: no la hubo.** Pantalla de un solo usuario, sin autenticación nueva ni datos tocados; la contraprueba son los dos tests y el falsador numérico de C635 en producción.
 
-## Fase 95 — El 2FA por TOTP vuelve a activarse: faltaba `qrcode` en la imagen (2026-11-02) · DESPLEGADA EL 2026-11-02 (`54b977b`); `import qrcode` COMPROBADO EN LA IMAGEN DE PRODUCCIÓN
+## Fase 95 — El 2FA por TOTP vuelve a activarse: faltaba `qrcode` en la imagen (2026-11-02) · DESPLEGADA EL 2026-11-02 (`54b977b`) Y VERIFICADA EN PRODUCCIÓN POR JESÚS (QR visible)
 
 ### Por qué
 
@@ -6177,7 +6177,7 @@ El 2026-11-01 a las 12:29 producción mandó el correo de error de Django: `Modu
 - [x] **C637** — `requirements/base.txt` fija `qrcode==8.2` (última en PyPI, `>=3.9`, sin dependencias en Linux) junto a `fido2`. *Falsador: `rg -n "^qrcode==" requirements/base.txt` da exactamente una línea.*
 - [x] **C638** — Un usuario autenticado hace poco que pide `/accounts/2fa/totp/activate/` recibe 200 y el QR en SVG. *Falsador: el test tiene que FALLAR con `ModuleNotFoundError: No module named 'qrcode'` sin el paquete y PASAR con él.* **Evidencia:** `test_activar_totp_muestra_el_qr` (`users/tests/test_mfa_totp.py`): sin `qrcode` en `.venv-test` → `1 failed` con ese mismo error; con `qrcode==8.2` → `1 passed` (SQLite, `--nomigrations`, 2026-11-02).
 - [x] **C639** — La imagen de Docker se construye con el requisito nuevo y dentro de ella `import qrcode` funciona. *Falsador: `docker compose -f docker-compose.local.yml build django` y un `python -c "import qrcode"` en un contenedor de esa imagen.* **Evidencia:** build local completado (`martina_bescos_app_local_django:latest`, 103 s en la capa de exportación) y `import qrcode; from qrcode.image.svg import SvgPathImage` dentro del contenedor → «qrcode en la imagen OK» (2026-11-02).
-- [ ] **C640** — En producción, `/accounts/2fa/totp/activate/` con la sesión de Jesús en Chrome muestra el QR en vez del 500. *Falsador: la página en Chrome.* **Evidencia parcial (2026-11-02):** la URL ya no da 500: redirige a `/accounts/reauthenticate/?next=…` («Confirmar acceso», pide la contraseña), que es lo que allauth hace antes de pintar el QR. Y dentro de la imagen de producción, `import qrcode; from qrcode.image.svg import SvgPathImage` → «qrcode OK en produccion». El QR en sí solo se ve tras la contraseña, que no tecleo yo: queda para que Jesús lo confirme con un vistazo.
+- [x] **C640** — En producción, `/accounts/2fa/totp/activate/` con la sesión de Jesús en Chrome muestra el QR en vez del 500. *Falsador: la página en Chrome.* **Cerrada por Jesús el 2026-11-02:** tras confirmar su contraseña vio el QR («ya veo el QR»). **Evidencia previa de esta sesión:** la URL ya no da 500: redirige a `/accounts/reauthenticate/?next=…` («Confirmar acceso», pide la contraseña), que es lo que allauth hace antes de pintar el QR. Y dentro de la imagen de producción, `import qrcode; from qrcode.image.svg import SvgPathImage` → «qrcode OK en produccion». El QR en sí solo se ve tras la contraseña, que no tecleo yo; lo confirmó Jesús.
 
 ### Anti-claims
 
