@@ -1,6 +1,6 @@
 ---
 slug: app-martina
-phase: verify
+phase: complete
 progress: true
 iteration: 64
 principal_stated_goal: "Yo solo quiero añadir evidencias tal cual están diseñadas en la aplicación de Notas. Por favor, copiala. Usa en vez de HTMLX, usa, en fin, haz lo que sea, pero que sea igual visualmente. Me gusta mucho esa forma de calificar, esa aplicación que hicimos."
@@ -6133,7 +6133,7 @@ Faders verticales uno al lado de otro · arrastrar la columna · recordar entre 
 - **2026-11-01 — Encontrado y no arreglado:** un `GET` a `/clases/sessions/<pk>/preparar/` da 500 (`ValueError: not enough values to unpack` en `anadir_elementos`). La ruta solo se usa por `POST` desde el formulario de preparar, así que nadie la pisa, pero debería contestar 405. Fuera de esta fase.
 - **2026-11-01 — Queda por limpiar:** en la copia local de Docker siguen el usuario de prueba, el grupo «PRUEBA-F93» y la sesión 130; la base SQLite del servidor de prueba vive en el scratchpad de la sesión y se va sola. El `ISA.md` de esta fase está en un commit local sin subir: sale con el próximo push.
 
-## Fase 94 — El índice dice cuáles he descartado (2026-11-02) · CONSTRUIDA, PENDIENTE DE DESPLIEGUE
+## Fase 94 — El índice dice cuáles he descartado (2026-11-02) · DESPLEGADA Y VERIFICADA EN PRODUCCIÓN EL 2026-11-02
 
 **Goal (literal de Jesús, 2026-11-02):** «ok, quiero que el índice me diga cuáles he descartado. Adelante».
 
@@ -6145,8 +6145,8 @@ Faders verticales uno al lado de otro · arrastrar la columna · recordar entre 
 
 - [x] **C633** — Cada tarjeta del índice lleva `data-descartado="1|0"`; la descartada lleva además la clase `item-descartado` (apagada al 55 %, entera al pasar por encima) y la marca «Descartado de los repasos»; la viva no lleva ninguna de las dos. *Falsador: test con un vivo y un descartado que cuenta exactamente una marca y un `data-descartado="1"`.* **Evidencia:** `test_el_indice_marca_los_descartados_y_los_cuenta` (8 passed en el bloque `indice or descartad`, 2026-11-02).
 - [x] **C634** — Encima de la lista sale «N descartado(s) de los repasos», y entre los filtros un `<select id="descartadosFilter">` con las tres opciones; con cero descartados no sale ni el recuento ni el selector. *Falsador: los dos tests de la fase, uno con descartado y otro sin.* **Evidencia:** `test_el_indice_marca_los_descartados_y_los_cuenta` («1 descartado de los repasos», «Solo descartados (1)») y `test_sin_descartados_el_indice_no_ofrece_el_filtro`.
-- [ ] **C635** — El selector filtra de verdad: «Solo vivos» esconde las tarjetas con `data-descartado="1"`, «Solo descartados» esconde las demás, «Limpiar filtros» vuelve a «todos», y el filtro se combina en Y con la búsqueda y las etiquetas. *Falsador: en Chrome con la sesión de Jesús, sobre el libro de CAGED: con «Solo descartados» el recuento del botón de estudio tiene que dar 80, con «Solo vivos» 54, con «todos» 134.* **`[DEFERRED-VERIFY]`:** la copia local de Docker no tiene sesión en Chrome (el formulario pide contraseña y la cuenta de Jesús entra por Google). Se cierra en producción tras desplegar, con el falsador de arriba.
-- [ ] **C636** — Apariencia: la tarjeta descartada se ve apagada y con la marca, legible, sin romper la fila en móvil. *Falsador: captura en Chrome vista por mí, en producción, de una tarjeta viva y una descartada juntas.* **`[DEFERRED-VERIFY]`**, mismo motivo que C635.
+- [x] **C635** — El selector filtra de verdad: «Solo vivos» esconde las tarjetas con `data-descartado="1"`, «Solo descartados» esconde las demás, «Limpiar filtros» vuelve a «todos», y el filtro se combina en Y con la búsqueda y las etiquetas. *Falsador: en Chrome con la sesión de Jesús, sobre el libro de CAGED: con «Solo descartados» el recuento del botón de estudio tiene que dar 80, con «Solo vivos» 54, con «todos» 134.* **Evidencia (producción, Chrome con la sesión de Jesús, 2026-11-02):** biblioteca de 213, «91 descartados de los repasos» arriba; `data-descartado="1"`, clase `item-descartado` y marca: 91 cada uno. «Solo descartados» → 91 visibles, de CAGED **80**, botón de estudio «91»; «Solo vivos» → 122, de CAGED **54**, botón «122»; «todos» → 213, de CAGED **134**. En Y con la búsqueda: «Solo vivos» + «7.3» → 4. «Limpiar filtros» devuelve el selector a «todos» y los 213. Los tres números de CAGED son exactamente los predichos antes de construir.
+- [x] **C636** — Apariencia: la tarjeta descartada se ve apagada y con la marca, legible, sin romper la fila en móvil. *Falsador: captura en Chrome vista por mí, en producción, de una tarjeta viva y una descartada juntas.* **Evidencia:** captura ampliada vista por mí en producción: la tarjeta viva («Capítulo 3 — Harmonic Minor…») a pleno contraste y debajo dos descartadas de CAGED («Example 7.3a», «Chapter Seven — img-010.png») apagadas, con la marca roja perfilada «Descartado de los repasos» junto a «Imagen», en la misma fila que el tipo, sin romper la línea de etiquetas.
 
 ### Anti-claims
 
@@ -6163,4 +6163,5 @@ Faders verticales uno al lado de otro · arrastrar la columna · recordar entre 
 
 - **2026-11-02 — Medición previa:** 134 tarjetas de CAGED en el índice, 54 en el chip de «Empezar», 3 por crear al pedir sesión solo de CAGED (luego cero vivos sin practicar). Código leído: `my_library_index`, `_items_del_usuario`, `descartar_item`/`recuperar_item`, `log_review` (donde sube `times_viewed`), `index.html`, los dos parciales del filtro y `admin.py` (no lista `descartado`).
 - **2026-11-02 — Construida** con un script de Bun con anclas únicas (regla del 2026-10-22): `views.py` (+`descartados`), `index.html` (clase, atributo, marca, recuento, CSS), `library_filter_controls.html` (selector condicionado), `library_filter_script.html` (`matchesDescarte`, reinicio en «Limpiar filtros», `libraryFilterActive`), dos tests nuevos. Repo al día con `origin/main` (`git fetch`, 1 por delante, 0 por detrás).
+- **2026-11-02 — Desplegada** («despliega»): push de `237de8f` y `just deploy-production`; el log dice `HEAD is now at 237de8f`, 275 estáticos copiados y «No migrations to apply». Verificación en producción en la misma hora: ver C635 y C636.
 - **2026-11-02 — Segunda mirada independiente: no la hubo.** Pantalla de un solo usuario, sin autenticación nueva ni datos tocados; la contraprueba son los dos tests y el falsador numérico de C635 en producción.
