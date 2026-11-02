@@ -37,6 +37,7 @@ google-genai==1.16.1
 
 # Autenticación social
 fido2==1.1.1  # Necesario para allauth MFA
+qrcode==8.2  # allauth MFA: el QR de activación TOTP (/accounts/2fa/totp/activate/) hace `import qrcode`
 PyJWT==2.8.0  # https://github.com/jpadilla/pyjwt
 django-crispy-forms==2.3  # https://github.com/django-crispy-forms/django-crispy-forms
 crispy-tailwind==1.0.0  # https://github.com/django-crispy-forms/crispy-tailwind

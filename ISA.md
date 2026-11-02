@@ -6165,3 +6165,26 @@ Faders verticales uno al lado de otro · arrastrar la columna · recordar entre 
 - **2026-11-02 — Construida** con un script de Bun con anclas únicas (regla del 2026-10-22): `views.py` (+`descartados`), `index.html` (clase, atributo, marca, recuento, CSS), `library_filter_controls.html` (selector condicionado), `library_filter_script.html` (`matchesDescarte`, reinicio en «Limpiar filtros», `libraryFilterActive`), dos tests nuevos. Repo al día con `origin/main` (`git fetch`, 1 por delante, 0 por detrás).
 - **2026-11-02 — Desplegada** («despliega»): push de `237de8f` y `just deploy-production`; el log dice `HEAD is now at 237de8f`, 275 estáticos copiados y «No migrations to apply». Verificación en producción en la misma hora: ver C635 y C636.
 - **2026-11-02 — Segunda mirada independiente: no la hubo.** Pantalla de un solo usuario, sin autenticación nueva ni datos tocados; la contraprueba son los dos tests y el falsador numérico de C635 en producción.
+
+## Fase 95 — El 2FA por TOTP vuelve a activarse: faltaba `qrcode` en la imagen (2026-11-02) · CONSTRUIDA Y PROBADA; PENDIENTE DE PUSH Y DESPLIEGUE
+
+### Por qué
+
+El 2026-11-01 a las 12:29 producción mandó el correo de error de Django: `ModuleNotFoundError: No module named 'qrcode'` en `GET /accounts/2fa/totp/activate/`. allauth (65.3.1) importa `qrcode` de forma perezosa dentro de `DefaultMFAAdapter.build_totp_svg`, solo al pintar el QR de activación, así que ni el arranque ni los tests existentes lo echaban en falta. El extra `django-allauth[mfa]` declara `qrcode>=7.0.0` y `fido2>=1.1.2`; en `requirements/base.txt` estaba `fido2` (1.1.1) pero no `qrcode`. Quien intentara activar el segundo factor veía un 500.
+
+### Claims
+
+- [x] **C637** — `requirements/base.txt` fija `qrcode==8.2` (última en PyPI, `>=3.9`, sin dependencias en Linux) junto a `fido2`. *Falsador: `rg -n "^qrcode==" requirements/base.txt` da exactamente una línea.*
+- [x] **C638** — Un usuario autenticado hace poco que pide `/accounts/2fa/totp/activate/` recibe 200 y el QR en SVG. *Falsador: el test tiene que FALLAR con `ModuleNotFoundError: No module named 'qrcode'` sin el paquete y PASAR con él.* **Evidencia:** `test_activar_totp_muestra_el_qr` (`users/tests/test_mfa_totp.py`): sin `qrcode` en `.venv-test` → `1 failed` con ese mismo error; con `qrcode==8.2` → `1 passed` (SQLite, `--nomigrations`, 2026-11-02).
+- [x] **C639** — La imagen de Docker se construye con el requisito nuevo y dentro de ella `import qrcode` funciona. *Falsador: `docker compose -f docker-compose.local.yml build django` y un `python -c "import qrcode"` en un contenedor de esa imagen.* **Evidencia:** build local completado (`martina_bescos_app_local_django:latest`, 103 s en la capa de exportación) y `import qrcode; from qrcode.image.svg import SvgPathImage` dentro del contenedor → «qrcode en la imagen OK» (2026-11-02).
+- [ ] **C640** — En producción, `/accounts/2fa/totp/activate/` con la sesión de Jesús en Chrome muestra el QR en vez del 500. *Falsador: la página en Chrome.* Pendiente de despliegue.
+
+### Anti-claims
+
+- **Anti-A** — No se toca ninguna otra versión: `fido2` sigue en 1.1.1 aunque allauth declare `>=1.1.2`, porque el WebAuthn no es lo que ha fallado y no está en el alcance de esta fase.
+- **Anti-B** — Ni push ni despliegue sin que Jesús lo diga.
+
+### Log
+
+- **2026-11-02 — Diagnóstico:** correo de error leído en el Gmail de Jesús con Chrome (el conector de Gmail está en la cuenta del instituto y el correo llegó a la personal). Comprobado en PyPI que el extra `mfa` de allauth 65.3.1 pide `qrcode>=7.0.0`; comprobado en `.venv-test` que `import qrcode` falla igual que en producción. Repo al día con `origin/main` (`git fetch`: 1 por delante, 0 por detrás).
+- **2026-11-02 — Construida:** una línea en `requirements/base.txt` y el test de la fase. `users` en SQLite: 32 passed, 14 errors en `test_candado_apps.py` (`'NoneType' object has no attribute 'add_child'`: falta la raíz de Wagtail con `--nomigrations`, el límite conocido de SQLite de la fase 92; no tiene que ver con esta fase).
