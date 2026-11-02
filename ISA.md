@@ -1,6 +1,6 @@
 ---
 slug: app-martina
-phase: verify
+phase: complete
 progress: true
 iteration: 66
 principal_stated_goal: "Yo solo quiero añadir evidencias tal cual están diseñadas en la aplicación de Notas. Por favor, copiala. Usa en vez de HTMLX, usa, en fin, haz lo que sea, pero que sea igual visualmente. Me gusta mucho esa forma de calificar, esa aplicación que hicimos."
@@ -6217,7 +6217,7 @@ El 2026-11-01 a las 12:29 producción mandó el correo de error de Django: `Modu
 - **2026-11-02 — Desplegada** desde la sesión del 2FA («pushea y despliega, si no lo ha hecho ya la otra sesión»): push de `a8146f9`, `56ed6d6` y `54b977b` (renumeración de esta fase a 96) y `just deploy-production`. En el servidor `git rev-parse HEAD` da `54b977b`; 275 estáticos copiados, 795 posprocesados, «No migrations to apply». El botón «Recuperar» no se ha probado en producción desde esta sesión.
 - **2026-11-02 — Verificada en producción y un fallo encontrado.** El botón funciona (C643), pero el recuento de arriba pasó de **91 a 4**: `actualizarRecuentoDescartados()` contaba las tarjetas `data-descartado="1"` del DOM, y el índice sin `show_all` solo pinta 6 tarjetas (`my_library_index`, `all_items[:6]`). La verificación de la fase 94 se hizo con la lista completa y por eso no lo vio. Arreglo: el `span` del recuento lleva `data-total="{{ descartados }}"` y el JS aplica el delta sobre ese valor, nunca cuenta el DOM. Suite de `my_library`: **278 passed**. Pendiente de push y despliegue.
 
-## Fase 97 — NT+ vale 8,5 y se puede poner en todo: registro, evaluar en clase, cuaderno y teoría (2026-11-02) · CONSTRUIDA Y VERIFICADA EN LOCAL; SIN DESPLEGAR
+## Fase 97 — NT+ vale 8,5 y se puede poner en todo: registro, evaluar en clase, cuaderno y teoría (2026-11-02) · DESPLEGADA EL 2026-11-02 (`c1f7608`) Y VERIFICADA EN PRODUCCIÓN
 
 **Goal (literal de Jesús, 2026-11-02):** «En https://apps.iesmartinabescos.es/calificaciones/ quiero poder calificar con NT+ creo que sería un 8,5 ¿te parece bien?» y después «8,5 para NT+. Quiero poder ponerlo en todo».
 
@@ -6241,7 +6241,7 @@ El 2026-11-01 a las 12:29 producción mandó el correo de error de Django: `Modu
 - [x] **C648** — En la celda del registro, «n» y «nt» siguen dando NT, «nt+», «8.5» y «8,5» dan NT+, y «s» sigue siendo ambiguo. *Falsador: `bun test` en `calificaciones/frontend` y el `registro.js` reconstruido en el diff.* **Evidencia:** `bun test` 23 pass / 113 expect; en el navegador «nt+» pintó NT+ en Ana y «n» pintó NT en Bruno (tras recargar sin caché: la primera vez el navegador servía el bundle viejo y «n» salía en rojo).
 - [x] **C649** — La migración `0008_nt_mas` amplía `RevisionCuaderno.letra` a 3 caracteres y añade NT+ a todo instrumento cuyas opciones sean exactamente SB · NT · BI · SU · IN; no toca ni las notas ni las otras escalas. *Falsador: `migrate` sobre la copia local: los 12 instrumentos de cinco letras pasan a seis, los 6 de A·B·C·D y los 6 del cuaderno antiguo siguen igual, y el recuento de notas con valor (38) no cambia.* **Evidencia:** «Applying calificaciones.0008_nt_mas... OK»; después: 12 × (SB, NT+, NT, BI, SU, IN), 6 × A·B·C·D, 6 × cuaderno antiguo, 48 numéricos; 38 notas; `max_length` 3; `makemigrations --check` sin cambios.
 - [x] **C650** — En el navegador, en local: una celda del registro acepta «NT+» y la pinta como tal; el panel de evaluar en clase y la franja del cuaderno enseñan el botón NT+ entre SB y NT. *Falsador: capturas en `localhost:8000` con claude-in-chrome.* **Evidencia:** tres capturas con una cuenta de profesor de prueba local (desactivada al terminar): la celda de Teoría de Ana con «NT+» y su nota de 8,0 a 8,7; la franja del cuaderno con SB · NT+ · NT · BI · SU · IN; el panel de evaluar en clase con la rúbrica de tres apartados y el botón NT+ encendido entre SB y NT. Las celdas se devolvieron a IN.
-- [ ] **C651** — Desplegada en producción con la migración aplicada, y una celda real acepta NT+. *Falsador: `just deploy-production` tras el push, «Applying calificaciones.0008_nt_mas… OK» en la salida, y una captura en `apps.iesmartinabescos.es/calificaciones/`.* **`[DEFERRED-VERIFY]`** hasta que Jesús diga «despliega».
+- [x] **C651** — Desplegada en producción con la migración aplicada, y una celda real acepta NT+. *Falsador: `just deploy-production` tras el push, «Applying calificaciones.0008_nt_mas… OK» en la salida, y una captura en `apps.iesmartinabescos.es/calificaciones/`.* **Evidencia:** push de `c1f7608` (y de `1495424`, que estaba sin subir) y `just deploy-production`; en el servidor «HEAD is now at c1f7608», 275 estáticos copiados y 795 posprocesados, «Applying calificaciones.0008_nt_mas... OK». En el navegador con la sesión de Jesús, la pestaña Info del registro de 3-EG-BIL (1ª ev.) dice «Escala de las celdas — SB · NT+ · NT · BI · SU · IN», con NT+ → 8.5 y los nueve instrumentos usándola, y la escala cualitativa del boletín sigue con cinco letras. No se tocó ninguna celda real: la escritura de NT+ en una celda está comprobada en local con el mismo bundle (md5 idéntico al servido).
 
 ### Anti-claims
 
@@ -6254,5 +6254,5 @@ El 2026-11-01 a las 12:29 producción mandó el correo de error de Django: `Modu
 ### Log
 
 - **2026-11-02 — Construida y verificada en local.** Catorce ficheros: `LETRAS` y `RevisionCuaderno.letra` (3 caracteres) en `models.py`; `ESCALA` en `plantillas.py`; `letra_de_media` en `calculo.py`, usada por `cuaderno.acumulado_de` y por `preguntas/teoria.py`; corte 11/4 en `evaluar.CORTES` y en el `letraDe` del parcial de evaluar; color de NT+ en los dos paneles; desempate por raíz en `resolverEntrada` y bundle reconstruido; migración `0008_nt_mas` (campo + datos); mensaje y botón «Calificar todo» con NT+. Tests: `calificaciones`, `preguntas` y `clases` **690 passed**; frontend 23 pass. Un tropiezo propio: mi primer test del cuaderno esperaba SB con NT+ · NT+ · SB, y la media es 8,83, que es NT+; el test estaba mal, no el código. Otro: el servidor local no había recargado el código Python y la franja del cuaderno seguía con cinco letras hasta reiniciar el contenedor.
-- **Pendiente:** push y `just deploy-production` (aplica `0008`), cuando Jesús lo diga. La migración añade NT+ a los instrumentos de cinco letras y no toca ninguna nota.
+- **2026-11-02 — Desplegada** («despliega»): push y `just deploy-production`, migración `0008_nt_mas` aplicada en producción; verificado en el navegador con la sesión de Jesús (pestaña Info de 3-EG-BIL). Queda por ratificar el corte de la rúbrica en 2,75.
 
