@@ -2,9 +2,9 @@
 slug: app-martina
 phase: verify
 progress: true
-iteration: 63
+iteration: 64
 principal_stated_goal: "Yo solo quiero añadir evidencias tal cual están diseñadas en la aplicación de Notas. Por favor, copiala. Usa en vez de HTMLX, usa, en fin, haz lo que sea, pero que sea igual visualmente. Me gusta mucho esa forma de calificar, esa aplicación que hicimos."
-updated: 2026-11-01
+updated: 2026-11-02
 ---
 
 # ISA — app-martina · Sistema de estudio de la biblioteca
@@ -6132,3 +6132,35 @@ Faders verticales uno al lado de otro · arrastrar la columna · recordar entre 
 - **2026-11-01 — Guía publicada en `/ayuda/`** («Publica un tutorial»): «Seguir hasta dónde va cada grupo: las escaleras de peldaños», `HelpGuidePage` 1028, cinco pasos con captura y un aviso al final (la numeración ya no cuenta el aviso: `[1, 2, 3, 4, 5, None]`). Las cinco capturas van incrustadas en base64 dentro del script de `manage.py shell` (por `run --rm -T` vía ssh), ensayado antes contra la copia local dentro de una transacción deshecha (render 200, 5 imágenes). En Chrome con la sesión de Jesús: la guía aparece en `/ayuda/` con «5 pasos» y la página pinta los pasos con sus capturas.
 - **2026-11-01 — Encontrado y no arreglado:** un `GET` a `/clases/sessions/<pk>/preparar/` da 500 (`ValueError: not enough values to unpack` en `anadir_elementos`). La ruta solo se usa por `POST` desde el formulario de preparar, así que nadie la pisa, pero debería contestar 405. Fuera de esta fase.
 - **2026-11-01 — Queda por limpiar:** en la copia local de Docker siguen el usuario de prueba, el grupo «PRUEBA-F93» y la sesión 130; la base SQLite del servidor de prueba vive en el scratchpad de la sesión y se va sola. El `ISA.md` de esta fase está en un commit local sin subir: sale con el próximo push.
+
+## Fase 94 — El índice dice cuáles he descartado (2026-11-02) · CONSTRUIDA, PENDIENTE DE DESPLIEGUE
+
+**Goal (literal de Jesús, 2026-11-02):** «ok, quiero que el índice me diga cuáles he descartado. Adelante».
+
+**El hueco, medido antes de tocar nada (2026-11-02, con la sesión de Jesús en Chrome).** El índice de la biblioteca (`/my-library/todo/`) enseña los descartados mezclados con los vivos y pintados igual: ni marca, ni atributo, ni recuento. Del libro de CAGED había 134 tarjetas en el índice y el chip de «Empezar» contaba 54 vivos, o sea **80 descartados invisibles**. Veintidós de ellos tenían cero vistas: se descartaron con la ✕ del visor sin llegar a valorarse, y yo los había leído como «sin abrir». El contador de vistas sube en `log_review` y en el visor a pantalla completa, no al aparecer en la sesión, así que «cero vistas» no distingue «nunca visto» de «visto y descartado sin nota».
+
+**Vision.** En el índice, un descartado se ve apagado, con una marca «Descartado de los repasos» junto al tipo; arriba de la lista, «N descartados de los repasos»; y entre los filtros, un selector «Vivos y descartados / Solo vivos / Solo descartados (N)» que solo aparece cuando hay alguno. La ✕ de la tarjeta sigue siendo «quitar de la biblioteca», que es otra cosa: borra la fila; descartar la conserva con su historial.
+
+### Claims
+
+- [x] **C633** — Cada tarjeta del índice lleva `data-descartado="1|0"`; la descartada lleva además la clase `item-descartado` (apagada al 55 %, entera al pasar por encima) y la marca «Descartado de los repasos»; la viva no lleva ninguna de las dos. *Falsador: test con un vivo y un descartado que cuenta exactamente una marca y un `data-descartado="1"`.* **Evidencia:** `test_el_indice_marca_los_descartados_y_los_cuenta` (8 passed en el bloque `indice or descartad`, 2026-11-02).
+- [x] **C634** — Encima de la lista sale «N descartado(s) de los repasos», y entre los filtros un `<select id="descartadosFilter">` con las tres opciones; con cero descartados no sale ni el recuento ni el selector. *Falsador: los dos tests de la fase, uno con descartado y otro sin.* **Evidencia:** `test_el_indice_marca_los_descartados_y_los_cuenta` («1 descartado de los repasos», «Solo descartados (1)») y `test_sin_descartados_el_indice_no_ofrece_el_filtro`.
+- [ ] **C635** — El selector filtra de verdad: «Solo vivos» esconde las tarjetas con `data-descartado="1"`, «Solo descartados» esconde las demás, «Limpiar filtros» vuelve a «todos», y el filtro se combina en Y con la búsqueda y las etiquetas. *Falsador: en Chrome con la sesión de Jesús, sobre el libro de CAGED: con «Solo descartados» el recuento del botón de estudio tiene que dar 80, con «Solo vivos» 54, con «todos» 134.* **`[DEFERRED-VERIFY]`:** la copia local de Docker no tiene sesión en Chrome (el formulario pide contraseña y la cuenta de Jesús entra por Google). Se cierra en producción tras desplegar, con el falsador de arriba.
+- [ ] **C636** — Apariencia: la tarjeta descartada se ve apagada y con la marca, legible, sin romper la fila en móvil. *Falsador: captura en Chrome vista por mí, en producción, de una tarjeta viva y una descartada juntas.* **`[DEFERRED-VERIFY]`**, mismo motivo que C635.
+
+### Anti-claims
+
+- **Anti-A** — No se toca ningún dato: la fase es solo de plantilla, vista y JavaScript; ni migración ni escritura. *Falsador: `git diff` sin ficheros de `migrations/` ni `models.py`.* **Cumplido:** el diff toca `views.py` (un `count()`), tres plantillas y `tests.py`.
+- **Anti-B** — Nada cambia por defecto: con el selector en «Vivos y descartados» el índice enseña lo mismo que ayer, y en una biblioteca sin descartados la página es idéntica salvo el atributo `data-descartado="0"`.
+- **Anti-C** — Ni push ni despliegue sin que Jesús lo diga.
+
+### Out of Scope
+
+- Un botón «Recuperar» en la tarjeta del índice (la vista `recuperar_item` existe; hoy solo se llega desde el aviso del visor). Si lo pide, es una fase de una tarde.
+- **Encontrado y no arreglado:** «Comenzar estudio» desde el índice manda los pks visibles a `study_session`, y esa vista no filtra por `descartado`, así que con el selector en «todos» una sesión lanzada desde el índice puede incluir descartados. Antes de esta fase pasaba igual, sin que se viera. Con «Solo vivos» puesto, no.
+
+### Log
+
+- **2026-11-02 — Medición previa:** 134 tarjetas de CAGED en el índice, 54 en el chip de «Empezar», 3 por crear al pedir sesión solo de CAGED (luego cero vivos sin practicar). Código leído: `my_library_index`, `_items_del_usuario`, `descartar_item`/`recuperar_item`, `log_review` (donde sube `times_viewed`), `index.html`, los dos parciales del filtro y `admin.py` (no lista `descartado`).
+- **2026-11-02 — Construida** con un script de Bun con anclas únicas (regla del 2026-10-22): `views.py` (+`descartados`), `index.html` (clase, atributo, marca, recuento, CSS), `library_filter_controls.html` (selector condicionado), `library_filter_script.html` (`matchesDescarte`, reinicio en «Limpiar filtros», `libraryFilterActive`), dos tests nuevos. Repo al día con `origin/main` (`git fetch`, 1 por delante, 0 por detrás).
+- **2026-11-02 — Segunda mirada independiente: no la hubo.** Pantalla de un solo usuario, sin autenticación nueva ni datos tocados; la contraprueba son los dos tests y el falsador numérico de C635 en producción.

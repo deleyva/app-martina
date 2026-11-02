@@ -4556,3 +4556,43 @@ def test_una_seccion_lleva_su_propio_plazo(db, user):
     plazos = plazos_de(_historial([largo, seccion]))
 
     assert plazos[("seccion", seccion.pk)] < plazos[("item", largo.pk)]
+
+
+
+# === Fase 94: el índice marca los descartados ===
+
+
+def test_el_indice_marca_los_descartados_y_los_cuenta(client, user):
+    """Un descarte era invisible en el índice: la tarjeta se pintaba igual que
+    la de un elemento vivo (medido el 2026-11-02: 80 de 134 de CAGED, sin
+    forma de saber cuáles). Ahora lleva la marca, el atributo para filtrar y
+    el recuento arriba."""
+    vivo = _item(user, "vivo")
+    descartado = _item(user, "descartado")
+    descartado.descartado = True
+    descartado.save(update_fields=["descartado"])
+    client.force_login(user)
+
+    html = client.get(reverse("my_library:index")).content.decode()
+
+    tarjeta_vivo = html.split(f'id="library-item-{vivo.pk}"')[0].rsplit("<li", 1)[1]
+    tarjeta_desc = html.split(f'id="library-item-{descartado.pk}"')[0].rsplit("<li", 1)[1]
+    assert "item-descartado" in tarjeta_desc
+    assert "item-descartado" not in tarjeta_vivo
+    assert html.count('data-descartado="1"') == 1
+    assert html.count('data-descartado="0"') == 1
+    assert html.count("Descartado de los repasos") == 1, "la marca, solo en el descartado"
+    assert "1 descartado de los repasos" in html
+    assert 'id="descartadosFilter"' in html
+    assert "Solo descartados (1)" in html
+
+
+def test_sin_descartados_el_indice_no_ofrece_el_filtro(client, library_item, user):
+    """El selector solo tiene sentido cuando hay algo que separar."""
+    client.force_login(user)
+
+    html = client.get(reverse("my_library:index")).content.decode()
+
+    assert 'data-descartado="0"' in html
+    assert 'id="descartadosFilter"' not in html
+    assert "descartado de los repasos" not in html.lower()

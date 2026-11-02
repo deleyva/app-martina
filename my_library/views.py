@@ -54,6 +54,10 @@ def my_library_index(request):
         "content_type", "source_page"
     ).prefetch_related("tags")
     total_items = all_items.count()
+    # Fase 94: los descartados siguen en el índice (un descarte es recuperable),
+    # pero hasta ahora se pintaban igual que los vivos y no había forma de saber
+    # cuáles eran. Medido el 2026-11-02: 80 de 134 elementos de CAGED.
+    descartados = all_items.filter(descartado=True).count()
     show_all = request.GET.get("show_all")
     has_more = False
     items = all_items
@@ -68,6 +72,7 @@ def my_library_index(request):
             "items": items,
             "total_items": total_items,
             "has_more": has_more,
+            "descartados": descartados,
         },
     )
 

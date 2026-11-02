@@ -11,6 +11,10 @@
     
     /* list-row mobile responsive rules are in project.css */
 
+    /* Fase 94: un descartado se ve, pero apagado; al pasar por encima, entero. */
+    .item-descartado { opacity: 0.55; }
+    .item-descartado:hover { opacity: 1; }
+
     /* Estilos para el slider de progreso musical */
     .proficiency-range::-webkit-slider-runnable-track {
         background-size: var(--range-shading, 0%) 100%;
@@ -78,11 +82,15 @@
     <ul class="list bg-base-100 rounded-box shadow-md" id="libraryItemsList">
         <li class="p-4 pb-2 text-xs opacity-60 tracking-wide">
             Tu colección · Ordenado: de menos a más estrellas ⭐, luego de menos a más vistas 👁️
+            {% if descartados %}
+            · <span id="descartadosResumen">{{ descartados }} descartado{{ descartados|pluralize }} de los repasos</span>
+            {% endif %}
         </li>
         
         {% for item in items %}
         {% with related_score=item.get_related_scorepage %}
-        <li class="list-row library-item js-library-filter-item" id="library-item-{{ item.pk }}"
+        <li class="list-row library-item js-library-filter-item{% if item.descartado %} item-descartado{% endif %}" id="library-item-{{ item.pk }}"
+            data-descartado="{% if item.descartado %}1{% else %}0{% endif %}"
             data-proficiency="{{ item.proficiency_level }}"
             data-views="{{ item.times_viewed }}"
             data-added="{{ item.added_at|date:'c' }}"
@@ -103,7 +111,12 @@
             <!-- Info -->
             <div class="flex-1 min-w-0">
                 {% include "my_library/partials/item_title.html" with item=item is_admin=request.user.is_staff %}
-                <div class="text-xs opacity-60">{{ item.get_content_type_name }}</div>
+                <div class="text-xs opacity-60 flex items-center gap-2 flex-wrap">
+                    <span>{{ item.get_content_type_name }}</span>
+                    {% if item.descartado %}
+                    <span class="badge badge-error badge-outline badge-xs" title="Lo quitaste de tus sesiones de estudio con la ✕ del visor. Sigue aquí con su historial y sus notas.">Descartado de los repasos</span>
+                    {% endif %}
+                </div>
                 {% include "my_library/partials/item_tags.html" with item=item is_admin=request.user.is_staff %}
                 
                 <!-- Enlace a ScorePage relacionada (SIEMPRE visible) -->

@@ -187,6 +187,10 @@ function updateHighlight(items) {
 function filterLibraryItems() {
     var input = document.getElementById('searchInput');
     var searchTerm = input ? input.value.toLowerCase() : '';
+    // Fase 94: 'todos' | 'vivos' | 'descartados'. Sin el selector (no hay
+    // descartados), todo cuenta como 'todos'.
+    var descartadosSelect = document.getElementById('descartadosFilter');
+    var modoDescarte = descartadosSelect ? descartadosSelect.value : 'todos';
     var items = document.querySelectorAll('.js-library-filter-item');
     var visibleCount = 0;
 
@@ -223,7 +227,12 @@ function filterLibraryItems() {
             }
         }
 
-        if (matchesSearch && matchesTags) {
+        var descartado = item.dataset.descartado === '1';
+        var matchesDescarte =
+            modoDescarte === 'todos' ||
+            (modoDescarte === 'vivos' ? !descartado : descartado);
+
+        if (matchesSearch && matchesTags && matchesDescarte) {
             item.style.display = '';
             visibleCount++;
         } else {
@@ -239,7 +248,7 @@ function filterLibraryItems() {
     updateStudyButton(visibleCount);
 
     if (typeof libraryFilterActive !== 'undefined') {
-        libraryFilterActive = (searchTerm !== '' || activeTagFilters.length > 0);
+        libraryFilterActive = (searchTerm !== '' || activeTagFilters.length > 0 || modoDescarte !== 'todos');
     }
 }
 
@@ -254,6 +263,8 @@ function clearAllFilters() {
     if (input) input.value = '';
     var tagInput = document.getElementById('tagAutocompleteInput');
     if (tagInput) tagInput.value = '';
+    var descartadosSelect = document.getElementById('descartadosFilter');
+    if (descartadosSelect) descartadosSelect.value = 'todos';
     clearTagFilter();
 }
 

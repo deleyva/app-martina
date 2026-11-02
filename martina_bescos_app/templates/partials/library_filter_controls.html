@@ -94,6 +94,20 @@
                 </div>
                 <div class="tag-ac-dropdown bg-base-100 border border-base-300 rounded-box shadow-lg" id="tagDropdown"></div>
             </div>
+
+            {% if descartados %}
+            <!-- Fase 94: vivos, descartados o los dos -->
+            <div class="form-control">
+                <select id="descartadosFilter"
+                        class="select select-bordered w-full sm:w-auto"
+                        onchange="filterLibraryItems()"
+                        title="Los descartados son los que quitaste de tus repasos con la ✕ del visor">
+                    <option value="todos">Vivos y descartados</option>
+                    <option value="vivos">Solo vivos</option>
+                    <option value="descartados">Solo descartados ({{ descartados }})</option>
+                </select>
+            </div>
+            {% endif %}
         </div>
 
         <div class="flex gap-2 items-center">
