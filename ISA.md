@@ -6189,7 +6189,7 @@ El 2026-11-01 a las 12:29 producción mandó el correo de error de Django: `Modu
 - **2026-11-02 — Diagnóstico:** correo de error leído en el Gmail de Jesús con Chrome (el conector de Gmail está en la cuenta del instituto y el correo llegó a la personal). Comprobado en PyPI que el extra `mfa` de allauth 65.3.1 pide `qrcode>=7.0.0`; comprobado en `.venv-test` que `import qrcode` falla igual que en producción. Repo al día con `origin/main` (`git fetch`: 1 por delante, 0 por detrás).
 - **2026-11-02 — Construida:** una línea en `requirements/base.txt` y el test de la fase. `users` en SQLite: 32 passed, 14 errors en `test_candado_apps.py` (`'NoneType' object has no attribute 'add_child'`: falta la raíz de Wagtail con `--nomigrations`, el límite conocido de SQLite de la fase 92; no tiene que ver con esta fase).
 
-## Fase 95 — «Recuperar» desde la tarjeta del índice (2026-11-02) · CONSTRUIDA, PENDIENTE DE DESPLIEGUE
+## Fase 96 — «Recuperar» desde la tarjeta del índice (2026-11-02) · CONSTRUIDA, PENDIENTE DE DESPLIEGUE
 
 **Goal (literal de Jesús, 2026-11-02):** «Añade el botón Recuperar en la tarjeta, adelante».
 
