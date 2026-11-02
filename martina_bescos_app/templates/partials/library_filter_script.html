@@ -304,6 +304,51 @@ function startStudySession() {
     window.location.href = '{% url "my_library:study_session" %}?items=' + pks.join(',');
 }
 
+// === Fase 95: recuperar un descartado desde su tarjeta ===
+// Mismo endpoint que el aviso «deshacer» del visor. La cookie CSRF es HttpOnly,
+// así que el token sale del <meta> de base.html. Al volver OK, la tarjeta pasa
+// a viva en el sitio: sin recargar, y el recuento y el selector se actualizan.
+function recuperarItem(btn) {
+    var pk = btn.dataset.pk;
+    var card = document.getElementById('library-item-' + pk);
+    if (!pk || !card) return;
+    var meta = document.querySelector('meta[name="csrf-token"]');
+    btn.disabled = true;
+    fetch('{% url "my_library:recuperar_item" pk=99999 %}'.replace('99999', pk), {
+        method: 'POST',
+        headers: { 'X-CSRFToken': meta ? meta.content : '' },
+        credentials: 'same-origin'
+    })
+    .then(function(r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function() {
+        card.classList.remove('item-descartado');
+        card.dataset.descartado = '0';
+        var marca = card.querySelector('.js-marca-descartado');
+        if (marca) marca.remove();
+        btn.remove();
+        actualizarRecuentoDescartados(-1);
+        filterLibraryItems();
+    })
+    .catch(function() {
+        btn.disabled = false;
+        btn.title = 'No se pudo recuperar. Prueba otra vez.';
+        btn.classList.add('btn-error');
+    });
+}
+
+function actualizarRecuentoDescartados(delta) {
+    var n = document.querySelectorAll('[data-descartado="1"]').length;
+    var resumen = document.getElementById('descartadosResumen');
+    if (resumen) {
+        resumen.textContent = n + ' descartado' + (n === 1 ? '' : 's') + ' de los repasos';
+        resumen.style.display = n > 0 ? '' : 'none';
+    }
+    var opcion = document.getElementById('descartadosOpcion');
+    if (opcion) opcion.textContent = 'Solo descartados (' + n + ')';
+    var sel = document.getElementById('descartadosFilter');
+    if (sel && n === 0) sel.value = 'todos';
+}
+
 // === Init ===
 document.addEventListener('DOMContentLoaded', function() {
     collectTags();

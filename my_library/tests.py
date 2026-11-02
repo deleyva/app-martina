@@ -1,5 +1,6 @@
 import collections
 import json
+import re
 import uuid
 from datetime import timedelta
 
@@ -4579,12 +4580,21 @@ def test_el_indice_marca_los_descartados_y_los_cuenta(client, user):
     tarjeta_desc = html.split(f'id="library-item-{descartado.pk}"')[0].rsplit("<li", 1)[1]
     assert "item-descartado" in tarjeta_desc
     assert "item-descartado" not in tarjeta_vivo
-    assert html.count('data-descartado="1"') == 1
-    assert html.count('data-descartado="0"') == 1
+    # Por tarjeta, no por texto: el JavaScript del filtro también contiene la
+    # cadena 'data-descartado="1"' (en un selector), y contarla a pelo da dos.
+    tarjetas = re.findall(r'id="library-item-\d+"\s+data-descartado="(\d)"', html)
+    assert sorted(tarjetas) == ["0", "1"]
     assert html.count("Descartado de los repasos") == 1, "la marca, solo en el descartado"
     assert "1 descartado de los repasos" in html
     assert 'id="descartadosFilter"' in html
     assert "Solo descartados (1)" in html
+    # Fase 95: el botón de recuperar, solo en la descartada, apuntando a su pk.
+    assert html.count("js-recuperar") == 1
+    cuerpo_desc = html.split(f'id="library-item-{descartado.pk}"')[1].split("</li>")[0]
+    cuerpo_vivo = html.split(f'id="library-item-{vivo.pk}"')[1].split("</li>")[0]
+    assert f'data-pk="{descartado.pk}"' in cuerpo_desc
+    assert "js-marca-descartado" in cuerpo_desc
+    assert "js-recuperar" not in cuerpo_vivo
 
 
 def test_sin_descartados_el_indice_no_ofrece_el_filtro(client, library_item, user):
@@ -4596,3 +4606,28 @@ def test_sin_descartados_el_indice_no_ofrece_el_filtro(client, library_item, use
     assert 'data-descartado="0"' in html
     assert 'id="descartadosFilter"' not in html
     assert "descartado de los repasos" not in html.lower()
+    assert "js-recuperar" not in html
+
+
+def test_recuperar_desde_el_indice_usa_el_endpoint_que_ya_existe(client, user):
+    """El botón del índice llama a recuperar_item por POST; el camino del
+    servidor es el mismo que el del aviso «deshacer» del visor, y el índice
+    tiene que llevar el token CSRF en el <meta> porque la cookie es HttpOnly."""
+    item = _item(user, "descartado")
+    item.descartado = True
+    item.save(update_fields=["descartado"])
+    client.force_login(user)
+
+    html = client.get(reverse("my_library:index")).content.decode()
+    assert 'name="csrf-token"' in html
+    assert reverse("my_library:recuperar_item", args=[99999]) in html
+
+    respuesta = client.post(reverse("my_library:recuperar_item", args=[item.pk]))
+    item.refresh_from_db()
+    assert respuesta.status_code == 200
+    assert respuesta.json() == {"ok": True, "descartado": False}
+    assert not item.descartado
+
+    html = client.get(reverse("my_library:index")).content.decode()
+    assert "js-recuperar" not in html, "recuperado, el botón desaparece"
+    assert 'data-descartado="0"' in html

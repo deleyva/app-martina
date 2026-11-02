@@ -1,8 +1,8 @@
 ---
 slug: app-martina
-phase: complete
+phase: verify
 progress: true
-iteration: 64
+iteration: 65
 principal_stated_goal: "Yo solo quiero añadir evidencias tal cual están diseñadas en la aplicación de Notas. Por favor, copiala. Usa en vez de HTMLX, usa, en fin, haz lo que sea, pero que sea igual visualmente. Me gusta mucho esa forma de calificar, esa aplicación que hicimos."
 updated: 2026-11-02
 ---
@@ -6188,3 +6188,27 @@ El 2026-11-01 a las 12:29 producción mandó el correo de error de Django: `Modu
 
 - **2026-11-02 — Diagnóstico:** correo de error leído en el Gmail de Jesús con Chrome (el conector de Gmail está en la cuenta del instituto y el correo llegó a la personal). Comprobado en PyPI que el extra `mfa` de allauth 65.3.1 pide `qrcode>=7.0.0`; comprobado en `.venv-test` que `import qrcode` falla igual que en producción. Repo al día con `origin/main` (`git fetch`: 1 por delante, 0 por detrás).
 - **2026-11-02 — Construida:** una línea en `requirements/base.txt` y el test de la fase. `users` en SQLite: 32 passed, 14 errors en `test_candado_apps.py` (`'NoneType' object has no attribute 'add_child'`: falta la raíz de Wagtail con `--nomigrations`, el límite conocido de SQLite de la fase 92; no tiene que ver con esta fase).
+
+## Fase 95 — «Recuperar» desde la tarjeta del índice (2026-11-02) · CONSTRUIDA, PENDIENTE DE DESPLIEGUE
+
+**Goal (literal de Jesús, 2026-11-02):** «Añade el botón Recuperar en la tarjeta, adelante».
+
+**El hueco.** Desde la fase 94 el índice enseña cuáles están descartados, pero deshacer un descarte solo se podía desde el aviso del visor justo después de hacerlo. La vista `recuperar_item` ya existía.
+
+**Vision.** En la tarjeta de un descartado, junto a «Abrir Visor», un botón verde perfilado «Recuperar». Al pulsarlo la tarjeta pasa a viva en el sitio: se enciende, pierde la marca y el botón, el recuento de arriba baja uno y el selector dice «Solo descartados (N−1)»; si estabas en «Solo descartados», la tarjeta desaparece de la vista al filtrarse de nuevo. Sin recargar.
+
+### Claims
+
+- [x] **C637** — La tarjeta descartada lleva un botón `js-recuperar` con su `data-pk`; la viva no; sin descartados no hay ninguno. *Falsador: los dos tests de la fase 94, ampliados.* **Evidencia:** `test_el_indice_marca_los_descartados_y_los_cuenta` (un `js-recuperar`, `data-pk` del descartado en su tarjeta, ninguno en la viva) y `test_sin_descartados_el_indice_no_ofrece_el_filtro`.
+- [x] **C638** — El botón llama por POST a `recuperar_item` con el token CSRF del `<meta>` de `base.html` (la cookie es HttpOnly); el servidor deja `descartado=False` y responde `{"ok": true, "descartado": false}`; recargado, el botón ya no está. *Falsador: `test_recuperar_desde_el_indice_usa_el_endpoint_que_ya_existe`.* **Evidencia:** pasa; la URL con el marcador `99999` está en el HTML del índice y el `<meta name="csrf-token">` también.
+- [ ] **C639** — En el navegador, pulsar «Recuperar» enciende la tarjeta, quita marca y botón, baja el recuento y la opción del selector, y bajo «Solo descartados» la tarjeta deja de verse; la base queda con `descartado=False`. *Falsador: en producción, con la sesión de Jesús, sobre un descartado de CAGED: el recuento pasa de 91 a 90 y el chip de «Empezar» de 54 a 55; después se vuelve a descartar por el endpoint del visor para dejar los datos como estaban.* **`[DEFERRED-VERIFY]`** hasta desplegar.
+
+### Anti-claims
+
+- **Anti-A** — Ningún endpoint nuevo ni migración: se reutiliza `recuperar_item`. *Cumplido: el diff toca dos plantillas, el parcial del script y los tests.*
+- **Anti-B** — Recuperar no toca el historial ni las notas: `recuperar_item` solo cambia `descartado`.
+- **Anti-C** — Ni push ni despliegue sin que Jesús lo diga.
+
+### Log
+
+- **2026-11-02 — Construida.** Botón en `index.html`, clase `js-marca-descartado` en la marca, `id="descartadosOpcion"` en la opción del selector, `recuperarItem()` y `actualizarRecuentoDescartados()` en `library_filter_script.html`. Un tropiezo útil: el test de la fase 94 contaba `data-descartado="1"` como texto y el JavaScript nuevo lleva esa cadena en un selector; ahora cuenta tarjetas con una expresión regular. Suite de `my_library`: **278 passed**.

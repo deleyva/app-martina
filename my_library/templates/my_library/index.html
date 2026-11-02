@@ -114,7 +114,7 @@
                 <div class="text-xs opacity-60 flex items-center gap-2 flex-wrap">
                     <span>{{ item.get_content_type_name }}</span>
                     {% if item.descartado %}
-                    <span class="badge badge-error badge-outline badge-xs" title="Lo quitaste de tus sesiones de estudio con la ✕ del visor. Sigue aquí con su historial y sus notas.">Descartado de los repasos</span>
+                    <span class="badge badge-error badge-outline badge-xs js-marca-descartado" title="Lo quitaste de tus sesiones de estudio con la ✕ del visor. Sigue aquí con su historial y sus notas.">Descartado de los repasos</span>
                     {% endif %}
                 </div>
                 {% include "my_library/partials/item_tags.html" with item=item is_admin=request.user.is_staff %}
@@ -164,6 +164,17 @@
                 </a>
                 {% endif %}
                 
+                {% if item.descartado %}
+                <!-- Fase 95: deshacer el descarte desde el índice -->
+                <button type="button"
+                        class="btn btn-sm btn-outline btn-success js-recuperar"
+                        data-pk="{{ item.pk }}"
+                        onclick="recuperarItem(this)"
+                        title="Volver a incluirlo en tus sesiones de estudio">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a5 5 0 015 5v1M3 10l4-4m-4 4l4 4"></path></svg>
+                    <span class="hidden sm:inline">Recuperar</span>
+                </button>
+                {% endif %}
                 <button hx-delete="{% url 'my_library:remove' item.pk %}"
                         hx-target="#library-item-{{ item.pk }}"
                         hx-swap="outerHTML"
