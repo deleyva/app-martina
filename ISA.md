@@ -2,7 +2,7 @@
 slug: app-martina
 phase: verify
 progress: true
-iteration: 65
+iteration: 66
 principal_stated_goal: "Yo solo quiero añadir evidencias tal cual están diseñadas en la aplicación de Notas. Por favor, copiala. Usa en vez de HTMLX, usa, en fin, haz lo que sea, pero que sea igual visualmente. Me gusta mucho esa forma de calificar, esa aplicación que hicimos."
 updated: 2026-11-02
 ---
@@ -6190,7 +6190,7 @@ El 2026-11-01 a las 12:29 producción mandó el correo de error de Django: `Modu
 - **2026-11-02 — Construida:** una línea en `requirements/base.txt` y el test de la fase. `users` en SQLite: 32 passed, 14 errors en `test_candado_apps.py` (`'NoneType' object has no attribute 'add_child'`: falta la raíz de Wagtail con `--nomigrations`, el límite conocido de SQLite de la fase 92; no tiene que ver con esta fase).
 - **2026-11-02 — Desplegada** («pushea y despliega»): push de `a8146f9`, `56ed6d6` y `54b977b`; `just deploy-production` sin migraciones que aplicar (275 estáticos copiados, 795 posprocesados). Verificación en producción: ver C640.
 
-## Fase 96 — «Recuperar» desde la tarjeta del índice (2026-11-02) · DESPLEGADA EL 2026-11-02 (`54b977b`, junto con la fase 95); VERIFICACIÓN EN PRODUCCIÓN PENDIENTE
+## Fase 96 — «Recuperar» desde la tarjeta del índice (2026-11-02) · DESPLEGADA EL 2026-11-02 (`54b977b`, junto con la fase 95); C643 VERIFICADA EN PRODUCCIÓN; ARREGLO DEL RECUENTO (C644) PENDIENTE DE DESPLEGAR
 
 **Goal (literal de Jesús, 2026-11-02):** «Añade el botón Recuperar en la tarjeta, adelante».
 
@@ -6200,9 +6200,10 @@ El 2026-11-01 a las 12:29 producción mandó el correo de error de Django: `Modu
 
 ### Claims
 
-- [x] **C637** — La tarjeta descartada lleva un botón `js-recuperar` con su `data-pk`; la viva no; sin descartados no hay ninguno. *Falsador: los dos tests de la fase 94, ampliados.* **Evidencia:** `test_el_indice_marca_los_descartados_y_los_cuenta` (un `js-recuperar`, `data-pk` del descartado en su tarjeta, ninguno en la viva) y `test_sin_descartados_el_indice_no_ofrece_el_filtro`.
-- [x] **C638** — El botón llama por POST a `recuperar_item` con el token CSRF del `<meta>` de `base.html` (la cookie es HttpOnly); el servidor deja `descartado=False` y responde `{"ok": true, "descartado": false}`; recargado, el botón ya no está. *Falsador: `test_recuperar_desde_el_indice_usa_el_endpoint_que_ya_existe`.* **Evidencia:** pasa; la URL con el marcador `99999` está en el HTML del índice y el `<meta name="csrf-token">` también.
-- [ ] **C639** — En el navegador, pulsar «Recuperar» enciende la tarjeta, quita marca y botón, baja el recuento y la opción del selector, y bajo «Solo descartados» la tarjeta deja de verse; la base queda con `descartado=False`. *Falsador: en producción, con la sesión de Jesús, sobre un descartado de CAGED: el recuento pasa de 91 a 90 y el chip de «Empezar» de 54 a 55; después se vuelve a descartar por el endpoint del visor para dejar los datos como estaban.* **`[DEFERRED-VERIFY]`** hasta desplegar.
+- [x] **C641** (antes C637, que ya era de la fase 95) — La tarjeta descartada lleva un botón `js-recuperar` con su `data-pk`; la viva no; sin descartados no hay ninguno. *Falsador: los dos tests de la fase 94, ampliados.* **Evidencia:** `test_el_indice_marca_los_descartados_y_los_cuenta` (un `js-recuperar`, `data-pk` del descartado en su tarjeta, ninguno en la viva) y `test_sin_descartados_el_indice_no_ofrece_el_filtro`.
+- [x] **C642** (antes C638) — El botón llama por POST a `recuperar_item` con el token CSRF del `<meta>` de `base.html` (la cookie es HttpOnly); el servidor deja `descartado=False` y responde `{"ok": true, "descartado": false}`; recargado, el botón ya no está. *Falsador: `test_recuperar_desde_el_indice_usa_el_endpoint_que_ya_existe`.* **Evidencia:** pasa; la URL con el marcador `99999` está en el HTML del índice y el `<meta name="csrf-token">` también.
+- [x] **C643** (antes C639) — En el navegador, pulsar «Recuperar» enciende la tarjeta, quita marca y botón, y la base queda con `descartado=False`. *Falsador: en producción, con la sesión de Jesús, sobre un descartado de CAGED: el servidor pasa de 91 a 90 descartados y el chip de «Empezar» de 54 a 55; después se vuelve a descartar por el endpoint del visor.* **Evidencia (2026-11-02, Chrome con la sesión de Jesús, `Example 7.3a`, pk 3837):** zoom de la tarjeta antes (atenuada, marca roja, botón verde); tras el clic, `data-descartado="0"`, opacidad 1, sin marca ni botón; el índice recargado desde el servidor dice «90 descartados de los repasos» y el chip de CAGED en «Empezar» pasa de 54 a **55**. Restaurado con `POST descartar/3837/` → `{"ok": true, "descartado": true}`, índice de nuevo en 91.
+- [ ] **C644** — El recuento de arriba y la opción del selector bajan exactamente uno, también cuando el índice solo pinta 6 tarjetas (sin `show_all`). *Falsador: en producción, tras desplegar, recuperar un descartado y leer el texto del recuento sin recargar: debe decir 90, no el número de tarjetas descartadas del DOM.* **`[DEFERRED-VERIFY]`** hasta desplegar el arreglo. El test `test_el_indice_marca_los_descartados_y_los_cuenta` cubre la parte servidor: `data-total="1"` en el `span`.
 
 ### Anti-claims
 
@@ -6214,3 +6215,4 @@ El 2026-11-01 a las 12:29 producción mandó el correo de error de Django: `Modu
 
 - **2026-11-02 — Construida.** Botón en `index.html`, clase `js-marca-descartado` en la marca, `id="descartadosOpcion"` en la opción del selector, `recuperarItem()` y `actualizarRecuentoDescartados()` en `library_filter_script.html`. Un tropiezo útil: el test de la fase 94 contaba `data-descartado="1"` como texto y el JavaScript nuevo lleva esa cadena en un selector; ahora cuenta tarjetas con una expresión regular. Suite de `my_library`: **278 passed**.
 - **2026-11-02 — Desplegada** desde la sesión del 2FA («pushea y despliega, si no lo ha hecho ya la otra sesión»): push de `a8146f9`, `56ed6d6` y `54b977b` (renumeración de esta fase a 96) y `just deploy-production`. En el servidor `git rev-parse HEAD` da `54b977b`; 275 estáticos copiados, 795 posprocesados, «No migrations to apply». El botón «Recuperar» no se ha probado en producción desde esta sesión.
+- **2026-11-02 — Verificada en producción y un fallo encontrado.** El botón funciona (C643), pero el recuento de arriba pasó de **91 a 4**: `actualizarRecuentoDescartados()` contaba las tarjetas `data-descartado="1"` del DOM, y el índice sin `show_all` solo pinta 6 tarjetas (`my_library_index`, `all_items[:6]`). La verificación de la fase 94 se hizo con la lista completa y por eso no lo vio. Arreglo: el `span` del recuento lleva `data-total="{{ descartados }}"` y el JS aplica el delta sobre ese valor, nunca cuenta el DOM. Suite de `my_library`: **278 passed**. Pendiente de push y despliegue.

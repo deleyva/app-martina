@@ -337,9 +337,14 @@ function recuperarItem(btn) {
 }
 
 function actualizarRecuentoDescartados(delta) {
-    var n = document.querySelectorAll('[data-descartado="1"]').length;
+    // El índice solo pinta 6 tarjetas si no se pide show_all, así que el total
+    // no puede contarse en el DOM: se lee del servidor (data-total) y se ajusta.
     var resumen = document.getElementById('descartadosResumen');
+    var n = resumen
+        ? Math.max(0, parseInt(resumen.dataset.total || '0', 10) + delta)
+        : document.querySelectorAll('[data-descartado="1"]').length;
     if (resumen) {
+        resumen.dataset.total = n;
         resumen.textContent = n + ' descartado' + (n === 1 ? '' : 's') + ' de los repasos';
         resumen.style.display = n > 0 ? '' : 'none';
     }

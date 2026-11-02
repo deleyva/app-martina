@@ -83,7 +83,7 @@
         <li class="p-4 pb-2 text-xs opacity-60 tracking-wide">
             Tu colección · Ordenado: de menos a más estrellas ⭐, luego de menos a más vistas 👁️
             {% if descartados %}
-            · <span id="descartadosResumen">{{ descartados }} descartado{{ descartados|pluralize }} de los repasos</span>
+            · <span id="descartadosResumen" data-total="{{ descartados }}">{{ descartados }} descartado{{ descartados|pluralize }} de los repasos</span>
             {% endif %}
         </li>
         

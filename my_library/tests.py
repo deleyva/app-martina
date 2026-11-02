@@ -4586,6 +4586,8 @@ def test_el_indice_marca_los_descartados_y_los_cuenta(client, user):
     assert sorted(tarjetas) == ["0", "1"]
     assert html.count("Descartado de los repasos") == 1, "la marca, solo en el descartado"
     assert "1 descartado de los repasos" in html
+    # El JS ajusta este total con el delta; contar el DOM fallaría con 7+ elementos (solo se pintan 6).
+    assert 'id="descartadosResumen" data-total="1"' in html
     assert 'id="descartadosFilter"' in html
     assert "Solo descartados (1)" in html
     # Fase 95: el botón de recuperar, solo en la descartada, apuntando a su pk.
