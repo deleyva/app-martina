@@ -551,7 +551,12 @@ def desambiguar_homonimos(unidades):
         if len(iguales) < 2:
             continue
         capitulos = {getattr(_capitulo_de(u), "pk", None) for u in iguales}
-        distingue_el_capitulo = len(capitulos) == len(iguales)
+        # Un homónimo SIN capítulo (un elemento suelto, fuera de libro) no se
+        # distingue por capítulo aunque los demás sí: `None` cuenta como
+        # capítulo distinto en el conjunto y mandaba a esa unidad a la rama
+        # del fichero con `ficheros` sin calcular (500 en producción el
+        # 2026-11-03: `'NoneType' object is not subscriptable`).
+        distingue_el_capitulo = None not in capitulos and len(capitulos) == len(iguales)
         ficheros = None if distingue_el_capitulo else _ficheros_de(iguales)
         for n, unidad in enumerate(iguales):
             capitulo = _capitulo_de(unidad)

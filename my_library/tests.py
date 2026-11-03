@@ -2932,6 +2932,34 @@ def test_si_los_homonimos_comparten_capitulo_se_cae_al_fichero(db, user):
     assert all(".png" in d or ".jpg" in d or ".jpeg" in d for d in detalles), detalles
 
 
+def test_un_homonimo_sin_capitulo_no_tumba_la_pantalla_de_empezar(db, user):
+    """Visto en producción el 2026-11-03: catorce correos de error 500 en
+    `/my-library/empezar/` con `'NoneType' object is not subscriptable` en
+    `desambiguar_homonimos`. Un elemento suelto (sin libro, sin capítulo)
+    compartía título con una imagen de un libro: `None` contaba como capítulo
+    distinto, así que «el capítulo distingue» salía verdadero, y la unidad sin
+    capítulo caía a la rama del fichero con `ficheros` sin calcular.
+
+    El falsador: antes del arreglo, esta llamada lanza TypeError.
+    """
+    from my_library.libros import siguiente_del_objetivo
+    from my_library.session import desambiguar_homonimos
+
+    libro, _capitulos = _libro_con_capitulos(
+        "Caged", "libro-caged", [("Capitulo Uno", ["Example 3.1c"])]
+    )
+    del_libro = siguiente_del_objetivo(user, libro, cuantos=1)
+    suelto = _item(user, "Example 3.1c")
+
+    sesion = desambiguar_homonimos(del_libro + [suelto])
+
+    detalles = [getattr(u, "desambiguador", "") for u in sesion]
+    assert len(sesion) == 2, sesion
+    assert detalles[0] != detalles[1], (
+        f"los dos siguen teniendo que distinguirse: {detalles}"
+    )
+
+
 def test_el_sufijo_de_django_se_quita_solo_si_sobra(db, user):
     """C84. `img-004_mO9B6Ri.png` se lee peor que `img-004.png`, pero ese
     sufijo lo puso Django porque habia una colision de nombre: quitarlo a
