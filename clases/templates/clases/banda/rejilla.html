@@ -90,8 +90,16 @@
           <option value="{{ a.id }}">{{ a.nombre }} ({{ a.turnos|length }})</option>
         {% endfor %}
       </select>
-      <span class="text-base-content/60">Entre paréntesis, sus turnos en la banda. 📌 = puesto a mano; generar no lo mueve.</span>
+      <span class="text-base-content/60">Entre paréntesis, sus turnos en la banda. 📌 = puesto a mano; generar no lo mueve. 🔒 = fijo en su puesto por las preferencias.</span>
     </div>
+
+    {% if datos.fijos_sin_plaza %}
+      <div class="alert alert-warning my-2 py-2" id="aviso-fijos-sin-plaza">
+        Fijos en un puesto que no tiene plaza en los turnos que vienen, así que rotan como los demás:
+        {% for a in datos.fijos_sin_plaza %}{{ a.nombre }}{% if not forloop.last %}, {% endif %}{% endfor %}.
+        Añade la plaza en la configuración o cámbiales el puesto.
+      </div>
+    {% endif %}
 
     <div class="overflow-x-auto border border-base-300 rounded-lg">
       <table class="table table-xs" id="rejilla-banda">
@@ -122,7 +130,7 @@
                             data-turno="{{ col.turno }}" data-plaza="{{ c.plaza }}" data-alumno="{{ c.alumno|default_if_none:'' }}"
                             data-etiqueta="{{ c.icono }} {{ c.etiqueta }}" data-fijada="{{ c.fijada|yesno:'1,0' }}"
                             {% if col.jugado %}disabled title="Turno ya jugado"{% else %}title="{{ c.etiqueta }}"{% endif %}>
-                      {% if c.fijada %}📌 {% endif %}{{ c.nombre|default:"—" }}
+                      {% if c.fijada %}📌 {% elif c.fijo %}🔒 {% endif %}{{ c.nombre|default:"—" }}
                     </button>
                   {% endif %}
                 </td>
@@ -211,6 +219,64 @@
       </div>
     </details>
 
+    {# Fase 98: los tres anillos. Pensado para rellenarlo en clase, con la lista delante. #}
+    <details class="collapse collapse-arrow bg-base-200 mt-3" id="preferencias" {% if datos.fijos_sin_plaza %}open{% endif %}>
+      <summary class="collapse-title font-semibold">
+        🧑‍🎤 Quién rota, quién es fijo y quién toca xilófono
+        <span class="font-normal text-base-content/60 text-sm">
+          ({{ datos.fijos_por_puesto|length }} puesto{{ datos.fijos_por_puesto|length|pluralize }} con fijos · {{ datos.de_fuera|length }} fuera)
+        </span>
+      </summary>
+      <div class="collapse-content">
+        <p class="text-sm text-base-content/70 mb-2">
+          Por defecto todos rotan. Un <b>fijo</b> toca su puesto en todos los turnos; si dos piden el mismo, se lo turnan,
+          y el que descansa ese turno rota como los demás. Marca varios puestos para dar un orden de preferencia (el primero
+          que marques es el primero que se intenta). Quien está <b>fuera</b> no entra en el reparto, pero se le puede poner
+          a mano y sale de sustituto cuando no queda ningún rotante.
+        </p>
+        <form method="post" action="{% url 'clases:banda_alumnos' group.pk %}" id="form-alumnos">
+          {% csrf_token %}
+          <div class="overflow-x-auto">
+            <table class="table table-xs" id="tabla-alumnos">
+              <thead><tr><th>Alumno</th><th>Anillo</th><th>Puestos</th></tr></thead>
+              <tbody>
+                {% for a in datos.alumnos %}
+                  <tr data-alumno="{{ a.id }}">
+                    <td class="whitespace-nowrap">{{ a.nombre }} <span class="text-base-content/50">({{ a.turnos|length }})</span></td>
+                    <td>
+                      <select name="anillo_{{ a.id }}" class="select select-bordered select-xs anillo">
+                        {% for clave, nombre in anillos %}
+                          <option value="{{ clave }}"
+                            {% if a.anillo == "fuera" and clave == "fuera" %}selected
+                            {% elif a.anillo == "fijo" and clave == "fijo" %}selected
+                            {% elif a.anillo == "rota" and a.no and clave == "veto" %}selected
+                            {% elif a.anillo == "rota" and not a.no and clave == "rota" %}selected{% endif %}>{{ nombre }}</option>
+                        {% endfor %}
+                      </select>
+                    </td>
+                    <td class="chips">
+                      <input type="hidden" name="orden_{{ a.id }}" value="{{ a.puestos|join:',' }}">
+                      {% for p in puestos_chips %}
+                        <label class="btn btn-xs font-normal mr-1 mb-1 {% if p.clave in a.puestos or p.clave in a.no %}btn-primary{% else %}btn-ghost{% endif %}" title="{{ p.nombre }}">
+                          <input type="checkbox" name="puestos_{{ a.id }}" value="{{ p.clave }}" class="hidden"
+                                 {% if p.clave in a.puestos or p.clave in a.no %}checked{% endif %}>
+                          {{ p.icono }} {{ p.nombre }}
+                        </label>
+                      {% endfor %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <div class="mt-2 flex items-center gap-3">
+            <button type="submit" class="btn btn-sm btn-primary" id="guardar-alumnos">Guardar las preferencias</button>
+            <span class="text-sm text-base-content/70">Al guardar se vuelven a generar los turnos que no han empezado; lo jugado y el turno de ahora no se tocan.</span>
+          </div>
+        </form>
+      </div>
+    </details>
+
     <details class="collapse collapse-arrow bg-base-200 mt-3">
       <summary class="collapse-title font-semibold">🕘 Historial</summary>
       <div class="collapse-content">
@@ -276,6 +342,31 @@
         });
       }
       selector.addEventListener('change', resaltar);
+
+      // La tabla de anillos: los chips solo cuentan en «fijo» y «nunca en», y
+      // el orden en que se marcan es el orden de preferencia.
+      document.querySelectorAll('#tabla-alumnos tr[data-alumno]').forEach(function(fila) {
+        var anillo = fila.querySelector('.anillo');
+        var chips = fila.querySelector('.chips');
+        var orden = fila.querySelector('input[type=hidden]');
+        function pintarChips() {
+          var usan = anillo.value === 'fijo' || anillo.value === 'veto';
+          chips.classList.toggle('opacity-30', !usan);
+          chips.querySelectorAll('input[type=checkbox]').forEach(function(c) { c.disabled = !usan; });
+        }
+        chips.querySelectorAll('input[type=checkbox]').forEach(function(c) {
+          c.addEventListener('change', function() {
+            var lista = orden.value ? orden.value.split(',') : [];
+            lista = lista.filter(function(p) { return p !== c.value; });
+            if (c.checked) lista.push(c.value);
+            orden.value = lista.join(',');
+            c.parentElement.classList.toggle('btn-primary', c.checked);
+            c.parentElement.classList.toggle('btn-ghost', !c.checked);
+          });
+        });
+        anillo.addEventListener('change', pintarChips);
+        pintarChips();
+      });
     })();
     </script>
   {% endif %}

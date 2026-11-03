@@ -20,6 +20,16 @@ Dos reglas de reparto:
   tocado.
 - **Intercambio** (4º): nadie sale. Cada turno es el anterior con un cambio
   entre dos, el que más acerca a todos a haberlo tocado todo.
+
+Y tres anillos por alumno (fase 98), encima de las dos reglas:
+
+- **Rota** (por defecto): entra en la bolsa como siempre, con sus vetos (`no`).
+- **Fijo** en unos puestos, por orden de preferencia: en cada turno se siembra
+  antes del reparto en el primero de su lista que quede libre. Si dos piden el
+  mismo, lo toca quien menos veces lo ha tocado; el que se queda sin su puesto
+  ese turno rota como los demás.
+- **Fuera**: no entra en el reparto (toca xilófono). Se puede poner a mano, y
+  como sustituto va después de los rotantes.
 """
 
 import random
@@ -419,8 +429,67 @@ def _asignar(plazas, candidatos, coste):
     ]
 
 
+ANILLOS = ("rota", "fijo", "fuera")
+
+
+def preferencias(banda):
+    """`alumnos` limpio: {id: {"anillo", "puestos", "no"}}, solo entradas con id numérico."""
+    limpias = {}
+    for k, v in (banda.alumnos or {}).items():
+        if not str(k).isdigit() or not isinstance(v, dict):
+            continue
+        anillo = v.get("anillo") if v.get("anillo") in ANILLOS else "rota"
+        puestos = [p for p in (v.get("puestos") or []) if p in PUESTOS] if anillo == "fijo" else []
+        no = [p for p in (v.get("no") or []) if p in PUESTOS]
+        limpias[int(k)] = {"anillo": anillo, "puestos": puestos, "no": no}
+    return limpias
+
+
 def _bloqueos(banda):
-    return {int(k): set(v) for k, v in (banda.bloqueos or {}).items() if str(k).isdigit()}
+    return {a: set(v["no"]) for a, v in preferencias(banda).items() if v["no"]}
+
+
+def _fuera(banda):
+    return {a for a, v in preferencias(banda).items() if v["anillo"] == "fuera"}
+
+
+def _sembrar_fijos(turno, fijos, prefs, historial, activos, bloqueos):
+    """`fijos` ({plaza: alumno}) ampliado con los fijos de configuración que caben.
+
+    Por rondas de preferencia: primero cada fijo aspira a su primera opción;
+    para cada plaza gana quien menos veces la ha tocado, a igualdad quien más
+    tiempo lleva sin banda, después el orden de lista. Los que pierden pasan a
+    la ronda de su segunda opción, y así. Lo puesto a mano manda.
+    """
+    fijos = dict(fijos)
+    ocupados = set(fijos.values())
+    orden = {a: i for i, a in enumerate(activos)}
+    huecos = {}
+    for i, clave in enumerate(turno["plazas"]):
+        if i not in fijos:
+            huecos.setdefault(clave, []).append(i)
+    pendientes = [a for a in activos if a not in ocupados and prefs.get(a, {}).get("anillo") == "fijo"]
+    ronda = 0
+    while pendientes:
+        aspiran = {}
+        for a in pendientes:
+            lista = prefs[a]["puestos"]
+            if ronda < len(lista):
+                aspiran.setdefault(lista[ronda], []).append(a)
+        if not aspiran:
+            break
+        pendientes = []
+        for clave, candidatos in aspiran.items():
+            candidatos.sort(
+                key=lambda a: (historial.veces.get(a, {}).get(clave, 0), historial.ultimo.get(a, 0), orden[a])
+            )
+            for a in candidatos:
+                if huecos.get(clave) and clave not in bloqueos.get(a, ()):
+                    fijos[huecos[clave].pop(0)] = a
+                else:
+                    pendientes.append(a)
+        ronda += 1
+    return fijos
 
 
 # -----------------------------------------------------------------------------
@@ -548,22 +617,28 @@ def planificar(banda, desde, azar=random):
     Respeta las plazas fijadas. Del turno en curso, si `desde` lo deja atrás, no
     se toca nada: eso lo hace `generar`, que sí rellena sus huecos.
     """
-    activos = [u.pk for u in alumnado(banda.group)]
+    prefs = preferencias(banda)
+    fuera = _fuera(banda)
+    activos = [u.pk for u in alumnado(banda.group) if u.pk not in fuera]
     activos_set = set(activos)
     bloqueos = _bloqueos(banda)
     plan = _sin_bajas(banda.plan, banda, desde=min(desde, posicion(banda).turno))
     turnos = [dict(t) for t in plan["turnos"]]
     historial = Historial.hasta({"turnos": turnos}, desde)
+    matricula = _ids_del_grupo(banda.group, solo_activos=True)
     for n in range(desde, len(turnos) + 1):
         turno = turnos[n - 1]
-        fijos = {i: turno["alumnos"][i] for i in turno.get("fijadas", []) if turno["alumnos"][i] in activos_set}
+        # Lo fijado a mano (📌) manda, aunque sea alguien de fuera; después, los fijos de configuración.
+        fijos = {i: turno["alumnos"][i] for i in turno.get("fijadas", []) if turno["alumnos"][i] in matricula}
         fijos = _sin_repetidos(fijos)
+        fijadas = sorted(fijos)
+        fijos = _sembrar_fijos(turno, fijos, prefs, historial, activos, bloqueos)
         if banda.modo == BandaDeGrupo.INTERCAMBIO:
             anterior = turnos[n - 2] if n > 1 else None
             alumnos = _turno_intercambio(n, turno, fijos, anterior, historial, activos, bloqueos, azar)
         else:
             alumnos = _turno_rotacion(n, turno, fijos, historial, activos, bloqueos, azar)
-        turnos[n - 1] = {**turno, "alumnos": alumnos, "fijadas": sorted(fijos)}
+        turnos[n - 1] = {**turno, "alumnos": alumnos, "fijadas": fijadas}
         historial.anotar(n, turnos[n - 1])
     return {"turnos": turnos}
 
@@ -585,10 +660,13 @@ def _rellenar_huecos(banda, n, plan, azar):
     turno = turnos[n - 1]
     if None not in turno["alumnos"]:
         return plan
-    activos = [u.pk for u in alumnado(banda.group)]
+    fuera = _fuera(banda)
+    activos = [u.pk for u in alumnado(banda.group) if u.pk not in fuera]
     fijos = {i: a for i, a in enumerate(turno["alumnos"]) if a is not None}
     historial = Historial.hasta({"turnos": turnos}, n)
-    alumnos = _turno_rotacion(n, turno, fijos, historial, activos, _bloqueos(banda), azar)
+    bloqueos = _bloqueos(banda)
+    fijos = _sembrar_fijos(turno, fijos, preferencias(banda), historial, activos, bloqueos)
+    alumnos = _turno_rotacion(n, turno, fijos, historial, activos, bloqueos, azar)
     turnos[n - 1] = {**turno, "alumnos": alumnos}
     return {"turnos": turnos}
 
@@ -771,6 +849,56 @@ def configurar(banda, *, modo, puestos, sesiones_por_turno, turnos, empieza, cue
     return banda
 
 
+def validar_alumnos(alumnos, banda):
+    """`alumnos` limpio ({id: {anillo, puestos, no}}) o `ValidationError`. Las entradas «rota sin vetos» no se guardan."""
+    if not isinstance(alumnos, dict):
+        raise ValidationError("Las preferencias tienen que ser un objeto por alumno")
+    matricula = _ids_del_grupo(banda.group, solo_activos=False)
+    errores, limpias = [], {}
+    for k, v in alumnos.items():
+        if not str(k).isdigit() or int(k) not in matricula:
+            errores.append(f"El alumno {k} no está matriculado en el grupo")
+            continue
+        if not isinstance(v, dict) or v.get("anillo", "rota") not in ANILLOS:
+            errores.append(f"Alumno {k}: anillo desconocido")
+            continue
+        anillo = v.get("anillo", "rota")
+        puestos = list(dict.fromkeys(v.get("puestos") or []))
+        no = list(dict.fromkeys(v.get("no") or []))
+        raros = [p for p in puestos + no if p not in PUESTOS]
+        if raros:
+            errores.append(f"Alumno {k}: puesto desconocido {', '.join(map(str, raros))}")
+            continue
+        if anillo == "fijo" and not puestos:
+            errores.append(f"Alumno {k}: fijo, pero sin ningún puesto")
+            continue
+        entrada = {"anillo": anillo, "puestos": puestos if anillo == "fijo" else [], "no": no if anillo == "rota" else []}
+        if entrada != {"anillo": "rota", "puestos": [], "no": []}:
+            limpias[str(k)] = entrada
+    if errores:
+        raise ValidationError(errores)
+    return limpias
+
+
+@transaction.atomic
+def configurar_alumnos(banda, alumnos, autor=None):
+    """Guarda los anillos y regenera los turnos que no han empezado, si el plan ya tenía a alguien."""
+    banda = BandaDeGrupo.objects.select_for_update().get(pk=banda.pk)
+    banda.alumnos = validar_alumnos(alumnos, banda)
+    banda.save(update_fields=["alumnos", "updated_at"])
+    libre = primer_turno_libre(banda)
+    había_alguien = any(a is not None for t in banda.plan["turnos"] for a in t["alumnos"])
+    plan = planificar(banda, libre) if había_alguien and libre <= len(banda.plan["turnos"]) else banda.plan
+    _guardar(banda, plan, autor, BandaVersion.CONFIGURAR, "Preferencias cambiadas")
+    return banda
+
+
+def fijos_sin_plaza(banda):
+    """Fijos cuyo primer puesto no tiene plaza en los turnos que vienen: avisar, no fallar."""
+    claves = set(banda.puestos)
+    return [a for a, v in preferencias(banda).items() if v["anillo"] == "fijo" and not claves & set(v["puestos"])]
+
+
 # -----------------------------------------------------------------------------
 # La rejilla y la hoja de la pared
 # -----------------------------------------------------------------------------
@@ -786,6 +914,7 @@ def rejilla(banda):
     for u in activos:
         usuarios.setdefault(u.pk, u)
     p = posicion(banda)
+    prefs = preferencias(banda)
     columnas = []
     for n, t in enumerate(turnos, start=1):
         etiquetas = etiquetas_de_plazas(t["plazas"])
@@ -799,6 +928,8 @@ def rejilla(banda):
                 "alumno": a,
                 "nombre": nombre_de(usuarios[a]) if a in usuarios else "",
                 "fijada": i in t.get("fijadas", []),
+                # 🔒: está en su puesto por la configuración, no por un 📌.
+                "fijo": a is not None and i not in t.get("fijadas", []) and clave in prefs.get(a, {}).get("puestos", []),
             })
         columnas.append({
             "turno": n,
@@ -817,23 +948,33 @@ def rejilla(banda):
             "nombre": nombre_de(u),
             "completo": u.name or u.email,
             "turnos": resumen.get(u.pk, []),
+            **prefs.get(u.pk, {"anillo": "rota", "puestos": [], "no": []}),
         }
         for u in activos
     ]
+    fijos_por_puesto = []
+    for clave, etiqueta in zip(dict.fromkeys(banda.puestos), etiquetas_de_plazas(list(dict.fromkeys(banda.puestos)))):
+        nombres = [a["nombre"] for a in alumnos if a["anillo"] == "fijo" and clave in a["puestos"]]
+        if nombres:
+            fijos_por_puesto.append({"clave": clave, "icono": PUESTOS[clave].icono, "nombre": PUESTOS[clave].nombre, "nombres": nombres})
     # Las filas de la pantalla: las plazas de los turnos que vienen.
     filas = [
         {"etiqueta": e, "icono": PUESTOS[c].icono, "portatil": PUESTOS[c].portatil}
         for c, e in zip(banda.puestos, etiquetas_de_plazas(banda.puestos))
     ]
     sin_plaza = [] if banda.modo == BandaDeGrupo.ROTACION else [
-        a for a in alumnos if not any(t == p.turno for t, _ in a["turnos"])
+        a for a in alumnos if a["anillo"] != "fuera" and not any(t == p.turno for t, _ in a["turnos"])
     ]
+    sin_plaza_de_su_puesto = fijos_sin_plaza(banda)
     return {
         "posicion": p,
         "libre": primer_turno_libre(banda),
         "columnas": columnas,
         "filas": filas,
         "alumnos": alumnos,
+        "fijos_por_puesto": fijos_por_puesto,
+        "de_fuera": [a for a in alumnos if a["anillo"] == "fuera"],
+        "fijos_sin_plaza": [a for a in alumnos if a["id"] in sin_plaza_de_su_puesto],
         "sin_plaza_en_intercambio": sin_plaza,
         "max_filas": max((len(c["casillas"]) for c in columnas), default=0),
     }
@@ -892,6 +1033,7 @@ def banda_de_hoy(session):
     for u in activos:
         usuarios.setdefault(u.pk, u)
     historial = Historial.hasta(banda.plan, p.turno)
+    fuera = _fuera(banda)
 
     def nombre(a):
         return nombre_de(usuarios[a]) if a in usuarios else ""
@@ -935,35 +1077,40 @@ def banda_de_hoy(session):
                 fila["lo_cubre_el_profesor"] = True
             else:
                 propuesto = proponer_sustituto(
-                    clave, ayuda, activos, faltan, tocan | propuestos, historial
+                    clave, ayuda, activos, faltan, tocan | propuestos, historial, fuera
                 )
                 if propuesto is not None:
                     propuestos.add(propuesto)
                     fila["propuesto"] = propuesto
                     fila["propuesto_nombre"] = nombre(propuesto)
         filas.append(fila)
-    libres = [
-        {"id": u.pk, "nombre": nombre_de(u), "turnos": historial.total.get(u.pk, 0)}
-        for u in activos
-        if u.pk not in faltan and u.pk not in tocan
-    ]
+    # Los rotantes primero; los de fuera, al final y marcados.
+    libres = sorted(
+        (
+            {"id": u.pk, "nombre": nombre_de(u), "turnos": historial.total.get(u.pk, 0), "fuera": u.pk in fuera}
+            for u in activos
+            if u.pk not in faltan and u.pk not in tocan
+        ),
+        key=lambda a: a["fuera"],
+    )
     return {**base, "fuera_del_plan": False, "filas": filas, "libres": libres}
 
 
-def proponer_sustituto(clave, ayuda, activos, faltan, ocupados, historial):
+def proponer_sustituto(clave, ayuda, activos, faltan, ocupados, historial, fuera=frozenset()):
     """Quién toca hoy la plaza del que falta.
 
     Primero, quien tuvo ese instrumento el turno anterior: ya sabe la parte. Si
     no está o ya toca otra cosa, el presente sin plaza que menos banda lleva; a
     igualdad, por orden de lista, para que el panel no cambie al recargarlo.
-    Nunca alguien con falta ni alguien que ya toca.
+    Nunca alguien con falta ni alguien que ya toca. Los de fuera (xilófono)
+    solo cuando no queda ningún rotante.
     """
     if ayuda is not None and ayuda not in faltan and ayuda not in ocupados:
         return ayuda
     candidatos = [u for u in activos if u.pk not in faltan and u.pk not in ocupados]
     if not candidatos:
         return None
-    return min(candidatos, key=lambda u: historial.total.get(u.pk, 0)).pk
+    return min(candidatos, key=lambda u: (u.pk in fuera, historial.total.get(u.pk, 0))).pk
 
 
 @transaction.atomic

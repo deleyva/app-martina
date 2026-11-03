@@ -82,7 +82,8 @@
     var lista = el('div', 'opciones');
     if (!datos.libres.length) lista.appendChild(el('span', 'nadie', 'No queda nadie presente sin puesto.'));
     datos.libres.forEach(function (a) {
-      lista.appendChild(boton(a.nombre + ' (' + a.turnos + ')', 'opcion', function () { enviar(fila.plaza, a.id); }));
+      var texto = a.nombre + ' (' + a.turnos + ')' + (a.fuera ? ' · xilófono' : '');
+      lista.appendChild(boton(texto, 'opcion', function () { enviar(fila.plaza, a.id); }));
     });
     eleccion.appendChild(lista);
     eleccion.appendChild(boton('Cancelar', 'cancelar', cerrarEleccion));

@@ -454,6 +454,7 @@ urlpatterns = [
     path("groups/<int:group_id>/banda/", views_banda.banda_rejilla, name="banda_rejilla"),
     path("groups/<int:group_id>/banda/crear/", views_banda.banda_crear, name="banda_crear"),
     path("groups/<int:group_id>/banda/configurar/", views_banda.banda_configurar, name="banda_configurar"),
+    path("groups/<int:group_id>/banda/alumnos/", views_banda.banda_alumnos, name="banda_alumnos"),
     path("groups/<int:group_id>/banda/generar/", views_banda.banda_generar, name="banda_generar"),
     path("groups/<int:group_id>/banda/casilla/", views_banda.banda_casilla, name="banda_casilla"),
     path("groups/<int:group_id>/banda/ajustar/", views_banda.banda_ajustar, name="banda_ajustar"),

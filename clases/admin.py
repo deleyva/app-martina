@@ -258,14 +258,13 @@ class StudyCardPickupAdmin(admin.ModelAdmin):
     )
 
 
-# La banda del grupo (fase 92). El plan se edita en la rejilla; aquí solo se
-# apuntan los bloqueos («este alumno no puede tocar batería»), que no tienen
-# pantalla propia.
+# La banda del grupo (fase 92). El plan y los anillos de cada alumno (fase 98)
+# se editan en la rejilla; aquí solo se ve la configuración por si acaso.
 from .models import BandaDeGrupo  # noqa: E402
 
 
 @admin.register(BandaDeGrupo)
 class BandaDeGrupoAdmin(admin.ModelAdmin):
     list_display = ("group", "modo", "sesiones_por_turno", "turnos", "empieza", "cuenta")
-    fields = ("group", "modo", "sesiones_por_turno", "turnos", "empieza", "cuenta", "ajuste", "bloqueos")
+    fields = ("group", "modo", "sesiones_por_turno", "turnos", "empieza", "cuenta", "ajuste", "alumnos")
     readonly_fields = ("group",)

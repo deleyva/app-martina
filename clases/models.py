@@ -1880,10 +1880,14 @@ class BandaDeGrupo(models.Model):
         default=0, help_text="Sesiones sumadas o restadas a mano al recuento"
     )
     plan = models.JSONField(default=dict, blank=True)
-    bloqueos = models.JSONField(
+    # Fase 98: en qué anillo está cada alumno. Sin entrada, rota sin vetos.
+    #   {"<id>": {"anillo": "rota" | "fijo" | "fuera",
+    #             "puestos": ["electrica", "espanola"],   # fijo: por orden de preferencia
+    #             "no": ["voz"]}}                          # vetos (antes, `bloqueos`)
+    alumnos = models.JSONField(
         default=dict,
         blank=True,
-        help_text='Instrumentos que un alumno no puede tocar: {"<id del alumno>": ["bateria"]}',
+        help_text="Anillo de cada alumno (rota, fijo en unos puestos, o fuera) y sus vetos",
     )
     updated_at = models.DateTimeField(auto_now=True)
 

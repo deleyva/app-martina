@@ -81,6 +81,13 @@ def banda_rejilla(request, group_id):
                 for i in range(datos["max_filas"])
             ],
             "puestos_config": [(p, banda.puestos.count(p.clave)) for p in bandas.PUESTOS.values()],
+            # Fase 98: los chips de la tabla de alumnos son los puestos del grupo, más los que alguien ya tenga.
+            "puestos_chips": [
+                bandas.PUESTOS[c] for c in dict.fromkeys(
+                    list(banda.puestos) + [p for a in datos["alumnos"] for p in a["puestos"] + a["no"]]
+                )
+            ],
+            "anillos": [("rota", "Rota"), ("veto", "Rota, pero nunca en…"), ("fijo", "Fijo en…"), ("fuera", "Fuera (xilófono)")],
             "versiones": bandas.versiones(banda),
             "modos": BandaDeGrupo.MODOS,
             "cuentas": BandaDeGrupo.CUENTAS,
@@ -124,6 +131,39 @@ def banda_configurar(request, group_id):
         messages.success(request, "Configuración guardada.")
     except ValueError:
         messages.error(request, "La fecha de inicio no es válida.")
+    except ValidationError as e:
+        _avisar(request, e)
+    return _volver(grupo)
+
+
+@login_required
+@user_passes_test(es_profesor)
+@require_POST
+def banda_alumnos(request, group_id):
+    """La tabla de anillos (fase 98): `anillo_<id>` en rota|veto|fijo|fuera y `puestos_<id>` como lista.
+
+    «veto» es rota con los puestos marcados en `no`; «fijo», con los puestos
+    marcados en `puestos`, en el orden en que se marcaron (lo lleva un campo
+    oculto `orden_<id>`, que el JavaScript mantiene).
+    """
+    grupo = grupo_del_profesor(request.user, group_id)
+    banda = _banda_o_404(grupo)
+    alumnos = {}
+    for clave, valor in request.POST.items():
+        if not clave.startswith("anillo_") or not clave[7:].isdigit():
+            continue
+        alumno = clave[7:]
+        marcados = request.POST.getlist(f"puestos_{alumno}")
+        orden = [p for p in (request.POST.get(f"orden_{alumno}") or "").split(",") if p in marcados]
+        puestos = orden + [p for p in marcados if p not in orden]
+        alumnos[alumno] = {
+            "anillo": "rota" if valor == "veto" else valor,
+            "puestos": puestos if valor == "fijo" else [],
+            "no": puestos if valor == "veto" else [],
+        }
+    try:
+        bandas.configurar_alumnos(banda, alumnos, autor=request.user)
+        messages.success(request, "Preferencias guardadas. Los turnos que no han empezado se han vuelto a generar.")
     except ValidationError as e:
         _avisar(request, e)
     return _volver(grupo)

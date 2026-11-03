@@ -27,6 +27,7 @@
   .lista div { break-inside: avoid; padding: 2px 0; border-bottom: 1px dotted #bbb; }
   .lista b { display: inline-block; min-width: 9.5em; }
   .pie { margin-top: 6px; font-size: 9px; color: #555; }
+  .fijos { margin: 0 0 8px; font-size: 11px; }
   @media screen { body { max-width: 297mm; margin: 0 auto; } .imprimir { margin: 8px 0; } }
   @media print { .imprimir { display: none; } }
 </style>
@@ -39,7 +40,11 @@
     <ol>
       {% if banda.modo == "rotacion" %}
         <li>Un turno {% if banda.sesiones_por_turno == 1 %}es una sesión{% else %}son {{ banda.sesiones_por_turno }} sesiones{% endif %} en el aula de música. En cada turno, {{ banda.puestos|length }} tocan en la banda; los demás, ukelele, xilófono y voz.</li>
-        <li>Todos pasáis por la banda antes de que nadie repita.</li>
+        {% if datos.fijos_por_puesto or datos.de_fuera %}
+          <li>Los que rotan pasáis todos por la banda antes de que nadie repita.</li>
+        {% else %}
+          <li>Todos pasáis por la banda antes de que nadie repita.</li>
+        {% endif %}
         <li>Nadie toca el mismo instrumento dos turnos seguidos, y se busca que cada vez sea uno nuevo.</li>
       {% else %}
         <li>Un turno {% if banda.sesiones_por_turno == 1 %}es una sesión{% else %}son {{ banda.sesiones_por_turno }} sesiones{% endif %}. Todos tocáis siempre; en cada turno, dos os cambiáis el instrumento.</li>
@@ -51,6 +56,13 @@
       <li>Se puede pedir un intercambio: se habla conmigo y queda apuntado. El turno no es premio ni castigo.</li>
     </ol>
   </div>
+
+  {% if datos.fijos_por_puesto or datos.de_fuera %}
+    <p class="fijos">
+      {% for f in datos.fijos_por_puesto %}<b>{{ f.icono }} {{ f.nombre }}:</b> {{ f.nombres|join:", " }}{% if f.nombres|length > 1 %} (se turnan){% endif %}. {% endfor %}
+      {% if datos.de_fuera %}<b>Xilófono:</b> {% for a in datos.de_fuera %}{{ a.nombre }}{% if not forloop.last %}, {% endif %}{% endfor %}.{% endif %}
+    </p>
+  {% endif %}
 
   <table>
     <thead>
@@ -76,7 +88,7 @@
   <h1>Tus turnos</h1>
   <div class="lista">
     {% for a in datos.alumnos %}
-      <div><b>{{ a.nombre }}</b>{% for t, etiqueta in a.turnos %} T{{ t }} {{ etiqueta }}{% if not forloop.last %} ·{% endif %}{% empty %} —{% endfor %}</div>
+      <div><b>{{ a.nombre }}</b>{% if a.anillo == "fuera" %} xilófono{% else %}{% for t, etiqueta in a.turnos %} T{{ t }} {{ etiqueta }}{% if not forloop.last %} ·{% endif %}{% empty %} —{% endfor %}{% endif %}</div>
     {% endfor %}
   </div>
 </body>

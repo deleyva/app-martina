@@ -170,7 +170,7 @@ def test_la_rotacion_con_semilla_es_reproducible(banda):
 
 
 def test_un_bloqueo_se_respeta(banda, treinta):
-    banda.bloqueos = {str(treinta[0].pk): ["bateria"]}
+    banda.alumnos = {str(treinta[0].pk): {"anillo": "rota", "puestos": [], "no": ["bateria"]}}
     banda.save()
     for semilla in range(50):
         plan = bandas.planificar(banda, 1, azar=random.Random(semilla))
@@ -623,3 +623,294 @@ def test_no_se_pone_a_un_ausente_ni_a_quien_ya_toca(client, banda, grupo, profes
     r = client.post(url, json.dumps({"plaza": 0, "alumno": t2["alumnos"][1]}), content_type="application/json")
     assert r.status_code == 422
     assert not CambioDeHoy.objects.exists()
+
+
+# =============================================================================
+# Fase 98 — tres anillos: fijos, rotantes y fuera (C652 a C658)
+# =============================================================================
+
+
+def _anillos(banda, **por_alumno):
+    """`_anillos(banda, fijo={id: [...]}, fuera=[ids], no={id: [...]})` guarda `alumnos` sin pasar por la vista."""
+    alumnos = {}
+    for a, puestos in por_alumno.get("fijo", {}).items():
+        alumnos[str(a)] = {"anillo": "fijo", "puestos": list(puestos), "no": []}
+    for a in por_alumno.get("fuera", []):
+        alumnos[str(a)] = {"anillo": "fuera", "puestos": [], "no": []}
+    for a, puestos in por_alumno.get("no", {}).items():
+        alumnos[str(a)] = {"anillo": "rota", "puestos": [], "no": list(puestos)}
+    banda.alumnos = alumnos
+    banda.save(update_fields=["alumnos"])
+    return banda
+
+
+def _claves_de(plan, alumno):
+    return [_clave(t, alumno) for t in plan["turnos"]]
+
+
+# === C652 — el campo y la migración ===
+
+
+def test_el_modelo_tiene_alumnos_y_no_bloqueos(banda):
+    assert banda.alumnos == {}
+    assert not hasattr(banda, "bloqueos")
+
+
+def test_la_migracion_copia_los_bloqueos_a_los_vetos():
+    """`copiar_bloqueos` de la 0030 sobre bandas de mentira: solo ids numéricos con vetos, y guarda `alumnos`."""
+    from importlib import import_module
+
+    migracion = import_module("clases.migrations.0030_anillos_de_la_banda")
+
+    class Banda:
+        def __init__(self, bloqueos):
+            self.bloqueos, self.alumnos, self.guardado = bloqueos, {}, None
+
+        def save(self, update_fields=None):
+            self.guardado = update_fields
+
+    con, sin = Banda({"12": ["bateria", "voz"], "x": ["voz"], "13": []}), Banda({})
+
+    class Objects:
+        @staticmethod
+        def exclude(**kw):
+            return [b for b in (con, sin) if b.bloqueos != kw["bloqueos"]]
+
+    class Apps:
+        @staticmethod
+        def get_model(app, nombre):
+            return type("M", (), {"objects": Objects()})
+
+    migracion.copiar_bloqueos(Apps(), None)
+    assert con.alumnos == {"12": {"anillo": "rota", "puestos": [], "no": ["bateria", "voz"]}}
+    assert con.guardado == ["alumnos"]
+    assert sin.alumnos == {} and sin.guardado is None
+
+
+# === C653 — fijos ===
+
+
+def test_dos_fijos_se_turnan_y_uno_solo_toca_siempre(banda, treinta):
+    eduardo, axel, carlos = (a.pk for a in treinta[:3])
+    _anillos(banda, fijo={eduardo: ["bateria"], axel: ["bateria"], carlos: ["ukebajo"]})
+    for semilla in range(100):
+        plan = bandas.planificar(banda, 1, azar=random.Random(semilla))
+        e, a = _claves_de(plan, eduardo), _claves_de(plan, axel)
+        assert e.count("bateria") == 8 and a.count("bateria") == 8, semilla
+        assert all((x == "bateria") != (y == "bateria") for x, y in zip(e, a)), semilla
+        assert e[0] == "bateria" and a[1] == "bateria"  # se alternan empezando por el primero de la lista
+        assert all(x != y for x, y in zip(e[:-1], e[1:]) if x == "bateria" and y == "bateria") is True
+        assert _claves_de(plan, carlos) == ["ukebajo"] * 16, semilla
+
+
+def test_un_fijo_con_dos_opciones_toma_la_primera_libre(banda, treinta):
+    natalia, pedro = treinta[0].pk, treinta[1].pk
+    _anillos(banda, fijo={natalia: ["electrica", "espanola"]})
+    for semilla in range(50):
+        plan = bandas.planificar(banda, 1, azar=random.Random(semilla))
+        assert _claves_de(plan, natalia) == ["electrica"] * 16
+    _anillos(banda, fijo={natalia: ["electrica", "espanola"], pedro: ["electrica"]})
+    for semilla in range(50):
+        plan = bandas.planificar(banda, 1, azar=random.Random(semilla))
+        n, p = _claves_de(plan, natalia), _claves_de(plan, pedro)
+        assert n.count("electrica") == 8 and p.count("electrica") == 8, semilla
+        # El turno que no tiene la eléctrica, Natalia toca la española.
+        assert all(c == "espanola" for c in n if c != "electrica"), semilla
+
+
+# === C654 — el fijo que descansa rota, y los vetos siguen ===
+
+
+def test_el_fijo_que_descansa_rota_como_los_demas(banda, treinta):
+    eduardo, axel = treinta[0].pk, treinta[1].pk
+    _anillos(banda, fijo={eduardo: ["bateria"], axel: ["bateria"]})
+    rota_alguna_vez = 0
+    for semilla in range(100):
+        plan = bandas.planificar(banda, 1, azar=random.Random(semilla))
+        otras = [c for c in _claves_de(plan, axel) if c not in (None, "bateria")]
+        rota_alguna_vez += bool(otras)
+        assert "bateria" not in otras
+    assert rota_alguna_vez > 0
+
+
+def test_un_veto_se_respeta_junto_a_los_fijos(banda, treinta):
+    eduardo, lola = treinta[0].pk, treinta[1].pk
+    _anillos(banda, fijo={eduardo: ["bateria"]}, no={lola: ["teclado", "electrica"]})
+    for semilla in range(50):
+        plan = bandas.planificar(banda, 1, azar=random.Random(semilla))
+        assert not {"teclado", "electrica"} & set(_claves_de(plan, lola)), semilla
+
+
+def test_un_fijo_vetado_en_su_puesto_no_lo_toca(banda, treinta):
+    # Caso raro, pero el validador lo permite por la vía del JSON: el veto gana.
+    a = treinta[0].pk
+    banda.alumnos = {str(a): {"anillo": "fijo", "puestos": ["bateria"], "no": ["bateria"]}}
+    banda.save()
+    assert bandas.preferencias(banda)[a]["no"] == ["bateria"]
+    plan = bandas.planificar(banda, 1, azar=random.Random(1))
+    assert "bateria" not in _claves_de(plan, a)
+
+
+# === C655 — fuera ===
+
+
+def test_los_de_fuera_no_entran_en_el_reparto(banda, grupo, profesor, treinta):
+    fuera = [a.pk for a in treinta[:12]]
+    _anillos(banda, fuera=fuera)
+    for semilla in range(100):
+        plan = bandas.planificar(banda, 1, azar=random.Random(semilla))
+        assert not set(fuera) & {a for t in plan["turnos"] for a in t["alumnos"]}, semilla
+        assert all(None not in t["alumnos"] for t in plan["turnos"])  # 18 bastan para 6 plazas
+    # Tampoco al rellenar los huecos del turno en curso.
+    bandas.generar(banda, autor=profesor, azar=random.Random(1))
+    _sesion(grupo, profesor, 0)
+    banda.refresh_from_db()
+    bandas.poner(banda, 1, 3, None, autor=profesor)
+    banda.refresh_from_db()
+    bandas.generar(banda, autor=profesor, azar=random.Random(2))
+    banda.refresh_from_db()
+    assert banda.plan["turnos"][0]["alumnos"][3] not in fuera
+    # A mano sí: es decisión del profesor, y generar lo respeta.
+    bandas.poner(banda, 2, 0, fuera[0], autor=profesor)
+    banda.refresh_from_db()
+    bandas.generar(banda, autor=profesor, azar=random.Random(3))
+    banda.refresh_from_db()
+    assert banda.plan["turnos"][1]["alumnos"][0] == fuera[0]
+
+
+def test_en_intercambio_los_de_fuera_no_cuentan_como_sin_plaza(banda4, siete, profesor):
+    _anillos(banda4, fuera=[siete[0].pk])
+    bandas.generar(banda4, autor=profesor, azar=random.Random(1))
+    banda4.refresh_from_db()
+    datos = bandas.rejilla(banda4)
+    assert datos["sin_plaza_en_intercambio"] == []
+    assert all(siete[0].pk not in t["alumnos"] for t in banda4.plan["turnos"])
+
+
+def test_el_sustituto_prefiere_a_un_rotante_antes_que_a_uno_de_fuera(banda, grupo, profesor, treinta):
+    # 24 fuera y 6 rotantes: los 6 están en la banda cada turno. Si falta uno,
+    # el primer candidato libre es el de fuera; y aun así, si hay un rotante
+    # presente sin plaza, va él primero.
+    fuera = [a.pk for a in treinta[:23]]
+    _anillos(banda, fuera=fuera)
+    hoy = _sesion_del_turno_2(banda, grupo, profesor)
+    t2 = banda.plan["turnos"][1]
+    rotantes = [a.pk for a in treinta[23:]]
+    libre = next(a for a in rotantes if a not in t2["alumnos"])
+    titular = t2["alumnos"][0]
+    _falta(hoy, titular)
+    _falta(hoy, banda.plan["turnos"][0]["alumnos"][0])  # el que «ayuda» también falta
+    d = bandas.banda_de_hoy(hoy)
+    assert d["filas"][0]["propuesto"] == libre
+    assert [a["fuera"] for a in d["libres"]] == sorted(a["fuera"] for a in d["libres"])
+    # Si el rotante libre también falta, entra uno de fuera.
+    _falta(hoy, libre)
+    d = bandas.banda_de_hoy(hoy)
+    assert d["filas"][0]["propuesto"] in fuera
+
+
+# === C656 — la justicia entre rotantes se mantiene ===
+
+
+def test_la_rotacion_sigue_siendo_justa_con_fijos_y_fuera(banda, treinta):
+    ids = [a.pk for a in treinta]
+    fijos = {ids[0]: ["bateria"], ids[1]: ["bateria"], ids[2]: ["ukebajo"]}
+    fuera = ids[3:7]
+    _anillos(banda, fijo=fijos, fuera=fuera)
+    bolsa = [a for a in ids if a not in fuera]
+    for semilla in range(100):
+        plan = bandas.planificar(banda, 1, azar=random.Random(semilla))
+        total = dict.fromkeys(bolsa, 0)
+        for n, t in enumerate(plan["turnos"], start=1):
+            dentro = [a for a in t["alumnos"] if a is not None]
+            assert len(dentro) == 6 and len(set(dentro)) == 6, f"turno {n}"
+            sembrados = {i for i, (c, a) in enumerate(zip(t["plazas"], t["alumnos"])) if a in fijos and c in fijos[a]}
+            por_reparto = [a for i, a in enumerate(t["alumnos"]) if i not in sembrados]
+            candidatos = [a for a in bolsa if a not in {t["alumnos"][i] for i in sembrados}]
+            quedan = [a for a in candidatos if a not in por_reparto]
+            assert max(total[a] for a in por_reparto) <= min(total[a] for a in quedan), f"semilla {semilla}, turno {n}"
+            if n > 1:
+                for a in por_reparto:  # los fijos en su puesto repiten por diseño
+                    assert _clave(t, a) != _clave(plan["turnos"][n - 2], a), f"turno {n}: repite seguido"
+            for a in dentro:
+                total[a] += 1
+
+
+def test_sin_preferencias_el_plan_es_el_de_siempre(banda):
+    antes = bandas.planificar(banda, 1, azar=random.Random(7))
+    banda.alumnos = {}
+    banda.save()
+    assert bandas.planificar(banda, 1, azar=random.Random(7)) == antes
+
+
+# === C657 — la tabla de alumnos ===
+
+
+def test_la_tabla_de_alumnos_se_guarda_y_regenera(client, profesor, grupo, banda, treinta):
+    bandas.generar(banda, autor=profesor, azar=random.Random(1))
+    _sesion(grupo, profesor, 0)  # el turno 1 ha empezado: no se toca
+    banda.refresh_from_db()
+    t1 = dict(banda.plan["turnos"][0])
+    client.force_login(profesor)
+    html = client.get(reverse("clases:banda_rejilla", args=[grupo.pk])).content.decode()
+    assert 'id="tabla-alumnos"' in html and html.count('name="anillo_') == 30
+    assert "{#" not in html
+    eduardo, axel, natalia, lola = (a.pk for a in treinta[:4])
+    datos = {f"anillo_{a.pk}": "rota" for a in treinta}
+    datos.update({
+        f"anillo_{eduardo}": "fijo", f"puestos_{eduardo}": ["bateria"],
+        f"anillo_{axel}": "fijo", f"puestos_{axel}": ["bateria"],
+        f"anillo_{natalia}": "fijo", f"puestos_{natalia}": ["espanola", "electrica"], f"orden_{natalia}": "electrica,espanola",
+        f"anillo_{lola}": "fuera",
+        f"anillo_{treinta[4].pk}": "veto", f"puestos_{treinta[4].pk}": ["voz", "teclado"],
+    })
+    r = client.post(reverse("clases:banda_alumnos", args=[grupo.pk]), datos)
+    assert r.status_code == 302
+    banda.refresh_from_db()
+    assert banda.alumnos[str(natalia)] == {"anillo": "fijo", "puestos": ["electrica", "espanola"], "no": []}
+    assert banda.alumnos[str(lola)] == {"anillo": "fuera", "puestos": [], "no": []}
+    assert banda.alumnos[str(treinta[4].pk)] == {"anillo": "rota", "puestos": [], "no": ["voz", "teclado"]}
+    assert str(treinta[5].pk) not in banda.alumnos  # rota sin vetos no se guarda
+    assert banda.versiones.first().motivo == "Preferencias cambiadas"
+    assert banda.plan["turnos"][0] == t1
+    for t in banda.plan["turnos"][1:]:
+        assert lola not in t["alumnos"]
+        assert _clave(t, natalia) == "electrica"
+        assert ("bateria" == _clave(t, eduardo)) != ("bateria" == _clave(t, axel))
+    html = client.get(reverse("clases:banda_rejilla", args=[grupo.pk])).content.decode()
+    assert "🔒 " + bandas.nombre_de(treinta[2]) in html
+    assert "3 puestos con fijos · 1 fuera" in html  # Natalia cuenta en las dos guitarras
+
+
+def test_un_fijo_sin_plaza_de_su_puesto_avisa(client, profesor, grupo, banda, treinta):
+    _anillos(banda, fijo={treinta[0].pk: ["cajon"]})
+    client.force_login(profesor)
+    html = client.get(reverse("clases:banda_rejilla", args=[grupo.pk])).content.decode()
+    assert 'id="aviso-fijos-sin-plaza"' in html and bandas.nombre_de(treinta[0]) in html
+    plan = bandas.planificar(banda, 1, azar=random.Random(1))
+    assert any(c is not None for c in _claves_de(plan, treinta[0].pk))  # rota como los demás
+
+
+def test_la_tabla_rechaza_lo_que_no_cuadra(client, profesor, grupo, banda, treinta):
+    client.force_login(profesor)
+    url = reverse("clases:banda_alumnos", args=[grupo.pk])
+    r = client.post(url, {f"anillo_{treinta[0].pk}": "fijo"}, follow=True)
+    assert "sin ningún puesto" in r.content.decode()
+    r = client.post(url, {"anillo_999999": "fuera"}, follow=True)
+    assert "no está matriculado" in r.content.decode()
+    with pytest.raises(ValidationError):
+        bandas.validar_alumnos({str(treinta[0].pk): {"anillo": "fijo", "puestos": ["violin"]}}, banda)
+
+
+# === C658 — la hoja de la pared ===
+
+
+def test_la_hoja_dice_los_fijos_y_los_de_xilofono(client, profesor, grupo, banda, treinta):
+    _anillos(banda, fijo={treinta[0].pk: ["bateria"], treinta[1].pk: ["bateria"]}, fuera=[treinta[2].pk])
+    bandas.generar(banda, autor=profesor, azar=random.Random(1))
+    client.force_login(profesor)
+    html = client.get(reverse("clases:banda_hoja", args=[grupo.pk])).content.decode()
+    assert "Los que rotan pasáis todos por la banda" in html
+    assert f"🥁 Batería:</b> {bandas.nombre_de(treinta[0])}, {bandas.nombre_de(treinta[1])} (se turnan)." in html
+    assert f"<b>Xilófono:</b> {bandas.nombre_de(treinta[2])}." in html
+    assert f"<b>{bandas.nombre_de(treinta[2])}</b> xilófono" in html
