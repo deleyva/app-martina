@@ -98,7 +98,7 @@
         </div>
         <div class="flex-none hidden lg:flex items-center gap-1">
           {% if request.user.is_authenticated %}
-            {% if request.user.enrollments.exists or request.user.is_staff %}
+            {% if es_profesor or request.user.enrollments.exists %}
               {# Library icon links — direct access #}
               <a href="/indice-de-recursos-musicales/" class="btn btn-ghost btn-circle" title="{% translate 'Librería global' %}">
                 <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -257,7 +257,7 @@
 
         <ul class="menu p-4 flex-1">
           {% if request.user.is_authenticated %}
-            {% if request.user.enrollments.exists or request.user.is_staff %}
+            {% if es_profesor or request.user.enrollments.exists %}
             <li><a href="/indice-de-recursos-musicales/">
               <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.354-5.646A9 9 0 008.646 3.646 9.004 9.004 0 0012 21zm0 0A8.966 8.966 0 015 18c0-2.091.716-4.014 1.918-5.544M12 21a8.966 8.966 0 01-4.918-3.544M12 21c2.486 0 4.735-1.013 6.364-2.636M12 21c-2.486 0-4.735-1.013-6.364-2.636M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
               {% translate "Libreria global" %}
@@ -338,7 +338,7 @@
 
   {# Mobile Bottom Dock Navigation #}
   {% if request.user.is_authenticated %}
-  {% if request.user.enrollments.exists or request.user.is_staff %}
+  {% if es_profesor or request.user.enrollments.exists %}
   <div class="lg:hidden">
   <nav class="dock" style="padding-bottom: env(safe-area-inset-bottom, 0px);" aria-label="Mobile navigation">
     <a href="/indice-de-recursos-musicales/" class="{% if request.path == '/indice-de-recursos-musicales/' %}dock-active{% endif %}">

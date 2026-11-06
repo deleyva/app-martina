@@ -54,8 +54,23 @@ def test_profesor_de_otro_departamento_no_entra_en_la_app(client, django_user_mo
     user = _usuario(django_user_model, "fisica@iesmartinabescos.es")
     r = _get(client, user, RUTA_MUSICA)
     assert r.status_code == 403
-    assert b"Esta parte es la app de m" in r.content
+    assert b"Esta es la app de m" in r.content
     assert b"analytics.js" not in r.content, "la página de rechazo no debe contar como visita"
+    assert b"{#" not in r.content
+
+
+def test_el_candado_no_lleva_a_otras_apps(client, django_user_model):
+    """Las apps de `apps.` están aisladas (2026-11-06).
+
+    Desde la app de música no se llega a incidencias, wifi ni blogs pulsando
+    botones: quien quiera ir sabe la dirección o tiene su acceso directo.
+    """
+    user = _usuario(django_user_model, "fisica@iesmartinabescos.es")
+    html = _get(client, user, RUTA_MUSICA).content.decode()
+    for prohibido in ("/incidencias/", "/wifi/", "blogs.iesmartinabescos.es"):
+        assert prohibido not in html, prohibido
+    assert "pide acceso a Jesús López" in html
+    assert "enlace de invitación" in html
 
 
 def test_la_raiz_de_apps_tambien_esta_cerrada(client, django_user_model):
@@ -110,7 +125,13 @@ def test_staff_entra(client, django_user_model):
     assert _get(client, user, RUTA_MUSICA).status_code != 403
 
 
-def test_tras_el_login_el_profesorado_general_va_a_incidencias(rf, django_user_model):
+def test_tras_el_login_cada_uno_vuelve_a_su_app(rf, django_user_model):
+    """Quien entra por la app de música no acaba en incidencias.
+
+    El 2026-11-06 una profesora aún sin alta entró por la portada de `apps.` y
+    el login la dejó en `/incidencias/`. Quien viene de incidencias o de wifi
+    sí vuelve allí: es su app.
+    """
     from django.contrib.sessions.middleware import SessionMiddleware
 
     from martina_bescos_app.users.adapters import AccountAdapter
@@ -124,8 +145,60 @@ def test_tras_el_login_el_profesorado_general_va_a_incidencias(rf, django_user_m
         return AccountAdapter(request).get_login_redirect_url(request)
 
     otro = _usuario(django_user_model, "fisica@iesmartinabescos.es")
-    assert _redirect(otro) == "/incidencias/"
+    assert _redirect(otro) == "/"
+    assert _redirect(otro, "incidencias") == "/incidencias/"
     assert _redirect(otro, "wifi") == "/wifi/"
 
     staff = _usuario(django_user_model, "admin@iesmartinabescos.es", is_staff=True)
     assert _redirect(staff) != "/incidencias/"
+
+
+@pytest.mark.parametrize(
+    ("desde", "acaba_en"),
+    [("/", "/"), ("/incidencias/", "/incidencias/")],
+)
+def test_el_login_de_verdad_no_cruza_de_app(client, django_user_model, desde, acaba_en):
+    """El camino entero: visitar una app, entrar con contraseña, ver adónde lleva.
+
+    Sin `next`, como hizo la profesora del 2026-11-06. Desde la portada de
+    música el login acaba en la portada (y ahí el candado); desde incidencias,
+    en incidencias.
+    """
+    from allauth.account.models import EmailAddress
+
+    correo = "fisica@iesmartinabescos.es"
+    user = _usuario(django_user_model, correo)
+    EmailAddress.objects.create(user=user, email=correo, verified=True, primary=True)
+
+    client.get(desde, HTTP_HOST=APPS)
+    r = client.post(
+        "/accounts/login/",
+        {"login": correo, "password": "x"},
+        HTTP_HOST=APPS,
+    )
+    assert r.status_code == 302, r.content[:300]
+    assert r["Location"] == acaba_en
+    if acaba_en == "/":
+        pagina = client.get("/", HTTP_HOST=APPS)
+        assert pagina.status_code == 403
+        assert b"/incidencias/" not in pagina.content
+
+
+def test_un_profesor_invitado_ve_la_barra_de_la_app(client, django_user_model):
+    """La barra de iconos no puede depender de estar matriculado.
+
+    Hasta el 2026-11-06 salía solo con `enrollments` o `is_staff`. Un profesor
+    invitado no es ninguna de las dos cosas, así que entraba en una app sin
+    Sesiones, Mi librería ni Calificaciones en la barra. Jesús, que es staff,
+    nunca lo vio.
+    """
+    from django.contrib.auth.models import Group as GrupoDePermisos
+    from django.urls import reverse
+
+    from martina_bescos_app.users.permisos import GRUPO_PROFESORADO
+
+    user = _usuario(django_user_model, "nueva.musica@iesmartinabescos.es")
+    user.groups.add(GrupoDePermisos.objects.get_or_create(name=GRUPO_PROFESORADO)[0])
+    html = _get(client, user, reverse("clases:class_session_list")).content.decode()
+    for destino in ("my_library:inicio", "clases:class_session_list", "calificaciones:index"):
+        assert f'href="{reverse(destino)}"' in html, destino

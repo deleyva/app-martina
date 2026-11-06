@@ -150,12 +150,18 @@ class AccountAdapter(DefaultAccountAdapter):
         return None
 
     def get_login_redirect_url(self, request):
-        """Tras entrar sin `next`, quien no es de música va a incidencias.
+        """Tras entrar sin `next`, quien no es de música vuelve a SU app.
 
         El destino por defecto es su perfil, que en `apps.` se pinta con la
         plantilla de la app de música. Para un profesor de otro departamento
-        eso era la puerta por la que acababa dentro (2026-10-06). Si venía de
-        `/wifi/`, vuelve a wifi.
+        eso era la puerta por la que acababa dentro (2026-10-06).
+
+        **Las apps no se cruzan.** Quien viene de `/incidencias/` o de `/wifi/`
+        vuelve allí. Quien viene de la app de música va a la portada, donde el
+        candado le dice que esto es de música y cómo pedir acceso. Hasta el
+        2026-11-06 esa rama mandaba a incidencias a todo el que no fuera de
+        música: una profesora a la que todavía no se había dado de alta entró
+        por la portada y apareció en incidencias.
         """
         from django.urls import reverse
 
@@ -164,9 +170,14 @@ class AccountAdapter(DefaultAccountAdapter):
 
         candado = getattr(settings, "APPS_CANDADO", True)
         if candado and es_host_de_apps(request) and not puede_usar_apps(request.user):
-            if request.session.get("app_mode") == "wifi":
-                return reverse("wifi:solicitar")
-            return reverse("incidencias:landing")
+            destinos = {
+                "incidencias": "incidencias:landing",
+                "wifi": "wifi:solicitar",
+            }
+            modo = request.session.get("app_mode")
+            if modo in destinos:
+                return reverse(destinos[modo])
+            return "/"
         return super().get_login_redirect_url(request)
 
     def get_logout_redirect_url(self, request):
