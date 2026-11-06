@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  AlertCircle, ArrowLeft, Award, BookOpen, CheckCircle, Clock, FileText,
+  AlertCircle, ArrowLeft, Award, BookOpen, CheckCircle, ClipboardList, Clock, FileText,
   HelpCircle, History, Layers, Music, Save,
 } from 'lucide-react';
 import { api, config, rutaGrupo, SesionCaducada } from './api.js';
@@ -15,6 +15,7 @@ import Empezar from './Empezar.jsx';
 import Historial from './Historial.jsx';
 import Info from './Info.jsx';
 import Informes from './Informes.jsx';
+import Asistencia from './Asistencia.jsx';
 import Final from './Final.jsx';
 
 // Cómo se distingue en la cola una calificación puesta a mano de una celda.
@@ -23,6 +24,7 @@ const MANUAL = 'manual:';
 const PESTANAS = [
   { id: 'registro', label: 'REGISTRO', icon: FileText },
   { id: 'informes', label: 'INFORMES', icon: BookOpen },
+  { id: 'asistencia', label: 'ASISTENCIA', icon: ClipboardList },
   { id: 'historial', label: 'HISTORIAL', icon: History },
   { id: 'final', label: 'FINAL', icon: Award },
   { id: 'info', label: 'INFO', icon: HelpCircle },
@@ -45,6 +47,8 @@ export default function App() {
   const [subiendo, setSubiendo] = useState(0);
   const [avisos, setAvisos] = useState(config.avisos || []);
   const [cambios, setCambios] = useState([]);
+  const [asistencia, setAsistencia] = useState(null);
+  const [guardandoAsistencia, setGuardandoAsistencia] = useState(false);
 
   const atender = useCallback((e) => {
     if (e instanceof SesionCaducada) setCaducada(true);
@@ -199,6 +203,28 @@ export default function App() {
       .then((r) => { ponerAlumno(r.alumno); return cargarHistorial(); })
       .catch(atender);
   }, [ponerAlumno, cargarHistorial, atender]);
+
+  // ── Asistencia (fase 102): la pestaña y el bloque del informe leen lo mismo ──
+  const cargarAsistencia = useCallback(
+    () => api.asistencia().then(setAsistencia).catch(atender),
+    [atender],
+  );
+  useEffect(() => {
+    if (pestana === 'asistencia' || pestana === 'informes') cargarAsistencia();
+  }, [pestana, cargarAsistencia]);
+
+  const notaEnInforme = useCallback((sesion, alumnoId, valor) => {
+    setGuardandoAsistencia(true);
+    api.notaEnInforme(sesion, alumnoId, valor)
+      .then(cargarAsistencia)
+      .catch(atender)
+      .finally(() => setGuardandoAsistencia(false));
+  }, [cargarAsistencia, atender]);
+
+  const verInforme = useCallback((alumnoId) => {
+    setAlumnoElegido(alumnoId);
+    setPestana('informes');
+  }, []);
 
   // ── Pestañas, y no perder lo que está a medias ──
   useEffect(() => {
@@ -383,6 +409,18 @@ export default function App() {
             trimestre={trimestre}
             modo={modo}
             onElegir={setAlumnoElegido}
+            asistencia={asistencia}
+          />
+        )}
+
+        {pestana === 'asistencia' && (
+          <Asistencia
+            datos={datos}
+            asistencia={asistencia}
+            trimestre={trimestre}
+            guardando={guardandoAsistencia}
+            onNotaEnInforme={notaEnInforme}
+            onVerInforme={verInforme}
           />
         )}
 

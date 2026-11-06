@@ -2,9 +2,9 @@
 slug: app-martina
 phase: complete
 progress: true
-iteration: 69
+iteration: 70
 principal_stated_goal: "Yo solo quiero añadir evidencias tal cual están diseñadas en la aplicación de Notas. Por favor, copiala. Usa en vez de HTMLX, usa, en fin, haz lo que sea, pero que sea igual visualmente. Me gusta mucho esa forma de calificar, esa aplicación que hicimos."
-updated: 2026-11-03
+updated: 2026-11-06
 ---
 
 # ISA — app-martina · Sistema de estudio de la biblioteca
@@ -6384,3 +6384,48 @@ El 2026-11-01 a las 12:29 producción mandó el correo de error de Django: `Modu
 - **Dos cosas vistas y sin tocar:** en «Libros de» un grupo recién creado, el aviso «Grupo creado» sale dos veces (lo pintan `base.html` y `index.html`); y `prose` no tiene estilos en este proyecto, así que en las guías de `/ayuda/` las listas salen sin viñetas y los enlaces del texto no se distinguen. En la guía nueva las otras guías van nombradas por su título entre comillas para que se encuentren igual.
 - **Gotcha local:** `group_join_by_invitation` redirige a https si la petición no es segura, así que en `localhost:8000` un enlace de invitación no se puede abrir en el navegador. Las dos invitaciones se aceptaron con `accept_for_user` desde el shell.
 - **2026-11-06 — Desplegada en producción (`765526b`), sin migraciones.** Antes del push se quitó del ISA el nombre de la profesora que lo pidió (repo público) y se rehízo el commit, que aún no estaba subido. Sonda en el shell de producción, dentro de una transacción deshecha, con una cuenta inventada del dominio del centro: el adaptador manda a `/` sin modo, a `/incidencias/` con modo incidencias y a `/wifi/` con modo wifi; el login con contraseña por la portada acaba en `/`, y la portada da 403 con «Esta es la app de música», «pide acceso a Jesús» y ningún enlace a incidencias, wifi ni blogs; con el grupo Profesorado y sin `is_staff`, la barra lleva Mi librería, Sesiones y Calificaciones. La cuenta no queda en la base. En Chrome con la sesión de Jesús, `/clases/sessions/` sigue con su barra y el botón «👥 Profesorado». La página del candado no se ha visto en un navegador de producción, porque haría falta entrar con una cuenta sin acceso; en local sí se vio. Un tropiezo propio: la primera sonda usó un correo de fuera del centro y `_login_permitido` la rechazó, que es lo que debe hacer. Otro: estas entradas de log se habían escrito en el Log vacío de la fase 73, por coger la primera coincidencia de `### Log`; movidas aquí.
+
+## Fase 102 — Las faltas y las anotaciones de clase, en calificaciones y en el informe (2026-11-06) · CONSTRUIDA Y VERIFICADA EN LOCAL · PENDIENTE DE DESPLIEGUE
+
+**Goal (literal de Jesús, 2026-11-06):** «Ok, vamos a desarrollar una lista para una vista dentro de la app de calificaciones para que pueda ver las faltas de asistencia del alumnado. Quiero, además, que las faltas de asistencia salgan en el informe personal, así como otras anotaciones. Sobre todo si no ha traído ukelele o alguna cosa más. Las anotaciones que haga sobre el alumno no quiero que aparezcan en su informe, a no ser que las marque como tales.»
+
+**Qué hay.** Al pasar lista (fase 70) cada alumno de cada sesión puede tener una fila `Asistencia`: estado (presente, falta, retraso con hora), `sin_material` (ukelele, libreta) y una `nota` libre. Sin fila, estuvo y lo trajo todo. Todo eso solo se ve dentro de la sesión; calificaciones no lo lee, y el informe (`Informes.jsx`, pestaña INFORMES, para imprimir) no dice nada de asistencia.
+
+**Vision.** En calificaciones, una pestaña ASISTENCIA enseña, para el trimestre de la barra, cuántas faltas, retrasos y olvidos de material lleva cada alumno, con el detalle por fecha y las notas que se tomaron en clase. El informe del alumno lleva sus faltas, retrasos y material del trimestre con fechas. De las notas, solo las que Jesús marque «para el informe», en clase o desde la pestaña; las demás no salen nunca.
+
+**Decisiones por defecto (Jesús puede corregirlas):**
+- El material (sin ukelele, sin libreta) va al informe siempre, como las faltas: es lo que pidió con «sobre todo si no ha traído ukelele». Lo que necesita marca es la nota libre.
+- Los retrasos también van al informe, en su propia línea.
+- El trimestre de una sesión es el de `trimestre_de(fecha)` (septiembre-diciembre, enero-marzo, abril-junio), el mismo que ya usa Evaluar.
+- Solo cuentan las sesiones que da el propio profesor, la misma regla que `_sesiones` de la API y `lista_marcar`: la lista y sus notas son de quien da la clase.
+
+### Claims
+
+- [x] **C687** — `Asistencia` lleva `nota_en_informe` (falso por defecto) y la migración solo añade esa columna. *Falsador: la migración tiene algo más que un `AddField`.* **Evidencia:** `clases/migrations/0031_nota_en_informe.py` tiene una sola operación, `AddField` de `nota_en_informe` (`BooleanField(default=False)`); aplicada en local.
+- [x] **C688** — `marcar()` acepta `nota_en_informe`: lo que no llega no cambia, y algo que no sea booleano es `ValidationError`. Es el único camino de escritura. *Falsador: tests de `marcar`.* **Evidencia:** `test_marcar_guarda_la_marca_y_lo_que_no_llega_no_cambia`, `test_vaciar_la_nota_quita_la_marca`, `test_la_marca_tiene_que_ser_booleana` (5 valores) y `test_lista_marcar_acepta_la_marca_por_http` (422 con «sí»), en verde. La pestaña escribe por `lista_marcar`, no por un camino nuevo.
+- [x] **C689** — En la pantalla de clase, el menú del alumno tiene junto a la nota una casilla «Que salga en su informe», que se guarda con «Guardar nota» y sale marcada al reabrir. *Falsador: Chrome en local.* **Evidencia:** Chrome en local, sesión 135: el menú de Ana Ejemplo enseña «Que salga en su informe» sin marcar; marcada + «Guardar nota» y al reabrir sale marcada (captura ampliada vista). La fila de la base da `nota_en_informe=True`.
+- [x] **C690** — `/calificaciones/grupo/<id>/asistencia.json` da, por alumno con matrícula activa y por trimestre, faltas, retrasos, cada material y el detalle por fecha con todas sus notas; y por trimestre, cuántas clases tienen la lista pasada. *Falsador: test del JSON con sesiones en dos trimestres.* **Evidencia:** `test_el_resumen_cuenta_por_trimestre` (sesiones en octubre, noviembre y febrero; una sin lista que no cuenta: `clases` = 2/1/0) y `test_la_vista_devuelve_el_resumen` (200, `no-store`).
+- [x] **C691** — Calificaciones tiene la pestaña ASISTENCIA con esa tabla para el trimestre de la barra, y desde el detalle se marca o desmarca una nota para el informe. *Falsador: Chrome en local, ida y vuelta de la marca.* **Evidencia:** Chrome en local, grupo 1-Z-GUIA: la tabla da Alumno Guía 1 falta, 1 retraso, 1 sin ukelele; Ana 2 sin ukelele y 1 sin libreta; Bruno «1 · 1 en informe». Al abrir a Alumno Guía salen sus dos fechas; marcar «En el informe» cambia la cifra a «1 · 1 en informe» y la base da `True`.
+- [x] **C692** — El informe del alumno muestra faltas, retrasos y material del trimestre con fechas, y las notas marcadas; sale también al imprimir. *Falsador: Chrome en local con una nota marcada y otra sin marcar.* **Evidencia:** Chrome en local: el informe de Alumno Guía enseña «Faltas de asistencia: 1 14/10», «Retrasos: 1 04/11 (18:51)», «Sin ukelele: 1 04/11» y, solo después de marcarla, «Anotaciones · 04/11 Llega tarde…». El de Ana no enseña su nota sin marcar; el de Carla dice «Sin faltas, retrasos ni olvidos de material»; en la 2.ª evaluación Alumno Guía tiene la falta del 10/02. Impresión: ningún antepasado del bloque lleva `print:hidden` (leído del DOM; no se ha visto una vista previa de impresión).
+- [x] **C693** — Ninguna nota sin marcar llega al bloque del informe. *Falsador: test que recorre todas las combinaciones de nota vacía/con texto × marcada/sin marcar y compara el bloque del informe con las marcadas con texto.* **Evidencia:** `test_solo_las_notas_marcadas_llegan_al_informe` recorre las 6 combinaciones y comprueba además que el texto de la nota sin marcar no está en ningún rincón del bloque. Probado que muerde: con el filtro cambiado a `if nota:` el test falla (1 failed, 13 passed) y con el código bueno pasa.
+- [x] **C694** — No cuentan las sesiones de otro profesor del mismo grupo ni el alumnado dado de baja, y un profesor que no da clase en el grupo recibe 404. *Falsador: test con una sesión de un cotitular y una matrícula inactiva.* **Evidencia:** `test_no_cuentan_las_sesiones_de_otro_profesor_ni_las_bajas` (la falta y la nota marcada del cotitular no cuentan; la baja no aparece), `test_un_profesor_de_otro_grupo_recibe_404` y `test_un_alumno_no_entra` (302 al login).
+- [x] **C695** — Las suites de `clases` y `calificaciones` no empeoran y el paquete de React se reconstruye sin errores. *Falsador: pytest en Postgres y `bun run build`.* **Evidencia:** `pytest clases calificaciones` en Postgres: 607 passed (incluye `test_bundle`, que comprueba que el paquete corresponde al código). `bun run build` sin errores y `bun test` del frontend 23/23.
+
+### Anti-claims
+
+- **Anti-A** — Una nota que no está marcada no sale en el informe, ni en pantalla ni impreso.
+- **Anti-B** — Pasar lista no se vuelve más lento: marcar falta o material sigue siendo un toque, y la casilla solo está junto a la nota.
+- **Anti-C** — Ni push ni despliegue sin que Jesús lo diga.
+
+### Out of Scope
+
+- Que las faltas cuenten en la nota, exportarlas a SIGAD o al CSV de calificaciones, y avisar a las familias.
+- Las notas de voz de la sesión (`SessionNote`) y la reflexión: son de la clase, no de un alumno.
+
+### Log
+
+- **2026-11-06 — Construida y verificada en local; sin push ni despliegue.** Al desplegar se aplica `clases.0031_nota_en_informe`, que solo añade una columna booleana. Ficheros: `Asistencia.nota_en_informe`; `marcar()` y `asistencia_json` en `plano.py`; `lista_marcar`; la casilla en `present.html`; `calificaciones/asistencia.py` (nuevo), la vista `asistencia_json` y su ruta; `Asistencia.jsx` (nuevo), el bloque `AsistenciaDelInforme` en `Informes.jsx`, `App.jsx` y `api.js`; el paquete reconstruido. El JSON de `/api/grupos/{id}/asistencia` gana el campo `nota_en_informe` (se ajustó el test que comparaba el diccionario entero).
+- **Privacidad por construcción:** el informe solo lee `informe`, que arma el servidor sin las notas sin marcar. Vaciar una nota le quita la marca.
+- **Segunda mirada independiente: no.** Es trabajo que puede acabar en manos de familias, pero la única garantía que importa (C693) está cubierta por un test que recorre todas las combinaciones y que se ha visto fallar con el filtro roto. No se ha pedido auditoría cruzada.
+- **Dos tropiezos de entorno:** el `runserver` local no recargó las rutas nuevas y hubo que reiniciar el contenedor; y Chrome guardó en caché el 404 de antes del reinicio, que siguió saliendo hasta una recarga sin caché. En producción no pasa, porque código y paquete llegan juntos.
+- **Datos de prueba que quedan en la BD local:** sesiones 134, 135 y 136 de `profesora.guia@` en 1-Z-GUIA, con seis filas de asistencia (dos notas marcadas desde la app y una sembrada). La sesión de navegador que se abrió para probar se borró.

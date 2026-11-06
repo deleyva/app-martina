@@ -409,7 +409,7 @@ def test_api_asistencia_y_sesiones(client, grupo, sesion, alumnos, clave):
     SessionNote.objects.create(session=sesion)  # pendiente: no sale
     r = _api(client, "get", f"/grupos/{grupo.pk}/asistencia?desde=2026-10-01", clave).json()
     assert r[0]["marcas"] == [
-        {"alumno": alumnos[1].pk, "nombre": "BRUNO SANZ ROS", "estado": "falta", "hora": "", "sin_material": [], "nota": "Enfermo"}
+        {"alumno": alumnos[1].pk, "nombre": "BRUNO SANZ ROS", "estado": "falta", "hora": "", "sin_material": [], "nota": "Enfermo", "nota_en_informe": False}
     ]
     s = _api(client, "get", f"/grupos/{grupo.pk}/sesiones?hasta=2026-10-31", clave).json()
     assert s[0]["reflexion"] == "Ha ido bien"

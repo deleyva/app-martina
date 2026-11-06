@@ -139,7 +139,11 @@ def lista_datos(request, pk):
 @user_passes_test(es_profesor)
 @require_POST
 def lista_marcar(request, pk):
-    """Cuerpo JSON: {alumno, estado?, sin_material?, nota?}. Lo que no llega no cambia."""
+    """Cuerpo JSON: {alumno, estado?, sin_material?, nota?, nota_en_informe?}. Lo que no llega no cambia.
+
+    También lo usa la pestaña ASISTENCIA de calificaciones para marcar una nota
+    de una clase pasada para el informe: un solo camino de escritura.
+    """
     session = _sesion_del_profesor(request, pk)
     try:
         cuerpo = _cuerpo(request)
@@ -149,6 +153,7 @@ def lista_marcar(request, pk):
         fila = planos.marcar(
             session, alumno, estado=cuerpo.get("estado"),
             sin_material=cuerpo.get("sin_material"), nota=cuerpo.get("nota"),
+            nota_en_informe=cuerpo.get("nota_en_informe"),
         )
     except ValidationError as e:
         return _error(e)

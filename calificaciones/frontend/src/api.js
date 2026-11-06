@@ -51,6 +51,15 @@ const enviar = (url, campos) => pedir(url, { method: 'POST', body: formulario(ca
 export const api = {
   estado: () => pedir(`${config.base}estado/`),
   historial: () => pedir(`${config.base}historial.json`),
+  // Faltas, retrasos, material y notas de clase (fase 102).
+  asistencia: () => pedir(`${config.base}asistencia.json`),
+  // La marca se escribe por el mismo camino que al pasar lista en clase.
+  notaEnInforme: (sesion, alumno, valor) =>
+    pedir(`/clases/sessions/${sesion}/lista/marcar/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ alumno, nota_en_informe: valor }),
+    }),
   // `celdas`: [[prueba, valor], …] de un mismo alumno. Van todas en una petición.
   guardarNotas: (alumno, celdas) =>
     enviar(`${config.base}nota/`, {

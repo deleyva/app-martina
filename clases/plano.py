@@ -263,12 +263,15 @@ def pase_de(session):
 
 
 @transaction.atomic
-def marcar(session, alumno_id, estado=None, sin_material=None, nota=None, ahora=None):
+def marcar(session, alumno_id, estado=None, sin_material=None, nota=None, nota_en_informe=None, ahora=None):
     """Aplica lo que llegue (lo que no llega no se toca) y devuelve la fila o None.
 
     Una fila que se queda sin nada marcado se borra: «sin fila» es «presente».
     Todo se valida antes de tocar la base, y la fila se bloquea mientras se
     escribe: dos toques seguidos (material y falta) no se pisan uno al otro.
+
+    `nota_en_informe` dice si la nota sale en el informe del alumno (fase 102).
+    Una nota vacía no puede estar marcada: al vaciarla, la marca se quita.
     """
     if alumno_id not in {u.pk for u in alumnado(session.group)}:
         raise ValidationError("Ese alumno no está matriculado en el grupo")
@@ -283,6 +286,8 @@ def marcar(session, alumno_id, estado=None, sin_material=None, nota=None, ahora=
             raise ValidationError(f"Material desconocido: {', '.join(sorted(desconocidos))}")
     if nota is not None and not isinstance(nota, str):
         raise ValidationError("La nota tiene que ser texto")
+    if nota_en_informe is not None and not isinstance(nota_en_informe, bool):
+        raise ValidationError("`nota_en_informe` tiene que ser verdadero o falso")
 
     Asistencia.objects.get_or_create(session=session, alumno_id=alumno_id)
     fila = Asistencia.objects.select_for_update().get(session=session, alumno_id=alumno_id)
@@ -296,6 +301,10 @@ def marcar(session, alumno_id, estado=None, sin_material=None, nota=None, ahora=
         fila.sin_material = [c for c, _ in MATERIALES if c in sin_material]
     if nota is not None:
         fila.nota = nota.strip()
+    if nota_en_informe is not None:
+        fila.nota_en_informe = nota_en_informe
+    if not fila.nota:
+        fila.nota_en_informe = False
     if fila.vacia:
         fila.delete()
         return None
@@ -309,6 +318,7 @@ def asistencia_json(fila):
         "hora": fila.hora_llegada.strftime("%H:%M") if fila.hora_llegada else "",
         "sin_material": fila.sin_material,
         "nota": fila.nota,
+        "nota_en_informe": fila.nota_en_informe,
     }
 
 

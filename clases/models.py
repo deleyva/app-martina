@@ -1820,6 +1820,9 @@ class Asistencia(models.Model):
     hora_llegada = models.TimeField(null=True, blank=True)
     sin_material = models.JSONField(default=list, blank=True)
     nota = models.TextField(blank=True)
+    # La nota es del profesor. Solo sale en el informe del alumno si él la
+    # marca (fase 102); las faltas, los retrasos y el material salen siempre.
+    nota_en_informe = models.BooleanField(default=False)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

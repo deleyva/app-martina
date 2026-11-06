@@ -10,6 +10,7 @@ urlpatterns = [
     path("grupo/<int:group_id>/", views.registro, name="registro"),
     path("grupo/<int:group_id>/estado/", views.estado_json, name="estado"),
     path("grupo/<int:group_id>/historial.json", views.historial_json, name="historial_json"),
+    path("grupo/<int:group_id>/asistencia.json", views.asistencia_json, name="asistencia_json"),
     path("grupo/<int:group_id>/plan/adoptar/", views.plan_adoptar, name="plan_adoptar"),
     path("grupo/<int:group_id>/nota/", views.nota_guardar, name="nota_guardar"),
     path("grupo/<int:group_id>/nota-manual/", views.nota_manual_guardar, name="nota_manual_guardar"),

@@ -197,6 +197,8 @@
         #marcas-alumno .fila button.activa[data-estado="retraso"] { border-color: #f59e0b; background: #fde68a; }
         #marcas-alumno .fila button.activa[data-material] { border-color: #b91c1c; background: #fee2e2; }
         #marcas-alumno textarea { width: 100%; box-sizing: border-box; border: 1px solid #d4d4d8; border-radius: 8px; padding: 6px 8px; font-size: 14px; min-height: 54px; resize: vertical; user-select: text; -webkit-user-select: text; }
+        #marcas-alumno .en-informe { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 13px; color: #3f3f46; cursor: pointer; }
+        #marcas-alumno .en-informe input { width: 16px; height: 16px; margin: 0; }
         #marcas-alumno .pie { display: flex; justify-content: space-between; margin-top: 6px; }
         #marcas-alumno .pie button { border: none; border-radius: 6px; padding: 6px 12px; cursor: pointer; }
         #marcas-alumno .pie .guardar { background: #2563eb; color: #fff; }
@@ -2234,6 +2236,16 @@
         nota.placeholder = 'Nota (opcional)';
         nota.value = marca.nota || '';
         caja.appendChild(nota);
+        // La nota es del profesor: solo sale en el informe del alumno si se
+        // marca aquí o en la pestaña ASISTENCIA de calificaciones (fase 102).
+        var enInforme = document.createElement('label');
+        enInforme.className = 'en-informe';
+        var casilla = document.createElement('input');
+        casilla.type = 'checkbox';
+        casilla.checked = !!marca.nota_en_informe;
+        enInforme.appendChild(casilla);
+        enInforme.appendChild(document.createTextNode('Que salga en su informe'));
+        caja.appendChild(enInforme);
         var pie = document.createElement('div');
         pie.className = 'pie';
         var cerrar = document.createElement('button');
@@ -2244,7 +2256,7 @@
         guardar.type = 'button';
         guardar.className = 'guardar';
         guardar.textContent = 'Guardar nota';
-        guardar.onclick = function() { enviarMarca({ nota: nota.value }, true); };
+        guardar.onclick = function() { enviarMarca({ nota: nota.value, nota_en_informe: casilla.checked }, true); };
         pie.appendChild(cerrar);
         pie.appendChild(guardar);
         caja.appendChild(pie);

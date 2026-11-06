@@ -27,7 +27,7 @@ from django.views.decorators.http import require_http_methods, require_POST
 from clases.models import Group
 from martina_bescos_app.users.permisos import es_profesor, grupo_del_profesor
 
-from . import calculo, estado, ficheros, plantillas
+from . import asistencia, calculo, estado, ficheros, plantillas
 from .models import (
     CambioNota,
     Evidencia,
@@ -147,6 +147,16 @@ def estado_json(request, group_id):
 def historial_json(request, group_id):
     group = grupo_del_profesor(request.user, group_id)
     respuesta = JsonResponse({"cambios": estado.historial(group)})
+    respuesta["Cache-Control"] = "no-store"
+    return respuesta
+
+
+@login_required
+@user_passes_test(es_profesor)
+def asistencia_json(request, group_id):
+    """Faltas, retrasos, material y notas de clase del grupo, por trimestre (fase 102)."""
+    group = grupo_del_profesor(request.user, group_id)
+    respuesta = JsonResponse(asistencia.resumen(group, request.user))
     respuesta["Cache-Control"] = "no-store"
     return respuesta
 

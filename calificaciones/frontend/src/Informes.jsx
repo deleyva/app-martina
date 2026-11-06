@@ -1,7 +1,8 @@
 // El informe de un alumno, para leer o imprimir. Es el de `notas`.
 
-import { BookOpen, Printer } from 'lucide-react';
+import { BookOpen, ClipboardList, Printer } from 'lucide-react';
 import Foto from './Foto.jsx';
+import { fechaCorta } from './Asistencia.jsx';
 import {
   PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart, ResponsiveContainer, Tooltip,
 } from 'recharts';
@@ -9,7 +10,72 @@ import {
   TERMS, TERM_LABELS, TERM_LARGOS, estiloCualitativa, estiloDeNota, notaDe, numero,
 } from './estilos.js';
 
-export default function Informes({ datos, alumno, trimestre, modo, onElegir }) {
+// Faltas, retrasos y material del trimestre, con fechas, y las notas que el
+// profesor marcó para el informe (fase 102). Solo lee `informe`, que el
+// servidor arma sin las notas sin marcar: aquí no hay nada que filtrar.
+function AsistenciaDelInforme({ asistencia, alumno, trimestre }) {
+  if (!asistencia) {
+    return <p className="text-xs text-slate-300 print:hidden">Cargando la asistencia…</p>;
+  }
+  const informe = asistencia.alumnos[String(alumno.id)]?.[trimestre]?.informe;
+  if (!informe) return null;
+  const lineas = [
+    { texto: 'Faltas de asistencia', fechas: informe.faltas },
+    {
+      texto: 'Retrasos',
+      fechas: informe.retrasos.map((r) => (r.hora ? `${fechaCorta(r.fecha)} (${r.hora})` : fechaCorta(r.fecha))),
+      yaCortas: true,
+    },
+    ...asistencia.materiales.map((m) => ({
+      texto: `Sin ${m.nombre.toLowerCase()}`,
+      fechas: informe.sin_material[m.clave] || [],
+    })),
+  ].filter((l) => l.fechas.length);
+  const clases = asistencia.clases[trimestre] || 0;
+
+  return (
+    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm print:shadow-none print:border-slate-300 print:mt-4">
+      <h3 className="text-sm font-black mb-3 flex items-center gap-2 text-slate-800">
+        <ClipboardList className="text-indigo-600" size={16} />
+        ASISTENCIA Y MATERIAL
+      </h3>
+      {lineas.length === 0 ? (
+        <p className="text-slate-500 text-sm">
+          Sin faltas, retrasos ni olvidos de material en la {TERM_LARGOS[trimestre].toLowerCase()}.
+        </p>
+      ) : (
+        <ul className="space-y-1.5">
+          {lineas.map((l) => (
+            <li key={l.texto} className="text-sm text-slate-600 flex flex-wrap gap-x-2">
+              <span className="font-bold text-slate-800">{l.texto}: {l.fechas.length}</span>
+              <span className="text-slate-400">
+                {(l.yaCortas ? l.fechas : l.fechas.map(fechaCorta)).join(', ')}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="text-[10px] text-slate-400 mt-2">
+        {clases === 1 ? 'Una clase' : `${clases} clases`} con lista pasada en la evaluación.
+      </p>
+      {informe.notas.length > 0 && (
+        <div className="mt-4 pt-3 border-t border-slate-100">
+          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Anotaciones</h4>
+          <ul className="space-y-1.5">
+            {informe.notas.map((n) => (
+              <li key={`${n.fecha}-${n.texto}`} className="text-sm text-slate-600">
+                <span className="font-bold text-slate-800 mr-2">{fechaCorta(n.fecha)}</span>
+                {n.texto}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function Informes({ datos, alumno, trimestre, modo, onElegir, asistencia }) {
   const bloque = datos.trimestres[trimestre];
   const suyo = alumno.trimestres[trimestre];
   const nota = notaDe(suyo, modo);
@@ -183,6 +249,8 @@ export default function Informes({ datos, alumno, trimestre, modo, onElegir }) {
               </span>
             </div>
           </div>
+
+          <AsistenciaDelInforme asistencia={asistencia} alumno={alumno} trimestre={trimestre} />
         </div>
       </div>
     </div>
