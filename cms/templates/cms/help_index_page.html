@@ -14,13 +14,16 @@
     Las guías escritas van ANTES que los vídeos: son las que se siguen con la
     pantalla al lado mientras se hace, y por tanto las que se buscan a mitad de
     faena. Un vídeo se ve una vez.
+
+    Las secciones (fase 103) vienen de `HelpIndexPage.get_context`: el
+    profesorado ve primero las suyas y luego las del alumnado; el alumnado, solo
+    las suyas.
     {% endcomment %}
-    {% with guias=page.get_guias %}
-      {% if guias %}
-        <div class="mb-10">
-          <div class="text-xs uppercase tracking-wide opacity-70 mb-3">Guías paso a paso</div>
+    {% for seccion in secciones %}
+        <div class="mb-10" id="{{ seccion.publico }}">
+          <div class="text-xs uppercase tracking-wide opacity-70 mb-3">Guías paso a paso · {{ seccion.titulo|lower }}</div>
           <ul class="flex flex-col divide-y divide-base-300">
-            {% for guia in guias %}
+            {% for guia in seccion.guias %}
             <li class="flex items-baseline gap-3 py-3">
               <span class="opacity-60">📘</span>
               <span class="flex-1 min-w-0">
@@ -34,8 +37,7 @@
             {% endfor %}
           </ul>
         </div>
-      {% endif %}
-    {% endwith %}
+    {% endfor %}
 
     {% with videos=page.get_videos %}
       {% if videos %}

@@ -185,6 +185,13 @@ class HelpIndexPage(Page):
             qs = qs.descendant_of(site.root_page, inclusive=True)
         return qs.order_by("path").first()
 
+    def get_context(self, request, *args, **kwargs):
+        from martina_bescos_app.users.permisos import es_profesor
+
+        context = super().get_context(request, *args, **kwargs)
+        context["secciones"] = self.secciones_para(es_profesor(request.user))
+        return context
+
     def get_videos(self):
         return HelpVideoPage.objects.child_of(self).live().order_by("title").specific()
 
@@ -195,6 +202,28 @@ class HelpIndexPage(Page):
         empezar, luego las de casos sueltos— y alfabético no es ese orden.
         """
         return HelpGuidePage.objects.child_of(self).live().order_by("path").specific()
+
+    def secciones_para(self, es_profesor: bool):
+        """Las guías en secciones según quién mira (fase 103).
+
+        El profesorado ve primero las suyas y luego las del alumnado, que también
+        le sirven para saber qué ven sus alumnos. El alumnado, y quien no ha
+        entrado, solo ve las suyas. Esconder no es cerrar: una guía de
+        profesorado se sigue abriendo por su enlace, que es lo que se manda a
+        quien todavía no tiene acceso.
+        """
+        guias = list(self.get_guias())
+        de = {
+            publico: [g for g in guias if g.publico == publico]
+            for publico, _ in HelpGuidePage.PUBLICOS
+        }
+        orden = [HelpGuidePage.PROFESORADO, HelpGuidePage.ALUMNADO] if es_profesor else [HelpGuidePage.ALUMNADO]
+        nombres = dict(HelpGuidePage.PUBLICOS)
+        return [
+            {"publico": p, "titulo": nombres[p], "guias": de[p]}
+            for p in orden
+            if de[p]
+        ]
 
 
 class HelpVideoPage(Page):
@@ -261,10 +290,23 @@ class HelpGuidePage(Page):
     escribe, y a la tercera edición ya no cuadra.
     """
 
+    PROFESORADO = "profesorado"
+    ALUMNADO = "alumnado"
+    PUBLICOS = [(PROFESORADO, "Para el profesorado"), (ALUMNADO, "Para el alumnado")]
+
     intro = models.CharField(
         max_length=250,
         blank=True,
         help_text="De qué va la guía, en una línea",
+    )
+    # Fase 103: en /ayuda/ el profesorado tiene su sección y el alumnado solo ve
+    # la suya. Por defecto profesorado, que es lo que son casi todas.
+    publico = models.CharField(
+        max_length=12,
+        choices=PUBLICOS,
+        default=PROFESORADO,
+        verbose_name="Para quién es",
+        help_text="El alumnado solo ve en la ayuda las guías del alumnado",
     )
     resumen = RichTextField(
         blank=True,
@@ -314,6 +356,7 @@ class HelpGuidePage(Page):
 
     content_panels = Page.content_panels + [
         FieldPanel("intro"),
+        FieldPanel("publico"),
         FieldPanel("resumen"),
         FieldPanel("pasos"),
     ]

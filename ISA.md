@@ -1,8 +1,8 @@
 ---
 slug: app-martina
-phase: complete
+phase: build
 progress: true
-iteration: 70
+iteration: 71
 principal_stated_goal: "Yo solo quiero añadir evidencias tal cual están diseñadas en la aplicación de Notas. Por favor, copiala. Usa en vez de HTMLX, usa, en fin, haz lo que sea, pero que sea igual visualmente. Me gusta mucho esa forma de calificar, esa aplicación que hicimos."
 updated: 2026-11-06
 ---
@@ -6430,3 +6430,45 @@ El 2026-11-01 a las 12:29 producción mandó el correo de error de Django: `Modu
 - **Dos tropiezos de entorno:** el `runserver` local no recargó las rutas nuevas y hubo que reiniciar el contenedor; y Chrome guardó en caché el 404 de antes del reinicio, que siguió saliendo hasta una recarga sin caché. En producción no pasa, porque código y paquete llegan juntos.
 - **Datos de prueba que quedan en la BD local:** sesiones 134, 135 y 136 de `profesora.guia@` en 1-Z-GUIA, con seis filas de asistencia (dos notas marcadas desde la app y una sembrada). La sesión de navegador que se abrió para probar se borró.
 - **2026-11-06 — Desplegada en producción (`5cc94f5`).** `clases.0031_nota_en_informe... OK`. En Chrome con la sesión de Jesús, solo lectura: `asistencia.json` da 200 en sus siete grupos, con datos reales (el que más, 12 faltas en la 1.ª evaluación) y ninguna nota marcada, que es el valor por defecto. En uno de los grupos, la pestaña ASISTENCIA pinta 18 filas y sus sumas (2 faltas, 4 sin ukelele) cuadran con el JSON; el informe de un alumno con nota sin marcar no la enseña, y el de uno con faltas enseña «Faltas de asistencia: 2» con sus dos fechas (captura vista). No se marcó ni desmarcó nada en producción.
+
+## Fase 103 — Guía de calificaciones, y la ayuda separada por público (2026-11-06) · GUÍAS PUBLICADAS EN PRODUCCIÓN · CÓDIGO EN LOCAL, PENDIENTE DE DESPLIEGUE
+
+**Goal (literal de Jesús, 2026-11-06):** «Actualiza el tutorial para profesores. O crea otra página donde se vea cómo se hacen las calificaciones. Evidentemente, con datos falsos A mí me gustaría que las páginas que son para profesores las pudieran ver en la ayuda de los profesores.»
+
+**Qué hay.** `/ayuda/` es una sola lista de guías para todo el mundo: `HelpGuidePage` no dice para quién es, y el botón «?» lleva a todos al mismo índice. En producción hay seis guías; cinco son de profesorado (la del profesorado, importar un método, la banda por turnos, las escaleras de peldaños) y una del alumnado. Ninguna explica calificaciones.
+
+**Vision.** Una guía nueva enseña, con un grupo y un alumnado inventados, cómo se califica de principio a fin: elegir los instrumentos, poner notas y evidencias, ajustar pesos, repasar la asistencia, imprimir el informe, deshacer y la nota final. La guía del profesorado recoge lo nuevo de la fase 102 (marcar una nota para el informe) y remite a la de calificaciones. En `/ayuda/` el profesorado tiene su sección.
+
+**Decisiones por defecto (Jesús puede corregirlas):**
+- Cada guía lleva `publico`: profesorado o alumnado; por defecto, profesorado, porque es lo que son cinco de las seis.
+- En `/ayuda/`, quien es profesor ve primero «Para el profesorado» y después «Para el alumnado». El alumnado, y quien no ha entrado, solo ve «Para el alumnado».
+- Una guía de profesorado no se cierra: se sigue abriendo por su enlace, para que funcione el que Jesús le manda a alguien que aún no tiene acceso.
+- Guía aparte para calificaciones, y en la del profesorado solo lo que cambió.
+
+### Claims
+
+- [x] **C696** — `HelpGuidePage` tiene `publico` (profesorado, alumnado), editable en el admin de Wagtail, y la migración solo añade la columna. *Falsador: la migración tiene algo más que un `AddField`.* **Evidencia:** `cms/migrations/0040_publico_de_la_guia.py` tiene una sola operación, `AddField` de `publico` (`default=profesorado`); `FieldPanel("publico")` en `content_panels`.
+- [x] **C697** — `/ayuda/` como profesor enseña las dos secciones, la de profesorado primero; como alumno o sin sesión, solo la del alumnado, sin ningún título de guía de profesorado. *Falsador: test que pinta el índice con los tres visitantes.* **Evidencia:** `test_el_profesor_ve_sus_guias_primero_y_luego_las_del_alumnado` y `test_el_alumnado_y_quien_no_ha_entrado_solo_ven_las_suyas` (alumno y anónimo), en verde. En Chrome en local, como profesora, el índice enseña «Guías paso a paso · para el profesorado». El ensayo en local también lo confirmó por el otro lado: el cliente sin sesión ya no lista la guía de profesorado.
+- [x] **C698** — Una guía de profesorado se abre por su URL también sin ser profesor. *Falsador: test con un alumno.* **Evidencia:** `test_una_guia_de_profesorado_se_abre_por_su_enlace_sin_ser_profesor`, en verde.
+- [x] **C699** — Guía «calificaciones» publicada en producción bajo `/ayuda/`, con capturas hechas sobre la BD local con datos inventados (grupo 1-Z-GUIA, alumnado «Ejemplo»). *Falsador: la página no da 200, falta una imagen, o una captura enseña datos reales.* **Evidencia:** HelpGuidePage 1035 en producción: `RENDER 200 | imgs: 13`, numeración `[1..7, None, 8..13]`, segunda en `/ayuda/` tras la del profesorado. En Chrome con la sesión de Jesús, 13 imágenes y ninguna rota. Las capturas son de la BD local: grupo 1-Z-GUIA, `profesora.guia@` y seis alumnos «Ejemplo»; vistas antes de subirlas, y el cursor tapado en las esquinas.
+- [x] **C700** — Cada afirmación de la guía sale del código o de una pantalla vista. *Falsador: una afirmación sin plantilla, vista o captura detrás.* **Evidencia:** cada paso se escribió con la pantalla delante y contrastado con el código: `Empezar.jsx` (plantilla y «Seguir con estos»), `Celda.jsx` (desplegable en táctil), `calculo.media_simple` (media sin pesos), `BotonEvidencia.jsx` y `Galeria.jsx`, `documento.py` (la foto se endereza), `Registro.jsx` (menú de columna, OBS.), `plan.html`, `evaluar.py` y `evaluable.html` (el aviso), `Final.jsx` (Δ = LOMLOE − media simple, pesos simulados), `Info.jsx` («Cómo se escribe en este dispositivo»). Cuatro frases se corrigieron antes de publicar porque decían más de lo que dice el código.
+- [x] **C701** — La guía del profesorado tiene una revisión nueva: el paso de pasar lista explica «Que salga en su informe» y el resumen nombra la guía de calificaciones; los 14 pasos y sus capturas siguen. *Falsador: render y numeración de la revisión publicada.* **Evidencia:** revisión nueva de la página 1032, ensayada antes con transacción deshecha: `ANTES` y `DESPUES` = 14 pasos + aviso y 13 capturas; `RENDER 200 | casilla: True | enlace calif: True`. En Chrome, el paso 12 dice «solo sale en el informe del alumno si marcas Que salga en su informe» y remite a ASISTENCIA.
+- [ ] **C702** — Tras el despliegue, la guía del alumnado es de alumnado y las demás de profesorado, y `/ayuda/` en Chrome con la sesión de Jesús enseña las dos secciones. *Falsador: Chrome en producción.*
+- [x] **C703** — La suite de `cms` no empeora. *Falsador: pytest en Postgres.* **Evidencia:** `pytest cms` en Postgres: 214 passed, 2 failed. Los 2 fallos (`test_frontend_integration`) ya fallaban sin el cambio, comprobado guardando el cambio aparte con `git stash`.
+
+### Anti-claims
+
+- **Anti-A** — Ninguna captura enseña un nombre o una nota de alumnado real.
+- **Anti-B** — No se toca el contenido de las otras guías; de la del profesorado, solo lo dicho en C701.
+- **Anti-C** — Ni push ni despliegue sin que Jesús lo diga. Publicar las guías sí está pedido.
+
+### Out of Scope
+
+- Cerrar las guías de profesorado al alumnado (solo se ordenan y se esconden del índice).
+- Rehacer las capturas de la guía del profesorado.
+
+### Log
+- **2026-11-06 — Guías publicadas en producción; el código, en local y sin push ni despliegue.** La de calificaciones es la 1035 y la del profesorado tiene revisión nueva. Al desplegar se aplica `cms.0040_publico_de_la_guia`, que solo añade una columna. Con su valor por defecto, las seis guías quedan como de profesorado, así que después hay que pasar `guia-del-alumnado` a alumnado (revisión nueva), y solo entonces se cierra C702.
+- **Imágenes huérfanas:** el ensayo con transacción deshecha guarda los ficheros de las 13 imágenes antes del rollback, así que en el almacenamiento de producción quedan 13 PNG sin página (unos 3 MB). Lo mismo pasó con la guía del profesorado.
+- **Trampa local:** en la BD local, que es copia de producción, los enlaces del índice apuntan al dominio de producción (`guia.url` usa el nombre del sitio). Para ver una guía en local hay que abrir su ruta en `localhost`.
+- **Datos de prueba que quedan en la BD local:** el plan 9 (1ª evaluación de 1-Z-GUIA, plantilla de 1º ESO bilingüe) con 53 notas inventadas, una evidencia de texto y la guía 868. La sesión de navegador de prueba se borró.
