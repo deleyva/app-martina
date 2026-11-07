@@ -592,6 +592,10 @@ def _variar_capitulos(conocidos, cuantos):
     sesión a medias, que es peor que repetir capítulo.
 
     Se conserva el orden de entrada, que ya viene por vencimiento.
+
+    Ojo: la primera pasada reserva hasta dos huecos a CADA capítulo, toque o
+    no. Por eso `construir_sesion` no le pasa de golpe lo practicado hoy: lo
+    reparte aparte y solo si sobra sitio (fase 104).
     """
     if cuantos <= 0:
         return []
@@ -680,7 +684,22 @@ def construir_sesion(items, tamano=TAMANO_SESION_POR_DEFECTO, incluir_nuevos=Tru
     cuota = min(len(nuevos), max(1, round(tamano * PROPORCION_NOVEDAD))) if nuevos else 0
 
     elegidos = favoritos + nuevos[:cuota]
-    elegidos += _variar_capitulos(conocidos, tamano - len(elegidos))
+
+    # Lo practicado hace menos de un día va de reserva (fase 104). Sin esto, el
+    # tope por capítulo funcionaba también como un MÍNIMO: con cuatro capítulos
+    # practicados, cada uno se aseguraba dos huecos en la primera pasada, y el
+    # capítulo que acababas de practicar volvía en la sesión siguiente. Medido
+    # en producción el 2026-11-07 con CAGED: los mismos dos ejercicios de
+    # `Chapter Eight` en cuatro sesiones seguidas, practicados minutos antes.
+    #
+    # No aparta nada que toque: con cero días el ratio es cero, así que lo de
+    # reserva nunca está vencido. Y dentro de la reserva sigue el tope, por si
+    # todo es de hoy.
+    descansados = [u for u in conocidos if dias[_clave(u)] >= 1]
+    de_hoy = [u for u in conocidos if dias[_clave(u)] < 1]
+    repaso = _variar_capitulos(descansados, tamano - len(elegidos))
+    repaso += _variar_capitulos(de_hoy, tamano - len(elegidos) - len(repaso))
+    elegidos += repaso
 
     # Si no hay bastante repaso para llenar la sesión, entra más material nuevo.
     # Lo contrario —dejar la sesión a medias habiendo cosas sin tocar— sería

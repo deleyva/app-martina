@@ -506,7 +506,11 @@ class ContentPublisher:
             uploaded_by_user=self.user,
         )
         image.save()
-        
+        # Wagtail solo calcula la huella al subir por su admin. Sin ella, la
+        # creación perezosa de la biblioteca no reconoce las copias exactas
+        # (fase 104); `get_file_hash` la calcula y la guarda.
+        image.get_file_hash()
+
         # Apply tags if provided
         if tags:
             self._apply_tags_to_image(image, tags)

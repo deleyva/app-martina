@@ -1534,12 +1534,15 @@ def test_un_elemento_que_apunta_a_una_pagina_recibe_sus_etiquetas(db, user):
 # === Fase 11: estudiarse un libro ===
 
 
-def _libro_con_capitulos(titulo, slug, capitulos):
+def _libro_con_capitulos(titulo, slug, capitulos, contenidos=None):
     """Un libro real: `LibroPage` con `RecursoPage` debajo, en orden.
 
     `capitulos` es [(titulo, [imagenes])]. Las imágenes se incrustan en el
     cuerpo, que es como están en los libros de verdad: el capítulo 1 de Jens
     Larsen tiene cero bloques adjuntos y dieciséis imágenes dentro del texto.
+
+    `contenidos` ({nombre: clave}) hace que las imágenes con la misma clave sean
+    el mismo fichero byte a byte, como las figuras que un libro repite.
     """
     from musica.models import LibroPage, RecursoPage
     from wagtail.images import get_image_model
@@ -1554,7 +1557,10 @@ def _libro_con_capitulos(titulo, slug, capitulos):
     for n, (titulo_cap, nombres) in enumerate(capitulos):
         imagenes = []
         for nombre in nombres:
-            img = Image.objects.create(title=nombre, file=_imagen_minima(nombre))
+            img = Image.objects.create(
+                title=nombre,
+                file=_imagen_minima(nombre, (contenidos or {}).get(nombre)),
+            )
             imagenes.append(img)
         cuerpo = "".join(
             f'<p>Texto antes de {i.title}.</p>'
@@ -1574,16 +1580,25 @@ def _libro_con_capitulos(titulo, slug, capitulos):
     return libro, creados
 
 
-def _imagen_minima(nombre):
-    """Un PNG de 1x1 real: Wagtail valida el fichero al guardar la imagen."""
-    import base64
+def _imagen_minima(nombre, contenido=None):
+    """Un PNG de 1x1 real: Wagtail valida el fichero al guardar la imagen.
+
+    Cada llamada da un fichero DISTINTO byte a byte, salvo que dos compartan
+    `contenido`: desde la fase 104 la creación perezosa se salta las copias
+    exactas, y con un mismo PNG para todo cada libro de prueba sería una sola
+    imagen repetida.
+    """
+    import io
 
     from django.core.files.base import ContentFile
+    from PIL import Image as PILImage
+    from PIL.PngImagePlugin import PngInfo
 
-    png = base64.b64decode(
-        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
-    )
-    return ContentFile(png, name=f"{nombre}.png")
+    info = PngInfo()
+    info.add_text("contenido", contenido or uuid.uuid4().hex)
+    salida = io.BytesIO()
+    PILImage.new("RGB", (1, 1), (0, 0, 0)).save(salida, format="PNG", pnginfo=info)
+    return ContentFile(salida.getvalue(), name=f"{nombre}.png")
 
 
 def test_el_material_del_libro_sale_en_orden_de_libro(db):
@@ -4661,3 +4676,187 @@ def test_recuperar_desde_el_indice_usa_el_endpoint_que_ya_existe(client, user):
     html = client.get(reverse("my_library:index")).content.decode()
     assert "js-recuperar" not in html, "recuperado, el botón desaparece"
     assert 'data-descartado="0"' in html
+
+
+# === Fase 104: lo de hoy va de reserva, y las copias exactas no vuelven ===
+
+
+def _libro_practicado(user, slug, capitulos, dias_por_prefijo):
+    """Mete el libro entero y practica cada imagen hace `dias_por_prefijo[letra]`
+    días, según la primera letra de su título."""
+    from my_library.libros import meter_libro
+
+    libro, _ = _libro_con_capitulos(f"Libro {slug}", slug, capitulos)
+    meter_libro(user, libro)
+    items = list(LibraryItem.objects.filter(user=user))
+    for it in items:
+        _practicado_hace(it, dias_por_prefijo[it.content_object.title[0]])
+    return items
+
+
+def _titulos(unidades):
+    return sorted(u.content_object.title for u in unidades)
+
+
+def test_lo_practicado_hoy_no_se_guarda_huecos_por_capitulo(db, user):
+    """C704. El caso de producción del 2026-11-07, en pequeño: el capítulo que
+    acabas de practicar se llevaba sus dos huecos del tope aunque otros
+    capítulos tuvieran más repaso esperando."""
+    items = _libro_practicado(
+        user,
+        "c704",
+        [("Cap A", ["a1", "a2", "a3", "a4"]), ("Cap B", ["b1", "b2", "b3", "b4"]),
+         ("Cap de hoy", ["h1", "h2"])],
+        {"a": 3, "b": 3, "h": 0},
+    )
+
+    sesion = construir_sesion(items, tamano=6)
+
+    assert len(sesion) == 6
+    assert _titulos(sesion) == ["a1", "a2", "a3", "a4", "b1", "b2"], _titulos(sesion)
+
+
+def test_si_no_hay_otra_cosa_lo_de_hoy_llena_la_sesion_y_sigue_variado(db, user):
+    """C705. La reserva no deja la sesión a medias, y dentro de ella sigue el
+    tope por capítulo."""
+    items = _libro_practicado(
+        user,
+        "c705",
+        [("Cap viejo", ["v1"]), ("Cap X", ["x1", "x2", "x3"]), ("Cap Y", ["y1"])],
+        {"v": 3, "x": 0, "y": 0},
+    )
+
+    sesion = construir_sesion(items, tamano=4)
+
+    assert _titulos(sesion) == ["v1", "x1", "x2", "y1"], _titulos(sesion)
+
+
+def test_una_copia_exacta_de_algo_descartado_no_vuelve(db, user):
+    """C706. El caso de producción: «Ch7 img-010» descartada, y su copia byte a
+    byte del capítulo ocho entraba al día siguiente como material nuevo."""
+    from my_library.libros import siguiente_del_objetivo
+
+    libro, _ = _libro_con_capitulos(
+        "Libro con figuras repetidas", "c706",
+        [("Cap 7", ["figura"]), ("Cap 8", ["figura-otra-vez", "nueva"])],
+        contenidos={"figura": "fig", "figura-otra-vez": "fig"},
+    )
+    primero = siguiente_del_objetivo(user, libro, cuantos=1)[0]
+    assert primero.content_object.title == "figura"
+    primero.descartado = True
+    primero.save(update_fields=["descartado"])
+
+    siguientes = siguiente_del_objetivo(user, libro, cuantos=2)
+
+    assert [i.content_object.title for i in siguientes] == ["nueva"]
+
+
+def test_una_copia_de_lo_que_ya_tienes_en_otro_libro_no_entra(db, user):
+    """C707. Cuenta toda la biblioteca, no solo el libro del objetivo."""
+    from my_library.libros import siguiente_del_objetivo
+
+    otro, _ = _libro_con_capitulos(
+        "Otro libro", "c707-otro", [("Cap", ["original"])],
+        contenidos={"original": "fig"},
+    )
+    siguiente_del_objetivo(user, otro, cuantos=1)
+    libro, _ = _libro_con_capitulos(
+        "Este libro", "c707", [("Cap", ["copia", "propia"])],
+        contenidos={"copia": "fig"},
+    )
+
+    siguientes = siguiente_del_objetivo(user, libro, cuantos=2)
+
+    assert [i.content_object.title for i in siguientes] == ["propia"]
+
+
+def test_dos_copias_pendientes_solo_entra_la_primera(db, user):
+    """C707. También entre lo que se crea en la misma tanda."""
+    from my_library.libros import siguiente_del_objetivo
+
+    libro, _ = _libro_con_capitulos(
+        "Libro", "c707-tanda", [("Cap", ["a", "a-copia", "b"])],
+        contenidos={"a": "fig", "a-copia": "fig"},
+    )
+
+    creados = siguiente_del_objetivo(user, libro, cuantos=3)
+
+    assert [i.content_object.title for i in creados] == ["a", "b"]
+
+
+def test_la_vista_previa_se_salta_las_mismas_copias(db, user):
+    """C708. La vista previa y el lanzamiento comparten recorrido."""
+    from my_library.libros import previsualizar_relleno, rellenar_para_sesion
+    from my_library.models import LibraryGoal
+
+    libro, _ = _libro_con_capitulos(
+        "Libro", "c708", [("Cap", ["a", "a-copia", "b", "c"])],
+        contenidos={"a": "fig", "a-copia": "fig"},
+    )
+    LibraryGoal.objects.create(user=user, libro=libro)
+
+    previstos = [i.content_object.title for i in previsualizar_relleno(user, 3)]
+    creados = [i.content_object.title for i in rellenar_para_sesion(user, 3)]
+
+    assert previstos == creados == ["a", "b", "c"]
+
+
+def test_la_huella_que_falta_se_calcula_y_se_guarda(db, user):
+    """C709. Las imágenes creadas por código no traen huella."""
+    from my_library.libros import siguiente_del_objetivo
+
+    libro, caps = _libro_con_capitulos("Libro", "c709", [("Cap", ["a"])])
+    imagen = caps[0][1][0]
+    assert imagen.file_hash == ""
+
+    siguiente_del_objetivo(user, libro, cuantos=1)
+
+    imagen.refresh_from_db()
+    assert len(imagen.file_hash) == 40
+
+
+def test_un_fichero_perdido_se_ofrece_como_hasta_ahora(db, user):
+    """C709. Sin fichero no hay huella, y eso no tumba la sesión."""
+    from my_library.libros import siguiente_del_objetivo
+
+    libro, caps = _libro_con_capitulos("Libro", "c709-perdido", [("Cap", ["a", "b"])])
+    perdida = caps[0][1][0]
+    perdida.file.storage.delete(perdida.file.name)
+
+    creados = siguiente_del_objetivo(user, libro, cuantos=2)
+
+    assert [i.content_object.title for i in creados] == ["a", "b"]
+
+
+def test_rellenar_huellas_solo_escribe_con_ejecutar(db, capsys):
+    """C710."""
+    from django.core.management import call_command
+    from wagtail.images import get_image_model
+
+    Imagen = get_image_model()
+    imagen = Imagen.objects.create(title="sin huella", file=_imagen_minima("x"))
+
+    call_command("rellenar_huellas")
+    imagen.refresh_from_db()
+    assert imagen.file_hash == ""
+    assert "1 sin huella" in capsys.readouterr().out
+
+    call_command("rellenar_huellas", "--ejecutar")
+    imagen.refresh_from_db()
+    assert len(imagen.file_hash) == 40
+
+
+def test_el_publicador_guarda_la_huella_al_crear_la_imagen(db, user):
+    """C711. Es el camino de `import_book_chapter` y de los publicadores."""
+    import hashlib
+
+    from cms.services.content_publisher import ContentPublisher
+
+    fichero = _imagen_minima("publicada")
+    esperada = hashlib.sha1(fichero.read()).hexdigest()
+    fichero.seek(0)
+
+    imagen = ContentPublisher(user)._create_wagtail_image(fichero, title="publicada")
+
+    imagen.refresh_from_db()
+    assert imagen.file_hash == esperada

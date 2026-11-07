@@ -6473,3 +6473,59 @@ El 2026-11-01 a las 12:29 producción mandó el correo de error de Django: `Modu
 - **Trampa local:** en la BD local, que es copia de producción, los enlaces del índice apuntan al dominio de producción (`guia.url` usa el nombre del sitio). Para ver una guía en local hay que abrir su ruta en `localhost`.
 - **Datos de prueba que quedan en la BD local:** el plan 9 (1ª evaluación de 1-Z-GUIA, plantilla de 1º ESO bilingüe) con 53 notas inventadas, una evidencia de texto y la guía 868. La sesión de navegador de prueba se borró.
 - **2026-11-06 — Desplegada en producción (`50dbdf5`).** `cms.0040_publico_de_la_guia... OK`; despliegue sin errores en el registro. Después, la guía del alumnado pasó a alumnado. No se ha visto la ayuda con una sesión de alumno de verdad: la comprobación sin sesión se hizo pidiendo la página desde Chrome sin cookies, y la de alumno con sesión la cubre el test.
+
+## Fase 104 — Lo de hoy va de reserva, y las copias exactas de un libro no vuelven (2026-11-07) · EN LOCAL, SIN PUSH NI DESPLIEGUE
+
+**Goal (literal de Jesús, 2026-11-07):** «En la sesión de estudio de hoy, me he repetido dos veces una misma imagen y luego, cuando voy a generar la siguiente sesión de estudio, me ha puesto tres ejemplos 9A, aunque parecen imágenes distintas. Mira a ver qué pasa. […] También tengo la sospecha de que hay cosas que he descartado que me vuelven a aparecer.» Y, tras el diagnóstico: «sí, haz A y B».
+
+**Qué pasaba (diagnóstico en producción, solo lectura).**
+- **Descartados que vuelven (A).** El libro de CAGED repite figuras entre capítulos y el importador guardó cada repetición como una `Image` distinta: 22 grupos de imágenes idénticas byte a byte. Descartar es por fila (usuario, tipo, objeto), así que la copia del capítulo siguiente entraba como material nuevo: dos veces el 6 y el 7 de noviembre, y una misma figura ya iba por cuatro descartes. De los 147 elementos pendientes del libro, 19 eran copias exactas de algo que Jesús ya tenía o había descartado. `file_hash` estaba vacío en las 302 imágenes del libro: Wagtail solo lo calcula al subir por su admin.
+- **Los mismos dos en cada sesión (B).** Sin nada vencido en el libro, la sesión se rellena hasta 15 con lo no vencido. Solo cuatro capítulos tenían material practicado, y la primera pasada de `_variar_capitulos` reservaba dos huecos a cada uno: el tope funcionaba también como mínimo. El capítulo ocho, practicado entero hacía menos de un día, se llevaba sus dos huecos; con todos a «0 días», el desempate por pk daba siempre img-003 e img-004. Salieron en cuatro sesiones seguidas.
+- **Los tres «Example 9a»** son diagramas distintos (Shape 2, 3 y 4) que se llaman igual porque el importador titula cada imagen con el pie de figura anterior. No es un fallo de la sesión.
+- **La imagen repetida hoy** («Example 7.1c» img-013 y «Chapter Eight» img-004) es el mismo lick regrabado con otra grafía (mi♭ / re♯), no el mismo fichero. Ninguna huella lo reconoce; sigue siendo un descarte a mano.
+
+**Vision.** Una figura que ya tienes, o que ya descartaste, no vuelve a entrar como nueva aunque el libro la repita en otro capítulo. Y lo que practicaste hace menos de un día no ocupa huecos de repaso mientras haya otra cosa con la que llenar la sesión.
+
+**Decisiones:**
+- B aparta lo practicado hace menos de un día (`dias < 1`, la misma medida entera de `_dias_sin_practicar`) y lo reparte después del resto, con el mismo tope dentro. No aparta nada vencido: con cero días el ratio es cero. Lo de hoy entra antes que el relleno de material nuevo del final, como hasta ahora todo el repaso.
+- Descartada la otra variante que se simuló: quitar el tope cuando no hay nada vencido. El capítulo ocho desaparecía, pero el tres llenaba la sesión con tres «3.1c», que es lo que el tope arregló en la fase 30·1.
+- A compara por huella con TODA la biblioteca del usuario (vivo y descartado, de cualquier libro) y con lo que se ofrece en la misma tanda. La copia saltada no recibe fila: si un día se borra el original, vuelve a estar disponible.
+- La huella es la de Wagtail (`get_file_hash`, SHA-1), que la calcula y la guarda si falta. Así el recorrido se arregla solo aunque no se rellene antes; el comando `rellenar_huellas` adelanta ese trabajo. Un fichero que no se puede leer se queda sin huella y se ofrece como antes.
+- Los tres elementos vivos que ya son copia de uno descartado se dejan como están (uno lleva práctica con nivel 3).
+
+### Claims
+
+- [x] **C704** — Mientras haya repaso practicado hace un día o más, lo practicado hace menos de un día no ocupa huecos de repaso. *Falsador: libro con dos capítulos practicados hace tres días y uno practicado hoy; sesión de 6.* **Evidencia:** `test_lo_practicado_hoy_no_se_guarda_huecos_por_capitulo` da `a1…a4, b1, b2`, sin ninguno del capítulo de hoy. Con la línea vieja (`_variar_capitulos(conocidos, …)`) falla.
+- [x] **C705** — Si no hay otra cosa, lo de hoy llena la sesión, y dentro de la reserva sigue el tope por capítulo. *Falsador: test con un solo elemento descansado.* **Evidencia:** `test_si_no_hay_otra_cosa_lo_de_hoy_llena_la_sesion_y_sigue_variado` da `v1, x1, x2, y1`. Los dos tests de la fase 30·1, donde todo se practica en el mismo instante, siguen en verde.
+- [x] **C706** — La copia exacta de un elemento descartado no vuelve a ofrecerse. *Falsador: libro con la misma figura en dos capítulos.* **Evidencia:** `test_una_copia_exacta_de_algo_descartado_no_vuelve`: tras descartar «figura», el objetivo ofrece «nueva» y no «figura-otra-vez». Sin el `continue` de la huella, falla.
+- [x] **C707** — Tampoco entra la copia de algo que ya tienes vivo en otro libro, ni la segunda de dos copias pendientes en la misma tanda. **Evidencia:** `test_una_copia_de_lo_que_ya_tienes_en_otro_libro_no_entra` y `test_dos_copias_pendientes_solo_entra_la_primera`; los dos fallan sin el salto.
+- [x] **C708** — La vista previa y el lanzamiento se saltan las mismas copias. **Evidencia:** `test_la_vista_previa_se_salta_las_mismas_copias`: los dos dan `a, b, c`. Falla sin el salto.
+- [x] **C709** — Una huella vacía se calcula y se guarda al recorrer, y un fichero que falta en el disco no tumba la sesión. **Evidencia:** `test_la_huella_que_falta_se_calcula_y_se_guarda` (40 caracteres tras recorrer) y `test_un_fichero_perdido_se_ofrece_como_hasta_ahora`.
+- [x] **C710** — `rellenar_huellas` solo cuenta sin `--ejecutar`, y con él escribe la huella. **Evidencia:** `test_rellenar_huellas_solo_escribe_con_ejecutar`.
+- [x] **C711** — El publicador (`_create_wagtail_image`, el camino de `import_book_chapter`) guarda la huella al crear la imagen. **Evidencia:** `test_el_publicador_guarda_la_huella_al_crear_la_imagen` compara con el SHA-1 del fichero. Falla sin la llamada.
+- [x] **C712** — Las suites de `my_library`, `cms` y `musica` no empeoran. *Falsador: pytest en Postgres.* **Evidencia:** 623 passed, 4 skipped, 2 failed. Los 2 fallos son `test_frontend_integration` (paginación y enlaces de etiquetas), que también fallan con el cambio guardado aparte (`git stash`), como ya se vio en la fase 103.
+- [ ] **C713** — En producción, tras desplegar y rellenar huellas, ninguno de los candidatos pendientes del libro de CAGED es copia de algo que Jesús ya tiene, y se saltan las 19 copias medidas. *Falsador: script de solo lectura sobre `candidatos_del_objetivo` en producción.* `[DEFERRED-VERIFY]` hasta el despliegue.
+- [ ] **C714** — En producción, la vista previa de «Empezar a estudiar» con la sesión de Jesús no pone en repaso nada practicado hace menos de un día mientras quede otra cosa. *Falsador: Chrome con su sesión; insignias «hace N d» de la lista.* `[DEFERRED-VERIFY]` hasta el despliegue.
+
+### Anti-claims
+
+- **Anti-A** — Nada vencido se queda fuera por haberse practicado hoy (con cero días el ratio es cero, `_ratio_vencimiento`).
+- **Anti-B** — Ninguna fila existente cambia: ni se descartan las copias que ya están vivas ni se crean lápidas para las saltadas.
+- **Anti-C** — Ni push, ni despliegue, ni `rellenar_huellas --ejecutar` en producción sin que Jesús lo diga.
+
+### Out of Scope
+
+- Reconocer regrabaciones (mismo lick, otro fichero). Una huella perceptual daría falsos positivos con pentagramas que se parecen todos.
+- Saltarse los diagramas de mástil del libro (49 de 52 descartados): queda a decisión de Jesús, y detectarlos sería por anchura.
+- Desempatar por días con decimales.
+- Que el reparto a las bibliotecas del alumnado (`clases/libros_de_grupo.py`) se salte copias: allí cada elemento lo elige el profesor en clase.
+
+### Log
+
+- **2026-11-07 — Construida y verificada en local; sin push ni despliegue.** Ficheros: `my_library/session.py` (`construir_sesion` reparte primero lo descansado), `my_library/libros.py` (`_huella`, `_huellas_de_la_biblioteca` y el salto en `candidatos_del_objetivo`), `my_library/management/commands/rellenar_huellas.py` (nuevo), `cms/services/content_publisher.py` y los tests. Sin migraciones.
+- **Los tests de libros usaban un mismo PNG para todas las imágenes.** Con A, cada libro de prueba habría sido una sola figura repetida. `_imagen_minima` da ahora un fichero distinto por llamada, salvo que se pida el mismo `contenido`.
+- **Los tests muerden:** con B, A y la llamada del publicador deshechos a la vez, fallan 6 de los 10 nuevos. Los otros 4 no dependen de lo deshecho (la reserva que llena, la huella calculada, el fichero perdido y el comando).
+- 🧹 **CLASS-SWEEP:** crear `LibraryItem` sin reconocer copias exactas. 7 sitios vía `rg "LibraryItem\.objects\.(get_or_create|create|bulk_create)|LibraryItem\("`: 2 arreglados (`siguiente_del_objetivo` y `previsualizar_relleno`, los dos por `candidatos_del_objetivo`); 5 se quedan como están: `meter_libro` (solo lo usan los tests), las dos altas a mano de `clases/views.py` y `evaluations/views.py` (añadir algo concreto es pedirlo), el reparto al alumnado de `clases/libros_de_grupo.py` (lo elige el profesor) y la instancia sin guardar del visor en `my_library/views.py`.
+- **Escrituras al recorrer.** La vista previa es un GET y ahora puede guardar `file_hash` la primera vez que ve una imagen sin huella. Solo toca esa columna; en el proyecto no hay señales sobre `Image`. La clave de caché de las renditions lleva la huella, así que cada imagen tocada estrena entrada de caché una vez.
+- **Al desplegar:** `just production-command rellenar_huellas` para contar, y `rellenar_huellas --ejecutar` cuando Jesús lo diga; después, C713 y C714.
+- **Lo que B no cambia:** pasado un día, el capítulo ocho vuelve a competir y la primera pasada le sigue guardando dos huecos, que rotan entre sus seis elementos según cuánto lleva cada uno sin practicar.

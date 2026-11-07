@@ -17,10 +17,14 @@ libro metido así entra en el orden del libro sin necesitar nada más. Para los
 libros que ya estaban dentro eso era una casualidad; para estos, no.
 """
 
+import logging
+
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
 
 from my_library.models import LibraryItem
+
+logger = logging.getLogger(__name__)
 
 
 def capitulos_de(libro):
@@ -372,6 +376,7 @@ def candidatos_del_objetivo(user, libro, cuantos):
     su propio recorrido, acabarían discrepando.
     """
     vistos = _ya_vistos(user, libro)
+    huellas = None  # se calculan con el primer fichero candidato
     salida = []
     # El índice de la enumeración COMPLETA es el ordinal: cuenta también lo que
     # se salta, que es lo que hace que el hueco de un elemento ya creado o
@@ -383,8 +388,63 @@ def candidatos_del_objetivo(user, libro, cuantos):
         if (tipo.pk, objeto.pk) in vistos:
             continue
         vistos.add((tipo.pk, objeto.pk))
+        # Una copia exacta de algo que ya tiene fila no se ofrece (fase 104).
+        # Se salta sin crearle fila: si mañana se borra el original, la copia
+        # vuelve a estar disponible, que es lo honesto.
+        huella = _huella(objeto)
+        if huella is not None:
+            if huellas is None:
+                huellas = _huellas_de_la_biblioteca(user)
+            if (tipo.pk, huella) in huellas:
+                continue
+            huellas.add((tipo.pk, huella))
         salida.append((capitulo, objeto, tipo, n))
     return salida
+
+
+def _huella(objeto):
+    """La huella SHA-1 del fichero del objeto, o None si no es un fichero.
+
+    Es la de Wagtail (`get_file_hash`), que tienen imágenes y documentos: si la
+    columna está vacía la calcula y la guarda, así que cada fichero se lee una
+    sola vez en su vida. Un fichero que falta en el disco no tumba la sesión:
+    se queda sin huella y se ofrece como hasta ahora.
+    """
+    obtener = getattr(objeto, "get_file_hash", None)
+    if obtener is None:
+        return None
+    try:
+        return obtener() or None
+    except (OSError, ValueError) as error:
+        logger.warning("Sin huella para %r: %s", objeto, error)
+        return None
+
+
+def _huellas_de_la_biblioteca(user):
+    """{(content_type_id, huella)} de cada fichero que el usuario ya tiene.
+
+    Cuentan las filas vivas y las descartadas, de este libro o de cualquier
+    otro. Es lo que hace falta porque los libros repiten figuras: el de CAGED
+    (medido el 2026-11-07) trae 22 grupos de imágenes idénticas byte a byte, una
+    por capítulo, y cada copia es una `Image` distinta. Descartar una no
+    descartaba las demás, y la siguiente volvía como material nuevo.
+    """
+    por_tipo = {}
+    for tipo_id, objeto_id in LibraryItem.objects.filter(user=user).values_list(
+        "content_type_id", "object_id"
+    ):
+        por_tipo.setdefault(tipo_id, []).append(objeto_id)
+
+    huellas = set()
+    for tipo_id, ids in por_tipo.items():
+        modelo = ContentType.objects.get_for_id(tipo_id).model_class()
+        if modelo is None or not hasattr(modelo, "get_file_hash"):
+            continue
+        for objeto in modelo.objects.filter(pk__in=ids):
+            huella = _huella(objeto)
+            if huella is not None:
+                huellas.add((tipo_id, huella))
+    return huellas
 
 
 def previsualizar_relleno(user, cuota, seleccion=None, solo_libros=None):
