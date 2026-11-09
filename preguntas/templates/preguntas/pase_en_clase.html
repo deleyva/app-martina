@@ -10,6 +10,10 @@
 
   Usa del script principal, si existe: `avisar`. Pone `window.visorConPaginas`
   a true para quedarse con las flechas: → revela o pasa, ← no hace nada.
+
+  Con `mando` (fase 105) es el mando del móvil de `/pase/`: la misma lógica,
+  otro diseño (pantalla entera, una columna, botones grandes) y «Letras»
+  encendidas, porque esa pantalla no se proyecta.
 {% endcomment %}
 <style>
   #pase-vivo { position: absolute; inset: 0; display: flex; flex-direction: column; background: #0b0b10; color: #f4f4f5; font-family: inherit; overflow: hidden; }
@@ -29,13 +33,19 @@
   #pase-vivo .pv-respondido .pv-nombre { font-size: 14px; padding: 3px 10px; border-radius: 999px; background: rgba(59,130,246,0.35); }
   #pase-vivo .pv-respondido .pv-n { font-size: 16px; opacity: 0.8; margin-right: 6px; font-variant-numeric: tabular-nums; }
   #pase-vivo .pv-grande { font-size: clamp(24px, 3vw, 40px); text-align: center; opacity: 0.85; }
-  /* Deja libre la columna de botones redondos de la presentación (izquierda). */
-  #pase-vivo .pv-barra { display: flex; align-items: center; gap: 8px; padding: 8px 16px 8px 72px; background: rgba(14,14,18,0.9); border-top: 1px solid rgba(255,255,255,0.1); font-size: 13px; flex-wrap: wrap; }
-  #pase-vivo .pv-barra button { border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); color: #fff; border-radius: 8px; padding: 6px 12px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  /* Deja libres los botones flotantes de la presentación: la columna redonda
+     de la izquierda y, a la derecha, «Tratado», «Saltar» y ⋮ (unos 270 px).
+     Antes la barra llegaba hasta el borde y el aviso de la cámara, que va al
+     final, quedaba debajo de ellos (fase 105, C715/C716). */
+  #pase-vivo .pv-barra { display: flex; align-items: center; gap: 8px; padding: 8px 300px 8px 76px; background: rgba(14,14,18,0.9); border-top: 1px solid rgba(255,255,255,0.1); font-size: 14px; flex-wrap: wrap; }
+  #pase-vivo .pv-barra button { border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); color: #fff; border-radius: 8px; padding: 8px 14px; font-size: 15px; font-weight: 600; cursor: pointer; }
   #pase-vivo .pv-barra button:disabled { opacity: 0.35; cursor: default; }
   #pase-vivo .pv-barra button.pv-primario { background: rgba(37,99,235,0.85); border-color: rgba(96,165,250,0.8); }
   #pase-vivo .pv-barra button.pv-peligro { background: rgba(185,28,28,0.7); }
-  #pase-vivo .pv-barra .pv-estado { opacity: 0.7; margin-left: auto; font-variant-numeric: tabular-nums; }
+  #pase-vivo .pv-barra .pv-estado { opacity: 0.8; margin-left: auto; font-variant-numeric: tabular-nums; }
+  #pase-vivo .pv-barra .pv-estado.pv-error { opacity: 1; font-weight: 600; }
+  #pase-vivo .pv-pista { font-size: 18px; opacity: 0.75; text-align: center; }
+  #pase-vivo .pv-pista b { color: #93c5fd; }
   #pase-vivo video.pv-video { width: 160px; border-radius: 6px; background: #000; }
   #pase-vivo .pv-error { color: #fca5a5; }
   #pase-vivo .pv-nombre.ok { background: rgba(34,197,94,0.4); }
@@ -49,13 +59,45 @@
   #pase-vivo .pv-clips .pv-nota { font-size: 13px; opacity: 0.6; }
   #pase-vivo .pv-totales { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 4px 24px; font-size: 16px; max-width: 900px; margin: 0 auto; }
   #pase-vivo .pv-totales span:last-child { float: right; font-variant-numeric: tabular-nums; opacity: 0.8; }
+
+  /* ---- El mando del móvil (fase 105, C720) ---- */
+  #pase-vivo.mando { position: fixed; padding-top: env(safe-area-inset-top, 0px); }
+  #pase-vivo.mando .pv-cabecera { font-size: 15px; padding: 10px 14px; gap: 10px; opacity: 0.9; }
+  #pase-vivo.mando .pv-volver { color: #93c5fd; text-decoration: none; font-weight: 600; }
+  #pase-vivo.mando .pv-cuerpo { justify-content: flex-start; padding: 4px 14px 12px; gap: 12px; overflow-y: auto; }
+  #pase-vivo.mando .pv-enunciado { font-size: 20px; }
+  #pase-vivo.mando .pv-imagen { max-height: 22vh; }
+  #pase-vivo.mando .pv-opciones { grid-template-columns: 1fr; gap: 6px; }
+  #pase-vivo.mando .pv-opcion { font-size: 16px; padding: 8px 10px; gap: 10px; }
+  #pase-vivo.mando .pv-explicacion { font-size: 14px; }
+  #pase-vivo.mando .pv-grande { font-size: 20px; }
+  #pase-vivo.mando .pv-pista { font-size: 15px; }
+  #pase-vivo.mando .pv-respondido .pv-nombre { font-size: 15px; padding: 5px 12px; }
+  #pase-vivo.mando .pv-barra { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px)); font-size: 15px; }
+  #pase-vivo.mando .pv-barra button { min-height: 52px; font-size: 17px; border-radius: 12px; padding: 8px 10px; }
+  #pase-vivo.mando video.pv-video { grid-column: 1 / -1; order: -2; width: 100%; max-height: 26vh; object-fit: cover; border-radius: 10px; }
+  #pase-vivo.mando .pv-estado { grid-column: 1 / -1; order: -1; margin: 0; text-align: center; min-height: 1.3em; }
+  #pase-vivo.mando #pv-empezar { grid-column: 1 / -1; order: 0; }
+  #pase-vivo.mando #pv-revelar, #pase-vivo.mando #pv-anterior { order: 1; }
+  #pase-vivo.mando #pv-siguiente { order: 2; }
+  #pase-vivo.mando #pv-camara { order: 3; }
+  #pase-vivo.mando #pv-letras { order: 4; }
+  #pase-vivo.mando #pv-comprobar, #pase-vivo.mando #pv-cerrar { grid-column: 1 / -1; order: 5; }
+  #pase-vivo.mando .pv-olvidados { font-size: 13px; color: #fcd34d; padding: 0 14px 6px; }
+  #pase-vivo.mando .pv-olvidados a { color: #fcd34d; }
 </style>
 
-<div id="pase-vivo" data-pase="{{ pase.pk }}">
+<div id="pase-vivo" data-pase="{{ pase.pk }}"{% if mando %} class="mando"{% endif %}>
   <div class="pv-cabecera">
-    <span>❓ Pase de preguntas</span>
+    {% if mando %}<a class="pv-volver" href="{% url 'clases:class_session_list' %}">‹ App</a>{% endif %}
+    <span>❓ Pase{% if mando %} · {{ pase.group.name }}{% else %} de preguntas{% endif %}</span>
     <span class="pv-contador" id="pv-contador"></span>
   </div>
+  {% if mando and olvidados %}
+  <div class="pv-olvidados">⚠️ Tienes {% if olvidados|length == 1 %}un pase abierto de otro día{% else %}{{ olvidados|length }} pases abiertos de otros días{% endif %}:
+    {% for p in olvidados %}<a href="{% url 'preguntas:pase_mando' p.pk %}">{{ p.group.name }} · {{ p.fecha|date:"j/n" }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}. Ciérralos cuando puedas.
+  </div>
+  {% endif %}
   <div class="pv-cuerpo" id="pv-cuerpo"><div class="pv-grande">Cargando…</div></div>
   {% if profesor %}
   <div class="pv-barra" id="pv-barra">
@@ -78,6 +120,7 @@
 (function () {
   var PK = {{ pase.pk }};
   var PROFESOR = {{ profesor|yesno:"true,false" }};
+  var MANDO = {{ mando|yesno:"true,false" }};
   var URL_ESTADO = '{% url "preguntas:pase_estado" pase.pk %}';
   var URL_ABRIR = '{% url "preguntas:pase_abrir" pase.pk %}';
   var URL_LEER = '{% url "preguntas:pase_leer" pase.pk %}';
@@ -105,7 +148,8 @@
   // 76·4. «Letras»: esta pantalla pide al servidor la letra leída de cada uno y,
   // al final de la vuelta, la puntuación. Se enciende sola al abrir la cámara
   // (el iPad) y se recuerda en este navegador; el proyector nunca la enciende.
-  var verLetras = PROFESOR && recordar('pase-letras') === '1';
+  // En el mando del móvil van siempre encendidas: esa pantalla no se proyecta.
+  var verLetras = PROFESOR && (MANDO || recordar('pase-letras') === '1');
   // Los clips viven solo aquí, en memoria: {posicion: [Blob, Blob]}. Nada se
   // envía ni se guarda (C483); se sueltan al cerrar el pase o al irse la página.
   var clips = {}, urlsClips = [];
@@ -129,7 +173,17 @@
   function ordenar(url, cuerpoForm) {
     if (ocupado) return Promise.resolve(estado);
     ocupado = true;
-    return pedir(url, cuerpoForm).then(pintar).catch(function (e) { avisarAqui(e.message); }).finally(function () { ocupado = false; });
+    return pedir(url, cuerpoForm).then(function (e) {
+      pintar(e);
+      if (e.ignorada) avisarAqui('Otra pantalla ya había cambiado de pregunta: no he hecho nada.');
+    }).catch(function (e) { avisarAqui(e.message, true); }).finally(function () { ocupado = false; });
+  }
+  // Las órdenes que mueven la pregunta dicen desde dónde se dieron (fase 105,
+  // C721): si otra pantalla ya la ha movido, el servidor no hace nada.
+  function moverDesde(url) {
+    var datos = new FormData();
+    datos.append('desde', estado ? estado.posicion : '');
+    return ordenar(url, datos);
   }
 
   // ---------- pintar ----------
@@ -163,13 +217,18 @@
   function pintar(e) {
     estado = e;
     var contador = document.getElementById('pv-contador');
+    // Cerrado va antes que nada: un pase cerrado a medias tiene pregunta «en
+    // pantalla» y se pintaba como si siguiera (fase 105, C717).
+    if (e.estado === 'cerrado') {
+      contador.textContent = 'Cerrado';
+      cuerpo.innerHTML = '<div class="pv-grande">✅ Pase cerrado: respuestas guardadas.</div>'
+        + '<div style="text-align:center"><a href="' + URL_RESULTADOS + '" target="_blank" rel="noopener" style="color:#93c5fd;font-size:18px">' + (PROFESOR ? '📊 Resultados de teoría del grupo' : '📊 Mis resultados de teoría') + '</a></div>';
+      pararGrabacion(); soltarClips();
+      pintarBarra();
+      return;
+    }
     if (e.terminado) {
-      if (e.estado === 'cerrado') {
-        contador.textContent = 'Cerrado';
-        cuerpo.innerHTML = '<div class="pv-grande">✅ Pase cerrado: respuestas guardadas.</div>'
-          + '<div style="text-align:center"><a href="' + URL_RESULTADOS + '" target="_blank" rel="noopener" style="color:#93c5fd;font-size:18px">' + (PROFESOR ? '📊 Resultados de teoría del grupo' : '📊 Mis resultados de teoría') + '</a></div>';
-        pararGrabacion(); soltarClips();
-      } else if (e.revision) {
+      if (e.revision) {
         contador.textContent = 'Comprobación terminada';
         var h = '<div class="pv-grande">✅ Comprobación terminada.' + (PROFESOR ? ' «Aceptar y cerrar» guarda las respuestas.' : '') + '</div>';
         if (e.totales) {
@@ -201,6 +260,8 @@
     if (e.revelada && p.explicacion) h += '<div class="pv-explicacion">' + esc(p.explicacion) + '</div>';
     if (e.estado === 'borrador') {
       h += '<div class="pv-grande" style="font-size:18px">El pase no ha empezado.</div>';
+      if (PROFESOR) h += '<div class="pv-pista">Pulsa <b>Empezar el pase</b>' + (MANDO ? '' : ' en la barra de abajo')
+        + '. La cámara se abre desde el móvil: <b>' + esc(location.host) + '/pase/</b></div>';
     } else {
       h += '<div class="pv-respondido"><span class="pv-n">' + (e.revision ? 'Respondieron ' : 'Han respondido ') + e.n_respondido + ' de ' + e.n_presentes + '</span>';
       e.respondido.forEach(function (f) { h += chip(f); });
@@ -237,10 +298,13 @@
     fetch(conLetras(URL_ESTADO), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(pintar).catch(function () {});
   }
 
-  function avisarAqui(texto) {
+  // Los errores van en rojo y, en la presentación, también en su aviso
+  // flotante: un fallo de cámara que no se ve es un pase que no se puede hacer.
+  function avisarAqui(texto, error) {
     var el = document.getElementById('pv-estado');
-    if (el) el.textContent = texto;
-    else if (window.avisar) window.avisar(texto);
+    if (el) { el.textContent = texto; el.classList.toggle('pv-error', !!error); }
+    if (error && window.avisar && !MANDO) window.avisar(texto);
+    else if (!el && window.avisar) window.avisar(texto);
   }
 
   // ---------- cámara (solo el profesor) ----------
@@ -258,7 +322,7 @@
         nFrames += 1;
         avisarAqui('Fotograma ' + nFrames + ': ' + e.leidas + ' tarjetas, ' + e.contadas + ' contadas · ' + e.ms + ' ms servidor, ' + Math.round(performance.now() - t0) + ' ms total');
         pintar(e);
-      }).catch(function (err) { avisarAqui('Error al leer: ' + err.message); }).finally(function () { enVuelo = false; });
+      }).catch(function (err) { avisarAqui('Error al leer: ' + err.message, true); }).finally(function () { enVuelo = false; });
     }, 'image/jpeg', 0.7);
   }
 
@@ -317,9 +381,9 @@
 
   window.paseVivo = {
     empezar: function () { ordenar(URL_ABRIR); },
-    revelar: function () { if (!estado || estado.revelada || estado.terminado) return; ordenar(URL_REVELAR); },
-    siguiente: function () { if (!estado || estado.terminado) return; corrigiendo = null; ordenar(URL_SIGUIENTE); },
-    anterior: function () { if (!estado || !estado.revision || !estado.posicion) return; corrigiendo = null; ordenar(URL_ANTERIOR); },
+    revelar: function () { if (!estado || estado.revelada || estado.terminado) return; moverDesde(URL_REVELAR); },
+    siguiente: function () { if (!estado || estado.terminado) return; corrigiendo = null; moverDesde(URL_SIGUIENTE); },
+    anterior: function () { if (!estado || !estado.revision || !estado.posicion) return; corrigiendo = null; moverDesde(URL_ANTERIOR); },
     comprobar: function () { if (!estado || !estado.terminado || estado.revision) return; ordenar(URL_REVISAR); },
     corregir: function (alumno, letra) {
       var datos = new FormData(); datos.append('alumno', alumno); datos.append('letra', letra);
@@ -333,10 +397,11 @@
     cerrar: function () {
       if (!estado || estado.estado !== 'abierto') return;
       if (!estado.terminado && !estado.revision && !window.confirm('Quedan preguntas por pasar. ¿Cerrar el pase y guardar lo que hay?')) return;
-      pedir(URL_CERRAR).then(function (e) { pintar(e); avisarAqui('Guardadas ' + e.respuestas + ' respuestas.' + (e.notas ? ' Teoría: ' + e.notas + ' casillas actualizadas.' : '') + (e.aviso ? ' ' + e.aviso : '')); }).catch(function (e) { avisarAqui(e.message); });
+      pedir(URL_CERRAR).then(function (e) { pintar(e); avisarAqui('Guardadas ' + e.respuestas + ' respuestas.' + (e.notas ? ' Teoría: ' + e.notas + ' casillas actualizadas.' : '') + (e.aviso ? ' ' + e.aviso : '')); }).catch(function (e) { avisarAqui(e.message, true); });
     },
     camara: function () {
       if (stream) { pararCamara(); return; }
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { avisarAqui('Este navegador no deja usar la cámara aquí.', true); return; }
       var video = document.getElementById('pv-video');
       navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false
@@ -349,7 +414,7 @@
         temporizador = setInterval(capturar, INTERVALO_CAMARA);
         if (estado) gestionarGrabacion(estado);
         pintarBarra();
-      }).catch(function (e) { avisarAqui('No se pudo abrir la cámara: ' + e.message); });
+      }).catch(function (e) { avisarAqui('No se pudo abrir la cámara: ' + e.message + '. Revisa el permiso de cámara del navegador para esta web.', true); });
     },
     // Para las pruebas: un fotograma ya hecho (Blob) por el mismo camino que la cámara.
     leerBlob: function (blob) {

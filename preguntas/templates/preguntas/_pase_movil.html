@@ -1,0 +1,29 @@
+{% load static %}<!DOCTYPE html>
+{% comment %}
+  El armazón de `/pase/` y del mando (fase 105). Página propia, sin la barra ni
+  el dock de la app: en el móvil todo el alto es para el pase.
+
+  Título corto y `apple-touch-icon` para que «Añadir a pantalla de inicio» deje
+  un icono que diga «Pase». A propósito SIN `apple-mobile-web-app-capable`: en
+  iOS una web abierta a pantalla completa desde el icono tiene sus propias
+  cookies, y obligaría a iniciar sesión otra vez dentro de él.
+{% endcomment %}
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Pase</title>
+  <meta name="apple-mobile-web-app-title" content="Pase">
+  <meta name="theme-color" content="#0b0b10">
+  <link rel="icon" href="{% static 'images/favicons/favicon.svg' %}" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="{% static 'images/favicons/icon-192.png' %}">
+  <script defer src="{% static 'js/pantalla_encendida.js' %}"></script>
+  <style>
+    html, body { margin: 0; height: 100%; background: #0b0b10; color: #f4f4f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { -webkit-text-size-adjust: 100%; }
+  </style>
+</head>
+<body>
+{% block contenido %}{% endblock %}
+</body>
+</html>

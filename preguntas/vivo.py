@@ -128,6 +128,36 @@ def crear_desde_sesion(session, preguntas, user):
     return pase, item
 
 
+def en_curso(user, hoy):
+    """Lo que abre `/pase/` (fase 105, C718): `(elegido, opciones, olvidados)`.
+
+    Solo cuentan los pases de grupos donde `user` da clase y que siguen en una
+    sesión: un pase cuyo elemento se quitó de la sesión no se puede proyectar.
+    Va primero lo abierto hoy; si no hay nada abierto, lo que está sin empezar
+    en una sesión de hoy. Un abierto de otro día (un pase que se quedó sin
+    cerrar) no gana nunca a los de hoy: va aparte, en `olvidados`, para
+    avisar. `elegido` es el único candidato si solo hay uno; si hay varios,
+    None, y se elige de `opciones`.
+    """
+    from django.db.models import Q
+
+    con_elemento = ClassSessionItem.objects.filter(
+        content_type=ContentType.objects.get_for_model(Pase)
+    ).values_list("object_id", flat=True)
+    mios = (
+        Pase.objects.filter(group__teachers=user, pk__in=list(con_elemento))
+        .select_related("group", "session")
+        .distinct()
+    )
+    de_hoy = Q(fecha=hoy) | Q(abierto__date=hoy)
+    abiertos = mios.filter(estado=Pase.ABIERTO)
+    opciones = list(abiertos.filter(de_hoy).order_by("-abierto", "-pk"))
+    olvidados = list(abiertos.exclude(de_hoy).order_by("-abierto", "-pk"))
+    if not opciones:
+        opciones = list(mios.filter(estado=Pase.BORRADOR, fecha=hoy).order_by("creado", "pk"))
+    return (opciones[0] if len(opciones) == 1 else None), opciones, olvidados
+
+
 def presentes(pase):
     """El alumnado que cuenta en este pase: matriculados activos sin falta en la sesión."""
     alumnos = list(alumnos_del_grupo(pase.group))
@@ -185,21 +215,47 @@ def registrar(pase, marcadores):
     return contadas, desconocidas
 
 
-def revelar(pase):
-    actual = pase.actual()
-    if actual is not None and not actual.revelada:
-        actual.revelada = True
-        actual.save(update_fields=["revelada"])
-    return actual
+def _cerrojo(pase, desde):
+    """El pase releído con su fila bloqueada, y si la orden vale.
+
+    `desde` es la posición que veía el aparato que manda la orden (fase 105,
+    C721). El proyector y el mando del móvil pueden pulsar casi a la vez: sin
+    esto, dos «siguiente» seguidos se saltaban una pregunta, y un «revelar»
+    que llegaba tarde revelaba la pregunta nueva. Con `desde` la orden solo
+    vale si el pase sigue donde la vio quien la manda. Sin `desde`, vale
+    siempre, como antes.
+    """
+    fila = Pase.objects.select_for_update().get(pk=pase.pk)
+    return fila, desde is None or fila.posicion == desde
 
 
-def siguiente(pase):
+def _copiar(fila, pase):
+    """Lo que la orden cambió, al objeto que tiene la vista."""
+    pase.posicion, pase.revision, pase.estado = fila.posicion, fila.revision, fila.estado
+
+
+def revelar(pase, desde=None):
+    """Revela la pregunta en pantalla. Devuelve False si la orden no valía."""
+    with transaction.atomic():
+        fila, vale = _cerrojo(pase, desde)
+        actual = fila.actual() if vale else None
+        if actual is not None and not actual.revelada:
+            actual.revelada = True
+            actual.save(update_fields=["revelada"])
+    _copiar(fila, pase)
+    return vale
+
+
+def siguiente(pase, desde=None):
     """Pasa a la siguiente pregunta. Más allá de la última, el pase queda «terminado»
-    (sin pregunta en pantalla) a la espera de cerrarse."""
-    if pase.posicion < pase.n_preguntas:
-        pase.posicion += 1
-        pase.save(update_fields=["posicion"])
-    return pase.actual()
+    (sin pregunta en pantalla) a la espera de cerrarse. False si la orden no valía."""
+    with transaction.atomic():
+        fila, vale = _cerrojo(pase, desde)
+        if vale and fila.posicion < fila.n_preguntas:
+            fila.posicion += 1
+            fila.save(update_fields=["posicion"])
+    _copiar(fila, pase)
+    return vale
 
 
 def reparto(actual):
@@ -233,11 +289,14 @@ def empezar_revision(pase):
     return pase
 
 
-def anterior(pase):
-    if pase.posicion > 0:
-        pase.posicion -= 1
-        pase.save(update_fields=["posicion"])
-    return pase.actual()
+def anterior(pase, desde=None):
+    with transaction.atomic():
+        fila, vale = _cerrojo(pase, desde)
+        if vale and fila.posicion > 0:
+            fila.posicion -= 1
+            fila.save(update_fields=["posicion"])
+    _copiar(fila, pase)
+    return vale
 
 
 def corregir(pase, alumno_id, letra):

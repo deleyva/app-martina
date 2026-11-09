@@ -1,0 +1,41 @@
+{% extends "preguntas/_pase_movil.html" %}
+{% comment %}
+  `/pase/` cuando no hay un único pase en curso (fase 105, C718): o ninguno, o
+  varios para elegir. Mismo armazón que el mando, para que el icono de la
+  pantalla de inicio se vea igual pase lo que pase.
+{% endcomment %}
+{% block contenido %}
+<style>
+  .pec { max-width: 560px; margin: 0 auto; padding: calc(16px + env(safe-area-inset-top, 0px)) 16px calc(24px + env(safe-area-inset-bottom, 0px)); }
+  .pec h1 { font-size: 22px; margin: 8px 0 12px; }
+  .pec p { font-size: 16px; line-height: 1.45; opacity: 0.85; margin: 0 0 12px; }
+  .pec a.boton, .pec button.boton { display: block; width: 100%; box-sizing: border-box; min-height: 52px; margin: 0 0 10px; padding: 14px 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); color: #fff; font-size: 17px; font-weight: 600; text-align: left; text-decoration: none; cursor: pointer; font-family: inherit; }
+  .pec a.boton.primario { background: rgba(37,99,235,0.85); border-color: rgba(96,165,250,0.8); }
+  .pec .detalle { display: block; font-size: 14px; font-weight: 400; opacity: 0.75; margin-top: 2px; }
+  .pec .aviso { color: #fcd34d; }
+  .pec .volver { color: #93c5fd; text-decoration: none; font-weight: 600; font-size: 15px; }
+</style>
+<div class="pec">
+  <a class="volver" href="{% url 'clases:class_session_list' %}">‹ App</a>
+  {% if opciones %}
+    <h1>❓ ¿Qué pase abro?</h1>
+    <p>Tienes {{ opciones|length }} pases {% if opciones.0.estado == "abierto" %}abiertos hoy{% else %}preparados para hoy{% endif %}.</p>
+    {% for p in opciones %}
+      <a class="boton primario" href="{% url 'preguntas:pase_mando' p.pk %}">{{ p.group.name }}{% if p.session %} · {{ p.session.title }}{% endif %}
+        <span class="detalle">{% if p.estado == "abierto" %}En marcha · pregunta {{ p.posicion|add:1 }}{% else %}Sin empezar{% endif %} · {{ p.n_preguntas }} preguntas</span></a>
+    {% endfor %}
+  {% else %}
+    <h1>❓ No hay ningún pase en curso</h1>
+    <p>Aquí se abre solo el pase que esté en marcha hoy o, si no hay ninguno en marcha, el que tengas preparado en una sesión de hoy.</p>
+    <p>Para preparar uno: en la sesión, «❓ Añadir pase de preguntas».</p>
+    <button type="button" class="boton" onclick="location.reload()">↻ Volver a mirar</button>
+    <a class="boton" href="{% url 'clases:class_session_list' %}">Ir a mis sesiones</a>
+  {% endif %}
+  {% if olvidados %}
+    <p class="aviso">⚠️ Tienes {% if olvidados|length == 1 %}un pase abierto de otro día{% else %}{{ olvidados|length }} pases abiertos de otros días{% endif %}. Ábrelo y ciérralo cuando puedas:</p>
+    {% for p in olvidados %}
+      <a class="boton" href="{% url 'preguntas:pase_mando' p.pk %}">{{ p.group.name }} · {{ p.fecha|date:"j/n" }}<span class="detalle">Abierto, sin cerrar</span></a>
+    {% endfor %}
+  {% endif %}
+</div>
+{% endblock %}

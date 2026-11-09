@@ -40,6 +40,8 @@ def add(request, a: int, b: int):
     return {"result": a + b}
 
 
+from preguntas.views_pase import pase_en_curso
+
 from .views import smart_home_view
 
 urlpatterns = [
@@ -101,6 +103,9 @@ urlpatterns = [
     path("calificaciones/", include("calificaciones.urls", namespace="calificaciones")),
     path("libreta/", include("libreta.urls", namespace="libreta")),
     path("preguntas/", include("preguntas.urls", namespace="preguntas")),
+    # El pase de preguntas en curso, en una dirección corta que se puede guardar
+    # en la pantalla de inicio del móvil (fase 105). Antes del catch-all de Wagtail.
+    path("pase/", pase_en_curso, name="pase_en_curso"),
     # CMS custom views (filtros de partituras)
     path("", include("cms.urls")),
     # music-pills integrado en Wagtail CMS - accesible via /cms/ y páginas públicas

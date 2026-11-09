@@ -1,0 +1,7 @@
+{% extends "preguntas/_pase_movil.html" %}
+{% comment %}
+  El mando del móvil (fase 105, C720): la pantalla del pase de la presentación
+  con `mando`, que la pinta a pantalla entera y para el dedo. Una sola lógica
+  para las dos (`pase_en_clase.html`); aquí solo cambia el diseño.
+{% endcomment %}
+{% block contenido %}{% include "preguntas/pase_en_clase.html" %}{% endblock %}

@@ -14,6 +14,7 @@ from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 from reportlab.lib.units import mm
 
@@ -49,6 +50,19 @@ def _pase_visible(request, pk):
 
 def _error(mensaje, status=400):
     return JsonResponse({"error": mensaje}, status=status)
+
+
+def _desde(request):
+    """La posición que veía el aparato que manda la orden (C721); None si no la manda."""
+    valor = request.POST.get("desde", "")
+    return int(valor) if valor.isdigit() else None
+
+
+def _tras_orden(request, pase, vale):
+    estado = vivo.estado_de(pase, con_letras=request.GET.get("letras") == "1")
+    if not vale:
+        estado["ignorada"] = True
+    return JsonResponse(estado)
 
 
 # =============================================================================
@@ -231,8 +245,7 @@ def pase_revelar(request, pk):
     pase = _pase_del_profesor(request, pk)
     if pase.estado != Pase.ABIERTO:
         return _error("El pase no está abierto.")
-    vivo.revelar(pase)
-    return JsonResponse(vivo.estado_de(pase, con_letras=request.GET.get("letras") == "1"))
+    return _tras_orden(request, pase, vivo.revelar(pase, _desde(request)))
 
 
 @login_required
@@ -242,8 +255,7 @@ def pase_siguiente(request, pk):
     pase = _pase_del_profesor(request, pk)
     if pase.estado != Pase.ABIERTO:
         return _error("El pase no está abierto.")
-    vivo.siguiente(pase)
-    return JsonResponse(vivo.estado_de(pase, con_letras=request.GET.get("letras") == "1"))
+    return _tras_orden(request, pase, vivo.siguiente(pase, _desde(request)))
 
 
 @login_required
@@ -266,8 +278,7 @@ def pase_anterior(request, pk):
     pase = _pase_del_profesor(request, pk)
     if pase.estado != Pase.ABIERTO:
         return _error("El pase no está abierto.")
-    vivo.anterior(pase)
-    return JsonResponse(vivo.estado_de(pase, con_letras=request.GET.get("letras") == "1"))
+    return _tras_orden(request, pase, vivo.anterior(pase, _desde(request)))
 
 
 @login_required
@@ -299,6 +310,53 @@ def pase_cerrar(request, pk):
     estado["notas"] = notas
     estado["aviso"] = aviso
     return JsonResponse(estado)
+
+
+# =============================================================================
+# EL PASE EN CURSO Y EL MANDO DEL MÓVIL (fase 105: C718, C719, C720)
+# =============================================================================
+
+
+@login_required
+@user_passes_test(es_profesor)
+@require_GET
+def pase_en_curso(request):
+    """`/pase/`: el mando del pase que está corriendo, sin navegar hasta él.
+
+    Se pinta aquí mismo, sin redirigir, para que el icono guardado en la
+    pantalla de inicio del iPhone siga valiendo la clase siguiente. Si hay
+    varios candidatos, o ninguno, la misma dirección enseña la lista o lo dice.
+    """
+    elegido, opciones, olvidados = vivo.en_curso(request.user, timezone.localdate())
+    if elegido is not None:
+        return _mando(request, elegido, olvidados)
+    return render(
+        request,
+        "preguntas/pase_en_curso.html",
+        {"opciones": opciones, "olvidados": olvidados},
+    )
+
+
+@login_required
+@user_passes_test(es_profesor)
+@require_GET
+def pase_mando(request, pk):
+    """El mando de un pase concreto (lo que enlaza la lista de `/pase/`)."""
+    return _mando(request, _pase_del_profesor(request, pk), [])
+
+
+def _mando(request, pase, olvidados):
+    return render(
+        request,
+        "preguntas/pase_mando.html",
+        {
+            "pase": pase,
+            "profesor": True,
+            "mando": True,
+            "olvidados": [p for p in olvidados if p.pk != pase.pk],
+            "tamano_maximo": TAMANO_MAXIMO,
+        },
+    )
 
 
 # =============================================================================

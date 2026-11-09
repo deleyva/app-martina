@@ -23,6 +23,8 @@ urlpatterns = [
     path("pase/<int:pk>/anterior/", views_pase.pase_anterior, name="pase_anterior"),
     path("pase/<int:pk>/corregir/", views_pase.pase_corregir, name="pase_corregir"),
     path("pase/<int:pk>/cerrar/", views_pase.pase_cerrar, name="pase_cerrar"),
+    # El mando del móvil (fase 105). El atajo `/pase/` vive en config/urls.py.
+    path("pase/<int:pk>/mando/", views_pase.pase_mando, name="pase_mando"),
     # La teoría acumulada (tramo 76·3).
     path("grupo/<int:group_id>/teoria/", views_pase.teoria_grupo, name="teoria_grupo"),
     path("grupo/<int:group_id>/teoria/<int:alumno_id>/", views_pase.teoria_alumno, name="teoria_alumno"),
