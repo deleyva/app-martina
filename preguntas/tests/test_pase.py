@@ -487,3 +487,124 @@ class TestComprobacion:
         assert _post(client, "pase_revisar", pase).status_code == 404
         assert _post(client, "pase_anterior", pase).status_code == 404
         assert client.post(reverse("preguntas:pase_corregir", args=[pase.pk]), {"alumno": 1, "letra": "A"}).status_code == 404
+
+
+# =============================================================================
+# Fase 106 — Nombres cortos en el proyector y quién falta en el mando
+# =============================================================================
+
+
+class TestNombresCortos:
+    def test_nombre_y_primer_apellido(self):
+        cortos = vivo.nombres_cortos({1: "LEO MIÑANA HERMOSO DE MENDOZA", 2: "Ana Ruiz", 3: "Cher"})
+        assert cortos == {1: "Leo Miñana", 2: "Ana Ruiz", 3: "Cher"}
+
+    def test_no_se_corta_en_una_particula(self):
+        cortos = vivo.nombres_cortos({1: "Mohamed El Idrissi Benali", 2: "ANA DE LA HOZ RUIZ", 3: "Luis de"})
+        assert cortos == {1: "Mohamed El Idrissi", 2: "Ana De La Hoz", 3: "Luis De"}
+
+    def test_dos_que_coinciden_se_distinguen(self):
+        cortos = vivo.nombres_cortos(
+            {1: "Lucía García Pérez", 2: "Lucía García Sanz", 3: "Hugo Gil Mas", 4: "Hugo Gil Mas", 5: "Eva Sol Luna"}
+        )
+        assert cortos[1] == "Lucía García Pérez" and cortos[2] == "Lucía García Sanz"
+        # Dos iguales del todo no tienen arreglo: se quedan con el nombre entero.
+        assert cortos[3] == cortos[4] == "Hugo Gil Mas"
+        # A quien no coincide con nadie no se le alarga.
+        assert cortos[5] == "Eva Sol"
+
+    def test_un_correo_sin_nombre_no_se_queda_vacio(self):
+        assert vivo.nombres_cortos({1: "ana@example.com"}) == {1: "Ana@example.com"}
+
+
+@pytest.mark.django_db
+class TestQuienFalta:
+    def test_el_estado_lleva_el_nombre_corto(self, client, montaje, profesor, alumnos):
+        pase = montaje["pase"]
+        alumnos[0].name = "ANA LÓPEZ DE LA HOZ"
+        alumnos[0].save()
+        client.force_login(profesor)
+        _post(client, "pase_abrir", pase)
+        e = _frame(client, pase, [(1, A)]).json()
+        assert [(f["nombre"], f["corto"]) for f in e["respondido"]] == [("ANA LÓPEZ DE LA HOZ", "Ana López")]
+
+    def test_los_pendientes_bajan_con_cada_lectura_y_solo_los_ve_el_profesor(self, client, montaje, profesor, alumnos):
+        pase = montaje["pase"]
+        ana, bea, cai = alumnos
+        url = reverse("preguntas:pase_estado", args=[pase.pk]) + "?letras=1"
+        client.force_login(profesor)
+        _post(client, "pase_abrir", pase)
+        assert [f["corto"] for f in client.get(url).json()["pendientes"]] == ["Alumno Ana", "Alumno Bea", "Alumno Cai"]
+        _frame(client, pase, [(2, B)])
+        e = client.get(url).json()
+        assert [f["id"] for f in e["pendientes"]] == [ana.pk, cai.pk]
+        assert e["n_presentes"] - e["n_respondido"] == len(e["pendientes"]) == 2
+        # La respuesta del fotograma, que es la que pinta el mando, también los lleva.
+        e = client.post(
+            reverse("preguntas:pase_leer", args=[pase.pk]) + "?letras=1",
+            {"frame": SimpleUploadedFile("frame.jpg", jpeg(lienzo([(1, A), (3, C)])), content_type="image/jpeg")},
+        ).json()
+        assert e["pendientes"] == []
+
+        # El proyector (sin `letras`) no señala a nadie; el alumnado, ni pidiéndolo.
+        assert "pendientes" not in _estado(client, pase)
+        client.force_login(cai)
+        assert "pendientes" not in client.get(url).json()
+
+    def test_quien_falta_a_clase_no_esta_pendiente(self, client, montaje, profesor, alumnos):
+        pase = montaje["pase"]
+        ana, bea, cai = alumnos
+        Asistencia.objects.create(session=montaje["sesion"], alumno=bea, estado=Asistencia.FALTA)
+        client.force_login(profesor)
+        _post(client, "pase_abrir", pase)
+        e = client.get(reverse("preguntas:pase_estado", args=[pase.pk]) + "?letras=1").json()
+        assert [f["id"] for f in e["pendientes"]] == [ana.pk, cai.pk]
+
+    def test_en_la_vuelta_no_hay_pendientes(self, client, montaje, profesor):
+        pase = montaje["pase"]
+        url = reverse("preguntas:pase_estado", args=[pase.pk]) + "?letras=1"
+        client.force_login(profesor)
+        _post(client, "pase_abrir", pase)
+        # Revelada sigue diciendo quién se quedó sin contestar.
+        _post(client, "pase_revelar", pase)
+        assert len(client.get(url).json()["pendientes"]) == 3
+        for _ in range(4):
+            _post(client, "pase_siguiente", pase)
+        assert "pendientes" not in client.get(url).json()  # terminado
+        _post(client, "pase_revisar", pase)
+        assert "pendientes" not in client.get(url).json()
+
+
+# =============================================================================
+# Fase 106 — Una tarjeta a medio girar no tumba la lectura (C734)
+# =============================================================================
+
+
+@pytest.mark.django_db
+class TestTarjetaAMedioGirar:
+    """En producción, el 2026-11-09, `pase_leer` dio 500 en los pases 2 y 3:
+    `'in <string>' requires string as left operand, not NoneType`. Una tarjeta
+    girada entre dos letras llega con `letra=None`, y `None in "ABCD"` no es
+    False: es un TypeError."""
+
+    def test_registrar_con_una_letra_nula_no_revienta(self, montaje):
+        pase = vivo.abrir(montaje["pase"])
+        marcadores = [{"id": 1, "letra": None}, {"id": 2, "letra": "B"}, {"id": 3}, {"id": 3, "letra": 7}]
+        assert vivo.registrar(pase, marcadores) == (1, 0)
+        assert pase.actual().lecturas == {str(montaje["alumnos"][1].pk): B}
+
+    def test_un_fotograma_con_una_tarjeta_a_medio_girar_lee_las_demas(self, client, montaje, profesor):
+        from preguntas import aruco
+
+        pase = montaje["pase"]
+        client.force_login(profesor)
+        _post(client, "pase_abrir", pase)
+        # Una sola tarjeta, girada 40°: se detecta, pero sin letra.
+        # La tarjeta va en el centro: girando el lienzo normal, se sale del cuadro
+        # y no se detecta nada, que es por lo que el test de la fase 76 no lo cazó.
+        medio = girado(lienzo([(1, A)], ancho=320, alto=320, lado=120, margen=100), 40)
+        assert [(m["id"], m["letra"]) for m in aruco.detectar(jpeg(medio))] == [(1, None)]
+        r = _frame(client, pase, [], img=medio)
+        assert r.status_code == 200
+        e = r.json()
+        assert e["leidas"] == 1 and e["contadas"] == 0 and e["respondido"] == []

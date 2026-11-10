@@ -187,7 +187,11 @@ def registrar(pase, marcadores):
     tarjeta en ángulo ambiguo (`letra` nula) no es ni una cosa ni otra: se
     espera al siguiente fotograma.
     """
-    validos = [m for m in marcadores if m.get("letra") in Pregunta.LETRAS]
+    # `LETRAS` es una cadena, y `None in "ABCD"` no da False: lanza TypeError.
+    # Una tarjeta a medio girar llega con `letra=None` y tumbaba el fotograma
+    # entero, con las lecturas buenas de los demás dentro (500 en producción
+    # el 2026-11-09, fase 106).
+    validos = [m for m in marcadores if m.get("letra") in tuple(Pregunta.LETRAS)]
     with transaction.atomic():
         pase = Pase.objects.select_for_update().get(pk=pase.pk)
         actual = (
@@ -370,6 +374,43 @@ def _imagen_url(pregunta):
         return None
 
 
+# Palabras que no son un apellido por sí solas: «Mohamed El Idrissi» no se
+# corta en «Mohamed El».
+_PARTICULAS = {"de", "del", "la", "las", "los", "el", "al", "da", "do", "dos", "di", "van", "von", "ben", "y", "i"}
+
+
+def _corto(nombre, palabras=2):
+    """Las primeras `palabras` del nombre, con las mayúsculas de `nombre_corto`,
+    sin acabar en una partícula (se sigue hasta la palabra que la completa)."""
+    partes = (nombre or "").split()
+    fin = len(partes) if palabras is None else min(palabras, len(partes))
+    while 0 < fin < len(partes) and partes[fin - 1].lower() in _PARTICULAS:
+        fin += 1
+    return " ".join(p[:1].upper() + p[1:].lower() for p in partes[:fin])
+
+
+def nombres_cortos(nombres):
+    """`{pk: nombre entero}` → `{pk: nombre y primer apellido}` (fase 106, C728).
+
+    La regla de la banda y del plano (`clases.banda.nombre_corto`: dos
+    palabras), más las partículas.
+
+    Es lo que se lee de lejos en el proyector. Dos que coinciden («Lucía García
+    Pérez» y «Lucía García Sanz») se quedan con una palabra más, y si aun así
+    coinciden, con el nombre entero: en la pantalla cada uno tiene que poder
+    saber que el suyo es el suyo.
+    """
+    cortos = {pk: _corto(nombre) or nombre for pk, nombre in nombres.items()}
+    for palabras in (3, None):
+        veces = {}
+        for corto in cortos.values():
+            veces[corto] = veces.get(corto, 0) + 1
+        for pk, corto in cortos.items():
+            if veces[corto] > 1:
+                cortos[pk] = _corto(nombres[pk], palabras) or corto
+    return cortos
+
+
 def estado_de(pase, con_letras=False):
     """El JSON que pintan la pantalla proyectada y el iPad, cada segundo.
 
@@ -377,7 +418,9 @@ def estado_de(pase, con_letras=False):
     revelar salen la correcta, la explicación, el reparto A/B/C/D y, junto a
     cada nombre, ✓ o ✗. La letra que eligió cada uno solo va con `con_letras`,
     que la vista concede al profesorado del grupo (la pantalla con la cámara,
-    76·4), nunca al alumnado ni al proyector.
+    76·4), nunca al alumnado ni al proyector. Con `con_letras` va también
+    `pendientes`: los presentes que aún no tienen lectura en esta pregunta,
+    para saber a quién apuntar (fase 106); el proyector no señala a nadie.
 
     En la vuelta de comprobación (`pase.revision`) cada pregunta sale revelada,
     con todos los presentes y su ✓/✗ (sin lectura = ✗), y al final, solo con
@@ -385,6 +428,7 @@ def estado_de(pase, con_letras=False):
     """
     actual = pase.actual()
     alumnos = {a.pk: (a.name or a.email) for a in presentes(pase)}
+    cortos = nombres_cortos(alumnos)
     datos = {
         "pk": pase.pk,
         "estado": pase.estado,
@@ -405,7 +449,12 @@ def estado_de(pase, con_letras=False):
 
     def fila(alumno_id, nombre):
         opcion = actual.lecturas.get(str(alumno_id))
-        fila = {"id": alumno_id, "nombre": nombre, "acierto": (opcion == pregunta.correcta) if revelada else None}
+        fila = {
+            "id": alumno_id,
+            "nombre": nombre,
+            "corto": cortos[alumno_id],
+            "acierto": (opcion == pregunta.correcta) if revelada else None,
+        }
         if revelada:
             fila["sin_lectura"] = opcion is None
             fila["corregida"] = str(alumno_id) in correcciones
@@ -429,6 +478,15 @@ def estado_de(pase, con_letras=False):
             "imagen": _imagen_url(pregunta),
         },
     )
+    if con_letras and not pase.revision:
+        datos["pendientes"] = sorted(
+            (
+                {"id": pk, "nombre": nombre, "corto": cortos[pk]}
+                for pk, nombre in alumnos.items()
+                if str(pk) not in actual.lecturas
+            ),
+            key=lambda f: f["nombre"],
+        )
     if revelada:
         datos["pregunta"].update(
             correcta=pregunta.correcta,

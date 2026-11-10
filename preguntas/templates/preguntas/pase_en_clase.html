@@ -30,8 +30,23 @@
   #pase-vivo .pv-opcion .pv-reparto { margin-left: auto; font-variant-numeric: tabular-nums; opacity: 0.8; font-size: 0.8em; }
   #pase-vivo .pv-explicacion { font-size: clamp(16px, 1.8vw, 24px); opacity: 0.85; border-left: 4px solid #22c55e; padding-left: 14px; }
   #pase-vivo .pv-respondido { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-  #pase-vivo .pv-respondido .pv-nombre { font-size: 14px; padding: 3px 10px; border-radius: 999px; background: rgba(59,130,246,0.35); }
-  #pase-vivo .pv-respondido .pv-n { font-size: 16px; opacity: 0.8; margin-right: 6px; font-variant-numeric: tabular-nums; }
+  /* Los nombres se leen desde el pupitre: quien levanta la tarjeta tiene que
+     ver que ha contado (fase 106, C730). El tamaño lo pone `ajustarNombres`:
+     lo más grande que quepa sin que nada se salga de la pantalla. */
+  /* Los márgenes dejan libres los botones flotantes de la presentación (la
+     columna redonda de la izquierda y los de abajo a la derecha): un nombre
+     medio tapado no se lee. */
+  #pase-vivo .pv-respondido { gap: 8px 10px; padding: 0 110px 0 34px; }
+  #pase-vivo .pv-respondido .pv-nombre { font-size: var(--pv-nombre, clamp(18px, 2vw, 30px)); font-weight: 600; line-height: 1.15; padding: 0.22em 0.7em; border-radius: 999px; background: rgba(59,130,246,0.45); white-space: nowrap; }
+  #pase-vivo .pv-respondido .pv-n { flex-basis: 100%; font-size: clamp(16px, 1.5vw, 22px); opacity: 0.8; font-variant-numeric: tabular-nums; }
+  /* Quién falta (fase 106, C732): solo llega a la pantalla del profesor. */
+  #pase-vivo .pv-faltan { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
+  #pase-vivo .pv-faltan .pv-faltan-n { flex-basis: 100%; font-size: 34px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; color: #fcd34d; }
+  #pase-vivo .pv-faltan .pv-faltan-n small { font-size: 15px; font-weight: 500; opacity: 0.75; margin-left: 6px; }
+  #pase-vivo .pv-faltan.todos .pv-faltan-n { color: #4ade80; font-size: 24px; }
+  #pase-vivo .pv-faltan.pasada .pv-faltan-n { color: inherit; opacity: 0.7; font-size: 18px; font-weight: 600; }
+  #pase-vivo .pv-faltan .pv-pendiente { font-size: 17px; padding: 5px 12px; border-radius: 999px; border: 1.5px dashed rgba(252,211,77,0.75); color: #fde68a; white-space: nowrap; }
+  #pase-vivo .pv-faltan.pasada .pv-pendiente { border-color: rgba(255,255,255,0.3); color: inherit; opacity: 0.7; }
   #pase-vivo .pv-grande { font-size: clamp(24px, 3vw, 40px); text-align: center; opacity: 0.85; }
   /* Deja libres los botones flotantes de la presentación: la columna redonda
      de la izquierda y, a la derecha, «Tratado», «Saltar» y ⋮ (unos 270 px).
@@ -64,6 +79,9 @@
   #pase-vivo.mando { position: fixed; padding-top: env(safe-area-inset-top, 0px); }
   #pase-vivo.mando .pv-cabecera { font-size: 15px; padding: 10px 14px; gap: 10px; opacity: 0.9; }
   #pase-vivo.mando .pv-volver { color: #93c5fd; text-decoration: none; font-weight: 600; }
+  /* Con «· faltan N» la cabecera no cabe en una línea: cede el nombre del grupo. */
+  #pase-vivo.mando .pv-cabecera > * { white-space: nowrap; flex-shrink: 0; }
+  #pase-vivo.mando .pv-cabecera > span:not(.pv-contador) { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   #pase-vivo.mando .pv-cuerpo { justify-content: flex-start; padding: 4px 14px 12px; gap: 12px; overflow-y: auto; }
   #pase-vivo.mando .pv-enunciado { font-size: 20px; }
   #pase-vivo.mando .pv-imagen { max-height: 22vh; }
@@ -72,7 +90,9 @@
   #pase-vivo.mando .pv-explicacion { font-size: 14px; }
   #pase-vivo.mando .pv-grande { font-size: 20px; }
   #pase-vivo.mando .pv-pista { font-size: 15px; }
-  #pase-vivo.mando .pv-respondido .pv-nombre { font-size: 15px; padding: 5px 12px; }
+  #pase-vivo.mando .pv-respondido { gap: 6px; padding: 0; }
+  #pase-vivo.mando .pv-respondido .pv-nombre { font-size: 15px; font-weight: 400; padding: 5px 12px; background: rgba(59,130,246,0.35); }
+  #pase-vivo.mando .pv-respondido .pv-n { font-size: 15px; }
   #pase-vivo.mando .pv-barra { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px)); font-size: 15px; }
   #pase-vivo.mando .pv-barra button { min-height: 52px; font-size: 17px; border-radius: 12px; padding: 8px 10px; }
   #pase-vivo.mando video.pv-video { grid-column: 1 / -1; order: -2; width: 100%; max-height: 26vh; object-fit: cover; border-radius: 10px; }
@@ -189,7 +209,7 @@
   // ---------- pintar ----------
   function chip(f) {
     var clase = 'pv-nombre' + (f.acierto === true ? ' ok' : f.acierto === false ? ' mal' : '') + (corrigiendo === f.id ? ' abierto' : '');
-    var texto = esc(f.nombre) + (f.acierto === true ? ' ✓' : f.acierto === false ? ' ✗' : '');
+    var texto = esc(f.corto || f.nombre) + (f.acierto === true ? ' ✓' : f.acierto === false ? ' ✗' : '');
     if (verLetras && f.letra) texto += ' · ' + f.letra;
     if (f.corregida) texto += ' ✎';
     var puedeCorregir = PROFESOR && estado && (estado.revision || estado.revelada) && estado.estado === 'abierto';
@@ -202,6 +222,18 @@
       h += '<button type="button" data-letra="" title="Sin lectura">—</button><button type="button" data-cancelar="1">✕</button></span>';
     }
     return h;
+  }
+
+  // Quién falta por contestar: la cuenta atrás y los nombres, para apuntar la
+  // cámara hacia ellos (fase 106). `pendientes` solo llega con «Letras».
+  function pintarFaltan(e) {
+    if (!e.pendientes || e.revision) return '';
+    var n = e.pendientes.length;
+    if (!n) return e.revelada ? '' : '<div class="pv-faltan todos" id="pv-faltan"><span class="pv-faltan-n">✓ Han respondido todos</span></div>';
+    var h = '<div class="pv-faltan' + (e.revelada ? ' pasada' : '') + '" id="pv-faltan"><span class="pv-faltan-n">'
+      + (e.revelada ? 'Sin responder: ' + n : (n === 1 ? 'Falta 1' : 'Faltan ' + n) + '<small>de ' + e.n_presentes + '</small>') + '</span>';
+    e.pendientes.forEach(function (f) { h += '<span class="pv-pendiente">' + esc(f.corto || f.nombre) + '</span>'; });
+    return h + '</div>';
   }
 
   function pintarClips(pos) {
@@ -246,6 +278,11 @@
       return;
     }
     contador.textContent = (e.revision ? 'Comprobación ' : 'Pregunta ') + (e.posicion + 1) + ' / ' + e.total;
+    // En el mando la cuenta atrás va también arriba: con la cámara abierta la
+    // lista puede quedar más abajo de lo que se ve sin deslizar.
+    if (MANDO && e.pendientes && e.estado === 'abierto' && !e.revelada && !e.revision) {
+      contador.textContent += e.pendientes.length ? ' · faltan ' + e.pendientes.length : ' · ✓ todos';
+    }
     var p = e.pregunta, h = '';
     h += '<div class="pv-enunciado">' + esc(p.enunciado) + '</div>';
     if (p.imagen) h += '<img class="pv-imagen" src="' + esc(p.imagen) + '" alt="">';
@@ -263,14 +300,29 @@
       if (PROFESOR) h += '<div class="pv-pista">Pulsa <b>Empezar el pase</b>' + (MANDO ? '' : ' en la barra de abajo')
         + '. La cámara se abre desde el móvil: <b>' + esc(location.host) + '/pase/</b></div>';
     } else {
+      h += pintarFaltan(e);
       h += '<div class="pv-respondido"><span class="pv-n">' + (e.revision ? 'Respondieron ' : 'Han respondido ') + e.n_respondido + ' de ' + e.n_presentes + '</span>';
       e.respondido.forEach(function (f) { h += chip(f); });
       h += '</div>';
       if (e.revision) h += pintarClips(e.posicion);
     }
     cuerpo.innerHTML = h;
+    ajustarNombres();
     gestionarGrabacion(e);
     pintarBarra();
+  }
+
+  // En la pantalla proyectada los nombres van lo más grandes que quepan: se
+  // empieza por arriba y se baja de dos en dos hasta que el cuerpo no desborda
+  // (una pregunta larga, con imagen y la clase entera, deja menos sitio). Todo
+  // en el mismo fotograma, así que no parpadea. El mando desliza: no lo necesita.
+  function ajustarNombres() {
+    if (MANDO) return;
+    var maximo = Math.max(20, Math.min(36, Math.round(raiz.clientWidth * 0.024)));
+    for (var px = maximo; px >= 14; px -= 2) {
+      raiz.style.setProperty('--pv-nombre', px + 'px');
+      if (cuerpo.scrollHeight <= cuerpo.clientHeight) break;
+    }
   }
 
   function pintarBarra() {

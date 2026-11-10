@@ -2,9 +2,9 @@
 slug: app-martina
 phase: complete
 progress: true
-iteration: 71
+iteration: 72
 principal_stated_goal: "Yo solo quiero añadir evidencias tal cual están diseñadas en la aplicación de Notas. Por favor, copiala. Usa en vez de HTMLX, usa, en fin, haz lo que sea, pero que sea igual visualmente. Me gusta mucho esa forma de calificar, esa aplicación que hicimos."
-updated: 2026-11-06
+updated: 2026-11-10
 ---
 
 # ISA — app-martina · Sistema de estudio de la biblioteca
@@ -6588,3 +6588,43 @@ El 2026-11-01 a las 12:29 producción mandó el correo de error de Django: `Modu
 - **2026-11-09 — Desplegada** («Push y despliega»). Push de `84a396c` por SSH (por HTTPS falla desde una sesión remota: el llavero de macOS no se abre, `-25308`). `just deploy-production` desde el clon, con salida 0: avisa de que no hay `.envs/.production` y usa los del servidor, arranca los seis contenedores y da «No migrations to apply». Va también la fase 104.
 - **Al desplegar:** se despliega también la fase 104 (`52ba22a`, en `main` sin desplegar, sin migraciones; luego toca `rellenar_huellas` y C713/C714). Después, C726 con Chrome y la sesión de Jesús.
 
+
+## Fase 106 — El pase, visto desde el pupitre y desde el móvil: nombres grandes en el proyector y «faltan N» en el mando (2026-11-10) · CONSTRUIDA Y VERIFICADA EN LOCAL; SIN PUSH NI DESPLIEGUE
+
+**Goal (literal de Jesús, 2026-11-10):** «¿Desarrollar estos errores ? Creo que son de cuando intenté leer las tarjetas para responder a preguntas en apps.iesmartinabescos.es. Por otro lado, me gustaría que, en la pantalla que se muestra en el monitor, cuando se muestran las preguntas y se va añadiendo el alumnado que ha respondido, se vea el nombre del alumnado y el primer apellido, no todo. Me gustaría que se vea más grande para que ellos sepan que ya se ha registrado su respuesta, pero que no puedan saber lo que están respondiendo los compañeros, claro. En mi móvil, mientras registro las respuestas, me gustaría que se viera una cuenta atrás de los que quedan por contestar y el nombre de los que quedan por contestar en una lista abajo, para que yo pueda ir enfocándolos.»
+
+**Vision.** Un alumno levanta la tarjeta y, desde su pupitre, lee su nombre en la pantalla: sabe que ha contado y baja el brazo. En el móvil, Jesús ve un número grande que baja hasta cero y, debajo, a quién le falta: apunta la cámara hacia esos y no hacia toda la clase.
+
+**Decisiones:**
+- Nombre corto = las dos primeras palabras del nombre, la regla que ya usan la banda y el plano (`clases.banda.nombre_corto`), sin acabar en una partícula: «Mohamed El Idrissi Benali» sale «Mohamed El Idrissi», no «Mohamed El». Si dos presentes del pase coinciden, a esos se les añade la tercera palabra, y si aun así coinciden, el nombre entero. Un nombre compuesto («María José Pérez») sale como «María José»: los nombres están en un solo campo y no se puede saber dónde acaba el nombre.
+- `nombre` (entero) se queda en el JSON como estaba; se añade `corto`. Las dos pantallas pintan `corto`.
+- Quién falta va solo con `con_letras`, o sea, solo al profesorado del grupo que lo pide: el proyector no señala a quien no ha contestado.
+- En la vuelta de comprobación no hay lista de pendientes: ahí ya salen todos con su ✓/✗.
+
+### Claims
+
+- [x] **C728** — Cada fila de `respondido` lleva `corto` con nombre y primer apellido; dos presentes con el mismo corto se distinguen. *Falsador: tests de `nombres_cortos` y del estado.* **Evidencia:** `TestNombresCortos` (4 tests: nombre y apellido, partículas, coincidencias, correo sin nombre) y `test_el_estado_lleva_el_nombre_corto`. En Chrome: «Lucía García Pérez» y «Lucía García Sanz» salen con tres palabras y el resto con dos.
+- [x] **C729** — Con `letras=1` y siendo profesor del grupo, el estado lleva `pendientes`: los presentes sin lectura en la pregunta en pantalla, por nombre; cada lectura lo acorta. Sin `letras`, para el alumnado y en la vuelta, no va. *Falsador: tests sobre `pase_estado`.* **Evidencia:** `TestQuienFalta` (4 tests): 3 → 2 → 0 pendientes al leer; sin `letras` no va; un alumno que pide `letras=1` no lo recibe; quien tiene falta no está pendiente; terminado y en la vuelta, no va. Revelada sí va: dice quién se quedó sin contestar.
+- [x] **C730** — En el proyector los nombres de quien ha respondido se leen de lejos: bastante más grandes que los 14 px de antes, y con un grupo de 23 que ha respondido entero no se sale nada de la pantalla ni se tapa la barra. *Falsador: Chrome local a tamaño de proyector con 23 lecturas; medidas y captura vista.* **Evidencia:** grupo de prueba de 23 con nombres largos, los 23 leídos: a 1336×759 los nombres van a 30 px (antes 14) y el cuerpo no desborda (`scrollHeight` 657 = `clientHeight` 657); en un marco de 1024×768, a 25 px, 666 = 666. Captura vista: siete filas de nombres, ninguno bajo los botones flotantes, la barra entera. El tamaño no es fijo: `ajustarNombres()` empieza en el 2,4 % del ancho (tope 36 px) y baja de dos en dos hasta que cabe, mínimo 14. La primera versión, con tamaño fijo, daba 21 px y dejaba «Guillermo», «Mohamed» y «Sara» medio tapados por la columna redonda de la izquierda: de ahí el margen de 34 px a la izquierda y 110 a la derecha.
+- [x] **C731** — El proyector sigue sin enseñar letras ni quién falta antes de revelar. *Falsador: el HTML pintado en la presentación sin «Letras» no contiene ninguna letra junto a un nombre ni el bloque de pendientes; test del estado sin `letras`.* **Evidencia:** en la presentación con «Letras» apagado, con 23 lecturas: no existe `#pv-faltan` y ninguna letra junto a un nombre (`/ · [ABCD]</` sobre el HTML de los nombres: falso). `test_los_pendientes_bajan_con_cada_lectura_y_solo_los_ve_el_profesor` cubre el servidor. Ojo: si el profesor enciende «Letras» en el ordenador que proyecta, salen las letras (como desde la 76·4) y ahora también quién falta.
+- [x] **C732** — El mando enseña «Faltan N» en grande y, debajo, los nombres de quienes faltan; al leer una tarjeta el número baja y el nombre sale de la lista; con todos, lo dice. *Falsador: Chrome local, marco de 390×844, lecturas registradas por `vivo.registrar`, captura vista.* **Evidencia:** con 9 de 23 leídos, «Faltan 14 de 23» en amarillo a 34 px y los 14 nombres debajo, encima de «Han respondido 9 de 23» (captura vista). Con 20 leídos en la pregunta 2, sin recargar: «Faltan 3» y «Sara Moreno», «Sebastián Castellanos», «Valentina Hernández». Con todos: «✓ Han respondido todos». La cuenta va también en la cabecera («Pregunta 2 / 3 · faltan 3»), que se queda en una línea de 40 px porque cede el nombre del grupo (captura vista): con la cámara abierta la lista puede quedar más abajo de lo que se ve sin deslizar. Las lecturas se metieron por el servicio y no con fotogramas: lo que se prueba aquí es lo que pinta el mando.
+- [x] **C733** — Las suites de `preguntas` y `clases` no empeoran. *Falsador: pytest.* **Evidencia:** 463 passed, 0 failed (453 de la fase 105 más 10 nuevos).
+- [x] **C734** — Los errores que Jesús vio al leer tarjetas, identificados, reproducidos y arreglados. *Falsador: un test que da el mismo error sin el arreglo.* **Evidencia:** dos correos de error de producción del 2026-11-09 (10:37, pase 2; 13:47, pase 3), los dos `TypeError at /preguntas/pase/N/leer/: 'in <string>' requires string as left operand, not NoneType`. Causa: `vivo.registrar` filtraba con `m.get("letra") in Pregunta.LETRAS`; `LETRAS` es la cadena `"ABCD"` y `None in "ABCD"` lanza `TypeError`. Una tarjeta girada entre dos letras llega con `letra=None` (así lo quiere `aruco.letra_de`), de modo que bastaba una tarjeta a medio girar en el fotograma para tirar el fotograma entero, con las lecturas buenas de los demás. `TestTarjetaAMedioGirar` (2 tests): sin el arreglo, los dos fallan con ese mismo mensaje en `vivo.py:190`; con `in tuple(Pregunta.LETRAS)`, pasan. **Por qué no lo cazó la fase 76:** `test_id_sin_matricula_y_tarjeta_ambigua` giraba 45° un lienzo con la tarjeta en una esquina; la tarjeta se salía del cuadro, no se detectaba nada y el test pasaba sin tocar el caso. El test nuevo pone la tarjeta en el centro y comprueba antes que `aruco.detectar` devuelve `[(1, None)]`.
+- [ ] **C735** — En producción, tras desplegar, un pase real lee tarjetas sin 500 aunque haya alguna a medio girar. `[DEFERRED-VERIFY]` Necesita despliegue (lo dice Jesús) y tarjetas de verdad delante de la cámara: el próximo pase en clase. Va junto a C727.
+
+### Anti-claims
+
+- **Anti-A** — El proyector nunca enseña la letra de nadie antes de revelar, ni quién falta.
+- **Anti-B** — Sin migraciones.
+- **Anti-C** — Ni push ni despliegue sin que Jesús lo diga.
+
+### Log
+
+- **2026-11-10 — Antes de empezar:** el repo local estaba 2 por detrás (fase 105, hecha desde el clon del 2026-11-09) y 1 por delante (nota de despliegue de la 104). `git pull --rebase`; el conflicto en `ISA.md` se resolvió dejando las dos cosas, la nota de la 104 delante de la fase 105. Medido en la base local: 115 alumnos matriculados, ninguno con coma en el nombre, 2,8 palabras de media.
+- **2026-11-10 — Los errores.** No venían en el mensaje; Jesús pasó dos enlaces de Gmail. El conector de Gmail está en la cuenta del centro y los correos de error llegan a la personal: se leyeron en Chrome con su sesión, sacando solo el asunto y las primeras líneas del cuerpo.
+- **2026-11-10 — Construida y verificada en local.** Ficheros: `preguntas/vivo.py` (`_corto`, `nombres_cortos`, `corto` y `pendientes` en `estado_de`, el filtro de `registrar`), `pase_en_clase.html` (nombres grandes y `ajustarNombres`, bloque «Faltan N», cuenta en la cabecera del mando) y `test_pase.py` (10 tests). Sin migraciones.
+- 🧹 **CLASS-SWEEP:** `x in <cadena>` con un `x` que puede ser None. 5 vía `rg "in (Pregunta\.|aruco\.)?LETRAS"`: 1 arreglado (`vivo.registrar`); `vivo.corregir` ya comparaba contra una tupla; los dos de `calificaciones` (`evaluar.py:63`, `cuaderno.py:240`) y el de `models.py` usan otra `LETRAS`, que es una tupla de notas.
+- **Datos de prueba.** Para ver 23 nombres hizo falta un grupo que la base local no tiene (el mayor es de 16): se creó «Prueba fase 106» con 23 alumnos inventados, un profesor de pruebas y su sesión, y se borró todo al acabar (comprobado: 0 grupos, 0 usuarios, 0 pases).
+- **Gotcha del entorno:** el servidor local no relee las plantillas al cambiarlas; hay que reiniciar el contenedor `django`. Dos medidas salieron con la plantilla vieja hasta darme cuenta.
+- **Sin segunda mirada independiente.** Lo nuevo que sale del servidor (`pendientes`) va detrás de la misma puerta que las letras, sin tocarla, y los tests cubren alumnado y proyector.
+- **Al desplegar:** sin migraciones. Después, C735 y C727 en el primer pase real.
