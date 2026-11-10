@@ -6589,7 +6589,7 @@ El 2026-11-01 a las 12:29 producción mandó el correo de error de Django: `Modu
 - **Al desplegar:** se despliega también la fase 104 (`52ba22a`, en `main` sin desplegar, sin migraciones; luego toca `rellenar_huellas` y C713/C714). Después, C726 con Chrome y la sesión de Jesús.
 
 
-## Fase 106 — El pase, visto desde el pupitre y desde el móvil: nombres grandes en el proyector y «faltan N» en el mando (2026-11-10) · CONSTRUIDA Y VERIFICADA EN LOCAL; SIN PUSH NI DESPLIEGUE
+## Fase 106 — El pase, visto desde el pupitre y desde el móvil: nombres grandes en el proyector y «faltan N» en el mando (2026-11-10) · DESPLEGADA (`b1905ff`); FALTA LA PRUEBA CON TARJETAS EN CLASE (C735, C727)
 
 **Goal (literal de Jesús, 2026-11-10):** «¿Desarrollar estos errores ? Creo que son de cuando intenté leer las tarjetas para responder a preguntas en apps.iesmartinabescos.es. Por otro lado, me gustaría que, en la pantalla que se muestra en el monitor, cuando se muestran las preguntas y se va añadiendo el alumnado que ha respondido, se vea el nombre del alumnado y el primer apellido, no todo. Me gustaría que se vea más grande para que ellos sepan que ya se ha registrado su respuesta, pero que no puedan saber lo que están respondiendo los compañeros, claro. En mi móvil, mientras registro las respuestas, me gustaría que se viera una cuenta atrás de los que quedan por contestar y el nombre de los que quedan por contestar en una lista abajo, para que yo pueda ir enfocándolos.»
 
@@ -6628,3 +6628,4 @@ El 2026-11-01 a las 12:29 producción mandó el correo de error de Django: `Modu
 - **Gotcha del entorno:** el servidor local no relee las plantillas al cambiarlas; hay que reiniciar el contenedor `django`. Dos medidas salieron con la plantilla vieja hasta darme cuenta.
 - **Sin segunda mirada independiente.** Lo nuevo que sale del servidor (`pendientes`) va detrás de la misma puerta que las letras, sin tocarla, y los tests cubren alumnado y proyector.
 - **Al desplegar:** sin migraciones. Después, C735 y C727 en el primer pase real.
+- **2026-11-10 — Desplegada** («Despliega»). Copia previa `backup_2026_11_10T16_15_18.sql.gz`; push de `d557115` y `b1905ff`; `just deploy-production` con salida 0, el servidor en `b1905ff`, «No migrations to apply», ninguna línea de error en el registro; `production-manage check` → «no issues». En Chrome con la sesión de Jesús: `/pase/` responde («No hay ningún pase en curso», captura vista) y el mando del pase 3, ya cerrado, sirve la plantilla nueva (`pintarFaltan`, `ajustarNombres` y `f.corto` en el HTML) y pinta «Cerrado» sin avisos. No se abrió ni se creó ningún pase en producción: C735 queda para el primer pase real.
