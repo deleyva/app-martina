@@ -83,11 +83,17 @@ def pase_nuevo(request):
     propuesta = proponer(session.group, session.date)
     propuestas = list(propuesta.preguntas)
     ids_propuestos = {p.pk for p in propuestas}
-    otras = [
-        p
-        for p in Pregunta.objects.filter(estado=Pregunta.ACTIVA).prefetch_related("etiquetas")
-        if p.pk not in ids_propuestos
-    ]
+    # «Otras» es el resto del banco DE ESTE GRUPO (fase 107): en su lengua y de
+    # lo que ya ha visto. Lo que aún no ha visto no se ofrece ni a mano.
+    #
+    # `?todas=1` es la salida de emergencia: el banco entero de activas. Lo
+    # que el profesor elige a mano manda, y por eso el POST no vuelve a filtrar.
+    todas = (request.GET.get("todas") or request.POST.get("todas")) == "1"
+    if todas:
+        del_banco = Pregunta.objects.filter(estado=Pregunta.ACTIVA).prefetch_related("etiquetas")
+    else:
+        del_banco = propuesta.banco
+    otras = [p for p in del_banco if p.pk not in ids_propuestos]
     error = None
     if request.method == "POST":
         elegidas = [v for v in request.POST.getlist("preguntas") if v.isdigit()]
@@ -107,6 +113,8 @@ def pase_nuevo(request):
             "motivo": propuesta.motivo,
             "conceptos": sorted(propuesta.conceptos),
             "otras": otras,
+            "todas": todas,
+            "lengua": session.group.get_idioma_display(),
             "error": error,
         },
     )

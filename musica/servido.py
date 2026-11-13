@@ -64,12 +64,53 @@ def servido_selectivo(document, request):
         return redirect(document.file.url)
 
 
+def _puede_abrir(user, recorte):
+    """¿Puede este usuario abrir este recorte? (fase 107)
+
+    Solo cambia algo cuando el documento está marcado `solo_alumnado`: entonces
+    hace falta sesión, y ser profesor o estar matriculado en un grupo que tenga
+    el recorte en uno de sus libros o en una de sus clases. Para todo lo demás
+    un recorte sigue siendo contenido publicado.
+    """
+    restriccion = DocumentoRestringido.objects.filter(
+        documento_id=recorte.documento_id, solo_por_recorte=True, solo_alumnado=True
+    ).first()
+    if restriccion is None:
+        return True
+    if not user.is_authenticated:
+        return False
+    if es_profesor(user):
+        return True
+
+    from django.contrib.contenttypes.models import ContentType
+
+    from clases.models import ClassSessionItem, Group, GroupBook
+
+    grupos = list(Group.matriculados_de(user).values_list("pk", flat=True))
+    if not grupos:
+        return False
+    tipo = ContentType.objects.get_for_model(Recorte)
+    if ClassSessionItem.objects.filter(
+        session__group_id__in=grupos, content_type=tipo, object_id=recorte.pk
+    ).exists():
+        return True
+    for group_book in GroupBook.objects.filter(group_id__in=grupos).select_related("libro"):
+        libro = group_book.libro.specific
+        referencias = getattr(libro, "paginas_referenciadas", None)
+        if not callable(referencias):
+            continue
+        if any(isinstance(c, Recorte) and c.pk == recorte.pk for c in referencias()):
+            return True
+    return False
+
+
 def pdf_del_recorte(request, pk):
     """Entrega un PDF con SOLO las paginas de este recorte.
 
-    No comprueba permisos de usuario a proposito: un recorte es contenido
+    Por defecto no comprueba permisos de usuario: un recorte es contenido
     publicado, igual que una imagen de una pagina publica. Lo que se protege no
-    es el trozo, es el libro entero.
+    es el trozo, es el libro entero. La excepcion es un documento marcado
+    `solo_alumnado` (fase 107): ver `_puede_abrir`.
 
     El rectangulo NO se aplica aqui. Recortar la caja en el fichero obligaria a
     rasterizar o a reescribir el `MediaBox`, y el visor ya encuadra en cliente
@@ -82,6 +123,9 @@ def pdf_del_recorte(request, pk):
     documento = recorte.documento
     if not documento.file:
         raise Http404("El documento no tiene fichero.")
+    if not _puede_abrir(request.user, recorte):
+        # 404 y no 403, por lo mismo que en `servido_selectivo`.
+        raise Http404("Este recorte no está disponible.")
 
     try:
         lector = PdfReader(documento.file.open("rb"))

@@ -418,3 +418,101 @@ def test_un_documento_restringido_no_se_redirige_a_ninguna_parte(client, pdf):
     r = client.get(pdf.url)
 
     assert r.status_code == 404
+
+
+# --- Fase 107: recortes solo para el alumnado que los trabaja ---------------
+
+
+def _libro_de_recortes(recorte, slug="libro-de-texto"):
+    raiz = Page.objects.filter(depth=1).first() or Page.add_root(title="Root")
+    libro = LibroDeEstudioPage(title="Libro de texto", slug=slug, capitulos=[("recorte", recorte)])
+    raiz.add_child(instance=libro)
+    libro.save_revision().publish()
+    return libro
+
+
+def _grupo_con(libro, alumno, profe):
+    from clases.models import Enrollment, Group, GroupBook, Subject
+
+    grupo = Group.objects.create(
+        name="1º Z", subject=Subject.objects.create(name="Música"), academic_year="2026-2027"
+    )
+    grupo.teachers.add(profe)
+    Enrollment.objects.create(user=alumno, group=grupo, is_active=True)
+    GroupBook.objects.create(group=grupo, libro=libro, seccion="teoria")
+    return grupo
+
+
+def test_solo_alumnado_cierra_el_recorte_a_quien_no_lo_trabaja(client, profe, alumno, pdf):
+    DocumentoRestringido.objects.create(documento=pdf, solo_alumnado=True)
+    recorte = Recorte.objects.create(documento=pdf, nombre="U1 p. 6", pagina_desde=2)
+    libro = _libro_de_recortes(recorte)
+    url = reverse("musica:pdf_del_recorte", args=[recorte.pk])
+
+    assert client.get(url).status_code == 404, "sin sesión no sale"
+
+    client.force_login(alumno)
+    assert client.get(url).status_code == 404, "un alumno de otro grupo tampoco"
+
+    _grupo_con(libro, alumno, profe)
+    assert client.get(url).status_code == 200, "el alumnado del grupo que tiene el libro, sí"
+
+    client.force_login(profe)
+    assert client.get(url).status_code == 200
+
+
+def test_un_recorte_llevado_suelto_a_la_clase_tambien_se_abre(client, profe, alumno, pdf):
+    import datetime as dt
+
+    from django.contrib.contenttypes.models import ContentType
+
+    from clases.models import ClassSession, ClassSessionItem, Enrollment, Group, Subject
+
+    DocumentoRestringido.objects.create(documento=pdf, solo_alumnado=True)
+    recorte = Recorte.objects.create(documento=pdf, nombre="U1 p. 6", pagina_desde=2)
+    grupo = Group.objects.create(name="1º Y", subject=Subject.objects.create(name="Música"), academic_year="2026-2027")
+    Enrollment.objects.create(user=alumno, group=grupo, is_active=True)
+    sesion = ClassSession.objects.create(teacher=profe, group=grupo, date=dt.date(2026, 11, 13), title="Clase")
+    client.force_login(alumno)
+    url = reverse("musica:pdf_del_recorte", args=[recorte.pk])
+    assert client.get(url).status_code == 404
+    ClassSessionItem.objects.create(
+        session=sesion, content_type=ContentType.objects.get_for_model(Recorte), object_id=recorte.pk, order=0
+    )
+    assert client.get(url).status_code == 200
+
+
+def test_sin_marcar_solo_alumnado_el_recorte_sigue_siendo_publico(client, pdf):
+    DocumentoRestringido.objects.create(documento=pdf)
+    recorte = Recorte.objects.create(documento=pdf, nombre="Sailing Boat", pagina_desde=2)
+    assert client.get(reverse("musica:pdf_del_recorte", args=[recorte.pk])).status_code == 200
+
+
+def test_la_api_guarda_el_enlace_externo_y_solo_alumnado(client, profe, pdf):
+    clave = str(APIKey.objects.create(name="t107", user=profe).key)
+    r = client.post(
+        f"/api/recortes/documento/{pdf.pk}/restriccion",
+        data={"restringido": True, "solo_alumnado": True, "motivo": "libro de texto"},
+        content_type="application/json",
+        HTTP_X_API_KEY=clave,
+    )
+    assert r.status_code == 200 and DocumentoRestringido.objects.get(documento=pdf).solo_alumnado
+    r = client.post(
+        "/api/recortes/lote",
+        data={"documento_id": pdf.pk, "recortes": [{"nombre": "U2 p. 21", "pagina_desde": 3, "url_externa": "https://www.blinklearning.com/x#activity/1/2/3"}]},
+        content_type="application/json",
+        HTTP_X_API_KEY=clave,
+    )
+    assert r.status_code == 200, r.content
+    assert Recorte.objects.get(nombre="U2 p. 21").url_externa.endswith("#activity/1/2/3")
+
+
+def test_el_visor_pinta_el_boton_solo_si_hay_enlace(pdf):
+    from django.template.loader import render_to_string
+
+    con = Recorte.objects.create(documento=pdf, nombre="con", pagina_desde=1, url_externa="https://www.blinklearning.com/x#a")
+    sin = Recorte.objects.create(documento=pdf, nombre="sin", pagina_desde=1)
+    plantilla = "my_library/viewers/recorte_viewer.html"
+    html = render_to_string(plantilla, {"recorte": con})
+    assert 'id="recorte-externo"' in html and 'href="https://www.blinklearning.com/x#a"' in html
+    assert 'id="recorte-externo"' not in render_to_string(plantilla, {"recorte": sin})

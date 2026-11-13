@@ -58,6 +58,35 @@ class Pregunta(models.Model):
     estado = models.CharField(
         max_length=12, choices=ESTADOS, default=SIN_REVISAR, verbose_name="Estado"
     )
+    # El ancla (fase 107): de qué elemento del material sale esta pregunta.
+    #
+    # Es el mismo par `(content_type, object_id)` con el que `GroupBookItem` y
+    # `ClassSessionItem` nombran un elemento, y por eso se puede preguntar
+    # «¿este grupo ha visto ya ESTO?» sin inventar otra identidad. La etiqueta
+    # `concepto:` es de la unidad entera; el ancla es del sitio exacto.
+    #
+    # `ancla_pagina` es la página (capítulo o libro) en cuyo material está el
+    # elemento. Sirve para saber si la pregunta se ha quedado huérfana: el
+    # medio puede seguir existiendo y haber salido de la unidad al editarla.
+    #
+    # Sin ancla (los tres vacíos) la pregunta se rige por sus conceptos.
+    ancla_tipo = models.ForeignKey(
+        "contenttypes.ContentType",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+        verbose_name="Tipo del elemento ancla",
+    )
+    ancla_id = models.PositiveIntegerField(null=True, blank=True, verbose_name="Id del elemento ancla")
+    ancla_pagina = models.ForeignKey(
+        "wagtailcore.Page",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+        verbose_name="Página del ancla",
+    )
     creada = models.DateTimeField(auto_now_add=True)
     actualizada = models.DateTimeField(auto_now=True)
 
@@ -87,10 +116,39 @@ class Pregunta(models.Model):
     def letra_correcta(self):
         return self.LETRAS[self.correcta]
 
+    def _faceta(self, faceta):
+        # `all()` y no `names()`: así vale el `prefetch_related("etiquetas")`.
+        nombres = [e.name for e in self.etiquetas.all()]
+        return facets.por_faceta(nombres).get(faceta, set())
+
     def conceptos(self):
-        return sorted(
-            facets.por_faceta(self.etiquetas.names()).get(facets.CONCEPTO, set())
-        )
+        return sorted(self._faceta(facets.CONCEPTO))
+
+    @property
+    def idioma(self):
+        """Lengua de la pregunta. Sin etiqueta `idioma:`, castellano."""
+        valores = self._faceta(facets.IDIOMA)
+        return "en" if "en" in valores else "es"
+
+    @property
+    def es_vocabulario(self):
+        return "vocabulario" in self._faceta(facets.TIPO)
+
+    @property
+    def anclada(self):
+        return self.ancla_id is not None
+
+    @property
+    def ancla_clave(self):
+        return (self.ancla_tipo_id, self.ancla_id) if self.anclada else None
+
+    @property
+    def ancla(self):
+        """El objeto ancla, o None si no hay ancla o el objeto ya no existe."""
+        if not self.anclada or self.ancla_tipo_id is None:
+            return None
+        modelo = self.ancla_tipo.model_class()
+        return modelo.objects.filter(pk=self.ancla_id).first() if modelo else None
 
 
 class Pase(models.Model):

@@ -627,6 +627,17 @@ class Recorte(models.Model):
         help_text="Vacío = una sola página",
     )
 
+    # A dónde lleva el botón flotante del visor (fase 107). Nace para el libro
+    # de 1º, que se da con Blink: el recorte enseña la página y el botón abre
+    # ese mismo apartado en la plataforma, donde están los audios y los
+    # ejercicios. Vacío = sin botón.
+    url_externa = models.URLField(
+        max_length=500,
+        blank=True,
+        verbose_name="Enlace externo",
+        help_text="Abre este apartado en su plataforma (p. ej. Blink Learning). Vacío = sin botón",
+    )
+
     # La página 10 del libro casi nunca es la 10 del PDF: los métodos llevan
     # preliminares sin numerar. Se guarda SIEMPRE el índice del PDF (que es lo
     # único con lo que se puede renderizar) y este desfase traduce al número
@@ -869,6 +880,16 @@ class DocumentoRestringido(models.Model):
         default=True,
         verbose_name="Solo por recorte",
         help_text="Marcado: el PDF completo deja de servirse por su URL.",
+    )
+    # Fase 107. Un recorte es, por defecto, contenido publicado: lo abre
+    # cualquiera que tenga su dirección. Para un libro de texto del que cada
+    # alumno tiene su ejemplar no basta: con esto marcado, sus recortes solo se
+    # entregan al profesorado y al alumnado de un grupo que tenga el recorte en
+    # uno de sus libros o en una de sus clases.
+    solo_alumnado = models.BooleanField(
+        default=False,
+        verbose_name="Solo para el alumnado que lo trabaja",
+        help_text="Marcado: los recortes piden sesión, y solo los abre el profesorado y el alumnado de un grupo que los tenga.",
     )
     motivo = models.CharField(
         max_length=200,

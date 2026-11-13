@@ -58,6 +58,42 @@ multilínea escrito así se pinta entero en la página. Por eso este bloque es
 <div id="recorte-container">
     <canvas id="recorte-canvas"></canvas>
 </div>
+{% if recorte.url_externa %}
+{% comment %}
+El mismo botón que el de Songsterr en el visor de tablaturas (fase 107): fijo
+arriba a la derecha y discreto hasta que se le acerca el ratón. Lleva a este
+apartado en su plataforma (Blink), donde están los audios y los ejercicios.
+Ventana con nombre fijo, como los enlaces externos: pulsar otro recorte
+reutiliza la pestaña de Blink en vez de abrir una por página.
+{% endcomment %}
+<style>
+    #recorte-externo {
+        position: fixed;
+        top: 64px;
+        right: 12px;
+        z-index: 40;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 10px;
+        border-radius: 9999px;
+        border: 1px solid rgba(0,0,0,0.12);
+        background: rgba(255,255,255,0.92);
+        color: #1f2937;
+        font-size: 13px;
+        text-decoration: none;
+        opacity: 0.5;
+        transition: opacity .15s;
+    }
+    #recorte-externo:hover,
+    #recorte-externo:focus,
+    #recorte-container:hover ~ #recorte-externo {
+        opacity: 1;
+    }
+</style>
+<a href="{{ recorte.url_externa }}" target="blink-externo" rel="noopener"
+   id="recorte-externo" title="Abrir este apartado en Blink Learning">📘 Blink</a>
+{% endif %}
 
 <div id="recorte-indicator">
     <span id="recorte-info"></span>

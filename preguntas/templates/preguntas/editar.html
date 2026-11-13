@@ -51,6 +51,36 @@
       {% if errores.etiquetas %}<span class="text-error text-sm">{{ errores.etiquetas }}</span>{% endif %}
     </label>
 
+    <div class="form-control" id="bloque-ancla">
+      <label class="label"><span class="label-text font-medium">Ancla: el elemento del material del que sale la pregunta</span></label>
+      {% if ancla_huerfana %}
+      <div class="alert alert-warning text-sm mb-2">Esta pregunta está huérfana: su elemento ya no está en el material. Elige otro o quítale el ancla.</div>
+      {% endif %}
+      <div class="flex flex-wrap gap-2">
+        <select name="ancla_pagina" id="ancla-pagina" class="select select-bordered select-sm max-w-xs">
+          <option value="">— Sin ancla —</option>
+          {% for pagina in ancla_paginas %}
+          <option value="{{ pagina.pk }}" {% if ancla_pagina and pagina.pk == ancla_pagina.pk %}selected{% endif %}>{{ pagina.title }}</option>
+          {% endfor %}
+        </select>
+        <select name="ancla" id="ancla-elemento" class="select select-bordered select-sm flex-1 min-w-0">
+          <option value="">— Sin ancla —</option>
+          {% for m in ancla_material %}
+          <option value="{{ m.valor }}" {% if m.valor == ancla_actual %}selected{% endif %}>{{ m.indice|add:1 }}. {{ m.titulo }} · {{ m.clase }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <span class="text-xs text-base-content/60 mt-1">Con ancla, la pregunta solo entra en el pase de un grupo cuando ese grupo ha visto el elemento. Sin ancla, entra por sus conceptos.</span>
+      {% if errores.ancla %}<span class="text-error text-sm">{{ errores.ancla }}</span>{% endif %}
+      <script>
+        document.getElementById('ancla-pagina').addEventListener('change', function () {
+          var url = new URL(window.location.href);
+          if (this.value) { url.searchParams.set('pagina', this.value); } else { url.searchParams.delete('pagina'); }
+          window.location.href = url.toString();
+        });
+      </script>
+    </div>
+
     <div class="flex justify-end gap-2">
       <a href="{% url 'preguntas:banco' %}" class="btn btn-ghost">Cancelar</a>
       <button type="submit" class="btn btn-primary">Guardar</button>

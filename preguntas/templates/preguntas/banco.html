@@ -28,10 +28,23 @@
       </a>
       {% endfor %}
     </div>
+    {% if n_huerfanas or solo_huerfanas %}
+    <a href="?ancla=huerfanas" id="ver-huerfanas" class="btn btn-sm {% if solo_huerfanas %}btn-warning{% else %}btn-outline btn-warning{% endif %}"
+       title="Preguntas ancladas a un elemento que ya no está en su unidad. No entran en ningún pase hasta que las vuelvas a anclar.">
+      ⚠️ Huérfanas <span class="badge badge-sm ml-1">{{ n_huerfanas }}</span>
+    </a>
+    {% endif %}
     {% if estado %}<input type="hidden" name="estado" value="{{ estado }}">{% endif %}
     <input type="search" name="q" value="{{ q }}" placeholder="Buscar en enunciado o etiqueta" class="input input-bordered input-sm w-64">
     <button class="btn btn-sm">Buscar</button>
   </form>
+
+  {% if solo_huerfanas %}
+  <div class="alert alert-warning text-sm mb-4">
+    Estas preguntas estaban ancladas a un elemento que ya no está en el material de su unidad (se borró o se quitó al editarla).
+    No entran en ningún pase. Ábrelas con «Editar» y elige otro elemento, o quítales el ancla.
+  </div>
+  {% endif %}
 
   {% if not grupos %}
     <div class="text-base-content/60 py-10 text-center">No hay preguntas con ese filtro.</div>
@@ -58,6 +71,11 @@
               <div class="text-xs text-base-content/60 mt-1">
                 {% for e in p.etiquetas.all %}<span class="badge badge-ghost badge-xs mr-1">{{ e.name }}</span>{% endfor %}
               </div>
+              {% if p.huerfana %}
+              <div class="text-xs text-warning mt-1" data-huerfana>⚠️ Huérfana: su elemento ya no está en {% if p.ancla_pagina %}«{{ p.ancla_pagina.title }}»{% else %}ninguna página (la página se borró){% endif %}.</div>
+              {% elif p.ancla_texto %}
+              <div class="text-xs text-base-content/60 mt-1" data-ancla>📍 {{ p.ancla_texto }}</div>
+              {% endif %}
             </div>
             <div class="text-right shrink-0 text-xs text-base-content/70">
               <div><span class="badge badge-sm {% if p.estado == 'activa' %}badge-success{% elif p.estado == 'archivada' %}badge-neutral{% else %}badge-warning{% endif %}">{{ p.get_estado_display }}</span></div>

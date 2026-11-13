@@ -21,13 +21,14 @@
   <form method="post" class="space-y-4">
     {% csrf_token %}
     <input type="hidden" name="session" value="{{ session.pk }}">
+    {% if todas %}<input type="hidden" name="todas" value="1">{% endif %}
 
     <section class="card bg-base-200">
       <div class="card-body p-4 gap-2">
         <h2 class="card-title text-base">Propuesta para hoy</h2>
         {% if propuestas %}
           <p class="text-sm text-base-content/70">
-            De lo visto en las últimas clases ({{ conceptos|join:", " }}), lo más fallado primero. Desmarca lo que no quieras.
+            De lo que este grupo ya ha visto, en su lengua ({{ lengua }}): primero lo más reciente y lo más fallado. Desmarca lo que no quieras.
           </p>
           {% for p in propuestas %}
             <label class="flex items-start gap-3 p-2 rounded hover:bg-base-300/40 cursor-pointer" data-pregunta="{{ p.pk }}">
@@ -47,7 +48,7 @@
     <section class="card bg-base-200">
       <div class="card-body p-4 gap-2">
         <div class="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 class="card-title text-base">Otras preguntas activas · {{ otras|length }}</h2>
+          <h2 class="card-title text-base">{% if todas %}Todo el banco de activas{% else %}Más preguntas de lo que ha visto este grupo{% endif %} · {{ otras|length }}</h2>
           <input id="filtro" type="search" placeholder="Filtrar por texto o concepto" class="input input-sm input-bordered w-64">
         </div>
         <div id="otras" class="space-y-1">
@@ -61,9 +62,18 @@
               </span>
             </label>
           {% empty %}
-            <p class="text-sm text-base-content/60">No hay más preguntas activas.</p>
+            <p class="text-sm text-base-content/60">{% if todas %}No hay más preguntas activas.{% else %}No hay más preguntas activas de lo que este grupo ha visto.{% endif %}</p>
           {% endfor %}
         </div>
+        <p class="text-xs text-base-content/60">
+          {% if todas %}
+            Estás viendo todas las activas, también las de lo que este grupo no ha visto y las de la otra lengua.
+            <a class="link" href="?session={{ session.pk }}">Volver a lo que ha visto</a>
+          {% else %}
+            Aquí solo sale lo que {{ session.group.name }} ya ha visto, en {{ lengua }}.
+            <a class="link" id="ver-todas" href="?session={{ session.pk }}&todas=1">Ver todo el banco</a>
+          {% endif %}
+        </p>
       </div>
     </section>
 

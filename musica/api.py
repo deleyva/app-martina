@@ -41,6 +41,8 @@ class RecorteIn(Schema):
     rect_x1: Optional[float] = None
     rect_y1: Optional[float] = None
     tags: List[str] = []
+    # A dónde lleva el botón flotante del visor (fase 107). Vacío = sin botón.
+    url_externa: str = ""
 
 
 class LoteIn(Schema):
@@ -100,6 +102,7 @@ def _construir(documento: Document, datos: RecorteIn) -> Recorte:
         rect_y0=datos.rect_y0,
         rect_x1=datos.rect_x1,
         rect_y1=datos.rect_y1,
+        url_externa=(datos.url_externa or "").strip(),
     )
     if not recorte.nombre:
         raise HttpError(400, "El recorte necesita un nombre.")
@@ -193,6 +196,8 @@ def listar_del_documento(request, documento_id: int):
 class RestriccionIn(Schema):
     restringido: bool = True
     motivo: str = ""
+    # Fase 107: los recortes solo para el profesorado y el alumnado que los trabaja.
+    solo_alumnado: bool = False
 
 
 class RestriccionOut(Schema):
@@ -215,7 +220,11 @@ def marcar_restriccion(request, documento_id: int, payload: RestriccionIn):
     if payload.restringido:
         restriccion, _ = DocumentoRestringido.objects.update_or_create(
             documento=documento,
-            defaults={"solo_por_recorte": True, "motivo": payload.motivo[:200]},
+            defaults={
+                "solo_por_recorte": True,
+                "motivo": payload.motivo[:200],
+                "solo_alumnado": payload.solo_alumnado,
+            },
         )
         return RestriccionOut(
             documento_id=documento.pk, restringido=True, motivo=restriccion.motivo

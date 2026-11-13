@@ -208,8 +208,11 @@ class TestPaseEnSesion:
         url = reverse("preguntas:pase_nuevo") + f"?session={s.pk}"
         r = client.get(url)
         assert r.status_code == 200
-        # Sin conceptos recientes no propone nada y lo dice; las activas están abajo.
+        # Sin nada visto no propone nada y lo dice; el banco del grupo está
+        # vacío, y el banco entero queda a un clic (fase 107).
         assert r.context["propuestas"] == [] and r.context["motivo"]
+        assert r.context["otras"] == []
+        r = client.get(url + "&todas=1")
         assert {p.pk for p in r.context["otras"]} == {p.pk for p in cuatro}
 
         r = client.post(url, {"session": s.pk, "preguntas": [cuatro[2].pk, cuatro[0].pk]})

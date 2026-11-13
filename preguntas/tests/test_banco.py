@@ -195,13 +195,24 @@ class TestComposicion:
         propuesta = composicion.proponer(grupo, hoy, k=2, azar=random.Random(3))
         assert [p.pk for p in propuesta.preguntas] == [nueva.pk, usada.pk]
 
-    def test_solo_las_ultimas_n_sesiones_cuentan(self, grupo, hoy):
+    def test_cuenta_todo_lo_visto_y_no_solo_las_ultimas_sesiones(self, grupo, hoy):
+        """C738: lo de hace dos meses sigue saliendo."""
         _con_concepto(grupo, hoy - dt.timedelta(days=60), "concepto:intervalos")
         for d in range(4):
             _con_concepto(grupo, hoy - dt.timedelta(days=d), "concepto:figuras")
-        pregunta(enunciado="Intervalos", etiquetas=("concepto:intervalos",))
+        vieja = pregunta(enunciado="Intervalos", etiquetas=("concepto:intervalos",))
         propuesta = composicion.proponer(grupo, hoy, k=5)
-        assert propuesta.preguntas == []
+        assert [p.pk for p in propuesta.preguntas] == [vieja.pk]
+
+    def test_lo_visto_hace_poco_sale_antes(self, grupo, hoy):
+        """C738: a igualdad de fallos, manda lo reciente."""
+        _con_concepto(grupo, hoy - dt.timedelta(days=60), "concepto:intervalos")
+        _con_concepto(grupo, hoy - dt.timedelta(days=1), "concepto:figuras")
+        vieja = pregunta(enunciado="Intervalos", etiquetas=("concepto:intervalos",))
+        nueva = pregunta(enunciado="Figuras", etiquetas=("concepto:figuras",))
+        for semilla in range(5):
+            propuesta = composicion.proponer(grupo, hoy, k=2, azar=random.Random(semilla))
+            assert [p.pk for p in propuesta.preguntas] == [nueva.pk, vieja.pk]
 
     def test_crear_pase_guarda_el_orden(self, grupo, hoy):
         a, b = pregunta(enunciado="a"), pregunta(enunciado="b")
@@ -209,3 +220,230 @@ class TestComposicion:
         assert list(pase.preguntas.order_by("pasepregunta__posicion").values_list("enunciado", flat=True)) == ["b", "a"]
         assert pase.estado == Pase.BORRADOR
         assert PasePregunta.objects.count() == 2
+
+
+def _elemento(grupo, fecha, visto=False, tratado=None, etiquetas=("concepto:notacion",), recurso=None):
+    """Un recurso con un enlace externo dentro (un medio de verdad del material)
+    y una sesión del grupo que lo lleva. Devuelve (recurso, medio, elemento)."""
+    from wagtail.models import Page
+
+    from musica.models import EnlaceExterno, RecursoPage
+
+    if recurso is None:
+        raiz = Page.objects.filter(depth=1).first() or Page.add_root(title="Root")
+        recurso = RecursoPage(
+            title=f"Unidad {random.random()}",
+            slug=f"u-{random.random()}".replace(".", ""),
+            date=fecha,
+            intro="Unidad de prueba",
+        )
+        raiz.add_child(instance=recurso)
+        recurso.faceted_tags.add(*etiquetas)
+        recurso.save()
+    numero = EnlaceExterno.objects.filter(source_page=recurso).count()
+    medio = EnlaceExterno.objects.create(
+        source_page=recurso, titulo=f"Apartado {numero}", url=f"https://example.org/{recurso.pk}/{numero}", orden=numero
+    )
+    elemento = ClassSessionItem.objects.create(
+        session=sesion(grupo, fecha),
+        content_type=ContentType.objects.get_for_model(EnlaceExterno),
+        object_id=medio.pk,
+        source_page=recurso,
+        order=0,
+        seccion="teoria",
+        visto=visto,
+        tratado=tratado,
+    )
+    return recurso, medio, elemento
+
+
+def _anclar(p, medio, pagina):
+    p.ancla_tipo = ContentType.objects.get_for_model(medio.__class__)
+    p.ancla_id = medio.pk
+    p.ancla_pagina = pagina
+    p.save()
+    return p
+
+
+@pytest.mark.django_db
+class TestLengua:
+    """C736: cada grupo recibe las preguntas de su lengua y solo esas."""
+
+    def test_el_grupo_en_ingles_solo_recibe_las_de_ingles(self, grupo, hoy):
+        _con_concepto(grupo, hoy, "concepto:figuras")
+        castellano = pregunta(enunciado="Negra")
+        ingles = pregunta(enunciado="Crotchet", etiquetas=("concepto:figuras", "idioma:en"))
+        assert [p.pk for p in composicion.proponer(grupo, hoy).preguntas] == [castellano.pk]
+        grupo.idioma = "en"
+        grupo.save()
+        assert [p.pk for p in composicion.proponer(grupo, hoy).preguntas] == [ingles.pk]
+
+
+@pytest.mark.django_db
+class TestAncla:
+    """C737: una pregunta anclada espera a que el grupo vea su elemento."""
+
+    def test_estar_en_la_sesion_sin_marcar_no_basta(self, grupo, hoy):
+        recurso, medio, elemento = _elemento(grupo, hoy)
+        anclada = _anclar(pregunta(enunciado="Anclada", etiquetas=("concepto:notacion",)), medio, recurso)
+        assert composicion.proponer(grupo, hoy).preguntas == []
+        elemento.visto = True
+        elemento.save()
+        assert [p.pk for p in composicion.proponer(grupo, hoy).preguntas] == [anclada.pk]
+
+    def test_tratado_tambien_cuenta_y_saltado_no(self, grupo, hoy):
+        recurso, medio, elemento = _elemento(grupo, hoy, tratado=False)
+        anclada = _anclar(pregunta(enunciado="Anclada", etiquetas=("concepto:notacion",)), medio, recurso)
+        assert composicion.proponer(grupo, hoy).preguntas == []
+        elemento.tratado = True
+        elemento.save()
+        assert [p.pk for p in composicion.proponer(grupo, hoy).preguntas] == [anclada.pk]
+
+    def test_la_mitad_de_la_unidad(self, grupo, hoy):
+        """El caso de Jesús: dos elementos de la misma unidad, visto solo el primero."""
+        recurso, primero, _ = _elemento(grupo, hoy, visto=True)
+        _, segundo, _ = _elemento(grupo, hoy, recurso=recurso)
+        de_lo_visto = _anclar(pregunta(enunciado="Lo visto", etiquetas=("concepto:notacion",)), primero, recurso)
+        _anclar(pregunta(enunciado="Lo que falta", etiquetas=("concepto:notacion",)), segundo, recurso)
+        propuesta = composicion.proponer(grupo, hoy)
+        assert [p.pk for p in propuesta.preguntas] == [de_lo_visto.pk]
+        assert [p.pk for p in propuesta.banco] == [de_lo_visto.pk]
+
+    def test_lo_que_ve_otro_grupo_no_cuenta(self, grupo, profesor, hoy):
+        from clases.models import Group
+
+        otro = Group.objects.create(name="3º ESO Y", subject=grupo.subject, academic_year="2026-2027")
+        otro.teachers.add(profesor)
+        recurso, medio, _ = _elemento(otro, hoy, visto=True)
+        _anclar(pregunta(enunciado="Anclada", etiquetas=("concepto:notacion",)), medio, recurso)
+        _con_concepto(grupo, hoy, "concepto:notacion")
+        assert composicion.proponer(grupo, hoy).preguntas == []
+
+    def test_dado_por_visto_en_el_libro_tambien_vale(self, grupo, hoy):
+        from clases.models import GroupBook, GroupBookItem
+
+        recurso, medio, _ = _elemento(grupo, hoy)
+        anclada = _anclar(pregunta(enunciado="Anclada", etiquetas=("concepto:notacion",)), medio, recurso)
+        libro = GroupBook.objects.create(group=grupo, libro=recurso, seccion="teoria")
+        GroupBookItem.objects.create(
+            group_book=libro,
+            content_type=ContentType.objects.get_for_model(medio.__class__),
+            object_id=medio.pk,
+            source_page=recurso,
+            estado=GroupBookItem.VISTO,
+        )
+        assert [p.pk for p in composicion.proponer(grupo, hoy).preguntas] == [anclada.pk]
+
+
+@pytest.mark.django_db
+class TestHuerfanas:
+    """C740: si el elemento sale del material, la pregunta ni entra ni se pierde."""
+
+    def test_al_quitar_el_elemento_la_pregunta_queda_huerfana(self, grupo, hoy):
+        recurso, medio, _ = _elemento(grupo, hoy, visto=True)
+        anclada = _anclar(pregunta(enunciado="Anclada", etiquetas=("concepto:notacion",)), medio, recurso)
+        assert composicion.huerfanas() == []
+        medio.delete()
+        assert [p.pk for p in composicion.huerfanas()] == [anclada.pk]
+        assert composicion.proponer(grupo, hoy).preguntas == []
+
+    def test_al_borrar_la_pagina_tambien(self, grupo, hoy):
+        recurso, medio, _ = _elemento(grupo, hoy, visto=True)
+        anclada = _anclar(pregunta(enunciado="Anclada", etiquetas=("concepto:notacion",)), medio, recurso)
+        recurso.delete()
+        anclada.refresh_from_db()
+        assert [p.pk for p in composicion.huerfanas()] == [anclada.pk]
+
+    def test_sin_ancla_no_es_huerfana(self, grupo, hoy):
+        pregunta()
+        assert composicion.huerfanas() == []
+
+
+@pytest.mark.django_db
+class TestVocabulario:
+    """C739: si hay de vocabulario, una entra."""
+
+    def test_una_de_vocabulario_entra_aunque_no_le_toque(self, grupo, alumno, hoy):
+        _con_concepto(grupo, hoy, "concepto:figuras", "concepto:intervalos")
+        falladas = [pregunta(enunciado=f"Intervalo {n}", etiquetas=("concepto:intervalos",)) for n in range(4)]
+        viejo = composicion.crear_pase(grupo, hoy - dt.timedelta(days=40), falladas[:1])
+        Respuesta.objects.create(pase=viejo, pregunta=falladas[0], alumno=alumno, opcion=0)
+        vocabulario = pregunta(enunciado="¿Qué es una negra?", etiquetas=("concepto:figuras", "tipo:vocabulario"))
+        propuesta = composicion.proponer(grupo, hoy, k=3, azar=random.Random(2))
+        assert vocabulario in propuesta.preguntas
+        assert len(propuesta.preguntas) == 3
+
+    def test_sin_vocabulario_no_cambia_nada(self, grupo, hoy):
+        _con_concepto(grupo, hoy, "concepto:figuras")
+        a, b = pregunta(enunciado="a"), pregunta(enunciado="b")
+        assert {p.pk for p in composicion.proponer(grupo, hoy, k=2).preguntas} == {a.pk, b.pk}
+
+
+@pytest.mark.django_db
+class TestAnclasPorApiYEnElBanco:
+    """C740 y el alta con ancla: API, lista de huérfanas y formulario."""
+
+    def _clave(self, profesor):
+        return str(APIKey.objects.create(name="anclas", user=profesor).key)
+
+    def _json(self, client, clave, url, cuerpo):
+        return client.post(url, data=json.dumps(cuerpo), content_type="application/json", HTTP_X_API_KEY=clave)
+
+    def test_el_material_se_lista_y_se_ancla_por_indice(self, client, profesor, grupo, hoy):
+        recurso, primero, _ = _elemento(grupo, hoy)
+        _, segundo, _ = _elemento(grupo, hoy, recurso=recurso)
+        clave = self._clave(profesor)
+        material = client.get(f"{URL_LOTE}material/{recurso.pk}", HTTP_X_API_KEY=clave).json()
+        assert [m["id"] for m in material] == [primero.pk, segundo.pk]
+        assert material[1]["tipo"] == "musica.enlaceexterno"
+
+        p = pregunta()
+        r = self._json(client, clave, f"{URL_LOTE}anclas", {"anclas": [{"pregunta_id": p.pk, "ancla": {"pagina_id": recurso.pk, "indice": 1}}]})
+        assert r.status_code == 200, r.content
+        p.refresh_from_db()
+        assert (p.ancla_id, p.ancla_pagina_id) == (segundo.pk, recurso.pk)
+
+        r = self._json(client, clave, f"{URL_LOTE}anclas", {"anclas": [{"pregunta_id": p.pk, "ancla": {"pagina_id": recurso.pk, "indice": 9}}]})
+        assert r.status_code == 400
+        r = self._json(client, clave, f"{URL_LOTE}anclas", {"anclas": [{"pregunta_id": p.pk, "ancla": None}]})
+        p.refresh_from_db()
+        assert r.json() == {"ancladas": 0, "desancladas": 1} and not p.anclada
+
+    def test_el_alta_puede_venir_ya_anclada(self, client, profesor, grupo, hoy):
+        recurso, medio, _ = _elemento(grupo, hoy)
+        r = self._json(
+            client,
+            self._clave(profesor),
+            URL_LOTE,
+            {"preguntas": [{"enunciado": "¿?", "opciones": ["a", "b", "c", "d"], "correcta": 0,
+                            "etiquetas": ["concepto:notacion"], "ancla": {"pagina_id": recurso.pk, "indice": 0}}]},
+        )
+        assert r.status_code == 200, r.content
+        assert Pregunta.objects.get(pk=r.json()["ids"][0]).ancla_id == medio.pk
+
+    def test_el_banco_lista_las_huerfanas_y_el_formulario_las_recoloca(self, client, profesor, grupo, hoy):
+        recurso, primero, _ = _elemento(grupo, hoy)
+        _, segundo, _ = _elemento(grupo, hoy, recurso=recurso)
+        huerfana = _anclar(pregunta(enunciado="Me quedé sin sitio", etiquetas=("concepto:notacion",)), primero, recurso)
+        sana = _anclar(pregunta(enunciado="Sigo en mi sitio", etiquetas=("concepto:notacion",)), segundo, recurso)
+        primero.delete()
+
+        client.force_login(profesor)
+        r = client.get("/preguntas/")
+        assert r.context["n_huerfanas"] == 1 and "ver-huerfanas" in r.content.decode()
+        r = client.get("/preguntas/?ancla=huerfanas")
+        html = r.content.decode()
+        assert "Me quedé sin sitio" in html and "Sigo en mi sitio" not in html and "data-huerfana" in html
+
+        r = client.get(f"/preguntas/{huerfana.pk}/editar/")
+        assert r.context["ancla_huerfana"] and [m["id"] for m in r.context["ancla_material"]] == [segundo.pk]
+        tipo = ContentType.objects.get_for_model(segundo.__class__).pk
+        r = client.post(
+            f"/preguntas/{huerfana.pk}/editar/",
+            {"enunciado": huerfana.enunciado, "opcion_0": "Una", "opcion_1": "Dos", "opcion_2": "Tres", "opcion_3": "Cuatro",
+             "correcta": "1", "etiquetas": "concepto:notacion", "ancla_pagina": recurso.pk, "ancla": f"{tipo}:{segundo.pk}"},
+        )
+        assert r.status_code == 302
+        assert composicion.huerfanas() == []
+        huerfana.refresh_from_db()
+        assert huerfana.ancla_id == segundo.pk and sana.ancla_id == segundo.pk

@@ -120,8 +120,20 @@ def banco(request):
     if texto:
         consulta = consulta.filter(Q(enunciado__icontains=texto) | Q(etiquetas__name__icontains=texto)).distinct()
 
+    # Huérfanas (fase 107): con ancla, pero el elemento ya no está en el
+    # material de su página. Se cuentan siempre, para que el aviso se vea
+    # aunque no se esté mirando esa lista.
+    from . import anclas, composicion
+
+    ids_huerfanas = {p.pk for p in composicion.huerfanas()}
+    solo_huerfanas = request.GET.get("ancla") == "huerfanas"
+    if solo_huerfanas:
+        consulta = consulta.filter(pk__in=ids_huerfanas)
+
     por_concepto = {}
-    for pregunta in _con_estadisticas(consulta):
+    for pregunta in _con_estadisticas(consulta).select_related("ancla_pagina", "ancla_tipo"):
+        pregunta.huerfana = pregunta.pk in ids_huerfanas
+        pregunta.ancla_texto = None if pregunta.huerfana else anclas.descripcion(pregunta)
         pregunta.acierto = _porcentaje(pregunta)
         conceptos = pregunta.conceptos() or ["(sin concepto)"]
         por_concepto.setdefault(conceptos[0], []).append(pregunta)
@@ -136,6 +148,8 @@ def banco(request):
             "q": texto,
             "totales": totales,
             "estados": Pregunta.ESTADOS,
+            "n_huerfanas": len(ids_huerfanas),
+            "solo_huerfanas": solo_huerfanas,
         },
     )
 
@@ -157,6 +171,47 @@ def _leer_formulario(request, pregunta):
     return etiquetas
 
 
+def _leer_ancla(request, pregunta):
+    """El desplegable manda `<tipo_id>:<id>` del material de `ancla_pagina`;
+    vacío quita el ancla; si el campo no viene, no se toca."""
+    from wagtail.models import Page
+
+    from . import anclas
+
+    if "ancla" not in request.POST:
+        return
+    valor = request.POST.get("ancla", "")
+    pagina = Page.objects.filter(pk=request.POST.get("ancla_pagina") or 0).first()
+    if not valor or pagina is None:
+        anclas.desanclar(pregunta, guardar=False)
+        return
+    try:
+        tipo_id, objeto_id = (int(x) for x in valor.split(":"))
+        anclas.anclar(pregunta, pagina, tipo_id, objeto_id, guardar=False)
+    except ValueError:
+        raise ValidationError({"ancla": "Ese elemento no está en el material de la página elegida."})
+
+
+def _contexto_del_ancla(request, pregunta):
+    """Página elegida (por `?pagina=`, o la del ancla) y su material."""
+    from wagtail.models import Page
+
+    from . import anclas, composicion
+
+    elegida = request.GET.get("pagina") or request.POST.get("ancla_pagina") or pregunta.ancla_pagina_id
+    pagina = Page.objects.filter(pk=elegida or 0).first()
+    material = anclas.material_listado(pagina) if pagina else []
+    actual = f"{pregunta.ancla_tipo_id}:{pregunta.ancla_id}" if pregunta.anclada else ""
+    huerfana = bool(pregunta.pk and pregunta.anclada and composicion.huerfanas(type(pregunta).objects.filter(pk=pregunta.pk)))
+    return {
+        "ancla_paginas": anclas.paginas_candidatas(pregunta),
+        "ancla_pagina": pagina,
+        "ancla_material": [dict(m, valor=f"{m['tipo_id']}:{m['id']}") for m in material],
+        "ancla_actual": actual,
+        "ancla_huerfana": huerfana,
+    }
+
+
 @login_required
 @user_passes_test(es_profesor)
 def editar(request, pk=None):
@@ -166,6 +221,7 @@ def editar(request, pk=None):
         try:
             etiquetas = _leer_formulario(request, pregunta)
             pregunta.full_clean(exclude=["etiquetas", "autor", "imagen"])
+            _leer_ancla(request, pregunta)
             pregunta.save()
             pregunta.etiquetas.set(etiquetas)
             messages.success(request, "Pregunta guardada.")
@@ -187,6 +243,7 @@ def editar(request, pk=None):
             "etiquetas": ", ".join(pregunta.etiquetas.names()) if pregunta.pk else "",
             "errores": errores,
             "valores": request.POST if request.method == "POST" else None,
+            **_contexto_del_ancla(request, pregunta),
         },
     )
 
