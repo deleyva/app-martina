@@ -21,9 +21,9 @@
 
   <form method="get" class="flex flex-wrap items-center gap-2 mb-6" id="filtros">
     <div class="join">
-      <a href="{% url 'preguntas:banco' %}{% if q %}?q={{ q|urlencode }}{% endif %}" class="btn btn-sm join-item {% if not estado %}btn-active{% endif %}">Todas</a>
+      <a href="{% url 'preguntas:banco' %}{% if otros_filtros %}?{{ otros_filtros }}{% endif %}" class="btn btn-sm join-item {% if not estado %}btn-active{% endif %}">Todas</a>
       {% for clave, nombre in estados %}
-      <a href="?estado={{ clave }}{% if q %}&q={{ q|urlencode }}{% endif %}" class="btn btn-sm join-item {% if estado == clave %}btn-active{% endif %}">
+      <a href="?estado={{ clave }}{% if otros_filtros %}&{{ otros_filtros }}{% endif %}" class="btn btn-sm join-item {% if estado == clave %}btn-active{% endif %}">
         {{ nombre }} <span class="badge badge-sm ml-1" id="total-{{ clave }}">{{ totales|get_item:clave }}</span>
       </a>
       {% endfor %}
@@ -37,6 +37,7 @@
     {% if estado %}<input type="hidden" name="estado" value="{{ estado }}">{% endif %}
     <input type="search" name="q" value="{{ q }}" placeholder="Buscar en enunciado o etiqueta" class="input input-bordered input-sm w-64">
     <button class="btn btn-sm">Buscar</button>
+    {% include "preguntas/_filtro_etiquetas.html" %}
   </form>
 
   {% if solo_huerfanas %}

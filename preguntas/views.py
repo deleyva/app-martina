@@ -7,6 +7,7 @@ cuánto tardó, que es lo que la claim C472 necesita medir.
 
 import logging
 import time
+from collections import Counter
 
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.http import HttpResponse, JsonResponse
@@ -86,7 +87,7 @@ from django.contrib import messages  # noqa: E402
 from django.core.exceptions import ValidationError  # noqa: E402
 from django.db.models import Count, Q  # noqa: E402
 from django.shortcuts import get_object_or_404, redirect  # noqa: E402
-from django.utils.http import url_has_allowed_host_and_scheme  # noqa: E402
+from django.utils.http import url_has_allowed_host_and_scheme, urlencode  # noqa: E402
 
 from cms.etiquetas import facetas_desconocidas  # noqa: E402
 from my_library import facets  # noqa: E402
@@ -129,18 +130,34 @@ def _volver(request, url):
     return ""
 
 
+def _etiquetas_pedidas(request):
+    """Las etiquetas del filtro, sin repetir y en el orden en que se eligieron.
+    Vienen como `?etiqueta=a&etiqueta=b`; también vale `?etiqueta=a,b`."""
+    vistas = {}
+    for valor in request.GET.getlist("etiqueta"):
+        for nombre in valor.split(","):
+            nombre = nombre.strip()
+            if nombre:
+                vistas.setdefault(nombre.lower(), nombre)
+    return list(vistas.values())
+
+
 @login_required
 @user_passes_test(es_profesor)
 @require_GET
 def banco(request):
-    """Lista por concepto, con filtro de estado y texto (C475)."""
+    """Lista por concepto, con filtro de estado, texto y etiquetas (C475)."""
     estado = request.GET.get("estado", "")
     texto = request.GET.get("q", "").strip()
+    etiquetas = _etiquetas_pedidas(request)
     consulta = Pregunta.objects.all()
     if estado in dict(Pregunta.ESTADOS):
         consulta = consulta.filter(estado=estado)
     if texto:
         consulta = consulta.filter(Q(enunciado__icontains=texto) | Q(etiquetas__name__icontains=texto)).distinct()
+    # Todas a la vez: un filtro por etiqueta, encadenados, para que sea «y» y no «o».
+    for nombre in etiquetas:
+        consulta = consulta.filter(etiquetas__name__iexact=nombre)
 
     # Huérfanas (fase 107): con ancla, pero el elemento ya no está en el
     # material de su página. Se cuentan siempre, para que el aviso se vea
@@ -153,10 +170,18 @@ def banco(request):
         consulta = consulta.filter(pk__in=ids_huerfanas)
 
     por_concepto = {}
+    # Las sugerencias son las etiquetas de lo que se está viendo, con cuántas
+    # preguntas tiene cada una: así nunca se sugiere una que deje la lista vacía.
+    en_lista = Counter()
+    elegidas = {nombre.lower() for nombre in etiquetas}
     for pregunta in _con_estadisticas(consulta).select_related("ancla_pagina", "ancla_tipo"):
         _anotar(pregunta, ids_huerfanas)
         conceptos = pregunta.conceptos() or ["(sin concepto)"]
         por_concepto.setdefault(conceptos[0], []).append(pregunta)
+        en_lista.update(e.name for e in pregunta.etiquetas.all() if e.name.lower() not in elegidas)
+
+    # Los demás filtros, para que los botones de estado no los pierdan.
+    otros_filtros = urlencode(([("q", texto)] if texto else []) + [("etiqueta", nombre) for nombre in etiquetas])
 
     return render(
         request,
@@ -165,6 +190,9 @@ def banco(request):
             "grupos": sorted(por_concepto.items()),
             "estado": estado,
             "q": texto,
+            "etiquetas": etiquetas,
+            "sugerencias": [{"nombre": nombre, "n": n} for nombre, n in sorted(en_lista.items(), key=lambda par: (-par[1], par[0]))],
+            "otros_filtros": otros_filtros,
             "totales": _totales(),
             "estados": Pregunta.ESTADOS,
             "n_huerfanas": len(ids_huerfanas),

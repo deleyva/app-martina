@@ -1,0 +1,196 @@
+{% comment %}
+Filtro del banco por varias etiquetas a la vez, con chips. Al escribir sugiere
+las etiquetas de las preguntas que se están viendo, con cuántas tiene cada una;
+Intro o la coma eligen la sugerencia marcada, y también se puede hacer clic en
+ella. Cada chip que se pone o se quita vuelve a filtrar: el formulario manda una
+`etiqueta` por chip. Tailwind no mira las plantillas de `preguntas`, así que el
+aspecto propio va en el <style> de aquí abajo y no en clases nuevas.
+{% endcomment %}
+{{ etiquetas|json_script:"etiquetas-elegidas" }}
+{{ sugerencias|json_script:"etiquetas-sugeridas" }}
+<style>
+  [x-cloak] { display: none !important; }
+  .pf-campo { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; min-height: 2.25rem; height: auto; padding-top: 0.25rem; padding-bottom: 0.25rem; cursor: text; }
+  .pf-campo:focus-within { outline: 2px solid oklch(var(--bc) / 0.2); outline-offset: 2px; }
+  .pf-entrada { flex: 1 1 10rem; min-width: 10rem; background: transparent; border: 0; outline: none; padding: 0; font-size: 0.875rem; }
+  .pf-chip {
+    --h: 215;
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    padding: 0.1rem 0.55rem; border-radius: 9999px;
+    font-size: 0.78rem; font-weight: 600; line-height: 1.4; white-space: nowrap;
+    background: hsl(var(--h) 90% 94%); color: hsl(var(--h) 65% 28%); border: 1px solid hsl(var(--h) 70% 82%);
+  }
+  [data-theme="dark"] .pf-chip { background: hsl(var(--h) 45% 20%); color: hsl(var(--h) 85% 82%); border-color: hsl(var(--h) 45% 34%); }
+  .pf-quitar { opacity: 0.55; font-weight: 700; line-height: 1; padding: 0 0.1rem; }
+  .pf-quitar:hover { opacity: 1; }
+  .pf-lista { position: absolute; z-index: 30; left: 0; right: 0; max-height: 18rem; overflow-y: auto; }
+  .pf-opcion { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.35rem 0.75rem; cursor: pointer; }
+  .pf-opcion[aria-selected="true"] { background: oklch(var(--b2)); }
+</style>
+
+<div class="w-full" x-data="filtroEtiquetas()" @click.outside="abierto = false" id="filtro-etiquetas">
+  <div class="relative">
+    <div class="pf-campo input input-bordered input-sm w-full" @click="$refs.entrada.focus()">
+      <template x-for="(t, i) in elegidas" :key="t">
+        <span class="pf-chip" :style="`--h: ${tono(t)}`">
+          <span x-text="t"></span>
+          <button type="button" class="pf-quitar" @click.stop="quitar(i)" :aria-label="`Quitar ${t}`">✕</button>
+        </span>
+      </template>
+      <input x-ref="entrada" type="text" x-model="texto" class="pf-entrada"
+             @input="alEscribir()" @focus="abierto = true" @keydown="tecla($event)"
+             autocomplete="off" aria-label="Filtrar por etiquetas"
+             :placeholder="elegidas.length ? 'Otra etiqueta…' : 'Filtrar por etiquetas: curso:3-eso, idioma:en…'">
+    </div>
+    <ul x-show="abierto && opciones.length" x-cloak role="listbox"
+        class="pf-lista bg-base-100 border border-base-300 rounded-lg mt-1 shadow-lg py-1">
+      <template x-for="(o, i) in opciones" :key="o.nombre">
+        <li role="option" class="pf-opcion" :aria-selected="i === activa"
+            @mousedown.prevent="elegir([o.nombre])" @mouseenter="activa = i">
+          <span class="flex items-center gap-2 min-w-0">
+            <span class="pf-chip" :style="`--h: ${tono(o.nombre)}`" x-text="o.nombre"></span>
+            <span class="text-xs opacity-60" x-show="pista(o.nombre)" x-text="pista(o.nombre)"></span>
+          </span>
+          <span class="text-xs opacity-60 whitespace-nowrap" x-text="o.n === 1 ? '1 pregunta' : `${o.n} preguntas`"></span>
+        </li>
+      </template>
+    </ul>
+  </div>
+  <template x-for="t in elegidas" :key="t"><input type="hidden" name="etiqueta" :value="t"></template>
+</div>
+
+<script>
+  window.filtroEtiquetas = window.filtroEtiquetas || function () {
+    const leer = (id) => JSON.parse(document.getElementById(id).textContent);
+    // Para comparar: sin tildes, sin mayúsculas, y sin guiones ni espacios («3 eso» = «3-eso»).
+    const clave = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9:]/g, '');
+    // Los códigos de idioma no se adivinan escribiendo; esto deja buscar «inglés».
+    const IDIOMAS = { en: 'inglés', es: 'español', fr: 'francés', de: 'alemán', it: 'italiano', pt: 'portugués', ca: 'catalán', la: 'latín' };
+    const PALETA = [215, 140, 25, 270, 330, 190, 42, 0, 85, 300, 170, 240];
+    const FOCO = 'banco-etiquetas-foco';
+    // El elemento del componente, guardado al arrancar. `$refs` no sirve aquí:
+    // desde un clic en una sugerencia (dentro del x-for) llega vacío.
+    let raiz = null;
+    const entrada = () => raiz.querySelector('.pf-entrada');
+
+    return {
+      elegidas: leer('etiquetas-elegidas'),
+      sugeridas: leer('etiquetas-sugeridas'),
+      texto: '',
+      abierto: false,
+      activa: 0,
+      // Si se ha movido con las flechas: solo entonces Intro con el campo vacío elige.
+      navego: false,
+
+      init() {
+        raiz = this.$el;
+        // Tras filtrar, la página se recarga: se vuelve a dejar el cursor aquí
+        // y la lista abierta, para poder poner la siguiente sin buscar el campo.
+        let volver = false;
+        try { volver = sessionStorage.getItem(FOCO) === '1'; sessionStorage.removeItem(FOCO); } catch (e) {}
+        if (volver) this.$nextTick(() => entrada().focus());
+      },
+      // Mismo color para todas las de una faceta: curso, idioma, concepto…
+      tono(nombre) {
+        const faceta = nombre.split(':')[0];
+        return PALETA[[...faceta].reduce((a, c) => a + c.charCodeAt(0), 0) % PALETA.length];
+      },
+      pista(nombre) {
+        const [faceta, valor] = nombre.split(':');
+        return faceta === 'idioma' ? (IDIOMAS[valor] || '') : '';
+      },
+      buscable(nombre) {
+        return clave(nombre + ' ' + this.pista(nombre));
+      },
+      get opciones() {
+        const q = clave(this.texto);
+        const usadas = new Set(this.elegidas.map(clave));
+        let lista = this.sugeridas.filter((o) => !usadas.has(clave(o.nombre)) && (!q || this.buscable(o.nombre).includes(q)));
+        if (q) {
+          // Primero la exacta, luego las que empiezan por lo escrito (en la faceta o en el valor).
+          const puntos = (o) => {
+            const c = clave(o.nombre);
+            if (c === q) return 3;
+            if (c.startsWith(q) || (c.split(':')[1] || '').startsWith(q)) return 2;
+            return 1;
+          };
+          lista = lista.slice().sort((a, b) => puntos(b) - puntos(a));
+        }
+        return lista.slice(0, 12);
+      },
+      // Lo escrito → la etiqueta: la exacta, si no la primera sugerencia, si no tal cual.
+      resolver(escrito) {
+        const q = clave(escrito);
+        if (!q) return null;
+        const exacta = this.sugeridas.find((o) => clave(o.nombre) === q);
+        if (exacta) return exacta.nombre;
+        const primera = this.sugeridas.find((o) => this.buscable(o.nombre).includes(q) && !this.elegidas.some((t) => clave(t) === clave(o.nombre)));
+        return primera ? primera.nombre : escrito.trim();
+      },
+      elegir(nombres) {
+        let cambio = false;
+        for (const nombre of nombres) {
+          if (nombre && !this.elegidas.some((t) => clave(t) === clave(nombre))) {
+            this.elegidas.push(nombre);
+            cambio = true;
+          }
+        }
+        this.texto = '';
+        this.activa = 0;
+        this.navego = false;
+        if (cambio) this.filtrar();
+      },
+      quitar(i) {
+        this.elegidas.splice(i, 1);
+        this.filtrar();
+      },
+      filtrar() {
+        try { sessionStorage.setItem(FOCO, '1'); } catch (e) {}
+        // Esperar a que Alpine pinte los campos ocultos antes de enviar.
+        this.$nextTick(() => {
+          const form = raiz.closest('form');
+          form.requestSubmit ? form.requestSubmit() : form.submit();
+        });
+      },
+      // Pegar «curso:3-eso, idioma:en» pone las dos.
+      alEscribir() {
+        this.abierto = true;
+        this.activa = 0;
+        this.navego = false;
+        // Una coma tecleada no llega aquí (la recoge `tecla`): esto es un pegado,
+        // y se toman todos los trozos, también el último.
+        if (this.texto.includes(',')) {
+          const nombres = this.texto.split(',').map((t) => this.resolver(t)).filter(Boolean);
+          this.texto = '';
+          if (nombres.length) this.elegir(nombres);
+        }
+      },
+      tecla(e) {
+        const ops = this.opciones;
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          this.abierto = true;
+          this.navego = true;
+          this.activa = Math.min(this.activa + 1, ops.length - 1);
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          this.navego = true;
+          this.activa = Math.max(this.activa - 1, 0);
+        } else if (e.key === 'Enter') {
+          // Intro aquí elige; no envía el formulario con el chip a medio escribir.
+          e.preventDefault();
+          const marcada = this.abierto && ops[this.activa];
+          if (marcada && (this.texto.trim() || this.navego)) this.elegir([marcada.nombre]);
+          else if (this.texto.trim()) this.elegir([this.resolver(this.texto)]);
+        } else if (e.key === ',') {
+          e.preventDefault();
+          if (this.texto.trim()) this.elegir([this.resolver(this.texto)]);
+        } else if (e.key === 'Backspace' && !this.texto && this.elegidas.length) {
+          this.quitar(this.elegidas.length - 1);
+        } else if (e.key === 'Escape') {
+          this.abierto = false;
+        }
+      },
+    };
+  };
+</script>

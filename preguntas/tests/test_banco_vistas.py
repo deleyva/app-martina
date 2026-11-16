@@ -102,6 +102,46 @@ class TestBanco:
         assert f'{reverse("preguntas:editar", args=[p.pk])}?volver=/preguntas/%3Festado%3Dsin_revisar' in html
 
 
+
+@pytest.mark.django_db
+class TestFiltroPorEtiquetas:
+    @pytest.fixture
+    def tres(self, client, profesor):
+        client.force_login(profesor)
+        return {
+            "tercero_ingles": pregunta(enunciado="Tercero en inglés", etiquetas=("concepto:altura", "curso:3-eso", "idioma:en")),
+            "tercero": pregunta(enunciado="Tercero sin idioma", etiquetas=("concepto:altura", "curso:3-eso")),
+            "primero_ingles": pregunta(enunciado="Primero en inglés", etiquetas=("concepto:figuras", "curso:1-eso", "idioma:en")),
+        }
+
+    def _enunciados(self, respuesta):
+        return {p.enunciado for _, preguntas in respuesta.context["grupos"] for p in preguntas}
+
+    @pytest.mark.parametrize(
+        "consulta",
+        ["?etiqueta=curso:3-eso&etiqueta=idioma:en", "?etiqueta=curso:3-eso,%20idioma:en", "?etiqueta=CURSO:3-ESO&etiqueta=idioma:en"],
+    )
+    def test_varias_etiquetas_son_todas_a_la_vez(self, client, tres, consulta):
+        r = client.get(reverse("preguntas:banco") + consulta)
+        assert self._enunciados(r) == {"Tercero en inglés"}
+
+    def test_una_sola_etiqueta(self, client, tres):
+        r = client.get(reverse("preguntas:banco") + "?etiqueta=idioma:en")
+        assert self._enunciados(r) == {"Tercero en inglés", "Primero en inglés"}
+
+    def test_las_sugerencias_salen_de_lo_que_se_ve_y_sin_las_elegidas(self, client, tres):
+        r = client.get(reverse("preguntas:banco") + "?etiqueta=curso:3-eso")
+        sugerencias = {s["nombre"]: s["n"] for s in r.context["sugerencias"]}
+        # «curso:1-eso» dejaría la lista vacía y «curso:3-eso» ya está puesta.
+        assert sugerencias == {"concepto:altura": 2, "idioma:en": 1}
+        assert r.context["etiquetas"] == ["curso:3-eso"]
+
+    def test_los_botones_de_estado_conservan_las_etiquetas(self, client, tres):
+        html = client.get(reverse("preguntas:banco") + "?etiqueta=curso:3-eso&etiqueta=idioma:en").content.decode()
+        assert 'href="?estado=activa&etiqueta=curso%3A3-eso&amp;etiqueta=idioma%3Aen"' in html
+        assert 'id="etiquetas-elegidas" type="application/json">["curso:3-eso", "idioma:en"]<' in html
+
+
 @pytest.mark.django_db
 class TestEditar:
     def _datos(self, **cambios):
