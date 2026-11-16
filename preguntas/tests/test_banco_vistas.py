@@ -66,6 +66,41 @@ class TestBanco:
         assert Pregunta.objects.get(pk=p.pk).estado == "archivada"
         assert client.post(reverse("preguntas:estado", args=[p.pk]), {"estado": "rota"}).status_code == 400
 
+    def test_con_htmx_devuelve_solo_la_tarjeta_y_los_contadores(self, client, profesor):
+        """Activar o archivar no recarga la página: vuelve la tarjeta y los totales."""
+        client.force_login(profesor)
+        p = pregunta(enunciado="Pregunta del banco", estado="sin_revisar")
+        pregunta(enunciado="Otra que no toca", estado="activa")
+        r = client.post(
+            reverse("preguntas:estado", args=[p.pk]),
+            {"estado": "activa", "volver": "/preguntas/?estado=sin_revisar"},
+            HTTP_HX_REQUEST="true",
+        )
+        html = r.content.decode()
+        assert r.status_code == 200
+        assert Pregunta.objects.get(pk=p.pk).estado == "activa"
+        assert "<html" not in html and "Otra que no toca" not in html
+        assert f'id="pregunta-{p.pk}"' in html and "Pregunta del banco" in html
+        # La tarjeta nueva ya no ofrece «Activar», sí «Archivar», y recuerda la lista.
+        assert ">Activar<" not in html and ">Archivar<" in html
+        assert 'value="/preguntas/?estado=sin_revisar"' in html
+        assert 'id="total-activa" hx-swap-oob="true">2<' in html
+        assert 'id="total-sin_revisar" hx-swap-oob="true">0<' in html
+
+    def test_volver_de_otro_sitio_no_se_sigue(self, client, profesor):
+        client.force_login(profesor)
+        p = pregunta(estado="sin_revisar")
+        r = client.post(reverse("preguntas:estado", args=[p.pk]), {"estado": "activa", "volver": "https://ejemplo.com/"})
+        assert r.status_code == 302 and r["Location"] == reverse("preguntas:banco")
+
+    def test_las_tarjetas_llevan_htmx_y_la_lista_de_vuelta(self, client, profesor):
+        client.force_login(profesor)
+        p = pregunta(estado="sin_revisar")
+        html = client.get(reverse("preguntas:banco") + "?estado=sin_revisar").content.decode()
+        assert f'hx-post="{reverse("preguntas:estado", args=[p.pk])}"' in html
+        assert f'hx-target="#pregunta-{p.pk}"' in html
+        assert f'{reverse("preguntas:editar", args=[p.pk])}?volver=/preguntas/%3Festado%3Dsin_revisar' in html
+
 
 @pytest.mark.django_db
 class TestEditar:
@@ -88,6 +123,15 @@ class TestEditar:
         assert p.opciones == ["Tercera", "Cuarta", "Quinta", "Octava"]
         assert p.correcta == 2 and p.autor == profesor and p.estado == "sin_revisar"
         assert set(p.etiquetas.names()) == {"concepto:intervalos", "curso:2eso"}
+
+    def test_al_guardar_vuelve_a_la_lista_y_a_la_pregunta(self, client, profesor):
+        client.force_login(profesor)
+        p = pregunta(estado="sin_revisar")
+        url = reverse("preguntas:editar", args=[p.pk]) + "?volver=/preguntas/%3Festado%3Dsin_revisar%26q%3Ddo"
+        html = client.get(url).content.decode()
+        assert f'href="/preguntas/?estado=sin_revisar&amp;q=do#pregunta-{p.pk}"' in html
+        r = client.post(url, self._datos(enunciado="Cambiado"))
+        assert r.status_code == 302 and r["Location"] == f"/preguntas/?estado=sin_revisar&q=do#pregunta-{p.pk}"
 
     def test_editar_conserva_el_estado(self, client, profesor):
         client.force_login(profesor)

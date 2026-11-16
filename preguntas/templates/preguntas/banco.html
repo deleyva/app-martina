@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load preguntas_extras wagtailimages_tags %}
+{% load preguntas_extras %}
 
 {% block title %}Banco de preguntas{% endblock %}
 
@@ -24,14 +24,14 @@
       <a href="{% url 'preguntas:banco' %}{% if q %}?q={{ q|urlencode }}{% endif %}" class="btn btn-sm join-item {% if not estado %}btn-active{% endif %}">Todas</a>
       {% for clave, nombre in estados %}
       <a href="?estado={{ clave }}{% if q %}&q={{ q|urlencode }}{% endif %}" class="btn btn-sm join-item {% if estado == clave %}btn-active{% endif %}">
-        {{ nombre }} <span class="badge badge-sm ml-1">{{ totales|get_item:clave }}</span>
+        {{ nombre }} <span class="badge badge-sm ml-1" id="total-{{ clave }}">{{ totales|get_item:clave }}</span>
       </a>
       {% endfor %}
     </div>
     {% if n_huerfanas or solo_huerfanas %}
     <a href="?ancla=huerfanas" id="ver-huerfanas" class="btn btn-sm {% if solo_huerfanas %}btn-warning{% else %}btn-outline btn-warning{% endif %}"
        title="Preguntas ancladas a un elemento que ya no está en su unidad. No entran en ningún pase hasta que las vuelvas a anclar.">
-      ⚠️ Huérfanas <span class="badge badge-sm ml-1">{{ n_huerfanas }}</span>
+      ⚠️ Huérfanas <span class="badge badge-sm ml-1" id="total-huerfanas">{{ n_huerfanas }}</span>
     </a>
     {% endif %}
     {% if estado %}<input type="hidden" name="estado" value="{{ estado }}">{% endif %}
@@ -55,51 +55,7 @@
     <h2 class="text-xs uppercase tracking-wide opacity-60 mb-2">concepto: {{ concepto }} <span class="opacity-60">· {{ preguntas|length }}</span></h2>
     <div class="flex flex-col gap-2">
       {% for p in preguntas %}
-      <div class="card bg-base-100 border border-base-300" data-pregunta="{{ p.pk }}">
-        <div class="card-body p-3 gap-2">
-          <div class="flex items-start justify-between gap-3">
-            <div class="min-w-0">
-              <div class="font-medium">{{ p.enunciado }}</div>
-              {% if p.imagen %}<div class="mt-2 bg-white rounded p-1 inline-block">{% image p.imagen width-480 class="max-h-28 w-auto" %}</div>{% endif %}
-              <ol class="text-sm mt-1 grid grid-cols-1 sm:grid-cols-2 gap-x-4">
-                {% for opcion in p.opciones %}
-                <li class="{% if forloop.counter0 == p.correcta %}font-semibold text-success{% else %}text-base-content/70{% endif %}">
-                  {{ forloop.counter0|letra }}. {{ opcion }}
-                </li>
-                {% endfor %}
-              </ol>
-              <div class="text-xs text-base-content/60 mt-1">
-                {% for e in p.etiquetas.all %}<span class="badge badge-ghost badge-xs mr-1">{{ e.name }}</span>{% endfor %}
-              </div>
-              {% if p.huerfana %}
-              <div class="text-xs text-warning mt-1" data-huerfana>⚠️ Huérfana: su elemento ya no está en {% if p.ancla_pagina %}«{{ p.ancla_pagina.title }}»{% else %}ninguna página (la página se borró){% endif %}.</div>
-              {% elif p.ancla_texto %}
-              <div class="text-xs text-base-content/60 mt-1" data-ancla>📍 {{ p.ancla_texto }}</div>
-              {% endif %}
-            </div>
-            <div class="text-right shrink-0 text-xs text-base-content/70">
-              <div><span class="badge badge-sm {% if p.estado == 'activa' %}badge-success{% elif p.estado == 'archivada' %}badge-neutral{% else %}badge-warning{% endif %}">{{ p.get_estado_display }}</span></div>
-              <div class="mt-1">Preguntada <b>{{ p.veces }}</b> {{ p.veces|pluralize:"vez,veces" }}</div>
-              <div>Acierto: <b>{% if p.acierto is None %}—{% else %}{{ p.acierto }} %{% endif %}</b></div>
-            </div>
-          </div>
-          <div class="flex flex-wrap gap-1 justify-end">
-            <a href="{% url 'preguntas:editar' p.pk %}" class="btn btn-ghost btn-xs">Editar</a>
-            {% if p.estado != 'activa' %}
-            <form method="post" action="{% url 'preguntas:estado' p.pk %}">{% csrf_token %}
-              <input type="hidden" name="estado" value="activa"><input type="hidden" name="volver" value="{{ request.get_full_path }}">
-              <button class="btn btn-success btn-xs">Activar</button>
-            </form>
-            {% endif %}
-            {% if p.estado != 'archivada' %}
-            <form method="post" action="{% url 'preguntas:estado' p.pk %}">{% csrf_token %}
-              <input type="hidden" name="estado" value="archivada"><input type="hidden" name="volver" value="{{ request.get_full_path }}">
-              <button class="btn btn-ghost btn-xs">Archivar</button>
-            </form>
-            {% endif %}
-          </div>
-        </div>
-      </div>
+      {% include "preguntas/_tarjeta.html" %}
       {% endfor %}
     </div>
   </section>

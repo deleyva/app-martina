@@ -1,0 +1,8 @@
+{# Respuesta de `cambiar_estado` a HTMX: la tarjeta nueva y, fuera de banda, #}
+{# los contadores de arriba, que han cambiado con ella. #}
+{% load preguntas_extras %}
+{% include "preguntas/_tarjeta.html" %}
+{% for clave, nombre in estados %}
+<span class="badge badge-sm ml-1" id="total-{{ clave }}" hx-swap-oob="true">{{ totales|get_item:clave }}</span>
+{% endfor %}
+<span class="badge badge-sm ml-1" id="total-huerfanas" hx-swap-oob="true">{{ n_huerfanas }}</span>

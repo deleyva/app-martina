@@ -86,6 +86,7 @@ from django.contrib import messages  # noqa: E402
 from django.core.exceptions import ValidationError  # noqa: E402
 from django.db.models import Count, Q  # noqa: E402
 from django.shortcuts import get_object_or_404, redirect  # noqa: E402
+from django.utils.http import url_has_allowed_host_and_scheme  # noqa: E402
 
 from cms.etiquetas import facetas_desconocidas  # noqa: E402
 from my_library import facets  # noqa: E402
@@ -107,6 +108,27 @@ def _porcentaje(pregunta):
     return round(100 * pregunta.n_aciertos / pregunta.n_respuestas)
 
 
+def _anotar(pregunta, ids_huerfanas):
+    """Lo que la tarjeta del banco necesita y no está en el modelo."""
+    from . import anclas
+
+    pregunta.huerfana = pregunta.pk in ids_huerfanas
+    pregunta.ancla_texto = None if pregunta.huerfana else anclas.descripcion(pregunta)
+    pregunta.acierto = _porcentaje(pregunta)
+    return pregunta
+
+
+def _totales():
+    return {clave: Pregunta.objects.filter(estado=clave).count() for clave, _ in Pregunta.ESTADOS}
+
+
+def _volver(request, url):
+    """La lista del banco de la que se vino, si es de este sitio; si no, vacío."""
+    if url and url_has_allowed_host_and_scheme(url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+        return url
+    return ""
+
+
 @login_required
 @user_passes_test(es_profesor)
 @require_GET
@@ -123,7 +145,7 @@ def banco(request):
     # Huérfanas (fase 107): con ancla, pero el elemento ya no está en el
     # material de su página. Se cuentan siempre, para que el aviso se vea
     # aunque no se esté mirando esa lista.
-    from . import anclas, composicion
+    from . import composicion
 
     ids_huerfanas = {p.pk for p in composicion.huerfanas()}
     solo_huerfanas = request.GET.get("ancla") == "huerfanas"
@@ -132,13 +154,10 @@ def banco(request):
 
     por_concepto = {}
     for pregunta in _con_estadisticas(consulta).select_related("ancla_pagina", "ancla_tipo"):
-        pregunta.huerfana = pregunta.pk in ids_huerfanas
-        pregunta.ancla_texto = None if pregunta.huerfana else anclas.descripcion(pregunta)
-        pregunta.acierto = _porcentaje(pregunta)
+        _anotar(pregunta, ids_huerfanas)
         conceptos = pregunta.conceptos() or ["(sin concepto)"]
         por_concepto.setdefault(conceptos[0], []).append(pregunta)
 
-    totales = {clave: Pregunta.objects.filter(estado=clave).count() for clave, _ in Pregunta.ESTADOS}
     return render(
         request,
         "preguntas/banco.html",
@@ -146,10 +165,13 @@ def banco(request):
             "grupos": sorted(por_concepto.items()),
             "estado": estado,
             "q": texto,
-            "totales": totales,
+            "totales": _totales(),
             "estados": Pregunta.ESTADOS,
             "n_huerfanas": len(ids_huerfanas),
             "solo_huerfanas": solo_huerfanas,
+            # Las tarjetas llevan esta dirección a «Editar» y a sus botones,
+            # para volver luego a la misma lista y a la misma pregunta.
+            "volver": request.get_full_path(),
         },
     )
 
@@ -216,6 +238,10 @@ def _contexto_del_ancla(request, pregunta):
 @user_passes_test(es_profesor)
 def editar(request, pk=None):
     pregunta = get_object_or_404(Pregunta, pk=pk) if pk else Pregunta(autor=request.user)
+    # Si se vino desde una tarjeta del banco, se vuelve a esa lista y a esa
+    # pregunta. Viaja en la dirección, así que sobrevive al cambio de página del
+    # ancla, que recarga el formulario.
+    volver = _volver(request, request.GET.get("volver"))
     errores = {}
     if request.method == "POST":
         try:
@@ -225,6 +251,8 @@ def editar(request, pk=None):
             pregunta.save()
             pregunta.etiquetas.set(etiquetas)
             messages.success(request, "Pregunta guardada.")
+            if volver:
+                return redirect(f"{volver}#pregunta-{pregunta.pk}")
             return redirect(f"{reverse('preguntas:banco')}?estado={pregunta.estado}")
         except ValidationError as error:
             errores = {campo: " ".join(msgs) for campo, msgs in error.message_dict.items()}
@@ -243,6 +271,7 @@ def editar(request, pk=None):
             "etiquetas": ", ".join(pregunta.etiquetas.names()) if pregunta.pk else "",
             "errores": errores,
             "valores": request.POST if request.method == "POST" else None,
+            "volver_banco": (volver or reverse("preguntas:banco")) + (f"#pregunta-{pregunta.pk}" if pregunta.pk and volver else ""),
             **_contexto_del_ancla(request, pregunta),
         },
     )
@@ -258,4 +287,22 @@ def cambiar_estado(request, pk):
         return HttpResponse("Estado desconocido", status=400)
     pregunta.estado = nuevo
     pregunta.save()
-    return redirect(request.POST.get("volver") or reverse("preguntas:banco"))
+    volver = _volver(request, request.POST.get("volver"))
+    if request.headers.get("HX-Request"):
+        # Con HTMX se devuelve solo la tarjeta, y la página no se mueve.
+        from . import composicion
+
+        ids_huerfanas = {p.pk for p in composicion.huerfanas()}
+        unica = _con_estadisticas(Pregunta.objects.filter(pk=pk)).select_related("ancla_pagina", "ancla_tipo").get()
+        return render(
+            request,
+            "preguntas/_estado_cambiado.html",
+            {
+                "p": _anotar(unica, ids_huerfanas),
+                "volver": volver,
+                "totales": _totales(),
+                "estados": Pregunta.ESTADOS,
+                "n_huerfanas": len(ids_huerfanas),
+            },
+        )
+    return redirect(volver or reverse("preguntas:banco"))
