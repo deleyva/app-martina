@@ -6689,3 +6689,39 @@ El 2026-11-01 a las 12:29 producción mandó el correo de error de Django: `Modu
 - **Sin segunda mirada independiente.** Toca permisos (`_puede_abrir`), pero solo cierra más de lo que había y es opcional por documento; los tests cubren anónimo, alumno ajeno, alumno del grupo y profesor.
 - **Al desplegar (cuando Jesús lo diga):** push; `just deploy-production` (aplica `preguntas/0004` y `musica/0013`); `subir.ts https://apps…`; asignar el libro a 1-G-BIL en Teoría; `poner_anclas.ts` con el id del libro en producción (los ids de las preguntas coinciden: 1-130); comprobar en Chrome con la sesión de Jesús.
 - **2026-11-13 — Desplegada** («despliega»). Copia previa `production_backup_2026_11_13T10_42_47`; push de `d92db12` y `0cdcabe`; `just deploy-production` con salida 0. Después: `subir.ts` contra producción, libro asignado a 1-G-BIL con el formulario de la app desde el Chrome de Jesús, y `POST /api/cms/preguntas/anclas` con las mismas 129 anclas de local. Las 117 preguntas siguen «sin revisar»: activarlas es de Jesús.
+
+## Fase 108 — El banco de preguntas sin recargar y con filtro por varias etiquetas (2026-11-16) · DESPLEGADA (`16ffcfe`) Y VERIFICADA EN PRODUCCIÓN; FALTA EL PRIMER «ACTIVAR» DE VERDAD (C753)
+
+**Goal (literal de Jesús, 2026-11-16):** «Cada vez que actualizo una, la activo o el archivo o lo que sea, se me recarga la página entera y tengo que volver a bajar por donde iba. ¿Estas actualizaciones no podían hacerse tipo AJAX o usando HTML5 para que solo se recargara el botoncito?» · «El filtro por etiquetas para identificar tarjetas. Me gustaría que pudiera filtrar por más de una etiqueta y que salieran chips, que me fuera sugiriendo chips existentes y que pudiera ir añadiendo, separado por comas o haciendo clic en las sugerencias. […] Por ejemplo, me gustaría poder filtrar tarjetas de tercero de la ESO que estuvieran en inglés.»
+
+**Vision.** Jesús revisa el banco de arriba abajo: activa, archiva y edita sin perder el sitio. Para centrarse en un grupo escribe «3eso», coma, «inglés», y ve solo esas preguntas.
+
+**Decisiones:**
+- **Activar/Archivar con HTMX:** se sustituye solo la tarjeta (`preguntas/_tarjeta.html`) y los contadores van fuera de banda. Sin JavaScript, el formulario funciona como antes.
+- **En una lista filtrada por estado, la tarjeta cambiada se queda** con su estado nuevo: lo de abajo no se mueve y se puede deshacer. Sale de la lista al recargar.
+- **Editar sigue siendo una página:** lleva `?volver=` y al guardar o cancelar vuelve a la lista y a `#pregunta-N`. `volver` solo acepta direcciones del propio sitio.
+- **Varias etiquetas = todas a la vez** (`?etiqueta=a&etiqueta=b`; también `a,b`), un filtro encadenado por etiqueta.
+- **Las sugerencias salen de la lista que se ve**, con su número: nunca proponen una combinación vacía. Los códigos de idioma llevan nombre («inglés» → `idioma:en`).
+- **Elegir o quitar un chip recarga** (GET normal, dirección guardable) y devuelve el cursor al campo.
+
+### Claims
+
+- [x] **C748** — Activar o archivar cambia solo esa tarjeta y los contadores, sin recargar ni mover la página. *Falsador: test con `HX-Request` + clic real en Chrome local.* **Evidencia:** `test_con_htmx_devuelve_solo_la_tarjeta_y_los_contadores`. En Chrome local, con la página bajada 2000 px: clic en «Archivar» → la tarjeta pasa a «Archivada» con solo «Activar», contadores 129/1 → 128/2, la página sigue en 2000 px y la marca puesta en `window` sigue ahí (no hubo recarga); después, reactivada.
+- [x] **C749** — Desde «Editar», guardar o cancelar vuelve a la misma lista y a la pregunta. *Falsador: test + Chrome local.* **Evidencia:** `test_al_guardar_vuelve_a_la_lista_y_a_la_pregunta` y `test_volver_de_otro_sitio_no_se_sigue`. En Chrome local, «Cancelar» lleva a `/preguntas/#pregunta-79` con la tarjeta justo debajo de la barra.
+- [x] **C750** — Varias etiquetas filtran por todas a la vez. *Falsador: test con tres preguntas.* **Evidencia:** `TestFiltroPorEtiquetas` (6 tests, tres formas de escribir la dirección). En producción, con la sesión de Jesús: `curso:3-eso` + `idioma:en` → 39 preguntas, las 39 con las dos etiquetas.
+- [x] **C751** — Al escribir se sugieren etiquetas existentes de la lista que se ve, con su número; se eligen con clic, Intro, coma o pegando una lista; «inglés» encuentra `idioma:en`. *Falsador: Chrome tecleando.* **Evidencia:** En Chrome local y en producción: «3eso» + coma → chip `curso:3-eso`; «ingl» → `idioma:en · inglés · 39 preguntas`, clic → 39. En local además: ✕ sobre el chip de curso → 92 de inglés; pegar «curso:3-eso, inglés» → 39; tema claro y oscuro vistos.
+- [x] **C752** — Desplegado. **Evidencia:** push `0cdcabe..16ffcfe`; `just deploy-production` con salida 0, servidor `HEAD is now at 16ffcfe`, «No migrations to apply», contenedores `Started`, 0 líneas de error. En Chrome con la sesión de Jesús, `/preguntas/` trae el campo de etiquetas, 230 formularios con `hx-post` y «Editar» con `?volver=`.
+- [ ] **C753** — Activar/archivar sin recargar, comprobado en producción. `[DEFERRED-VERIFY]` En producción el HTML de los botones está comprobado, pero no se pulsó ninguno para no cambiar el estado de preguntas reales; el primer «Activar» de Jesús es la prueba.
+
+### Anti-claims
+
+- **Anti-A** — Ningún cambio de estado se hizo en producción para probar.
+- **Anti-B** — Sin JavaScript, activar, archivar y buscar siguen funcionando.
+
+### Log
+
+- **2026-11-16 — Construida.** Ficheros: `preguntas/views.py` (`_anotar`, `_totales`, `_volver`, `_etiquetas_pedidas`; rama HTMX en `cambiar_estado`), plantillas `_tarjeta.html`, `_estado_cambiado.html` y `_filtro_etiquetas.html` (nuevas), `banco.html`, `editar.html`; 10 tests nuevos en `test_banco_vistas.py`. `preguntas`: 166 passed.
+- **Gotcha: Tailwind no mira `preguntas/templates`** (`tailwind.config.js` no lo incluye): una clase que solo aparezca ahí no se compila. Por eso el filtro lleva su `<style>`.
+- **Gotcha: `$refs` llega vacío dentro de un `x-for` (Alpine 3.12).** Elegir una sugerencia con el ratón ponía el chip pero no filtraba; se arregló guardando el elemento del componente en `init()`.
+- **Gotcha: el servidor local (`runserver_plus`) va al 100 % de CPU** y tarda 4-5 s en cualquier página; tras tocar `views.py` siguió con el código viejo hasta reiniciar el contenedor `django`. La misma petición con el cliente de pruebas tarda 130 ms. En producción el banco entero tarda ~1 s en el servidor.
+- **2026-11-16 — Desplegada** («despliega»). Sin migraciones. Iban también los commits del ISA de las fases 98 y 107.
