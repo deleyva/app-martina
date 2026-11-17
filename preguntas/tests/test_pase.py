@@ -611,3 +611,60 @@ class TestTarjetaAMedioGirar:
         assert r.status_code == 200
         e = r.json()
         assert e["leidas"] == 1 and e["contadas"] == 0 and e["respondido"] == []
+
+
+# =============================================================================
+# C763 — Qué tarjeta se contó en cada fotograma y dónde (fase 110)
+# =============================================================================
+
+
+class TestMarcasDelFotograma:
+    """El aparato de la cámara se queda con el fotograma de la lectura de cada
+    alumno. Para eso el servidor le dice, de ESE fotograma, a quién ha contado,
+    con qué letra y dónde estaba su tarjeta. Solo las lecturas contadas."""
+
+    def test_van_las_contadas_con_su_alumno_letra_y_esquinas(self, client, montaje, profesor):
+        pase = montaje["pase"]
+        ana, bea, _cai = montaje["alumnos"]
+        client.force_login(profesor)
+        _post(client, "pase_abrir", pase)
+        # 1 = Ana, 2 = Bea; la 50 no tiene matrícula y no debe aparecer.
+        e = _frame(client, pase, [(1, A), (2, C), (50, B)]).json()
+        assert e["contadas"] == 2
+        marcas = e["marcas"]
+        assert marcas["posicion"] == 0
+        assert [(m["alumno"], m["letra"]) for m in marcas["alumnos"]] == [(ana.pk, "A"), (bea.pk, "C")]
+        for m in marcas["alumnos"]:
+            assert len(m["esquinas"]) == 4 and all(len(p) == 2 for p in m["esquinas"])
+        # Las esquinas son las de la tarjeta en la imagen: la de Ana va en la
+        # primera casilla de la rejilla de `lienzo` (x, y entre 16 y 96).
+        xs = [p[0] for p in marcas["alumnos"][0]["esquinas"]]
+        ys = [p[1] for p in marcas["alumnos"][0]["esquinas"]]
+        assert 10 < min(xs) < 25 and 85 < max(xs) < 100 and 10 < min(ys) < 25 and 85 < max(ys) < 100
+
+    def test_sin_contadas_no_hay_marcas(self, client, montaje, profesor):
+        pase = montaje["pase"]
+        client.force_login(profesor)
+        _post(client, "pase_abrir", pase)
+        assert "marcas" not in _frame(client, pase, [(50, A)]).json()  # sin matrícula
+        medio = girado(lienzo([(1, A)], ancho=320, alto=320, lado=120, margen=100), 40)
+        assert "marcas" not in _frame(client, pase, [], img=medio).json()  # ángulo ambiguo
+
+    def test_tras_revelar_y_en_la_comprobacion_no_hay_marcas(self, client, montaje, profesor):
+        pase = montaje["pase"]
+        client.force_login(profesor)
+        _post(client, "pase_abrir", pase)
+        assert _frame(client, pase, [(1, A)]).json()["marcas"]["posicion"] == 0
+        _post(client, "pase_revelar", pase)
+        assert "marcas" not in _frame(client, pase, [(1, B)]).json()
+        _post(client, "pase_siguiente", pase)
+        assert _frame(client, pase, [(2, D)]).json()["marcas"]["posicion"] == 1
+
+    def test_el_estado_que_ven_las_demas_pantallas_no_lleva_marcas(self, client, montaje, profesor):
+        pase = montaje["pase"]
+        client.force_login(profesor)
+        _post(client, "pase_abrir", pase)
+        _frame(client, pase, [(1, A)])
+        assert "marcas" not in _estado(client, pase)
+        client.force_login(montaje["alumnos"][1])
+        assert "marcas" not in _estado(client, pase)

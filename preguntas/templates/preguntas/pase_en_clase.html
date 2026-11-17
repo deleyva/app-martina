@@ -69,9 +69,11 @@
   #pase-vivo button.pv-nombre.abierto { outline: 2px solid #fbbf24; }
   #pase-vivo .pv-selector { display: inline-flex; gap: 4px; align-items: center; margin-left: 6px; }
   #pase-vivo .pv-selector button { border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: #fff; border-radius: 6px; padding: 2px 8px; font-size: 13px; font-weight: 700; cursor: pointer; }
-  #pase-vivo .pv-clips { display: flex; gap: 10px; align-items: center; }
-  #pase-vivo .pv-clips video { max-height: 22vh; max-width: 40%; border-radius: 8px; background: #000; }
-  #pase-vivo .pv-clips .pv-nota { font-size: 13px; opacity: 0.6; }
+  /* El fotograma del alumno (fase 110): debajo de su nombre, a todo el ancho. */
+  #pase-vivo .pv-foto { flex-basis: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin: 4px 0 8px; }
+  #pase-vivo .pv-foto img { width: min(100%, 420px); max-height: 38vh; object-fit: contain; border-radius: 8px; background: #000; }
+  #pase-vivo .pv-foto .pv-nota { font-size: 14px; opacity: 0.75; max-width: 420px; }
+  #pase-vivo .pv-foto .pv-nota b { color: #facc15; }
   #pase-vivo .pv-totales { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 4px 24px; font-size: 16px; max-width: 900px; margin: 0 auto; }
   #pase-vivo .pv-totales span:last-child { float: right; font-variant-numeric: tabular-nums; opacity: 0.8; }
 
@@ -93,6 +95,7 @@
   #pase-vivo.mando .pv-respondido { gap: 6px; padding: 0; }
   #pase-vivo.mando .pv-respondido .pv-nombre { font-size: 15px; font-weight: 400; padding: 5px 12px; background: rgba(59,130,246,0.35); }
   #pase-vivo.mando .pv-respondido .pv-n { font-size: 15px; }
+  #pase-vivo.mando .pv-foto img { max-height: 50vh; }
   #pase-vivo.mando .pv-barra { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px)); font-size: 15px; }
   #pase-vivo.mando .pv-barra button { min-height: 52px; font-size: 17px; border-radius: 12px; padding: 8px 10px; }
   #pase-vivo.mando video.pv-video { grid-column: 1 / -1; order: -2; width: 100%; max-height: 26vh; object-fit: cover; border-radius: 10px; }
@@ -154,8 +157,7 @@
   var CSRF = '{{ csrf_token }}';
   var INTERVALO_SONDEO = 1000;
   var INTERVALO_CAMARA = 200;
-  var SEGUNDOS_CLIP = 5;          // cada trozo de vídeo (76·4)
-  var CLIPS_POR_PREGUNTA = 2;     // se conservan los dos últimos de cada pregunta
+  var RECORTE_MAX = 480;          // lado mayor del fotograma de cada alumno (fase 110)
   var LETRAS = 'ABCD';
 
   var raiz = document.getElementById('pase-vivo');
@@ -170,10 +172,10 @@
   // (el iPad) y se recuerda en este navegador; el proyector nunca la enciende.
   // En el mando del móvil van siempre encendidas: esa pantalla no se proyecta.
   var verLetras = PROFESOR && (MANDO || recordar('pase-letras') === '1');
-  // Los clips viven solo aquí, en memoria: {posicion: [Blob, Blob]}. Nada se
-  // envía ni se guarda (C483); se sueltan al cerrar el pase o al irse la página.
-  var clips = {}, urlsClips = [];
-  var grabador = null, reloj = null, grabandoDe = null;
+  // Fase 110. El fotograma de la última lectura de cada alumno, solo aquí y en
+  // memoria: {posicion: {alumno: {fotograma|recorte, esquinas, letra}}}. Nada
+  // se envía ni se guarda (C483); se sueltan al cerrar el pase o al irse.
+  var fotos = {}, recortando = {};
   var corrigiendo = null;  // alumno con el selector de letra abierto (vuelta)
 
   function recordar(clave, valor) {
@@ -220,6 +222,7 @@
       h += '<span class="pv-selector">';
       for (var i = 0; i < 4; i++) h += '<button type="button" data-letra="' + LETRAS[i] + '">' + LETRAS[i] + '</button>';
       h += '<button type="button" data-letra="" title="Sin lectura">—</button><button type="button" data-cancelar="1">✕</button></span>';
+      h += fotoDe(f);
     }
     return h;
   }
@@ -236,15 +239,17 @@
     return h + '</div>';
   }
 
-  function pintarClips(pos) {
-    var lista = clips[pos] || [];
-    if (!lista.length) return '';
-    urlsClips.forEach(function (u) { URL.revokeObjectURL(u); }); urlsClips = [];
-    var h = '<div class="pv-clips">';
-    lista.forEach(function (b) { var u = URL.createObjectURL(b); urlsClips.push(u); h += '<video controls playsinline muted preload="metadata" src="' + u + '"></video>'; });
-    h += '<span class="pv-nota">Los últimos ' + (lista.length * SEGUNDOS_CLIP) + ' s antes de revelar, solo en este aparato; se borran al cerrar.</span></div>';
-    return h;
+  // El fotograma del alumno con el selector abierto, si este aparato lo tiene.
+  function fotoDe(f) {
+    var deEsta = fotos[estado.posicion], foto = deEsta && deEsta[f.id];
+    if (!foto) return '';
+    if (!foto.recorte) return '<div class="pv-foto"><span class="pv-nota">Preparando el fotograma…</span></div>';
+    foto.url = foto.url || URL.createObjectURL(foto.recorte);
+    return '<div class="pv-foto"><img src="' + foto.url + '" alt="Fotograma de la lectura">'
+      + '<span class="pv-nota">La cámara leyó <b>' + esc(foto.letra) + '</b> en este fotograma' + (foto.sinMarco ? '' : '; su tarjeta va recuadrada')
+      + '. Solo en este aparato: se borra al cerrar el pase.</span></div>';
   }
+  function hayFotos(pos) { return !!fotos[pos] && Object.keys(fotos[pos]).length > 0; }
 
   function pintar(e) {
     estado = e;
@@ -255,7 +260,7 @@
       contador.textContent = 'Cerrado';
       cuerpo.innerHTML = '<div class="pv-grande">✅ Pase cerrado: respuestas guardadas.</div>'
         + '<div style="text-align:center"><a href="' + URL_RESULTADOS + '" target="_blank" rel="noopener" style="color:#93c5fd;font-size:18px">' + (PROFESOR ? '📊 Resultados de teoría del grupo' : '📊 Mis resultados de teoría') + '</a></div>';
-      pararGrabacion(); soltarClips();
+      soltarFotos();
       pintarBarra();
       return;
     }
@@ -273,7 +278,7 @@
         contador.textContent = e.total + ' / ' + e.total;
         cuerpo.innerHTML = '<div class="pv-grande">Fin del pase.' + (PROFESOR ? ' «Comprobar con la clase» repasa las preguntas con la correcta y ✓/✗; o ciérralo ya.' : '') + '</div>';
       }
-      gestionarGrabacion(e);
+      recortarCerradas(e);
       pintarBarra();
       return;
     }
@@ -304,11 +309,13 @@
       h += '<div class="pv-respondido"><span class="pv-n">' + (e.revision ? 'Respondieron ' : 'Han respondido ') + e.n_respondido + ' de ' + e.n_presentes + '</span>';
       e.respondido.forEach(function (f) { h += chip(f); });
       h += '</div>';
-      if (e.revision) h += pintarClips(e.posicion);
+      if (PROFESOR && corrigiendo === null && (e.revision || e.revelada) && hayFotos(e.posicion)) {
+        h += '<div class="pv-pista">Toca un nombre para ver el fotograma en que la cámara leyó su tarjeta.</div>';
+      }
     }
     cuerpo.innerHTML = h;
     ajustarNombres();
-    gestionarGrabacion(e);
+    recortarCerradas(e);
     pintarBarra();
   }
 
@@ -346,7 +353,7 @@
   }
 
   function sondear() {
-    if (!vivo()) { clearInterval(sondeo); pararCamara(); soltarClips(); return; }
+    if (!vivo()) { clearInterval(sondeo); pararCamara(); soltarFotos(); return; }
     fetch(conLetras(URL_ESTADO), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(pintar).catch(function () {});
   }
 
@@ -367,19 +374,24 @@
     lienzo.width = video.videoWidth; lienzo.height = video.videoHeight;
     lienzo.getContext('2d').drawImage(video, 0, 0);
     lienzo.toBlob(function (blob) {
-      var datos = new FormData();
-      datos.append('frame', blob, 'frame.jpg');
+      if (!blob) { enVuelo = false; return; }
       var t0 = performance.now();
-      pedir(URL_LEER, datos).then(function (e) {
+      enviarFotograma(blob).then(function (e) {
         nFrames += 1;
         avisarAqui('Fotograma ' + nFrames + ': ' + e.leidas + ' tarjetas, ' + e.contadas + ' contadas · ' + e.ms + ' ms servidor, ' + Math.round(performance.now() - t0) + ' ms total');
-        pintar(e);
       }).catch(function (err) { avisarAqui('Error al leer: ' + err.message, true); }).finally(function () { enVuelo = false; });
     }, 'image/jpeg', 0.7);
   }
 
+  // El fotograma va al servidor, que lo lee y lo tira (C483); aquí se queda,
+  // en memoria, para los alumnos a los que ha contado en él (fase 110).
+  function enviarFotograma(blob) {
+    var datos = new FormData();
+    datos.append('frame', blob, 'frame.jpg');
+    return pedir(URL_LEER, datos).then(function (e) { apuntar(blob, e.marcas); pintar(e); return e; });
+  }
+
   function pararCamara() {
-    pararGrabacion();
     if (temporizador) { clearInterval(temporizador); temporizador = null; }
     if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
     var video = document.getElementById('pv-video');
@@ -388,47 +400,97 @@
     if (btn) btn.textContent = '📷 Cámara';
   }
 
-  // ---------- clips en memoria (76·4, C559) ----------
-  // Trozos de SEGUNDOS_CLIP sobre la misma cámara, uno detrás de otro, mientras
-  // la pregunta de pantalla no esté revelada. Cada trozo es un vídeo entero
-  // (se para y se vuelve a arrancar el grabador), así se reproduce suelto.
-  function gestionarGrabacion(e) {
-    var toca = stream && e.estado === 'abierto' && !e.terminado && !e.revision && !e.revelada;
-    if (toca && grabandoDe !== e.posicion) empezarGrabacion(e.posicion);
-    if (!toca && grabandoDe !== null) pararGrabacion();
+  // ---------- el fotograma de cada alumno (fase 110) ----------
+  // Mientras la pregunta se lee, cada alumno contado apunta al fotograma entero
+  // de su última lectura; los que ya no apunta nadie los recoge el navegador.
+  // Cuando la pregunta deja de leerse (revelada, pasada, comprobación), cada
+  // uno se queda con un recorte alrededor de su tarjeta, recuadrada, y los
+  // fotogramas enteros se sueltan. Se recorta una vez por pregunta, no en cada
+  // fotograma: la lectura no se vuelve más lenta en el móvil.
+  function apuntar(blob, marcas) {
+    if (!blob || !marcas || !marcas.alumnos) return;
+    var deEsta = fotos[marcas.posicion] = fotos[marcas.posicion] || {};
+    marcas.alumnos.forEach(function (m) {
+      if (m.esquinas && m.esquinas.length === 4) deEsta[m.alumno] = { fotograma: blob, esquinas: m.esquinas, letra: m.letra };
+    });
   }
-  function empezarGrabacion(pos) {
-    pararGrabacion();
-    if (!window.MediaRecorder || !stream) return;
-    var tipos = ['video/mp4', 'video/webm;codecs=vp8', 'video/webm'];
-    var tipo = tipos.filter(function (t) { return MediaRecorder.isTypeSupported(t); })[0];
-    grabandoDe = pos;
-    (function segmento() {
-      if (!stream || grabandoDe !== pos) return;
-      var g;
-      try { g = new MediaRecorder(stream, tipo ? { mimeType: tipo, videoBitsPerSecond: 1500000 } : { videoBitsPerSecond: 1500000 }); }
-      catch (err) { grabandoDe = null; return; }
-      grabador = g;
-      g.ondataavailable = function (ev) { if (ev.data && ev.data.size) guardarClip(pos, ev.data); };
-      g.onstop = function () { if (grabador === g) { grabador = null; if (grabandoDe === pos) segmento(); } };
-      try { g.start(); } catch (err) { grabandoDe = null; return; }
-      reloj = setTimeout(function () { if (g.state !== 'inactive') g.stop(); }, SEGUNDOS_CLIP * 1000);
-    })();
+  function seLee(e, pos) {
+    return e.estado === 'abierto' && !e.terminado && !e.revision && !e.revelada && e.posicion === pos;
   }
-  function pararGrabacion() {
-    grabandoDe = null;
-    if (reloj) { clearTimeout(reloj); reloj = null; }
-    if (grabador && grabador.state !== 'inactive') { try { grabador.stop(); } catch (err) {} }
-    grabador = null;
+  function recortarCerradas(e) {
+    Object.keys(fotos).forEach(function (k) { if (!seLee(e, parseInt(k, 10))) recortar(k); });
   }
-  function guardarClip(pos, blob) {
-    var lista = clips[pos] = clips[pos] || [];
-    lista.push(blob);
-    while (lista.length > CLIPS_POR_PREGUNTA) lista.shift();
+  function recortar(pos) {
+    var deEsta = fotos[pos];
+    if (!deEsta || recortando[pos]) return;
+    var porFotograma = new Map();
+    Object.keys(deEsta).forEach(function (id) {
+      var f = deEsta[id];
+      if (!f.fotograma) return;
+      if (!porFotograma.has(f.fotograma)) porFotograma.set(f.fotograma, []);
+      porFotograma.get(f.fotograma).push(f);
+    });
+    if (!porFotograma.size) return;
+    recortando[pos] = true;
+    var cadena = Promise.resolve();
+    porFotograma.forEach(function (lista, blob) {
+      cadena = cadena.then(function () {
+        return abrirImagen(blob).then(function (img) {
+          var cada = Promise.resolve();
+          lista.forEach(function (f) { cada = cada.then(function () { return recorteDe(img, f).then(function (r) { f.recorte = r; f.fotograma = null; }); }); });
+          return cada.finally(function () { if (img.close) img.close(); });
+        }).catch(function () {
+          // Si no se puede recortar, se queda el fotograma entero, sin recuadro.
+          lista.forEach(function (f) { if (f.fotograma) { f.recorte = f.fotograma; f.fotograma = null; f.sinMarco = true; } });
+        });
+      });
+    });
+    cadena.finally(function () {
+      delete recortando[pos];
+      if (fotos[pos] === deEsta && estado && corrigiendo !== null && String(estado.posicion) === String(pos)) pintar(estado);
+    });
   }
-  function soltarClips() {
-    urlsClips.forEach(function (u) { URL.revokeObjectURL(u); }); urlsClips = [];
-    clips = {};
+  function abrirImagen(blob) {
+    if (window.createImageBitmap) return createImageBitmap(blob);
+    return new Promise(function (ok, mal) {
+      var u = URL.createObjectURL(blob), img = new Image();
+      img.onload = function () { URL.revokeObjectURL(u); ok(img); };
+      img.onerror = function () { URL.revokeObjectURL(u); mal(new Error('imagen')); };
+      img.src = u;
+    });
+  }
+  // Alrededor de la tarjeta, con sitio arriba para la cara de quien la
+  // levanta: 6 lados de tarjeta de ancho por 7 de alto, 4,5 por encima del
+  // centro. El recuadro va un poco por fuera para no tapar el marcador.
+  function recorteDe(img, f) {
+    var W = img.width, H = img.height, p = f.esquinas, cx = 0, cy = 0, lado = 0;
+    for (var i = 0; i < 4; i++) {
+      var q = p[(i + 1) % 4];
+      cx += p[i][0] / 4; cy += p[i][1] / 4;
+      lado += Math.hypot(q[0] - p[i][0], q[1] - p[i][1]) / 4;
+    }
+    var ancho = Math.min(W, lado * 6), alto = Math.min(H, lado * 7);
+    var x = Math.max(0, Math.min(W - ancho, cx - ancho / 2));
+    var y = Math.max(0, Math.min(H - alto, cy - lado * 4.5));
+    var escala = Math.min(1, RECORTE_MAX / Math.max(ancho, alto));
+    var c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(ancho * escala)); c.height = Math.max(1, Math.round(alto * escala));
+    var ctx = c.getContext('2d');
+    ctx.drawImage(img, x, y, ancho, alto, 0, 0, c.width, c.height);
+    ctx.strokeStyle = '#facc15'; ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(2, lado * escala / 14);
+    ctx.beginPath();
+    p.forEach(function (q, i) {
+      var px = (cx + (q[0] - cx) * 1.2 - x) * escala, py = (cy + (q[1] - cy) * 1.2 - y) * escala;
+      if (i) ctx.lineTo(px, py); else ctx.moveTo(px, py);
+    });
+    ctx.closePath(); ctx.stroke();
+    return new Promise(function (ok, mal) { c.toBlob(function (b) { if (b) ok(b); else mal(new Error('recorte')); }, 'image/jpeg', 0.8); });
+  }
+  function soltarFotos() {
+    Object.keys(fotos).forEach(function (pos) {
+      Object.keys(fotos[pos]).forEach(function (id) { if (fotos[pos][id].url) URL.revokeObjectURL(fotos[pos][id].url); });
+    });
+    fotos = {};
   }
 
   window.paseVivo = {
@@ -464,18 +526,13 @@
         // La pantalla con la cámara es la del profesor: ve las letras.
         if (!verLetras) { verLetras = true; recordar('pase-letras', '1'); }
         temporizador = setInterval(capturar, INTERVALO_CAMARA);
-        if (estado) gestionarGrabacion(estado);
         pintarBarra();
       }).catch(function (e) { avisarAqui('No se pudo abrir la cámara: ' + e.message + '. Revisa el permiso de cámara del navegador para esta web.', true); });
     },
     // Para las pruebas: un fotograma ya hecho (Blob) por el mismo camino que la cámara.
-    leerBlob: function (blob) {
-      var datos = new FormData(); datos.append('frame', blob, 'frame.jpg');
-      return pedir(URL_LEER, datos).then(function (e) { pintar(e); return e; });
-    },
-    // Para las pruebas: un clip ya hecho, como si lo hubiera grabado la cámara.
-    guardarClip: guardarClip,
-    clips: function () { return clips; },
+    leerBlob: enviarFotograma,
+    // Para las pruebas: los fotogramas que guarda este aparato.
+    fotos: function () { return fotos; },
     estado: function () { return estado; }
   };
 
@@ -501,7 +558,7 @@
     });
   }
 
-  window.addEventListener('pagehide', soltarClips);
+  window.addEventListener('pagehide', soltarFotos);
   sondear();
   sondeo = setInterval(sondear, INTERVALO_SONDEO);
 })();

@@ -65,7 +65,10 @@ def letra_de(esquinas: np.ndarray) -> str | None:
 
 
 def detectar_en_imagen(gris: np.ndarray) -> list[dict]:
-    """Todos los marcadores de una imagen en gris: id, letra y centro, por id."""
+    """Todos los marcadores de una imagen en gris: id, letra, centro y esquinas, por id.
+
+    Las esquinas van en el orden de OpenCV; el aparato de la cámara las usa para
+    recuadrar la tarjeta en el fotograma de cada alumno (fase 110)."""
     detector = cv2.aruco.ArucoDetector(diccionario(), cv2.aruco.DetectorParameters())
     esquinas, ids, _rechazados = detector.detectMarkers(gris)
     if ids is None:
@@ -79,6 +82,7 @@ def detectar_en_imagen(gris: np.ndarray) -> list[dict]:
                 "id": int(id_),
                 "letra": letra_de(pts),
                 "centro": [round(float(centro[0]), 1), round(float(centro[1]), 1)],
+                "esquinas": [[round(float(x), 1), round(float(y), 1)] for x, y in pts],
             }
         )
     return sorted(marcadores, key=lambda m: m["id"])

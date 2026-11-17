@@ -178,7 +178,7 @@ def abrir(pase):
     return pase
 
 
-def registrar(pase, marcadores):
+def registrar(pase, marcadores, anotar=None):
     """Las lecturas de un fotograma, sobre la pregunta que está en pantalla.
 
     Devuelve `(contadas, desconocidas)`. Vale la última lectura de cada alumno
@@ -186,6 +186,12 @@ def registrar(pase, marcadores):
     matrícula en el grupo y cualquier lectura con la pregunta ya revelada. Una
     tarjeta en ángulo ambiguo (`letra` nula) no es ni una cosa ni otra: se
     espera al siguiente fotograma.
+
+    `anotar` (un dict, opcional) recibe `posicion` y `alumnos`: qué tarjetas
+    se han contado en este fotograma, con su letra y sus esquinas. Con eso el
+    aparato de la cámara se queda con el fotograma de la lectura de cada
+    alumno (fase 110). Solo van las contadas: nada de ids sin matrícula, de
+    tarjetas ambiguas ni de lecturas tras revelar.
     """
     # `LETRAS` es una cadena, y `None in "ABCD"` no da False: lanza TypeError.
     # Una tarjeta a medio girar llega con `letra=None` y tumbaba el fotograma
@@ -214,6 +220,12 @@ def registrar(pase, marcadores):
                 continue
             actual.lecturas[str(alumno_id)] = Pregunta.LETRAS.index(m["letra"])
             contadas += 1
+            if anotar is not None:
+                anotar.setdefault("alumnos", []).append(
+                    {"alumno": alumno_id, "letra": m["letra"], "esquinas": m.get("esquinas")}
+                )
+        if anotar is not None:
+            anotar["posicion"] = actual.posicion
         actual.desconocidas += desconocidas
         actual.save(update_fields=["lecturas", "desconocidas"])
     return contadas, desconocidas

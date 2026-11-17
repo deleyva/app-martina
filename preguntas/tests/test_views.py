@@ -64,7 +64,9 @@ class TestDetectar:
         client.force_login(profesor)
         r = client.post(reverse("preguntas:detectar"), jpeg(lienzo([(3, 2)])), content_type="image/jpeg")
         assert r.status_code == 200
-        assert r.json()["marcadores"] == [{"id": 3, "letra": "C", "centro": r.json()["marcadores"][0]["centro"]}]
+        m = r.json()["marcadores"]
+        assert m == [{"id": 3, "letra": "C", "centro": m[0]["centro"], "esquinas": m[0]["esquinas"]}]
+        assert len(m[0]["esquinas"]) == 4
 
     def test_basura_da_400_no_500(self, client, profesor):
         client.force_login(profesor)

@@ -235,7 +235,8 @@ def pase_leer(request, pk):
         marcadores = aruco.detectar(datos)
     except ValueError as e:
         return _error(str(e))
-    contadas, desconocidas = vivo.registrar(pase, marcadores)
+    marcas = {}
+    contadas, desconocidas = vivo.registrar(pase, marcadores, anotar=marcas)
     ms = (time.perf_counter() - empieza) * 1000
     logger.info(
         "preguntas.pase %d: %d marcadores %s, %d contadas, %d desconocidas, %.1f ms",
@@ -243,6 +244,11 @@ def pase_leer(request, pk):
     )
     estado = vivo.estado_de(pase, con_letras=request.GET.get("letras") == "1")
     estado.update(ms=round(ms, 1), leidas=len(marcadores), contadas=contadas)
+    # Qué tarjeta se ha contado y dónde estaba en ESTE fotograma: el aparato que
+    # lo mandó se queda con él para la comprobación (fase 110). La imagen sigue
+    # sin guardarse aquí (C483); solo viajan ids y coordenadas.
+    if marcas.get("alumnos"):
+        estado["marcas"] = marcas
     return JsonResponse(estado)
 
 
