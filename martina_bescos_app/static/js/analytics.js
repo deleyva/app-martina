@@ -65,7 +65,8 @@ document.addEventListener('click', (event) => {
 
     sendTrackingData('interaction', {
         target_element: targetElement,
-        target_text: target.innerText ? target.innerText.substring(0, 100) : '',
+        // Por caracteres, no por unidades UTF-16: `substring` partía los emojis.
+        target_text: target.innerText ? Array.from(target.innerText).slice(0, 100).join('') : '',
         x: event.clientX,
         y: event.clientY
     });

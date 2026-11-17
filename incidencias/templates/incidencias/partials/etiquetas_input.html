@@ -58,7 +58,9 @@ Uso: {% include "incidencias/partials/etiquetas_input.html" with iniciales=etiqu
     const slug = (s) => norm(s).replace(/[^\x00-\x7f]/g, '').replace(/[^\w\s-]/g, '')
       .replace(/[-\s]+/g, '-').replace(/^[-_]+|[-_]+$/g, '');
     const tonoDe = (sl) => PALETA[[...sl].reduce((a, c) => a + c.charCodeAt(0), 0) % PALETA.length];
-    const limpio = (s) => s.trim().replace(/\s+/g, ' ').slice(0, 40);
+    // Por caracteres: `slice` por unidades UTF-16 partía un emoji y el medio que
+    // quedaba no se puede guardar (fase 109, C760).
+    const limpio = (s) => Array.from(s.trim().replace(/\s+/g, ' ')).slice(0, 40).join('');
 
     return {
       todas: [],

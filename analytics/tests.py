@@ -78,6 +78,44 @@ class AnalyticsTests(TestCase):
         self.assertEqual(len(interaccion.target_element), 255)
         self.assertLessEqual(len(interaccion.target_text), 100)
 
+    def test_medio_emoji_no_tumba_el_endpoint(self):
+        """16-11-2026: `target_text` cortado a mitad de emoji (`\\ud83d` suelto)
+        daba `UnicodeEncodeError` al guardar y un 500 con correo (C759)."""
+        visitor = str(uuid.uuid4())
+        self.post(payload('pageview', visitor_id=visitor, title='Hola \ud83d'))
+        response = self.post(payload(
+            'interaction',
+            visitor_id=visitor,
+            target_element='button.\udc00x',
+            target_text='x' * 99 + '\ud83d',
+        ))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(PageVisit.objects.get().title, 'Hola ')
+        interaccion = Interaction.objects.get()
+        self.assertEqual(interaccion.target_text, 'x' * 99)
+        self.assertEqual(interaccion.target_element, 'button.x')
+
+    def test_un_emoji_entero_se_guarda(self):
+        visitor = str(uuid.uuid4())
+        self.post(payload('pageview', visitor_id=visitor))
+        self.post(payload('interaction', visitor_id=visitor, target_element='button', target_text='🎲 Al azar'))
+        self.assertEqual(Interaction.objects.get().target_text, '🎲 Al azar')
+
+    def test_lo_que_no_manda_nuestro_js_no_da_500(self):
+        """Sin selector, con texto que no es texto o coordenadas raras: se guarda lo que vale."""
+        visitor = str(uuid.uuid4())
+        self.post(payload('pageview', visitor_id=visitor))
+        r = self.post(payload('interaction', visitor_id=visitor, target_text=[1], x='a', y=12.7))
+        self.assertEqual(r.status_code, 200)
+        interaccion = Interaction.objects.get()
+        self.assertEqual((interaccion.target_element, interaccion.target_text), ('', ''))
+        self.assertEqual((interaccion.x_coordinate, interaccion.y_coordinate), (None, 12))
+
+    def test_un_cuerpo_que_no_es_un_objeto_json_da_400(self):
+        for cuerpo in ['no es json', '[1, 2]', '"texto"', '']:
+            self.assertEqual(self.post(cuerpo).status_code, 400, cuerpo)
+        self.assertFalse(UserSession.objects.exists())
+
     def test_same_visitor_reuses_one_row(self):
         visitor = str(uuid.uuid4())
         self.post(payload('pageview', visitor_id=visitor))

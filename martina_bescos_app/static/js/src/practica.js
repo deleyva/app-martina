@@ -50,8 +50,11 @@ export function marcar(marcas, p, t, ancla) {
 }
 
 // Primeras palabras de un párrafo, sin mayúsculas ni espacios de más.
+// El corte es por unidades UTF-16, como siempre (las anclas guardadas siguen
+// casando), pero sin dejar medio emoji al final: un surrogado suelto en el
+// JSON no se puede guardar (fase 109, C760).
 export function ancla(texto) {
-  return (texto || "").replace(/\s+/g, " ").trim().toLowerCase().slice(0, 40);
+  return (texto || "").replace(/\s+/g, " ").trim().toLowerCase().slice(0, 40).replace(/[\ud800-\udbff]$/, "");
 }
 
 // Ajusta las marcas a la letra de ahora (`anclas[i]` es el ancla del párrafo i).

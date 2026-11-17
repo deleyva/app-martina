@@ -109,3 +109,13 @@ test("formato de tiempo", () => {
   expect(formatoTiempo(83.9)).toBe("1:23");
   expect(formatoTiempo(-4)).toBe("0:00");
 });
+
+test("el ancla no deja medio emoji al final, y sin emojis sale igual que antes (C760)", () => {
+  const conEmoji = "x".repeat(39) + "🎸 y sigue";
+  const a = ancla(conEmoji);
+  expect(a).toBe("x".repeat(39));
+  expect(JSON.parse(JSON.stringify(a))).toBe(a);
+  const normal = "Cuando Calienta El Sol aquí en la playa, siento tu cuerpo";
+  expect(ancla(normal)).toBe(normal.toLowerCase().slice(0, 40));
+  expect(ancla("🎸 intro")).toBe("🎸 intro");
+});

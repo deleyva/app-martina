@@ -3,6 +3,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from .models import UserSession, PageVisit, Interaction
 import json
+import re
 import uuid
 from django.contrib.admin.views.decorators import staff_member_required
 from django.shortcuts import get_object_or_404, render
@@ -38,6 +39,39 @@ def resolve_visitor_id(data):
         return None
 
 
+# Medio emoji: una unidad UTF-16 «surrogate» sin su pareja. `json.loads` ya
+# junta las parejas buenas en un carácter, así que lo que queda en este rango
+# va suelto.
+_SURROGADO_SUELTO = re.compile('[\ud800-\udfff]')
+
+
+def sin_surrogados(valor):
+    """Quita los medios emojis de todos los textos que trae el JSON.
+
+    El 16-11-2026 un clic sobre un botón con emoji mandó `target_text` cortado
+    en el JS con `substring(0, 100)`, que parte el emoji por la mitad: llegó
+    `"\\ud83d"` suelto y Postgres contestó `UnicodeEncodeError … surrogates
+    not allowed` con un 500 y un correo. Se limpia aquí, a la entrada, para
+    todos los campos y para los navegadores con el JS viejo en la caché.
+    """
+    if isinstance(valor, str):
+        return _SURROGADO_SUELTO.sub('', valor)
+    if isinstance(valor, dict):
+        return {sin_surrogados(k): sin_surrogados(v) for k, v in valor.items()}
+    if isinstance(valor, list):
+        return [sin_surrogados(v) for v in valor]
+    return valor
+
+
+def _entero(valor):
+    """Coordenada de un clic: un número entero o nada."""
+    if isinstance(valor, bool):
+        return None
+    if isinstance(valor, (int, float)):
+        return int(valor)
+    return None
+
+
 def a_medida(modelo, campo, valor):
     """Recorta `valor` a la anchura de la columna `campo` de `modelo`.
 
@@ -58,7 +92,15 @@ def a_medida(modelo, campo, valor):
 @csrf_exempt
 def track_activity(request):
     if request.method == 'POST':
-        data = json.loads(request.body)
+        # Un cuerpo que no es un objeto JSON (un bot, una petición cortada) no
+        # se mide; antes era un 500 y un correo.
+        try:
+            data = json.loads(request.body)
+        except ValueError:
+            return JsonResponse({'status': 'error', 'reason': 'invalid json'}, status=400)
+        if not isinstance(data, dict):
+            return JsonResponse({'status': 'error', 'reason': 'invalid json'}, status=400)
+        data = sin_surrogados(data)
         event_type = data.get('event_type')
 
         visitor_id = resolve_visitor_id(data)
@@ -112,12 +154,14 @@ def track_activity(request):
                 Interaction.objects.create(
                     visit=latest_visit,
                     event_type=a_medida(Interaction, 'event_type', db_event_type),
+                    # Lo que no manda nuestro JS (un bot) no puede dar un 500:
+                    # sin selector, texto vacío; coordenadas que no son números, nada.
                     target_element=a_medida(
-                        Interaction, 'target_element', data.get('target_element')
+                        Interaction, 'target_element', data.get('target_element') or ''
                     ),
-                    target_text=target_text,
-                    x_coordinate=data.get('x'),
-                    y_coordinate=data.get('y'),
+                    target_text=target_text if isinstance(target_text, str) else '',
+                    x_coordinate=_entero(data.get('x')),
+                    y_coordinate=_entero(data.get('y')),
                     timestamp=timezone.now()
                 )
 
