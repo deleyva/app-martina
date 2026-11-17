@@ -689,6 +689,59 @@ def test_una_grabacion_vacia_no_se_guarda(group, profesor, alumnos, lectura):
     assert not Evidencia.objects.exists()
 
 
+def test_la_misma_grabacion_dos_veces_no_duplica(group, profesor, alumnos, lectura):
+    """C757 (fase 109): el reintento de una subida que sí llegó devuelve lo que ya había."""
+    import uuid
+
+    clave = uuid.uuid4()
+    primera = evaluar.guardar_grabacion(
+        group=group, instrumento=lectura, alumnos=alumnos[:2], fichero=_audio(), tipo="audio",
+        user=profesor, grabacion=clave,
+    )
+    otra_vez = evaluar.guardar_grabacion(
+        group=group, instrumento=lectura, alumnos=alumnos[:2], fichero=_audio(), tipo="audio",
+        user=profesor, grabacion=clave,
+    )
+    assert [e.pk for e in otra_vez] == [e.pk for e in primera]
+    assert Evidencia.objects.count() == 2
+    assert {e.grabacion for e in primera} == {clave}
+
+
+def test_la_clave_de_otro_profesor_no_se_reutiliza(group, profesor, otro_profesor, alumnos, lectura):
+    """C757: una clave que ya es de otra persona no mezcla grabaciones; se guarda aparte."""
+    import uuid
+
+    clave = uuid.uuid4()
+    suya = evaluar.guardar_grabacion(
+        group=group, instrumento=lectura, alumnos=alumnos[:1], fichero=_audio(), tipo="audio",
+        user=otro_profesor, grabacion=clave,
+    )
+    mia = evaluar.guardar_grabacion(
+        group=group, instrumento=lectura, alumnos=alumnos[:1], fichero=_audio(), tipo="audio",
+        user=profesor, grabacion=clave,
+    )
+    assert mia[0].pk != suya[0].pk and mia[0].grabacion != clave
+    assert Evidencia.objects.count() == 2
+
+
+def test_la_clave_viaja_por_http(client, profesor, alumnos, elemento):
+    """C757 por la puerta de la franja: dos POST con la misma clave, unas evidencias."""
+    import uuid
+
+    url = reverse("clases:evaluar_grabacion", args=[elemento.pk])
+    client.force_login(profesor)
+    clave = str(uuid.uuid4())
+    datos = {"alumnos": [alumnos[0].pk, alumnos[1].pk], "tipo": "audio", "grabacion": clave}
+    r1 = client.post(url, {**datos, "archivo": _audio()})
+    r2 = client.post(url, {**datos, "archivo": _audio()})
+    assert r1.status_code == r2.status_code == 200
+    assert r1.json()["evidencias"] == r2.json()["evidencias"]
+    assert Evidencia.objects.count() == 2
+    # Sin clave, o con una que no es un UUID, se guarda como siempre.
+    assert client.post(url, {**datos, "grabacion": "no-es-uuid", "archivo": _audio()}).status_code == 200
+    assert Evidencia.objects.count() == 4
+
+
 # =============================================================================
 # Pantalla encendida (2026-10-04)
 # =============================================================================

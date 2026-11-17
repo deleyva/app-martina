@@ -15,6 +15,11 @@
   El estado vive por elemento de la sesión (`porElemento`): cerrar la franja
   y volver a abrirla no pierde un grupo a medio puntuar.
 
+  Las grabaciones paradas se guardan en el navegador (IndexedDB) ANTES de
+  subirlas y se borran de ahí al subirse bien (fase 109). Si la red falla, la
+  grabación sobrevive a recargar o cerrar la pestaña y se sube sola; la clave
+  que la acompaña evita que un reintento cree evidencias repetidas.
+
   Usa del script principal: `playlist`, `currentIndex`, `csrfToken`, `avisar`.
 {% endcomment %}
 <style>
@@ -83,9 +88,65 @@
   // registro: mejor un corte que perder la grabación entera al subirla.
   var BITS_DE_VIDEO = 2500000;
   var TOPE_DE_VIDEO = 45 * 1024 * 1024;
+  // En un ordenador compartido, cada profesor ve y sube solo las suyas.
+  var USUARIO = {{ request.user.pk|default:0 }};
 
   var porElemento = {};  // pk del elemento → su estado
   var ev = null;         // el estado del elemento abierto
+  // Grabaciones sin subir, de cualquier elemento: { g: lo que se guarda en el
+  // navegador, local, guardando, subiendo, error, definitivo, intentos, siguiente }.
+  var pendientes = [];
+
+  // ── Grabaciones a salvo en el navegador (fase 109) ──
+  // El 17-11-2026 la wifi del aula se cortó justo al subir un vídeo de una
+  // prueba («Failed to fetch») y la grabación solo vivía en la memoria de la
+  // pestaña. Ahora se guarda aquí al parar y solo sale subiéndose bien o con
+  // «Sí, tirar la grabación»: nunca por un error ni por antigüedad.
+  var almacen = (function () {
+    var BD = 'evaluar-grabaciones', TABLA = 'pendientes', abierta = null;
+    function abrir() {
+      if (abierta) return abierta;
+      abierta = new Promise(function (ok, mal) {
+        if (!window.indexedDB) { mal(new Error('sin IndexedDB')); return; }
+        var peticion = indexedDB.open(BD, 1);
+        peticion.onupgradeneeded = function () { peticion.result.createObjectStore(TABLA, { keyPath: 'clave' }); };
+        peticion.onsuccess = function () { ok(peticion.result); };
+        peticion.onerror = function () { mal(peticion.error); };
+      });
+      abierta.catch(function () { abierta = null; });
+      return abierta;
+    }
+    function hacer(modo, accion) {
+      return abrir().then(function (bd) {
+        return new Promise(function (ok, mal) {
+          var tx = bd.transaction(TABLA, modo), r = accion(tx.objectStore(TABLA));
+          tx.oncomplete = function () { ok(r && r.result); };
+          tx.onerror = tx.onabort = function () { mal(tx.error || new Error('IndexedDB')); };
+        });
+      });
+    }
+    return {
+      guardar: function (g) { return hacer('readwrite', function (s) { return s.put(g); }); },
+      borrar: function (clave) { return hacer('readwrite', function (s) { return s.delete(clave); }); },
+      todas: function () { return hacer('readonly', function (s) { return s.getAll(); }); }
+    };
+  })();
+
+  function nuevaClave() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+      var r = Math.random() * 16 | 0;
+      return (c === 'x' ? r : (r & 3 | 8)).toString(16);
+    });
+  }
+  function buscar(clave) { return pendientes.find(function (p) { return p.g.clave === clave; }); }
+  function quitar(p) {
+    pendientes = pendientes.filter(function (x) { return x !== p; });
+    almacen.borrar(p.g.clave).catch(function () {});
+  }
+  // Solo frena la clase la grabación que NO está a salvo en el navegador: esa
+  // se pierde si se empieza otra cosa encima, como antes de la fase 109.
+  function enRiesgo(pk) { return pendientes.filter(function (p) { return p.g.pk === pk && !p.local; }); }
 
   function url(plantilla, pk) { return plantilla.replace('/0/', '/' + pk + '/'); }
   function esc(texto) { var d = document.createElement('div'); d.textContent = texto == null ? '' : String(texto); return d.innerHTML.replace(/"/g, '&quot;'); }
@@ -220,7 +281,7 @@
            '<button type="button" class="ev-btn ev-primario" onclick="evParar()">■ Parar y puntuar</button>';
       if (g.tipo === 'video') h += '<video class="ev-vista" id="ev-vista" muted playsinline autoplay></video>';
     } else {
-      var vacio = ev.grupo.length && !ev.pendiente ? '' : 'disabled';
+      var vacio = ev.grupo.length && !enRiesgo(ev.pk).length ? '' : 'disabled';
       h += '<button type="button" class="ev-btn" onclick="evGrabar(\'audio\')" ' + vacio + '>🎤 Grabar audio</button>' +
            '<button type="button" class="ev-btn" onclick="evGrabar(\'video\')" ' + vacio + '>🎥 Grabar vídeo</button>' +
            '<button type="button" class="ev-btn" onclick="evPuntuar()" ' + vacio + '>Puntuar sin grabar</button>';
@@ -229,28 +290,35 @@
     return h;
   }
 
-  // La grabación sin subir, en las DOS fases: si solo se veía al puntuar, al
-  // empezar otro grupo desaparecía el botón de reintentar (revisión, 2026-10-04).
+  // Las grabaciones sin subir, en las DOS fases: si solo se veían al puntuar,
+  // al empezar otro grupo desaparecía el botón de reintentar (revisión,
+  // 2026-10-04). Salen todas, también las de otros elementos o de otro día.
   function pintarPendiente() {
-    var p = ev.pendiente;
-    if (!p) return '';
-    if (p.subiendo) return '<div class="ev-linea ev-nota">Subiendo la grabación…</div>';
-    var h = '<div class="ev-linea ev-error">No se ha podido subir la grabación' + (p.error ? ': ' + esc(p.error) : '') + '. ' +
-            '<button type="button" class="ev-btn" onclick="evReintentar()">Reintentar la subida</button>';
-    // Un error del servidor que no se arregla reintentando (400) deja tirarla,
-    // pero solo a propósito y en dos pasos: nunca se tira sola.
-    if (p.definitivo) {
-      h += p.descartar
-        ? '<button type="button" class="ev-btn" onclick="evDescartar(true)">Sí, tirar la grabación</button>'
-        : '<button type="button" class="ev-btn" onclick="evDescartar(false)">Descartar la grabación</button>';
-    }
-    return h + '</div>';
+    return pendientes.map(function (p) {
+      var quien = esc(p.g.nombres.join(', ')) + ' ' + (p.g.tipo === 'video' ? '🎥' : '🎤');
+      if (p.guardando) return '<div class="ev-linea ev-nota">Guardando la grabación de ' + quien + '…</div>';
+      if (p.subiendo) return '<div class="ev-linea ev-nota">Subiendo la grabación de ' + quien + '…</div>';
+      var h = '<div class="ev-linea ev-error">No se ha podido subir la grabación de ' + quien + (p.error ? ': ' + esc(p.error) : '') + '. ' +
+              (p.local
+                ? '<span class="ev-nota">Está guardada en este navegador y se subirá sola.</span>'
+                : 'No se ha podido guardar en este navegador: no cierres esta pestaña.') +
+              '<button type="button" class="ev-btn" onclick="evReintentar(\'' + p.g.clave + '\')">Reintentar ahora</button>';
+      // Un error del servidor que no se arregla reintentando (400) deja tirarla,
+      // pero solo a propósito y en dos pasos: nunca se tira sola.
+      if (p.definitivo) {
+        h += p.descartar
+          ? '<button type="button" class="ev-btn" onclick="evDescartar(\'' + p.g.clave + '\', true)">Sí, tirar la grabación</button>'
+          : '<button type="button" class="ev-btn" onclick="evDescartar(\'' + p.g.clave + '\', false)">Descartar la grabación</button>';
+      }
+      return h + '</div>';
+    }).join('');
   }
 
-  window.evDescartar = function (seguro) {
-    if (!ev.pendiente || ev.pendiente.subiendo) return;
-    if (!seguro) { ev.pendiente.descartar = true; pintar(); return; }
-    ev.pendiente = null;
+  window.evDescartar = function (clave, seguro) {
+    var p = buscar(clave);
+    if (!p || p.subiendo || p.guardando) return;
+    if (!seguro) { p.descartar = true; pintar(); return; }
+    quitar(p);
     avisar('Grabación descartada');
     pintar();
   };
@@ -381,8 +449,11 @@
   // reintentarla o se pierde, así que no se deja empezar otro encima.
   window.evTerminar = function () {
     if (ev.grab) return;
-    if (ev.pendiente) {
-      avisar(ev.pendiente.subiendo ? 'Espera a que termine de subirse la grabación' : 'Antes, reintenta subir la grabación', 4000);
+    var riesgo = enRiesgo(ev.pk);
+    if (riesgo.length) {
+      avisar(riesgo[0].subiendo || riesgo[0].guardando
+        ? 'Espera a que termine de subirse la grabación'
+        : 'Antes, reintenta subir la grabación: no está guardada en este navegador', 4000);
       return;
     }
     ev.fase = 'elegir'; ev.grupo = []; ev.filas = {}; ev.ronda += 1;
@@ -397,7 +468,7 @@
 
   window.evGrabar = function (tipo) {
     if (!ev.grupo.length || ev.grab) return;
-    if (ev.pendiente) { avisar('Hay una grabación sin subir: reintenta o descártala antes', 4000); return; }
+    if (enRiesgo(ev.pk).length) { avisar('Hay una grabación sin subir que no está guardada en este navegador: reintenta o descártala antes', 4000); return; }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
       avisar('Este navegador no puede grabar aquí', 4000);
       return;
@@ -445,8 +516,14 @@
         } else {
           // El grupo que cuenta es el de AL PARAR: se puede sumar a alguien
           // mientras se graba.
-          mio.pendiente = { tipo: tipo, blob: blob, mime: real, alumnos: mio.grupo.slice() };
-          subir(mio);
+          apartar({
+            clave: nuevaClave(), usuario: USUARIO, pk: mio.pk, tipo: tipo, mime: real, blob: blob, creada: Date.now(),
+            alumnos: mio.grupo.slice(),
+            nombres: mio.grupo.map(function (id) {
+              var a = mio.datos.alumnos.find(function (x) { return x.id === id; });
+              return a ? a.nombre : String(id);
+            })
+          });
         }
         if (ev === mio) pintar();
       };
@@ -471,35 +548,95 @@
     if (ev.grab && ev.grab.recorder && ev.grab.recorder.state === 'recording') ev.grab.recorder.stop();
   };
 
-  window.evReintentar = function () { if (ev.pendiente) { ev.pendiente.descartar = false; subir(ev); pintar(); } };
+  window.evReintentar = function (clave) {
+    var p = buscar(clave);
+    if (p) { p.descartar = false; subir(p, true); }
+  };
 
-  // Una sola subida para todo el grupo; el servidor la reparte. Si falla, la
-  // grabación se queda en `pendiente` y se puede reintentar sin regrabar.
-  function subir(mio) {
-    var p = mio.pendiente;
-    if (!p || p.subiendo) return;
+  // Una grabación recién parada: primero a salvo en el navegador, luego a subir.
+  function apartar(g) {
+    var p = { g: g, local: false, guardando: true, subiendo: false, intentos: 0 };
+    pendientes.push(p);
+    almacen.guardar(g)
+      .then(function () { p.local = true; }, function () { p.local = false; })
+      .then(function () { p.guardando = false; subir(p, true); });
+  }
+
+  // 400, 404, 413: el servidor no la va a aceptar por mucho que se reintente.
+  function respuestaDeSubida(r) {
+    return r.json().catch(function () { return {}; }).then(function (j) {
+      if (r.ok && j.ok) return j;
+      var e = new Error(j.error || (r.ok ? 'respuesta inesperada; ¿ha caducado la sesión?' : 'error ' + r.status));
+      e.definitivo = [400, 404, 413].indexOf(r.status) >= 0;
+      throw e;
+    });
+  }
+
+  // Una sola subida para todo el grupo; el servidor la reparte. `aMano`: la
+  // primera vez y al pulsar «Reintentar»; los reintentos solos no avisan en
+  // pantalla, para no llenar de avisos el proyector mientras dura el corte.
+  function subir(p, aMano) {
+    if (!p || p.subiendo || p.guardando || pendientes.indexOf(p) < 0) return;
+    var g = p.g;
     p.subiendo = true;
+    p.intentos += 1;
+    pintar();
     var fd = new FormData();
-    p.alumnos.forEach(function (id) { fd.append('alumnos', id); });
-    fd.append('tipo', p.tipo);
-    fd.append('archivo', new File([p.blob], 'clase-' + Date.now() + '.' + extensionDe(p.mime), { type: p.mime }));
-    avisar('Subiendo la grabación…', 8000);
-    fetch(url(URL_GRABACION, mio.pk), {
-      method: 'POST', credentials: 'same-origin',
-      headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
-      body: fd
-    }).then(pedirJson).then(function (j) {
-      mio.pendiente = null;
-      avisar((p.tipo === 'video' ? '🎥' : '🎤') + ' Grabación guardada para ' + j.evidencias.length + ' alumno(s)');
-      if (ev === mio) pintar();
+    g.alumnos.forEach(function (id) { fd.append('alumnos', id); });
+    fd.append('tipo', g.tipo);
+    fd.append('grabacion', g.clave);
+    fd.append('archivo', new File([g.blob], 'clase-' + g.creada + '.' + extensionDe(g.mime), { type: g.mime }));
+    if (aMano) avisar('Subiendo la grabación…', 8000);
+    function enviar() {
+      return fetch(url(URL_GRABACION, g.pk), {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
+        body: fd
+      }).then(respuestaDeSubida);
+    }
+    // Con la app abierta en dos pestañas, solo una sube cada grabación a la vez.
+    var envio = navigator.locks && navigator.locks.request
+      ? navigator.locks.request('evaluar-grabacion-' + g.clave, { ifAvailable: true }, function (cerrojo) { return cerrojo ? enviar() : 'ocupada'; })
+      : enviar();
+    envio.then(function (j) {
+      p.subiendo = false;
+      if (j === 'ocupada') { p.siguiente = Date.now() + 60000; pintar(); return; }
+      quitar(p);
+      avisar((g.tipo === 'video' ? '🎥' : '🎤') + ' Grabación guardada para ' + j.evidencias.length + ' alumno(s)');
+      pintar();
     }).catch(function (e) {
       p.subiendo = false;
       p.error = e.message;
-      p.definitivo = !!(e.status && e.status < 500);
-      avisar('No se ha podido subir la grabación: ' + e.message, 6000);
-      if (ev === mio) pintar();
+      p.definitivo = !!e.definitivo;
+      // Cada reintento solo espera el doble que el anterior, hasta 15 minutos:
+      // un vídeo de 45 MB subiéndose cada minuto taparía la wifi del aula.
+      p.siguiente = Date.now() + Math.min(60000 * Math.pow(2, p.intentos - 1), 15 * 60000);
+      if (aMano) avisar('No se ha podido subir la grabación: ' + e.message, 6000);
+      pintar();
     });
   }
+
+  // `ya`: sin esperar a su turno (al volver la red, al abrir la página).
+  function reintentarTodas(ya) {
+    var ahora = Date.now();
+    pendientes.forEach(function (p) {
+      if (!p.definitivo && (ya || !p.siguiente || p.siguiente <= ahora)) subir(p, false);
+    });
+  }
+
+  // Al abrir la página, las que quedaron sin subir (otra pestaña, otro día).
+  almacen.todas().then(function (guardadas) {
+    var mias = (guardadas || []).filter(function (g) { return g.usuario === USUARIO && !buscar(g.clave); });
+    mias.forEach(function (g) { pendientes.push({ g: g, local: true, subiendo: false, intentos: 0 }); });
+    if (mias.length) {
+      avisar(mias.length === 1
+        ? 'Había una grabación sin subir guardada en este navegador: la subo'
+        : 'Había ' + mias.length + ' grabaciones sin subir guardadas en este navegador: las subo', 6000);
+      reintentarTodas(true);
+    }
+  }).catch(function () {});
+  setInterval(function () { reintentarTodas(false); }, 20000);
+  window.addEventListener('online', function () { reintentarTodas(true); });
 
   // Este script va DESPUÉS del principal, que ya ha pintado el primer
   // elemento cuando `pintarEvaluar` aún no existía.

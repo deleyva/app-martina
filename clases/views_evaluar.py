@@ -6,6 +6,7 @@ profesor del grupo puede evaluar a su alumnado, no solo quien creó la sesión.
 """
 
 import json
+import uuid
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -221,6 +222,10 @@ def evaluar_grabacion(request, pk):
     if len(alumnos) != len(ids):
         return _error("Algún alumno no existe")
     try:
+        grabacion = uuid.UUID(request.POST.get("grabacion", ""))
+    except ValueError:
+        grabacion = None  # sin clave (o mal escrita), como antes de la fase 109
+    try:
         creadas = evaluar.guardar_grabacion(
             group=group,
             instrumento=instrumento,
@@ -228,6 +233,7 @@ def evaluar_grabacion(request, pk):
             fichero=fichero,
             tipo=request.POST.get("tipo", ""),
             user=request.user,
+            grabacion=grabacion,
         )
     except ValueError as error:
         return _error(str(error))

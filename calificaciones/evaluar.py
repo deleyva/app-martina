@@ -207,7 +207,7 @@ MAXIMO_POR_GRUPO = 3
 
 
 @transaction.atomic
-def guardar_grabacion(*, group, instrumento: Instrumento, alumnos, fichero, tipo: str, user) -> list:
+def guardar_grabacion(*, group, instrumento: Instrumento, alumnos, fichero, tipo: str, user, grabacion=None) -> list:
     """Una grabación de un grupo de 1 a 3 alumnos, como evidencia de cada uno.
 
     Evaluar en grupo (fase 62·1): se graba UNA vez mientras leen los tres, y la
@@ -217,6 +217,11 @@ def guardar_grabacion(*, group, instrumento: Instrumento, alumnos, fichero, tipo
     tres copias de lo mismo»). Se guarda una vez y las evidencias del grupo
     comparten `grabacion` y fichero. `Evidencia.delete()` solo borra el fichero
     con la última que lo usa, y `comprimir_video` comprime una vez para todas.
+
+    `grabacion` (fase 109, C757) es la clave que pone el navegador al parar.
+    La franja reintenta sola las subidas que fallan, y si se cortó la red
+    después de guardar, el reintento traería la misma grabación otra vez: con
+    la misma clave y el mismo profesor se devuelven las evidencias que ya había.
     """
     import uuid
 
@@ -224,6 +229,14 @@ def guardar_grabacion(*, group, instrumento: Instrumento, alumnos, fichero, tipo
 
     from . import ficheros
     from .models import Evidencia
+
+    if grabacion is not None:
+        previas = list(Evidencia.objects.filter(grabacion=grabacion).order_by("pk"))
+        if previas and all(e.created_by_id == user.pk for e in previas):
+            return previas
+        if previas:
+            # La clave ya es de otro: no se mezclan grabaciones de dos personas.
+            grabacion = None
 
     alumnos = list(alumnos)
     if not 1 <= len(alumnos) <= MAXIMO_POR_GRUPO:
@@ -250,7 +263,7 @@ def guardar_grabacion(*, group, instrumento: Instrumento, alumnos, fichero, tipo
     if not contenido:
         raise ValueError("La grabación ha llegado vacía")
     nombre = Path(fichero.name).name[:255]
-    grupo_id = uuid.uuid4()
+    grupo_id = grabacion or uuid.uuid4()
     creadas = []
     for alumno in alumnos:
         evidencia = Evidencia(
