@@ -1,0 +1,223 @@
+{% load static wagtailcore_tags audicion_tags %}
+{% comment %}
+Una ficha de audición (fase 111): sus ejercicios, cada uno con su audio y su
+respuesta oculta. Es el MISMO parcial en la página de la ficha (`modo="pagina"`),
+en el proyector de una sesión y en el visor de estudio (`modo="clase"`).
+
+`puede_editar` solo enciende el editor en la página: en clase no se edita.
+Los bloques sueltos de las fichas antiguas (audio, respuesta) se pintan con su
+plantilla de siempre.
+{% endcomment %}
+<div id="ficha-{{ ficha.pk }}" class="fa-ficha fa-{{ modo|default:'pagina' }}" data-ficha="{{ ficha.pk }}"
+     data-abcjs="{% static 'vendor/abcjs/abcjs-basic-min.js' %}"
+     data-motor-midi="{% static 'js/motor_midi.js' %}"
+     data-procesador-midi="{% static 'vendor/spessasynth/spessasynth_processor.min.js' %}"
+     data-banco-midi="{% static 'vendor/alphatab/soundfont/sonivox.sf2' %}">
+
+    {% if puede_editar and modo != "clase" %}
+    <div class="fa-editor">
+        <form class="fa-anadir"
+              method="post"
+              action="{% url 'musica:anadir_audiometrico' ficha.pk %}"
+              hx-post="{% url 'musica:anadir_audiometrico' ficha.pk %}"
+              hx-target="#ficha-{{ ficha.pk }}"
+              hx-swap="outerHTML">
+            {% csrf_token %}
+            <span class="fa-editor-titulo">＋ Test audiométrico</span>
+            <label>Distancia
+                <select name="distancia" class="select select-bordered select-sm">
+                    {% distancias_audicion as distancias %}
+                    {% for clave, etiqueta in distancias %}
+                    <option value="{{ clave }}">{{ etiqueta }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>Tests
+                <input type="number" name="cuantos" value="1" min="1" max="10" class="input input-bordered input-sm fa-cuantos">
+            </label>
+            <button type="submit" class="btn btn-primary btn-sm">Generar</button>
+        </form>
+        <form class="fa-anadir"
+              method="post"
+              action="{% url 'musica:anadir_dictado' ficha.pk %}"
+              hx-post="{% url 'musica:anadir_dictado' ficha.pk %}"
+              hx-target="#ficha-{{ ficha.pk }}"
+              hx-swap="outerHTML">
+            {% csrf_token %}
+            <span class="fa-editor-titulo">＋ Dictado en ABC</span>
+            <label>Tipo
+                <select name="tipo" class="select select-bordered select-sm">
+                    <option value="melodico">Melódico</option>
+                    <option value="ritmico">Rítmico (en do)</option>
+                </select>
+            </label>
+            <button type="submit" class="btn btn-primary btn-sm">Añadir con plantilla</button>
+        </form>
+        <form class="fa-anadir"
+              method="post" enctype="multipart/form-data"
+              action="{% url 'musica:anadir_dictado_imagen' ficha.pk %}"
+              hx-post="{% url 'musica:anadir_dictado_imagen' ficha.pk %}"
+              hx-encoding="multipart/form-data"
+              hx-target="#ficha-{{ ficha.pk }}"
+              hx-swap="outerHTML">
+            {% csrf_token %}
+            <span class="fa-editor-titulo">＋ Dictado con imagen</span>
+            <label>Respuesta <input type="file" name="imagen" accept="image/*" class="file-input file-input-bordered file-input-sm"></label>
+            <label>Título <input type="text" name="titulo" maxlength="120" class="input input-bordered input-sm"></label>
+            <button type="submit" class="btn btn-primary btn-sm">Añadir</button>
+        </form>
+    </div>
+    {% endif %}
+
+    {% if ficha.es_antigua %}
+    {% comment %}Los audios de las fichas antiguas se pintan con WaveSurfer.{% endcomment %}
+    <script src="https://unpkg.com/wavesurfer.js@7"></script>
+    {% endif %}
+    {% for bloque, numero in ficha.ejercicios %}
+        {% if numero %}
+        <section class="fa-ejercicio" id="ej-{{ bloque.id }}">
+            <header class="fa-cabecera">
+                <span class="fa-numero">{{ numero }}</span>
+                <span class="fa-titulo">
+                    {% if bloque.value.titulo %}{{ bloque.value.titulo }}{% elif bloque.block_type == "audiometrico" %}¿Sube o baja?{% elif bloque.block_type == "dictado_abc" %}Dictado {% if bloque.value.tipo == "ritmico" %}rítmico{% else %}melódico{% endif %}{% else %}Dictado{% endif %}
+                </span>
+                {% if puede_editar and modo != "clase" %}
+                <span class="fa-acciones">
+                    {% if not forloop.first %}
+                    <button type="button" class="btn btn-ghost btn-xs" title="Subir"
+                            hx-post="{% url 'musica:mover_ejercicio' ficha.pk bloque.id %}" hx-vals='{"hacia": "arriba"}'
+                            hx-target="#ficha-{{ ficha.pk }}" hx-swap="outerHTML">↑</button>
+                    {% endif %}
+                    {% if not forloop.last %}
+                    <button type="button" class="btn btn-ghost btn-xs" title="Bajar"
+                            hx-post="{% url 'musica:mover_ejercicio' ficha.pk bloque.id %}" hx-vals='{"hacia": "abajo"}'
+                            hx-target="#ficha-{{ ficha.pk }}" hx-swap="outerHTML">↓</button>
+                    {% endif %}
+                    {% if bloque.block_type == "audiometrico" %}
+                    <button type="button" class="btn btn-ghost btn-xs" title="Pares nuevos con la misma distancia"
+                            hx-post="{% url 'musica:regenerar_ejercicio' ficha.pk bloque.id %}"
+                            hx-confirm="¿Generar pares nuevos para este test?"
+                            hx-target="#ficha-{{ ficha.pk }}" hx-swap="outerHTML">↻ Regenerar</button>
+                    {% endif %}
+                    <button type="button" class="btn btn-ghost btn-xs" title="Borrar el ejercicio"
+                            hx-post="{% url 'musica:borrar_ejercicio' ficha.pk bloque.id %}"
+                            hx-confirm="¿Borrar este ejercicio?"
+                            hx-target="#ficha-{{ ficha.pk }}" hx-swap="outerHTML">🗑</button>
+                </span>
+                {% endif %}
+            </header>
+
+            {% if bloque.block_type == "audiometrico" %}
+                {% include "musica/partials/ejercicio_audiometrico.html" with b=bloque.value %}
+            {% elif bloque.block_type == "dictado_abc" %}
+                {% include "musica/partials/ejercicio_dictado_abc.html" with b=bloque.value bloque_id=bloque.id %}
+            {% elif bloque.block_type == "dictado_imagen" %}
+                {% include "musica/partials/ejercicio_dictado_imagen.html" with b=bloque.value bloque_id=bloque.id %}
+            {% endif %}
+        </section>
+        {% else %}
+            {% include_block bloque %}
+        {% endif %}
+    {% empty %}
+        <p class="fa-vacia">Esta ficha no tiene ejercicios todavía.</p>
+    {% endfor %}
+
+<style>
+.fa-ficha { display: flex; flex-direction: column; gap: 1.25rem; }
+.fa-editor { border: 1px dashed currentColor; border-radius: .75rem; padding: .75rem 1rem; opacity: .9; }
+.fa-anadir { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; }
+.fa-anadir label { display: inline-flex; align-items: center; gap: .4rem; font-size: .9rem; }
+.fa-editor-titulo { font-weight: 700; }
+.fa-cuantos { width: 4.5rem; }
+.fa-ejercicio { border: 1px solid rgba(127,127,127,.35); border-radius: .75rem; padding: 1rem; }
+.fa-cabecera { display: flex; align-items: center; gap: .75rem; margin-bottom: .75rem; flex-wrap: wrap; }
+.fa-numero { display: inline-flex; align-items: center; justify-content: center; min-width: 2rem; height: 2rem; border-radius: 999px; background: #2563eb; color: #fff; font-weight: 700; }
+.fa-titulo { font-weight: 700; font-size: 1.1rem; flex: 1; }
+.fa-acciones { display: inline-flex; gap: .25rem; }
+.fa-distancia { font-size: .9rem; opacity: .75; margin-bottom: .5rem; }
+.fa-pares { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: .75rem; }
+.fa-par { min-width: 2.75rem; height: 2.75rem; border-radius: .6rem; border: 2px solid rgba(127,127,127,.5); background: transparent; color: inherit; font-weight: 700; font-size: 1.05rem; cursor: pointer; }
+/* En el proyector y en el visor de estudio no está DaisyUI: los botones
+   llevan su propio aspecto, legible sobre fondo claro y oscuro. */
+.fa-clase .fa-controles button { border: 0; border-radius: .6rem; padding: .55rem 1.1rem; font-weight: 700; font-size: 1.15rem; cursor: pointer; background: rgba(127,127,127,.25); color: inherit; }
+.fa-clase .fa-controles button[data-todo], .fa-clase .fa-controles button[data-tocar] { background: #2563eb; color: #fff; }
+.fa-clase .fa-tramo { color: inherit; }
+.fa-audio { width: min(100%, 480px); margin-bottom: .5rem; }
+.fa-imagen-respuesta img { max-width: 100%; height: auto; background: #fff; border-radius: .5rem; margin-top: .5rem; }
+.fa-grabacion { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: .75rem; padding-top: .75rem; border-top: 1px dashed rgba(127,127,127,.5); }
+.fa-subir-audio { display: inline-flex; flex-wrap: wrap; align-items: center; gap: .35rem; font-size: .85rem; opacity: .85; max-width: 100%; }
+.fa-subir-audio input { max-width: 100%; min-width: 0; }
+.fa-estado-grabacion { font-weight: 600; font-size: .9rem; }
+.fa-estado-grabacion.fa-pendiente { color: #b45309; }
+.fa-par:hover { border-color: #2563eb; }
+.fa-par.fa-sonando { background: #2563eb; border-color: #2563eb; color: #fff; }
+.fa-controles { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: .75rem; }
+.fa-solucion summary { cursor: pointer; font-weight: 600; }
+.fa-flechas { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; list-style: none; padding: .75rem 0 0; margin: 0; font-size: 1.15rem; }
+.fa-flechas span { opacity: .6; font-size: .9em; margin-right: .2rem; }
+.fa-vacia { opacity: .6; }
+/* En el proyector se lee desde el fondo del aula. */
+.fa-clase { font-size: 1.25rem; }
+.fa-clase .fa-par { min-width: 4rem; height: 4rem; font-size: 1.6rem; }
+.fa-clase .fa-titulo { font-size: 1.6rem; }
+.fa-clase .fa-numero { min-width: 2.75rem; height: 2.75rem; font-size: 1.3rem; }
+.fa-clase .fa-flechas { font-size: 2rem; gap: .75rem 2rem; }
+.fa-clase .fa-solucion summary { font-size: 1.4rem; }
+.fa-yo { display: inline-flex; align-items: center; gap: .35rem; font-size: .9rem; margin-left: .5rem; }
+.fa-estado { min-height: 1.5rem; font-weight: 600; margin-bottom: .5rem; }
+.fa-tramos { display: flex; flex-wrap: wrap; gap: .35rem; margin-bottom: .75rem; }
+.fa-tramo { border: 1px solid rgba(127,127,127,.45); border-radius: 999px; padding: .15rem .6rem; font-size: .8rem; background: transparent; cursor: pointer; }
+.fa-tramo-silencio { border-style: dashed; opacity: .75; }
+.fa-tramo.fa-actual { background: #2563eb; border-color: #2563eb; color: #fff; opacity: 1; }
+.fa-partitura { background: #fff; color: #000; border-radius: .5rem; padding: .5rem; margin-top: .5rem; }
+.fa-partitura:empty { display: none; }
+.fa-editar { margin-top: 1rem; border-top: 1px dashed rgba(127,127,127,.5); padding-top: .75rem; }
+.fa-editar summary { cursor: pointer; font-weight: 600; }
+.fa-form-dictado { display: flex; flex-direction: column; gap: .75rem; margin-top: .75rem; }
+.fa-campo-ancho { display: flex; flex-direction: column; gap: .25rem; font-size: .9rem; }
+.fa-abc { font-family: ui-monospace, Menlo, monospace; font-size: .95rem; width: 100%; }
+.fa-campos { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; }
+.fa-campos label { display: inline-flex; align-items: center; gap: .35rem; font-size: .9rem; }
+.fa-num { width: 5rem; }
+.fa-aviso { color: #b45309; font-weight: 600; font-size: .9rem; }
+.fa-aviso:empty { display: none; }
+.fa-clase .fa-tramo { font-size: 1.1rem; padding: .3rem .9rem; }
+.fa-clase .fa-estado { font-size: 1.6rem; }
+</style>
+<script>
+(function () {
+    var raiz = document.getElementById('ficha-{{ ficha.pk }}');
+    if (!raiz) return;
+    // Una sola descarga de cada reproductor aunque haya varias fichas.
+    function cargar(src, global) {
+        if (window[global]) return Promise.resolve();
+        window.__cargasFicha = window.__cargasFicha || {};
+        if (!window.__cargasFicha[src]) {
+            window.__cargasFicha[src] = new Promise(function (ok, mal) {
+                var s = document.createElement('script');
+                s.src = src;
+                s.onload = ok;
+                s.onerror = mal;
+                document.head.appendChild(s);
+            });
+        }
+        return window.__cargasFicha[src];
+    }
+    if (raiz.querySelector('[data-audiometrico]')) {
+        cargar("{% static 'js/audicion.js' %}", 'Audicion').then(function () {
+            window.Audicion.montar(raiz);
+        }, function () { console.error('[audición] no se pudo cargar el reproductor'); });
+    }
+    if (raiz.querySelector('[data-grabacion]')) {
+        cargar("{% static 'js/grabadora.js' %}", 'Grabadora').then(function () {
+            window.Grabadora.montar(raiz);
+        }, function () { console.error('[grabadora] no se pudo cargar'); });
+    }
+    if (raiz.querySelector('[data-dictado]')) {
+        cargar("{% static 'js/dictado.js' %}", 'Dictado').then(function () {
+            window.Dictado.montar(raiz);
+        }, function () { console.error('[dictado] no se pudo cargar el reproductor'); });
+    }
+})();
+</script>
+</div>

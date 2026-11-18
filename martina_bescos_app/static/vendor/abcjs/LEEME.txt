@@ -1,0 +1,13 @@
+abcjs — notación ABC a partitura SVG (abcjs-basic-min.js)
+Autores: Paul Rosen y Gregory Dyke. Licencia: MIT (LICENSE.md, en esta carpeta).
+Origen: paquete npm `abcjs@6.7.2` (publicado el 2026-10-16), copiado tal cual de dist/.
+Lo bajó `bun add abcjs@6.7.2 --exact --ignore-scripts` en una carpeta aparte, que comprueba
+la integridad sha512 del tarball contra el registro.
+
+No lleva `sourceMappingURL`: no hace falta ningún .map para `collectstatic`.
+
+Lo usan las fichas de audición (fase 111) para dos cosas: pintar la partitura de la
+respuesta de un dictado y sacar las notas con su tiempo (`parseOnly` + `setUpAudio`).
+NO se usa su sintetizador: ese baja los sonidos de paulrosen.github.io en tiempo de
+ejecución. Los dictados suenan con SpessaSynth (static/js/motor_midi.js) y un banco
+servido desde aquí.

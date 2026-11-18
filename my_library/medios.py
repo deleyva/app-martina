@@ -44,6 +44,9 @@ CLAVES = (
     "enlaces",
     "external_links",
     "chordpro",
+    # Una ficha de audición (fase 111) es una página, pero ES el material: se ve
+    # entera, con sus ejercicios, y no se desmonta en medios sueltos.
+    "fichas",
 )
 
 # `enlaceexterno` y `externalresource` son dos modelos distintos con dos visores
@@ -58,6 +61,7 @@ POR_MODELO = {
     # La letra con acordes de una canción. El texto vive en la `RecursoPage`;
     # esto es solo el objeto al que puede apuntar un elemento de sesión.
     "letraconacordes": "chordpro",
+    "dictadopage": "fichas",
 }
 
 

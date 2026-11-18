@@ -1,0 +1,71 @@
+{% load audicion_tags %}
+{% comment %}
+Un dictado en ABC. El reproductor (`dictado.js`) arma el plan de clase —entero,
+de dos en dos compases repetidos con silencio, entero— y lo toca con el motor
+MIDI de la app. La partitura de la respuesta se pinta al abrir «Ver solución».
+Con `puede_editar`, debajo va el editor con la partitura en vivo.
+{% endcomment %}
+<div class="fa-dictado" data-dictado="{{ b|dictado_json }}">
+    <div class="fa-distancia">
+        {% if b.tipo == "ritmico" %}Rítmico, todas las notas en do{% else %}Melódico{% endif %}
+        · negra = {{ b.tempo }} · cada pareja {{ b.repeticiones }} {{ b.repeticiones|pluralize:"vez,veces" }}{% if b.silencio %} y {{ b.silencio }} s para escribir{% endif %}
+    </div>
+    {% if b.audio %}
+    <audio class="fa-audio" controls preload="metadata" src="{{ b.audio.url }}"></audio>
+    <div class="fa-distancia">Suena la grabación del profesor.</div>
+    {% else %}
+    <div class="fa-controles">
+        <button type="button" class="btn btn-sm btn-primary" data-tocar>▶ Dictado</button>
+        <button type="button" class="btn btn-sm" data-pausa hidden>⏸ Pausa</button>
+        <button type="button" class="btn btn-sm" data-parar-dictado hidden>■ Parar</button>
+        <label class="fa-yo" title="Suena solo la claqueta y la guía de tramos: el dictado lo tocas tú">
+            <input type="checkbox" data-yo> Lo toco yo
+        </label>
+    </div>
+    <div class="fa-estado" data-estado aria-live="polite"></div>
+    <div class="fa-tramos" data-tramos></div>
+    {% endif %}
+    <details class="fa-solucion">
+        <summary>Ver solución</summary>
+        <div class="fa-partitura" data-partitura></div>
+    </details>
+
+    {% if puede_editar and modo != "clase" %}
+    <details class="fa-editar" {% if not b.abc %}open{% endif %}>
+        <summary>✎ Editar el dictado</summary>
+        <form class="fa-form-dictado" data-editor-abc
+              hx-post="{% url 'musica:editar_dictado' ficha.pk bloque_id %}"
+              hx-target="#ficha-{{ ficha.pk }}" hx-swap="outerHTML">
+            {% csrf_token %}
+            <label class="fa-campo-ancho">ABC
+                <textarea name="abc" rows="8" spellcheck="false" class="textarea textarea-bordered fa-abc" data-abc>{{ b.abc }}</textarea>
+            </label>
+            <div class="fa-aviso" data-aviso></div>
+            <div class="fa-partitura fa-vista-previa" data-vista-previa></div>
+            <div class="fa-campos">
+                <label>Título <input type="text" name="titulo" value="{{ b.titulo }}" maxlength="120" class="input input-bordered input-sm"></label>
+                <label>Tipo
+                    <select name="tipo" class="select select-bordered select-sm">
+                        <option value="melodico" {% if b.tipo != "ritmico" %}selected{% endif %}>Melódico</option>
+                        <option value="ritmico" {% if b.tipo == "ritmico" %}selected{% endif %}>Rítmico (en do)</option>
+                    </select>
+                </label>
+                <label>Negra = <input type="number" name="tempo" value="{{ b.tempo }}" min="30" max="200" class="input input-bordered input-sm fa-num"></label>
+                <label>Timbre
+                    <select name="timbre" class="select select-bordered select-sm">
+                        {% timbres_dictado as timbres %}
+                        {% for clave, etiqueta in timbres %}
+                        <option value="{{ clave }}" {% if b.timbre == clave %}selected{% endif %}>{{ etiqueta }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label>Repeticiones <input type="number" name="repeticiones" value="{{ b.repeticiones }}" min="1" max="4" class="input input-bordered input-sm fa-num"></label>
+                <label>Silencio (s) <input type="number" name="silencio" value="{{ b.silencio }}" min="0" max="60" class="input input-bordered input-sm fa-num"></label>
+                <label><input type="checkbox" name="cuenta_previa" value="1" {% if b.cuenta_previa %}checked{% endif %}> Compás de cuenta antes de cada tramo</label>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">Guardar</button>
+        </form>
+    </details>
+    {% include "musica/partials/_grabar.html" %}
+    {% endif %}
+</div>

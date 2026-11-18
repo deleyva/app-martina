@@ -1,0 +1,26 @@
+{% load audicion_tags %}
+{% comment %}
+Un test audiométrico: los pares numerados, que suenan sueltos al tocarlos, el
+«Todo seguido» y la solución oculta. No hay audio guardado: `audicion.js`
+sintetiza cada par a partir de `data-pares` y `data-cents`.
+{% endcomment %}
+<div class="fa-audiometrico" data-audiometrico data-cents="{{ b.cents }}" data-pares="{{ b|pares_json }}">
+    <div class="fa-distancia">{{ b.cents|cents_legibles }} · toca un número para oír su par</div>
+    <div class="fa-pares">
+        {% for p in b.pares %}
+        <button type="button" class="fa-par" data-par="{{ forloop.counter0 }}" aria-label="Par {{ forloop.counter }}">{{ forloop.counter }}</button>
+        {% endfor %}
+    </div>
+    <div class="fa-controles">
+        <button type="button" class="btn btn-sm btn-primary" data-todo>▶ Todo seguido</button>
+        <button type="button" class="btn btn-sm" data-parar hidden>■ Parar</button>
+    </div>
+    <details class="fa-solucion">
+        <summary>Ver solución</summary>
+        <ol class="fa-flechas">
+            {% for p in b.pares %}
+            <li><span>{{ forloop.counter }}</span>{% if p.sube %}↑{% else %}↓{% endif %}</li>
+            {% endfor %}
+        </ol>
+    </details>
+</div>

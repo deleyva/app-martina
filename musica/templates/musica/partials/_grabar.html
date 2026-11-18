@@ -1,0 +1,21 @@
+{% comment %}
+Grabar o subir el audio de un ejercicio (solo quien edita). `grabadora.js` guarda
+la grabación en el navegador (IndexedDB) ANTES de subirla y no la borra hasta que
+el servidor contesta: si la wifi del aula se cae, no se pierde (como la fase 109).
+{% endcomment %}
+<div class="fa-grabacion" data-grabacion
+     data-subir="{% url 'musica:subir_audio' ficha.pk bloque_id %}"
+     data-csrf="{{ csrf_token }}">
+    <button type="button" class="btn btn-sm" data-grabar>🎙 Grabar</button>
+    <button type="button" class="btn btn-sm btn-error" data-detener hidden>■ Terminar</button>
+    <label class="fa-subir-audio">o sube un audio
+        <input type="file" accept="audio/*" data-fichero>
+    </label>
+    {% if b.audio %}
+    <button type="button" class="btn btn-ghost btn-xs"
+            hx-post="{% url 'musica:quitar_audio' ficha.pk bloque_id %}"
+            hx-confirm="¿Quitar la grabación de este ejercicio?"
+            hx-target="#ficha-{{ ficha.pk }}" hx-swap="outerHTML">Quitar la grabación</button>
+    {% endif %}
+    <span class="fa-estado-grabacion" data-estado-grabacion aria-live="polite"></span>
+</div>

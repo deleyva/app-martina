@@ -670,8 +670,13 @@ def render_item_content(request, item):
 
         return render_pase_en_clase(request, item)
 
-    # BlogPages/DictadoPages: show in iframe via a simple redirect partial
-    if content_type in ("recursopage", "dictadopage", "scorepage"):
+    # Las páginas de canción y partitura van en un iframe. Las fichas de
+    # audición (fase 111) ya no: las pinta su propio parcial a través de
+    # `medios` («fichas»), sin la web entera alrededor y con «Ver solución».
+    # La ficha antigua de bloques sueltos sigue en su iframe, como siempre: sus
+    # audios necesitan WaveSurfer y el estilo de su página.
+    ficha_antigua = content_type == "dictadopage" and getattr(content, "es_antigua", False)
+    if content_type in ("recursopage", "scorepage") or ficha_antigua:
         if hasattr(content, "get_url"):
             page_url = content.get_url()
             html = (

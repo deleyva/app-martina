@@ -53,14 +53,23 @@ def capitulos_de(libro):
     hijas, el resultado era una lista vacía — y la pantalla decía «este libro no
     tiene material practicable todavía» sobre un libro lleno de capítulos.
     """
-    from musica.models import RecursoPage
+    from wagtail.models import Page
+
+    from musica.models import DictadoPage, RecursoPage
 
     libro = getattr(libro, "specific", libro)
 
     referencias = getattr(libro, "paginas_referenciadas", None)
     if callable(referencias):
         return referencias()
-    return list(RecursoPage.objects.child_of(libro).live().order_by("path"))
+    # Las fichas de audición (fase 111) son capítulos de árbol como los demás.
+    return list(
+        Page.objects.child_of(libro)
+        .live()
+        .type(RecursoPage, DictadoPage)
+        .specific()
+        .order_by("path")
+    )
 
 
 def _incrustado_en_el_cuerpo(pagina):
@@ -206,6 +215,10 @@ def material_de(capitulo):
     equivocado.
     """
     if _es_recorte(capitulo):
+        return [capitulo]
+    # Lo mismo una ficha de audición (fase 111): sus ejercicios no son medios
+    # sueltos; la ficha entera es lo que se mete en una sesión.
+    if getattr(capitulo, "es_material_entero", False):
         return [capitulo]
 
     objetos, vistos = [], set()

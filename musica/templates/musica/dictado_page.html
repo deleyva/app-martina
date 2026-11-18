@@ -2,8 +2,16 @@
 {% load wagtailcore_tags static %}
 
 {% block extra_css %}
+{% comment %}
+DaisyUI 3.9.4 y WaveSurfer solo para las fichas antiguas, que los usan y deben
+seguir viéndose igual. A las fichas de audición (fase 111) no les hacen falta, y
+ese DaisyUI viejo choca con el del sitio: en el móvil la cabecera se salía por la
+derecha (719 px de ancho en una pantalla de 390).
+{% endcomment %}
+{% if page.es_antigua %}
 <link href="https://cdn.jsdelivr.net/npm/daisyui@3.9.4/dist/full.css" rel="stylesheet" type="text/css" />
 <script src="https://unpkg.com/wavesurfer.js@7"></script>
+{% endif %}
 {% endblock %}
 
 {% block content %}
@@ -46,17 +54,15 @@
         {% endif %}
     </div>
     
-    <!-- StreamField Content (Full Width) -->
+    {% if page.es_antigua %}
+    {% comment %}Ficha anterior a la fase 111: bloques sueltos, como siempre.{% endcomment %}
     <div class="dictado-content w-full">
         {% for block in page.content %}
             {% include_block block %}
         {% endfor %}
     </div>
-    
-    {% if not page.content %}
-    <div class="text-center py-12 opacity-50">
-        <p>No hay contenido añadido aún.</p>
-    </div>
+    {% else %}
+    {% include "musica/partials/ficha.html" with ficha=page modo="pagina" %}
     {% endif %}
 </div>
 

@@ -57,7 +57,12 @@ cambia con cada item, mientras que el flyout es estático.
 </div>
 
 <div style="width: 100%; height: 100%;">
-    {% if documents.enlaces %}
+    {% if documents.fichas %}
+        {% comment %}Fase 111: la ficha de audición entera, en tamaño de clase.{% endcomment %}
+        <div style="padding: 1.5rem; overflow-y: auto; height: 100%;">
+            {% include "musica/partials/ficha.html" with ficha=documents.fichas.0 modo="clase" puede_editar=False %}
+        </div>
+    {% elif documents.enlaces %}
         {% comment %}
         Material con licencia que vive fuera: se abre, no se incrusta. Va el
         primero, igual que en `viewer.html`, porque no compite con nada.

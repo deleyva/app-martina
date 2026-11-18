@@ -7,11 +7,50 @@ herramientas de autoria, asi que necesitan ruta propia.
 
 from django.urls import path
 
-from musica import letras, pistas, recortador, servido
+from musica import audicion, letras, pistas, recortador, servido
 
 app_name = "musica"
 
 urlpatterns = [
+    # Fichas de audición (fase 111): se editan desde la propia página.
+    path("libros/<int:libro_id>/fichas/", audicion.crear_ficha, name="crear_ficha"),
+    path(
+        "fichas/<int:page_id>/audiometrico/",
+        audicion.anadir_audiometrico,
+        name="anadir_audiometrico",
+    ),
+    path("fichas/<int:page_id>/dictado/", audicion.anadir_dictado, name="anadir_dictado"),
+    path("fichas/<int:page_id>/imagen/", audicion.anadir_dictado_imagen, name="anadir_dictado_imagen"),
+    path(
+        "fichas/<int:page_id>/ejercicios/<str:bloque_id>/audio/",
+        audicion.subir_audio,
+        name="subir_audio",
+    ),
+    path(
+        "fichas/<int:page_id>/ejercicios/<str:bloque_id>/quitar-audio/",
+        audicion.quitar_audio,
+        name="quitar_audio",
+    ),
+    path(
+        "fichas/<int:page_id>/ejercicios/<str:bloque_id>/dictado/",
+        audicion.editar_dictado,
+        name="editar_dictado",
+    ),
+    path(
+        "fichas/<int:page_id>/ejercicios/<str:bloque_id>/regenerar/",
+        audicion.regenerar_ejercicio,
+        name="regenerar_ejercicio",
+    ),
+    path(
+        "fichas/<int:page_id>/ejercicios/<str:bloque_id>/borrar/",
+        audicion.borrar_ejercicio,
+        name="borrar_ejercicio",
+    ),
+    path(
+        "fichas/<int:page_id>/ejercicios/<str:bloque_id>/mover/",
+        audicion.mover_ejercicio,
+        name="mover_ejercicio",
+    ),
     # Pistas de práctica del visor ChordPro (fase 82). El audio solo sale por
     # aquí: nginx cierra /media/pistas_practica/.
     path("pistas/recurso/<int:page_id>/subir/", pistas.pista_subir, name="pista_subir"),

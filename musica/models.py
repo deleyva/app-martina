@@ -38,7 +38,10 @@ from wagtail.admin.panels import FieldPanel, InlinePanel, MultiFieldPanel
 from wagtail.blocks import (
     BooleanBlock,
     CharBlock,
+    ChoiceBlock,
     DecimalBlock,
+    FloatBlock,
+    IntegerBlock,
     ListBlock,
     PageChooserBlock,
     RichTextBlock,
@@ -170,6 +173,81 @@ class AnswerPDFBlock(StructBlock):
         template = "cms/blocks/answer_pdf_block.html"
 
 
+# --- Ejercicios de audición (fase 111) ---------------------------------------
+#
+# Una ficha de audición es una `DictadoPage` cuyos bloques son EJERCICIOS: un
+# audio y una respuesta oculta, juntos. Los tres bloques de arriba (audio,
+# respuesta en imagen, respuesta en PDF) van sueltos y se quedan por la ficha que
+# ya existía; los nuevos no se mezclan con ellos.
+#
+# No llevan plantilla propia: los pinta `musica/partials/ficha.html`, que es el
+# mismo parcial en la página, en el proyector y en el visor de estudio.
+
+
+class ParAudiometricoBlock(StructBlock):
+    """Un par del test: la frecuencia base y si el segundo sonido sube."""
+
+    f = FloatBlock(help_text="Frecuencia base en Hz (240-600)")
+    sube = BooleanBlock(required=False, help_text="Marcado: el segundo sonido es más agudo")
+
+
+class AudiometricoBlock(StructBlock):
+    """¿Sube o baja? Pares de sonidos separados por una fracción de tono.
+
+    Los genera `musica.services.audicion.generar_audiometrico`; el navegador los
+    sintetiza al reproducir, así que aquí no hay audio: solo los números.
+    """
+
+    titulo = CharBlock(max_length=120, required=False)
+    cents = FloatBlock(help_text="Distancia entre los dos sonidos, en cents (50 = ¼ de tono)")
+    pares = ListBlock(ParAudiometricoBlock())
+
+    class Meta:
+        icon = "media"
+        label = "Test audiométrico"
+
+
+class DictadoAbcBlock(StructBlock):
+    """Un dictado escrito en ABC: la partitura es la respuesta y el audio sale de ella.
+
+    El navegador lo toca con la metodología de clase (entero, de dos en dos
+    compases repetidos con silencio para escribir, y entero al final). Si hay
+    `audio` grabado, suena la grabación tal cual.
+    """
+
+    titulo = CharBlock(max_length=120, required=False)
+    tipo = ChoiceBlock(
+        choices=[("ritmico", "Rítmico"), ("melodico", "Melódico")],
+        default="melodico",
+    )
+    abc = TextBlock(help_text="El dictado en notación ABC")
+    tempo = IntegerBlock(default=60, min_value=30, max_value=200)
+    timbre = CharBlock(max_length=40, required=False)
+    repeticiones = IntegerBlock(default=2, min_value=1, max_value=4)
+    silencio = IntegerBlock(default=10, min_value=0, max_value=60, help_text="Segundos para escribir")
+    cuenta_previa = BooleanBlock(default=True, required=False)
+    audio = DocumentChooserBlock(required=False, help_text="Grabación propia (opcional)")
+
+    class Meta:
+        icon = "media"
+        label = "Dictado en ABC"
+
+
+class DictadoImagenBlock(StructBlock):
+    """Un dictado cuya respuesta es una imagen, con su audio grabado o subido."""
+
+    titulo = CharBlock(max_length=120, required=False)
+    imagen = ImageChooserBlock(required=False, help_text="La respuesta")
+    audio = DocumentChooserBlock(required=False)
+
+    class Meta:
+        icon = "image"
+        label = "Dictado con imagen"
+
+
+TIPOS_DE_EJERCICIO = ("audiometrico", "dictado_abc", "dictado_imagen")
+
+
 class SlideBlock(StructBlock):
     """Slide: foto + audio con trim opcional"""
     image = ImageChooserBlock(help_text="Foto de la actuacion")
@@ -199,10 +277,20 @@ class DictadoPage(Page):
             ("audio", AudioDictadoBlock()),
             ("answer_image", AnswerImageBlock()),
             ("answer_pdf", AnswerPDFBlock()),
+            ("audiometrico", AudiometricoBlock()),
+            ("dictado_abc", DictadoAbcBlock()),
+            ("dictado_imagen", DictadoImagenBlock()),
         ],
         blank=True,
-        help_text="Añade audios y respuestas (imágenes o PDFs). Los audios se reproducen con WaveSurfer.js",
+        help_text=(
+            "Ejercicios de audición (test audiométrico, dictado en ABC, dictado con "
+            "imagen), o audios y respuestas sueltos como en las fichas antiguas."
+        ),
     )
+
+    # Una ficha ES el material: en un libro no aporta medios sueltos, se ve
+    # entera (la pregunta la hace `my_library.libros.material_de`).
+    es_material_entero = True
 
     # Categorías y tags para organización
     categories = ParentalManyToManyField("MusicCategory", blank=True)
@@ -224,11 +312,41 @@ class DictadoPage(Page):
         FieldPanel("faceted_tags", heading="Etiquetas facetadas"),
     ]
 
-    parent_page_types = ["musica.MusicLibraryIndexPage"]
+    # Fase 111: una ficha puede ser capítulo de un libro.
+    parent_page_types = ["musica.MusicLibraryIndexPage", "musica.LibroPage"]
     subpage_types = []
+
+    @property
+    def es_antigua(self):
+        """¿Ficha de bloques sueltos (audio, respuesta), anterior a la fase 111?
+
+        La página las pinta como siempre, sin el editor de ejercicios: no se
+        mezclan los dos estilos en una misma ficha.
+        """
+        return any(b.block_type not in TIPOS_DE_EJERCICIO for b in self.content)
+
+    def ejercicios(self):
+        """Los bloques en orden, con el número de ejercicio de los que lo son.
+
+        `[(bloque, numero)]`: `numero` es None para los bloques sueltos de las
+        fichas antiguas (audio, respuesta), que no son ejercicios.
+        """
+        salida, n = [], 0
+        for bloque in self.content:
+            if bloque.block_type in TIPOS_DE_EJERCICIO:
+                n += 1
+                salida.append((bloque, n))
+            else:
+                salida.append((bloque, None))
+        return salida
 
     def get_context(self, request, *args, **kwargs):
         context = super().get_context(request, *args, **kwargs)
+        user = getattr(request, "user", None)
+        context["puede_editar"] = bool(
+            getattr(user, "is_authenticated", False)
+            and self.permissions_for_user(user).can_edit()
+        )
         from_session = request.GET.get("from_session")
         if from_session:
             from_edit = request.GET.get("from") == "edit"
@@ -1773,6 +1891,8 @@ class LibroPage(Page):
         "musica.RecursoPage",
         "musica.SlidesConAudioPage",
         "musica.LibroDeEstudioPage",
+        # Fichas de audición (fase 111): tests audiométricos y dictados.
+        "musica.DictadoPage",
     ]
 
     def get_template(self, request, *args, **kwargs):
@@ -1783,20 +1903,35 @@ class LibroPage(Page):
         # Orden de árbol: un libro se lee del capítulo 1 al 12, no del más
         # reciente al más viejo. Antes esto era una rama dentro del modelo
         # compartido; ahora es simplemente cómo funciona un libro.
+        #
+        # Las fichas de audición (fase 111) son capítulos como los demás y van
+        # en el mismo orden de árbol, mezcladas con ellos. `filter_visible_pages`
+        # solo mira campos de la propia página: la ficha no tiene `is_private`,
+        # y su visibilidad la decide el libro (`check_page_visibility` sube por
+        # los ancestros al servirla).
+        recursos = filter_visible_pages(
+            RecursoPage.objects.child_of(self).live(), request
+        ).values_list("pk", flat=True)
+        fichas = list(DictadoPage.objects.child_of(self).live().values_list("pk", flat=True))
         capitulos = list(
-            filter_visible_pages(
-                RecursoPage.objects.child_of(self).live(), request
-            )
+            Page.objects.filter(pk__in=list(recursos) + fichas)
             .specific()
-            .prefetch_related("categories")
             .order_by("path")
         )
+        context["tiene_fichas"] = bool(fichas)
         context["capitulos"] = capitulos
         context["blogpages"] = capitulos  # nombre heredado por las plantillas
         context["sublibros"] = list(
             filter_visible_pages(
                 LibroPage.objects.child_of(self).live(), request
             ).specific()
+        )
+        # El botón «＋ Ficha de audición» (fase 111): el mismo permiso que
+        # añadir una subpágina en el administrador.
+        user = getattr(request, "user", None)
+        context["puede_anadir_ficha"] = bool(
+            getattr(user, "is_authenticated", False)
+            and self.permissions_for_user(user).can_add_subpage()
         )
         return context
 

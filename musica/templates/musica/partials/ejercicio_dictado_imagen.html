@@ -1,0 +1,21 @@
+{% load wagtailimages_tags %}
+{% comment %}
+Un dictado cuya respuesta es una imagen. El audio es una grabación (del
+micrófono o subida); sin ella, el ejercicio se toca en clase.
+{% endcomment %}
+<div class="fa-dictado-imagen">
+    {% if b.audio %}
+    <audio class="fa-audio" controls preload="metadata" src="{{ b.audio.url }}"></audio>
+    {% else %}
+    <p class="fa-distancia">Sin grabación: lo toca el profesor en clase.</p>
+    {% endif %}
+    {% if b.imagen %}
+    <details class="fa-solucion">
+        <summary>Ver solución</summary>
+        <div class="fa-imagen-respuesta">{% image b.imagen width-1600 %}</div>
+    </details>
+    {% endif %}
+    {% if puede_editar and modo != "clase" %}
+        {% include "musica/partials/_grabar.html" %}
+    {% endif %}
+</div>
