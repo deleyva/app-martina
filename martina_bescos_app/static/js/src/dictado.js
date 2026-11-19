@@ -42,6 +42,13 @@ export const TIMBRES = {
 };
 export const TIMBRE_POR_DEFECTO = { melodico: "piano", ritmico: "flauta" };
 
+// Intensidad de las notas de la melodía. abcjs da 85-105 sin matices y hasta
+// 120 con !ff!; se acota aquí porque el banco de las fichas
+// (static/vendor/musescore/) solo lleva la capa mezzoforte del piano: la de
+// fortissimo pesaba 5 MB más. scripts/recortar_banco.ts lee este mismo rango, y
+// dictado.test.js comprueba que el banco suena en todo él.
+export const VEL_MELODIA = { min: 60, max: 105 };
+
 // Los pulsos del compás. En los compuestos (6/8, 9/8, 12/8) el pulso es la
 // negra con puntillo.
 export function pulsos(metrica) {
@@ -129,7 +136,7 @@ export function planDictado(analisis, opciones = {}) {
         dur: Math.max(0.05, Math.min(dur * ARTICULACION, dur - HUECO_MINIMO)),
         canal: CANAL_MELODIA,
         nota: tipo === "ritmico" ? DO_RITMICO : n.pitch,
-        vel: Math.min(110, Math.max(60, n.volume || 90)),
+        vel: Math.min(VEL_MELODIA.max, Math.max(VEL_MELODIA.min, n.volume || 90)),
       });
     }
     // La claqueta sigue debajo de la música, compás a compás. La anacrusa

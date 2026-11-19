@@ -415,6 +415,9 @@ class FichaTest(TestCase):
         # En clase no se edita.
         self.assertNotIn("＋ Test audiométrico", html)
         self.assertNotIn("{#", html)
+        # C783: los dictados suenan con el MuseScore General recortado, no con sonivox.
+        self.assertIn("vendor/musescore/MuseScore_General_fichas.sf3", html)
+        self.assertNotIn("sonivox", html)
 
 
 class BundleTest(TestCase):
@@ -447,6 +450,20 @@ class BundleTest(TestCase):
         self.assertNotIn("sourceMappingURL", texto)
         for marca in ("audicion-grabaciones", "[data-grabacion]", "Grabadora", "X-CSRFToken"):
             self.assertIn(marca, texto)
+
+    def test_el_banco_de_las_fichas_va_con_su_licencia_mit(self):
+        from pathlib import Path
+
+        from django.conf import settings
+
+        carpeta = Path(settings.APPS_DIR) / "static" / "vendor" / "musescore"
+        banco = carpeta / "MuseScore_General_fichas.sf3"
+        self.assertTrue(banco.exists(), "falta el banco: bun scripts/recortar_banco.ts (ver LEEME.txt)")
+        self.assertEqual(banco.read_bytes()[:4], b"RIFF")
+        self.assertLessEqual(banco.stat().st_size, 3_000_000)
+        # La licencia MIT de MuseScore General pide sus avisos en toda obra derivada.
+        self.assertIn("MIT license", (carpeta / "LICENSE.md").read_text(encoding="utf-8"))
+        self.assertTrue((carpeta / "LEEME.txt").exists())
 
     def test_abcjs_se_sirve_desde_el_sitio_con_licencia(self):
         from pathlib import Path

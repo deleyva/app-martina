@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { CANAL_CLAQUETA, CANAL_MELODIA, CLAQUETA, DO_RITMICO, aMidi, analizar, parejas, planDictado, pulsos } from "./dictado.js";
+import { CANAL_CLAQUETA, CANAL_MELODIA, CLAQUETA, DO_RITMICO, TIMBRES, VEL_MELODIA, aMidi, analizar, parejas, planDictado, pulsos } from "./dictado.js";
 
 // El mismo abcjs que sirve la página.
 const ABCJS = require("../../vendor/abcjs/abcjs-basic-min.js");
@@ -153,6 +153,47 @@ describe("el MIDI", () => {
     expect(on).toBe(plan.eventos.length);
     expect(off).toBe(plan.eventos.length);
     expect(programa).toBe(73);
+  });
+});
+
+describe("el banco de las fichas (MuseScore General recortado)", () => {
+  const { readFileSync, statSync } = require("node:fs");
+  const { SoundBankLoader } = require("spessasynth_core");
+  const RUTA = require("node:path").join(__dirname, "../../vendor/musescore/MuseScore_General_fichas.sf3");
+  const bytes = readFileSync(RUTA);
+  const banco = SoundBankLoader.fromArrayBuffer(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
+  const suena = (p, tecla, vel) => p.getVoiceParameters(tecla, vel).length > 0;
+
+  test("no pasa de 3 MB (C783)", () => {
+    expect(statSync(RUTA).size).toBeLessThanOrEqual(3_000_000);
+  });
+
+  test("cada timbre suena en las 128 teclas y en todo el rango de intensidad de la melodía", () => {
+    for (const { programa } of Object.values(TIMBRES)) {
+      const p = banco.presets.find((x) => !x.isGMGSDrum && x.bankMSB === 0 && x.program === programa);
+      expect(p).toBeTruthy();
+      const mudas = [];
+      for (let tecla = 0; tecla < 128; tecla++) {
+        for (let vel = VEL_MELODIA.min; vel <= VEL_MELODIA.max; vel++) if (!suena(p, tecla, vel)) mudas.push(`${tecla}/${vel}`);
+      }
+      expect(mudas).toEqual([]);
+    }
+  });
+
+  test("la claqueta suena a cualquier intensidad, para poder subirla o bajarla", () => {
+    const kit = banco.presets.find((x) => x.isGMGSDrum && x.program === 0);
+    expect(kit).toBeTruthy();
+    for (const tecla of [CLAQUETA.primera, CLAQUETA.resto]) {
+      for (let vel = 1; vel <= 127; vel++) expect(suena(kit, tecla, vel)).toBe(true);
+    }
+  });
+
+  test("las notas de la melodía nunca salen del rango que lleva el banco", () => {
+    const abc = OCHO_EN_3_4.replace("C D E|", "!pp! C D E|").replace("B A G|", "!fff! B A G|");
+    const plan = planDictado(analizar(ABCJS, abc), opciones);
+    const vels = plan.eventos.filter((e) => e.canal === CANAL_MELODIA).map((e) => e.vel);
+    expect(Math.min(...vels)).toBeGreaterThanOrEqual(VEL_MELODIA.min);
+    expect(Math.max(...vels)).toBeLessThanOrEqual(VEL_MELODIA.max);
   });
 });
 
