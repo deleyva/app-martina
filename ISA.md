@@ -2,9 +2,9 @@
 slug: app-martina
 phase: complete
 progress: true
-iteration: 73
+iteration: 74
 principal_stated_goal: "Yo solo quiero añadir evidencias tal cual están diseñadas en la aplicación de Notas. Por favor, copiala. Usa en vez de HTMLX, usa, en fin, haz lo que sea, pero que sea igual visualmente. Me gusta mucho esa forma de calificar, esa aplicación que hicimos."
-updated: 2026-11-18
+updated: 2026-11-19
 ---
 
 # ISA — app-martina · Sistema de estudio de la biblioteca
@@ -6801,7 +6801,7 @@ El 2026-11-01 a las 12:29 producción mandó el correo de error de Django: `Modu
 - **Sin segunda mirada independiente, a propósito:** las imágenes siguen el mismo camino que antes (un solo POST por fotograma, que el servidor no guarda; C483 en verde); lo nuevo que viaja son ids y coordenadas, cubierto por tests, y el ciclo de vida en memoria se recorrió entero en un navegador real dos veces.
 - **Sin push ni despliegue:** espera al «despliega» de Jesús.
 
-## Fase 111 — El libro de audición: tests audiométricos, dictados en ABC y dictados con imagen, en la web y en clase (2026-11-18) · CONSTRUIDA Y PROBADA EN LOCAL, SIN DESPLEGAR; FALTAN EL BANCO DE SONIDOS (C783, espera permiso para descargarlo), TU OÍDO (C784), EL MICRO DE VERDAD (C788) Y LA LATENCIA AL EDITAR EN PRODUCCIÓN (C792)
+## Fase 111 — El libro de audición: tests audiométricos, dictados en ABC y dictados con imagen, en la web y en clase (2026-11-18) · DESPLEGADA (`098796e`, con el banco de MuseScore) Y COMPROBADA EN PRODUCCIÓN; FALTAN TU OÍDO (C784), EL MICRO DE VERDAD (C788) Y LA LATENCIA AL EDITAR EN PRODUCCIÓN (C792)
 
 **Goal (literal de Jesús, 2026-11-17):** «Me gustaría tener un libro en apps.iesmartinabescos.es de este tipo de contenido. Me gustaría poder tener ahí tanto tests audiométricos generados así como dictados rítmicos y melódicos. […] el juego principal es mostrar un audio y que puedan escribir lo que escuchan. […] Se muestra un audio y hay una imagen desplegable oculta en principio o un texto que muestra la respuesta. Me gustaría poder añadir el contenido de ese tipo de libros también a las clases para mostrarlo y yo tocar en ese caso, o reproducirle el audio y que yo lo haga, y lo comprobamos en clase. […] Me gustaría poder grabar el audio yo directamente desde la interfaz web para una imagen dada y los tests audiométricos que se hicieran de forma automática. Para los dictados rítmicos y melódicos, me gustaría poder escribirlos en formato ABCjs.»
 
@@ -6876,3 +6876,4 @@ Tramo 3 — micrófono y dictados con imagen
 - **Sin push ni despliegue:** espera al «despliega» de Jesús. Lleva migración (`0014_fase_111`, solo cambia la definición del StreamField; no toca datos).
 - **2026-11-19 — Banco de MuseScore: permiso y recorte.** Jesús: «Download MuseScore Bank and deploy it». Bajado del espejo oficial con su licencia. El piano de cola solo ya pesa 11 MB (112 muestras estéreo en dos capas, mezzoforte y fortissimo). *Conjetura:* bastaba con quedarse con los cuatro timbres. *Refutada por* la medida: 11,7 MB. *Aprendido:* el peso está en las capas y el registro del piano. Dos recortes: (1) solo la capa mezzoforte, y para que ninguna nota caiga en el hueco de la fortissimo, `dictado.js` acota ahora la intensidad de la melodía a `VEL_MELODIA` (60-105; antes llegaba a 110, y abcjs da hasta 120 con `!ff!`); (2) el registro, de fa3 a la5. De do3 a do6 eran 3,84 MB y me pasaba del límite que me puse; en vez de aflojar el límite, estreché el registro, que cubre los dictados de clase, y estiré las zonas de los extremos a las 128 teclas para que nada quede mudo (fuera de fa3-la5 suena la muestra más cercana transportada). El script lee `TIMBRES`, `CLAQUETA` y `VEL_MELODIA` de `dictado.js`, así que banco y reproductor no se pueden desalinear sin que falle un test.
 - **La claqueta con el banco nuevo:** pico 0,0084 (con sonivox era 0,0056). Sigue siendo flojita; el juicio es de su oído (C784).
+- **2026-11-19 — Desplegada (`098796e`).** Antes, ensayo en local del `collectstatic` de producción (`CompressedManifestStaticFilesStorage` en una carpeta de usar y tirar): 295 ficheros sin fallo, con el banco, abcjs y los tres bundles con su hash. Push de `38b79c9`, `04054a9`, `6b415aa` y `098796e`; `just deploy-production`: 290 estáticos copiados y 838 post-procesados, y `Applying musica.0014_fase_111... OK` (solo la definición del StreamField). En producción, Chrome con la sesión de Jesús: el banco se sirve con 200, 2.981.338 bytes, `immutable` a un año y el mismo sha256 que el local (`02c12eb26d01…`); `dictado.js`, `audicion.js`, `grabadora.js` y abcjs, 200. La ficha antigua (`/indice-de-recursos-musicales/dictado-ritmico/`) se ve como siempre: `dictado-content`, DaisyUI 3.9.4, WaveSurfer con sus tres ondas cargadas y «Ver respuesta» (captura vista; Anti-A). No se creó ninguna ficha en producción: el primer dictado que suene allí, y la medida de C792, llegan con la primera ficha de Jesús. El botón «＋ Ficha de audición» sale en un libro vacío o que ya tenga fichas: el primero se crea vacío desde el administrador de Wagtail.
