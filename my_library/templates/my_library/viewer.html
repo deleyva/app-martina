@@ -187,6 +187,11 @@
             {% include "my_library/viewers/gp_viewer.html" with gp_file=documents.gp_files.0 songsterr_link=songsterr_link %}
         {% elif documents.chordpro %}
             {% include "my_library/viewers/chordpro_viewer.html" with letra=documents.chordpro.0 %}
+        {% elif documents.ejercicios %}
+            {% comment %}Fase 112: un ejercicio suelto de una ficha de audición.{% endcomment %}
+            <div style="padding: 1.5rem; height: 100vh; overflow-y: auto;">
+                {% include "musica/partials/ficha.html" with ficha=documents.ejercicios.0.ficha solo=documents.ejercicios.0.bloque_id modo="clase" puede_editar=False %}
+            </div>
         {% elif documents.audios %}
             <!-- Visor Audio -->
             {% include "my_library/viewers/audio_viewer.html" with audios=documents.audios %}

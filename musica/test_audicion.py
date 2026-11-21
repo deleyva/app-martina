@@ -387,13 +387,17 @@ class FichaTest(TestCase):
 
     # --- C776, C777: en clase y en el visor de estudio ---
 
-    def test_el_libro_entrega_la_ficha_entera(self):
+    def test_el_libro_entrega_la_ficha_por_ejercicios(self):
+        # Hasta la fase 111 el libro entregaba la ficha entera; desde la 112,
+        # un ejercicio por test (C794). La ficha sigue siendo capítulo.
         ficha = self._ficha(n_tests=1)
         capitulos = capitulos_de(self.libro)
         self.assertIn(ficha.pk, [c.pk for c in capitulos])
         capitulo = next(c for c in capitulos if c.pk == ficha.pk)
-        self.assertEqual(material_de(capitulo), [capitulo])
+        material = material_de(capitulo)
+        self.assertEqual([type(m).__name__ for m in material], ["EjercicioDeFicha"])
         self.assertEqual(clasificar(capitulo, "dictadopage")["fichas"], [capitulo])
+        self.assertEqual(clasificar(material[0], "ejerciciodeficha")["ejercicios"], material)
 
     def test_en_clase_se_pinta_la_ficha_y_no_un_iframe(self):
         from clases.models import ClassSessionItem
@@ -418,6 +422,202 @@ class FichaTest(TestCase):
         # C783: los dictados suenan con el MuseScore General recortado, no con sonivox.
         self.assertIn("vendor/musescore/MuseScore_General_fichas.sf3", html)
         self.assertNotIn("sonivox", html)
+
+
+@override_settings(ALLOWED_HOSTS=["*"])
+class EjercicioSueltoTest(TestCase):
+    """Fase 112: un test suelto en cada clase, en vez de la ficha entera."""
+
+    setUp = FichaTest.setUp
+    _ficha = FichaTest._ficha
+    _get = FichaTest._get
+
+    def _ids(self, ficha):
+        return [b.id for b, n in ficha.ejercicios() if n]
+
+    def _render(self, objeto):
+        from clases.models import ClassSessionItem
+        from clases.views import render_item_content
+
+        item = ClassSessionItem(
+            content_type=ContentType.objects.get_for_model(objeto), object_id=objeto.pk
+        )
+        request = RequestFactory().get("/")
+        request.user = self.profe
+        request.session = self.client.session
+        respuesta = render_item_content(request, item)
+        self.assertEqual(respuesta.status_code, 200)
+        return respuesta.content.decode()
+
+    def _guardar(self, ficha):
+        ficha.save_revision().publish()
+        return DictadoPage.objects.get(pk=ficha.pk)
+
+    # --- C794 ---
+
+    def test_un_ejercicio_por_test_en_orden_y_sin_duplicar(self):
+        from musica.models import EjercicioDeFicha
+
+        ficha = self._ficha(n_tests=3)
+        primera = material_de(ficha)
+        self.assertEqual([e.bloque_id for e in primera], self._ids(ficha))
+        segunda = material_de(DictadoPage.objects.get(pk=ficha.pk))
+        self.assertEqual([e.pk for e in segunda], [e.pk for e in primera])
+        self.assertEqual(EjercicioDeFicha.objects.filter(ficha=ficha).count(), 3)
+
+    def test_los_dictados_tambien_van_sueltos(self):
+        ficha = self._ficha(n_tests=1)
+        audicion.anadir(ficha, "dictado_abc", {"abc": "X:1\nK:C\nCDEF|", "tipo": "ritmico"})
+        ficha = self._guardar(ficha)
+        material = material_de(ficha)
+        self.assertEqual(len(material), 2)
+        self.assertEqual(material[1].describir()[2], "Dictado rítmico")
+
+    def test_enumerar_de_nuevo_no_consulta_por_ejercicio(self):
+        # Anti-C: con las filas ya creadas, una consulta por ficha.
+        ficha = self._ficha(n_tests=10)
+        material_de(ficha)
+        ficha = DictadoPage.objects.get(pk=ficha.pk)
+        with self.assertNumQueries(1):
+            self.assertEqual(len(material_de(ficha)), 10)
+
+    # --- C795 ---
+
+    def test_en_la_sesion_un_test_por_clase_y_el_siguiente_al_darlo_por_visto(self):
+        from django.utils import timezone
+
+        from clases import libros_de_grupo
+        from clases.models import ClassSession, Group, GroupBook, Subject
+
+        ficha = self._ficha(n_tests=3)
+        asignatura, _ = Subject.objects.get_or_create(name="Música", defaults={"code": "MUS"})
+        grupo = Group.objects.create(name="1º A aud", subject=asignatura, academic_year="2026-2027")
+        libro = GroupBook.objects.create(group=grupo, libro=self.libro, seccion="dictado")
+
+        filas = libros_de_grupo.enumerar(libro)
+        self.assertEqual([f["tipo"].model for f in filas], ["ejerciciodeficha"] * 3)
+        self.assertEqual(filas[2]["titulo"], "Tests de ¼ de tono · 3 · ¿Sube o baja?")
+        self.assertEqual(filas[0]["tipo_legible"], "Test audiométrico · ¼ de tono · 50 cents")
+        self.assertEqual(filas[0]["icono"], "🎧")
+
+        def clase():
+            return ClassSession.objects.create(
+                teacher=self.profe, group=grupo, date=timezone.now().date(), title="Clase"
+            )
+
+        hoy = libros_de_grupo.preparar_sesion(clase(), por_libro=1)
+        self.assertEqual(len(hoy), 1)
+        self.assertEqual(hoy[0].content_object.bloque_id, self._ids(ficha)[0])
+        self.assertEqual(hoy[0].source_page_id, ficha.pk)
+        self.assertEqual(hoy[0].get_icon(), "🎧")
+        libros_de_grupo.marcar_visto(hoy[0])
+        manana = libros_de_grupo.preparar_sesion(clase(), por_libro=1)
+        self.assertEqual(manana[0].content_object.bloque_id, self._ids(ficha)[1])
+
+        # Elegido a mano: solo el que se elige.
+        a_mano = clase()
+        tercero = filas[2]["objeto"]
+        creados = libros_de_grupo.anadir_elementos(a_mano, [(libro.pk, filas[2]["tipo"].pk, tercero.pk)])
+        self.assertEqual([c.object_id for c in creados], [tercero.pk])
+        self.assertEqual(a_mano.items.count(), 1)
+
+    # --- C796 ---
+
+    def test_en_clase_solo_se_pinta_ese_test(self):
+        ficha = self._ficha(n_tests=3)
+        uno, dos, tres = material_de(ficha)
+        html = self._render(dos)
+        self.assertIn(f'id="ej-{dos.bloque_id}"', html)
+        self.assertNotIn(f'id="ej-{uno.bloque_id}"', html)
+        self.assertNotIn(f'id="ej-{tres.bloque_id}"', html)
+        self.assertEqual(html.count("data-audiometrico "), 1)
+        self.assertIn('<span class="fa-numero">2</span>', html)
+        self.assertIn("Tests de ¼ de tono", html)
+        self.assertIn("Ver solución", html)
+        self.assertIn("fa-clase fa-suelto", html)
+        self.assertIn(f"ficha-{ficha.pk}-{dos.bloque_id}", html)
+        self.assertNotIn("<iframe", html)
+        self.assertNotIn("＋ Test audiométrico", html)
+        self.assertNotIn("↻ Regenerar", html)
+        self.assertNotIn("{#", html)
+
+    # --- C798 ---
+
+    def test_sigue_al_ejercicio_al_reordenar_y_avisa_si_se_borra(self):
+        ficha = self._ficha(n_tests=3)
+        uno, dos, _ = material_de(ficha)
+        audicion.mover(ficha, uno.bloque_id, +1)
+        ficha = self._guardar(ficha)
+        uno.refresh_from_db()
+        self.assertEqual(uno.bloque_y_numero()[1], 2)
+        html = self._render(uno)
+        self.assertIn(f'id="ej-{uno.bloque_id}"', html)
+        self.assertIn('<span class="fa-numero">2</span>', html)
+
+        audicion.borrar(ficha, dos.bloque_id)
+        ficha = self._guardar(ficha)
+        dos.refresh_from_db()
+        html = self._render(dos)
+        self.assertIn("Este ejercicio ya no está en la ficha", html)
+        self.assertNotIn("data-audiometrico ", html)
+        self.assertIn("ejercicio borrado", dos.title)
+        self.assertNotIn(dos.pk, [e.pk for e in material_de(ficha)])
+
+    # --- C797 / Anti-A ---
+
+    def test_la_ficha_antigua_sigue_entrando_entera(self):
+        Documento = get_document_model()
+        audio = Documento(title="dictado 1")
+        audio.file.save("dictado1-112.mp3", ContentFile(b"ID3"), save=True)
+        antigua = DictadoPage(title="Dictado antiguo 112", slug="dictado-antiguo-112")
+        self.libro.add_child(instance=antigua)
+        antigua.content = [{"type": "audio", "value": {"title": "Dictado 1", "audio_file": audio.pk}}]
+        antigua = self._guardar(antigua)
+        self.assertEqual(material_de(antigua), [antigua])
+
+    # --- C799 ---
+
+    def test_el_visor_suelto_de_la_sesion_pinta_el_ejercicio(self):
+        from django.utils import timezone
+
+        from clases.models import ClassSession, ClassSessionItem, Group, Subject
+
+        ficha = self._ficha(n_tests=2)
+        _, dos = material_de(ficha)
+        asignatura, _ = Subject.objects.get_or_create(name="Música", defaults={"code": "MUS"})
+        grupo = Group.objects.create(name="1º B aud", subject=asignatura, academic_year="2026-2027")
+        sesion = ClassSession.objects.create(
+            teacher=self.profe, group=grupo, date=timezone.now().date(), title="Clase"
+        )
+        item = ClassSessionItem.objects.create(
+            session=sesion,
+            content_type=ContentType.objects.get_for_model(dos),
+            object_id=dos.pk,
+            source_page=ficha,
+        )
+        html = self._get(reverse("clases:class_session_item_viewer", args=[sesion.pk, item.pk]), self.profe)
+        self.assertIn(f'id="ej-{dos.bloque_id}"', html)
+        self.assertEqual(html.count("data-audiometrico "), 1)
+
+    def test_la_miniatura_dice_que_es_audicion(self):
+        from my_library.previsualizacion import datos_de_miniatura
+
+        ficha = self._ficha(n_tests=1)
+        (ejercicio,) = material_de(ficha)
+        self.assertEqual(datos_de_miniatura(ejercicio)["tipo"], "audicion")
+        self.assertEqual(datos_de_miniatura(ficha, "dictadopage")["tipo"], "audicion")
+
+    # --- C793 ---
+
+    @override_settings(LANGUAGE_CODE="es")
+    def test_los_cents_llegan_con_punto(self):
+        from django.template.loader import render_to_string
+        from django.utils import translation
+
+        valor = audicion.generar_audiometrico(12.5, n=2)
+        with translation.override("es"):
+            html = render_to_string("musica/partials/ejercicio_audiometrico.html", {"b": valor})
+        self.assertIn('data-cents="12.5"', html)
 
 
 class BundleTest(TestCase):

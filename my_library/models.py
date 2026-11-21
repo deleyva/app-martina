@@ -215,6 +215,7 @@ class LibraryItem(models.Model):
             "externalresource": "Enlace Externo",
             "recorte": "Recorte de PDF",
             "letraconacordes": "Letra con acordes",
+            "ejerciciodeficha": "Ejercicio de audición",
         }
         return mapping.get(model_name, model_name.title())
 
@@ -240,6 +241,7 @@ class LibraryItem(models.Model):
             "externalresource": "🔗",
             "recorte": "✂️",
             "letraconacordes": "🎤",
+            "ejerciciodeficha": "🎧",
         }
         return icons.get(model_name, "📁")
 

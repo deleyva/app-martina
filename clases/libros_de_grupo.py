@@ -72,6 +72,11 @@ def describir(objeto):
         # dónde te manda el botón antes de pulsarlo.
         return "🔗", titulo, objeto.get_proveedor_display()
 
+    if nombre == "ejerciciodeficha":
+        # Fase 112: «Tests de ¼ de tono · 3 · ¿Sube o baja?», con la distancia
+        # en el tipo para distinguir dos tests iguales de fichas distintas.
+        return objeto.describir()
+
     if nombre == "recorte":
         # Las páginas van en el tipo y no en el título: en un libro troceado
         # conviven veinte recortes del mismo PDF y sin el rango no se sabe cuál

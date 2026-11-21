@@ -137,13 +137,13 @@ when the book is a music library descendant.
 
                 {# Chapter number badge (acts as the row icon) #}
                 <div class="w-12 h-12 rounded-lg flex items-center justify-center shrink-0 bg-primary/10 text-primary font-bold text-lg">
-                    {% if chapter.es_material_entero %}🎧{% else %}{{ forloop.counter }}{% endif %}
+                    {% if chapter.es_ficha_de_audicion %}🎧{% else %}{{ forloop.counter }}{% endif %}
                 </div>
 
                 {# Content: title + intro snippet + tags #}
                 <div class="flex-1 min-w-0">
                     <div class="text-xs font-sans tracking-widest text-base-content/50 uppercase mb-1">
-                        {% if chapter.es_material_entero %}Ficha de audición{% else %}Capítulo {{ forloop.counter }}{% endif %}
+                        {% if chapter.es_ficha_de_audicion %}Ficha de audición{% else %}Capítulo {{ forloop.counter }}{% endif %}
                     </div>
                     <div class="font-bold text-lg truncate">{{ chapter.title }}</div>
                     {% if chapter.intro %}

@@ -28,6 +28,19 @@ def cents_legibles(cents):
 
 
 @register.simple_tag
+def ejercicios_a_pintar(ficha, solo=None):
+    """`[(bloque, numero)]` de la ficha, o solo el del bloque `solo` (fase 112).
+
+    Con `solo` y el bloque ya borrado devuelve una lista vacía, y el parcial lo
+    dice; nunca cae a la ficha entera, que es justo lo que no se quiere ver.
+    """
+    ejercicios = ficha.ejercicios()
+    if not solo:
+        return ejercicios
+    return [(b, n) for b, n in ejercicios if n and b.id == solo]
+
+
+@register.simple_tag
 def distancias_audicion():
     """[(clave, etiqueta)] para el selector del editor."""
     return [(clave, etiqueta_de_cents(cents)) for clave, cents, _ in DISTANCIAS]

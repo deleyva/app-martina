@@ -5,16 +5,22 @@ respuesta oculta. Es el MISMO parcial en la página de la ficha (`modo="pagina"`
 en el proyector de una sesión y en el visor de estudio (`modo="clase"`).
 
 `puede_editar` solo enciende el editor en la página: en clase no se edita.
+
+`solo` (fase 112) es el `id` de bloque de UN ejercicio: con él se pinta ese
+y ninguno más, que es lo que proyecta un elemento `EjercicioDeFicha`. La raíz
+lleva el bloque en su `id` para que dos ejercicios de la misma ficha no
+compartan raíz en la misma pantalla.
 Los bloques sueltos de las fichas antiguas (audio, respuesta) se pintan con su
 plantilla de siempre.
 {% endcomment %}
-<div id="ficha-{{ ficha.pk }}" class="fa-ficha fa-{{ modo|default:'pagina' }}" data-ficha="{{ ficha.pk }}"
+{% ejercicios_a_pintar ficha solo as lista %}
+<div id="ficha-{{ ficha.pk }}{% if solo %}-{{ solo }}{% endif %}" class="fa-ficha fa-{{ modo|default:'pagina' }}{% if solo %} fa-suelto{% endif %}" data-ficha="{{ ficha.pk }}"
      data-abcjs="{% static 'vendor/abcjs/abcjs-basic-min.js' %}"
      data-motor-midi="{% static 'js/motor_midi.js' %}"
      data-procesador-midi="{% static 'vendor/spessasynth/spessasynth_processor.min.js' %}"
      data-banco-midi="{% static 'vendor/musescore/MuseScore_General_fichas.sf3' %}">
 
-    {% if puede_editar and modo != "clase" %}
+    {% if puede_editar and modo != "clase" and not solo %}
     <div class="fa-editor">
         <form class="fa-anadir"
               method="post"
@@ -73,7 +79,8 @@ plantilla de siempre.
     {% comment %}Los audios de las fichas antiguas se pintan con WaveSurfer.{% endcomment %}
     <script src="https://unpkg.com/wavesurfer.js@7"></script>
     {% endif %}
-    {% for bloque, numero in ficha.ejercicios %}
+    {% if solo %}<p class="fa-de-la-ficha">{{ ficha.title }}</p>{% endif %}
+    {% for bloque, numero in lista %}
         {% if numero %}
         <section class="fa-ejercicio" id="ej-{{ bloque.id }}">
             <header class="fa-cabecera">
@@ -119,7 +126,11 @@ plantilla de siempre.
             {% include_block bloque %}
         {% endif %}
     {% empty %}
+        {% if solo %}
+        <p class="fa-vacia">Este ejercicio ya no está en la ficha «{{ ficha.title }}»: se borró después de meterlo en la clase.</p>
+        {% else %}
         <p class="fa-vacia">Esta ficha no tiene ejercicios todavía.</p>
+        {% endif %}
     {% endfor %}
 
 <style>
@@ -156,6 +167,10 @@ plantilla de siempre.
 .fa-flechas { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; list-style: none; padding: .75rem 0 0; margin: 0; font-size: 1.15rem; }
 .fa-flechas span { opacity: .6; font-size: .9em; margin-right: .2rem; }
 .fa-vacia { opacity: .6; }
+/* Un ejercicio suelto en el proyector (fase 112): sin marco, y la ficha de la
+   que sale encima, pequeña. */
+.fa-suelto .fa-ejercicio { border: 0; padding: 0; }
+.fa-de-la-ficha { margin: 0; font-size: .9em; opacity: .7; }
 /* En el proyector se lee desde el fondo del aula. */
 .fa-clase { font-size: 1.25rem; }
 .fa-clase .fa-par { min-width: 4rem; height: 4rem; font-size: 1.6rem; }
@@ -186,7 +201,7 @@ plantilla de siempre.
 </style>
 <script>
 (function () {
-    var raiz = document.getElementById('ficha-{{ ficha.pk }}');
+    var raiz = document.getElementById('ficha-{{ ficha.pk }}{% if solo %}-{{ solo }}{% endif %}');
     if (!raiz) return;
     // Una sola descarga de cada reproductor aunque haya varias fichas.
     function cargar(src, global) {

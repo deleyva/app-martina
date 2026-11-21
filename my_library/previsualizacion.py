@@ -76,6 +76,10 @@ def datos_de_miniatura(objeto, modelo=None):
         datos["tipo"] = "letra"
     elif clave in ("enlaces", "external_links"):
         datos["tipo"] = "enlace"
+    elif clave in ("fichas", "ejercicios"):
+        # Fase 112: la ficha de audición entera o uno de sus ejercicios. Desde
+        # la 111 la ficha caía en la caja vacía de «desconocido».
+        datos["tipo"] = "audicion"
 
     return datos
 

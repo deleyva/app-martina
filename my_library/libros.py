@@ -216,10 +216,14 @@ def material_de(capitulo):
     """
     if _es_recorte(capitulo):
         return [capitulo]
-    # Lo mismo una ficha de audición (fase 111): sus ejercicios no son medios
-    # sueltos; la ficha entera es lo que se mete en una sesión.
+    # Una ficha antigua de audición se mete entera (fase 111). Una ficha nueva
+    # aporta sus ejercicios uno a uno (fase 112): en clase se proyecta un test,
+    # no la página de diez.
     if getattr(capitulo, "es_material_entero", False):
         return [capitulo]
+    por_ejercicio = getattr(capitulo, "material_por_ejercicio", None)
+    if callable(por_ejercicio):
+        return por_ejercicio()
 
     objetos, vistos = [], set()
     fuentes = (

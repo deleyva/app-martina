@@ -288,9 +288,16 @@ class DictadoPage(Page):
         ),
     )
 
-    # Una ficha ES el material: en un libro no aporta medios sueltos, se ve
-    # entera (la pregunta la hace `my_library.libros.material_de`).
-    es_material_entero = True
+    # Lo que el índice del libro pregunta para rotularla «Ficha de audición».
+    # No es `es_material_entero`: hasta la fase 111 las dos cosas coincidían.
+    es_ficha_de_audicion = True
+
+    # Fase 112: el material de una ficha nueva son sus ejercicios, uno a uno
+    # (`material_por_ejercicio`); solo la ficha antigua de bloques sueltos se
+    # ve entera. La pregunta la hace `my_library.libros.material_de`.
+    @property
+    def es_material_entero(self):
+        return self.es_antigua
 
     # Categorías y tags para organización
     categories = ParentalManyToManyField("MusicCategory", blank=True)
@@ -324,6 +331,38 @@ class DictadoPage(Page):
         mezclan los dos estilos en una misma ficha.
         """
         return any(b.block_type not in TIPOS_DE_EJERCICIO for b in self.content)
+
+    def material_por_ejercicio(self):
+        """Un `EjercicioDeFicha` por ejercicio, en el orden de la ficha (fase 112).
+
+        Es lo que un libro ofrece a una sesión: un test o un dictado suelto, no
+        la ficha entera. Las filas se crean al pedirlas, con UNA consulta para
+        las que ya existen y un `bulk_create` para las que falten, porque esto
+        corre cada vez que se enumera el libro.
+        """
+        ids = [b.id for b, numero in self.ejercicios() if numero]
+        if not ids:
+            return []
+        existentes = {
+            e.bloque_id: e
+            for e in EjercicioDeFicha.objects.filter(ficha=self, bloque_id__in=ids)
+        }
+        faltan = [i for i in ids if i not in existentes]
+        if faltan:
+            EjercicioDeFicha.objects.bulk_create(
+                [EjercicioDeFicha(ficha=self, bloque_id=i) for i in faltan],
+                ignore_conflicts=True,
+            )
+            existentes.update(
+                {
+                    e.bloque_id: e
+                    for e in EjercicioDeFicha.objects.filter(ficha=self, bloque_id__in=faltan)
+                }
+            )
+        for e in existentes.values():
+            # La ficha ya está cargada: que cada ejercicio no la vuelva a pedir.
+            e.ficha = self
+        return [existentes[i] for i in ids if i in existentes]
 
     def ejercicios(self):
         """Los bloques en orden, con el número de ejercicio de los que lo son.
@@ -2540,6 +2579,79 @@ class LetraConAcordes(models.Model):
         self.tamano = None if tamano == self.TAMANO_DEFECTO else tamano
         self.save(update_fields=["tamano"])
         return self.tamano_inicial
+
+
+class EjercicioDeFicha(models.Model):
+    """Un ejercicio de una ficha de audición, como material de sesión (fase 112).
+
+    Un ejercicio es un bloque del StreamField de `DictadoPage`: tiene `id` de
+    bloque pero no clave primaria, y las sesiones, los libros de grupo y las
+    bibliotecas apuntan a `(content_type, object_id)`. Esto es la pk a la que
+    apuntar, igual que `LetraConAcordes` para el ChordPro.
+
+    **El ejercicio NO se copia aquí.** El visor lee siempre el bloque vivo de
+    la ficha: regenerar un test o corregir un dictado en la ficha se ve en las
+    clases que ya lo tienen. Si el bloque se borra, la fila se queda y el visor
+    dice que ese ejercicio ya no está.
+    """
+
+    ficha = models.ForeignKey(
+        "musica.DictadoPage",
+        on_delete=models.CASCADE,
+        related_name="ejercicios_sueltos",
+        verbose_name="Ficha",
+    )
+    bloque_id = models.CharField("Bloque", max_length=64)
+
+    class Meta:
+        verbose_name = "Ejercicio de una ficha"
+        verbose_name_plural = "Ejercicios de fichas"
+        constraints = [
+            models.UniqueConstraint(fields=["ficha", "bloque_id"], name="ejercicio_unico_por_ficha"),
+        ]
+
+    def bloque_y_numero(self):
+        """`(bloque, numero)` del ejercicio en la ficha de hoy, o `(None, None)`."""
+        for bloque, numero in self.ficha.ejercicios():
+            if numero and bloque.id == self.bloque_id:
+                return bloque, numero
+        return None, None
+
+    def describir(self):
+        """(icono, título, tipo legible) para las listas de la sesión y del libro."""
+        bloque, numero = self.bloque_y_numero()
+        if bloque is None:
+            return "🎧", f"{self.ficha.title} · ejercicio borrado", "Ejercicio de audición"
+        valor = bloque.value
+        if bloque.block_type == "audiometrico":
+            from musica.services.audicion import etiqueta_de_cents
+
+            nombre = valor.get("titulo") or "¿Sube o baja?"
+            try:
+                tipo = f"Test audiométrico · {etiqueta_de_cents(float(valor.get('cents')))}"
+            except (TypeError, ValueError):
+                tipo = "Test audiométrico"
+        elif bloque.block_type == "dictado_abc":
+            ritmico = valor.get("tipo") == "ritmico"
+            nombre = valor.get("titulo") or ("Dictado rítmico" if ritmico else "Dictado melódico")
+            tipo = "Dictado rítmico" if ritmico else "Dictado melódico"
+        else:
+            nombre = valor.get("titulo") or "Dictado"
+            tipo = "Dictado con imagen"
+        return "🎧", f"{self.ficha.title} · {numero} · {nombre}", tipo
+
+    @property
+    def title(self):
+        """Lo que el motor de libros y las sesiones piden a cualquier medio."""
+        return self.describir()[1]
+
+    def __str__(self):
+        return self.title
+
+    def get_url(self):
+        """La ficha, con el ejercicio a la vista."""
+        url = self.ficha.get_url()
+        return f"{url}#ej-{self.bloque_id}" if url else None
 
 
 def _ruta_de_pista(instancia, nombre_original):

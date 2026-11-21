@@ -821,6 +821,7 @@ class ClassSessionItem(models.Model):
             "enlaceexterno": "Enlace externo",
             "recorte": "Recorte de PDF",
             "letraconacordes": "Letra con acordes",
+            "ejerciciodeficha": "Ejercicio de audición",
             "pase": "Pase de preguntas",
         }
         return mapping.get(model_name, model_name.title())
@@ -849,6 +850,7 @@ class ClassSessionItem(models.Model):
             "enlaceexterno": "🔗",
             "recorte": "✂️",
             "letraconacordes": "🎤",
+            "ejerciciodeficha": "🎧",
             "pase": "❓",
         }
         return icons.get(model_name, "📁")
