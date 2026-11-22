@@ -163,3 +163,31 @@ def test_vineta_envuelta_en_varias_lineas_es_un_solo_li():
         "<p>Párrafo normal.</p>"
     )
     assert not _cruzadas(html)
+
+
+# --- Una sola lengua (2026-11-22, páginas de repaso de un pase) --------------
+
+from musica.articulos import lenguas_del_borrador  # noqa: E402
+
+
+def test_dos_lenguas_como_siempre():
+    idioma, intro, body, traducciones = lenguas_del_borrador("es i", "<p>es</p>", "en i", "<p>en</p>")
+    assert (idioma, intro, body) == ("es", "es i", "<p>es</p>")
+    assert traducciones == [{"idioma": "en", "intro": "en i", "body": "<p>en</p>"}]
+
+
+def test_solo_ingles_es_la_base_y_sin_traducciones():
+    assert lenguas_del_borrador("", "", "en i", "<p>en</p>") == ("en", "en i", "<p>en</p>", [])
+
+
+def test_solo_castellano_es_la_base_y_sin_traducciones():
+    assert lenguas_del_borrador("es i", "<p>es</p>", "", "") == ("es", "es i", "<p>es</p>", [])
+
+
+@pytest.mark.parametrize(
+    "lenguas",
+    [("", "", "", ""), ("es i", "", "en i", "<p>en</p>"), ("", "", "", "<p>en</p>")],
+)
+def test_ninguna_lengua_o_a_medias_es_un_error(lenguas):
+    with pytest.raises(ValueError):
+        lenguas_del_borrador(*lenguas)

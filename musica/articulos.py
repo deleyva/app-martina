@@ -251,6 +251,32 @@ def markdown_a_richtext(texto, resolver_imagen=None):
     return "".join(salida)
 
 
+def lenguas_del_borrador(intro_es, body_es, intro_en, body_en, idioma="es"):
+    """`(idioma, intro, body, traducciones)` para el API, según las lenguas escritas.
+
+    Con las dos, como siempre: el castellano es el texto base (con el `idioma`
+    de la cabecera) y el inglés va de traducción. Con UNA sola, esa lengua es la
+    base y no hay traducciones: la página se sirve en esa lengua a todo el
+    mundo, y al actualizar se borra la traducción que hubiera. Existe por las
+    páginas de repaso de un pase (2026-11-22): las de los grupos bilingües van
+    solo en inglés y la de un grupo de castellano, solo en castellano.
+
+    Una lengua a medias (entradilla sin cuerpo, o al revés) es un error, igual
+    que un borrador sin ninguna: `ValueError`.
+    """
+    for nombre, intro, body in (("castellano", intro_es, body_es), ("inglés", intro_en, body_en)):
+        if bool(intro) != bool(body):
+            raise ValueError(f"La versión en {nombre} está a medias: falta la entradilla o el cuerpo.")
+    hay_es, hay_en = bool(intro_es), bool(intro_en)
+    if hay_es and hay_en:
+        return idioma or "es", intro_es, body_es, [{"idioma": "en", "intro": intro_en, "body": body_en}]
+    if hay_es:
+        return "es", intro_es, body_es, []
+    if hay_en:
+        return "en", intro_en, body_en, []
+    raise ValueError("El borrador no trae ninguna lengua.")
+
+
 def partir_lengua(bloque, resolver_imagen=None):
     """(entradilla, cuerpo) de un bloque de una sola lengua."""
     apartados = re.split(r"(?m)^### ", bloque)

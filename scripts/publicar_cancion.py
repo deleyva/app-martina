@@ -41,6 +41,7 @@ from musica.articulos import (  # noqa: E402
     CABECERA_ES,
     _frontmatter,
     _seccion,
+    lenguas_del_borrador,
     partir_lengua,
 )
 
@@ -186,8 +187,14 @@ def publicar(nombre, publicar_ya=False):
     intro_en, body_en = partir_lengua(_seccion(cuerpo, CABECERA_EN), resolver)
 
     print(f"\n{datos['titulo']}  ({datos['slug']})")
-    if not (intro_es and body_es and intro_en and body_en):
-        sys.exit("  Falta alguna de las dos lenguas.")
+    # Lo normal son las dos lenguas; una sola también vale y entonces la página
+    # va solo en esa (ver `lenguas_del_borrador`).
+    try:
+        idioma, intro, body, traducciones = lenguas_del_borrador(
+            intro_es, body_es, intro_en, body_en, datos.get("idioma", "es")
+        )
+    except ValueError as error:
+        sys.exit(f"  {error}")
 
     payload = {
         "title": datos["titulo"],
@@ -195,10 +202,10 @@ def publicar(nombre, publicar_ya=False):
         # acentos y la URL viaja porcentajeada (2026-09-20).
         "slug": datos["slug"],
         "date": datos["fecha"],
-        "intro": intro_es[:250],
-        "body": body_es,
-        "idioma": datos.get("idioma", "es"),
-        "traducciones": [{"idioma": "en", "intro": intro_en[:250], "body": body_en}],
+        "intro": intro[:250],
+        "body": body,
+        "idioma": idioma,
+        "traducciones": [{**t, "intro": t["intro"][:250]} for t in traducciones],
         "tags": [t.strip() for t in datos.get("etiquetas", "").split(",") if t.strip()],
         "artist": datos.get("artista", ""),
         "songsterr_url": datos.get("songsterr_url", ""),
@@ -265,7 +272,7 @@ def publicar(nombre, publicar_ya=False):
         salida = _peticion("/api/cms/blog-pages", payload, metodo="POST")
         guardar_page_id(ruta, salida["id"])
         print(f"  Creada id {salida['id']} — /cms/pages/{salida['id']}/edit/")
-    print(f"  live: {salida['live']} · lenguas: es + {[t['idioma'] for t in salida.get('traducciones', [])]}")
+    print(f"  live: {salida['live']} · lenguas: {salida.get('idioma') or idioma} + {[t['idioma'] for t in salida.get('traducciones', [])]}")
 
 
 def main():
