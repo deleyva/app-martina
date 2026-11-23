@@ -6963,7 +6963,7 @@ Tramo 3 — micrófono y dictados con imagen
 - **Comprobado en producción, Chrome con la sesión de Jesús, sin escribir en sus sesiones:** «Por dónde va cada clase» dice para 1-G-BIL, Sensorialidad: «Entrenamiento auditivo · 0 de 20 · Siguiente: 🎧 Tests de ¼ de tono · 1 · ¿Sube o baja?» (antes eran 2 fichas enteras). La lista del libro del grupo tiene las 20 filas, cada una con 🎧, número y «Test audiométrico · ¼ de tono · 50 cents» o «⅛ de tono · 25 cents». El visor de clase de solo lectura (`/clases/medios/contenido/`, elemento sin guardar) pinta solo el test 1: un `.fa-ejercicio`, `data-cents="50.0"`, sin iframe ni editor (captura vista). Clic real en el par 2 (554 Hz, sube), `AnalyserNode` sobre la salida del reproductor: 554,0 Hz durante 3 s y luego 570,2 Hz, lo que da `Audicion.frecuencias`. El índice del libro sigue rotulando «Ficha de audición», y la ficha antigua `dictado-ritmico` da 200 con `dictado-content` y su DaisyUI 3.9.4 (Anti-A). Las filas `EjercicioDeFicha` de producción nacieron al enumerar el libro (el test 1 es el objeto 1), que es lo previsto.
 - **Lo que falta es tu oído en el aula:** proyectar un test en una clase de verdad.
 
-## Fase 113 — Traer a blogs el sitio de Google Sites del departamento de Tecnología (2026-11-23) · CONSTRUIDA Y PROBADA EN LOCAL; FALTA SUBIR, DESPLEGAR E IMPORTAR EN PRODUCCIÓN
+## Fase 113 — Traer a blogs el sitio de Google Sites del departamento de Tecnología (2026-11-23) · DESPLEGADA (`3d21bf8`), IMPORTADA Y COMPROBADA EN PRODUCCIÓN
 
 **Goal (literal de Jesús, 2026-11-23):** «los compañeros de tecnología quieren comenzar a usar blogs.iesmartinabescos.es ¿Puedes importar esto https://sites.google.com/iesmartinabescos.es/dptotecnoiesmartinabescos/inicio?pli=1&authuser=0?»
 
@@ -6980,7 +6980,7 @@ Tramo 3 — micrófono y dictados con imagen
 - [x] **C802** — Los enlaces entre páginas del sitio apuntan a los artículos nuevos. *Falsador: `test_los_enlaces_entre_paginas_apuntan_a_los_articulos`.* **Evidencia:** en Chrome local, «programaciones» y «optativas» de la portada llevan a `/tecnologia/programaciones/` y `/tecnologia/optativas-del-departamento/`.
 - [x] **C803** — La negrita de Sites (un `font-weight` en un `<span>`) no se pierde: una franja de una sola línea pasa a `h2` y un párrafo corto entero en negrita a `h3`. *Falsador: tests de `GoogleSitesPuroTest`.* **Evidencia:** 14 tests puros en verde; en local, cada materia optativa es un `h2` y «¿QUÉ ES?», «¿PARA QUÉ SIRVE?» son `h3`.
 - [x] **C804** — El editor del CMS abre los artículos importados. *Falsador: `GET /cms/pages/<id>/edit/` como superusuario.* **Evidencia:** los 7 dan 200 en local.
-- [ ] **C805** — Importado en producción y visto en `blogs.iesmartinabescos.es/tecnologia/` con un navegador real. *Pendiente del visto bueno de Jesús para subir, desplegar e importar.*
+- [x] **C805** — Importado en producción y visto en `blogs.iesmartinabescos.es/tecnologia/` con un navegador real. **Evidencia:** Chrome con la sesión de Jesús: «Siempre a mano» con los tres fijados (captura vista) y las cuatro optativas debajo; los 15 enlaces de Programaciones dan 200 y empiezan por `%PDF-` (11.309.652 bytes entre todos); 0 enlaces o imágenes de Google en Programaciones y en las cuatro optativas; el logotipo da 200 `image/png`.
 
 ### Anti-claims
 
@@ -7001,3 +7001,6 @@ Tramo 3 — micrófono y dictados con imagen
 - **El sitio de blogs en local no respondía:** la copia de la base trae los `Site` de producción. Puesto `127.0.0.1:8000` en el de blogs, solo en local.
 - **Para Jesús o el departamento:** en la portada original, el correo que acompaña a uno de los profesores es el de otra persona (el usuario no casa con el nombre). Se ha importado tal cual (Anti-C).
 - **Sin segunda mirada independiente, a propósito:** el comando solo crea artículos bajo un departamento que ya existe, en una transacción, y lo que publica ya es público en el sitio de Google.
+- **2026-11-23 — Desplegada e importada.** Jesús: «adelante». Antes: `main` al día con el remoto (4 por delante, 0 por detrás) y copia `production_backup_2026_11_23T11_09_23.sql.gz`. Push `51db71a..3d21bf8` (lleva también `3be82ce`, el Publicador con una sola lengua) y `just deploy-production`, sin migraciones. Ensayo en producción: 7 se crearían, 0 saltados. Importación: 7 artículos publicados, 1 imagen, 15 archivos de Drive, ningún fallo en el informe.
+- **`just production-manage` no sirve para argumentos con espacios o paréntesis** (`{{args}}` pierde las comillas): el comando se mandó como guion por `ssh … 'bash -s'`, con `-T` y `</dev/null` en el `docker compose run`.
+- **Queda para el departamento:** el artículo de Blogspot que redirige al sitio de Google sigue publicado (Anti-A), y el correo que no casa en el listado de profesorado.
