@@ -6962,3 +6962,42 @@ Tramo 3 — micrófono y dictados con imagen
 - **2026-11-22 — Desplegada (`51db71a`).** Jesús: «despliega». Antes: `main` al día con el remoto (3 por delante, 0 por detrás); ningún estático cambia respecto al despliegue del 19-nov (`git diff --name-only origin/main..HEAD` sin `static/`), así que el ensayo de `collectstatic` de entonces vale; en lo que sale al repo público, 0 IP, correos o rutas privadas; el VPS con ~1,4 GB disponibles y la swap de 4 GB sin usar antes del `build`. Sin copia previa de la base, a propósito: la migración solo crea una tabla y se deshace con `migrate musica 0014`, y `production-backup-db` borra copias antiguas al rotar. Push `098796e..51db71a`; `just deploy-production`: 290 estáticos copiados y 838 post-procesados (los mismos que el 19-nov) y `Applying musica.0015_fase_112... OK`; el servidor en `51db71a`.
 - **Comprobado en producción, Chrome con la sesión de Jesús, sin escribir en sus sesiones:** «Por dónde va cada clase» dice para 1-G-BIL, Sensorialidad: «Entrenamiento auditivo · 0 de 20 · Siguiente: 🎧 Tests de ¼ de tono · 1 · ¿Sube o baja?» (antes eran 2 fichas enteras). La lista del libro del grupo tiene las 20 filas, cada una con 🎧, número y «Test audiométrico · ¼ de tono · 50 cents» o «⅛ de tono · 25 cents». El visor de clase de solo lectura (`/clases/medios/contenido/`, elemento sin guardar) pinta solo el test 1: un `.fa-ejercicio`, `data-cents="50.0"`, sin iframe ni editor (captura vista). Clic real en el par 2 (554 Hz, sube), `AnalyserNode` sobre la salida del reproductor: 554,0 Hz durante 3 s y luego 570,2 Hz, lo que da `Audicion.frecuencias`. El índice del libro sigue rotulando «Ficha de audición», y la ficha antigua `dictado-ritmico` da 200 con `dictado-content` y su DaisyUI 3.9.4 (Anti-A). Las filas `EjercicioDeFicha` de producción nacieron al enumerar el libro (el test 1 es el objeto 1), que es lo previsto.
 - **Lo que falta es tu oído en el aula:** proyectar un test en una clase de verdad.
+
+## Fase 113 — Traer a blogs el sitio de Google Sites del departamento de Tecnología (2026-11-23) · CONSTRUIDA Y PROBADA EN LOCAL; FALTA SUBIR, DESPLEGAR E IMPORTAR EN PRODUCCIÓN
+
+**Goal (literal de Jesús, 2026-11-23):** «los compañeros de tecnología quieren comenzar a usar blogs.iesmartinabescos.es ¿Puedes importar esto https://sites.google.com/iesmartinabescos.es/dptotecnoiesmartinabescos/inicio?pli=1&authuser=0?»
+
+**Qué había.** El sitio de Google tiene 7 páginas públicas: portada (bienvenida y profesorado con materias y horas de atención), programaciones (15 PDF enlazados en Drive), un índice de cursos y cuatro páginas de optativas (3º y 4º de ESO, 1º y 2º de Bachillerato). En blogs, Tecnología tenía un único artículo, traído de Blogspot, que dice «aquí te redirigimos a la web del departamento»: o sea, a ese sitio.
+
+**Vision.** Quien entra en `blogs.…/tecnologia/` encuentra lo mismo que en el sitio de Google, con las programaciones servidas desde aquí, y el departamento puede seguir escribiendo desde el CMS sin deber nada a Google Sites.
+
+**Decisión de forma.** Google Sites no tiene feed ni exportación, así que se lee su HTML. Es un comando nuevo, `import_google_sites`, y no siete artículos hechos a mano, porque hereda de `import_blogspot` las descargas de Drive, las imágenes y la limpieza, y porque puede haber más departamentos con sitio. La parte pura va en `blogs/google_sites.py`.
+
+### Claims
+
+- [x] **C800** — Cada página del sitio es un artículo del departamento, reconocible por `source_url`; relanzar no duplica. *Falsador: `test_cada_pagina_del_sitio_es_un_articulo_publicado`, `test_relanzar_no_duplica`.* **Evidencia:** en verde; en local, 7 creados y 0 saltados.
+- [x] **C801** — Los PDF de Drive quedan como documentos nuestros, en la colección del departamento (`Blogs > Tecnología`), y el texto enlaza a la copia. *Falsador: test del documento; en el navegador, ningún enlace a Google en la página y el primer PDF se descarga.* **Evidencia:** 15 documentos en la colección «Tecnología», los 15 empiezan por `%PDF-`; en Chrome local la página de programaciones tiene 15 enlaces a `/documents/`, el primero da 200 `application/pdf` (699.638 bytes) y hay 0 enlaces o imágenes de Google.
+- [x] **C802** — Los enlaces entre páginas del sitio apuntan a los artículos nuevos. *Falsador: `test_los_enlaces_entre_paginas_apuntan_a_los_articulos`.* **Evidencia:** en Chrome local, «programaciones» y «optativas» de la portada llevan a `/tecnologia/programaciones/` y `/tecnologia/optativas-del-departamento/`.
+- [x] **C803** — La negrita de Sites (un `font-weight` en un `<span>`) no se pierde: una franja de una sola línea pasa a `h2` y un párrafo corto entero en negrita a `h3`. *Falsador: tests de `GoogleSitesPuroTest`.* **Evidencia:** 14 tests puros en verde; en local, cada materia optativa es un `h2` y «¿QUÉ ES?», «¿PARA QUÉ SIRVE?» son `h3`.
+- [x] **C804** — El editor del CMS abre los artículos importados. *Falsador: `GET /cms/pages/<id>/edit/` como superusuario.* **Evidencia:** los 7 dan 200 en local.
+- [ ] **C805** — Importado en producción y visto en `blogs.iesmartinabescos.es/tecnologia/` con un navegador real. *Pendiente del visto bueno de Jesús para subir, desplegar e importar.*
+
+### Anti-claims
+
+- **Anti-A** — No se toca ni se borra ningún artículo existente, tampoco el de Blogspot que redirige al sitio de Google.
+- **Anti-B** — No se usa la cuenta de Google de nadie: si un fichero pidiera sesión, se dice y se deja el enlace.
+- **Anti-C** — No se corrige ni se resume el contenido del profesorado: entra lo que escribieron.
+
+### Fuera de alcance
+
+- Cerrar o redirigir el sitio de Google: es del departamento.
+- Portada o logotipo del departamento en `BlogIndexPage.cover_image`.
+
+### Log
+- **2026-11-23 — Construido y probado en local.** Ficheros: `blogs/google_sites.py`, `blogs/management/commands/import_google_sites.py`, `blogs/tests/test_google_sites.py` (23 tests). Suite de `blogs`: 165 en verde. Sin migraciones.
+- **Tres defectos vistos en la primera importación local y corregidos:** el título «CURSO 2026/27» salía «202 6 /2 7» (Sites parte la palabra en varios `<span>` y se unían con espacio); una dirección de correo salía con tres negritas seguidas; y «¡Estaremos encantados de orientarte!» salía como subtítulo. Los tres tienen test.
+- **Un enlace interno a una página borrada no para la importación:** el 404 se avisa y se sigue. Salió al escribir el test del enlace a una página no importada.
+- **Títulos y direcciones.** Las páginas del sitio se llaman «Departamento de Tecnología», «Cursos», «3º de ESO»…, que fuera de su menú no dicen nada. Se importan con `--titulo`: «Profesorado del departamento (curso 2026/27)», «Optativas del departamento», «Optativas de 3º de ESO»… y la dirección sale del título. Fijadas en «Siempre a mano»: profesorado, programaciones y optativas del departamento.
+- **El sitio de blogs en local no respondía:** la copia de la base trae los `Site` de producción. Puesto `127.0.0.1:8000` en el de blogs, solo en local.
+- **Para Jesús o el departamento:** en la portada original, el correo que acompaña a uno de los profesores es el de otra persona (el usuario no casa con el nombre). Se ha importado tal cual (Anti-C).
+- **Sin segunda mirada independiente, a propósito:** el comando solo crea artículos bajo un departamento que ya existe, en una transacción, y lo que publica ya es público en el sitio de Google.
