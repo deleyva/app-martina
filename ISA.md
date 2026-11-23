@@ -1,10 +1,10 @@
 ---
 slug: app-martina
-phase: complete
+phase: build
 progress: true
-iteration: 74
+iteration: 75
 principal_stated_goal: "Yo solo quiero añadir evidencias tal cual están diseñadas en la aplicación de Notas. Por favor, copiala. Usa en vez de HTMLX, usa, en fin, haz lo que sea, pero que sea igual visualmente. Me gusta mucho esa forma de calificar, esa aplicación que hicimos."
-updated: 2026-11-19
+updated: 2026-11-23
 ---
 
 # ISA — app-martina · Sistema de estudio de la biblioteca
@@ -7004,3 +7004,59 @@ Tramo 3 — micrófono y dictados con imagen
 - **2026-11-23 — Desplegada e importada.** Jesús: «adelante». Antes: `main` al día con el remoto (4 por delante, 0 por detrás) y copia `production_backup_2026_11_23T11_09_23.sql.gz`. Push `51db71a..3d21bf8` (lleva también `3be82ce`, el Publicador con una sola lengua) y `just deploy-production`, sin migraciones. Ensayo en producción: 7 se crearían, 0 saltados. Importación: 7 artículos publicados, 1 imagen, 15 archivos de Drive, ningún fallo en el informe.
 - **`just production-manage` no sirve para argumentos con espacios o paréntesis** (`{{args}}` pierde las comillas): el comando se mandó como guion por `ssh … 'bash -s'`, con `-T` y `</dev/null` en el `docker compose run`.
 - **Queda para el departamento:** el artículo de Blogspot que redirige al sitio de Google sigue publicado (Anti-A), y el correo que no casa en el listado de profesorado.
+
+## Fase 114 — El patrón de piano, escrito en partitura y guardado en grados (2026-11-23) · EN CONSTRUCCIÓN, EN LOCAL
+
+**Goal (literal de Jesús, 2026-11-23):** «ok! Adelante, aunque más adelante sí querré mostrar patrones de piano bien mostrados». Contesta a la recomendación de ese día para el libro de piano por progresiones (punto 6 de «Lo siguiente»): pintar la partitura con abcjs, que ya está en la app, y construir lo único que faltaba, «un bloque que enseñe la partitura».
+
+**Contexto.** Los tres tipos de ejercicio de una ficha (fase 111) son de audición: la partitura es la respuesta y va escondida. Las canciones llevan desde la fase 80 las dos manos del piano en la rejilla de ritmos (`MD`, `MI`), pero como golpes: dicen cuándo toca cada mano y no qué notas. No hay ningún sitio de la app donde se lea, escrito en pentagrama, qué toca cada mano sobre una progresión.
+
+**Vision.** En la ficha «I – V» del libro de piano pulso «＋ Patrón de piano», escribo `I V V I`, elijo «Bajo y acorde» y Do mayor, y aparece la partitura a dos pentagramas, con el cifrado encima y los grados debajo. Quien la mira la pasa a Sol mayor y se reescribe sola; pulsa ▶ y suena en bucle con su claqueta, y puede dejar sola una mano para estudiar la otra. En clase proyecto ese patrón, uno, en grande.
+
+**Decisiones de diseño (mías; Jesús no las ha revisado):**
+- **Es un cuarto tipo de ejercicio de la ficha, no una página nueva.** Así hereda lo que ya está probado: el editor en la propia página y su permiso (fase 111), el ejercicio suelto en la sesión y en el proyector (fase 112) y la biblioteca de estudio.
+- **Se guardan cuatro datos y ninguna nota:** la progresión en grados, el patrón (un identificador), la tonalidad y el tempo. Las notas, el cifrado y el ABC se calculan al pintar. Por eso transportar es cambiar un dato, y el día que se quiera otro pintor (ver «Fuera de alcance») no hay que volver a escribir nada.
+- **El catálogo de patrones y tonalidades es un solo fichero JSON** (`musica/patrones_piano.json`) que leen el servidor (opciones y validación) y el navegador (las notas). Añadir un patrón es añadir una entrada y reconstruir el bundle.
+- **Primer corte, a propósito estrecho:** 4/4, un acorde por compás, tríadas de la escala mayor (I ii iii IV V vi vii°) y las doce tonalidades mayores.
+- **Las voces:** la primera tríada va en estado fundamental junto al do central; cada acorde siguiente, en la inversión que menos mueve la mano. La izquierda toca la fundamental entre fa2 y mi3.
+- **Suena por el motor de las fichas** (`motor_midi.js` con el banco recortado de MuseScore), cada mano en su canal para poder apagar una. `dictado.js` solo gana lo imprescindible para compartir ese motor: `aMidi` acepta más de un canal con timbre, y `window.Dictado` enseña `elMotor` y el turno de quién suena.
+
+### Claims
+
+El dato y las notas
+- [ ] **C806** — De `{grados, patrón, tonalidad}` salen las notas de las dos manos: I–V en Do mayor da do4-mi4-sol4 → si3-re4-sol4, y en las doce tonalidades cada nota lleva la letra y la alteración que le tocan por la armadura. *Falsador: `bun test patron_piano.test.js`.*
+- [ ] **C807** — Cada patrón del catálogo llena el compás exacto en las dos manos, y el servidor y el navegador leen el mismo catálogo. *Falsador: bun:test sobre el JSON (8 corcheas por mano, identificadores únicos) + pytest (las opciones del servidor salen de ese fichero).*
+- [ ] **C808** — El ABC generado tiene dos pentagramas (sol y fa), el cifrado encima y los grados debajo, y el abcjs de `static/vendor` lo lee sin avisos en todos los patrones y tonalidades. *Falsador: bun:test con `parseOnly` (0 avisos, 2 voces, tantos compases como grados).*
+- [ ] **C809** — La progresión se escribe como texto (`I V V I`, `I – vi – IV – V` o `1 5 5 1`) y se guarda normalizada; lo que no es una tríada de la escala mayor se rechaza diciendo cuál y por qué, y no se guarda nada a medias. *Falsador: pytest.*
+
+La ficha
+- [ ] **C810** — Solo quien puede editar la página añade o cambia un patrón desde la web, y cada cambio deja una revisión. *Falsador: pytest (alumna y anónimo → 403 y nada cambia; +1 revisión).*
+- [ ] **C811** — En la página la partitura se ve sin desplegar nada, y cambiar la tonalidad la reescribe sin recargar ni guardar. *Falsador: Chrome local, capturas vistas en dos tonalidades.*
+- [ ] **C812** — ▶ suena con el piano del banco de las fichas, en bucle y sin hueco entre vueltas, con la claqueta de los dictados, y deja sola una mano. *Falsador: Chrome local con clic real y `AnalyserNode` (hay señal; con la derecha apagada, lo que suena es el bajo).*
+- [ ] **C813** — El compás que está sonando se distingue en la partitura. *Falsador: Chrome local, la marca cambia de compás con el tiempo; captura vista.*
+- [ ] **C814** — En un móvil de 390 px la página no se desplaza de lado y la partitura parte a dos compases por línea. *Falsador: Chrome local en un marco de 390×844 (`scrollWidth` = 390), captura vista.*
+- [ ] **C815** — En el proyector y en el visor de estudio un patrón se pinta solo, sin editor, y se lee sobre fondo oscuro. *Falsador: pytest de `render_item_content` + Chrome local en la presentación de una sesión, captura vista.*
+- [ ] **C816** — En las listas de la sesión, del libro y de la biblioteca el patrón sale con su nombre y como «Patrón de piano», no como ejercicio de audición; y el índice del libro no llama «de audición» a una ficha que solo tiene patrones. *Falsador: pytest.*
+
+El despliegue que vendrá
+- [ ] **C817** — La migración solo cambia la definición del StreamField de la ficha. *Falsador: el fichero de la migración + aplicada en local.*
+- [ ] **C818** — Los bundles `patron_piano.js` y `dictado.js` están al día con sus fuentes y sin `sourceMappingURL`, y `collectstatic` de producción los admite. *Falsador: reconstruir y comparar; ensayo de `collectstatic` con el almacenamiento con manifiesto.*
+- [ ] **C819** — A Jesús le suena bien el piano en el registro grave. `[DEFERRED-VERIFY]` Es su oído: el banco de las fichas lleva el piano de fa3 a la5, y por debajo transporta la muestra más grave.
+- [ ] **C820** — Un capítulo probado con una clase. `[DEFERRED-VERIFY]` Depende de la progresión y las tres canciones que elija Jesús (punto 6 de la cola).
+
+### Anti-claims
+
+- **Anti-A** — Los dictados y los tests audiométricos no cambian: con un solo canal, `aMidi` da los mismos bytes que antes, y un dictado sigue sonando en Chrome con el bundle reconstruido.
+- **Anti-B** — Nada de Hooktheory entra en el repo: ni datos, ni código, ni iconos.
+- **Anti-C** — Ni push, ni despliegue, ni contenido en producción hasta que Jesús lo diga.
+- **Anti-D** — Ninguna librería nueva: ni OpenSheetMusicDisplay ni otra.
+- **Anti-E** — En cada commit entran solo los ficheros de la fase.
+
+### Fuera de alcance
+
+- Modo menor, séptimas, dominantes secundarias, compases que no sean 4/4 y más de un acorde por compás.
+- Patrones escritos por el profesor desde la web: el catálogo va en el repo. Tampoco sacar la partitura de las filas `MD` y `MI` de la rejilla de ritmos (fase 80), que sería el puente natural entre las dos.
+- Un ritmo de batería suelto dentro de la ficha: hoy el ritmo va en cada canción.
+- **El «bien mostrados» de después** (literal de Jesús): otro pintor de partitura, un teclado que enseñe qué teclas pisa cada mano o la banda de grados. Los datos de esta fase no dependen de abcjs, así que cualquiera de los tres se añade sin tocar lo guardado.
+- El capítulo en producción y sus canciones.
+- **2026-11-23 — El artículo de Blogspot que redirigía al sitio de Google, despublicado** (página 491, queda como borrador), a petición de Jesús: «Despublica el artículo desactualizado, dejándolo como borrador». Sustituye a Anti-A para esa página. En Chrome: el departamento lista 7 artículos, el antiguo no sale y su dirección da 404. Borrador de respuesta al jefe del departamento en el Gmail de Jesús, sin enviar.
