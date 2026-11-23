@@ -137,14 +137,51 @@ No hay fase 79.
      en papel con un grupo de 1º o 3º. Los modelos y funciones citados
      siguen existiendo (comprobado con `rg` el 1-nov).
 
-6. **Menores, para un hueco:** un marco de calificación propio para 3º bilingüe
+6. **Libro de piano por progresiones armónicas: capítulo de prueba** (añadida
+   el 2026-11-23 a petición de Jesús). Un libro que avance por progresiones,
+   como el piano complementario de Emilio Molina, y que de cada una cuelguen
+   canciones, patrones de acompañamiento, ritmos de batería, inversiones y
+   voicings. Primero piano (4º); el de ukelele vendría después. Antes de
+   construir nada se prueba un capítulo con una clase:
+   - **Qué lleva:** una progresión (I–V), tres canciones del repertorio que
+     la usen, un patrón de acompañamiento de piano y uno de batería. Es un
+     libro de los de siempre, que se pueda fijar como objetivo (fase 11).
+   - **Reutiliza:** `repertorio/progresiones.py` (las familias de progresión,
+     ya plegadas por giros), el ChordPro con diagramas de piano, los patrones
+     de batería (fase 75), las bases desde la ficha (fase 83) y, para la
+     partitura, el camino de los dictados (fase 111): abcjs la pinta y
+     SpessaSynth la hace sonar. Hoy el ABC solo entra como dictado
+     (`DictadoAbcBlock`), donde la partitura es la respuesta; hace falta un
+     bloque que la enseñe.
+   - **El patrón se guarda en grados, no en notas:** progresión
+     (`[1, 5, 5, 1]`), patrón y tonalidad. De ahí salen las notas, con cada
+     acorde en la inversión que menos mueve la mano, y el ABC. Probado el
+     2026-11-23 fuera del repo, con tests: el mismo dato da Do–Mi–Sol →
+     Si–Re–Sol en Do mayor y sale bien escrito en Sol, Re, Fa y Si bemol.
+   - **Motor de partitura, probado ese día con el mismo patrón:** abcjs 6.7.2
+     y alphaTab 1.8.4 (los dos ya en `static/vendor`) y OpenSheetMusicDisplay
+     2.3.1, que es el motor del visor de musicxml.tools. Para patrones
+     generados basta abcjs: 303 caracteres de ABC frente a 7.973 de MusicXML,
+     y el sonido ya está hecho. OSMD es el que mejor pinta un MusicXML, pero
+     son 1,48 MB más y no suena (su reproductor es solo para patrocinadores):
+     compensa si algún día entran partituras enteras exportadas de un editor.
+     alphaTab lee MusicXML, pero pinta en gris la mano izquierda cuando su
+     voz no es la 1.
+   - **Después, si el capítulo funciona en clase:** una banda de grados
+     (barras de color por grado y los números romanos debajo, como la de
+     Hooktheory) pintada desde los mismos datos. Sin datos ni código suyos:
+     sus condiciones prohíben copiar o redistribuir la base de TheoryTab.
+   - **Por decidir antes de abrir la fase:** qué progresión abre el libro y
+     con qué tres canciones.
+
+7. **Menores, para un hueco:** un marco de calificación propio para 3º bilingüe
    (hoy recibe la plantilla de 3º, fase 60) · las columnas Cuaderno, Nota y
    Calif. no caben a 1456 px (fase 59) · notación de los ritmos con alphaTab
    (fase 75) · añadir material suelto al índice sigue siendo de uno en uno ·
    atajo de teclado para encajar la imagen, después de arreglar los `keydown`
    (ver la deuda).
 
-7. **Mirar con datos de uso, no construir todavía:** si elegir un libro deja
+8. **Mirar con datos de uso, no construir todavía:** si elegir un libro deja
    vencer el repaso de los demás (fase 19) · si el techo de 90 días de FSRS
    es mucho o poco para una destreza (fase 91) · si el tope por capítulo basta
    (CAGED, fase 30·1).
