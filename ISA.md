@@ -7187,7 +7187,7 @@ Producción
 
 ---
 
-## Fase 116 — SB+ = 10, una letra más por encima del SB (2026-11-24) · CONSTRUIDA Y PROBADA EN LOCAL, SIN DESPLEGAR; FALTAN EL «DESPLIEGA» DE JESÚS Y PONER LOS 35 SB+ DE HOY (C843)
+## Fase 116 — SB+ = 10, una letra más por encima del SB (2026-11-24) · DESPLEGADA (`aecf5b3`) Y COMPROBADA EN PRODUCCIÓN; LOS 35 SB+ PUESTOS; FALTA VER EL BOTÓN EN LOS PANELES DE CLASE (C842)
 
 **Lo que pidió Jesús, literal:** «Quiero que añadas otra nota posible a poner, sería SB+ que equivaldría a un 10. y quiero que se la pongas en Sensorialidad y Dictado melódico en el primer trimestre a todos los que he evaluado hoy esos items, tienen archivo adjunto y no les he puesto nota».
 
@@ -7199,7 +7199,7 @@ Mismo molde que NT+ (fase 97): la letra entra en `ESCALA` y en `LETRAS`, y de ah
 - [x] **C840** — Una casilla que se calcula (cuaderno, teoría) es SB+ solo con media 10 justa; con 9,99 es SB; el boletín sigue con sus cinco letras. *Falsador: `test_letra_de_media_da_sb_mas_solo_con_un_diez`.* **Evidencia:** pasa. Consecuencia: un test de teoría perfecto se lee SB+ en el detalle (`test_teoria` actualizado).
 - [x] **C841** — La migración `0009_sb_mas` pone SB+ delante en los instrumentos que califican exactamente con SB · NT+ · NT · BI · SU · IN y no toca ninguna nota ni los de otra escala. *Falsador: contar las escalas tras migrar.* **Evidencia:** en local, 45 instrumentos con las siete letras y los 3 de «Sin cuaderno…Muy bien» igual que estaban; `makemigrations --check` no detecta cambios.
 - [ ] **C842** — El botón SB+ se ve y se marca en el panel de evaluar y en el del cuaderno. *Falsador: abrir los dos paneles en el navegador.* **[DEFERRED-VERIFY]** Los botones salen de `LETRAS` y el color está puesto, pero no llegué a abrir ninguno de los dos paneles en local (la sesión 217 no tenía nada evaluable a mano). Se mira en la primera clase o con una sesión de prueba.
-- [ ] **C843** — En producción, los 35 huecos de hoy (foto subida el 24-nov en Sensorialidad o Dictado melódico de la 1ª evaluación, celda sin nota) tienen SB+: 16 en 3-EG-BIL, 14 en 3-FH y 5 en 4-AC-BIL. *Falsador: releer `estado/` de los tres grupos y contar.* Pendiente del despliegue: sin la 0009 el instrumento no admite un 10.
+- [x] **C843** — En producción, los 35 huecos de hoy (foto subida el 24-nov en Sensorialidad o Dictado melódico de la 1ª evaluación, celda sin nota) tienen SB+: 16 en 3-EG-BIL, 14 en 3-FH y 5 en 4-AC-BIL. *Falsador: releer `estado/` de los tres grupos y contar.* **Evidencia:** 35 de 35 guardados por `nota/` con la sesión de Jesús (cada uno devolvió etiqueta «SB+»); al releer `estado/`, de las celdas con foto de hoy no queda ninguna vacía y hay 16 · 14 · 5 SB+; el registro de 3-EG-BIL los enseña en verde (captura vista).
 
 ### Anti-claims
 
@@ -7210,4 +7210,4 @@ Mismo molde que NT+ (fase 97): la letra entra en `ESCALA` y en `LETRAS`, y de ah
 
 - **2026-11-24 — Construida.** `models.py` (`LETRAS`), `plantillas.py` (`ESCALA`), `calculo.letra_de_media`, comentarios de `evaluar.py`, texto del botón y del mensaje de «Calificar todo», color de SB+ en los dos paneles, migración `0009_sb_mas`. `entrada.js` no cambia: el desempate por raíz de la fase 97 ya resuelve SB frente a SB+, así que el bundle no se reconstruye. Tests: `calificaciones`, `preguntas` y `clases` **784 passed**; frontend 23 pass.
 - **Cómo se leyó producción.** La consulta directa a la base la denegó el clasificador de permisos; se leyó `calificaciones/grupo/<id>/estado/` con la sesión de Jesús en Chrome. De las 96 evidencias de hoy, todas en esos dos instrumentos, 59 celdas tienen ya nota (22 SB, 17 NT+, 13 NT, 5 BI, 1 SU, 1 IN) y 35 no.
-- **Sin push ni despliegue.** Lleva migración (0009, de datos: añade una opción a los instrumentos). En `main` están también los commits de la fase 115, que salen con el mismo despliegue.
+- **2026-11-24, noche — Desplegada con el «Despliega y pon los 35» de Jesús.** Push de `aecf5b3` y `just deploy-production`; aplicó `calificaciones.0009_sb_mas`. Los diez instrumentos de Sensorialidad y Dictado melódico de la 1ª evaluación empiezan ya por SB+ = 10. El mismo despliegue se llevó la fase 115, que estaba en `main`.
