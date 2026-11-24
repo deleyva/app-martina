@@ -7,11 +7,13 @@ import {
   INTENSIDAD,
   MAX_VUELTAS,
   MINUTOS_DE_BUCLE,
+  MODOS,
   PATRONES,
   REGISTRO,
   TONALIDADES,
   abc,
   bajo,
+  cifrado,
   compasQueSuena,
   compases,
   defectoDelPatron,
@@ -22,6 +24,7 @@ import {
   patron,
   planPatron,
   quinta,
+  sufijoDe,
   tonalidad,
   voces,
 } from "./patron_piano.js";
@@ -33,7 +36,10 @@ const SEMITONOS = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 const midiDe = (n) => 12 * (n.octava + 1) + SEMITONOS[n.letra] + n.alter;
 const nombres = (ns) => ns.map(nombreDeNota).join(" ");
 const PROGRESIONES = [[1, 5, 5, 1], [1, 4, 5, 1], [1, 6, 4, 5], [1, 5, 6, 4], [1, 2, 3, 4, 5, 6, 7, 1]];
+// Las 24: las doce mayores y sus relativas menores (fase 115).
 const todas = TONALIDADES.map((x) => tonalidad(x.id));
+const mayores = todas.filter((t) => t.modo === "mayor");
+const menores = todas.filter((t) => t.modo === "menor");
 
 describe("el catálogo", () => {
   test("ningún patrón tiene defecto: cada mano llena el compás con figuras que se escriben", () => {
@@ -50,16 +56,26 @@ describe("el catálogo", () => {
     expect(defectoDelPatron({ id: "x", derecha: [["acorde", 8]] })).toContain("le falta la mano izquierda");
   });
 
-  test("las doce tonalidades mayores, sin repetir ninguna", () => {
-    expect(TONALIDADES.length).toBe(12);
-    expect(new Set(todas.map((t) => t.semitono)).size).toBe(12);
+  test("doce tonalidades mayores y sus doce relativas menores, sin repetir ninguna", () => {
+    expect(TONALIDADES.length).toBe(24);
+    expect(new Set(TONALIDADES.map((t) => t.id)).size).toBe(24);
+    for (const grupo of [mayores, menores]) {
+      expect(grupo.length).toBe(12);
+      expect(new Set(grupo.map((t) => t.semitono)).size).toBe(12);
+    }
+    // Cada menor ocupa en su grupo el sitio de su relativa mayor, y su tónica
+    // está una tercera menor por debajo: la de Re mayor es Si menor.
+    mayores.forEach((M, i) => expect([M.id, (M.semitono + 9) % 12]).toEqual([M.id, menores[i].semitono]));
+    expect([tonalidad("D").nombre, menores[mayores.findIndex((M) => M.id === "D")].nombre]).toEqual(["Re mayor", "Si menor"]);
+    // Primero las mayores: el desplegable no las mezcla.
+    expect(todas.map((t) => t.modo).join(" ")).toBe([...Array(12).fill("mayor"), ...Array(12).fill("menor")].join(" "));
     expect(() => tonalidad("H")).toThrow("Tonalidad desconocida");
     expect(() => patron("vals")).toThrow("Patrón desconocido");
   });
 });
 
 describe("las notas", () => {
-  test("letra, alteración y octava dan siempre el MIDI de la nota, en las doce tonalidades", () => {
+  test("letra, alteración y octava dan siempre el MIDI de la nota, en las veinticuatro tonalidades", () => {
     for (const t of todas) {
       for (let paso = -21; paso <= 21; paso++) {
         const n = nota(t, paso);
@@ -73,7 +89,12 @@ describe("las notas", () => {
   });
 
   test("cada tonalidad lleva las alteraciones de su armadura y ninguna más", () => {
-    const esperado = { C: 0, G: 1, F: -1, D: 2, Bb: -2, A: 3, Eb: -3, E: 4, Ab: -4, B: 5, Db: -5, "F#": 6 };
+    const esperado = {
+      ...{ C: 0, G: 1, F: -1, D: 2, Bb: -2, A: 3, Eb: -3, E: 4, Ab: -4, B: 5, Db: -5, "F#": 6 },
+      // Las menores, con la armadura de su relativa: Si menor, los dos sostenidos de Re mayor.
+      ...{ Am: 0, Em: 1, Dm: -1, Bm: 2, Gm: -2, "F#m": 3, Cm: -3, "C#m": 4, Fm: -4, "G#m": 5, Bbm: -5, "D#m": 6 },
+    };
+    expect(Object.keys(esperado).length).toBe(todas.length);
     for (const t of todas) {
       const alteraciones = [0, 1, 2, 3, 4, 5, 6].map((p) => nota(t, p).alter);
       const suma = alteraciones.reduce((a, b) => a + b, 0);
@@ -152,6 +173,129 @@ describe("las notas", () => {
   test("un grado que no existe no se inventa", () => {
     expect(() => voces(tonalidad("C"), [1, 8])).toThrow("Grado desconocido");
     expect(() => voces(tonalidad("C"), [0])).toThrow("Grado desconocido");
+  });
+});
+
+describe("el modo menor", () => {
+  // El tipo de una tríada, medido en sus notas: la tercera y la quinta sobre la fundamental.
+  const tipoPorNotas = (t, g) => {
+    const [f, tercera, quinta] = [0, 2, 4].map((d) => nota(t, g - 1 + d).midi);
+    return { "4,7": "mayor", "3,7": "menor", "3,6": "disminuida" }[[tercera - f, quinta - f].join(",")] || "otra";
+  };
+  const tipoPorRomano = (romano) => ({ "": "mayor", m: "menor", dim: "disminuida" })[sufijoDe(romano)];
+
+  test("cada grado se escribe como la tríada que sale de sus notas, en los dos modos y en las 24 tonalidades", () => {
+    expect(MODOS.mayor.grados).toEqual(["I", "ii", "iii", "IV", "V", "vi", "vii°"]);
+    expect(MODOS.menor.grados).toEqual(["i", "ii°", "III", "iv", "v", "VI", "VII"]);
+    for (const modo of Object.values(MODOS)) {
+      expect(modo.escala.length).toBe(7);
+      expect(modo.escala[0]).toBe(0);
+      expect(modo.grados.length).toBe(7);
+    }
+    for (const t of todas) {
+      for (let g = 1; g <= 7; g++) {
+        expect([t.id, g, tipoPorRomano(t.romanos[g - 1])]).toEqual([t.id, g, tipoPorNotas(t, g)]);
+        expect(cifrado(t, g).romano).toBe(MODOS[t.modo].grados[g - 1]);
+      }
+    }
+  });
+
+  test("el falsador distingue: el quinto grado de si menor es menor, y «V» diría mayor", () => {
+    const si = tonalidad("Bm");
+    expect(tipoPorNotas(si, 5)).toBe("menor");
+    expect(tipoPorNotas(si, 2)).toBe("disminuida");
+    expect(tipoPorNotas(si, 3)).toBe("mayor");
+    expect([tipoPorRomano("V"), tipoPorRomano("v"), tipoPorRomano("ii°")]).toEqual(["mayor", "menor", "disminuida"]);
+    expect(() => tonalidad("Bm") && MODOS.dorico.escala).toThrow();
+  });
+
+  test("Levitating: I–V–IV–I en si menor son Bm, F♯m, Em y Bm, con el bajo en si2, fa♯2, mi3 y si2", () => {
+    const si = tonalidad("Bm");
+    expect([1, 5, 4, 1].map((g) => cifrado(si, g).texto)).toEqual(["Bm", "F#m", "Em", "Bm"]);
+    expect([1, 5, 4, 1].map((g) => cifrado(si, g).romano)).toEqual(["i", "v", "iv", "i"]);
+    expect(voces(si, [1, 5, 4, 1]).map(nombres)).toEqual(["B4 D5 F#5", "A4 C#5 F#5", "G4 B4 E5", "F#4 B4 D5"]);
+    expect([1, 5, 4, 1].map((g) => nombreDeNota(bajo(si, g)))).toEqual(["B2", "F#2", "E3", "B2"]);
+    expect(abc(si, [1, 5, 4, 1], patron("bajo-acorde"))).toBe(
+      [
+        "X:1",
+        "M:4/4",
+        "L:1/8",
+        "%%stretchlast 1",
+        "%%score {1 2}",
+        "V:1 clef=treble",
+        "V:2 clef=bass",
+        "K:Bm",
+        '[V:1] "Bm"z2 [Bdf]2 z2 [Bdf]2 | "F#m"z2 [Acf]2 z2 [Acf]2 | "Em"z2 [GBe]2 z2 [GBe]2 | "Bm"z2 [FBd]2 z2 [FBd]2 |]',
+        '[V:2] "_i"B,,2 z2 F,,2 z2 | "_v"F,,2 z2 C,2 z2 | "_iv"E,2 z2 B,,2 z2 | "_i"B,,2 z2 F,,2 z2 |]',
+        "",
+      ].join("\n"),
+    );
+    // abcjs le pone a Si menor la armadura de dos sostenidos: fa y do.
+    const armadura = ABCJS.parseOnly(abc(si, [1, 5, 4, 1], patron("redondas")))[0].lines[0].staff[0].key;
+    expect(armadura.accidentals.map((a) => a.acc + ":" + a.note).sort()).toEqual(["sharp:c", "sharp:f"]);
+  });
+
+  test("en la menor, la misma progresión no lleva ni una alteración", () => {
+    const la = tonalidad("Am");
+    expect(voces(la, [1, 5, 4, 1]).map(nombres)).toEqual(["A4 C5 E5", "G4 B4 E5", "F4 A4 D5", "E4 A4 C5"]);
+    expect([1, 5, 4, 1].map((g) => cifrado(la, g).texto)).toEqual(["Am", "Em", "Dm", "Am"]);
+    const notas = compases(la, [1, 2, 3, 4, 5, 6, 7, 1], patron("alberti")).flatMap((c) => [...c.derecha, ...c.izquierda]).flatMap((e) => e.notas);
+    expect(notas.length).toBeGreaterThan(60);
+    expect(notas.every((n) => n.alter === 0)).toBe(true);
+    expect(abc(la, [1, 5, 4, 1], patron("redondas"))).toContain("\nK:Am\n");
+  });
+
+  test("una menor y su relativa mayor dan las mismas notas: el i de si menor es el vi de re mayor", () => {
+    // El grado g de la menor es el g+5 de su relativa: i→vi, ii°→vii°, III→I, iv→ii, v→iii, VI→IV y VII→V.
+    const enLaMayor = (g) => ((g + 4) % 7) + 1;
+    expect([1, 2, 3, 4, 5, 6, 7].map(enLaMayor)).toEqual([6, 7, 1, 2, 3, 4, 5]);
+    const sonidos = (t, grados, p) =>
+      compases(t, grados, p).map((c) => [c.cifrado.texto, [...c.derecha, ...c.izquierda].map((e) => e.dur + ":" + nombres(e.notas)).join(" ")]);
+    let pares = 0;
+    mayores.forEach((M, i) => {
+      for (const grados of PROGRESIONES) {
+        for (const p of PATRONES) {
+          expect([menores[i].id, sonidos(menores[i], grados, p)]).toEqual([menores[i].id, sonidos(M, grados.map(enLaMayor), p)]);
+          pares++;
+        }
+      }
+    });
+    expect(pares).toBe(12 * PROGRESIONES.length * PATRONES.length);
+  });
+});
+
+describe("lo mayor no cambia con el modo menor", () => {
+  // La huella se midió con el código de la fase 114, antes de tocarlo. Si
+  // falla, algo ha cambiado en lo que ya había: el test de más arriba con el
+  // ABC de I–V–V–I escrito entero dice el qué.
+  test("las doce tonalidades mayores dan el mismo ABC y las mismas notas que en la fase 114", () => {
+    const { createHash } = require("node:crypto");
+    const DOCE = ["C", "G", "F", "D", "Bb", "A", "Eb", "E", "Ab", "B", "Db", "F#"];
+    const CINCO = ["redondas", "blancas", "bajo-acorde", "negras", "alberti"].map(patron);
+    const escrito = createHash("sha256");
+    const sonado = createHash("sha256");
+    let combinaciones = 0;
+    for (const id of DOCE) {
+      for (const p of CINCO) {
+        for (const g of [[1, 5, 5, 1], [1, 6, 4, 5, 2, 3, 7, 1]]) {
+          const t = tonalidad(id);
+          escrito.update(abc(t, g, p) + abc(t, g, p, { porLinea: 2 }));
+          sonado.update(
+            JSON.stringify(
+              compases(t, g, p).map((c) =>
+                [c.cifrado.texto, c.cifrado.romano, c.derecha, c.izquierda].map((x) =>
+                  Array.isArray(x) ? x.map((e) => [e.dur, e.notas.map((k) => k.midi + nombreDeNota(k))]) : x,
+                ),
+              ),
+            ),
+          );
+          combinaciones++;
+        }
+      }
+    }
+    expect(combinaciones).toBe(120);
+    expect(escrito.digest("hex")).toBe("332ca2c192fdedd700ed26fea6db5a159a26402f120b346907787556b4d42510");
+    expect(sonado.digest("hex")).toBe("e378d7757a62dd983b5c28cbce7f48e43b0b7c814f32db27b54003a11803ff78");
   });
 });
 
@@ -270,7 +414,7 @@ describe("el ABC", () => {
         }
       }
     }
-    expect(leidos).toBe(12 * PATRONES.length * 2);
+    expect(leidos).toBe(24 * PATRONES.length * 2);
   });
 });
 

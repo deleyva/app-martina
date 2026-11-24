@@ -1,4 +1,4 @@
-// Fichas (fase 114): un patrón de acompañamiento de piano sobre una progresión.
+// Fichas (fases 114 y 115): un patrón de acompañamiento de piano sobre una progresión.
 //
 // Lo que se guarda son cuatro datos: la progresión en GRADOS ([1, 5, 5, 1]), el
 // patrón (un identificador del catálogo), la tonalidad y el tempo. De ahí sale
@@ -18,7 +18,11 @@
 // que la partitura la pinte otro, cambia `abc()` y lo guardado sigue valiendo.
 // Transportar es cambiar un dato, no una función del pintor.
 //
-// El catálogo (patrones y tonalidades) es musica/patrones_piano.json, el mismo
+// El modo lo dice la tonalidad (fase 115): «Bm» es Si menor, y sus grados son
+// los de la escala menor natural (i ii° III iv v VI VII). La progresión sigue
+// siendo [1, 5, 4, 1]: qué acorde es cada grado sale de la escala.
+//
+// El catálogo (patrones, tonalidades y modos) es musica/patrones_piano.json, el mismo
 // fichero que lee el servidor. Las funciones puras se prueban con bun:test.
 
 import CATALOGO from "../../../../musica/patrones_piano.json";
@@ -33,9 +37,19 @@ export const CORCHEAS_POR_COMPAS = 8;
 
 const LETRAS = ["C", "D", "E", "F", "G", "A", "B"];
 const SEMITONOS = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
-const MAYOR = [0, 2, 4, 5, 7, 9, 11];
-export const ROMANOS = ["I", "ii", "iii", "IV", "V", "vi", "vii°"];
-const SUFIJO = ["", "m", "m", "", "", "m", "dim"];
+
+// Qué acorde es cada grado lo dice el modo: su escala (los semitonos de las
+// siete notas) y cómo se escribe cada tríada. Las dos tablas vienen del
+// catálogo, que es el fichero con el que el servidor valida lo que se teclea.
+export const MODOS = CATALOGO.modos;
+export const ROMANOS = MODOS.mayor.grados;
+
+// El cifrado sale de cómo se escribe el grado: «m» si va en minúscula y «dim»
+// si lleva círculo. Un test comprueba que las notas dicen lo mismo.
+export function sufijoDe(romano) {
+  if (romano.endsWith("°")) return "dim";
+  return romano === romano.toUpperCase() ? "" : "m";
+}
 
 // La derecha: la primera tríada, con la fundamental entre do4 y si4, que es
 // donde cabe en el pentagrama de sol; las demás, entre la3 y do6.
@@ -69,10 +83,20 @@ export const MAX_VUELTAS = 64;
 export function tonalidad(id) {
   const t = TONALIDADES.find((x) => x.id === id);
   if (!t) throw new Error("Tonalidad desconocida: " + id);
+  const modo = MODOS[t.modo];
+  if (!modo) throw new Error("Modo desconocido: " + t.modo);
   const semitono = (SEMITONOS[t.letra] + t.alt + 12) % 12;
   // La tónica de referencia, entre do4 y si4.
   const octava = 4;
-  return { ...t, semitono, octava, midi: 12 * (octava + 1) + semitono, indice: LETRAS.indexOf(t.letra) };
+  return {
+    ...t,
+    semitono,
+    octava,
+    midi: 12 * (octava + 1) + semitono,
+    indice: LETRAS.indexOf(t.letra),
+    escala: modo.escala,
+    romanos: modo.grados,
+  };
 }
 
 export function patron(id) {
@@ -82,13 +106,13 @@ export function patron(id) {
 }
 
 // `paso` es la distancia diatónica a la tónica de referencia: 0 la tónica, 7 su
-// octava, -1 la sensible de debajo.
+// octava, -1 la nota de la escala que tiene debajo.
 export function nota(t, paso) {
   const grado = ((paso % 7) + 7) % 7;
   const octavas = Math.floor(paso / 7);
   const L = t.indice + grado;
   const letra = LETRAS[L % 7];
-  let alter = ((t.semitono + MAYOR[grado]) % 12) - SEMITONOS[letra];
+  let alter = ((t.semitono + t.escala[grado]) % 12) - SEMITONOS[letra];
   if (alter > 6) alter -= 12;
   if (alter < -6) alter += 12;
   return {
@@ -96,7 +120,7 @@ export function nota(t, paso) {
     letra,
     alter,
     octava: t.octava + octavas + Math.floor(L / 7),
-    midi: t.midi + MAYOR[grado] + 12 * octavas,
+    midi: t.midi + t.escala[grado] + 12 * octavas,
   };
 }
 
@@ -165,7 +189,8 @@ export function octavasDeLaIzquierda(derechas) {
 export function cifrado(t, grado) {
   const raiz = nota(t, grado - 1);
   const alteracion = raiz.alter === 1 ? "#" : raiz.alter === -1 ? "b" : "";
-  return { raiz, romano: ROMANOS[grado - 1], texto: raiz.letra + alteracion + SUFIJO[grado - 1] };
+  const romano = t.romanos[grado - 1];
+  return { raiz, romano, texto: raiz.letra + alteracion + sufijoDe(romano) };
 }
 
 // Por qué un patrón no se puede escribir, o "" si está bien.
@@ -510,5 +535,5 @@ export function montar(raiz) {
 }
 
 if (typeof window !== "undefined") {
-  window.PatronPiano = { montar, tonalidad, patron, compases, abc, planPatron, compasQueSuena, disposicion, nombreDeNota, TONALIDADES, PATRONES };
+  window.PatronPiano = { montar, tonalidad, patron, compases, abc, planPatron, compasQueSuena, disposicion, nombreDeNota, TONALIDADES, PATRONES, MODOS };
 }

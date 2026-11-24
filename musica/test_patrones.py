@@ -1,9 +1,13 @@
-"""Patrones de piano en las fichas (fase 114).
+"""Patrones de piano en las fichas (fases 114 y 115).
 
 Fija:
 
+- (Fase 115) El modo lo dice la tonalidad: en una menor los grados son los de la
+  escala menor natural. Escrita toda en mayúsculas o en números, la progresión
+  dice solo los grados; con minúsculas, la caja tiene que cuadrar con el modo.
+
 - La progresión se escribe de tres maneras y se guarda de una; lo que no es una
-  tríada de la escala mayor se rechaza diciendo cuál y por qué.
+  tríada de la escala de su tonalidad se rechaza diciendo cuál y por qué.
 - El catálogo de patrones es un solo fichero para el servidor y para el
   navegador, y el bundle lo lleva dentro.
 - Un patrón guarda cuatro datos y ninguna nota. Solo quien puede editar la
@@ -59,8 +63,10 @@ class ProgresionTest(SimpleTestCase):
         casos = {
             "I V7": ("«V7»", "tríadas de la escala mayor"),
             "i v": ("primer grado es mayor", "«I»"),
-            "I II": ("segundo grado es menor", "«ii»"),
-            "I VII": ("séptimo grado es disminuido", "«vii°»"),
+            "I ii III": ("tercer grado es menor", "«iii»"),
+            "I vi VII": ("séptimo grado es disminuido", "«vii°»"),
+            # Una errata de caja dentro de un mismo grado también dice cuál es la buena.
+            "I iV": ("cuarto grado es mayor", "«IV»"),
             "I V/V V": ("«V/V»",),
             "I bVII": ("«bVII»",),
             "I°": ("«I°»",),
@@ -80,7 +86,9 @@ class ProgresionTest(SimpleTestCase):
         catalogo = json.loads(patrones.RUTA_DEL_CATALOGO.read_text(encoding="utf-8"))
         self.assertEqual([c for c, _ in patrones.patrones()], [p["id"] for p in catalogo["patrones"]])
         self.assertEqual([c for c, _ in patrones.tonalidades()], [t["id"] for t in catalogo["tonalidades"]])
-        self.assertEqual(len(patrones.tonalidades()), 12)
+        self.assertEqual(len(patrones.tonalidades()), 24)
+        self.assertEqual(tuple(patrones.ROMANOS), tuple(catalogo["modos"]["mayor"]["grados"]))
+        self.assertEqual(patrones.romanos("menor"), tuple(catalogo["modos"]["menor"]["grados"]))
         self.assertEqual(patrones.nombre_del_patron("bajo-acorde"), "Bajo y acorde")
         self.assertEqual(patrones.nombre_de_la_tonalidad("Bb"), "Si♭ mayor")
         self.assertEqual(patrones.nombre_del_patron("vals"), "")
@@ -92,6 +100,10 @@ class ProgresionTest(SimpleTestCase):
         bundle = BUNDLE_JS.read_text(encoding="utf-8")
         for clave, _ in patrones.patrones():
             self.assertIn(f'"{clave}"', bundle, f"El bundle no conoce el patrón {clave}: hay que reconstruirlo.")
+        # Tampoco le falta ninguna tonalidad, ni las tablas de los modos (fase 115).
+        for clave, _ in patrones.tonalidades():
+            self.assertIn(f'id:"{clave}"', bundle, f"El bundle no conoce la tonalidad {clave}: hay que reconstruirlo.")
+        self.assertIn('"III","iv","v","VI","VII"', bundle)
         self.assertNotIn("sourceMappingURL", bundle)
 
     def test_el_valor_que_se_guarda_son_cuatro_datos_y_ninguna_nota(self):
@@ -148,6 +160,147 @@ class ProgresionTest(SimpleTestCase):
         self.assertEqual(migracion.dependencies, [("musica", "0015_fase_112")])
         self.assertEqual([type(o).__name__ for o in migracion.operations], ["AlterField"])
         self.assertEqual((migracion.operations[0].model_name, migracion.operations[0].name), ("dictadopage", "content"))
+
+
+LEVITATING = {"titulo": "Levitating", "progresion": "i v iv i", "patron": "negras", "tonalidad": "Bm", "tempo": 103}
+
+
+class ModoMenorTest(SimpleTestCase):
+    """Fase 115: el modo lo dice la tonalidad."""
+
+    # --- C830: en una menor, las tres escrituras dan los mismos grados ---
+
+    def test_en_si_menor_las_tres_escrituras_se_guardan_i_v_iv_i(self):
+        for texto in ("I V IV I", "1 5 4 1", "i v iv i", "I – V – IV – I", "i, v | iv - i"):
+            self.assertEqual(patrones.leer_progresion(texto, "menor"), [1, 5, 4, 1], texto)
+            valor = patrones.valor_de_patron({"progresion": texto, "patron": "negras", "tonalidad": "Bm", "tempo": "103"})
+            self.assertEqual(
+                valor,
+                {"titulo": "", "progresion": "i v iv i", "patron": "negras", "tonalidad": "Bm", "tempo": 103},
+                texto,
+            )
+        self.assertEqual(patrones.escribir_progresion([1, 5, 4, 1], modo="menor"), "i v iv i")
+        self.assertEqual(patrones.escribir_progresion([1, 2, 3, 4, 5, 6, 7], modo="menor"), "i ii° III iv v VI VII")
+        self.assertEqual(patrones.leer_progresion("i ii° III iv v VI VII", "menor"), [1, 2, 3, 4, 5, 6, 7])
+        self.assertEqual(patrones.leer_progresion("I II III IV V VI VII", "menor"), [1, 2, 3, 4, 5, 6, 7])
+        # El círculo, donde toca en cada modo: en menor lo lleva el segundo.
+        self.assertEqual(patrones.leer_progresion("ii° iiº iio iidim ii", "menor"), [2] * 5)
+        self.assertEqual(patrones.leer_progresion("II° IIº II", "menor"), [2] * 3)
+
+    def test_la_tonalidad_dice_el_modo(self):
+        self.assertEqual(patrones.modo_de("Bm"), "menor")
+        self.assertEqual(patrones.modo_de("D"), "mayor")
+        self.assertEqual(patrones.modo_de("F#m"), "menor")
+        self.assertEqual(patrones.modo_de("F#"), "mayor")
+        self.assertEqual(patrones.modo_de("H"), "mayor")
+        self.assertEqual(patrones.modo_de(None), "mayor")
+        self.assertEqual(patrones.nombre_de_la_tonalidad("Bm"), "Si menor")
+        self.assertEqual(patrones.nombre_de_la_tonalidad("D#m"), "Re♯ menor")
+        mayores, menores = patrones.tonalidades("mayor"), patrones.tonalidades("menor")
+        self.assertEqual((len(mayores), len(menores)), (12, 12))
+        self.assertEqual(patrones.tonalidades(), mayores + menores)
+        self.assertEqual([c for c, _ in menores][:4], ["Am", "Em", "Dm", "Bm"])
+        self.assertEqual(patrones.tonalidades_por_modo(), [("Mayores", mayores), ("Menores", menores)])
+        # La tonalidad es texto en el bloque (fase 114): caben todas sin migración.
+        tope = PatronPianoBlock().child_blocks["tonalidad"].field.max_length
+        self.assertLessEqual(max(len(c) for c, _ in patrones.tonalidades()), tope)
+
+    # --- C831: con minúsculas, la caja tiene que cuadrar con el modo ---
+
+    def test_con_minusculas_la_caja_tiene_que_cuadrar_con_el_modo(self):
+        casos = {
+            "i V iv i": ("quinto grado es menor", "«v»", "El V mayor, el de la sensible, todavía no está"),
+            "i IV": ("cuarto grado es menor", "«iv»"),
+            "i iii": ("tercer grado es mayor", "«III»"),
+            "i vi": ("sexto grado es mayor", "«VI»"),
+            "i II": ("segundo grado es disminuido", "«ii°»"),
+            "i vii°": ("«vii°»", "tríadas de la escala menor natural", "i ii° III iv v VI VII"),
+            "i v7": ("«v7»", "escala menor natural"),
+            "i V/V": ("«V/V»",),
+        }
+        for texto, trozos in casos.items():
+            with self.assertRaises(patrones.PatronNoValido, msg=texto) as cm:
+                patrones.leer_progresion(texto, "menor")
+            for trozo in trozos:
+                self.assertIn(trozo, str(cm.exception), texto)
+        # El aviso del V mayor es solo de las menores, y solo para ese grado.
+        with self.assertRaises(patrones.PatronNoValido) as cm:
+            patrones.leer_progresion("i IV", "menor")
+        self.assertNotIn("sensible", str(cm.exception))
+        with self.assertRaises(patrones.PatronNoValido) as cm:
+            patrones.valor_de_patron({"progresion": "i V iv i", "tonalidad": "Bm"})
+        self.assertIn("todavía no está", str(cm.exception))
+
+    def test_en_mayor_lo_que_valia_sigue_valiendo_y_se_guarda_igual(self):
+        for texto, grados, guardado in (
+            ("I V V I", [1, 5, 5, 1], "I V V I"),
+            ("I – vi – IV – V", [1, 6, 4, 5], "I vi IV V"),
+            ("1 5 6 4", [1, 5, 6, 4], "I V vi IV"),
+            ("ii iii vii°", [2, 3, 7], "ii iii vii°"),
+            ("I IV V I", [1, 4, 5, 1], "I IV V I"),
+        ):
+            self.assertEqual(patrones.leer_progresion(texto), grados, texto)
+            self.assertEqual(patrones.leer_progresion(texto, "mayor"), grados, texto)
+            self.assertEqual(patrones.valor_de_patron({"progresion": texto, "tonalidad": "G"})["progresion"], guardado)
+
+    # --- C832: toda en mayúsculas dice solo los grados, también en mayor ---
+
+    def test_en_mayusculas_la_progresion_dice_solo_los_grados(self):
+        self.assertEqual(patrones.leer_progresion("I II V I"), [1, 2, 5, 1])
+        self.assertEqual(patrones.leer_progresion("I VI IV V"), [1, 6, 4, 5])
+        self.assertEqual(patrones.leer_progresion("I VII"), [1, 7])
+        self.assertEqual(patrones.leer_progresion("I VII° VIIo VIIdim"), [1, 7, 7, 7])
+        self.assertEqual(patrones.valor_de_patron({"progresion": "I II V I", "tonalidad": "C"})["progresion"], "I ii V I")
+        self.assertEqual(patrones.valor_de_patron({"progresion": "I VI IV V", "tonalidad": "C"})["progresion"], "I vi IV V")
+        self.assertEqual(patrones.valor_de_patron({"progresion": "I VI IV V", "tonalidad": "Am"})["progresion"], "i VI iv v")
+        # Mezclada con números, igual.
+        self.assertEqual(patrones.leer_progresion("I 6 IV 5"), [1, 6, 4, 5])
+        # En cuanto hay una minúscula, cada caja cuenta.
+        with self.assertRaises(patrones.PatronNoValido) as cm:
+            patrones.leer_progresion("I II v I")
+        self.assertIn("segundo grado es menor", str(cm.exception))
+        # Y lo que no es un grado sigue sin serlo, vaya como vaya escrito.
+        for texto in ("I V7", "I VIII", "I IIII", "I I°", "I V/V"):
+            with self.assertRaises(patrones.PatronNoValido, msg=texto):
+                patrones.leer_progresion(texto)
+
+    # --- C833: cambiar de modo sin tocar la progresión conserva los grados ---
+
+    def test_pasar_de_mayor_a_menor_sin_tocar_la_progresion_conserva_los_grados(self):
+        anterior = {"titulo": "Balada", "progresion": "I vi IV V", "patron": "negras", "tonalidad": "F", "tempo": 66}
+        # El formulario del editor manda la progresión tal cual estaba, con la tonalidad nueva…
+        valor = patrones.valor_de_patron({"progresion": "I vi IV V", "tonalidad": "Dm"}, anterior)
+        self.assertEqual((valor["progresion"], valor["tonalidad"]), ("i VI iv v", "Dm"))
+        # …o no la manda.
+        self.assertEqual(patrones.valor_de_patron({"tonalidad": "Dm"}, anterior)["progresion"], "i VI iv v")
+        # Y de vuelta a una mayor.
+        self.assertEqual(patrones.valor_de_patron({"progresion": "i v iv i", "tonalidad": "D"}, LEVITATING)["progresion"], "I V IV I")
+        # Dentro del mismo modo no se toca nada.
+        self.assertEqual(patrones.valor_de_patron({"tonalidad": "Am"}, LEVITATING)["progresion"], "i v iv i")
+        # Si además la reescribe, vale lo que escribe, leído con el modo nuevo.
+        self.assertEqual(patrones.valor_de_patron({"progresion": "1 4 5 1", "tonalidad": "Dm"}, anterior)["progresion"], "i iv v i")
+        with self.assertRaises(patrones.PatronNoValido):
+            patrones.valor_de_patron({"progresion": "I vi IV iii", "tonalidad": "Dm"}, anterior)
+
+    def test_lo_que_va_al_navegador_y_a_los_rotulos_en_una_menor(self):
+        self.assertEqual(
+            patrones.para_el_navegador(LEVITATING),
+            {"grados": [1, 5, 4, 1], "patron": "negras", "tonalidad": "Bm", "tempo": 103},
+        )
+        self.assertEqual(patrones.grados_de(LEVITATING), [1, 5, 4, 1])
+        self.assertEqual(patrones.progresion_legible(LEVITATING), "i – v – iv – i")
+        self.assertEqual(patrones.titulo_de({**LEVITATING, "titulo": ""}), "i – v – iv – i")
+        self.assertEqual(patrones.titulo_de(LEVITATING), "Levitating")
+        # Guardada con la caja de otro modo no se entiende, y la página no revienta.
+        self.assertEqual(patrones.grados_de({**LEVITATING, "tonalidad": "D"}), [])
+        self.assertEqual(patrones.progresion_legible({**LEVITATING, "tonalidad": "D"}), "")
+
+    def test_el_bloque_valida_tambien_una_menor_en_el_administrador(self):
+        bloque = PatronPianoBlock()
+        limpio = bloque.clean(bloque.to_python({**PATRON, "progresion": "I V IV I", "tonalidad": "Bm"}))
+        self.assertEqual((limpio["progresion"], limpio["tonalidad"]), ("i v iv i", "Bm"))
+        with self.assertRaises(ValidationError):
+            bloque.clean(bloque.to_python({**PATRON, "progresion": "i V iv i", "tonalidad": "Bm"}))
 
 
 @override_settings(ALLOWED_HOSTS=["*"])
@@ -278,13 +431,13 @@ class FichaDePianoTest(TestCase):
         # Al editar: el aviso va en ese ejercicio, con su editor abierto.
         r = self.client.post(
             reverse("musica:editar_patron", args=[ficha.pk, bloque_id]),
-            {"progresion": "I II", "patron": "alberti", "tonalidad": "D"},
+            {"progresion": "I ii III", "patron": "alberti", "tonalidad": "D"},
             HTTP_HX_REQUEST="true",
         )
         self.assertEqual(r.status_code, 200)
         html = r.content.decode()
-        self.assertIn("segundo grado es menor", html)
-        self.assertIn('value="I II"', html)
+        self.assertIn("tercer grado es menor", html)
+        self.assertIn('value="I ii III"', html)
         self.assertIn('<details class="fa-editar" open>', html)
 
         # Sin HTMX, un 400 con el motivo.
@@ -412,3 +565,79 @@ class FichaDePianoTest(TestCase):
         # El botón de siempre, que ahora sirve también para esto.
         self.assertIn("＋ Ficha de audición o de piano", html)
         self.assertNotIn("{#", html)
+
+    # --- Fase 115: una ficha en modo menor ---
+
+    def test_anadir_levitating_escrita_en_mayusculas_la_guarda_en_si_menor(self):
+        ficha = self._ficha("I – V – IV – I en menor")
+        self.client.force_login(self.profe)
+        r = self.client.post(
+            reverse("musica:anadir_patron", args=[ficha.pk]),
+            {"progresion": "I V IV I", "patron": "negras", "tonalidad": "Bm"},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(r.status_code, 200)
+        html = r.content.decode()
+        self.assertNotIn('<div class="fa-aviso">', html)
+        self.assertIn("i – v – iv – i · Acordes a negras", html)
+        ficha = DictadoPage.objects.get(pk=ficha.pk)
+        self.assertEqual(
+            dict(ficha.content[0].value),
+            {"titulo": "", "progresion": "i v iv i", "patron": "negras", "tonalidad": "Bm", "tempo": 80},
+        )
+        # El V mayor entre minúsculas no se guarda, y se dice por qué.
+        r = self.client.post(
+            reverse("musica:anadir_patron", args=[ficha.pk]),
+            {"progresion": "i V iv i", "patron": "negras", "tonalidad": "Bm"},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertIn("El V mayor, el de la sensible, todavía no está", r.content.decode())
+        self.assertEqual(len(DictadoPage.objects.get(pk=ficha.pk).content), 1)
+
+        # Pasarlo a una mayor desde su editor, sin tocar la progresión, conserva los grados.
+        bloque_id = ficha.content[0].id
+        r = self.client.post(
+            reverse("musica:editar_patron", args=[ficha.pk, bloque_id]),
+            {"progresion": "i v iv i", "patron": "negras", "tonalidad": "D", "tempo": "103", "titulo": ""},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertNotIn('<div class="fa-aviso">', r.content.decode())
+        valor = dict(DictadoPage.objects.get(pk=ficha.pk).content[0].value)
+        self.assertEqual((valor["progresion"], valor["tonalidad"], valor["tempo"]), ("I V IV I", "D", 103))
+
+    def test_quien_mira_transporta_dentro_del_modo_y_quien_edita_elige_entre_las_24(self):
+        menor = self._ficha("En menor", ("patron_piano", LEVITATING))
+        mayor = self._con_patron()
+
+        html = self._get(menor.url, self.alumna)
+        self.assertIn("&quot;grados&quot;: [1, 5, 4, 1]", html)
+        self.assertIn("&quot;tonalidad&quot;: &quot;Bm&quot;, &quot;tempo&quot;: 103}", html)
+        self.assertIn("i – v – iv – i · Acordes a negras", html)
+        self.assertIn('<option value="Bm" selected>Si menor</option>', html)
+        self.assertEqual(html.count("<option value="), 12 + 3)  # las doce menores y las tres opciones de «Manos»
+        self.assertIn('<option value="Am" >La menor</option>', html)
+        self.assertNotIn("Re mayor", html)
+        self.assertNotIn("<optgroup", html)
+
+        html = self._get(mayor.url, self.alumna)
+        self.assertEqual(html.count("<option value="), 12 + 3)
+        self.assertNotIn("menor</option>", html)
+        self.client.logout()
+
+        # Quien edita: en el formulario de añadir y en el de cada patrón, las 24 en dos grupos.
+        html = self._get(menor.url, self.profe)
+        self.assertEqual(html.count('<optgroup label="Mayores">'), 2)
+        self.assertEqual(html.count('<optgroup label="Menores">'), 2)
+        self.assertEqual(html.count('<option value="Bm" selected>Si menor</option>'), 2)  # el de quien mira y el del editor
+        self.assertEqual(html.count('value="D"'), 2)  # Re mayor, solo en los dos de editar
+        self.assertIn('value="i v iv i"', html)
+        self.assertIn("en una menor, i ii° III iv v VI VII", html)
+        self.assertNotIn("{#", html)
+
+    def test_en_las_listas_una_menor_sale_con_sus_grados_en_minuscula(self):
+        ficha = self._ficha("I – V – IV – I en menor", ("patron_piano", {**LEVITATING, "titulo": ""}))
+        (patron,) = material_de(ficha)
+        self.assertEqual(
+            patron.describir(),
+            ("🎹", "I – V – IV – I en menor · 1 · i – v – iv – i", "Patrón de piano · Acordes a negras"),
+        )

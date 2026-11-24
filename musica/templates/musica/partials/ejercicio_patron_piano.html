@@ -1,6 +1,6 @@
 {% load audicion_tags %}
 {% comment %}
-Un patrón de piano (fase 114): la partitura a dos pentagramas de un patrón de
+Un patrón de piano (fases 114 y 115): la partitura a dos pentagramas de un patrón de
 acompañamiento sobre una progresión. Aquí no hay notas: `patron_piano.js` las
 calcula de los grados, el patrón y la tonalidad, las pinta con abcjs y las toca
 con el motor de las fichas.
@@ -8,8 +8,11 @@ con el motor de las fichas.
 A diferencia de los dictados, la partitura se ve siempre: es lo que se enseña.
 La tonalidad, las manos, el tempo y el bucle de arriba son de quien mira y no se
 guardan. Con `puede_editar`, debajo va el formulario que sí guarda.
+
+Quien mira transporta dentro del modo del patrón (las doce mayores o las doce
+menores); quien edita elige entre las veinticuatro, y con la tonalidad, el modo.
 {% endcomment %}
-{% tonalidades_de_piano as tonalidades %}
+{% tonalidades_de_piano b.tonalidad as tonalidades %}
 <div class="fa-patron" data-patron-piano="{{ b|patron_json }}">
     <div class="fa-distancia">{{ b|progresion_legible }} · {{ b.patron|nombre_del_patron }}</div>
     <div class="fa-controles">
@@ -67,15 +70,20 @@ guardan. Con `puede_editar`, debajo va el formulario que sí guarda.
                 </label>
                 <label>Tonalidad
                     <select name="tonalidad" class="select select-bordered select-sm">
-                        {% for clave, nombre in tonalidades %}
-                        <option value="{{ clave }}" {% if b.tonalidad == clave %}selected{% endif %}>{{ nombre }}</option>
+                        {% tonalidades_de_piano_por_modo as grupos %}
+                        {% for grupo, las_del_grupo in grupos %}
+                        <optgroup label="{{ grupo }}">
+                            {% for clave, nombre in las_del_grupo %}
+                            <option value="{{ clave }}" {% if b.tonalidad == clave %}selected{% endif %}>{{ nombre }}</option>
+                            {% endfor %}
+                        </optgroup>
                         {% endfor %}
                     </select>
                 </label>
                 <label>Negra = <input type="number" name="tempo" value="{{ b.tempo }}" min="40" max="200" class="input input-bordered input-sm fa-num"></label>
                 <label>Título <input type="text" name="titulo" value="{{ b.titulo }}" maxlength="120" class="input input-bordered input-sm"></label>
             </div>
-            <div class="fa-distancia">Un acorde por compás, en grados de la escala mayor: I ii iii IV V vi vii° (o del 1 al 7).</div>
+            <div class="fa-distancia">Un acorde por compás, en grados: I V IV I o 1 5 4 1. El tipo de cada acorde lo pone la tonalidad: en una mayor salen I ii iii IV V vi vii°, y en una menor, i ii° III iv v VI VII.</div>
             <button type="submit" class="btn btn-primary btn-sm">Guardar</button>
         </form>
     </details>

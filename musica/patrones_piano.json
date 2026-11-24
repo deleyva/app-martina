@@ -1,6 +1,6 @@
 {
   "_": [
-    "Catálogo de los patrones de piano de las fichas (fase 114). Lo leen el servidor",
+    "Catálogo de los patrones de piano de las fichas (fases 114 y 115). Lo leen el servidor",
     "(musica/services/patrones.py: opciones y validación) y el navegador",
     "(static/js/src/patron_piano.js: las notas). Tras tocarlo: `npm run build-js`.",
     "",
@@ -15,21 +15,44 @@
     "de la izquierda es la misma una octava más abajo.",
     "",
     "El orden de las listas es el de los desplegables: los patrones, de más fácil a",
-    "más difícil; las tonalidades, de menos a más alteraciones."
+    "más difícil; las tonalidades, primero las mayores y después las menores, cada",
+    "grupo de menos a más alteraciones.",
+    "",
+    "Un modo dice qué acorde es cada grado: `escala` son los semitonos de sus siete",
+    "notas sobre la tónica, y `grados`, cómo se escribe la tríada de cada una (en",
+    "mayúscula la mayor, en minúscula la menor y con círculo la disminuida). El",
+    "menor es el natural: su quinto grado es menor, y el V mayor de la sensible no",
+    "está. Cada tonalidad dice su modo; las menores son las relativas de las mayores."
   ],
+  "modos": {
+    "mayor": { "nombre": "mayor", "escala": [0, 2, 4, 5, 7, 9, 11], "grados": ["I", "ii", "iii", "IV", "V", "vi", "vii°"] },
+    "menor": { "nombre": "menor", "escala": [0, 2, 3, 5, 7, 8, 10], "grados": ["i", "ii°", "III", "iv", "v", "VI", "VII"] }
+  },
   "tonalidades": [
-    { "id": "C", "nombre": "Do mayor", "letra": "C", "alt": 0 },
-    { "id": "G", "nombre": "Sol mayor", "letra": "G", "alt": 0 },
-    { "id": "F", "nombre": "Fa mayor", "letra": "F", "alt": 0 },
-    { "id": "D", "nombre": "Re mayor", "letra": "D", "alt": 0 },
-    { "id": "Bb", "nombre": "Si♭ mayor", "letra": "B", "alt": -1 },
-    { "id": "A", "nombre": "La mayor", "letra": "A", "alt": 0 },
-    { "id": "Eb", "nombre": "Mi♭ mayor", "letra": "E", "alt": -1 },
-    { "id": "E", "nombre": "Mi mayor", "letra": "E", "alt": 0 },
-    { "id": "Ab", "nombre": "La♭ mayor", "letra": "A", "alt": -1 },
-    { "id": "B", "nombre": "Si mayor", "letra": "B", "alt": 0 },
-    { "id": "Db", "nombre": "Re♭ mayor", "letra": "D", "alt": -1 },
-    { "id": "F#", "nombre": "Fa♯ mayor", "letra": "F", "alt": 1 }
+    { "id": "C", "nombre": "Do mayor", "modo": "mayor", "letra": "C", "alt": 0 },
+    { "id": "G", "nombre": "Sol mayor", "modo": "mayor", "letra": "G", "alt": 0 },
+    { "id": "F", "nombre": "Fa mayor", "modo": "mayor", "letra": "F", "alt": 0 },
+    { "id": "D", "nombre": "Re mayor", "modo": "mayor", "letra": "D", "alt": 0 },
+    { "id": "Bb", "nombre": "Si♭ mayor", "modo": "mayor", "letra": "B", "alt": -1 },
+    { "id": "A", "nombre": "La mayor", "modo": "mayor", "letra": "A", "alt": 0 },
+    { "id": "Eb", "nombre": "Mi♭ mayor", "modo": "mayor", "letra": "E", "alt": -1 },
+    { "id": "E", "nombre": "Mi mayor", "modo": "mayor", "letra": "E", "alt": 0 },
+    { "id": "Ab", "nombre": "La♭ mayor", "modo": "mayor", "letra": "A", "alt": -1 },
+    { "id": "B", "nombre": "Si mayor", "modo": "mayor", "letra": "B", "alt": 0 },
+    { "id": "Db", "nombre": "Re♭ mayor", "modo": "mayor", "letra": "D", "alt": -1 },
+    { "id": "F#", "nombre": "Fa♯ mayor", "modo": "mayor", "letra": "F", "alt": 1 },
+    { "id": "Am", "nombre": "La menor", "modo": "menor", "letra": "A", "alt": 0 },
+    { "id": "Em", "nombre": "Mi menor", "modo": "menor", "letra": "E", "alt": 0 },
+    { "id": "Dm", "nombre": "Re menor", "modo": "menor", "letra": "D", "alt": 0 },
+    { "id": "Bm", "nombre": "Si menor", "modo": "menor", "letra": "B", "alt": 0 },
+    { "id": "Gm", "nombre": "Sol menor", "modo": "menor", "letra": "G", "alt": 0 },
+    { "id": "F#m", "nombre": "Fa♯ menor", "modo": "menor", "letra": "F", "alt": 1 },
+    { "id": "Cm", "nombre": "Do menor", "modo": "menor", "letra": "C", "alt": 0 },
+    { "id": "C#m", "nombre": "Do♯ menor", "modo": "menor", "letra": "C", "alt": 1 },
+    { "id": "Fm", "nombre": "Fa menor", "modo": "menor", "letra": "F", "alt": 0 },
+    { "id": "G#m", "nombre": "Sol♯ menor", "modo": "menor", "letra": "G", "alt": 1 },
+    { "id": "Bbm", "nombre": "Si♭ menor", "modo": "menor", "letra": "B", "alt": -1 },
+    { "id": "D#m", "nombre": "Re♯ menor", "modo": "menor", "letra": "D", "alt": 1 }
   ],
   "patrones": [
     {

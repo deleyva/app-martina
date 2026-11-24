@@ -1,4 +1,4 @@
-"""Etiquetas de las fichas: audición (fase 111) y patrones de piano (fase 114)."""
+"""Etiquetas de las fichas: audición (fase 111) y patrones de piano (fases 114 y 115)."""
 
 import json
 
@@ -75,7 +75,7 @@ def timbres_dictado():
     ]
 
 
-# --- Patrones de piano (fase 114) ----------------------------------------------
+# --- Patrones de piano (fases 114 y 115) ---------------------------------------
 
 
 @register.filter
@@ -86,8 +86,8 @@ def patron_json(valor):
 
 @register.filter
 def progresion_legible(valor):
-    """«I – V – V – I», o vacío si la progresión guardada no se entiende."""
-    return patrones.escribir_progresion(patrones.grados_de(valor), " – ")
+    """«I – V – V – I», o «i – v – iv – i» en una menor; vacío si no se entiende."""
+    return patrones.progresion_legible(valor)
 
 
 @register.filter
@@ -102,6 +102,16 @@ def patrones_de_piano():
 
 
 @register.simple_tag
-def tonalidades_de_piano():
-    """[(id, nombre)] para el desplegable, de menos a más alteraciones."""
-    return patrones.tonalidades()
+def tonalidades_de_piano(como=None):
+    """[(id, nombre)] para el desplegable de quien mira.
+
+    Con `como` (la tonalidad del patrón), solo las de su modo: transportar no
+    cambia una progresión menor en una mayor.
+    """
+    return patrones.tonalidades(patrones.modo_de(como) if como else None)
+
+
+@register.simple_tag
+def tonalidades_de_piano_por_modo():
+    """[("Mayores", [(id, nombre), …]), ("Menores", […])] para el desplegable del editor."""
+    return patrones.tonalidades_por_modo()

@@ -84,7 +84,7 @@ plantilla de siempre.
             <label>Progresión
                 <input type="text" name="progresion" maxlength="120" spellcheck="false" autocapitalize="off" autocomplete="off"
                        value="{% if no_guardado.donde == 'nuevo' %}{{ no_guardado.intento.progresion }}{% else %}I V V I{% endif %}"
-                       title="Un acorde por compás, en grados: I ii iii IV V vi vii° (o del 1 al 7)"
+                       title="Un acorde por compás, en grados: I V IV I o 1 5 4 1. El tipo de cada acorde lo pone la tonalidad"
                        class="input input-bordered input-sm fa-pp-progresion">
             </label>
             <label>Patrón
@@ -97,9 +97,13 @@ plantilla de siempre.
             </label>
             <label>Tonalidad
                 <select name="tonalidad" class="select select-bordered select-sm">
-                    {% tonalidades_de_piano as tonalidades %}
-                    {% for clave, nombre in tonalidades %}
-                    <option value="{{ clave }}" {% if no_guardado.intento.tonalidad == clave %}selected{% endif %}>{{ nombre }}</option>
+                    {% tonalidades_de_piano_por_modo as grupos %}
+                    {% for grupo, las_del_grupo in grupos %}
+                    <optgroup label="{{ grupo }}">
+                        {% for clave, nombre in las_del_grupo %}
+                        <option value="{{ clave }}" {% if no_guardado.intento.tonalidad == clave %}selected{% endif %}>{{ nombre }}</option>
+                        {% endfor %}
+                    </optgroup>
                     {% endfor %}
                 </select>
             </label>
