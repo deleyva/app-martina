@@ -1,30 +1,44 @@
-MuseScore General recortado — banco de sonidos de las fichas de audición (fase 111)
+MuseScore General recortado — banco de sonidos de las fichas (fases 111 y 114)
 (MuseScore_General_fichas.sf3)
 
 Origen: MuseScore_General.sf3 v0.2 («MS Basic»), réplica oficial de MuseScore en
 https://ftp.osuosl.org/pub/musescore/soundfont/MuseScore_General/ ,
-descargado el 2026-11-19: 39.900.972 bytes,
+descargado el 2026-11-19 y otra vez el 2026-11-24 (el mismo fichero las dos
+veces): 39.900.972 bytes,
 sha256 5b85b6c2c61d10b2b91cddd41efcce7b25cd31c8271d511c73afafbef20b6fa3.
 Licencia: MIT (LICENSE.md, el MuseScore_General_License.md original, tal cual).
 Esa licencia pide llevar sus avisos de copyright en cualquier obra derivada, y
 este banco lo es: por eso va LICENSE.md a su lado.
 
-Qué lleva (2.981.338 bytes, 46 muestras, todas en Vorbis como en el original):
-- Grand Piano (0), Tine Electric Piano (4), Flute (73) y Square Lead (80): los
-  TIMBRES de static/js/src/dictado.js, de fa3 a la5 y solo la capa de
-  intensidad que usa el reproductor (VEL_MELODIA, 60-105). Las zonas de los
-  extremos se estiran a las 128 teclas: fuera de fa3-la5 suena la muestra más
+Qué lleva (5.048.054 bytes, 62 muestras, todas en Vorbis como en el original):
+- Tine Electric Piano (4), Flute (73) y Square Lead (80): de fa3 a la5, el
+  registro de los dictados de clase.
+- Grand Piano (0): de fa2 a do6. Es el REGISTRO de los patrones de piano
+  (static/js/src/patron_piano.js, fase 114): la mano izquierda toca de fa2 a
+  mi3, y con el piano recortado a fa3 esas notas salían todas de la muestra de
+  mi3 bajada hasta once semitonos. Ahora cada tecla suena con una muestra a un
+  semitono como mucho de la suya.
+- De los cuatro, solo la capa de intensidad que usa el reproductor
+  (VEL_MELODIA de static/js/src/dictado.js, 60-105). Las zonas de los extremos
+  se estiran a las 128 teclas: fuera de su registro suena la muestra más
   cercana transportada, no silencio.
 - Kit Standard (banco 128): solo el hi-hat cerrado (42) y el aro (37), a
   cualquier intensidad.
+
+Hasta la fase 114 el piano iba también de fa3 a la5 y el banco pesaba
+2.981.338 bytes, dentro de un tope de 3 MB. El piano entero (las 88 teclas)
+serían 8,24 MB.
 
 Cómo se rehace (spessasynth_core de node_modules; no recomprime nada):
   bun scripts/recortar_banco.ts <MuseScore_General.sf3> \
       martina_bescos_app/static/vendor/musescore/MuseScore_General_fichas.sf3
 
-Si cambian TIMBRES, CLAQUETA o VEL_MELODIA en dictado.js, hay que rehacerlo:
-dictado.test.js comprueba que cada timbre suena en todas las teclas y en todo
-el rango de intensidad, y que no pasa de 3 MB.
+Hay que rehacerlo si cambian TIMBRES, CLAQUETA o VEL_MELODIA en dictado.js, o
+el REGISTRO de patron_piano.js. Los tests lo vigilan: dictado.test.js, que
+cada timbre suena en todas las teclas y en todo el rango de intensidad y que
+el banco no pasa de 5,2 MB; patron_piano.test.js, que el piano tiene muestra
+propia en todo el registro de los patrones.
 
-Lo usan las fichas de audición (musica/partials/ficha.html, data-banco-midi).
-El reproductor de práctica sigue con el sonivox.sf2 de alphaTab.
+Lo usan las fichas (musica/partials/ficha.html, data-banco-midi): los dictados
+y los patrones de piano. El reproductor de práctica sigue con el sonivox.sf2 de
+alphaTab.

@@ -660,7 +660,9 @@ class BundleTest(TestCase):
         banco = carpeta / "MuseScore_General_fichas.sf3"
         self.assertTrue(banco.exists(), "falta el banco: bun scripts/recortar_banco.ts (ver LEEME.txt)")
         self.assertEqual(banco.read_bytes()[:4], b"RIFF")
-        self.assertLessEqual(banco.stat().st_size, 3_000_000)
+        # Eran 3 MB hasta la fase 114: el piano va ahora de fa2 a do6, con sus
+        # muestras, para los patrones de piano. El tope sigue para que no engorde solo.
+        self.assertLessEqual(banco.stat().st_size, 5_200_000)
         # La licencia MIT de MuseScore General pide sus avisos en toda obra derivada.
         self.assertIn("MIT license", (carpeta / "LICENSE.md").read_text(encoding="utf-8"))
         self.assertTrue((carpeta / "LEEME.txt").exists())

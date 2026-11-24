@@ -164,8 +164,11 @@ describe("el banco de las fichas (MuseScore General recortado)", () => {
   const banco = SoundBankLoader.fromArrayBuffer(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
   const suena = (p, tecla, vel) => p.getVoiceParameters(tecla, vel).length > 0;
 
-  test("no pasa de 3 MB (C783)", () => {
-    expect(statSync(RUTA).size).toBeLessThanOrEqual(3_000_000);
+  // Eran 3 MB (C783) hasta la fase 114: Jesús pidió que el piano sonara con
+  // sus muestras en todo el registro de los patrones, y eso son 2 MB más. El
+  // tope sigue ahí para que el banco no engorde sin que nadie lo decida.
+  test("no pasa de 5,2 MB (C783, ampliado en la fase 114)", () => {
+    expect(statSync(RUTA).size).toBeLessThanOrEqual(5_200_000);
   });
 
   test("cada timbre suena en las 128 teclas y en todo el rango de intensidad de la melodía", () => {

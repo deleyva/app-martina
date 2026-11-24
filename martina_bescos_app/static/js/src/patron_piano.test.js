@@ -4,9 +4,11 @@ import {
   CANAL_DERECHA,
   CANAL_IZQUIERDA,
   CORCHEAS_POR_COMPAS,
+  INTENSIDAD,
   MAX_VUELTAS,
   MINUTOS_DE_BUCLE,
   PATRONES,
+  REGISTRO,
   TONALIDADES,
   abc,
   bajo,
@@ -352,6 +354,54 @@ describe("el sonido", () => {
     const encendidos = (canal) => bytes.reduce((n, b, i) => n + (b === (0x90 | canal) && bytes[i + 2] > 0 && bytes[i + 1] < 128 ? 1 : 0), 0);
     expect(encendidos(CANAL_DERECHA)).toBeGreaterThanOrEqual(4 * 6);
     expect(encendidos(CANAL_IZQUIERDA)).toBeGreaterThanOrEqual(4 * 2);
+  });
+});
+
+describe("el banco de las fichas lleva el piano de los patrones", () => {
+  const { readFileSync } = require("node:fs");
+  const { SoundBankLoader } = require("spessasynth_core");
+  const cargar = (ruta) => {
+    const bytes = readFileSync(ruta);
+    const banco = SoundBankLoader.fromArrayBuffer(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
+    return banco.presets.find((x) => !x.isGMGSDrum && x.bankMSB === 0 && x.program === 0);
+  };
+  // Cuánto se transporta la muestra que suena en una tecla: 0 si es la suya.
+  const transporte = (piano, tecla, vel) =>
+    Math.max(...piano.getVoiceParameters(tecla, vel).map((v) => Math.abs(v.sample.originalKey - tecla)));
+  const piano = cargar(require("node:path").join(__dirname, "../../vendor/musescore/MuseScore_General_fichas.sf3"));
+
+  test("el registro que se pide al banco es el que puede tocar un patrón", () => {
+    expect(REGISTRO).toEqual({ min: 41, max: 84 });
+    let grave = 127;
+    let aguda = 0;
+    for (const t of todas) {
+      for (const p of PATRONES) {
+        for (const grados of PROGRESIONES) {
+          for (const c of compases(t, grados, p)) {
+            for (const e of [...c.derecha, ...c.izquierda]) {
+              for (const n of e.notas) {
+                grave = Math.min(grave, n.midi);
+                aguda = Math.max(aguda, n.midi);
+              }
+            }
+          }
+        }
+      }
+    }
+    expect(grave).toBeGreaterThanOrEqual(REGISTRO.min);
+    expect(aguda).toBeLessThanOrEqual(REGISTRO.max);
+  });
+
+  test("cada tecla de ese registro suena con una muestra suya, a dos semitonos como mucho", () => {
+    const lejanas = [];
+    for (let tecla = REGISTRO.min; tecla <= REGISTRO.max; tecla++) {
+      for (const vel of [INTENSIDAD.derecha, INTENSIDAD.izquierda]) {
+        expect(piano.getVoiceParameters(tecla, vel).length).toBeGreaterThan(0);
+        const d = transporte(piano, tecla, vel);
+        if (d > 2) lejanas.push(tecla + ":" + d);
+      }
+    }
+    expect(lejanas).toEqual([]);
   });
 });
 

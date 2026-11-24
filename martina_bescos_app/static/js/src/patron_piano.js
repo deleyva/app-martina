@@ -44,6 +44,11 @@ const DERECHA = { min: 57, max: 84 };
 // La izquierda: el bajo y su quinta, entre fa2 y mi3 (sin líneas adicionales por
 // debajo del pentagrama de fa), y su tríada sin bajar de fa2.
 const BAJO = { min: 41, max: 52 };
+// Todo lo que puede sonar en un patrón: de fa2 a do6. Lo lee
+// scripts/recortar_banco.ts para que el banco de las fichas lleve el piano con
+// muestra propia en ese registro entero; si se ensancha aquí, hay que rehacer
+// el banco, y patron_piano.test.js lo dice.
+export const REGISTRO = { min: BAJO.min, max: DERECHA.max };
 
 export const CANAL_DERECHA = 0;
 export const CANAL_IZQUIERDA = 1;

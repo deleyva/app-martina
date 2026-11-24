@@ -8,10 +8,13 @@
 // - los programas de TIMBRES (piano, piano eléctrico, flauta, sinte), de fa3 a
 //   la5 (el registro de los dictados de clase) y en el rango de intensidad
 //   VEL_MELODIA;
+// - del piano, además, todo el REGISTRO de los patrones de piano (fase 114,
+//   static/js/src/patron_piano.js): de fa2 a do6, para que la mano izquierda
+//   suene con sus muestras y no con la más grave transportada una octava;
 // - del kit estándar, los dos golpes de CLAQUETA (hi-hat cerrado y aro), a
 //   cualquier intensidad, para poder subirla o bajarla sin regenerar el banco.
 //
-// Una nota escrita fuera de fa3-la5 no se queda muda: las zonas de los
+// Una nota escrita fuera de esos registros no se queda muda: las zonas de los
 // extremos se estiran hasta 0 y 127, y suena la muestra más cercana
 // transportada. dictado.test.js comprueba que cada timbre suena en las 128
 // teclas.
@@ -26,10 +29,17 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { SoundBankLoader, type BasicInstrument, type BasicPreset } from "spessasynth_core";
 import { CLAQUETA, TIMBRES, VEL_MELODIA } from "../martina_bescos_app/static/js/src/dictado.js";
+import { REGISTRO } from "../martina_bescos_app/static/js/src/patron_piano.js";
 
-// fa3 – la5. De do3 a do6 eran 3,84 MB; así son 2,98, dentro de los 3 MB
-// que se fijaron para la red del aula.
+// fa3 – la5 para los cuatro timbres. De do3 a do6 eran 3,84 MB; así eran 2,98.
 const TECLAS = { min: 53, max: 81 };
+// El piano va más ancho: lo que tocan los patrones de piano. Con él el banco
+// son 5,05 MB (el piano entero, las 88 teclas, serían 8,24).
+const PROGRAMA_DEL_PIANO = TIMBRES.piano.programa;
+const teclasDe = (programa: number) =>
+  programa === PROGRAMA_DEL_PIANO
+    ? { min: Math.min(TECLAS.min, REGISTRO.min), max: Math.max(TECLAS.max, REGISTRO.max) }
+    : TECLAS;
 
 const [entrada, salida] = process.argv.slice(2);
 if (!entrada || !salida) {
@@ -50,7 +60,8 @@ for (const { programa } of Object.values(TIMBRES)) {
   const p = banco.presets.find((x) => !x.isGMGSDrum && x.bankMSB === 0 && x.bankLSB === 0 && x.program === programa);
   if (!p) throw new Error(`El banco no tiene el programa ${programa} en el banco 0.`);
   melodicos.push(p);
-  conservar.set(p, new Map(serie(TECLAS.min, TECLAS.max).map((k) => [k, intensidades])));
+  const teclas = teclasDe(programa);
+  conservar.set(p, new Map(serie(teclas.min, teclas.max).map((k) => [k, intensidades])));
 }
 const kit = banco.presets.find((x) => x.isGMGSDrum && x.program === 0);
 if (!kit) throw new Error("El banco no tiene el kit de batería estándar (banco 128, programa 0).");
