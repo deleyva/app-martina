@@ -51,6 +51,13 @@ urlpatterns = [
         audicion.mover_ejercicio,
         name="mover_ejercicio",
     ),
+    # Patrones de piano (fase 114): otro tipo de ejercicio de la ficha.
+    path("fichas/<int:page_id>/patron/", audicion.anadir_patron, name="anadir_patron"),
+    path(
+        "fichas/<int:page_id>/ejercicios/<str:bloque_id>/patron/",
+        audicion.editar_patron,
+        name="editar_patron",
+    ),
     # Pistas de práctica del visor ChordPro (fase 82). El audio solo sale por
     # aquí: nginx cierra /media/pistas_practica/.
     path("pistas/recurso/<int:page_id>/subir/", pistas.pista_subir, name="pista_subir"),

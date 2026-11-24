@@ -134,6 +134,12 @@ def valor_crudo(ficha, bloque_id):
     return dict(datos[_indice(datos, bloque_id)]["value"])
 
 
+def tipo_de(ficha, bloque_id):
+    """El tipo de bloque de un ejercicio (`dictado_abc`, `patron_piano`…)."""
+    datos = _datos(ficha)
+    return datos[_indice(datos, bloque_id)]["type"]
+
+
 def regenerar(ficha, bloque_id, rng=None):
     """Pares nuevos para un test audiométrico, con su misma distancia y título."""
     valor = valor_crudo(ficha, bloque_id)

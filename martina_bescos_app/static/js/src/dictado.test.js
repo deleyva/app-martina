@@ -205,3 +205,24 @@ describe("el aviso del editor", () => {
     expect(avisoDeCompases(1)).toBe("Este dictado tiene 1 compás; los de clase tienen 8.");
   });
 });
+
+// Fase 114: `aMidi` aprendió a poner el timbre en más de un canal para los
+// patrones de piano. Con uno solo, que es como lo llaman los dictados, tiene
+// que dar byte a byte el MIDI de antes: las huellas son del código anterior.
+describe("los dictados suenan como antes de la fase 114", () => {
+  const { createHash } = require("node:crypto");
+  const huella = (bytes) => createHash("sha256").update(bytes).digest("hex");
+  const plan = planDictado(analizar(ABCJS, OCHO_EN_3_4), opciones);
+
+  test("con un solo canal, el MIDI es el mismo", () => {
+    const piano = aMidi(plan, { programa: 0 });
+    expect(piano.length).toBe(1800);
+    expect(huella(piano)).toBe("a65aa656abdb002f1dc97a35c77c11b6c617d45622fe04c06dada67998aab32e");
+    expect(huella(aMidi(plan, { programa: 73 }))).toBe("90bfaa5c8754446afe51f62f503e06a185950af3dbcdb4fa1f136619e766aaa2");
+    expect(huella(aMidi(plan))).toBe(huella(piano));
+  });
+
+  test("y la huella falla si cambia un solo canal", () => {
+    expect(huella(aMidi(plan, { programa: 0, canales: [0, 1] }))).not.toBe(huella(aMidi(plan, { programa: 0 })));
+  });
+});

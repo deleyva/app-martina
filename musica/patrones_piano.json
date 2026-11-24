@@ -1,0 +1,69 @@
+{
+  "_": [
+    "Catálogo de los patrones de piano de las fichas (fase 114). Lo leen el servidor",
+    "(musica/services/patrones.py: opciones y validación) y el navegador",
+    "(static/js/src/patron_piano.js: las notas). Tras tocarlo: `npm run build-js`.",
+    "",
+    "Un patrón dice, por compás de 4/4, qué toca cada mano y cuánto dura, en corcheas",
+    "(1 corchea, 2 negra, 3 negra con puntillo, 4 blanca, 6 blanca con puntillo,",
+    "8 redonda). Cada mano tiene que sumar 8.",
+    "",
+    "Qué puede tocar una mano: `acorde` (su tríada), `grave`, `medio` y `agudo` (las",
+    "tres notas de esa tríada, de abajo arriba) y `silencio`. La izquierda, además,",
+    "`bajo` (la fundamental, entre fa2 y mi3) y `quinta` (la quinta del acorde, por",
+    "debajo del bajo si cabe). La tríada de la derecha va junto al do central; la",
+    "de la izquierda es la misma una octava más abajo.",
+    "",
+    "El orden de las listas es el de los desplegables: los patrones, de más fácil a",
+    "más difícil; las tonalidades, de menos a más alteraciones."
+  ],
+  "tonalidades": [
+    { "id": "C", "nombre": "Do mayor", "letra": "C", "alt": 0 },
+    { "id": "G", "nombre": "Sol mayor", "letra": "G", "alt": 0 },
+    { "id": "F", "nombre": "Fa mayor", "letra": "F", "alt": 0 },
+    { "id": "D", "nombre": "Re mayor", "letra": "D", "alt": 0 },
+    { "id": "Bb", "nombre": "Si♭ mayor", "letra": "B", "alt": -1 },
+    { "id": "A", "nombre": "La mayor", "letra": "A", "alt": 0 },
+    { "id": "Eb", "nombre": "Mi♭ mayor", "letra": "E", "alt": -1 },
+    { "id": "E", "nombre": "Mi mayor", "letra": "E", "alt": 0 },
+    { "id": "Ab", "nombre": "La♭ mayor", "letra": "A", "alt": -1 },
+    { "id": "B", "nombre": "Si mayor", "letra": "B", "alt": 0 },
+    { "id": "Db", "nombre": "Re♭ mayor", "letra": "D", "alt": -1 },
+    { "id": "F#", "nombre": "Fa♯ mayor", "letra": "F", "alt": 1 }
+  ],
+  "patrones": [
+    {
+      "id": "redondas",
+      "nombre": "Acordes en redondas",
+      "derecha": [["acorde", 8]],
+      "izquierda": [["bajo", 8]]
+    },
+    {
+      "id": "blancas",
+      "nombre": "Acordes en blancas",
+      "derecha": [["acorde", 4], ["acorde", 4]],
+      "izquierda": [["bajo", 4], ["quinta", 4]]
+    },
+    {
+      "id": "bajo-acorde",
+      "nombre": "Bajo y acorde",
+      "derecha": [["silencio", 2], ["acorde", 2], ["silencio", 2], ["acorde", 2]],
+      "izquierda": [["bajo", 2], ["silencio", 2], ["quinta", 2], ["silencio", 2]]
+    },
+    {
+      "id": "negras",
+      "nombre": "Acordes a negras",
+      "derecha": [["acorde", 2], ["acorde", 2], ["acorde", 2], ["acorde", 2]],
+      "izquierda": [["bajo", 6], ["quinta", 2]]
+    },
+    {
+      "id": "alberti",
+      "nombre": "Bajo Alberti",
+      "derecha": [["acorde", 8]],
+      "izquierda": [
+        ["grave", 1], ["agudo", 1], ["medio", 1], ["agudo", 1],
+        ["grave", 1], ["agudo", 1], ["medio", 1], ["agudo", 1]
+      ]
+    }
+  ]
+}

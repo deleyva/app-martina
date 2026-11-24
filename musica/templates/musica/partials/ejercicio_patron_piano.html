@@ -1,0 +1,83 @@
+{% load audicion_tags %}
+{% comment %}
+Un patrón de piano (fase 114): la partitura a dos pentagramas de un patrón de
+acompañamiento sobre una progresión. Aquí no hay notas: `patron_piano.js` las
+calcula de los grados, el patrón y la tonalidad, las pinta con abcjs y las toca
+con el motor de las fichas.
+
+A diferencia de los dictados, la partitura se ve siempre: es lo que se enseña.
+La tonalidad, las manos, el tempo y el bucle de arriba son de quien mira y no se
+guardan. Con `puede_editar`, debajo va el formulario que sí guarda.
+{% endcomment %}
+{% tonalidades_de_piano as tonalidades %}
+<div class="fa-patron" data-patron-piano="{{ b|patron_json }}">
+    <div class="fa-distancia">{{ b|progresion_legible }} · {{ b.patron|nombre_del_patron }}</div>
+    <div class="fa-controles">
+        <button type="button" class="btn btn-sm btn-primary" data-pp-tocar>▶ Tocar</button>
+        <button type="button" class="btn btn-sm" data-pp-parar hidden>■ Parar</button>
+        <label class="fa-pp-campo">Tonalidad
+            <select data-pp-tonalidad class="select select-bordered select-sm" autocomplete="off">
+                {% for clave, nombre in tonalidades %}
+                <option value="{{ clave }}" {% if b.tonalidad == clave %}selected{% endif %}>{{ nombre }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label class="fa-pp-campo">Manos
+            <select data-pp-manos class="select select-bordered select-sm" autocomplete="off">
+                <option value="">Las dos</option>
+                <option value="derecha">Solo la derecha</option>
+                <option value="izquierda">Solo la izquierda</option>
+            </select>
+        </label>
+        <label class="fa-pp-campo">Negra =
+            <input type="number" data-pp-tempo value="{{ b.tempo }}" min="40" max="200" step="4" autocomplete="off" class="input input-bordered input-sm fa-num">
+        </label>
+        <label class="fa-yo"><input type="checkbox" data-pp-bucle checked autocomplete="off"> En bucle</label>
+        <label class="fa-yo"><input type="checkbox" data-pp-claqueta checked autocomplete="off"> Claqueta</label>
+    </div>
+    <div class="fa-estado" data-pp-estado aria-live="polite"></div>
+    {% comment %}
+    Dos cajas, a propósito: abcjs pinta en la de dentro y le fija el alto como un
+    tanto por ciento del ancho de la de fuera. Si el tope de ancho del proyector
+    fuera en la misma caja, se estrecharía el dibujo y no su alto.
+    {% endcomment %}
+    <div class="fa-pp-partitura"><div data-pp-partitura></div></div>
+
+    {% if puede_editar and modo != "clase" %}
+    <details class="fa-editar" {% if no_guardado.donde == bloque_id %}open{% endif %}>
+        <summary>✎ Editar el patrón</summary>
+        <form class="fa-form-dictado"
+              hx-post="{% url 'musica:editar_patron' ficha.pk bloque_id %}"
+              hx-target="#ficha-{{ ficha.pk }}" hx-swap="outerHTML">
+            {% csrf_token %}
+            {% if no_guardado.donde == bloque_id %}<div class="fa-aviso">{{ no_guardado.motivo }}</div>{% endif %}
+            <div class="fa-campos">
+                <label>Progresión
+                    <input type="text" name="progresion" maxlength="120" spellcheck="false" autocapitalize="off" autocomplete="off"
+                           value="{% if no_guardado.donde == bloque_id %}{{ no_guardado.intento.progresion }}{% else %}{{ b.progresion }}{% endif %}"
+                           class="input input-bordered input-sm fa-pp-progresion">
+                </label>
+                <label>Patrón
+                    <select name="patron" class="select select-bordered select-sm">
+                        {% patrones_de_piano as patrones %}
+                        {% for clave, nombre in patrones %}
+                        <option value="{{ clave }}" {% if b.patron == clave %}selected{% endif %}>{{ nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label>Tonalidad
+                    <select name="tonalidad" class="select select-bordered select-sm">
+                        {% for clave, nombre in tonalidades %}
+                        <option value="{{ clave }}" {% if b.tonalidad == clave %}selected{% endif %}>{{ nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label>Negra = <input type="number" name="tempo" value="{{ b.tempo }}" min="40" max="200" class="input input-bordered input-sm fa-num"></label>
+                <label>Título <input type="text" name="titulo" value="{{ b.titulo }}" maxlength="120" class="input input-bordered input-sm"></label>
+            </div>
+            <div class="fa-distancia">Un acorde por compás, en grados de la escala mayor: I ii iii IV V vi vii° (o del 1 al 7).</div>
+            <button type="submit" class="btn btn-primary btn-sm">Guardar</button>
+        </form>
+    </details>
+    {% endif %}
+</div>

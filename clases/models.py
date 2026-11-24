@@ -798,6 +798,13 @@ class ClassSessionItem(models.Model):
             return self.content_object.name
         return str(self.content_object)
 
+    def _de_ejercicio(self, cual, defecto):
+        """El tipo (0) o el icono (1) de un ejercicio de ficha; si no lo es, `defecto`."""
+        if self.content_type.model != "ejerciciodeficha":
+            return defecto
+        objeto = self.content_object
+        return objeto.tipo_e_icono()[cual] if objeto is not None else defecto
+
     def get_content_type_name(self):
         """Tipo de contenido legible"""
         model_name = self.content_type.model
@@ -821,7 +828,9 @@ class ClassSessionItem(models.Model):
             "enlaceexterno": "Enlace externo",
             "recorte": "Recorte de PDF",
             "letraconacordes": "Letra con acordes",
-            "ejerciciodeficha": "Ejercicio de audición",
+            # El tipo de un ejercicio lo dice su bloque: de audición o, desde
+            # la fase 114, patrón de piano.
+            "ejerciciodeficha": self._de_ejercicio(0, "Ejercicio de audición"),
             "pase": "Pase de preguntas",
         }
         return mapping.get(model_name, model_name.title())
@@ -850,7 +859,7 @@ class ClassSessionItem(models.Model):
             "enlaceexterno": "🔗",
             "recorte": "✂️",
             "letraconacordes": "🎤",
-            "ejerciciodeficha": "🎧",
+            "ejerciciodeficha": self._de_ejercicio(1, "🎧"),
             "pase": "❓",
         }
         return icons.get(model_name, "📁")

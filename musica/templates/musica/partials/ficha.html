@@ -1,7 +1,8 @@
 {% load static wagtailcore_tags audicion_tags %}
 {% comment %}
-Una ficha de audición (fase 111): sus ejercicios, cada uno con su audio y su
-respuesta oculta. Es el MISMO parcial en la página de la ficha (`modo="pagina"`),
+Una ficha (fase 111): sus ejercicios. Los de audición llevan su audio y su
+respuesta oculta; los patrones de piano (fase 114), su partitura a la vista. Es
+el MISMO parcial en la página de la ficha (`modo="pagina"`),
 en el proyector de una sesión y en el visor de estudio (`modo="clase"`).
 
 `puede_editar` solo enciende el editor en la página: en clase no se edita.
@@ -72,6 +73,39 @@ plantilla de siempre.
             <label>Título <input type="text" name="titulo" maxlength="120" class="input input-bordered input-sm"></label>
             <button type="submit" class="btn btn-primary btn-sm">Añadir</button>
         </form>
+        <form class="fa-anadir"
+              method="post"
+              action="{% url 'musica:anadir_patron' ficha.pk %}"
+              hx-post="{% url 'musica:anadir_patron' ficha.pk %}"
+              hx-target="#ficha-{{ ficha.pk }}"
+              hx-swap="outerHTML">
+            {% csrf_token %}
+            <span class="fa-editor-titulo">＋ Patrón de piano</span>
+            <label>Progresión
+                <input type="text" name="progresion" maxlength="120" spellcheck="false" autocapitalize="off" autocomplete="off"
+                       value="{% if no_guardado.donde == 'nuevo' %}{{ no_guardado.intento.progresion }}{% else %}I V V I{% endif %}"
+                       title="Un acorde por compás, en grados: I ii iii IV V vi vii° (o del 1 al 7)"
+                       class="input input-bordered input-sm fa-pp-progresion">
+            </label>
+            <label>Patrón
+                <select name="patron" class="select select-bordered select-sm">
+                    {% patrones_de_piano as patrones %}
+                    {% for clave, nombre in patrones %}
+                    <option value="{{ clave }}" {% if no_guardado.intento.patron == clave %}selected{% endif %}>{{ nombre }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>Tonalidad
+                <select name="tonalidad" class="select select-bordered select-sm">
+                    {% tonalidades_de_piano as tonalidades %}
+                    {% for clave, nombre in tonalidades %}
+                    <option value="{{ clave }}" {% if no_guardado.intento.tonalidad == clave %}selected{% endif %}>{{ nombre }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <button type="submit" class="btn btn-primary btn-sm">Añadir</button>
+            {% if no_guardado.donde == "nuevo" %}<div class="fa-aviso">{{ no_guardado.motivo }}</div>{% endif %}
+        </form>
     </div>
     {% endif %}
 
@@ -86,7 +120,7 @@ plantilla de siempre.
             <header class="fa-cabecera">
                 <span class="fa-numero">{{ numero }}</span>
                 <span class="fa-titulo">
-                    {% if bloque.value.titulo %}{{ bloque.value.titulo }}{% elif bloque.block_type == "audiometrico" %}¿Sube o baja?{% elif bloque.block_type == "dictado_abc" %}Dictado {% if bloque.value.tipo == "ritmico" %}rítmico{% else %}melódico{% endif %}{% else %}Dictado{% endif %}
+                    {% if bloque.value.titulo %}{{ bloque.value.titulo }}{% elif bloque.block_type == "audiometrico" %}¿Sube o baja?{% elif bloque.block_type == "dictado_abc" %}Dictado {% if bloque.value.tipo == "ritmico" %}rítmico{% else %}melódico{% endif %}{% elif bloque.block_type == "patron_piano" %}Patrón de piano{% else %}Dictado{% endif %}
                 </span>
                 {% if puede_editar and modo != "clase" %}
                 <span class="fa-acciones">
@@ -120,6 +154,8 @@ plantilla de siempre.
                 {% include "musica/partials/ejercicio_dictado_abc.html" with b=bloque.value bloque_id=bloque.id %}
             {% elif bloque.block_type == "dictado_imagen" %}
                 {% include "musica/partials/ejercicio_dictado_imagen.html" with b=bloque.value bloque_id=bloque.id %}
+            {% elif bloque.block_type == "patron_piano" %}
+                {% include "musica/partials/ejercicio_patron_piano.html" with b=bloque.value bloque_id=bloque.id %}
             {% endif %}
         </section>
         {% else %}
@@ -151,7 +187,7 @@ plantilla de siempre.
 /* En el proyector y en el visor de estudio no está DaisyUI: los botones
    llevan su propio aspecto, legible sobre fondo claro y oscuro. */
 .fa-clase .fa-controles button { border: 0; border-radius: .6rem; padding: .55rem 1.1rem; font-weight: 700; font-size: 1.15rem; cursor: pointer; background: rgba(127,127,127,.25); color: inherit; }
-.fa-clase .fa-controles button[data-todo], .fa-clase .fa-controles button[data-tocar] { background: #2563eb; color: #fff; }
+.fa-clase .fa-controles button[data-todo], .fa-clase .fa-controles button[data-tocar], .fa-clase .fa-controles button[data-pp-tocar] { background: #2563eb; color: #fff; }
 .fa-clase .fa-tramo { color: inherit; }
 .fa-audio { width: min(100%, 480px); margin-bottom: .5rem; }
 .fa-imagen-respuesta img { max-width: 100%; height: auto; background: #fff; border-radius: .5rem; margin-top: .5rem; }
@@ -197,6 +233,22 @@ plantilla de siempre.
 .fa-aviso { color: #b45309; font-weight: 600; font-size: .9rem; }
 .fa-aviso:empty { display: none; }
 .fa-clase .fa-tramo { font-size: 1.1rem; padding: .3rem .9rem; }
+/* Patrones de piano (fase 114). La partitura va siempre sobre blanco, también
+   en el proyector; no lleva `fa-partitura` porque esa se esconde mientras
+   está vacía, y una caja sin ancho no se puede pintar. */
+.fa-pp-partitura { background: #fff; color: #000; border-radius: .5rem; padding: .5rem; min-height: 6rem; }
+.fa-pp-partitura .pp-suena { fill: #2563eb; }
+.fa-controles { align-items: center; }
+.fa-pp-campo { display: inline-flex; align-items: center; gap: .35rem; font-size: .9rem; }
+.fa-pp-progresion { font-family: ui-monospace, Menlo, monospace; width: 13rem; max-width: 100%; }
+.fa-anadir .fa-aviso { flex-basis: 100%; }
+.fa-clase .fa-pp-campo, .fa-clase .fa-patron .fa-yo { font-size: 1.1rem; }
+.fa-clase .fa-patron .fa-distancia { font-size: 1.2rem; opacity: .85; }
+/* En el proyector el patrón entero cabe en la pantalla: si con todo el ancho
+   saldría más alto que el hueco, se estrecha (patron_piano.js dice la
+   proporción de lo pintado) y se centra. Nunca por debajo de su ancho natural. */
+.fa-clase .fa-pp-partitura { margin-left: auto; margin-right: auto; max-width: max(46rem, calc((100vh - 17rem) * var(--pp-proporcion, 99))); }
+.fa-clase .fa-pp-campo select, .fa-clase .fa-pp-campo input { font-size: 1.1rem; padding: .3rem .5rem; border-radius: .5rem; border: 1px solid rgba(127,127,127,.6); background: #fff; color: #000; }
 .fa-clase .fa-estado { font-size: 1.6rem; }
 </style>
 <script>
@@ -232,6 +284,15 @@ plantilla de siempre.
         cargar("{% static 'js/dictado.js' %}", 'Dictado').then(function () {
             window.Dictado.montar(raiz);
         }, function () { console.error('[dictado] no se pudo cargar el reproductor'); });
+    }
+    // Los patrones de piano tocan por el motor de los dictados: primero
+    // `dictado.js`, que es quien lo tiene, y después `patron_piano.js`.
+    if (raiz.querySelector('[data-patron-piano]')) {
+        cargar("{% static 'js/dictado.js' %}", 'Dictado').then(function () {
+            return cargar("{% static 'js/patron_piano.js' %}", 'PatronPiano');
+        }).then(function () {
+            window.PatronPiano.montar(raiz);
+        }, function () { console.error('[patrón de piano] no se pudo cargar'); });
     }
 })();
 </script>

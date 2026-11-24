@@ -101,17 +101,18 @@ when the book is a music library descendant.
     <div class="divider"></div>
 
     {% comment %}
-    Fase 111: «＋ Ficha de audición». Solo en los libros que ya tienen fichas o
+    Fase 111: «＋ Ficha de audición» (y de piano desde la fase 114: es la misma
+    ficha, con otros ejercicios). Solo en los libros que ya tienen fichas o
     que están vacíos, para no ensuciar los libros de teoría con un botón que no
     va con ellos. El permiso es el de añadir una subpágina en el administrador.
     {% endcomment %}
     {% if puede_anadir_ficha and tiene_fichas or puede_anadir_ficha and not blogpages %}
     <details class="mb-6" id="nueva-ficha">
-        <summary class="btn btn-sm btn-outline">＋ Ficha de audición</summary>
+        <summary class="btn btn-sm btn-outline">＋ Ficha de audición o de piano</summary>
         <form method="post" action="{% url 'musica:crear_ficha' page.pk %}" class="flex flex-wrap items-center gap-2 mt-3">
             {% csrf_token %}
             <input type="text" name="titulo" required maxlength="255"
-                   placeholder="Título: «Tests de ¼ de tono», «Dictado rítmico 3»…"
+                   placeholder="Título: «Tests de ¼ de tono», «Dictado rítmico 3», «I – V»…"
                    class="input input-bordered input-sm w-full max-w-md">
             <button type="submit" class="btn btn-primary btn-sm">Crear</button>
         </form>
@@ -137,13 +138,13 @@ when the book is a music library descendant.
 
                 {# Chapter number badge (acts as the row icon) #}
                 <div class="w-12 h-12 rounded-lg flex items-center justify-center shrink-0 bg-primary/10 text-primary font-bold text-lg">
-                    {% if chapter.es_ficha_de_audicion %}🎧{% else %}{{ forloop.counter }}{% endif %}
+                    {% if chapter.es_ficha_de_piano %}🎹{% elif chapter.es_ficha_de_audicion %}🎧{% else %}{{ forloop.counter }}{% endif %}
                 </div>
 
                 {# Content: title + intro snippet + tags #}
                 <div class="flex-1 min-w-0">
                     <div class="text-xs font-sans tracking-widest text-base-content/50 uppercase mb-1">
-                        {% if chapter.es_ficha_de_audicion %}Ficha de audición{% else %}Capítulo {{ forloop.counter }}{% endif %}
+                        {% if chapter.es_ficha_de_piano %}Ficha de piano{% elif chapter.es_ficha_de_audicion %}Ficha de audición{% else %}Capítulo {{ forloop.counter }}{% endif %}
                     </div>
                     <div class="font-bold text-lg truncate">{{ chapter.title }}</div>
                     {% if chapter.intro %}

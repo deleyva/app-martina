@@ -176,12 +176,16 @@ function vlq(n) {
   return bytes;
 }
 
-export function aMidi(plan, { programa = 0 } = {}) {
+// `canales`: los que llevan el timbre. Los dictados usan uno; los patrones de
+// piano (fase 114), dos, uno por mano, para poder apagar una.
+export function aMidi(plan, { programa = 0, canales = [CANAL_MELODIA] } = {}) {
   const crudos = []; // [tick, orden, bytes]
   const tick = (s) => Math.max(0, Math.round(s * TICKS_POR_SEGUNDO));
   crudos.push([0, 0, [0xff, 0x51, 0x03, 0x07, 0xa1, 0x20]]); // 500.000 µs por negra
-  crudos.push([0, 1, [0xc0 | CANAL_MELODIA, programa & 0x7f]]);
-  crudos.push([0, 1, [0xb0 | CANAL_MELODIA, 7, 100]]);
+  for (const canal of canales) {
+    crudos.push([0, 1, [0xc0 | canal, programa & 0x7f]]);
+    crudos.push([0, 1, [0xb0 | canal, 7, 100]]);
+  }
   crudos.push([0, 1, [0xb0 | CANAL_CLAQUETA, 7, CLAQUETA.volumen]]);
   for (const e of plan.eventos) {
     // Los apagados antes que los encendidos del mismo instante: si no, una
@@ -233,6 +237,18 @@ async function elMotor(urls) {
   await cargarScript(urls.motor, "MotorMidi");
   motor = await window.MotorMidi.crear(ctx, { procesador: urls.procesador, banco: urls.banco });
   return motor;
+}
+
+// El turno de sonar. En la página solo suena un reproductor a la vez, sea un
+// dictado o un patrón de piano (patron_piano.js, fase 114): quien empieza para
+// al que estuviera sonando.
+export function tomarTurno(api) {
+  if (sonando && sonando !== api) sonando.parar();
+  sonando = api;
+}
+
+export function soltarTurno(api) {
+  if (sonando === api) sonando = null;
 }
 
 function urlsDe(el) {
@@ -427,6 +443,16 @@ if (typeof window !== "undefined") {
     TIMBRES,
     // Para medir en las pruebas: el motor (y su nodo `salida`).
     motor: () => motor,
+    // Lo que comparte con patron_piano.js (fase 114), que se carga después y
+    // toca por el mismo motor: un banco descargado y un solo turno de sonar.
+    CLAQUETA,
+    CANAL_CLAQUETA,
+    cargarScript,
+    urlsDe,
+    elMotor,
+    contexto: () => ctx,
+    tomarTurno,
+    soltarTurno,
   };
   window.addEventListener("pagehide", () => { if (sonando) sonando.parar(); });
 }

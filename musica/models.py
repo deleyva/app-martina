@@ -49,6 +49,7 @@ from wagtail.blocks import (
     TextBlock,
     URLBlock,
 )
+from wagtail.blocks.struct_block import StructBlockValidationError
 from wagtail.documents.blocks import DocumentChooserBlock
 from wagtail.embeds.blocks import EmbedBlock
 from wagtail.embeds.embeds import get_embed
@@ -245,7 +246,42 @@ class DictadoImagenBlock(StructBlock):
         label = "Dictado con imagen"
 
 
-TIPOS_DE_EJERCICIO = ("audiometrico", "dictado_abc", "dictado_imagen")
+class PatronPianoBlock(StructBlock):
+    """Un patrón de acompañamiento de piano sobre una progresión (fase 114).
+
+    Guarda cuatro datos y ninguna nota: la progresión en grados (`I V V I`, un
+    acorde por compás), el patrón, la tonalidad y el tempo. Las notas, el
+    cifrado y la partitura los calcula el navegador al pintar
+    (`static/js/src/patron_piano.js`), así que transportar es cambiar un dato.
+
+    `patron` y `tonalidad` son texto y no una lista cerrada, a propósito: la
+    lista es el catálogo (`musica/patrones_piano.json`), y si viviera aquí cada
+    patrón nuevo pediría una migración. Lo que no esté en el catálogo lo para
+    `clean`, igual que una progresión que no se entienda.
+    """
+
+    titulo = CharBlock(max_length=120, required=False)
+    progresion = CharBlock(max_length=120, help_text="Un acorde por compás, en grados: I V V I")
+    patron = CharBlock(max_length=40, help_text="Identificador del catálogo: blancas, bajo-acorde, alberti…")
+    tonalidad = CharBlock(max_length=4, default="C", help_text="C, G, F, D, Bb…")
+    tempo = IntegerBlock(default=80, min_value=40, max_value=200)
+
+    def clean(self, value):
+        from musica.services import patrones
+
+        limpio = super().clean(value)
+        try:
+            limpio.update(patrones.valor_de_patron(dict(limpio)))
+        except patrones.PatronNoValido as e:
+            raise StructBlockValidationError(non_block_errors=[str(e)]) from None
+        return limpio
+
+    class Meta:
+        icon = "media"
+        label = "Patrón de piano"
+
+
+TIPOS_DE_EJERCICIO = ("audiometrico", "dictado_abc", "dictado_imagen", "patron_piano")
 
 
 class SlideBlock(StructBlock):
@@ -280,17 +316,28 @@ class DictadoPage(Page):
             ("audiometrico", AudiometricoBlock()),
             ("dictado_abc", DictadoAbcBlock()),
             ("dictado_imagen", DictadoImagenBlock()),
+            ("patron_piano", PatronPianoBlock()),
         ],
         blank=True,
         help_text=(
             "Ejercicios de audición (test audiométrico, dictado en ABC, dictado con "
-            "imagen), o audios y respuestas sueltos como en las fichas antiguas."
+            "imagen), patrones de piano, o audios y respuestas sueltos como en las "
+            "fichas antiguas."
         ),
     )
 
     # Lo que el índice del libro pregunta para rotularla «Ficha de audición».
     # No es `es_material_entero`: hasta la fase 111 las dos cosas coincidían.
     es_ficha_de_audicion = True
+
+    @property
+    def es_ficha_de_piano(self):
+        """¿Todo lo que tiene son patrones de piano? (fase 114).
+
+        El índice del libro la rotula entonces «Ficha de piano». Una ficha
+        vacía o mezclada sigue siendo «de audición», como hasta ahora.
+        """
+        return {b.block_type for b in self.content} == {"patron_piano"}
 
     # Fase 112: el material de una ficha nueva son sus ejercicios, uno a uno
     # (`material_por_ejercicio`); solo la ficha antigua de bloques sueltos se
@@ -2623,6 +2670,12 @@ class EjercicioDeFicha(models.Model):
         if bloque is None:
             return "🎧", f"{self.ficha.title} · ejercicio borrado", "Ejercicio de audición"
         valor = bloque.value
+        if bloque.block_type == "patron_piano":
+            from musica.services import patrones
+
+            patron = patrones.nombre_del_patron(valor.get("patron"))
+            tipo = f"Patrón de piano · {patron}" if patron else "Patrón de piano"
+            return "🎹", f"{self.ficha.title} · {numero} · {patrones.titulo_de(valor)}", tipo
         if bloque.block_type == "audiometrico":
             from musica.services.audicion import etiqueta_de_cents
 
@@ -2644,6 +2697,17 @@ class EjercicioDeFicha(models.Model):
     def title(self):
         """Lo que el motor de libros y las sesiones piden a cualquier medio."""
         return self.describir()[1]
+
+    def tipo_e_icono(self):
+        """(tipo legible, icono) para las tarjetas de la biblioteca y de la sesión.
+
+        Un patrón de piano (fase 114) no es un ejercicio de audición: lo dice
+        el bloque, no el modelo, que es el mismo para todos los ejercicios.
+        """
+        bloque, _ = self.bloque_y_numero()
+        if bloque is not None and bloque.block_type == "patron_piano":
+            return "Patrón de piano", "🎹"
+        return "Ejercicio de audición", "🎧"
 
     def __str__(self):
         return self.title

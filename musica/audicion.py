@@ -17,7 +17,7 @@ from django.utils.text import slugify
 from django.views.decorators.http import require_POST
 
 from musica.models import DictadoPage, LibroPage
-from musica.services import audicion
+from musica.services import audicion, patrones
 
 
 def _puede_editar(page, user):
@@ -208,6 +208,66 @@ def editar_dictado(request, page_id, bloque_id):
         audicion.reemplazar(ficha, bloque_id, _valor_dictado(request.POST, anterior))
     except audicion.EjercicioNoEncontrado:
         return HttpResponseNotFound("Ese ejercicio ya no está en la ficha.")
+    audicion.guardar(ficha, request.user)
+    return _responder(request, ficha)
+
+
+# --- Patrones de piano (fase 114) ----------------------------------------------
+
+
+def _no_guardado(request, ficha, donde, error):
+    """No se guarda nada, y la ficha vuelve con el motivo junto al formulario.
+
+    Con HTMX la respuesta es un 200 con la ficha repintada: un 400 no se
+    intercambia, y quien escribió «I V7» se quedaría mirando un botón que no
+    hace nada. `donde` es el `id` del bloque, o «nuevo» en el formulario de añadir.
+    """
+    if not request.headers.get("HX-Request"):
+        return HttpResponseBadRequest(str(error))
+    return render(
+        request,
+        "musica/partials/ficha.html",
+        {
+            "ficha": ficha,
+            "puede_editar": True,
+            "modo": "pagina",
+            "no_guardado": {"donde": donde, "motivo": str(error), "intento": request.POST},
+        },
+    )
+
+
+@require_POST
+def anadir_patron(request, page_id):
+    ficha, error = _ficha_editable(request, page_id)
+    if error:
+        return error
+    try:
+        valor = patrones.valor_de_patron(request.POST)
+    except patrones.PatronNoValido as e:
+        return _no_guardado(request, ficha, "nuevo", e)
+    audicion.anadir(ficha, "patron_piano", valor)
+    audicion.guardar(ficha, request.user)
+    return _responder(request, ficha)
+
+
+@require_POST
+def editar_patron(request, page_id, bloque_id):
+    ficha, error = _ficha_editable(request, page_id)
+    if error:
+        return error
+    try:
+        # Solo un patrón: con el `id` de un dictado, esto le dejaría dentro
+        # los datos de un patrón.
+        if audicion.tipo_de(ficha, bloque_id) != "patron_piano":
+            raise audicion.EjercicioNoEncontrado(bloque_id)
+        anterior = audicion.valor_crudo(ficha, bloque_id)
+    except audicion.EjercicioNoEncontrado:
+        return HttpResponseNotFound("Ese patrón ya no está en la ficha.")
+    try:
+        valor = patrones.valor_de_patron(request.POST, anterior)
+    except patrones.PatronNoValido as e:
+        return _no_guardado(request, ficha, bloque_id, e)
+    audicion.reemplazar(ficha, bloque_id, valor)
     audicion.guardar(ficha, request.user)
     return _responder(request, ficha)
 

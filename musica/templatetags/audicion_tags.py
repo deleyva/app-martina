@@ -1,9 +1,10 @@
-"""Etiquetas de las fichas de audición (fase 111)."""
+"""Etiquetas de las fichas: audición (fase 111) y patrones de piano (fase 114)."""
 
 import json
 
 from django import template
 
+from musica.services import patrones
 from musica.services.audicion import DISTANCIAS, etiqueta_de_cents
 
 register = template.Library()
@@ -72,3 +73,35 @@ def timbres_dictado():
         ("flauta", "Flauta"),
         ("sinte", "Sintetizador suave"),
     ]
+
+
+# --- Patrones de piano (fase 114) ----------------------------------------------
+
+
+@register.filter
+def patron_json(valor):
+    """Lo que el navegador necesita de un bloque `patron_piano`: grados, no notas."""
+    return json.dumps(patrones.para_el_navegador(valor))
+
+
+@register.filter
+def progresion_legible(valor):
+    """«I – V – V – I», o vacío si la progresión guardada no se entiende."""
+    return patrones.escribir_progresion(patrones.grados_de(valor), " – ")
+
+
+@register.filter
+def nombre_del_patron(clave):
+    return patrones.nombre_del_patron(clave) or clave
+
+
+@register.simple_tag
+def patrones_de_piano():
+    """[(id, nombre)] para el desplegable, de más fácil a más difícil."""
+    return patrones.patrones()
+
+
+@register.simple_tag
+def tonalidades_de_piano():
+    """[(id, nombre)] para el desplegable, de menos a más alteraciones."""
+    return patrones.tonalidades()
