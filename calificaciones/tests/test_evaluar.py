@@ -111,6 +111,13 @@ def test_nt_mas_sale_con_cuatro_apartados_y_no_con_tres():
     assert evaluar.letra_de_rubrica((3, 3, 2, 2)) == "NT"
 
 
+def test_sb_mas_vale_diez_y_la_rubrica_no_lo_propone():
+    """C839. SB+ es una letra más, la primera; la rúbrica perfecta sigue proponiendo SB."""
+    assert evaluar.LETRAS[0] == "SB+"
+    assert evaluar.letra_de_rubrica((3, 3, 3)) == "SB"
+    assert [o["valor"] for o in evaluar.ESCALA if o["etiqueta"] == "SB+"] == [10]
+
+
 @pytest.mark.parametrize("malos", [[], [0], [4], [1, 2, 5], ["3"]])
 def test_puntos_fuera_de_1_a_3_no_valen(malos):
     with pytest.raises(ValueError):

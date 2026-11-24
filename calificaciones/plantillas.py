@@ -40,7 +40,12 @@ from .models import Instrumento, MarcoEvaluacion, Plan, Reparto
 # da 9 (SB) y NT con NT+ da 8,25 (NT). El NT se queda en 8 y no baja a 7,5:
 # las notas ya puestas tienen el 8 grabado y se leen por valor exacto. El
 # boletín (`calculo.cualitativa`, `NotaManual`) sigue con las cinco de siempre.
+#
+# SB+ vale 10 (decisión de Jesús, 2026-11-24): el trabajo redondo. Está dentro
+# del tramo del SB (9-10), así que en el boletín es un SB; lo que cambia es la
+# media, que con SB+ puede llegar a 10 y con SB se quedaba en 9,5.
 ESCALA = [
+    {"etiqueta": "SB+", "valor": 10},
     {"etiqueta": "SB", "valor": 9.5},
     {"etiqueta": "NT+", "valor": 8.5},
     {"etiqueta": "NT", "valor": 8},

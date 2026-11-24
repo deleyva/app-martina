@@ -7184,3 +7184,30 @@ Producción
 - **Datos de prueba en local, borrados:** el libro «Piano por progresiones (prueba 115)», su ficha, y el usuario y las sesiones de prueba.
 - **Sin push ni despliegue:** espera al «despliega» de Jesús. **Ojo:** el código está en `main`, así que el próximo despliegue de cualquier otra cosa se lo lleva. No hay migración.
 - **Decisiones que son de Jesús:** si los grados van todos en mayúscula en la partitura; el nombre del libro («Piano por progresiones» es provisional); las demás canciones de I – V – IV – I en menor; y si quiere el V mayor de las menores, que es lo siguiente que pedirá una canción.
+
+---
+
+## Fase 116 — SB+ = 10, una letra más por encima del SB (2026-11-24) · CONSTRUIDA Y PROBADA EN LOCAL, SIN DESPLEGAR; FALTAN EL «DESPLIEGA» DE JESÚS Y PONER LOS 35 SB+ DE HOY (C843)
+
+**Lo que pidió Jesús, literal:** «Quiero que añadas otra nota posible a poner, sería SB+ que equivaldría a un 10. y quiero que se la pongas en Sensorialidad y Dictado melódico en el primer trimestre a todos los que he evaluado hoy esos items, tienen archivo adjunto y no les he puesto nota».
+
+Mismo molde que NT+ (fase 97): la letra entra en `ESCALA` y en `LETRAS`, y de ahí sale sola en el registro, en el panel de evaluar y en el cuaderno.
+
+### Claims
+
+- [x] **C839** — `ESCALA` y `LETRAS` empiezan por `SB+`, que vale 10; en el registro se pide tecleando «sb+» o «10», y «sb» sigue siendo SB; la rúbrica no lo propone nunca (3·3·3 da SB) y lo pone el profesor. *Falsador: `test_sb_mas_vale_diez_y_la_rubrica_no_lo_propone`, `entrada.test.js` y teclear «sb+» en una celda.* **Evidencia:** los tests pasan; en el navegador, en local, «sb+» en Sensorialidad de 3-FH guardó `10.00` y `etiqueta_de` lo lee «SB+».
+- [x] **C840** — Una casilla que se calcula (cuaderno, teoría) es SB+ solo con media 10 justa; con 9,99 es SB; el boletín sigue con sus cinco letras. *Falsador: `test_letra_de_media_da_sb_mas_solo_con_un_diez`.* **Evidencia:** pasa. Consecuencia: un test de teoría perfecto se lee SB+ en el detalle (`test_teoria` actualizado).
+- [x] **C841** — La migración `0009_sb_mas` pone SB+ delante en los instrumentos que califican exactamente con SB · NT+ · NT · BI · SU · IN y no toca ninguna nota ni los de otra escala. *Falsador: contar las escalas tras migrar.* **Evidencia:** en local, 45 instrumentos con las siete letras y los 3 de «Sin cuaderno…Muy bien» igual que estaban; `makemigrations --check` no detecta cambios.
+- [ ] **C842** — El botón SB+ se ve y se marca en el panel de evaluar y en el del cuaderno. *Falsador: abrir los dos paneles en el navegador.* **[DEFERRED-VERIFY]** Los botones salen de `LETRAS` y el color está puesto, pero no llegué a abrir ninguno de los dos paneles en local (la sesión 217 no tenía nada evaluable a mano). Se mira en la primera clase o con una sesión de prueba.
+- [ ] **C843** — En producción, los 35 huecos de hoy (foto subida el 24-nov en Sensorialidad o Dictado melódico de la 1ª evaluación, celda sin nota) tienen SB+: 16 en 3-EG-BIL, 14 en 3-FH y 5 en 4-AC-BIL. *Falsador: releer `estado/` de los tres grupos y contar.* Pendiente del despliegue: sin la 0009 el instrumento no admite un 10.
+
+### Anti-claims
+
+- Ninguna nota ya puesta cambia de valor con la migración, y ninguna letra del boletín cambia.
+- No se pone SB+ a quien ya tiene nota en esa celda, ni a quien no tiene adjunto de hoy.
+
+### Log
+
+- **2026-11-24 — Construida.** `models.py` (`LETRAS`), `plantillas.py` (`ESCALA`), `calculo.letra_de_media`, comentarios de `evaluar.py`, texto del botón y del mensaje de «Calificar todo», color de SB+ en los dos paneles, migración `0009_sb_mas`. `entrada.js` no cambia: el desempate por raíz de la fase 97 ya resuelve SB frente a SB+, así que el bundle no se reconstruye. Tests: `calificaciones`, `preguntas` y `clases` **784 passed**; frontend 23 pass.
+- **Cómo se leyó producción.** La consulta directa a la base la denegó el clasificador de permisos; se leyó `calificaciones/grupo/<id>/estado/` con la sesión de Jesús en Chrome. De las 96 evidencias de hoy, todas en esos dos instrumentos, 59 celdas tienen ya nota (22 SB, 17 NT+, 13 NT, 5 BI, 1 SU, 1 IN) y 35 no.
+- **Sin push ni despliegue.** Lleva migración (0009, de datos: añade una opción a los instrumentos). En `main` están también los commits de la fase 115, que salen con el mismo despliegue.

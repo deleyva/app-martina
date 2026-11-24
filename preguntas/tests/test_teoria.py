@@ -99,7 +99,7 @@ class TestCasilla:
         acumulado = nota.rubrica["acumulado"]
         assert acumulado["tipo"] == "teoria" and acumulado["n"] == 3
         assert acumulado["media"] == "7.50" and acumulado["letra"] == "NT"
-        assert [r["letra"] for r in acumulado["revisiones"]] == ["SB", "SU", "NT"]
+        assert [r["letra"] for r in acumulado["revisiones"]] == ["SB+", "SU", "NT"]  # un test perfecto es un 10: SB+ (fase 116)
         assert [r["nota"] for r in acumulado["revisiones"]] == ["10", "5", "7,5"]
         assert acumulado["revisiones"][1]["comentario"] == "2 de 4 · 5"
         fallos = acumulado["revisiones"][1]["fallos"]

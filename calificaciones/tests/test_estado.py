@@ -45,6 +45,7 @@ def test_las_plantillas_nacen_con_la_escala_cualitativa(marcos, group):
         for instrumento in plan.instrumentos.all():
             assert instrumento.escala == Instrumento.ESCALA_OPCIONES, instrumento.nombre
             assert [(o["etiqueta"], o["valor"]) for o in instrumento.opciones_normalizadas()] == [
+                ("SB+", D(10)),
                 ("SB", D("9.5")),
                 ("NT+", D("8.5")),
                 ("NT", D(8)),
@@ -61,8 +62,8 @@ def test_los_instrumentos_de_una_plantilla_no_comparten_la_lista(marcos, group):
     primero = plan.instrumentos.first()
     primero.opciones[0]["valor"] = 9
     primero.save()
-    assert plantillas.ESCALA[0]["valor"] == 9.5
-    assert plan.instrumentos.last().opciones[0]["valor"] == 9.5
+    assert plantillas.ESCALA[0]["valor"] == 10
+    assert plan.instrumentos.last().opciones[0]["valor"] == 10
 
 
 @pytest.mark.django_db
@@ -70,7 +71,7 @@ def test_letra_que_no_es_opcion_da_400(client, group, alumnos, plan_letras):
     teoria = Prueba.objects.get(instrumento__plan=plan_letras, instrumento__nombre="Teoría")
     r = _guardar(client, group, teoria, alumnos[0], "7")
     assert r.status_code == 400
-    assert "SB, NT+, NT, BI, SU, IN" in r.json()["error"]
+    assert "SB+, SB, NT+, NT, BI, SU, IN" in r.json()["error"]
     assert not Nota.objects.filter(valor__isnull=False).exists()
     assert not CambioNota.objects.exists()
 
@@ -358,5 +359,5 @@ def test_el_plan_deja_cambiar_la_regla_y_pasar_a_letras(client, profesor, group,
     assert "{#" not in html
     assert "Una celda vacía cuenta como 0" in html
     assert 'name="hueco_cuenta_cero" class="checkbox checkbox-sm" checked' in html
-    assert "Calificar todo con SB · NT+ · NT · BI · SU · IN" in html
+    assert "Calificar todo con SB+ · SB · NT+ · NT · BI · SU · IN" in html
     assert f"/calificaciones/grupo/{group.pk}/?t=1#info" in html

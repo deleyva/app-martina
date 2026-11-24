@@ -89,6 +89,13 @@ def test_letra_de_media_tiene_nt_mas_y_el_boletin_no(nota, esperado):
     assert calculo.cualitativa(nota) == ("NT" if esperado == "NT+" else esperado)
 
 
+@pytest.mark.parametrize("nota, esperado", [(D("9.99"), "SB"), (D(10), "SB+"), (D("9.5"), "SB")])
+def test_letra_de_media_da_sb_mas_solo_con_un_diez(nota, esperado):
+    """C840. Una casilla calculada es SB+ solo con media 10; el boletín sigue en SB."""
+    assert calculo.letra_de_media(nota) == esperado
+    assert calculo.cualitativa(nota) == "SB"
+
+
 def test_repartir_a_partes_iguales_suma_exacta():
     partes = calculo.repartir_a_partes_iguales(D(10), 3)
     assert sum(partes) == D(10)

@@ -42,7 +42,7 @@ TRIMESTRES = [(1, "1ª evaluación"), (2, "2ª evaluación"), (3, "3ª evaluaci�
 
 # Las calificaciones cualitativas, de mejor a peor. Las usan evaluar en clase
 # (fase 62) y el dado del cuaderno (fase 78).
-LETRAS = ["SB", "NT+", "NT", "BI", "SU", "IN"]
+LETRAS = ["SB+", "SB", "NT+", "NT", "BI", "SU", "IN"]
 
 
 def alumnos_del_grupo(group):

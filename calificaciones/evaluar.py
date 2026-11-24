@@ -31,6 +31,9 @@ from .plantillas import ESCALA
 # demás cortes van de medio en medio. Con tres apartados no se alcanza (3·3·2 es
 # 2,67 y sigue siendo NT, la tabla que acordó Jesús); con cuatro, 3·3·3·2 lo da.
 # El profesor siempre puede pulsar NT+ por encima de la propuesta.
+#
+# SB+ (2026-11-24) no tiene corte: la rúbrica llega como mucho a SB, y el SB+
+# lo pone el profesor pulsándolo.
 CORTES = [
     ("SB", 3, 1),
     ("NT+", 11, 4),
@@ -58,7 +61,7 @@ def valor_de_letra(instrumento: Instrumento, letra: str) -> Decimal:
     Si el instrumento califica con lista de opciones y tiene esa letra, manda su
     valor: así la nota se guarda exactamente igual que si se hubiera tecleado en
     el registro. Si no (escala numérica, u opciones de otra escala), el valor de
-    la escala del curso: SB 9,5 · NT+ 8,5 · NT 8 · BI 6,5 · SU 5,5 · IN 4.
+    la escala del curso: SB+ 10 · SB 9,5 · NT+ 8,5 · NT 8 · BI 6,5 · SU 5,5 · IN 4.
     """
     if letra not in LETRAS:
         raise ValueError(f"«{letra}» no es una calificación")

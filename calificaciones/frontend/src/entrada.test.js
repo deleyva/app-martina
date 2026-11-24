@@ -61,6 +61,7 @@ test('los acentos no cuentan', () => {
 });
 
 const CUALITATIVA = [
+  { etiqueta: 'SB+', valor: '10' },
   { etiqueta: 'SB', valor: '9.5' },
   { etiqueta: 'NT+', valor: '8.5' },
   { etiqueta: 'NT', valor: '8' },
@@ -76,6 +77,10 @@ test('con SB·NT+·NT·BI·SU·IN, la primera letra basta salvo con la S', () =>
   expect(resolverEntrada('NT+', CUALITATIVA).opcion.etiqueta).toBe('NT+');
   expect(resolverEntrada('8.5', CUALITATIVA).opcion.etiqueta).toBe('NT+');
   expect(resolverEntrada('8,5', CUALITATIVA).opcion.etiqueta).toBe('NT+');
+  // C839. «SB» sigue siendo SB aunque SB+ empiece igual; SB+ se pide entero o con un 10.
+  expect(resolverEntrada('sb', CUALITATIVA).opcion.etiqueta).toBe('SB');
+  expect(resolverEntrada('sb+', CUALITATIVA).opcion.etiqueta).toBe('SB+');
+  expect(resolverEntrada('10', CUALITATIVA).opcion.etiqueta).toBe('SB+');
   expect(resolverEntrada('b', CUALITATIVA).opcion.etiqueta).toBe('BI');
   expect(resolverEntrada('i', CUALITATIVA).opcion.etiqueta).toBe('IN');
   expect(resolverEntrada('s', CUALITATIVA)).toEqual({ tipo: 'invalido' }); // SB o SU
