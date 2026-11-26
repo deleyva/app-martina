@@ -108,6 +108,29 @@
         #banda-elegir .opciones { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
         #banda-elegir button { border: none; border-radius: 8px; padding: 8px 12px; font-size: 16px; cursor: pointer; background: rgba(255,255,255,0.12); color: #fff; }
         #banda-elegir button.opcion:hover { background: #2563eb; }
+        /* Los que no tienen puesto (fase 117): tres columnas, se leen desde el fondo */
+        #banda-resto { margin: 4px 16px 24px; }
+        #banda-resto .cabecera { display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px; padding: 10px 0 4px; border-top: 1px solid rgba(255,255,255,0.15); }
+        #banda-resto .titulo { font-size: 20px; font-weight: 700; }
+        #banda-resto #banda-cancion { color: #d4d4d8; font-size: 16px; }
+        #banda-resto .hueco { flex: 1; }
+        #banda-resto .cabecera button { border: none; border-radius: 8px; padding: 6px 12px; font-size: 14px; cursor: pointer; background: rgba(255,255,255,0.12); color: #fff; }
+        #banda-resto-pista { color: #a1a1aa; font-size: 15px; margin-bottom: 10px; min-height: 1.4em; }
+        #banda-resto-pista.activa { color: #fde68a; font-weight: 600; }
+        #banda-columnas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+        #banda-columnas .columna { border-radius: 12px; padding: 10px 12px 12px; background: #1b1b1f; border: 2px solid transparent; min-height: 90px; }
+        #banda-columnas .columna h3 { margin: 0 0 8px; font-size: clamp(17px, 1.9vw, 24px); font-weight: 700; }
+        #banda-columnas .columna h3 small { color: #a1a1aa; font-weight: 400; font-size: 0.7em; margin-left: 6px; }
+        #banda-columnas .columna.destino { border-color: #16a34a; background: rgba(22, 163, 74, 0.14); cursor: pointer; }
+        #banda-columnas .columna .aqui { display: none; margin-top: 8px; color: #86efac; font-size: 15px; font-weight: 700; }
+        #banda-columnas .columna.destino .aqui { display: block; }
+        #banda-columnas .nombres { display: flex; flex-wrap: wrap; gap: 6px; }
+        #banda-columnas button.nombre { border: 2px solid transparent; border-radius: 999px; padding: 5px 12px; font-size: clamp(15px, 1.7vw, 22px); cursor: pointer; background: rgba(255,255,255,0.12); color: #fff; }
+        #banda-columnas button.nombre.cambiado { border-color: rgba(253, 230, 138, 0.7); }
+        #banda-columnas button.nombre.elegido { background: #2563eb; border-color: #93c5fd; font-weight: 700; }
+        #banda-columnas button.nombre:disabled { cursor: default; }
+        #banda-columnas .nadie { color: #71717a; font-size: 15px; }
+        @media (max-width: 700px) { #banda-columnas { grid-template-columns: 1fr; } }
 
         /* ── Plano de clase: pasar lista (fase 70) ── */
         #panel-lista { position: fixed; inset: 0; z-index: 20002; background: #111; display: none; flex-direction: column; }
@@ -2421,11 +2444,12 @@
     {% endcomment %}
     {% if tiene_banda %}
     <button id="fab-banda" class="fab-izq" type="button" onclick="abrirBanda()" aria-label="La banda de hoy"
-            data-ayuda="La banda de hoy (B): quién toca cada puesto y, si falta alguien, a quién poner.">🎸</button>
+            data-ayuda="La banda de hoy (B): quién toca cada puesto, a quién poner si falta alguien, y quién hace ukelele, xilófono o coros en esta canción.">🎸</button>
     {% endif %}
     <div id="panel-banda" role="dialog" aria-label="La banda de hoy"
          data-url="{% url 'clases:banda_hoy' session.pk %}"
          data-cambio="{% url 'clases:banda_hoy_cambio' session.pk %}"
+         data-resto="{% url 'clases:banda_hoy_resto' session.pk %}"
          data-csrf="{{ csrf_token }}">
         <div id="banda-barra">
             <span class="titulo" id="banda-titulo">🎸 La banda de hoy</span>
@@ -2440,6 +2464,16 @@
             <tbody></tbody>
         </table>
         <div id="banda-elegir" hidden></div>
+        <div id="banda-resto" hidden>
+            <div class="cabecera">
+                <span class="titulo">Los demás</span>
+                <span id="banda-cancion"></span>
+                <span class="hueco"></span>
+                <button type="button" id="banda-resto-reset" hidden>↺ Como prefieren</button>
+            </div>
+            <div id="banda-resto-pista"></div>
+            <div id="banda-columnas"></div>
+        </div>
     </div>
     <script src="{% static 'clases/banda_hoy.js' %}"></script>
     {% endif %}

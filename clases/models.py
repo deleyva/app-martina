@@ -1897,7 +1897,8 @@ class BandaDeGrupo(models.Model):
     # Fase 98: en qué anillo está cada alumno. Sin entrada, rota sin vetos.
     #   {"<id>": {"anillo": "rota" | "fijo" | "fuera",
     #             "puestos": ["electrica", "espanola"],   # fijo: por orden de preferencia
-    #             "no": ["voz"]}}                          # vetos (antes, `bloqueos`)
+    #             "no": ["voz"],                           # vetos (antes, `bloqueos`)
+    #             "resto": "ukelele" | "xilofono"}}        # fase 117: qué toca sin puesto
     alumnos = models.JSONField(
         default=dict,
         blank=True,
@@ -1944,6 +1945,34 @@ class BandaVersion(models.Model):
         ordering = ["-created_at", "-pk"]
         verbose_name = "Versión de banda"
         verbose_name_plural = "Versiones de banda"
+
+
+class RepartoDeCancion(models.Model):
+    """Qué hacen en UNA canción los que no tienen puesto en la banda (fase 117).
+
+    Solo las excepciones: `{"<alumno>": "ukelele" | "xilofono" | "coros"}`. Quien
+    no está aquí toca lo que prefiere (`BandaDeGrupo.alumnos[id]["resto"]`). No
+    depende del turno: quien ese turno tiene puesto, sencillamente no se mira.
+    Lo escribe solo `clases/banda.py`.
+
+    `clave` es la canción: `p<id>` para la página de origen del elemento (así la
+    partitura, la letra y el vídeo de una canción comparten reparto) o
+    `m<tipo>-<id>` para un medio suelto sin página.
+    """
+
+    banda = models.ForeignKey(BandaDeGrupo, on_delete=models.CASCADE, related_name="repartos")
+    clave = models.CharField(max_length=40)
+    titulo = models.CharField(max_length=255, blank=True)
+    reparto = models.JSONField(default=dict, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ["banda", "clave"]
+        verbose_name = "Reparto de una canción"
+        verbose_name_plural = "Repartos de canciones"
+
+    def __str__(self):
+        return f"{self.titulo or self.clave} · {self.banda}"
 
 
 class CambioDeHoy(models.Model):

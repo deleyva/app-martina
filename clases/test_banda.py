@@ -18,7 +18,9 @@ from clases.models import CambioDeHoy
 from clases.models import ClassSession
 from clases.models import Enrollment
 from clases.models import Group
+from clases.models import ClassSessionItem
 from clases.models import PaseDeLista
+from clases.models import RepartoDeCancion
 from clases.models import Subject
 from martina_bescos_app.users.tests.factories import UserFactory
 
@@ -853,7 +855,7 @@ def test_la_tabla_de_alumnos_se_guarda_y_regenera(client, profesor, grupo, banda
     t1 = dict(banda.plan["turnos"][0])
     client.force_login(profesor)
     html = client.get(reverse("clases:banda_rejilla", args=[grupo.pk])).content.decode()
-    assert 'id="tabla-alumnos"' in html and html.count('name="anillo_') == 30
+    assert 'id="tabla-alumnos"' in html and html.count('name="anillo_') == 30 * 3  # rota, fijo, no entra
     assert "{#" not in html
     eduardo, axel, natalia, lola = (a.pk for a in treinta[:4])
     datos = {f"anillo_{a.pk}": "rota" for a in treinta}
@@ -912,5 +914,305 @@ def test_la_hoja_dice_los_fijos_y_los_de_xilofono(client, profesor, grupo, banda
     html = client.get(reverse("clases:banda_hoja", args=[grupo.pk])).content.decode()
     assert "Los que rotan pasáis todos por la banda" in html
     assert f"🥁 Batería:</b> {bandas.nombre_de(treinta[0])}, {bandas.nombre_de(treinta[1])} (se turnan)." in html
-    assert f"<b>Xilófono:</b> {bandas.nombre_de(treinta[2])}." in html
+    assert f"<b>No entran en la banda:</b> {bandas.nombre_de(treinta[2])}." in html
     assert f"<b>{bandas.nombre_de(treinta[2])}</b> xilófono" in html
+
+
+# -----------------------------------------------------------------------------
+# Fase 117 — los que no tienen puesto: ukelele, xilófono o coros (C844 a C849)
+# -----------------------------------------------------------------------------
+
+
+def _pagina(titulo):
+    from django.conf import settings
+    from wagtail.coreutils import get_supported_content_language_variant
+    from wagtail.models import Locale
+    from wagtail.models import Page
+
+    # Con las migraciones, el idioma y la raíz ya existen; sin ellas, se crean.
+    Locale.objects.get_or_create(language_code=get_supported_content_language_variant(settings.LANGUAGE_CODE))
+    raiz = Page.get_first_root_node() or Page.add_root(title="Raíz", slug="raiz-de-prueba")
+    return raiz.add_child(instance=Page(title=titulo, slug=titulo.lower().replace(" ", "-")))
+
+
+def _item(sesion, grupo, pagina=None, objeto=None):
+    from django.contrib.contenttypes.models import ContentType
+
+    objeto = objeto or grupo
+    return ClassSessionItem.objects.create(
+        session=sesion, content_type=ContentType.objects.get_for_model(type(objeto)), object_id=objeto.pk, source_page=pagina
+    )
+
+
+def _columnas(d):
+    return {c["papel"]: [a["id"] for a in c["alumnos"]] for c in d["resto"]["columnas"]}
+
+
+# === C844 — la preferencia de cada alumno ===
+
+
+def test_sin_apuntar_el_de_fuera_prefiere_xilofono_y_el_resto_ukelele(banda, treinta):
+    _anillos(banda, fuera=[treinta[0].pk], fijo={treinta[1].pk: ["bateria"]})
+    prefs = bandas.preferencias(banda)
+    assert prefs[treinta[0].pk]["resto"] == "xilofono"
+    assert prefs[treinta[1].pk]["resto"] == "ukelele"
+    assert bandas.resto_de(prefs, treinta[5].pk) == "ukelele"  # sin entrada
+    alumnos = {a["id"]: a["resto"] for a in bandas.rejilla(banda)["alumnos"]}
+    assert alumnos[treinta[0].pk] == "xilofono" and alumnos[treinta[5].pk] == "ukelele"
+
+
+def test_la_preferencia_solo_se_guarda_si_se_sale_de_lo_que_le_tocaria(banda, treinta):
+    a, b, c, d = (str(x.pk) for x in treinta[:4])
+    limpias = bandas.validar_alumnos({
+        a: {"anillo": "rota", "resto": "xilofono"},
+        b: {"anillo": "rota", "resto": "ukelele"},
+        c: {"anillo": "fuera", "resto": "ukelele"},
+        d: {"anillo": "fuera", "resto": "xilofono"},
+    }, banda)
+    assert limpias == {
+        a: {"anillo": "rota", "puestos": [], "no": [], "resto": "xilofono"},
+        c: {"anillo": "fuera", "puestos": [], "no": [], "resto": "ukelele"},
+        d: {"anillo": "fuera", "puestos": [], "no": []},
+    }
+
+
+@pytest.mark.parametrize("raro", ["coros", "violin", 7])
+def test_la_preferencia_solo_puede_ser_ukelele_o_xilofono(banda, treinta, raro):
+    with pytest.raises(ValidationError):
+        bandas.validar_alumnos({str(treinta[0].pk): {"anillo": "rota", "resto": raro}}, banda)
+
+
+def test_cambiar_solo_ukelele_o_xilofono_no_mueve_ningun_turno(client, profesor, grupo, banda, treinta):
+    _anillos(banda, fijo={treinta[0].pk: ["bateria"]}, no={treinta[1].pk: ["voz"]}, fuera=[treinta[2].pk])
+    bandas.generar(banda, autor=profesor, azar=random.Random(1))
+    banda.refresh_from_db()
+    plan, versiones = json.dumps(banda.plan), banda.versiones.count()
+    client.force_login(profesor)
+    datos = {f"anillo_{a.pk}": "rota" for a in treinta}
+    datos.update({f"resto_{a.pk}": "xilofono" for a in treinta[10:20]})
+    datos.update({
+        f"anillo_{treinta[0].pk}": "fijo", f"fijo_{treinta[0].pk}": "bateria",
+        f"no_{treinta[1].pk}": "voz",
+        f"anillo_{treinta[2].pk}": "fuera", f"resto_{treinta[2].pk}": "ukelele",
+    })
+    r = client.post(reverse("clases:banda_alumnos", args=[grupo.pk]), datos, follow=True)
+    assert "Los turnos no se han movido" in r.content.decode()
+    banda.refresh_from_db()
+    assert json.dumps(banda.plan) == plan and banda.versiones.count() == versiones
+    prefs = bandas.preferencias(banda)
+    assert [prefs[a.pk]["resto"] for a in treinta[10:20]] == ["xilofono"] * 10
+    assert prefs[treinta[2].pk] == {"anillo": "fuera", "puestos": [], "no": [], "resto": "ukelele"}
+    assert prefs[treinta[0].pk]["puestos"] == ["bateria"] and prefs[treinta[1].pk]["no"] == ["voz"]
+
+
+# === C848 — el formulario nuevo de la tabla ===
+
+
+def test_la_tabla_nueva_guarda_fijos_en_orden_vetos_y_preferencia(client, profesor, grupo, banda, treinta):
+    client.force_login(profesor)
+    html = client.get(reverse("clases:banda_rejilla", args=[grupo.pk])).content.decode()
+    assert "{#" not in html
+    assert html.count('name="resto_') == 30 * 2 and html.count('class="ba-fijo"') == 30
+    assert "Rota, pero nunca en" not in html and "Fuera (xilófono)" not in html
+    natalia, lola, pedro, ana = (a.pk for a in treinta[:4])
+    datos = {f"anillo_{a.pk}": "rota" for a in treinta}
+    datos.update({
+        # Lo que queda en la lista que no toca se ignora: no pierde nada al volver.
+        f"anillo_{natalia}": "fijo", f"fijo_{natalia}": "electrica,espanola", f"no_{natalia}": "voz",
+        f"anillo_{lola}": "fuera", f"fijo_{lola}": "bateria",
+        f"no_{pedro}": "voz,teclado", f"fijo_{pedro}": "bateria", f"resto_{pedro}": "xilofono",
+        f"resto_{ana}": "ukelele",
+    })
+    r = client.post(reverse("clases:banda_alumnos", args=[grupo.pk]), datos, follow=True)
+    assert "Guardado" in r.content.decode()
+    banda.refresh_from_db()
+    assert banda.alumnos == {
+        str(natalia): {"anillo": "fijo", "puestos": ["electrica", "espanola"], "no": []},
+        str(lola): {"anillo": "fuera", "puestos": [], "no": []},
+        str(pedro): {"anillo": "rota", "puestos": [], "no": ["voz", "teclado"], "resto": "xilofono"},
+    }
+    html = r.content.decode()
+    assert f'name="fijo_{natalia}" value="electrica,espanola"' in html
+    assert f'name="no_{pedro}" value="voz,teclado"' in html
+    assert f'name="resto_{pedro}" value="xilofono" checked' in html
+
+
+# === C845 — el reparto de una canción ===
+
+
+def test_el_reparto_es_de_la_cancion_y_solo_guarda_las_excepciones(banda, grupo, profesor, treinta):
+    hoy = _sesion(grupo, profesor, 0, cerrada=False)
+    levitating, otra = _pagina("Levitating"), _pagina("Otra canción")
+    letra, video, de_otra = _item(hoy, grupo, levitating), _item(hoy, grupo, levitating, objeto=profesor), _item(hoy, grupo, otra)
+    ana, luis = treinta[0].pk, treinta[1].pk
+    bandas.apuntar_resto(hoy, letra, ana, "coros")
+    bandas.apuntar_resto(hoy, letra, luis, "xilofono")
+    fila = RepartoDeCancion.objects.get(banda=banda)
+    assert (fila.clave, fila.titulo) == (f"p{levitating.pk}", "Levitating")
+    assert fila.reparto == {str(ana): "coros", str(luis): "xilofono"}
+    # La letra y el vídeo de la misma página comparten reparto; la otra canción, no.
+    assert ana in _columnas(bandas.banda_de_hoy(hoy, video))["coros"]
+    assert ana in _columnas(bandas.banda_de_hoy(hoy, de_otra))["ukelele"]
+    assert ana in _columnas(bandas.banda_de_hoy(hoy))["ukelele"]  # sin canción, lo que prefiere
+    # Apuntarlo en lo que ya prefiere quita la excepción; sin excepciones, no queda fila.
+    bandas.apuntar_resto(hoy, video, ana, "ukelele")
+    assert RepartoDeCancion.objects.get(banda=banda).reparto == {str(luis): "xilofono"}
+    bandas.apuntar_resto(hoy, letra, luis, None)
+    assert not RepartoDeCancion.objects.exists()
+    # «Como prefieren» las quita todas.
+    bandas.apuntar_resto(hoy, letra, ana, "coros")
+    bandas.apuntar_resto(hoy, letra, None, None)
+    assert not RepartoDeCancion.objects.exists()
+
+
+def test_un_medio_suelto_sin_pagina_tiene_su_propio_reparto(banda, grupo, profesor, treinta):
+    hoy = _sesion(grupo, profesor, 0, cerrada=False)
+    suelto = _item(hoy, grupo)
+    bandas.apuntar_resto(hoy, suelto, treinta[0].pk, "coros")
+    assert RepartoDeCancion.objects.get(banda=banda).clave == f"m{suelto.content_type_id}-{grupo.pk}"
+    assert treinta[0].pk in _columnas(bandas.banda_de_hoy(hoy, suelto))["coros"]
+
+
+def test_el_reparto_rechaza_lo_que_no_cuadra(banda, grupo, grupo4, profesor, treinta, siete):
+    hoy, otro_dia = _sesion(grupo, profesor, 0, cerrada=False), _sesion(grupo, profesor, 1, cerrada=False)
+    item, ajeno = _item(hoy, grupo), _item(otro_dia, grupo)
+    for alumno, papel, elemento in (
+        (treinta[0].pk, "bateria", item),  # no es un papel
+        (siete[0].pk, "coros", item),  # no es del grupo
+        (treinta[0].pk, "coros", ajeno),  # el elemento es de otra sesión
+        (treinta[0].pk, "coros", None),  # sin canción no se apunta
+        (None, "coros", item),  # falta el alumno
+        (True, "coros", item),
+    ):
+        with pytest.raises(ValidationError):
+            bandas.apuntar_resto(hoy, elemento, alumno, papel)
+    assert not RepartoDeCancion.objects.exists()
+
+
+# === C846 — los demás, en la banda de hoy ===
+
+
+def test_200_sorteos_cada_presente_sale_una_vez_y_ningun_ausente(banda, grupo, profesor, treinta):
+    hoy = _sesion_del_turno_2(banda, grupo, profesor)
+    item = _item(hoy, grupo, _pagina("Levitating"))
+    ids = [a.pk for a in treinta]
+    turno = banda.plan["turnos"][1]
+    for semilla in range(200):
+        azar = random.Random(semilla)
+        Asistencia.objects.filter(session=hoy).delete()
+        CambioDeHoy.objects.filter(session=hoy).delete()
+        RepartoDeCancion.objects.all().delete()
+        banda.alumnos = {
+            str(a): {"anillo": azar.choice(["rota", "rota", "fuera"]), "puestos": [], "no": [], "resto": azar.choice(bandas.PREFERIBLES)}
+            for a in azar.sample(ids, 12)
+        }
+        banda.save(update_fields=["alumnos"])
+        faltan = set(azar.sample(ids, azar.randint(0, 8)))
+        for a in faltan:
+            _falta(hoy, a)
+        # Excepciones de la canción para cualquiera, también para quien toca o falta.
+        for a in azar.sample(ids, 10):
+            bandas.apuntar_resto(hoy, item, a, azar.choice(list(bandas.PAPELES)))
+        # Y algún sustituto aceptado en las plazas de los que faltan.
+        d = bandas.banda_de_hoy(hoy, item)
+        for f in d["filas"]:
+            if f["propuesto"] and azar.random() < 0.5:
+                bandas.cambiar_hoy(hoy, f["plaza"], f["propuesto"])
+        d = bandas.banda_de_hoy(hoy, item)
+        tocan = [f["cambio"] or f["titular"] for f in d["filas"] if f["cambio"] or (f["titular"] and not f["falta"])]
+        columnas = _columnas(d)
+        en_columnas = [a for c in columnas.values() for a in c]
+        assert sorted(tocan + en_columnas) == sorted(set(ids) - faltan), semilla
+        assert not faltan & set(en_columnas), semilla
+        # Cada uno, en lo apuntado para la canción o, si no, en lo que prefiere.
+        prefs = bandas.preferencias(banda)
+        apuntado = (RepartoDeCancion.objects.filter(banda=banda).first() or RepartoDeCancion()).reparto
+        for papel, alumnos in columnas.items():
+            for a in alumnos:
+                assert papel == apuntado.get(str(a), bandas.resto_de(prefs, a)), semilla
+        assert d["resto"]["cambiados"] == sum(1 for a in en_columnas if str(a) in apuntado), semilla
+        assert sorted(a["id"] for a in d["libres"]) == sorted(en_columnas), semilla
+        assert turno == banda.plan["turnos"][1]
+
+
+def test_en_intercambio_no_queda_nadie_para_las_columnas(banda4, grupo4, profesor, siete):
+    bandas.generar(banda4, autor=profesor, azar=random.Random(1))
+    hoy = _sesion(grupo4, profesor, 0, cerrada=False)
+    assert all(not c["alumnos"] for c in bandas.banda_de_hoy(hoy)["resto"]["columnas"])
+
+
+# === C847 — el panel de la clase habla con la vista ===
+
+
+def test_el_panel_trae_los_demas_y_guarda_el_cambio(client, profesor, grupo, banda, treinta):
+    hoy = _sesion_del_turno_2(banda, grupo, profesor)
+    item = _item(hoy, grupo, _pagina("Levitating"))
+    client.force_login(profesor)
+    url = reverse("clases:banda_hoy", args=[hoy.pk])
+    d = client.get(url, {"item": item.pk}).json()
+    assert d["resto"]["cancion"] == "Levitating" and d["resto"]["item"] == item.pk
+    assert [c["papel"] for c in d["resto"]["columnas"]] == ["ukelele", "xilofono", "coros"]
+    libre = _columnas(d)["ukelele"][0]
+    assert len(_columnas(d)["ukelele"]) == 30 - 6
+    r = client.post(
+        reverse("clases:banda_hoy_resto", args=[hoy.pk]),
+        json.dumps({"item": item.pk, "alumno": libre, "papel": "coros"}), content_type="application/json",
+    )
+    assert r.status_code == 200 and _columnas(r.json())["coros"] == [libre] and r.json()["resto"]["cambiados"] == 1
+    # Sigue ahí al volver a abrir, y en otra sesión con la misma canción.
+    assert _columnas(client.get(url, {"item": item.pk}).json())["coros"] == [libre]
+    # Sin elemento, o con uno que no es de la sesión: se ve lo que prefieren y no se apunta.
+    for raro in ("", "abc", "999999"):
+        d = client.get(url, {"item": raro}).json()
+        assert d["resto"]["item"] is None and _columnas(d)["coros"] == []
+    r = client.post(
+        reverse("clases:banda_hoy_resto", args=[hoy.pk]),
+        json.dumps({"item": 999999, "alumno": libre, "papel": "xilofono"}), content_type="application/json",
+    )
+    assert r.status_code == 422
+    # Aceptar un sustituto conserva la canción en la respuesta.
+    r = client.post(
+        reverse("clases:banda_hoy_cambio", args=[hoy.pk]),
+        json.dumps({"plaza": 0, "alumno": libre, "item": item.pk}), content_type="application/json",
+    )
+    assert r.json()["resto"]["cancion"] == "Levitating" and libre not in [a for c in _columnas(r.json()).values() for a in c]
+
+
+def test_el_alumnado_no_apunta_el_reparto(client, profesor, grupo, banda, treinta):
+    hoy = _sesion(grupo, profesor, 0, cerrada=False)
+    item = _item(hoy, grupo)
+    client.force_login(treinta[0])
+    r = client.post(
+        reverse("clases:banda_hoy_resto", args=[hoy.pk]),
+        json.dumps({"item": item.pk, "alumno": treinta[0].pk, "papel": "coros"}), content_type="application/json",
+    )
+    assert r.status_code == 302 and not RepartoDeCancion.objects.exists()
+
+
+def test_la_clase_trae_las_columnas_de_los_demas(client, profesor, grupo, banda):
+    hoy = _sesion(grupo, profesor, 0, cerrada=False)
+    client.force_login(profesor)
+    html = client.get(reverse("clases:class_session_present", args=[hoy.pk])).content.decode()
+    assert 'id="banda-columnas"' in html and reverse("clases:banda_hoy_resto", args=[hoy.pk]) in html
+
+
+# === C849 — la hoja de la pared ===
+
+
+def test_la_hoja_dice_que_toca_cada_uno_sin_puesto(client, profesor, grupo, banda, treinta):
+    fuera_uke, fuera_xilo, rota_xilo = treinta[0], treinta[1], treinta[2]
+    banda.alumnos = {
+        str(fuera_uke.pk): {"anillo": "fuera", "puestos": [], "no": [], "resto": "ukelele"},
+        str(fuera_xilo.pk): {"anillo": "fuera", "puestos": [], "no": []},
+        str(rota_xilo.pk): {"anillo": "rota", "puestos": [], "no": [], "resto": "xilofono"},
+    }
+    banda.save(update_fields=["alumnos"])
+    bandas.generar(banda, autor=profesor, azar=random.Random(1))
+    client.force_login(profesor)
+    html = client.get(reverse("clases:banda_hoja", args=[grupo.pk])).content.decode()
+    assert "{#" not in html
+    assert f"<b>{bandas.nombre_de(fuera_uke)}</b> ukelele" in html
+    assert f"<b>{bandas.nombre_de(fuera_xilo)}</b> xilófono" in html
+    assert f"<b>🎵 Xilófono:</b> {bandas.nombre_de(fuera_xilo)}, {bandas.nombre_de(rota_xilo)}." in html
+    assert "<b>🪕 Ukelele:</b> " + bandas.nombre_de(fuera_uke) in html
+    assert "los demás, ukelele, xilófono o coros" in html

@@ -25,6 +25,7 @@ from django.views.decorators.http import require_POST
 from clases import banda as bandas
 from clases.models import BandaDeGrupo
 from clases.models import BandaVersion
+from clases.models import ClassSessionItem
 from clases.views_plano import _sesion_del_profesor
 from martina_bescos_app.users.permisos import es_profesor
 from martina_bescos_app.users.permisos import grupo_del_profesor
@@ -47,6 +48,10 @@ def _entero(valor):
         return int(valor)
     except (TypeError, ValueError):
         raise ValidationError("Falta un número") from None
+
+
+def _lista(texto):
+    return [p for p in (texto or "").split(",") if p]
 
 
 def _avisar(request, e):
@@ -87,7 +92,8 @@ def banda_rejilla(request, group_id):
                     list(banda.puestos) + [p for a in datos["alumnos"] for p in a["puestos"] + a["no"]]
                 )
             ],
-            "anillos": [("rota", "Rota"), ("veto", "Rota, pero nunca en…"), ("fijo", "Fijo en…"), ("fuera", "Fuera (xilófono)")],
+            "anillos": [("rota", "Rota"), ("fijo", "Fijo"), ("fuera", "No entra")],
+            "papeles_resto": [bandas.PAPELES[c] for c in bandas.PREFERIBLES],
             "versiones": bandas.versiones(banda),
             "modos": BandaDeGrupo.MODOS,
             "cuentas": BandaDeGrupo.CUENTAS,
@@ -140,11 +146,15 @@ def banda_configurar(request, group_id):
 @user_passes_test(es_profesor)
 @require_POST
 def banda_alumnos(request, group_id):
-    """La tabla de anillos (fase 98): `anillo_<id>` en rota|veto|fijo|fuera y `puestos_<id>` como lista.
+    """La tabla de alumnos (fases 98 y 117). Por alumno:
 
-    «veto» es rota con los puestos marcados en `no`; «fijo», con los puestos
-    marcados en `puestos`, en el orden en que se marcaron (lo lleva un campo
-    oculto `orden_<id>`, que el JavaScript mantiene).
+    - `anillo_<id>`: rota | fijo | fuera.
+    - `fijo_<id>`: sus puestos de fijo, separados por comas y en orden de preferencia.
+    - `no_<id>`: los puestos que nunca toca (solo cuenta en «rota»), separados por comas.
+    - `resto_<id>`: ukelele | xilofono, lo que toca cuando no tiene puesto.
+
+    Se sigue entendiendo el formulario anterior (`veto`, `puestos_<id>` y
+    `orden_<id>`), por si queda una pestaña abierta de antes del despliegue.
     """
     grupo = grupo_del_profesor(request.user, group_id)
     banda = _banda_o_404(grupo)
@@ -156,14 +166,22 @@ def banda_alumnos(request, group_id):
         marcados = request.POST.getlist(f"puestos_{alumno}")
         orden = [p for p in (request.POST.get(f"orden_{alumno}") or "").split(",") if p in marcados]
         puestos = orden + [p for p in marcados if p not in orden]
+        fijo = _lista(request.POST.get(f"fijo_{alumno}")) or (puestos if valor == "fijo" else [])
+        no = _lista(request.POST.get(f"no_{alumno}")) or (puestos if valor == "veto" else [])
         alumnos[alumno] = {
             "anillo": "rota" if valor == "veto" else valor,
-            "puestos": puestos if valor == "fijo" else [],
-            "no": puestos if valor == "veto" else [],
+            "puestos": fijo if valor == "fijo" else [],
+            "no": no if valor in ("rota", "veto") else [],
+            "resto": request.POST.get(f"resto_{alumno}") or None,
         }
     try:
-        bandas.configurar_alumnos(banda, alumnos, autor=request.user)
-        messages.success(request, "Preferencias guardadas. Los turnos que no han empezado se han vuelto a generar.")
+        banda = bandas.configurar_alumnos(banda, alumnos, autor=request.user)
+        messages.success(
+            request,
+            "Guardado. Los turnos que no han empezado se han vuelto a generar."
+            if banda.regenerada
+            else "Guardado. Los turnos no se han movido.",
+        )
     except ValidationError as e:
         _avisar(request, e)
     return _volver(grupo)
@@ -250,9 +268,40 @@ def banda_hoja(request, group_id):
 @require_GET
 def banda_hoy(request, pk):
     session = _sesion_del_profesor(request, pk)
-    datos = bandas.banda_de_hoy(session)
+    return JsonResponse(_hoy(session, _item_de(session, request.GET.get("item"))))
+
+
+def _item_de(session, pk):
+    """El elemento de ESTA sesión que está en pantalla, o None."""
+    if isinstance(pk, bool) or not str(pk or "").isdigit():
+        return None
+    return ClassSessionItem.objects.filter(session=session, pk=int(pk)).select_related("source_page").first()
+
+
+def _hoy(session, item):
+    datos = bandas.banda_de_hoy(session, item)
     datos["url_rejilla"] = reverse("clases:banda_rejilla", args=[session.group_id])
-    return JsonResponse(datos)
+    return datos
+
+
+@login_required
+@user_passes_test(es_profesor)
+@require_POST
+def banda_hoy_resto(request, pk):
+    """Cuerpo JSON: {item, alumno, papel}. `papel` null devuelve al alumno a lo que prefiere;
+    `alumno` y `papel` null, a todos (fase 117)."""
+    session = _sesion_del_profesor(request, pk)
+    try:
+        cuerpo = json.loads(request.body or b"{}")
+        if not isinstance(cuerpo, dict):
+            raise ValidationError("El cuerpo tiene que ser un objeto")
+        item = _item_de(session, cuerpo.get("item"))
+        bandas.apuntar_resto(session, item, cuerpo.get("alumno"), cuerpo.get("papel"))
+    except ValueError:
+        return JsonResponse({"errores": ["El cuerpo no es JSON"]}, status=422)
+    except ValidationError as e:
+        return JsonResponse({"errores": e.messages}, status=422)
+    return JsonResponse(_hoy(session, item))
 
 
 @login_required
@@ -271,6 +320,4 @@ def banda_hoy_cambio(request, pk):
         return JsonResponse({"errores": ["El cuerpo no es JSON"]}, status=422)
     except ValidationError as e:
         return JsonResponse({"errores": e.messages}, status=422)
-    datos = bandas.banda_de_hoy(session)
-    datos["url_rejilla"] = reverse("clases:banda_rejilla", args=[session.group_id])
-    return JsonResponse(datos)
+    return JsonResponse(_hoy(session, _item_de(session, cuerpo.get("item"))))

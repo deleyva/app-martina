@@ -466,4 +466,5 @@ urlpatterns = [
     path("groups/<int:group_id>/banda/hoja/", views_banda.banda_hoja, name="banda_hoja"),
     path("sessions/<int:pk>/banda/", views_banda.banda_hoy, name="banda_hoy"),
     path("sessions/<int:pk>/banda/cambio/", views_banda.banda_hoy_cambio, name="banda_hoy_cambio"),
+    path("sessions/<int:pk>/banda/resto/", views_banda.banda_hoy_resto, name="banda_hoy_resto"),
 ]

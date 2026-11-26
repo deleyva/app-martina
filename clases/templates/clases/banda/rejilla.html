@@ -219,63 +219,77 @@
       </div>
     </details>
 
-    {# Fase 98: los tres anillos. Pensado para rellenarlo en clase, con la lista delante. #}
+    {# Fases 98 y 117: una fila por alumno con dos decisiones. Pensado para rellenarlo en clase, con la lista delante. #}
     <details class="collapse collapse-arrow bg-base-200 mt-3" id="preferencias" {% if datos.fijos_sin_plaza %}open{% endif %}>
       <summary class="collapse-title font-semibold">
-        🧑‍🎤 Quién rota, quién es fijo y quién toca xilófono
+        🧑‍🎤 El alumnado: qué hace cada uno en la banda y qué toca cuando no tiene puesto
         <span class="font-normal text-base-content/60 text-sm">
           ({{ datos.fijos_por_puesto|length }} puesto{{ datos.fijos_por_puesto|length|pluralize }} con fijos · {{ datos.de_fuera|length }} fuera)
         </span>
       </summary>
       <div class="collapse-content">
-        <p class="text-sm text-base-content/70 mb-2">
-          Por defecto todos rotan. Un <b>fijo</b> toca su puesto en todos los turnos; si dos piden el mismo, se lo turnan,
-          y el que descansa ese turno rota como los demás. Marca varios puestos para dar un orden de preferencia (el primero
-          que marques es el primero que se intenta). Quien está <b>fuera</b> no entra en el reparto, pero se le puede poner
-          a mano y sale de sustituto cuando no queda ningún rotante.
-        </p>
+        <ul class="text-sm text-base-content/80 mb-3 ba-leyenda">
+          <li><b>Rota</b>: entra y sale de la banda por turnos. Toca un puesto para tacharlo y no lo tocará nunca.</li>
+          <li><b>Fijo</b>: toca siempre su puesto. Marca el suyo; si marcas varios, el número dice cuál se intenta primero. Si dos comparten puesto, se lo turnan.</li>
+          <li><b>No entra</b>: no está en el reparto de la banda. Se le puede poner a mano en una casilla y sale de sustituto si no queda nadie más.</li>
+          <li><b>Sin puesto toca</b>: lo que hace el turno que no está en la banda. Los coros, y cualquier cambio para una canción, se apuntan en clase con la tecla B.</li>
+        </ul>
         <form method="post" action="{% url 'clases:banda_alumnos' group.pk %}" id="form-alumnos">
           {% csrf_token %}
+          <p class="text-sm mb-2" id="ba-recuento" aria-live="polite"></p>
           <div class="overflow-x-auto">
             <table class="table table-xs" id="tabla-alumnos">
-              <thead><tr><th>Alumno</th><th>Anillo</th><th>Puestos</th></tr></thead>
+              <thead>
+                <tr>
+                  <th>Alumno <span class="font-normal">(turnos en la banda)</span></th>
+                  <th>En la banda</th>
+                  <th>Sus puestos</th>
+                  <th>Sin puesto toca</th>
+                </tr>
+              </thead>
               <tbody>
                 {% for a in datos.alumnos %}
                   <tr data-alumno="{{ a.id }}">
                     <td class="whitespace-nowrap">{{ a.nombre }} <span class="text-base-content/50">({{ a.turnos|length }})</span></td>
-                    <td>
-                      <select name="anillo_{{ a.id }}" class="select select-bordered select-xs anillo">
+                    <td class="whitespace-nowrap">
+                      <span class="ba-seg" role="radiogroup" aria-label="En la banda, {{ a.nombre }}">
                         {% for clave, nombre in anillos %}
-                          <option value="{{ clave }}"
-                            {% if a.anillo == "fuera" and clave == "fuera" %}selected
-                            {% elif a.anillo == "fijo" and clave == "fijo" %}selected
-                            {% elif a.anillo == "rota" and a.no and clave == "veto" %}selected
-                            {% elif a.anillo == "rota" and not a.no and clave == "rota" %}selected{% endif %}>{{ nombre }}</option>
+                          <label><input type="radio" class="anillo" name="anillo_{{ a.id }}" value="{{ clave }}" {% if a.anillo == clave %}checked{% endif %}><span>{{ nombre }}</span></label>
                         {% endfor %}
-                      </select>
+                      </span>
                     </td>
-                    <td class="chips">
-                      <input type="hidden" name="orden_{{ a.id }}" value="{{ a.puestos|join:',' }}">
+                    <td class="ba-puestos">
+                      <input type="hidden" class="ba-fijo" name="fijo_{{ a.id }}" value="{{ a.puestos|join:',' }}">
+                      <input type="hidden" class="ba-no" name="no_{{ a.id }}" value="{{ a.no|join:',' }}">
                       {% for p in puestos_chips %}
-                        <label class="btn btn-xs font-normal mr-1 mb-1 {% if p.clave in a.puestos or p.clave in a.no %}btn-primary{% else %}btn-ghost{% endif %}" title="{{ p.nombre }}">
-                          <input type="checkbox" name="puestos_{{ a.id }}" value="{{ p.clave }}" class="hidden"
-                                 {% if p.clave in a.puestos or p.clave in a.no %}checked{% endif %}>
-                          {{ p.icono }} {{ p.nombre }}
-                        </label>
+                        <button type="button" class="ba-chip" data-clave="{{ p.clave }}" data-nombre="{{ p.nombre }}"><i></i>{{ p.icono }} {{ p.nombre }}</button>
                       {% endfor %}
+                      <button type="button" class="ba-todos" hidden>Puede tocar todos · quitarle alguno</button>
+                      <span class="ba-nota"></span>
+                    </td>
+                    <td class="whitespace-nowrap">
+                      <span class="ba-seg" role="radiogroup" aria-label="Sin puesto toca, {{ a.nombre }}">
+                        {% for p in papeles_resto %}
+                          <label><input type="radio" class="resto" name="resto_{{ a.id }}" value="{{ p.clave }}" {% if a.resto == p.clave %}checked{% endif %}><span>{{ p.icono }} {{ p.nombre }}</span></label>
+                        {% endfor %}
+                      </span>
                     </td>
                   </tr>
                 {% endfor %}
               </tbody>
             </table>
           </div>
-          <div class="mt-2 flex items-center gap-3">
-            <button type="submit" class="btn btn-sm btn-primary" id="guardar-alumnos">Guardar las preferencias</button>
-            <span class="text-sm text-base-content/70">Al guardar se vuelven a generar los turnos que no han empezado; lo jugado y el turno de ahora no se tocan.</span>
+          <div class="ba-guardar">
+            <button type="submit" class="btn btn-sm btn-primary" id="guardar-alumnos">Guardar</button>
+            <span class="text-sm text-base-content/70">Si cambias quién rota, quién es fijo o los puestos, se vuelven a generar los turnos que no han empezado. Cambiar solo ukelele o xilófono no mueve ningún turno.</span>
           </div>
         </form>
       </div>
     </details>
+    <div id="ba-flotante" hidden>
+      <span>Hay cambios sin guardar en el alumnado</span>
+      <button type="submit" form="form-alumnos" class="btn btn-sm btn-primary">Guardar</button>
+    </div>
 
     <details class="collapse collapse-arrow bg-base-200 mt-3">
       <summary class="collapse-title font-semibold">🕘 Historial</summary>
@@ -298,7 +312,34 @@
       </div>
     </details>
 
-    <style>#rejilla-banda .casilla.resaltada { background: #fde68a !important; color: #111 !important; font-weight: 700; }</style>
+    <style>
+      #rejilla-banda .casilla.resaltada { background: #fde68a !important; color: #111 !important; font-weight: 700; }
+      /* La tabla de alumnos (fase 117). Estilos propios: no dependen de clases nuevas de Tailwind. */
+      .ba-leyenda { list-style: disc; padding-left: 1.2rem; }
+      .ba-leyenda li { margin: 2px 0; }
+      .ba-seg { display: inline-flex; border: 1px solid var(--color-base-300, #d4d4d8); border-radius: 8px; overflow: hidden; background: var(--color-base-100, #fff); }
+      .ba-seg label { cursor: pointer; margin: 0; }
+      .ba-seg label + label { border-left: 1px solid var(--color-base-300, #d4d4d8); }
+      .ba-seg input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+      .ba-seg span { display: block; padding: 4px 10px; font-size: 0.8rem; white-space: nowrap; }
+      .ba-seg input:checked + span { background: var(--color-primary, #2563eb); color: var(--color-primary-content, #fff); font-weight: 600; }
+      .ba-seg input:focus-visible + span { outline: 2px solid var(--color-primary, #2563eb); outline-offset: -2px; }
+      .ba-chip { display: inline-flex; align-items: center; gap: 4px; margin: 0 4px 4px 0; padding: 3px 8px; border-radius: 999px; font-size: 0.78rem; cursor: pointer;
+                 border: 1px solid var(--color-base-300, #d4d4d8); background: var(--color-base-100, #fff); white-space: nowrap; }
+      .ba-chip i { font-style: normal; font-weight: 700; }
+      .ba-chip.vetado { text-decoration: line-through; opacity: 0.55; border-style: dashed; border-color: #dc2626; color: #b91c1c; }
+      .ba-chip.suyo { background: var(--color-primary, #2563eb); color: var(--color-primary-content, #fff); border-color: transparent; font-weight: 600; }
+      .ba-chip.apagado { opacity: 0.45; }
+      .ba-todos { font-size: 0.78rem; opacity: 0.6; cursor: pointer; background: none; border: none; padding: 3px 0; text-decoration: underline dotted; }
+      .ba-todos:hover { opacity: 1; }
+      .ba-nota { font-size: 0.75rem; opacity: 0.7; }
+      .ba-nota.aviso { opacity: 1; color: #b45309; font-weight: 600; }
+      .ba-guardar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 8px; padding: 8px 0; }
+      /* Con cambios sin guardar, el botón sigue a la vista aunque la tabla sea larga. */
+      #ba-flotante { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 40; display: flex; align-items: center; gap: 12px;
+                     padding: 8px 10px 8px 16px; border-radius: 999px; background: #111; color: #fff; box-shadow: 0 6px 24px rgba(0,0,0,0.35); font-size: 0.9rem; }
+      #ba-flotante[hidden] { display: none; }
+    </style>
     {{ alumnos_dialogo|json_script:"alumnos-banda" }}
     <script>
     (function() {
@@ -343,29 +384,90 @@
       }
       selector.addEventListener('change', resaltar);
 
-      // La tabla de anillos: los chips solo cuentan en «fijo» y «nunca en», y
-      // el orden en que se marcan es el orden de preferencia.
-      document.querySelectorAll('#tabla-alumnos tr[data-alumno]').forEach(function(fila) {
-        var anillo = fila.querySelector('.anillo');
-        var chips = fila.querySelector('.chips');
-        var orden = fila.querySelector('input[type=hidden]');
-        function pintarChips() {
-          var usan = anillo.value === 'fijo' || anillo.value === 'veto';
-          chips.classList.toggle('opacity-30', !usan);
-          chips.querySelectorAll('input[type=checkbox]').forEach(function(c) { c.disabled = !usan; });
-        }
-        chips.querySelectorAll('input[type=checkbox]').forEach(function(c) {
-          c.addEventListener('change', function() {
-            var lista = orden.value ? orden.value.split(',') : [];
-            lista = lista.filter(function(p) { return p !== c.value; });
-            if (c.checked) lista.push(c.value);
-            orden.value = lista.join(',');
-            c.parentElement.classList.toggle('btn-primary', c.checked);
-            c.parentElement.classList.toggle('btn-ghost', !c.checked);
+      // La tabla de alumnos (fases 98 y 117). Cada fila guarda dos listas en campos
+      // ocultos: sus puestos de fijo, en orden, y los que nunca toca. Los chips
+      // enseñan una u otra según lo que haga en la banda, así que un chip nunca
+      // significa dos cosas a la vez. Cambiar de «Rota» a «Fijo» y volver no pierde nada.
+      var filas = document.querySelectorAll('#tabla-alumnos tr[data-alumno]');
+      var aviso = document.getElementById('ba-flotante');
+      function claves(campo) { return campo.value ? campo.value.split(',') : []; }
+      function marcado(fila, clase) {
+        var r = fila.querySelector('input.' + clase + ':checked');
+        return r ? r.value : '';
+      }
+      function pintarFila(fila) {
+        var anillo = marcado(fila, 'anillo');
+        var fijo = claves(fila.querySelector('.ba-fijo'));
+        var no = claves(fila.querySelector('.ba-no'));
+        var nota = fila.querySelector('.ba-nota');
+        // Quien rota sin ningún veto no enseña los puestos hasta que se le pide.
+        var recogida = anillo === 'rota' && !no.length && !fila.classList.contains('abierta');
+        fila.querySelector('.ba-todos').hidden = !recogida;
+        fila.querySelectorAll('.ba-chip').forEach(function(chip) {
+          var clave = chip.dataset.clave;
+          var orden = fijo.indexOf(clave);
+          chip.hidden = anillo === 'fuera' || recogida;
+          chip.classList.toggle('vetado', anillo === 'rota' && no.indexOf(clave) >= 0);
+          chip.classList.toggle('suyo', anillo === 'fijo' && orden >= 0);
+          chip.classList.toggle('apagado', anillo === 'fijo' && orden < 0);
+          chip.querySelector('i').textContent = anillo === 'fijo' && orden >= 0 && fijo.length > 1 ? (orden + 1) + 'º' : '';
+          chip.title = anillo === 'fijo'
+            ? (orden >= 0 ? 'Es su puesto. Toca para quitárselo.' : 'Toca para hacerlo fijo en ' + chip.dataset.nombre + '.')
+            : (no.indexOf(clave) >= 0 ? 'Nunca toca ' + chip.dataset.nombre + '. Toca para devolvérselo.' : 'Puede tocarlo. Toca para que no lo toque nunca.');
+          chip.setAttribute('aria-pressed', String(anillo === 'fijo' ? orden >= 0 : no.indexOf(clave) >= 0));
+        });
+        nota.classList.remove('aviso');
+        if (anillo === 'fuera') nota.textContent = 'No entra en el reparto de la banda.';
+        else if (anillo === 'fijo' && !fijo.length) { nota.textContent = 'Marca su puesto.'; nota.classList.add('aviso'); }
+        else if (anillo === 'rota' && no.length) nota.textContent = 'Tachados: nunca los toca.';
+        else if (anillo === 'rota' && !recogida) nota.textContent = 'Toca uno para tacharlo.';
+        else nota.textContent = '';
+      }
+      function recuento() {
+        var n = { rota: 0, fijo: 0, fuera: 0, ukelele: 0, xilofono: 0 };
+        filas.forEach(function(fila) { n[marcado(fila, 'anillo')]++; n[marcado(fila, 'resto')]++; });
+        document.getElementById('ba-recuento').textContent =
+          'En la banda: ' + n.rota + (n.rota === 1 ? ' rota · ' : ' rotan · ') + n.fijo + (n.fijo === 1 ? ' fijo · ' : ' fijos · ') +
+          n.fuera + (n.fuera === 1 ? ' no entra.   ' : ' no entran.   ') +
+          'Sin puesto: ' + n.ukelele + ' ukelele · ' + n.xilofono + ' xilófono.';
+      }
+      function cambiado() { aviso.hidden = false; recuento(); }
+      filas.forEach(function(fila) {
+        fila.querySelectorAll('.ba-chip').forEach(function(chip) {
+          chip.addEventListener('click', function() {
+            var anillo = marcado(fila, 'anillo');
+            var campo = fila.querySelector(anillo === 'fijo' ? '.ba-fijo' : '.ba-no');
+            var l = claves(campo);
+            var i = l.indexOf(chip.dataset.clave);
+            if (i >= 0) l.splice(i, 1); else l.push(chip.dataset.clave);
+            campo.value = l.join(',');
+            pintarFila(fila);
+            cambiado();
           });
         });
-        anillo.addEventListener('change', pintarChips);
-        pintarChips();
+        fila.querySelector('.ba-todos').addEventListener('click', function() {
+          fila.classList.add('abierta');
+          pintarFila(fila);
+        });
+        fila.querySelectorAll('input[type=radio]').forEach(function(r) {
+          r.addEventListener('change', function() { pintarFila(fila); cambiado(); });
+        });
+        pintarFila(fila);
+      });
+      recuento();
+      // Un fijo sin puesto no se puede guardar: se dice aquí, antes de enviar.
+      document.getElementById('form-alumnos').addEventListener('submit', function(ev) {
+        var falta = null;
+        filas.forEach(function(fila) {
+          if (!falta && marcado(fila, 'anillo') === 'fijo' && !claves(fila.querySelector('.ba-fijo')).length) falta = fila;
+        });
+        if (falta) {
+          ev.preventDefault();
+          falta.scrollIntoView({ block: 'center' });
+          falta.querySelector('.ba-nota').textContent = 'Fijo, pero sin puesto: marca uno o ponlo en «Rota».';
+        } else {
+          aviso.hidden = true;
+        }
       });
     })();
     </script>

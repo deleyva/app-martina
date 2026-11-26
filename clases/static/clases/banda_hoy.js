@@ -4,6 +4,10 @@
  * ayuda (o, el último día del turno, a quién enseña) y, si falta un titular,
  * a quién poner. Un toque acepta el sustituto propuesto. Toda regla vive en
  * `clases/banda.py`; aquí solo se pinta y se envía.
+ *
+ * Debajo (fase 117), los que hoy no tienen puesto, en tres columnas: ukelele,
+ * xilófono y coros. Cada uno sale en lo que prefiere; tocar un nombre y luego
+ * otra columna lo cambia para la canción que está en pantalla.
  */
 (function () {
   var panel = document.getElementById('panel-banda');
@@ -11,6 +15,15 @@
   var cuerpo = panel.querySelector('#banda-tabla tbody');
   var eleccion = document.getElementById('banda-elegir');
   var datos = null;
+  var elegido = null; // el alumno de «Los demás» que se está moviendo de columna
+
+  // El elemento que está en pantalla: de él sale la canción. `playlist` y
+  // `currentIndex` son de present.html.
+  function itemActual() {
+    var lista = window.playlist || [];
+    var item = lista[window.currentIndex];
+    return item && item.pk ? item.pk : null;
+  }
 
   function el(tag, clase, texto) {
     var e = document.createElement(tag);
@@ -48,11 +61,13 @@
 
   window.cerrarBanda = function () {
     cerrarEleccion();
+    elegido = null;
     panel.classList.remove('abierto');
   };
 
   function traer() {
-    fetch(panel.dataset.url, { credentials: 'same-origin' })
+    var item = itemActual();
+    fetch(panel.dataset.url + (item ? '?item=' + item : ''), { credentials: 'same-origin' })
       .then(function (r) { return r.json(); })
       .then(pintar)
       .catch(function () { aviso('No he podido traer la banda.'); });
@@ -64,7 +79,7 @@
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', 'X-CSRFToken': panel.dataset.csrf },
-      body: JSON.stringify({ plaza: plaza, alumno: alumno }),
+      body: JSON.stringify({ plaza: plaza, alumno: alumno, item: itemActual() }),
     })
       .then(function (r) { return r.json().then(function (c) { return { ok: r.ok, c: c }; }); })
       .then(function (res) {
@@ -76,13 +91,81 @@
 
   function cerrarEleccion() { eleccion.hidden = true; eleccion.innerHTML = ''; }
 
+  function enviarResto(alumno, papel) {
+    elegido = null;
+    fetch(panel.dataset.resto, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': panel.dataset.csrf },
+      body: JSON.stringify({ item: datos.resto.item, alumno: alumno, papel: papel }),
+    })
+      .then(function (r) { return r.json().then(function (c) { return { ok: r.ok, c: c }; }); })
+      .then(function (res) {
+        if (!res.ok) { aviso((res.c.errores || ['No se ha guardado.']).join(' ')); pintarResto(); return; }
+        pintar(res.c);
+      })
+      .catch(function () { aviso('Sin conexión: el cambio no se ha guardado.'); pintarResto(); });
+  }
+
+  // Los que no tienen puesto hoy. Dos toques: el nombre y la columna a la que va.
+  function pintarResto() {
+    var caja = document.getElementById('banda-resto');
+    var columnas = document.getElementById('banda-columnas');
+    var pista = document.getElementById('banda-resto-pista');
+    var volver = document.getElementById('banda-resto-reset');
+    var r = datos && datos.resto;
+    var cuantos = r ? r.columnas.reduce(function (n, c) { return n + c.alumnos.length; }, 0) : 0;
+    columnas.innerHTML = '';
+    if (!r || !cuantos) { caja.hidden = true; return; }
+    caja.hidden = false;
+    var seApunta = r.item !== null;
+    var nombreElegido = '';
+    r.columnas.forEach(function (c) {
+      c.alumnos.forEach(function (a) { if (a.id === elegido) nombreElegido = a.nombre; });
+    });
+    if (!nombreElegido) elegido = null;
+    document.getElementById('banda-cancion').textContent = r.cancion ? 'en «' + r.cancion + '»' : '';
+    volver.hidden = !r.cambiados;
+    volver.onclick = function () { enviarResto(null, null); };
+    pista.classList.toggle('activa', !!nombreElegido);
+    pista.textContent = !seApunta ? 'Así lo prefieren. Abre una canción para apuntar su reparto.'
+      : nombreElegido ? '¿A dónde va ' + nombreElegido + '? Toca una columna.'
+      : 'Toca un nombre y después la columna a la que va. Queda guardado para esta canción.';
+
+    r.columnas.forEach(function (c) {
+      var esSuya = c.alumnos.some(function (a) { return a.id === elegido; });
+      var destino = elegido !== null && !esSuya;
+      var col = el('div', 'columna' + (destino ? ' destino' : ''));
+      var titulo = el('h3', '', c.icono + ' ' + c.nombre);
+      titulo.appendChild(el('small', '', String(c.alumnos.length)));
+      col.appendChild(titulo);
+      var nombres = el('div', 'nombres');
+      if (!c.alumnos.length) nombres.appendChild(el('span', 'nadie', 'Nadie'));
+      c.alumnos.forEach(function (a) {
+        var clase = 'nombre' + (a.cambiado ? ' cambiado' : '') + (a.id === elegido ? ' elegido' : '');
+        var b = boton(a.nombre, clase, function () {
+          if (destino) { enviarResto(elegido, c.papel); return; }
+          elegido = a.id === elegido ? null : a.id;
+          pintarResto();
+        });
+        b.disabled = !seApunta;
+        if (a.cambiado) b.title = 'Solo en esta canción: suele preferir ' + (a.prefiere === 'xilofono' ? 'xilófono' : a.prefiere);
+        nombres.appendChild(b);
+      });
+      col.appendChild(nombres);
+      col.appendChild(el('div', 'aqui', 'Pasar aquí a ' + nombreElegido));
+      if (destino) col.addEventListener('click', function () { enviarResto(elegido, c.papel); });
+      columnas.appendChild(col);
+    });
+  }
+
   function elegir(fila) {
     eleccion.innerHTML = '';
     eleccion.appendChild(el('div', 'pregunta', '¿Quién toca hoy ' + fila.etiqueta + '?'));
     var lista = el('div', 'opciones');
     if (!datos.libres.length) lista.appendChild(el('span', 'nadie', 'No queda nadie presente sin puesto.'));
     datos.libres.forEach(function (a) {
-      var texto = a.nombre + ' (' + a.turnos + ')' + (a.fuera ? ' · xilófono' : '');
+      var texto = a.nombre + ' (' + a.turnos + ')' + (a.fuera ? ' · no entra en la banda' : '');
       lista.appendChild(boton(texto, 'opcion', function () { enviar(fila.plaza, a.id); }));
     });
     eleccion.appendChild(lista);
@@ -95,6 +178,7 @@
     document.getElementById('banda-rejilla').href = d.url_rejilla;
     cuerpo.innerHTML = '';
     var tabla = document.getElementById('banda-tabla');
+    pintarResto();
     if (!d.hay_banda) {
       tabla.hidden = true;
       document.getElementById('banda-turno').textContent = '';

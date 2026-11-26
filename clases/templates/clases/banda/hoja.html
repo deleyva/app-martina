@@ -39,7 +39,7 @@
   <div class="reglas">
     <ol>
       {% if banda.modo == "rotacion" %}
-        <li>Un turno {% if banda.sesiones_por_turno == 1 %}es una sesión{% else %}son {{ banda.sesiones_por_turno }} sesiones{% endif %} en el aula de música. En cada turno, {{ banda.puestos|length }} tocan en la banda; los demás, ukelele, xilófono y voz.</li>
+        <li>Un turno {% if banda.sesiones_por_turno == 1 %}es una sesión{% else %}son {{ banda.sesiones_por_turno }} sesiones{% endif %} en el aula de música. En cada turno, {{ banda.puestos|length }} tocan en la banda; los demás, ukelele, xilófono o coros.</li>
         {% if datos.fijos_por_puesto or datos.de_fuera %}
           <li>Los que rotan pasáis todos por la banda antes de que nadie repita.</li>
         {% else %}
@@ -60,7 +60,14 @@
   {% if datos.fijos_por_puesto or datos.de_fuera %}
     <p class="fijos">
       {% for f in datos.fijos_por_puesto %}<b>{{ f.icono }} {{ f.nombre }}:</b> {{ f.nombres|join:", " }}{% if f.nombres|length > 1 %} (se turnan){% endif %}. {% endfor %}
-      {% if datos.de_fuera %}<b>Xilófono:</b> {% for a in datos.de_fuera %}{{ a.nombre }}{% if not forloop.last %}, {% endif %}{% endfor %}.{% endif %}
+      {% if datos.de_fuera %}<b>No entran en la banda:</b> {% for a in datos.de_fuera %}{{ a.nombre }}{% if not forloop.last %}, {% endif %}{% endfor %}.{% endif %}
+    </p>
+  {% endif %}
+  {% if banda.modo == "rotacion" %}
+    <p class="fijos" id="sin-puesto">
+      <b>El turno que no tienes puesto:</b>
+      {% for r in datos.resto_por_papel %}{% if r.nombres %}<b>{{ r.icono }} {{ r.nombre }}:</b> {{ r.nombres|join:", " }}. {% endif %}{% endfor %}
+      En cada canción puede cambiar, y habrá coros.
     </p>
   {% endif %}
 
@@ -88,7 +95,7 @@
   <h1>Tus turnos</h1>
   <div class="lista">
     {% for a in datos.alumnos %}
-      <div><b>{{ a.nombre }}</b>{% if a.anillo == "fuera" %} xilófono{% else %}{% for t, etiqueta in a.turnos %} T{{ t }} {{ etiqueta }}{% if not forloop.last %} ·{% endif %}{% empty %} —{% endfor %}{% endif %}</div>
+      <div><b>{{ a.nombre }}</b>{% if a.anillo == "fuera" %} {% if a.resto == "ukelele" %}ukelele{% else %}xilófono{% endif %}{% else %}{% for t, etiqueta in a.turnos %} T{{ t }} {{ etiqueta }}{% if not forloop.last %} ·{% endif %}{% empty %} —{% endfor %}{% endif %}</div>
     {% endfor %}
   </div>
 </body>

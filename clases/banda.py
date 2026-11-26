@@ -28,8 +28,12 @@ Y tres anillos por alumno (fase 98), encima de las dos reglas:
   antes del reparto en el primero de su lista que quede libre. Si dos piden el
   mismo, lo toca quien menos veces lo ha tocado; el que se queda sin su puesto
   ese turno rota como los demás.
-- **Fuera**: no entra en el reparto (toca xilófono). Se puede poner a mano, y
-  como sustituto va después de los rotantes.
+- **Fuera**: no entra en el reparto. Se puede poner a mano, y como sustituto
+  va después de los rotantes.
+
+Y los que no tienen puesto (fase 117): cada alumno prefiere ukelele o xilófono
+para cuando no le toca la banda (`resto`), y en cada canción se pueden apuntar
+excepciones, coros incluidos (`RepartoDeCancion`).
 """
 
 import random
@@ -45,6 +49,7 @@ from clases.models import BandaDeGrupo
 from clases.models import BandaVersion
 from clases.models import CambioDeHoy
 from clases.models import ClassSession
+from clases.models import RepartoDeCancion
 
 
 @dataclass(frozen=True)
@@ -76,6 +81,28 @@ PUESTOS = {
 # de este curso (Jesús, 2026-11-01).
 PUESTOS_ROTACION = ["bateria", "ukebajo", "teclado", "electrica", "guitalele", "espanola"]
 PUESTOS_4 = ["bateria", "bajo", "teclado", "teclado", "electrica", "espanola", "voz"]
+
+
+
+@dataclass(frozen=True)
+class Papel:
+    """Lo que toca quien no tiene puesto en la banda (fase 117)."""
+
+    clave: str
+    nombre: str
+    icono: str
+
+
+PAPELES = {
+    p.clave: p
+    for p in (
+        Papel("ukelele", "Ukelele", "🪕"),
+        Papel("xilofono", "Xilófono", "🎵"),
+        Papel("coros", "Coros", "🎤"),
+    )
+}
+# Lo que se puede preferir de antemano. Coros se decide canción a canción.
+PREFERIBLES = ("ukelele", "xilofono")
 
 MAX_PLAZAS = 12
 MAX_TURNOS = 40
@@ -432,8 +459,22 @@ def _asignar(plazas, candidatos, coste):
 ANILLOS = ("rota", "fijo", "fuera")
 
 
+def resto_por_defecto(anillo):
+    """Sin apuntar: quien no entra en la banda, xilófono (era «Fuera (xilófono)»); los demás, ukelele."""
+    return "xilofono" if anillo == "fuera" else "ukelele"
+
+
+def _sin_entrada():
+    return {"anillo": "rota", "puestos": [], "no": [], "resto": resto_por_defecto("rota")}
+
+
+def resto_de(prefs, alumno):
+    """Qué prefiere tocar el alumno cuando no tiene puesto. `prefs` es `preferencias(banda)`."""
+    return prefs.get(alumno, {}).get("resto") or resto_por_defecto("rota")
+
+
 def preferencias(banda):
-    """`alumnos` limpio: {id: {"anillo", "puestos", "no"}}, solo entradas con id numérico."""
+    """`alumnos` limpio: {id: {"anillo", "puestos", "no", "resto"}}, solo entradas con id numérico."""
     limpias = {}
     for k, v in (banda.alumnos or {}).items():
         if not str(k).isdigit() or not isinstance(v, dict):
@@ -441,7 +482,8 @@ def preferencias(banda):
         anillo = v.get("anillo") if v.get("anillo") in ANILLOS else "rota"
         puestos = [p for p in (v.get("puestos") or []) if p in PUESTOS] if anillo == "fijo" else []
         no = [p for p in (v.get("no") or []) if p in PUESTOS]
-        limpias[int(k)] = {"anillo": anillo, "puestos": puestos, "no": no}
+        resto = v.get("resto") if v.get("resto") in PREFERIBLES else resto_por_defecto(anillo)
+        limpias[int(k)] = {"anillo": anillo, "puestos": puestos, "no": no, "resto": resto}
     return limpias
 
 
@@ -850,7 +892,11 @@ def configurar(banda, *, modo, puestos, sesiones_por_turno, turnos, empieza, cue
 
 
 def validar_alumnos(alumnos, banda):
-    """`alumnos` limpio ({id: {anillo, puestos, no}}) o `ValidationError`. Las entradas «rota sin vetos» no se guardan."""
+    """`alumnos` limpio ({id: {anillo, puestos, no[, resto]}}) o `ValidationError`.
+
+    Las entradas «rota sin vetos y con ukelele» no se guardan, y `resto` solo
+    cuando se sale de lo que le tocaría sin apuntar (`resto_por_defecto`).
+    """
     if not isinstance(alumnos, dict):
         raise ValidationError("Las preferencias tienen que ser un objeto por alumno")
     matricula = _ids_del_grupo(banda.group, solo_activos=False)
@@ -872,7 +918,13 @@ def validar_alumnos(alumnos, banda):
         if anillo == "fijo" and not puestos:
             errores.append(f"Alumno {k}: fijo, pero sin ningún puesto")
             continue
+        resto = v.get("resto") or resto_por_defecto(anillo)
+        if resto not in PREFERIBLES:
+            errores.append(f"Alumno {k}: sin puesto solo puede preferir ukelele o xilófono, no «{resto}»")
+            continue
         entrada = {"anillo": anillo, "puestos": puestos if anillo == "fijo" else [], "no": no if anillo == "rota" else []}
+        if resto != resto_por_defecto(anillo):
+            entrada["resto"] = resto
         if entrada != {"anillo": "rota", "puestos": [], "no": []}:
             limpias[str(k)] = entrada
     if errores:
@@ -882,10 +934,24 @@ def validar_alumnos(alumnos, banda):
 
 @transaction.atomic
 def configurar_alumnos(banda, alumnos, autor=None):
-    """Guarda los anillos y regenera los turnos que no han empezado, si el plan ya tenía a alguien."""
+    """Guarda los anillos y regenera los turnos que no han empezado, si el plan ya tenía a alguien.
+
+    Solo regenera si cambia algo que mueve el reparto (anillo, puestos o
+    vetos). Cambiar qué toca alguien sin puesto (fase 117) no toca ningún
+    turno: la hoja de la pared sigue valiendo. `banda.regenerada` lo dice.
+    """
     banda = BandaDeGrupo.objects.select_for_update().get(pk=banda.pk)
+
+    def reparto(prefs):
+        return {a: (v["anillo"], v["puestos"], v["no"]) for a, v in prefs.items() if (v["anillo"], v["puestos"], v["no"]) != ("rota", [], [])}
+
+    antes = reparto(preferencias(banda))
     banda.alumnos = validar_alumnos(alumnos, banda)
     banda.save(update_fields=["alumnos", "updated_at"])
+    banda.regenerada = False
+    if reparto(preferencias(banda)) == antes:
+        return banda
+    banda.regenerada = True
     libre = primer_turno_libre(banda)
     había_alguien = any(a is not None for t in banda.plan["turnos"] for a in t["alumnos"])
     plan = planificar(banda, libre) if había_alguien and libre <= len(banda.plan["turnos"]) else banda.plan
@@ -948,9 +1014,15 @@ def rejilla(banda):
             "nombre": nombre_de(u),
             "completo": u.name or u.email,
             "turnos": resumen.get(u.pk, []),
-            **prefs.get(u.pk, {"anillo": "rota", "puestos": [], "no": []}),
+            **prefs.get(u.pk, _sin_entrada()),
         }
         for u in activos
+    ]
+    # Fase 117: qué toca cada uno cuando no tiene puesto, para la hoja y el resumen.
+    resto_por_papel = [
+        {"clave": c, "icono": PAPELES[c].icono, "nombre": PAPELES[c].nombre,
+         "nombres": [a["nombre"] for a in alumnos if a["resto"] == c]}
+        for c in PREFERIBLES
     ]
     fijos_por_puesto = []
     for clave, etiqueta in zip(dict.fromkeys(banda.puestos), etiquetas_de_plazas(list(dict.fromkeys(banda.puestos)))):
@@ -974,6 +1046,7 @@ def rejilla(banda):
         "alumnos": alumnos,
         "fijos_por_puesto": fijos_por_puesto,
         "de_fuera": [a for a in alumnos if a["anillo"] == "fuera"],
+        "resto_por_papel": resto_por_papel,
         "fijos_sin_plaza": [a for a in alumnos if a["id"] in sin_plaza_de_su_puesto],
         "sin_plaza_en_intercambio": sin_plaza,
         "max_filas": max((len(c["casillas"]) for c in columnas), default=0),
@@ -998,8 +1071,93 @@ def _quien_tuvo(turno, clave, plaza):
     return None
 
 
-def banda_de_hoy(session):
-    """Todo lo que pinta el panel de la clase (tecla B) para una sesión."""
+def cancion_de(item):
+    """`(clave, título)` de la canción de un elemento de la sesión: su página, o el medio suelto."""
+    if item.source_page_id:
+        return f"p{item.source_page_id}", item.source_page.title
+    return f"m{item.content_type_id}-{item.object_id}", item.get_content_title()
+
+
+def _resto_de_hoy(banda, item, activos, faltan, tocan):
+    """Los presentes sin puesto hoy, en columnas de ukelele, xilófono y coros (fase 117).
+
+    Cada uno va a lo que prefiere, salvo que la canción del `item` tenga
+    apuntada otra cosa para él. Sin `item` no hay canción: se ve, no se cambia.
+    """
+    prefs = preferencias(banda)
+    clave, titulo, excepciones = "", "", {}
+    if item is not None:
+        clave, titulo = cancion_de(item)
+        fila = RepartoDeCancion.objects.filter(banda=banda, clave=clave).first()
+        excepciones = fila.reparto if fila else {}
+    columnas = {c: [] for c in PAPELES}
+    cambiados = 0
+    for u in activos:
+        if u.pk in faltan or u.pk in tocan:
+            continue
+        prefiere = resto_de(prefs, u.pk)
+        papel = excepciones.get(str(u.pk))
+        if papel not in PAPELES:
+            papel = prefiere
+        cambiados += papel != prefiere
+        columnas[papel].append({"id": u.pk, "nombre": nombre_de(u), "prefiere": prefiere, "cambiado": papel != prefiere})
+    return {
+        "item": item.pk if item is not None else None,
+        "cancion": titulo,
+        "cambiados": cambiados,
+        "columnas": [
+            {"papel": p.clave, "nombre": p.nombre, "icono": p.icono, "alumnos": columnas[p.clave]}
+            for p in PAPELES.values()
+        ],
+    }
+
+
+@transaction.atomic
+def apuntar_resto(session, item, alumno_id, papel):
+    """Qué hace un alumno en la canción de `item` cuando no tiene puesto.
+
+    `papel` None, o el que ya prefiere, quita su excepción. `alumno_id` None
+    con `papel` None las quita todas: la canción vuelve a «como prefieren».
+    """
+    banda = BandaDeGrupo.objects.select_for_update().filter(group=session.group).first()
+    if banda is None:
+        raise ValidationError("Este grupo no tiene banda")
+    if item is None or item.session_id != session.pk:
+        raise ValidationError("Ese elemento no es de esta sesión")
+    if papel is not None and papel not in PAPELES:
+        raise ValidationError("Solo ukelele, xilófono o coros")
+    clave, titulo = cancion_de(item)
+    fila = RepartoDeCancion.objects.filter(banda=banda, clave=clave).first()
+    reparto = dict(fila.reparto) if fila else {}
+    if alumno_id is None:
+        if papel is not None:
+            raise ValidationError("Falta el alumno")
+        reparto = {}
+    else:
+        if isinstance(alumno_id, bool) or not isinstance(alumno_id, int):
+            raise ValidationError("El alumno tiene que ser un id")
+        if alumno_id not in _ids_del_grupo(banda.group, solo_activos=True):
+            raise ValidationError("Ese alumno no está matriculado en el grupo")
+        if papel is None or papel == resto_de(preferencias(banda), alumno_id):
+            reparto.pop(str(alumno_id), None)
+        else:
+            reparto[str(alumno_id)] = papel
+    if not reparto:
+        if fila:
+            fila.delete()
+        return None
+    fila, _ = RepartoDeCancion.objects.update_or_create(
+        banda=banda, clave=clave, defaults={"reparto": reparto, "titulo": (titulo or "")[:255]}
+    )
+    return fila
+
+
+def banda_de_hoy(session, item=None):
+    """Todo lo que pinta el panel de la clase (tecla B) para una sesión.
+
+    `item` es el elemento que está en pantalla: de él sale la canción cuyo
+    reparto de ukelele, xilófono y coros se enseña (fase 117).
+    """
     from clases.plano import faltan_en
 
     banda = banda_de(session.group)
@@ -1018,7 +1176,8 @@ def banda_de_hoy(session):
         "total_turnos": len(turnos),
     }
     if p.turno > len(turnos):
-        return {**base, "fuera_del_plan": True, "filas": [], "libres": []}
+        resto = _resto_de_hoy(banda, item, alumnado(session.group), faltan_en(session), set())
+        return {**base, "fuera_del_plan": True, "filas": [], "libres": [], "resto": resto}
     turno = turnos[p.turno - 1]
     anterior = turnos[p.turno - 2] if p.turno > 1 else None
     siguiente = turnos[p.turno] if p.turno < len(turnos) else None
@@ -1093,7 +1252,8 @@ def banda_de_hoy(session):
         ),
         key=lambda a: a["fuera"],
     )
-    return {**base, "fuera_del_plan": False, "filas": filas, "libres": libres}
+    resto = _resto_de_hoy(banda, item, activos, faltan, tocan)
+    return {**base, "fuera_del_plan": False, "filas": filas, "libres": libres, "resto": resto}
 
 
 def proponer_sustituto(clave, ayuda, activos, faltan, ocupados, historial, fuera=frozenset()):
