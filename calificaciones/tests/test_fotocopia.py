@@ -117,6 +117,29 @@ def test_el_boli_rojo_fino_sigue_rojo():
     assert folios.rojos(salida) > 5000
 
 
+def _rojo_de_mas_tras_guardar(img, trazo):
+    guardada = folios.descodificar(documento.guardar_webp(img))[trazo].astype(int)
+    return float(np.median(guardada[:, 2] - np.maximum(guardada[:, 1], guardada[:, 0])))
+
+
+def test_un_trazo_rojo_de_un_pixel_sobrevive_al_webp():
+    """C858: WebP guarda el color a media resolución y se llevaba el de los trazos finos."""
+    hoja = np.full((600, 900, 3), 255, np.uint8)
+    for n in range(8):
+        cv2.ellipse(hoja, (150 + n * 80, 300), (110, 60 + n * 4), 10, 0, 360, (45, 40, 150), 1, cv2.LINE_AA)
+    trazo = (hoja.max(axis=2).astype(int) - hoja.min(axis=2)) > 40
+    sin, con = _rojo_de_mas_tras_guardar(hoja, trazo), _rojo_de_mas_tras_guardar(documento.ensanchar_color(hoja), trazo)
+    # Medido: 37 sin ensanchar, 60 con ello.
+    assert con > sin + 15 and con > 50
+
+
+def test_ensanchar_el_color_no_toca_lo_gris():
+    """C858: el lápiz y el papel no tienen color que extender."""
+    generador = np.random.default_rng(3)
+    gris = np.dstack([generador.integers(0, 256, (40, 40), dtype=np.uint8)] * 3)
+    assert np.abs(documento.ensanchar_color(gris).astype(int) - gris).max() <= 1
+
+
 def test_el_refuerzo_del_color_no_toca_lo_gris():
     """C856: el lápiz y el papel pasan por el refuerzo tal cual, y el tono no cambia."""
     gris = np.dstack([np.tile(np.arange(256, dtype=np.uint8), (4, 1))] * 3)

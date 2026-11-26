@@ -225,6 +225,26 @@ def reforzar_color(plano: np.ndarray) -> np.ndarray:
     return np.clip(maximo - (maximo - f) * factor, 0, 255).astype(np.uint8)
 
 
+def ensanchar_color(img: np.ndarray) -> np.ndarray:
+    """El color de cada trazo se extiende un píxel a su alrededor; la forma no cambia.
+
+    WebP guarda el color a la mitad de resolución: el de un trazo de uno o dos
+    píxeles se promedia con el blanco de al lado y la corrección en rojo sale
+    marrón oscuro (medido en una foto real del iPad, fase 119: el rojo de más
+    del trazo bajaba de 42 a 22). Aquí cada píxel toma el color más vivo de su
+    3×3, sin tocar la luminosidad: al promediar ya no hay blanco con el que
+    mezclarse. Lo gris no tiene color que extender y se queda igual.
+    """
+    y, cr, cb = cv2.split(cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb))
+    nucleo = np.ones((3, 3), np.uint8)
+
+    def el_mas_vivo(canal: np.ndarray) -> np.ndarray:
+        alto, bajo = cv2.dilate(canal, nucleo), cv2.erode(canal, nucleo)
+        return np.where(alto.astype(np.int16) - 128 >= 128 - bajo.astype(np.int16), alto, bajo)
+
+    return cv2.cvtColor(cv2.merge([y, el_mas_vivo(cr), el_mas_vivo(cb)]), cv2.COLOR_YCrCb2BGR)
+
+
 def fotocopia(img: np.ndarray) -> np.ndarray:
     """Papel blanco y uniforme, tinta oscura y con su color."""
     alto, ancho = img.shape[:2]
@@ -240,7 +260,7 @@ def fotocopia(img: np.ndarray) -> np.ndarray:
     # una curva más fuerte borran el trazo flojo.
     negro, blanco = 50, 235
     tabla = np.clip((np.arange(256) - negro) / (blanco - negro), 0, 1) ** 1.25 * 255
-    return cv2.LUT(plano, tabla.astype(np.uint8))
+    return ensanchar_color(cv2.LUT(plano, tabla.astype(np.uint8)))
 
 
 # ----- todo junto -------------------------------------------------------------------
