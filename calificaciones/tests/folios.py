@@ -48,6 +48,21 @@ def folio(ancho=1000, alto=1414):
     return img
 
 
+# Un boli rojo fino tal como llega en la foto: mucho más claro que `ROJO`.
+ROJO_FINO = (140, 130, 220)
+
+
+def folio_corregido_con_boli_fino(ancho=1000, alto=1414):
+    """Respuestas a lápiz y, al lado, correcciones con un boli rojo de un píxel."""
+    img = np.full((alto, ancho, 3), PAPEL, dtype=np.uint8)
+    for n in range(14):
+        y = 150 + n * 85
+        cv2.putText(img, "respuesta a lapiz", (80, y), cv2.FONT_HERSHEY_SCRIPT_SIMPLEX, 1.0, (120, 122, 126), 2, cv2.LINE_AA)
+        cv2.putText(img, "MAL 0,5 falta el puntillo", (560, y + 30), cv2.FONT_HERSHEY_SCRIPT_SIMPLEX, 0.9, ROJO_FINO, 1, cv2.LINE_AA)
+        cv2.line(img, (80, y + 12), (500, y + 14), ROJO_FINO, 1, cv2.LINE_AA)
+    return img
+
+
 def sombra(img, desde=0.62):
     """Oscurece de izquierda (×`desde`) a derecha (×1), como una luz de lado."""
     alto, ancho = img.shape[:2]

@@ -199,6 +199,32 @@ def es_papel(img: np.ndarray) -> bool:
     return float(_claro(reducir(img, LADO_DE_BUSQUEDA)).mean()) > 0.5
 
 
+# Cuánto se aleja del papel la tinta de color, y entre qué diferencias de canal
+# se considera color y no ruido del papel o del lápiz.
+REFUERZO_DEL_COLOR = 2.4
+COLOR_DESDE, COLOR_HASTA = 8, 24
+
+
+def reforzar_color(plano: np.ndarray) -> np.ndarray:
+    """La tinta de color se aleja del blanco sin cambiar de tono (fase 119).
+
+    Un boli rojo refleja el rojo casi como el papel: su trazo solo se distingue
+    en el verde y el azul. Si es fino, al reducir la foto esos dos canales
+    quedan a un 85-90 % del papel, los niveles los llevan a blanco y la
+    corrección sale de un rosa que no se ve. El lápiz no tiene ese problema
+    porque baja en los tres canales a la vez.
+
+    Aquí cada canal se separa del más alto del píxel: el tono no cambia y lo
+    gris no se toca, porque en lo gris los tres canales valen lo mismo.
+    """
+    f = plano.astype(np.float32)
+    maximo = f.max(axis=2, keepdims=True)
+    color = maximo - f.min(axis=2, keepdims=True)
+    peso = np.clip((color - COLOR_DESDE) / (COLOR_HASTA - COLOR_DESDE), 0, 1)
+    factor = 1 + (REFUERZO_DEL_COLOR - 1) * peso
+    return np.clip(maximo - (maximo - f) * factor, 0, 255).astype(np.uint8)
+
+
 def fotocopia(img: np.ndarray) -> np.ndarray:
     """Papel blanco y uniforme, tinta oscura y con su color."""
     alto, ancho = img.shape[:2]
@@ -208,7 +234,7 @@ def fotocopia(img: np.ndarray) -> np.ndarray:
     fondo = cv2.dilate(pequeno, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9)))
     fondo = cv2.medianBlur(fondo, 9)
     fondo = cv2.resize(fondo, (ancho, alto), interpolation=cv2.INTER_LINEAR)
-    plano = cv2.divide(img, fondo, scale=255)
+    plano = reforzar_color(cv2.divide(img, fondo, scale=255))
     # Niveles: lo casi blanco pasa a blanco y la tinta se oscurece un poco.
     # Sin pasarse: los dictados se escriben a lápiz, y un blanco más bajo o
     # una curva más fuerte borran el trazo flojo.

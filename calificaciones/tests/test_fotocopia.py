@@ -107,6 +107,29 @@ def test_la_tinta_conserva_su_color(en_la_mesa):
     assert folios.azules(salida) > 20000
 
 
+def test_el_boli_rojo_fino_sigue_rojo():
+    """C855: la corrección con boli fino no sale rosa pálido.
+
+    Antes del refuerzo, de esta misma foto salían menos de 300 píxeles rojos
+    de verdad: el resto de los trazos se había ido a rosa casi blanco."""
+    foto = cv2.GaussianBlur(folios.sobre_la_mesa(folios.folio_corregido_con_boli_fino()), (0, 0), 1.5)
+    salida = folios.descodificar(documento.procesar(folios.jpeg(foto))[0])
+    assert folios.rojos(salida) > 5000
+
+
+def test_el_refuerzo_del_color_no_toca_lo_gris():
+    """C856: el lápiz y el papel pasan por el refuerzo tal cual, y el tono no cambia."""
+    gris = np.dstack([np.tile(np.arange(256, dtype=np.uint8), (4, 1))] * 3)
+    assert np.array_equal(documento.reforzar_color(gris), gris)
+    # Papel con un punto de dominante cálida: por debajo del umbral, intacto.
+    casi_blanco = np.full((4, 4, 3), (247, 251, 254), np.uint8)
+    assert np.array_equal(documento.reforzar_color(casi_blanco), casi_blanco)
+    # Un rosa de boli fino (BGR) se vuelve rojo, y sigue mandando el rojo.
+    rosa = np.full((4, 4, 3), (222, 218, 250), np.uint8)
+    b, g, r = (int(v) for v in documento.reforzar_color(rosa)[0, 0])
+    assert r == 250 and g < 180 and b < 190 and g < b
+
+
 def test_el_lapiz_flojo_no_se_borra(en_la_mesa):
     """C542: los dictados van a lápiz. Un blanco más bajo en los niveles lo borraba."""
     _, _, _, _, salida = en_la_mesa
