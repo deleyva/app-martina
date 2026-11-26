@@ -429,6 +429,12 @@ def class_session_prepare(request, pk):
     claves = _claves_del_formulario(request)
     if claves:
         creados = libros_de_grupo.anadir_elementos(session, claves)
+    elif request.POST.get("por_elementos"):
+        # El formulario de casillas, enviado sin ninguna marcada: no es el
+        # camino viejo. Sin esto, «desmarcar todo» y enviar metía la propuesta
+        # entera (fase 118).
+        messages.info(request, "No había nada marcado, así que no se ha añadido nada.")
+        return redirect("clases:class_session_edit", pk=session.pk)
     else:
         secciones = request.POST.getlist("secciones") or None
         creados = libros_de_grupo.preparar_sesion(session, secciones)

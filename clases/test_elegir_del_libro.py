@@ -131,6 +131,57 @@ def test_el_formulario_mete_lo_marcado(client, profesor, sesion, group_book):
     ]
 
 
+def test_el_formulario_sin_nada_marcado_no_mete_nada(client, profesor, sesion, group_book):
+    """C853. Con «Desmarcar todo» a un clic, enviar vacío tiene que ser «nada»:
+    antes caía al camino viejo y metía la propuesta entera."""
+    client.force_login(profesor)
+
+    client.post(
+        reverse("clases:class_session_prepare", args=[sesion.pk]),
+        {"por_elementos": "1"},
+    )
+
+    assert sesion.items.count() == 0
+
+
+def test_el_camino_viejo_sin_marca_sigue_metiendo_la_propuesta(
+    client, profesor, sesion, group_book
+):
+    """Anti-claim de la fase 118: un POST sin la marca del formulario nuevo
+    prepara la sesión como siempre."""
+    client.force_login(profesor)
+
+    client.post(reverse("clases:class_session_prepare", args=[sesion.pk]), {})
+
+    assert sesion.items.count() == 1
+
+
+def test_la_cabecera_de_preparar_deja_desmarcar_todo(client, profesor, sesion, group_book):
+    """C852 y C854: la propuesta llega marcada y la cabecera trae el botón."""
+    client.force_login(profesor)
+
+    html = client.get(
+        reverse("clases:class_session_prepare_preview", args=[sesion.pk])
+    ).content.decode()
+
+    assert "Desmarcar todo" in html
+    assert 'name="por_elementos"' in html
+    assert html.index("Desmarcar todo") < html.index('name="elementos"')
+    assert "checkbox-primary\" checked" in html
+
+
+def test_en_la_edicion_el_contenido_va_antes_que_preparar(client, profesor, sesion):
+    """C851."""
+    client.force_login(profesor)
+
+    html = client.get(
+        reverse("clases:class_session_edit", args=[sesion.pk])
+    ).content.decode()
+
+    preparar = reverse("clases:class_session_prepare_preview", args=[sesion.pk])
+    assert html.index("Contenido de la Sesión") < html.index(preparar)
+
+
 def test_un_libro_sin_nada_pendiente_conserva_su_desplegable(
     client, profesor, sesion, group_book
 ):

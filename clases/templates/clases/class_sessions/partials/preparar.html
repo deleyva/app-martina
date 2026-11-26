@@ -9,7 +9,18 @@ cuanto uno de los dos cambiara.
 <div class="card bg-base-200">
   <div class="card-body p-4 gap-3">
 
-    <h2 class="card-title text-base">Preparar desde los libros del grupo</h2>
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <h2 class="card-title text-base">Preparar desde los libros del grupo</h2>
+      {% if propuesta %}
+        {% comment %}
+        Para el día en que solo falta añadir una cosa: la propuesta llega
+        marcada, y sin esto había que ir quitando las marcas una a una.
+        {% endcomment %}
+        <button type="button" id="alternar-marcas-preparar"
+                class="btn btn-xs btn-outline"
+                onclick="alternarMarcasPreparar()">Desmarcar todo</button>
+      {% endif %}
+    </div>
 
     {% if propuesta or sin_propuesta %}
       {% if propuesta %}
@@ -23,8 +34,11 @@ cuanto uno de los dos cambiara.
         </p>
       {% endif %}
 
-      <form method="post" action="{% url 'clases:class_session_prepare' session.pk %}" class="flex flex-col gap-2">
+      <form method="post" action="{% url 'clases:class_session_prepare' session.pk %}" class="flex flex-col gap-2"
+            id="form-preparar" onchange="rotularMarcasPreparar()">
         {% csrf_token %}
+        {# Dice a la vista que esto es el formulario de casillas: vacío es «nada», no «todo». #}
+        <input type="hidden" name="por_elementos" value="1">
 
         {% for fila in propuesta %}
           <div class="rounded hover:bg-base-300/40 fila-preparar">
@@ -182,5 +196,25 @@ modal estuviera en la página, la respuesta no lo traería.
     document.getElementById('cuerpo-vistazo').innerHTML =
       '<div class="flex h-full items-center justify-center"><span class="loading loading-spinner loading-lg"></span></div>';
     dlg.showModal();
+  }
+
+  // «Desmarcar todo» y su vuelta atrás. Las casillas se buscan en cada clic
+  // porque los libros desplegados llegan después, por htmx. `defaultChecked`
+  // es la marca con la que llegó cada una: la propuesta sí, lo demás no.
+  function casillasPreparar() {
+    return Array.from(document.querySelectorAll(
+      '#form-preparar input[name="elementos"]:not(:disabled)'));
+  }
+  function rotularMarcasPreparar() {
+    var boton = document.getElementById('alternar-marcas-preparar');
+    if (!boton) return;
+    var alguna = casillasPreparar().some(function (c) { return c.checked; });
+    boton.textContent = alguna ? 'Desmarcar todo' : 'Marcar lo propuesto';
+  }
+  function alternarMarcasPreparar() {
+    var casillas = casillasPreparar();
+    var alguna = casillas.some(function (c) { return c.checked; });
+    casillas.forEach(function (c) { c.checked = alguna ? false : c.defaultChecked; });
+    rotularMarcasPreparar();
   }
 </script>

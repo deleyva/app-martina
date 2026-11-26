@@ -56,16 +56,6 @@
         </div>
     </div>
     
-    <div class="max-w-7xl mx-auto mb-6">
-        <!-- Preparar desde los libros del grupo.
-             Se carga aparte para no tocar la vista de edición, que ya funciona. -->
-        <div hx-get="{% url 'clases:class_session_prepare_preview' session.pk %}"
-             hx-trigger="load"
-             hx-swap="outerHTML">
-            <div class="skeleton h-24 w-full"></div>
-        </div>
-    </div>
-
     <div class="max-w-7xl mx-auto">
         
         <!-- Contenido de la sesión (ordenable) -->
@@ -92,13 +82,24 @@
                         <div id="empty-state" class="text-center py-8 text-base-content/70">
                             <div class="text-4xl mb-2">📝</div>
                             <p>Aún no hay elementos en esta sesión.</p>
-                            <p class="text-sm">Añade contenido desde los libros del grupo ↑</p>
+                            <p class="text-sm">Añade contenido desde los libros del grupo ↓</p>
                         </div>
                     {% endif %}
                 </div>
             </div>
         </div>
         
+    </div>
+
+    {# Debajo del contenido desde la fase 118: lo que ya hay en la clase se ve lo primero. #}
+    <div class="max-w-7xl mx-auto mb-6">
+        <!-- Preparar desde los libros del grupo.
+             Se carga aparte para no tocar la vista de edición, que ya funciona. -->
+        <div hx-get="{% url 'clases:class_session_prepare_preview' session.pk %}"
+             hx-trigger="load"
+             hx-swap="outerHTML">
+            <div class="skeleton h-24 w-full"></div>
+        </div>
     </div>
 </div>
 {% endblock %}
